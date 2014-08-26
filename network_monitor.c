@@ -27,6 +27,7 @@
 #include <ifaddrs.h>
 #include <sys/ioctl.h>
 #include <arpa/inet.h>
+#include <errno.h>
 #include "misc.h"
 #if 0
 #include "pcap_handler.h"
@@ -48,6 +49,9 @@ void err_quit(char *error);
 void list_interfaces();
 int get_local_address(char *dev, struct sockaddr *addr);
 int getindex(char *ifname, struct interface *iflist);
+char *get_default_interface();
+char *find_active_interface(int fd, char *buffer, int len);
+int get_interface_index(char *device);
 
 int main(int argc, char **argv)
 {
@@ -83,6 +87,10 @@ int main(int argc, char **argv)
     init_pcap(device);
     //pcap_close(pcap_handle);
 #endif
+
+    if (!device) {
+        device = get_default_interface();
+    }
 }
 
 void err_quit(char *error)
@@ -273,3 +281,90 @@ int getindex(char *ifname, struct interface *iflist)
     }
     return -1;
 }
+
+/* Return the first interface which is up and running */
+char *get_default_interface()
+{
+    struct ifconf ifc;
+    int sockfd, len, lastlen;
+    char *device = NULL;
+    char *buffer;
+    
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
+        perror("Socket error");
+        exit(1);
+    }
+    lastlen = 0;
+    len = 10 * sizeof(struct ifreq); /* initial guess of buffer size (10 interfaces) */
+    while (1) {
+        if ((buffer = malloc(len)) == NULL) {
+            fprintf(stderr, "Unable to allocate %d bytes\n", len);
+        }
+        ifc.ifc_len = len;
+        ifc.ifc_buf = buffer;
+        if (ioctl(sockfd, SIOCGIFCONF, &ifc) == -1) {
+            if (errno != EINVAL || lastlen != 0) {
+                perror("ioctl error");
+                exit(1);
+            }
+        } else {
+            device = find_active_interface(sockfd, buffer + lastlen, ifc.ifc_len);
+            if (device /* active device found */ ||
+                ifc.ifc_len == lastlen) { /* same value returned from the kernel as last time */
+                break;
+            }
+            lastlen = ifc.ifc_len;
+            len += 10 * sizeof(struct ifreq);
+        }
+        free(buffer);
+    }
+    free(buffer);
+    return device;
+}
+
+/* Check if the IFF_UP and IFF_RUNNING flags are set */
+char *find_active_interface(int fd, char *buffer, int len)
+{
+    char *ptr;
+    char *device;
+    struct ifreq *ifr;
+
+    for (ptr = buffer; ptr < buffer + len; ptr += sizeof(struct ifreq)) {
+        ifr = (struct ifreq *) ptr;
+        if (strncmp(ifr->ifr_name, "lo", 2) == 0) { /* ignore the loopback device */
+            continue;
+        } else {
+            if (ioctl(fd, SIOCGIFFLAGS, ifr) == -1) {
+                perror("ioctl error");
+                exit(1);
+            }
+            if (ifr->ifr_flags & IFF_UP &&
+                ifr->ifr_flags & IFF_RUNNING) {
+                int namelen = strlen(ifr->ifr_name);
+
+                device = malloc(namelen + 1);
+                strcpy(device, ifr->ifr_name);
+                device[namelen] = '\0';
+                return device;
+            }
+        }
+    }
+    return NULL;
+}
+
+int get_interface_index(char *dev)
+{
+    int sockfd;
+    struct ifreq ifr;
+
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
+        perror("Socket error");
+        exit(1);
+    }
+    strncpy(ifr.ifr_name, dev, IFNAMSIZ);
+    if (ioctl(sockfd, SIOCGIFINDEX, &ifr) == -1) {
+        perror("ioctl error");
+        exit(1);
+    }
+    return ifr.ifr_ifindex;
+}    
