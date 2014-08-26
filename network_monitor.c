@@ -26,6 +26,7 @@
 #include <net/if.h>
 #include <ifaddrs.h>
 #include <sys/ioctl.h>
+#include <arpa/inet.h>
 #include "misc.h"
 #if 0
 #include "pcap_handler.h"
@@ -229,7 +230,7 @@ void list_interfaces()
         }
 #endif
         if (iflist[i].hwaddr) {
-            if (iflist[i].addrlen = 6) {
+            if (iflist[i].addrlen == 6) {
                 char hwaddr[18];
                 
                 snprintf(hwaddr, 18, "%02x:%02x:%02x:%02x:%02x:%02x", iflist[i].hwaddr[0],
