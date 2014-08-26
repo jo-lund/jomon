@@ -1,9 +1,10 @@
 /* Network traffic monitor
  *
  * This program will monitor all incoming/outgoing network traffic and 
- * print out the speed of the download/upload. It uses the libpcap library 
- * to capture packets (http://www.tcpdump.org). On Mac OS X this library 
- * will use the BSD packet filter (BPF) to interface with the network device.
+ * print out the speed of the download/upload. It uses the libpcap library, 
+ * if available, to capture packets (http://www.tcpdump.org). On Mac OS X this
+ * library will use the BSD packet filter (BPF) to interface with the network
+ * device.
  *
  * The speed of the download/upload is based on the network throughput, which
  * means that the bit rate will be measured at a reference point above the 
@@ -12,20 +13,40 @@
 
 #include <stdio.h>
 #include <sys/socket.h>
+#if 0
 #include <net/if_dl.h>
+#include <net/if_types.h>
+#endif
+#ifdef linux
+#include <net/if_arp.h>
+#include <netpacket/packet.h>
+#endif
 #include <string.h>
 #include <unistd.h>
 #include <net/if.h>
 #include <ifaddrs.h>
-#include <net/if_types.h>
 #include <sys/ioctl.h>
 #include "misc.h"
+#if 0
 #include "pcap_handler.h"
+#endif
+
+#define MAX_NUM_INTERFACES 16
+
+struct interface {
+    char *name;                    /* interface name */
+    unsigned short type;           /* interface type, e.g. Ethernet, Firewire etc. */
+    struct sockaddr_in *inaddr;    /* IPv4 address */
+    struct sockaddr_in6 *in6addr;  /* IPv6 address */
+    unsigned char addrlen;         /* hardware address length */
+    unsigned char hwaddr[8];       /* hardware address */
+};
 
 void print_help(char *prg);
 void err_quit(char *error);
 void list_interfaces();
 int get_local_address(char *dev, struct sockaddr *addr);
+int getindex(char *ifname, struct interface *iflist);
 
 int main(int argc, char **argv)
 {
@@ -56,9 +77,11 @@ int main(int argc, char **argv)
         }
     }
 
+#if 0
     // need proper closing of resources. Make a signal.
     init_pcap(device);
     //pcap_close(pcap_handle);
+#endif
 }
 
 void err_quit(char *error)
@@ -116,75 +139,136 @@ int get_local_address(char *dev, struct sockaddr *addr)
 void list_interfaces()
 {
     struct ifaddrs *ifp;
-    struct ifaddrs *ifp_t;
-    char *ifname;
-    char pifname[256];
-
-    // getifaddrs -- get interface addresses (only available on Mac OS X and BSD)
+    struct interface iflist[MAX_NUM_INTERFACES];
+    int i;
+    int c = 0;
+    
+    /* On Linux getifaddrs returns one entry per address, on Mac OS X and BSD one entry
+       per interface */
     if (getifaddrs(&ifp) == -1) {
         perror("getifaddrs error");
         exit(1);
     }
+    memset(iflist, 0, sizeof(iflist));
 
-    ifp_t = ifp;
-    while (ifp_t) {
-        ifname = ifp_t->ifa_name;
-        if (strcmp(ifname, pifname)) // don't print the same interface name
-            printf("%s: ", ifname);
-        
-        switch (ifp_t->ifa_addr->sa_family) {
+    /* traverse the ifaddrs list and store the interface information in iflist */
+    while (ifp) {
+        if (c >= MAX_NUM_INTERFACES) {
+            break;
+        }
+        i = getindex(ifp->ifa_name, iflist);
+        if (i == -1) {
+            iflist[c].name = ifp->ifa_name;
+            i = c++;
+        }
+        switch (ifp->ifa_addr->sa_family) {
         case AF_INET:
-        {
-            struct sockaddr_in *hst_addr;
-            char str[INET_ADDRSTRLEN];
-
-            hst_addr = (struct sockaddr_in *) ifp_t->ifa_addr;
-            inet_ntop(AF_INET, &hst_addr->sin_addr, str, INET_ADDRSTRLEN);
-            printf("\tinet %s\n", str);
+            iflist[i].inaddr = (struct sockaddr_in *) ifp->ifa_addr;
             break;
-        }
         case AF_INET6:
+            iflist[i].in6addr = (struct sockaddr_in6 *) ifp->ifa_addr;
+            break;
+        case AF_PACKET:
         {
-            struct sockaddr_in6 *hst_addr;
-            char str[INET6_ADDRSTRLEN];
-
-            hst_addr = (struct sockaddr_in6 *) ifp_t->ifa_addr;
-            inet_ntop(AF_INET6, &hst_addr->sin6_addr, str, INET6_ADDRSTRLEN);
-            printf("\tinet6 %s\n", str);
+            struct sockaddr_ll *ll_addr;
+            
+            ll_addr = (struct sockaddr_ll *) ifp->ifa_addr;
+            memcpy(iflist[i].hwaddr, ll_addr->sll_addr, ll_addr->sll_halen);
+            iflist[i].type = ll_addr->sll_hatype;
+            iflist[i].addrlen = ll_addr->sll_halen;
             break;
         }
+#if 0
         case AF_LINK:
         {
             struct sockaddr_dl *dl_addr;
             
-            dl_addr = (struct sockaddr_dl *) ifp_t->ifa_addr;
-            // Link address is always NULL
-            // LLADDR returns a pointer to the link level address
-            //printf("\tether %s\n", LLADDR(dl_addr));
-
-            switch (dl_addr->sdl_type) {
-            case IFT_ETHER:
-                printf("\tEthernet\n");
-                break;
-            case IFT_LOOP:
-                printf("\tLoopback\n");
-                break;
-            case IFT_SLIP:
-                printf("\tIP over generic TTY\n");
-                break;
-            case IFT_IEEE1394:
-                printf("\tIEEE1394 High Performance SerialBus\n");
-                break;
-            default:
-                printf("\n");
-            }
+            dl_addr = (struct sockaddr_dl *) ifp->ifa_addr;
+            memcpy(iflist[i].hwaddr, (char *) LLADDR(dl_addr), dl_addr->sdl_alen);
+            iflist[i].type = dl_addr->sdl_type;
+            iflist[i].addrlen = dl_addr->sdl_alen;
         }
+#endif
         default:
             break;
         }
-        strncpy(pifname, ifname, sizeof(pifname));
-        ifp_t = ifp_t->ifa_next;        
+        ifp = ifp->ifa_next;
     }
     
+    /* print out information for each interface */
+    for (i = 0; i < c; i++) {
+        printf("%s", iflist[i].name);
+        switch (iflist[i].type) {
+#if 0
+        case IFT_ETHER:
+            printf("\tEthernet\n");
+            break;
+        case IFT_LOOP:
+            printf("\tLoopback\n");
+            break;
+        case IFT_SLIP:
+            printf("\tIP over generic TTY\n");
+            break;
+        case IFT_IEEE1394:
+            printf("\tIEEE1394 High Performance SerialBus\n");
+            break;
+#endif
+#ifdef linux
+        case ARPHRD_ETHER:
+            printf("\tEthernet\n");
+            break;
+        case ARPHRD_LOOPBACK:
+            printf("\tLoopback\n");
+            break;
+        case ARPHRD_IEEE1394:
+            printf("\tIEEE1394 High Performance SerialBus\n");
+            break;
+        default:
+            printf("\tUnknown type: %d\n", iflist[i].type);
+            break;
+        }
+#endif
+        if (iflist[i].hwaddr) {
+            if (iflist[i].addrlen = 6) {
+                char hwaddr[18];
+                
+                snprintf(hwaddr, 18, "%02x:%02x:%02x:%02x:%02x:%02x", iflist[i].hwaddr[0],
+                         iflist[i].hwaddr[1], iflist[i].hwaddr[2], iflist[i].hwaddr[3],
+                         iflist[i].hwaddr[4], iflist[i].hwaddr[5]);
+                hwaddr[17] = '\0';
+                printf("\tHW addr: %s\n", hwaddr);
+            } else {
+                printf("\tHW addr len: %d\n", iflist[i].addrlen);
+            }
+        }
+        if (iflist[i].inaddr) {
+            char inet_addr[INET_ADDRSTRLEN];
+            struct sockaddr_in *hst_addr;
+
+            hst_addr = (struct sockaddr_in *) iflist[i].inaddr;
+            inet_ntop(AF_INET, &hst_addr->sin_addr, inet_addr, INET_ADDRSTRLEN);
+            printf("\tinet addr: %s\n", inet_addr);
+        }
+        if (iflist[i].in6addr) {
+            char inet6_addr[INET6_ADDRSTRLEN];
+            struct sockaddr_in6 *hst6_addr;
+            
+            hst6_addr = (struct sockaddr_in6 *) iflist[i].in6addr;
+            inet_ntop(AF_INET6, &hst6_addr->sin6_addr, inet6_addr, INET6_ADDRSTRLEN);
+            printf("\tinet6 addr: %s\n", inet6_addr);
+        }
+        printf("\n");
+    }
     freeifaddrs(ifp);
+}
+
+int getindex(char *ifname, struct interface *iflist)
+{
+    int i;
+
+    for (i = 0; i < MAX_NUM_INTERFACES; i++) {
+        if (iflist[i].name && strcmp(ifname, iflist[i].name) == 0)
+            return i;
+    }
+    return -1;
 }

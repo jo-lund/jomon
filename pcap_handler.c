@@ -12,7 +12,7 @@ void init_pcap(char *device)
     //struct sockaddr_in *laddr;
 
     /* 
-     * Get the default network device if no device is specified and not ona a 
+     * Get the default network device if no device is specified and not on a 
      * Linux system (a device argument of "any" or NULL can be used to capture
      * packets from all interfaces on Linux). It issues the SIOCGIFCONF ioctl
      * and chooses the lowest numbered device that is up except for the loopback.
