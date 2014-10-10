@@ -19,10 +19,24 @@
 static struct sockaddr_in *local_addr;
 int verbose;
 int promiscuous;
-unsigned int num_packets_sent;
-unsigned int num_packets_rcvd;
-unsigned int bad_packets;
-unsigned long tot_bytes_sent;
-unsigned long tot_bytes_rcvd;
+int capture;
+
+/* RX variables */
+typedef struct {
+    unsigned long tot_bytes;
+    unsigned long prev_bytes;
+    unsigned int num_packets;
+    unsigned int bad_packets;
+    double kbps; /* kilo bytes received per second */
+} rxdef;
+
+/* TX variables */
+typedef struct {
+    unsigned long tot_bytes;
+    unsigned long prev_bytes;
+    unsigned int num_packets;
+    unsigned int bad_packets;
+    double kbps; /* kilo bytes transmitted per second */
+} txdef;
 
 int check_ip(const u_char *bytes);

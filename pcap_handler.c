@@ -14,8 +14,9 @@ void init_pcap(char *device)
     /* 
      * Get the default network device if no device is specified and not on a 
      * Linux system (a device argument of "any" or NULL can be used to capture
-     * packets from all interfaces on Linux). It issues the SIOCGIFCONF ioctl
-     * and chooses the lowest numbered device that is up except for the loopback.
+     * packets from all interfaces on Linux). pcap_lookupdev issues the
+     * SIOCGIFCONF ioctl and chooses the lowest numbered device that is up except
+     * for the loopback.
      */
 #ifndef linux
     if (!device && (device = pcap_lookupdev(errbuf)) == NULL)
@@ -74,54 +75,23 @@ int handle_ip(const u_char *bytes, const struct pcap_pkthdr *phdr)
 {
     char src_addr[INET_ADDRSTRLEN], dst_addr[INET_ADDRSTRLEN];
     struct ip *ip = (struct ip *) bytes;
-    char str_addr[INET_ADDRSTRLEN];
-    double kbps = 0.0;
-    struct timeval tp;
-    static unsigned long dbytes = 0;
-    static double secs, psecs;
 
     inet_ntop(AF_INET, &ip->ip_src, src_addr, INET_ADDRSTRLEN);
     inet_ntop(AF_INET, &ip->ip_dst, dst_addr, INET_ADDRSTRLEN);
-    //printf("Protocol: %d\n", ip->ip_p);
+    return 0;
+}
 
-    //inet_ntop(AF_INET, &local_addr->sin_addr, str_addr, sizeof(str_addr));
-    //printf("local address: %s\n", str_addr);
-    
-    secs = phdr->ts.tv_usec;
+int check_ip(const u_char *bytes)
+{
+    struct ip *ip;
 
-    if (memcmp(&ip->ip_src, &local_addr->sin_addr, sizeof(ip->ip_src)) == 0) {
-        num_packets_sent++;
-        tot_bytes_sent += phdr->len;
-    }
-    if (memcmp(&ip->ip_dst, &local_addr->sin_addr, sizeof(ip->ip_dst)) == 0) {
-        num_packets_rcvd++;
-        tot_bytes_rcvd += phdr->len;
-        dbytes += phdr->len;
+    ip = (struct ip *) bytes;
  
-        double dkb = (double) phdr->len / 1024;
-        double dt = (secs / 100000) - (psecs / 100000);
-        kbps = dkb / dt;
-        printf("dkb = %f, dt = %f, ", dkb, dt);
-        printf("KB/s : %f    \n", kbps);
- 
-        /*
-        if (secs - psecs == 1) {
-            kbps = (double) dbytes / 1024;
-            printf("kB/s: %f  \r", kbps);
-            //printf("secs: %lu\n", secs);
-            fflush(stdout);
-            dbytes = 0;
-        }
-        */
+    if (ip->ip_v != IPVERSION) {
+        if (verbose)
+            printf("ip->ip_v != IPVERSION: %d\n", ip->ip_v);
+        bad_packets++;
+        return -1;
     }
-    
-    psecs = secs;
-    //printf("src: %14s, dst: %14s\n", src_addr, dst_addr);
-    //printf("size of packet: %lu\n", sizeof(bytes));
-    //printf("Packets sent: %5u (%lu)   ", num_packets_sent, tot_bytes_sent);
-    //printf("Packets rcvd: %5u (%lu) \t", num_packets_rcvd, tot_bytes_rcvd);
-    //printf("secs = %5u, psecs = %5u \r", secs, psecs);
-    //printf("Time: %5f    \r", time);
-
     return 0;
 }

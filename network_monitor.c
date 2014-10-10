@@ -13,7 +13,7 @@
 
 #include <stdio.h>
 #include <sys/socket.h>
-#if 0
+#ifdef MACOS
 #include <net/if_dl.h>
 #include <net/if_types.h>
 #endif
@@ -28,6 +28,7 @@
 #include <sys/ioctl.h>
 #include <arpa/inet.h>
 #include <errno.h>
+#include <signal.h>
 #include "misc.h"
 #if 0
 #include "pcap_handler.h"
@@ -44,6 +45,9 @@ struct interface {
     unsigned char hwaddr[8];       /* hardware address */
 };
 
+static rxdef rx; /* data received */
+static txdef tx; /* data transmitted */
+
 void print_help(char *prg);
 void err_quit(char *error);
 void list_interfaces();
@@ -52,15 +56,21 @@ int getindex(char *ifname, struct interface *iflist);
 char *get_default_interface();
 char *find_active_interface(int fd, char *buffer, int len);
 int get_interface_index(char *device);
+int init(char **device);
+void read_packets(int fd);
+void print_rate();
+void sig_alarm(int signo);
 
 int main(int argc, char **argv)
 {
     char *device = NULL;
     char *prg_name = argv[0];
     int opt;
+    int fd;
 
+    capture = 0;
     promiscuous = 0;
-    while ((opt = getopt(argc, argv, "i:lhvp")) != -1) {
+    while ((opt = getopt(argc, argv, "i:lhvpc")) != -1) {
         switch (opt) {
         case 'i':
             device = optarg;
@@ -75,6 +85,9 @@ int main(int argc, char **argv)
         case 'v':
             verbose = 1;
             break;
+        case 'c':
+            capture = 1;
+            break;
         case 'h':
         default:
             print_help(prg_name);
@@ -88,9 +101,16 @@ int main(int argc, char **argv)
     //pcap_close(pcap_handle);
 #endif
 
-    if (!device) {
-        device = get_default_interface();
+#ifdef linux
+    fd = init(&device);
+    local_addr = malloc(sizeof(local_addr));
+    if (get_local_address(device, (struct sockaddr *) local_addr) == -1) {
+        exit(1);
     }
+    read_packets(fd);
+    free(device);
+    free(local_addr);
+#endif
 }
 
 void err_quit(char *error)
@@ -106,23 +126,9 @@ void print_help(char *prg)
     printf("     -i  Specify network interface\n");
     printf("     -l  List available interfaces\n");
     printf("     -p  Use promiscuous mode\n");
+    printf("     -c  Capture and print packets\n");
     printf("     -v  Print verbose information\n"); 
     printf("     -h  Print this help summary\n");
-}
-
-int check_ip(const u_char *bytes)
-{
-    struct ip *ip;
-
-    ip = (struct ip *) bytes;
- 
-    if (ip->ip_v != IPVERSION) {
-        if (verbose)
-            printf("ip->ip_v != IPVERSION: %d\n", ip->ip_v);
-        bad_packets++;
-        return -1;
-    }
-    return 0;
 }
 
 int get_local_address(char *dev, struct sockaddr *addr)
@@ -140,7 +146,6 @@ int get_local_address(char *dev, struct sockaddr *addr)
         perror("ioctl error");
         return -1;
     }
-
     memcpy(addr, &ifr.ifr_addr, sizeof(addr));
     return 0;
 }
@@ -152,8 +157,8 @@ void list_interfaces()
     int i;
     int c = 0;
     
-    /* On Linux getifaddrs returns one entry per address, on Mac OS X and BSD one entry
-       per interface */
+    /* On Linux getifaddrs returns one entry per address, on Mac OS X and BSD one
+       entry per interface */
     if (getifaddrs(&ifp) == -1) {
         perror("getifaddrs error");
         exit(1);
@@ -187,7 +192,7 @@ void list_interfaces()
             iflist[i].addrlen = ll_addr->sll_halen;
             break;
         }
-#if 0
+#ifdef MACOS
         case AF_LINK:
         {
             struct sockaddr_dl *dl_addr;
@@ -208,7 +213,7 @@ void list_interfaces()
     for (i = 0; i < c; i++) {
         printf("%s", iflist[i].name);
         switch (iflist[i].type) {
-#if 0
+#ifdef MACOS
         case IFT_ETHER:
             printf("\tEthernet\n");
             break;
@@ -241,8 +246,9 @@ void list_interfaces()
             if (iflist[i].addrlen == 6) {
                 char hwaddr[18];
                 
-                snprintf(hwaddr, 18, "%02x:%02x:%02x:%02x:%02x:%02x", iflist[i].hwaddr[0],
-                         iflist[i].hwaddr[1], iflist[i].hwaddr[2], iflist[i].hwaddr[3],
+                snprintf(hwaddr, 18, "%02x:%02x:%02x:%02x:%02x:%02x",
+                         iflist[i].hwaddr[0], iflist[i].hwaddr[1],
+                         iflist[i].hwaddr[2], iflist[i].hwaddr[3],
                          iflist[i].hwaddr[4], iflist[i].hwaddr[5]);
                 hwaddr[17] = '\0';
                 printf("\tHW addr: %s\n", hwaddr);
@@ -310,7 +316,7 @@ char *get_default_interface()
         } else {
             device = find_active_interface(sockfd, buffer + lastlen, ifc.ifc_len);
             if (device /* active device found */ ||
-                ifc.ifc_len == lastlen) { /* same value returned from the kernel as last time */
+                ifc.ifc_len == lastlen) { /* same value as last time */
                 break;
             }
             lastlen = ifc.ifc_len;
@@ -368,3 +374,104 @@ int get_interface_index(char *dev)
     }
     return ifr.ifr_ifindex;
 }    
+
+/* Initialize device and prepare for reading */
+int init(char **device)
+{
+    int sockfd;
+    struct sockaddr_ll ll_addr;
+    struct sigaction act, oact;
+
+    if (!*device) {
+        if (!(*device = get_default_interface())) {
+            err_quit("Cannot find active network device\n");
+        }
+    }
+    if (capture) {
+        if ((sockfd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {
+            perror("Socket error.");
+            exit(1);
+        }
+    } else {
+        if ((sockfd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL))) == -1) {
+            perror("Socket error.");
+            exit(1);
+        }
+    }
+    setuid(getuid()); /* no need for root access anymore */
+    memset(&rx, 0, sizeof(rxdef));
+    memset(&tx, 0, sizeof(txdef));
+    memset(&ll_addr, 0, sizeof(ll_addr));
+    ll_addr.sll_protocol = htons(ETH_P_ALL);
+    ll_addr.sll_ifindex = htonl(get_interface_index(*device));
+
+    /* only receive packets on the specified interface */
+    bind(sockfd, (struct sockaddr *) &ll_addr, sizeof(ll_addr));
+
+    /* set up an alarm signal handler */
+    act.sa_handler = sig_alarm;
+    sigemptyset(&act.sa_mask);
+    act.sa_flags |= SA_RESTART;
+    if (sigaction(SIGALRM, &act, &oact) == -1) {
+        perror("sigaction error.");
+        exit(1);
+    }
+
+    return sockfd;
+}
+
+void print_rate()
+{
+    int rxmbytes = rx.tot_bytes / (1024 * 1024); 
+    int txmbytes = tx.tot_bytes / (1024 * 1024);
+    double rxmbitspsec = rx.kbps / 1024 * 8;
+    double txmbitspsec = tx.kbps / 1024 * 8;
+
+    printf("\rRX: %d  %8ld b (%d Mb)  %5.0f KB/s (%3.1f Mbit/s)",
+           rx.num_packets, rx.tot_bytes, rxmbytes, rx.kbps, rxmbitspsec);
+    fflush(stdout);
+}
+
+void read_packets(int sockfd)
+{
+    char buffer[SNAPLEN];
+    int n;
+    struct iphdr *ip;
+    char srcaddr[INET_ADDRSTRLEN];
+    char dstaddr[INET_ADDRSTRLEN];
+
+    memset(buffer, 0, SNAPLEN);
+    alarm(1);
+    while (1) {
+        print_rate();
+        if ((n = read(sockfd, buffer, SNAPLEN)) == -1) {
+            perror("read error");
+            exit(1);
+        }
+        ip = (struct iphdr *) buffer;
+        if (inet_ntop(AF_INET, &ip->saddr, srcaddr, INET_ADDRSTRLEN) == NULL) {
+            perror("inet_ntop error");
+        }
+        if (inet_ntop(AF_INET, &ip->daddr, dstaddr, INET_ADDRSTRLEN) == NULL) {
+            perror("inet_ntop error");
+        }
+        //printf("%s -> %s\n", srcaddr, dstaddr);
+        if (memcmp(&ip->saddr, &local_addr->sin_addr, sizeof(ip->saddr)) == 0) {
+            tx.num_packets++;
+            tx.tot_bytes += ntohs(ip->tot_len);
+        }
+        if (memcmp(&ip->daddr, &local_addr->sin_addr, sizeof(ip->daddr)) == 0) {
+            rx.num_packets++;
+            rx.tot_bytes += ntohs(ip->tot_len);
+        }     
+    }
+}
+
+void sig_alarm(int signo)
+{
+    rx.kbps = (rx.tot_bytes - rx.prev_bytes) / 1024;
+    tx.kbps = (tx.tot_bytes - tx.prev_bytes) / 1024;
+    rx.prev_bytes = rx.tot_bytes;
+    tx.prev_bytes = tx.tot_bytes;
+    alarm(1);
+}
