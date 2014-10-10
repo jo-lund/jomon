@@ -16,6 +16,8 @@
  */
 #define TIME_TO_WAIT 0
  
+#define MAXLINE 1000
+
 static struct sockaddr_in *local_addr;
 int verbose;
 int promiscuous;

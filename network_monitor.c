@@ -30,6 +30,7 @@
 #include <errno.h>
 #include <signal.h>
 #include "misc.h"
+#include "error.h"
 #if 0
 #include "pcap_handler.h"
 #endif
@@ -49,7 +50,6 @@ static rxdef rx; /* data received */
 static txdef tx; /* data transmitted */
 
 void print_help(char *prg);
-void err_quit(char *error);
 void list_interfaces();
 int get_local_address(char *dev, struct sockaddr *addr);
 int getindex(char *ifname, struct interface *iflist);
@@ -104,19 +104,11 @@ int main(int argc, char **argv)
 #ifdef linux
     fd = init(&device);
     local_addr = malloc(sizeof(local_addr));
-    if (get_local_address(device, (struct sockaddr *) local_addr) == -1) {
-        exit(1);
-    }
+    get_local_address(device, (struct sockaddr *) local_addr);
     read_packets(fd);
     free(device);
     free(local_addr);
 #endif
-}
-
-void err_quit(char *error)
-{
-    printf("Error: %s\n", error);
-    exit(1);
 }
 
 void print_help(char *prg)
@@ -139,15 +131,12 @@ int get_local_address(char *dev, struct sockaddr *addr)
     strncpy(ifr.ifr_name, dev, sizeof(ifr.ifr_name));
     ifr.ifr_addr.sa_family = AF_INET;
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
-        perror("socket error");
-        return -1;
+        err_sys("socket error");
     }
     if (ioctl(sockfd, SIOCGIFADDR, &ifr) == -1) {
-        perror("ioctl error");
-        return -1;
+        err_sys("ioctl error");
     }
     memcpy(addr, &ifr.ifr_addr, sizeof(addr));
-    return 0;
 }
 
 void list_interfaces()
@@ -160,8 +149,7 @@ void list_interfaces()
     /* On Linux getifaddrs returns one entry per address, on Mac OS X and BSD one
        entry per interface */
     if (getifaddrs(&ifp) == -1) {
-        perror("getifaddrs error");
-        exit(1);
+        err_sys("getifaddrs error");
     }
     memset(iflist, 0, sizeof(iflist));
 
@@ -297,21 +285,19 @@ char *get_default_interface()
     char *buffer;
     
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
-        perror("Socket error");
-        exit(1);
+        err_sys("Socket error");
     }
     lastlen = 0;
     len = 10 * sizeof(struct ifreq); /* initial guess of buffer size (10 interfaces) */
     while (1) {
         if ((buffer = malloc(len)) == NULL) {
-            fprintf(stderr, "Unable to allocate %d bytes\n", len);
+            err_sys("Unable to allocate %d bytes\n", 0);
         }
         ifc.ifc_len = len;
         ifc.ifc_buf = buffer;
         if (ioctl(sockfd, SIOCGIFCONF, &ifc) == -1) {
             if (errno != EINVAL || lastlen != 0) {
-                perror("ioctl error");
-                exit(1);
+                err_sys("ioctl error");
             }
         } else {
             device = find_active_interface(sockfd, buffer + lastlen, ifc.ifc_len);
@@ -341,8 +327,7 @@ char *find_active_interface(int fd, char *buffer, int len)
             continue;
         } else {
             if (ioctl(fd, SIOCGIFFLAGS, ifr) == -1) {
-                perror("ioctl error");
-                exit(1);
+                err_sys("ioctl error");
             }
             if (ifr->ifr_flags & IFF_UP &&
                 ifr->ifr_flags & IFF_RUNNING) {
@@ -364,13 +349,11 @@ int get_interface_index(char *dev)
     struct ifreq ifr;
 
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
-        perror("Socket error");
-        exit(1);
+        err_sys("socket error");
     }
     strncpy(ifr.ifr_name, dev, IFNAMSIZ);
     if (ioctl(sockfd, SIOCGIFINDEX, &ifr) == -1) {
-        perror("ioctl error");
-        exit(1);
+        err_sys("ioctl error");
     }
     return ifr.ifr_ifindex;
 }    
@@ -389,13 +372,11 @@ int init(char **device)
     }
     if (capture) {
         if ((sockfd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {
-            perror("Socket error.");
-            exit(1);
+            err_sys("socket error");
         }
     } else {
         if ((sockfd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL))) == -1) {
-            perror("Socket error.");
-            exit(1);
+            err_sys("socket error");
         }
     }
     setuid(getuid()); /* no need for root access anymore */
@@ -413,8 +394,7 @@ int init(char **device)
     sigemptyset(&act.sa_mask);
     act.sa_flags |= SA_RESTART;
     if (sigaction(SIGALRM, &act, &oact) == -1) {
-        perror("sigaction error.");
-        exit(1);
+        err_sys("sigaction error");
     }
 
     return sockfd;
@@ -445,15 +425,14 @@ void read_packets(int sockfd)
     while (1) {
         print_rate();
         if ((n = read(sockfd, buffer, SNAPLEN)) == -1) {
-            perror("read error");
-            exit(1);
+            err_sys("read error");
         }
         ip = (struct iphdr *) buffer;
         if (inet_ntop(AF_INET, &ip->saddr, srcaddr, INET_ADDRSTRLEN) == NULL) {
-            perror("inet_ntop error");
+            err_msg("inet_ntop error");
         }
         if (inet_ntop(AF_INET, &ip->daddr, dstaddr, INET_ADDRSTRLEN) == NULL) {
-            perror("inet_ntop error");
+            err_msg("inet_ntop error");
         }
         //printf("%s -> %s\n", srcaddr, dstaddr);
         if (memcmp(&ip->saddr, &local_addr->sin_addr, sizeof(ip->saddr)) == 0) {

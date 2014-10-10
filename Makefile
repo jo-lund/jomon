@@ -18,6 +18,7 @@ monitor : $(objects)
 
 network_monitor.o : misc.h
 pcap_handler.o : misc.h pcap_handler.h
+error.c : misc.h
 
 .PHONY : clean
 clean :
