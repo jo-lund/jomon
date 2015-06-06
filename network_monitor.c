@@ -46,13 +46,16 @@ struct interface {
     unsigned char hwaddr[8];       /* hardware address */
 };
 
-static rxdef rx; /* data received */
-static txdef tx; /* data transmitted */
+static linkdef rx; /* data received */
+static linkdef tx; /* data transmitted */
+struct sockaddr_in *local_addr;
+int verbose;
+int promiscuous;
+int capture;
 
 void print_help(char *prg);
 void list_interfaces();
-int get_local_address(char *dev, struct sockaddr *addr);
-int getindex(char *ifname, struct interface *iflist);
+void get_local_address(char *dev, struct sockaddr *addr);
 char *get_default_interface();
 char *find_active_interface(int fd, char *buffer, int len);
 int get_interface_index(char *device);
@@ -105,6 +108,13 @@ int main(int argc, char **argv)
     fd = init(&device);
     local_addr = malloc(sizeof(local_addr));
     get_local_address(device, (struct sockaddr *) local_addr);
+    if (verbose) {
+        char addr[INET_ADDRSTRLEN];
+
+        printf("Listening on device: %s", device);
+        inet_ntop(AF_INET, &local_addr->sin_addr, addr, sizeof(addr));
+        printf("\tLocal address: %s\n\n", addr);
+    }
     read_packets(fd);
     free(device);
     free(local_addr);
@@ -123,7 +133,7 @@ void print_help(char *prg)
     printf("     -h  Print this help summary\n");
 }
 
-int get_local_address(char *dev, struct sockaddr *addr)
+void get_local_address(char *dev, struct sockaddr *addr)
 {
     struct ifreq ifr;
     int sockfd;
@@ -136,7 +146,7 @@ int get_local_address(char *dev, struct sockaddr *addr)
     if (ioctl(sockfd, SIOCGIFADDR, &ifr) == -1) {
         err_sys("ioctl error");
     }
-    memcpy(addr, &ifr.ifr_addr, sizeof(addr));
+    memcpy(addr, &ifr.ifr_addr, sizeof(*addr));
 }
 
 void list_interfaces()
@@ -158,11 +168,20 @@ void list_interfaces()
         if (c >= MAX_NUM_INTERFACES) {
             break;
         }
-        i = getindex(ifp->ifa_name, iflist);
+        /* Check if the interface is stored in iflist */
+        i = -1;
+        for (int j = 0; j < MAX_NUM_INTERFACES; j++) {
+            if (iflist[j].name && strcmp(ifp->ifa_name, iflist[j].name) == 0) {
+                i = j;
+                break;
+            }
+        }
+        /* new interface -- insert in iflist */
         if (i == -1) {
             iflist[c].name = ifp->ifa_name;
             i = c++;
         }
+        
         switch (ifp->ifa_addr->sa_family) {
         case AF_INET:
             iflist[i].inaddr = (struct sockaddr_in *) ifp->ifa_addr;
@@ -265,17 +284,6 @@ void list_interfaces()
     freeifaddrs(ifp);
 }
 
-int getindex(char *ifname, struct interface *iflist)
-{
-    int i;
-
-    for (i = 0; i < MAX_NUM_INTERFACES; i++) {
-        if (iflist[i].name && strcmp(ifname, iflist[i].name) == 0)
-            return i;
-    }
-    return -1;
-}
-
 /* Return the first interface which is up and running */
 char *get_default_interface()
 {
@@ -343,6 +351,8 @@ char *find_active_interface(int fd, char *buffer, int len)
     return NULL;
 }
 
+/* get the interface number associated with the interface (name -> if_index 
+   mapping) */ 
 int get_interface_index(char *dev)
 {
     int sockfd;
@@ -362,7 +372,7 @@ int get_interface_index(char *dev)
 int init(char **device)
 {
     int sockfd;
-    struct sockaddr_ll ll_addr;
+    struct sockaddr_ll ll_addr; /* device independent physical layer address */
     struct sigaction act, oact;
 
     if (!*device) {
@@ -371,17 +381,19 @@ int init(char **device)
         }
     }
     if (capture) {
+        /* SOCK_RAW packet sockets include the link level header */
         if ((sockfd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {
             err_sys("socket error");
         }
     } else {
+        /* SOCK_DGRAM are cooked packets with the link level header removed */
         if ((sockfd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL))) == -1) {
             err_sys("socket error");
         }
     }
     setuid(getuid()); /* no need for root access anymore */
-    memset(&rx, 0, sizeof(rxdef));
-    memset(&tx, 0, sizeof(txdef));
+    memset(&rx, 0, sizeof(linkdef));
+    memset(&tx, 0, sizeof(linkdef));
     memset(&ll_addr, 0, sizeof(ll_addr));
     ll_addr.sll_protocol = htons(ETH_P_ALL);
     ll_addr.sll_ifindex = htonl(get_interface_index(*device));

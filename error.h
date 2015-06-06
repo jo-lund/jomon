@@ -6,6 +6,3 @@ void err_sys(const char *fmt, ...);
 
 /* Non-fatal error. Print error message */
 void err_msg(const char *fmt, ...);
-
-/* Print error message to standard error */
-static void print_error(const char *fmt, int error, va_list ap);

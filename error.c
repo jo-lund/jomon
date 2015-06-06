@@ -5,6 +5,20 @@
 #include "error.h"
 #include "misc.h"
 
+/* Print error message to standard error */
+static void print_error(const char *fmt, int error, va_list ap)
+{
+    char buf[MAXLINE];
+
+    vsnprintf(buf, MAXLINE - 1, fmt, ap);
+    if (error) {
+        snprintf(buf + strlen(buf), MAXLINE - strlen(buf), ": %s",
+                 strerror(error));
+    }
+    strcat(buf, "\n");
+    fputs(buf, stderr);
+}
+
 void err_sys(const char *fmt, ...)
 {
     va_list ap;
@@ -32,17 +46,4 @@ void err_msg(const char *fmt, ...)
     va_start(ap, fmt);
     print_error(fmt, errno, ap);
     va_end(ap);
-}
-
-static void print_error(const char *fmt, int error, va_list ap)
-{
-    char buf[MAXLINE];
-
-    vsnprintf(buf, MAXLINE - 1, fmt, ap);
-    if (error) {
-        snprintf(buf + strlen(buf), MAXLINE - strlen(buf), ": %s",
-                 strerror(error));
-    }
-    strcat(buf, "\n");
-    fputs(buf, stderr);
 }

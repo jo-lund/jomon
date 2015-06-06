@@ -1,7 +1,7 @@
 MACHINE := $(shell uname -smo | sed 's/ /-/g')
 HAVE_PCAP := 0
 CC := gcc
-CFLAGS += -g
+CFLAGS += -g -std=gnu99
 CPPFLAGS += -Wall
 
 ifeq ($(HAVE_PCAP), 1)

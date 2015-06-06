@@ -18,27 +18,18 @@
  
 #define MAXLINE 1000
 
-static struct sockaddr_in *local_addr;
-int verbose;
-int promiscuous;
-int capture;
+extern struct sockaddr_in *local_addr;
+extern int verbose;
+extern int promiscuous;
+extern int capture;
 
-/* RX variables */
+/* RX/TX variables */
 typedef struct {
     unsigned long tot_bytes;
     unsigned long prev_bytes;
     unsigned int num_packets;
     unsigned int bad_packets;
     double kbps; /* kilo bytes received per second */
-} rxdef;
-
-/* TX variables */
-typedef struct {
-    unsigned long tot_bytes;
-    unsigned long prev_bytes;
-    unsigned int num_packets;
-    unsigned int bad_packets;
-    double kbps; /* kilo bytes transmitted per second */
-} txdef;
+} linkdef;
 
 int check_ip(const u_char *bytes);

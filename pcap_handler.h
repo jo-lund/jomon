@@ -1,4 +1,4 @@
-//#include <pcap/pcap.h>
+#include <pcap/pcap.h>
 
 /* Initialize PCAP */
 void init_pcap(char *dev);
