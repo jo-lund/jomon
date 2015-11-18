@@ -3,6 +3,7 @@ HAVE_PCAP := 0
 CC := gcc
 CFLAGS += -g -std=gnu99
 CPPFLAGS += -Wall
+LIBS += -lncurses
 
 ifeq ($(HAVE_PCAP), 1)
   sources = $(wildcard *.c)
@@ -16,7 +17,7 @@ objects = $(subst .c,.o,$(sources))
 monitor : $(objects)
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(LIBS) -o monitor $(objects)
 
-network_monitor.o : misc.h
+network_monitor.o : misc.h interface.h
 pcap_handler.o : misc.h pcap_handler.h
 error.c : misc.h
 

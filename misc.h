@@ -29,7 +29,7 @@ typedef struct {
     unsigned long prev_bytes;
     unsigned int num_packets;
     unsigned int bad_packets;
-    double kbps; /* kilo bytes received per second */
+    double kbps; /* kilobytes received per second */
 } linkdef;
 
 int check_ip(const u_char *bytes);

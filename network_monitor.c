@@ -13,38 +13,25 @@
 
 #include <stdio.h>
 #include <sys/socket.h>
+#include <string.h>
+#include <signal.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
 #ifdef MACOS
 #include <net/if_dl.h>
 #include <net/if_types.h>
 #endif
 #ifdef linux
-#include <net/if_arp.h>
 #include <netpacket/packet.h>
 #endif
-#include <string.h>
-#include <unistd.h>
-#include <net/if.h>
-#include <ifaddrs.h>
-#include <sys/ioctl.h>
-#include <arpa/inet.h>
-#include <errno.h>
-#include <signal.h>
 #include "misc.h"
 #include "error.h"
+#include "interface.h"
 #if 0
 #include "pcap_handler.h"
 #endif
-
-#define MAX_NUM_INTERFACES 16
-
-struct interface {
-    char *name;                    /* interface name */
-    unsigned short type;           /* interface type, e.g. Ethernet, Firewire etc. */
-    struct sockaddr_in *inaddr;    /* IPv4 address */
-    struct sockaddr_in6 *in6addr;  /* IPv6 address */
-    unsigned char addrlen;         /* hardware address length */
-    unsigned char hwaddr[8];       /* hardware address */
-};
 
 static linkdef rx; /* data received */
 static linkdef tx; /* data transmitted */
@@ -54,11 +41,7 @@ int promiscuous;
 int capture;
 
 void print_help(char *prg);
-void list_interfaces();
 void get_local_address(char *dev, struct sockaddr *addr);
-char *get_default_interface();
-char *find_active_interface(int fd, char *buffer, int len);
-int get_interface_index(char *device);
 int init(char **device);
 void read_packets(int fd);
 void print_rate();
@@ -111,9 +94,9 @@ int main(int argc, char **argv)
     if (verbose) {
         char addr[INET_ADDRSTRLEN];
 
-        printf("Listening on device: %s", device);
+        printf("Listening on device: %s  ", device);
         inet_ntop(AF_INET, &local_addr->sin_addr, addr, sizeof(addr));
-        printf("\tLocal address: %s\n\n", addr);
+        printf("Local address: %s\n\n", addr);
     }
     read_packets(fd);
     free(device);
@@ -149,225 +132,6 @@ void get_local_address(char *dev, struct sockaddr *addr)
     memcpy(addr, &ifr.ifr_addr, sizeof(*addr));
 }
 
-void list_interfaces()
-{
-    struct ifaddrs *ifp;
-    struct interface iflist[MAX_NUM_INTERFACES];
-    int i;
-    int c = 0;
-    
-    /* On Linux getifaddrs returns one entry per address, on Mac OS X and BSD one
-       entry per interface */
-    if (getifaddrs(&ifp) == -1) {
-        err_sys("getifaddrs error");
-    }
-    memset(iflist, 0, sizeof(iflist));
-
-    /* traverse the ifaddrs list and store the interface information in iflist */
-    while (ifp) {
-        if (c >= MAX_NUM_INTERFACES) {
-            break;
-        }
-        /* Check if the interface is stored in iflist */
-        i = -1;
-        for (int j = 0; j < MAX_NUM_INTERFACES; j++) {
-            if (iflist[j].name && strcmp(ifp->ifa_name, iflist[j].name) == 0) {
-                i = j;
-                break;
-            }
-        }
-        /* new interface -- insert in iflist */
-        if (i == -1) {
-            iflist[c].name = ifp->ifa_name;
-            i = c++;
-        }
-        
-        switch (ifp->ifa_addr->sa_family) {
-        case AF_INET:
-            iflist[i].inaddr = (struct sockaddr_in *) ifp->ifa_addr;
-            break;
-        case AF_INET6:
-            iflist[i].in6addr = (struct sockaddr_in6 *) ifp->ifa_addr;
-            break;
-        case AF_PACKET:
-        {
-            struct sockaddr_ll *ll_addr;
-            
-            ll_addr = (struct sockaddr_ll *) ifp->ifa_addr;
-            memcpy(iflist[i].hwaddr, ll_addr->sll_addr, ll_addr->sll_halen);
-            iflist[i].type = ll_addr->sll_hatype;
-            iflist[i].addrlen = ll_addr->sll_halen;
-            break;
-        }
-#ifdef MACOS
-        case AF_LINK:
-        {
-            struct sockaddr_dl *dl_addr;
-            
-            dl_addr = (struct sockaddr_dl *) ifp->ifa_addr;
-            memcpy(iflist[i].hwaddr, (char *) LLADDR(dl_addr), dl_addr->sdl_alen);
-            iflist[i].type = dl_addr->sdl_type;
-            iflist[i].addrlen = dl_addr->sdl_alen;
-        }
-#endif
-        default:
-            break;
-        }
-        ifp = ifp->ifa_next;
-    }
-    
-    /* print out information for each interface */
-    for (i = 0; i < c; i++) {
-        printf("%s", iflist[i].name);
-        switch (iflist[i].type) {
-#ifdef MACOS
-        case IFT_ETHER:
-            printf("\tEthernet\n");
-            break;
-        case IFT_LOOP:
-            printf("\tLoopback\n");
-            break;
-        case IFT_SLIP:
-            printf("\tIP over generic TTY\n");
-            break;
-        case IFT_IEEE1394:
-            printf("\tIEEE1394 High Performance SerialBus\n");
-            break;
-#endif
-#ifdef linux
-        case ARPHRD_ETHER:
-            printf("\tEthernet\n");
-            break;
-        case ARPHRD_LOOPBACK:
-            printf("\tLoopback\n");
-            break;
-        case ARPHRD_IEEE1394:
-            printf("\tIEEE1394 High Performance SerialBus\n");
-            break;
-        default:
-            printf("\tUnknown type: %d\n", iflist[i].type);
-            break;
-        }
-#endif
-        if (iflist[i].hwaddr) {
-            if (iflist[i].addrlen == 6) {
-                char hwaddr[18];
-                
-                snprintf(hwaddr, 18, "%02x:%02x:%02x:%02x:%02x:%02x",
-                         iflist[i].hwaddr[0], iflist[i].hwaddr[1],
-                         iflist[i].hwaddr[2], iflist[i].hwaddr[3],
-                         iflist[i].hwaddr[4], iflist[i].hwaddr[5]);
-                hwaddr[17] = '\0';
-                printf("\tHW addr: %s\n", hwaddr);
-            } else {
-                printf("\tHW addr len: %d\n", iflist[i].addrlen);
-            }
-        }
-        if (iflist[i].inaddr) {
-            char inet_addr[INET_ADDRSTRLEN];
-            struct sockaddr_in *hst_addr;
-
-            hst_addr = (struct sockaddr_in *) iflist[i].inaddr;
-            inet_ntop(AF_INET, &hst_addr->sin_addr, inet_addr, INET_ADDRSTRLEN);
-            printf("\tinet addr: %s\n", inet_addr);
-        }
-        if (iflist[i].in6addr) {
-            char inet6_addr[INET6_ADDRSTRLEN];
-            struct sockaddr_in6 *hst6_addr;
-            
-            hst6_addr = (struct sockaddr_in6 *) iflist[i].in6addr;
-            inet_ntop(AF_INET6, &hst6_addr->sin6_addr, inet6_addr, INET6_ADDRSTRLEN);
-            printf("\tinet6 addr: %s\n", inet6_addr);
-        }
-        printf("\n");
-    }
-    freeifaddrs(ifp);
-}
-
-/* Return the first interface which is up and running */
-char *get_default_interface()
-{
-    struct ifconf ifc;
-    int sockfd, len, lastlen;
-    char *device = NULL;
-    char *buffer;
-    
-    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
-        err_sys("Socket error");
-    }
-    lastlen = 0;
-    len = 10 * sizeof(struct ifreq); /* initial guess of buffer size (10 interfaces) */
-    while (1) {
-        if ((buffer = malloc(len)) == NULL) {
-            err_sys("Unable to allocate %d bytes\n", 0);
-        }
-        ifc.ifc_len = len;
-        ifc.ifc_buf = buffer;
-        if (ioctl(sockfd, SIOCGIFCONF, &ifc) == -1) {
-            if (errno != EINVAL || lastlen != 0) {
-                err_sys("ioctl error");
-            }
-        } else {
-            device = find_active_interface(sockfd, buffer + lastlen, ifc.ifc_len);
-            if (device /* active device found */ ||
-                ifc.ifc_len == lastlen) { /* same value as last time */
-                break;
-            }
-            lastlen = ifc.ifc_len;
-            len += 10 * sizeof(struct ifreq);
-        }
-        free(buffer);
-    }
-    free(buffer);
-    return device;
-}
-
-/* Check if the IFF_UP and IFF_RUNNING flags are set */
-char *find_active_interface(int fd, char *buffer, int len)
-{
-    char *ptr;
-    char *device;
-    struct ifreq *ifr;
-
-    for (ptr = buffer; ptr < buffer + len; ptr += sizeof(struct ifreq)) {
-        ifr = (struct ifreq *) ptr;
-        if (strncmp(ifr->ifr_name, "lo", 2) == 0) { /* ignore the loopback device */
-            continue;
-        } else {
-            if (ioctl(fd, SIOCGIFFLAGS, ifr) == -1) {
-                err_sys("ioctl error");
-            }
-            if (ifr->ifr_flags & IFF_UP &&
-                ifr->ifr_flags & IFF_RUNNING) {
-                int namelen = strlen(ifr->ifr_name);
-
-                device = malloc(namelen + 1);
-                strcpy(device, ifr->ifr_name);
-                device[namelen] = '\0';
-                return device;
-            }
-        }
-    }
-    return NULL;
-}
-
-/* get the interface number associated with the interface (name -> if_index 
-   mapping) */ 
-int get_interface_index(char *dev)
-{
-    int sockfd;
-    struct ifreq ifr;
-
-    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
-        err_sys("socket error");
-    }
-    strncpy(ifr.ifr_name, dev, IFNAMSIZ);
-    if (ioctl(sockfd, SIOCGIFINDEX, &ifr) == -1) {
-        err_sys("ioctl error");
-    }
-    return ifr.ifr_ifindex;
-}    
-
 /* Initialize device and prepare for reading */
 int init(char **device)
 {
@@ -380,6 +144,7 @@ int init(char **device)
             err_quit("Cannot find active network device\n");
         }
     }
+
     if (capture) {
         /* SOCK_RAW packet sockets include the link level header */
         if ((sockfd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {
@@ -419,8 +184,13 @@ void print_rate()
     double rxmbitspsec = rx.kbps / 1024 * 8;
     double txmbitspsec = tx.kbps / 1024 * 8;
 
-    printf("\rRX: %d  %8ld b (%d Mb)  %5.0f KB/s (%3.1f Mbit/s)",
-           rx.num_packets, rx.tot_bytes, rxmbytes, rx.kbps, rxmbitspsec);
+    if (verbose) {
+        printf("\rRX: %5.0f KB/s (%3.1f Mbit/s) %8ld b (%d Mb) %d packets",
+               rx.kbps, rxmbitspsec, rx.tot_bytes, rxmbytes, rx.num_packets);
+    } else {
+        printf("\rRX: %5.0f KB/s (%3.1f Mbit/s)\tTX: %5.0f KB/s (%3.1f Mbit/s)", 
+               rx.kbps, rxmbitspsec, tx.kbps, txmbitspsec);
+    }
     fflush(stdout);
 }
 
@@ -454,7 +224,7 @@ void read_packets(int sockfd)
         if (memcmp(&ip->daddr, &local_addr->sin_addr, sizeof(ip->daddr)) == 0) {
             rx.num_packets++;
             rx.tot_bytes += ntohs(ip->tot_len);
-        }     
+        }
     }
 }
 
