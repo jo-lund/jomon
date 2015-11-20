@@ -17,7 +17,7 @@ objects = $(subst .c,.o,$(sources))
 monitor : $(objects)
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(LIBS) -o monitor $(objects)
 
-network_monitor.o : misc.h interface.h
+main.o : misc.h interface.h
 pcap_handler.o : misc.h pcap_handler.h
 error.c : misc.h
 
