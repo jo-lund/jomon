@@ -89,7 +89,7 @@ int main(int argc, char **argv)
 
 #ifdef linux
     fd = init(&device);
-    local_addr = malloc(sizeof(local_addr));
+    local_addr = malloc(sizeof(struct sockaddr_in));
     get_local_address(device, (struct sockaddr *) local_addr);
     if (verbose) {
         char addr[INET_ADDRSTRLEN];
