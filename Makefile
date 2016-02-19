@@ -15,11 +15,11 @@ endif
 objects = $(subst .c,.o,$(sources))
 
 monitor : $(objects)
-	$(CC) $(CFLAGS) $(CPPFLAGS) $(LIBS) -o monitor $(objects)
+	$(CC) $(CFLAGS) $(CPPFLAGS) -o monitor $(objects) $(LIBS)
 
 main.o : misc.h interface.h
 pcap_handler.o : misc.h pcap_handler.h
-error.c : misc.h
+error.o : misc.h
 
 .PHONY : clean
 clean :
