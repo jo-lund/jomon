@@ -29,37 +29,38 @@
 #include "misc.h"
 #include "error.h"
 #include "interface.h"
-#if 0
-#include "pcap_handler.h"
-#endif
 
-static linkdef rx; /* data received */
-static linkdef tx; /* data transmitted */
+linkdef rx; /* data received */
+linkdef tx; /* data transmitted */
 struct sockaddr_in *local_addr;
+char *device = NULL;
 int verbose;
 int promiscuous;
 int capture;
 
 void print_help(char *prg);
 void get_local_address(char *dev, struct sockaddr *addr);
-int init(char **device);
+int init();
 void read_packets(int fd);
 void print_rate();
 void sig_alarm(int signo);
 
 int main(int argc, char **argv)
 {
-    char *device = NULL;
     char *prg_name = argv[0];
     int opt;
     int fd;
+    int n;
 
     capture = 0;
     promiscuous = 0;
     while ((opt = getopt(argc, argv, "i:lhvpc")) != -1) {
         switch (opt) {
         case 'i':
-            device = optarg;
+            n = strlen(optarg);
+            device = malloc(n + 1);
+            strncpy(device, optarg, n);
+            device[n] = '\0';
             break;
         case 'l':
             list_interfaces();
@@ -81,14 +82,8 @@ int main(int argc, char **argv)
         }
     }
 
-#if 0
-    // need proper closing of resources. Make a signal.
-    init_pcap(device);
-    //pcap_close(pcap_handle);
-#endif
-
 #ifdef linux
-    fd = init(&device);
+    fd = init();
     local_addr = malloc(sizeof(struct sockaddr_in));
     get_local_address(device, (struct sockaddr *) local_addr);
     if (verbose) {
@@ -133,14 +128,14 @@ void get_local_address(char *dev, struct sockaddr *addr)
 }
 
 /* Initialize device and prepare for reading */
-int init(char **device)
+int init()
 {
     int sockfd;
     struct sockaddr_ll ll_addr; /* device independent physical layer address */
     struct sigaction act, oact;
 
-    if (!*device) {
-        if (!(*device = get_default_interface())) {
+    if (!device) {
+        if (!(device = get_default_interface())) {
             err_quit("Cannot find active network device\n");
         }
     }
@@ -161,7 +156,7 @@ int init(char **device)
     memset(&tx, 0, sizeof(linkdef));
     memset(&ll_addr, 0, sizeof(ll_addr));
     ll_addr.sll_protocol = htons(ETH_P_ALL);
-    ll_addr.sll_ifindex = htonl(get_interface_index(*device));
+    ll_addr.sll_ifindex = htonl(get_interface_index(device));
 
     /* only receive packets on the specified interface */
     bind(sockfd, (struct sockaddr *) &ll_addr, sizeof(ll_addr));
