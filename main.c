@@ -37,6 +37,7 @@ char *device = NULL;
 int verbose;
 int promiscuous;
 int capture;
+volatile sig_atomic_t signal_flag = 0;
 
 void print_help(char *prg);
 void get_local_address(char *dev, struct sockaddr *addr);
@@ -133,7 +134,7 @@ int init()
 {
     int sockfd;
     struct sockaddr_ll ll_addr; /* device independent physical layer address */
-    struct sigaction act, oact;
+    struct sigaction act;
 
     if (!device) {
         if (!(device = get_default_interface())) {
@@ -165,8 +166,8 @@ int init()
     /* set up an alarm signal handler */
     act.sa_handler = sig_alarm;
     sigemptyset(&act.sa_mask);
-    act.sa_flags |= SA_RESTART;
-    if (sigaction(SIGALRM, &act, &oact) == -1) {
+    act.sa_flags = SA_RESTART;
+    if (sigaction(SIGALRM, &act, NULL) == -1) {
         err_sys("sigaction error");
     }
 
@@ -178,6 +179,14 @@ void run(int fd)
 {
     alarm(1);
     while (1) {
+        if (signal_flag) {
+            signal_flag = 0;
+            alarm(1);
+            rx.kbps = (rx.tot_bytes - rx.prev_bytes) / 1024;
+            tx.kbps = (tx.tot_bytes - tx.prev_bytes) / 1024;
+            rx.prev_bytes = rx.tot_bytes;
+            tx.prev_bytes = tx.tot_bytes;
+        }
         print_rate();
         read_packets(fd);
     }
@@ -199,6 +208,7 @@ void print_rate()
     }
     fflush(stdout);
 }
+
 
 void read_packets(int sockfd)
 {
@@ -232,9 +242,5 @@ void read_packets(int sockfd)
 
 void sig_alarm(int signo)
 {
-    rx.kbps = (rx.tot_bytes - rx.prev_bytes) / 1024;
-    tx.kbps = (tx.tot_bytes - tx.prev_bytes) / 1024;
-    rx.prev_bytes = rx.tot_bytes;
-    tx.prev_bytes = tx.tot_bytes;
-    alarm(1);
+    signal_flag = 1;
 }
