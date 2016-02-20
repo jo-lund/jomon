@@ -41,6 +41,7 @@ int capture;
 void print_help(char *prg);
 void get_local_address(char *dev, struct sockaddr *addr);
 int init();
+void run();
 void read_packets(int fd);
 void print_rate();
 void sig_alarm(int signo);
@@ -93,7 +94,7 @@ int main(int argc, char **argv)
         inet_ntop(AF_INET, &local_addr->sin_addr, addr, sizeof(addr));
         printf("Local address: %s\n\n", addr);
     }
-    read_packets(fd);
+    run(fd);
     free(device);
     free(local_addr);
 #endif
@@ -172,6 +173,16 @@ int init()
     return sockfd;
 }
 
+/* The main run loop */
+void run(int fd)
+{
+    alarm(1);
+    while (1) {
+        print_rate();
+        read_packets(fd);
+    }
+}
+
 void print_rate()
 {
     int rxmbytes = rx.tot_bytes / (1024 * 1024); 
@@ -198,28 +209,24 @@ void read_packets(int sockfd)
     char dstaddr[INET_ADDRSTRLEN];
 
     memset(buffer, 0, SNAPLEN);
-    alarm(1);
-    while (1) {
-        print_rate();
-        if ((n = read(sockfd, buffer, SNAPLEN)) == -1) {
-            err_sys("read error");
-        }
-        ip = (struct iphdr *) buffer;
-        if (inet_ntop(AF_INET, &ip->saddr, srcaddr, INET_ADDRSTRLEN) == NULL) {
-            err_msg("inet_ntop error");
-        }
-        if (inet_ntop(AF_INET, &ip->daddr, dstaddr, INET_ADDRSTRLEN) == NULL) {
-            err_msg("inet_ntop error");
-        }
-        //printf("%s -> %s\n", srcaddr, dstaddr);
-        if (memcmp(&ip->saddr, &local_addr->sin_addr, sizeof(ip->saddr)) == 0) {
-            tx.num_packets++;
-            tx.tot_bytes += ntohs(ip->tot_len);
-        }
-        if (memcmp(&ip->daddr, &local_addr->sin_addr, sizeof(ip->daddr)) == 0) {
-            rx.num_packets++;
-            rx.tot_bytes += ntohs(ip->tot_len);
-        }
+    if ((n = read(sockfd, buffer, SNAPLEN)) == -1) {
+        err_sys("read error");
+    }
+    ip = (struct iphdr *) buffer;
+    if (inet_ntop(AF_INET, &ip->saddr, srcaddr, INET_ADDRSTRLEN) == NULL) {
+        err_msg("inet_ntop error");
+    }
+    if (inet_ntop(AF_INET, &ip->daddr, dstaddr, INET_ADDRSTRLEN) == NULL) {
+        err_msg("inet_ntop error");
+    }
+    //printf("%s -> %s\n", srcaddr, dstaddr);
+    if (memcmp(&ip->saddr, &local_addr->sin_addr, sizeof(ip->saddr)) == 0) {
+        tx.num_packets++;
+        tx.tot_bytes += ntohs(ip->tot_len);
+    }
+    if (memcmp(&ip->daddr, &local_addr->sin_addr, sizeof(ip->daddr)) == 0) {
+        rx.num_packets++;
+        rx.tot_bytes += ntohs(ip->tot_len);
     }
 }
 
