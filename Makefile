@@ -5,6 +5,12 @@ CFLAGS += -g -std=gnu99
 CPPFLAGS += -Wall
 LIBS += -lncurses
 
+# Filesystem layout
+SRCDIR := .
+INCDIR := .
+BUILDDIR := build
+TARGETDIR := bin
+
 ifeq ($(HAVE_PCAP), 1)
   sources = $(wildcard *.c)
   LIBS += -lpcap
@@ -12,15 +18,22 @@ else
   sources = $(filter-out pcap%, $(wildcard *.c))
 endif
 
-objects = $(subst .c,.o,$(sources))
+objects = $(patsubst %.c,$(BUILDDIR)/%.o,$(sources))
 
 monitor : $(objects)
-	$(CC) $(CFLAGS) $(CPPFLAGS) -o monitor $(objects) $(LIBS)
+	@mkdir -p $(TARGETDIR)
+	$(CC) $(CFLAGS) $(CPPFLAGS) -o $(TARGETDIR)/monitor $(objects) $(LIBS)
 
-main.o : misc.h interface.h
-pcap_handler.o : misc.h pcap_handler.h
-error.o : misc.h
+# Compile and generate dependency files
+$(BUILDDIR)/%.o : %.c
+	@mkdir -p $(dir $@)
+	$(CC) -c $(CFLAGS) $(CPPFLAGS) $< -o $@
+	$(CC) -MM $*.c > $(BUILDDIR)/$*.d
+
+# Include dependency info for existing object files
+-include $(objects:.o=.d)
 
 .PHONY : clean
 clean :
-	rm -f *.o monitor
+	rm -rf bin
+	rm -rf build
