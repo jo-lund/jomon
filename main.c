@@ -29,6 +29,7 @@
 #include "misc.h"
 #include "error.h"
 #include "interface.h"
+#include "output.h"
 
 linkdef rx; /* data received */
 linkdef tx; /* data transmitted */
@@ -37,15 +38,15 @@ char *device = NULL;
 int verbose;
 int promiscuous;
 int capture;
-volatile sig_atomic_t signal_flag = 0;
+static volatile sig_atomic_t signal_flag = 0;
 
-void print_help(char *prg);
-void get_local_address(char *dev, struct sockaddr *addr);
-int init();
-void run();
-void read_packets(int fd);
-void print_rate();
-void sig_alarm(int signo);
+static void print_help(char *prg);
+static int init();
+static void run();
+static void sig_alarm(int signo);
+static void calculate_rate();
+static void read_packets(int fd);
+static void handle_cooked_packet(char *buffer);
 
 int main(int argc, char **argv)
 {
@@ -88,14 +89,9 @@ int main(int argc, char **argv)
     fd = init();
     local_addr = malloc(sizeof(struct sockaddr_in));
     get_local_address(device, (struct sockaddr *) local_addr);
-    if (verbose) {
-        char addr[INET_ADDRSTRLEN];
-
-        printf("Listening on device: %s  ", device);
-        inet_ntop(AF_INET, &local_addr->sin_addr, addr, sizeof(addr));
-        printf("Local address: %s\n\n", addr);
-    }
+    init_ncurses();
     run(fd);
+    endwin(); /* end curses mode */
     free(device);
     free(local_addr);
 #endif
@@ -113,20 +109,9 @@ void print_help(char *prg)
     printf("     -h  Print this help summary\n");
 }
 
-void get_local_address(char *dev, struct sockaddr *addr)
+void sig_alarm(int signo)
 {
-    struct ifreq ifr;
-    int sockfd;
-
-    strncpy(ifr.ifr_name, dev, sizeof(ifr.ifr_name));
-    ifr.ifr_addr.sa_family = AF_INET;
-    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
-        err_sys("socket error");
-    }
-    if (ioctl(sockfd, SIOCGIFADDR, &ifr) == -1) {
-        err_sys("ioctl error");
-    }
-    memcpy(addr, &ifr.ifr_addr, sizeof(*addr));
+    signal_flag = 1;
 }
 
 /* Initialize device and prepare for reading */
@@ -177,51 +162,39 @@ int init()
 /* The main run loop */
 void run(int fd)
 {
+    print_header();
     alarm(1);
     while (1) {
         if (signal_flag) {
             signal_flag = 0;
             alarm(1);
-            rx.kbps = (rx.tot_bytes - rx.prev_bytes) / 1024;
-            tx.kbps = (tx.tot_bytes - tx.prev_bytes) / 1024;
-            rx.prev_bytes = rx.tot_bytes;
-            tx.prev_bytes = tx.tot_bytes;
+            calculate_rate();
         }
         print_rate();
         read_packets(fd);
     }
 }
 
-void print_rate()
-{
-    int rxmbytes = rx.tot_bytes / (1024 * 1024); 
-    int txmbytes = tx.tot_bytes / (1024 * 1024);
-    double rxmbitspsec = rx.kbps / 1024 * 8;
-    double txmbitspsec = tx.kbps / 1024 * 8;
-
-    if (verbose) {
-        printf("\rRX: %5.0f KB/s (%3.1f Mbit/s) %8ld b (%d Mb) %d packets",
-               rx.kbps, rxmbitspsec, rx.tot_bytes, rxmbytes, rx.num_packets);
-    } else {
-        printf("\rRX: %5.0f KB/s (%3.1f Mbit/s)\tTX: %5.0f KB/s (%3.1f Mbit/s)", 
-               rx.kbps, rxmbitspsec, tx.kbps, txmbitspsec);
-    }
-    fflush(stdout);
-}
-
-
 void read_packets(int sockfd)
 {
     char buffer[SNAPLEN];
     int n;
-    struct iphdr *ip;
-    char srcaddr[INET_ADDRSTRLEN];
-    char dstaddr[INET_ADDRSTRLEN];
 
     memset(buffer, 0, SNAPLEN);
     if ((n = read(sockfd, buffer, SNAPLEN)) == -1) {
         err_sys("read error");
     }
+    if (!capture) {
+        handle_cooked_packet(buffer);
+    }
+}
+
+void handle_cooked_packet(char *buffer)
+{
+    struct iphdr *ip;
+    char srcaddr[INET_ADDRSTRLEN];
+    char dstaddr[INET_ADDRSTRLEN];
+
     ip = (struct iphdr *) buffer;
     if (inet_ntop(AF_INET, &ip->saddr, srcaddr, INET_ADDRSTRLEN) == NULL) {
         err_msg("inet_ntop error");
@@ -229,7 +202,6 @@ void read_packets(int sockfd)
     if (inet_ntop(AF_INET, &ip->daddr, dstaddr, INET_ADDRSTRLEN) == NULL) {
         err_msg("inet_ntop error");
     }
-    //printf("%s -> %s\n", srcaddr, dstaddr);
     if (memcmp(&ip->saddr, &local_addr->sin_addr, sizeof(ip->saddr)) == 0) {
         tx.num_packets++;
         tx.tot_bytes += ntohs(ip->tot_len);
@@ -240,7 +212,10 @@ void read_packets(int sockfd)
     }
 }
 
-void sig_alarm(int signo)
+void calculate_rate()
 {
-    signal_flag = 1;
+    rx.kbps = (rx.tot_bytes - rx.prev_bytes) / 1024;
+    tx.kbps = (tx.tot_bytes - tx.prev_bytes) / 1024;
+    rx.prev_bytes = rx.tot_bytes;
+    tx.prev_bytes = tx.tot_bytes;
 }

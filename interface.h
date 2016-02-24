@@ -6,3 +6,5 @@ char *get_default_interface();
 
 /* get the interface number associated with the interface (name -> if_index mapping) */
 int get_interface_index(char *dev);
+
+void get_local_address(char *dev, struct sockaddr *addr);

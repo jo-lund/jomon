@@ -15,7 +15,6 @@
 #include <net/if.h>
 #include <stdlib.h>
 #include <errno.h>
-
 #include "error.h"
 
 #define MAX_NUM_INTERFACES 16
@@ -251,4 +250,20 @@ int get_interface_index(char *dev)
         err_sys("ioctl error");
     }
     return ifr.ifr_ifindex;
+}
+
+void get_local_address(char *dev, struct sockaddr *addr)
+{
+    struct ifreq ifr;
+    int sockfd;
+
+    strncpy(ifr.ifr_name, dev, sizeof(ifr.ifr_name));
+    ifr.ifr_addr.sa_family = AF_INET;
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
+        err_sys("socket error");
+    }
+    if (ioctl(sockfd, SIOCGIFADDR, &ifr) == -1) {
+        err_sys("ioctl error");
+    }
+    memcpy(addr, &ifr.ifr_addr, sizeof(*addr));
 }

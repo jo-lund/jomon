@@ -24,7 +24,7 @@ typedef struct {
     unsigned long prev_bytes;
     unsigned int num_packets;
     unsigned int bad_packets;
-    double kbps; /* kilobytes received per second */
+    double kbps; /* kilobytes per second */
 } linkdef;
 
 extern struct sockaddr_in *local_addr;
