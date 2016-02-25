@@ -1,3 +1,6 @@
+#ifndef PCAP_HANDLER_H
+#define PCAP_HANDLER_H
+
 #include <pcap/pcap.h>
 
 /* Initialize PCAP */
@@ -8,3 +11,5 @@ void handle_packets(u_char *arg, const struct pcap_pkthdr *hdr, const u_char *by
 
 /* Handle IP packets */
 int handle_ip(const u_char *bytes, const struct pcap_pkthdr *phdr);
+
+#endif

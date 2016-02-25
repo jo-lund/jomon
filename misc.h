@@ -1,3 +1,6 @@
+#ifndef MISC_H
+#define MISC_H
+
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <net/ethernet.h>
@@ -36,3 +39,5 @@ extern linkdef tx; /* data transmitted */
 extern char *device;
 
 int check_ip(const u_char *bytes);
+
+#endif

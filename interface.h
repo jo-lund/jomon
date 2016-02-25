@@ -1,3 +1,6 @@
+#ifndef INTERFACE_H
+#define INTERFACE_H
+
 /* Print all interfaces */
 void list_interfaces();
 
@@ -8,3 +11,5 @@ char *get_default_interface();
 int get_interface_index(char *dev);
 
 void get_local_address(char *dev, struct sockaddr *addr);
+
+#endif

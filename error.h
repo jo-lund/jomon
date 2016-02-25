@@ -1,3 +1,6 @@
+#ifndef ERROR_H
+#define ERROR_H
+
 /* Fatal error. Print error message and quit */
 void err_quit(const char *fmt, ...);
 
@@ -6,3 +9,5 @@ void err_sys(const char *fmt, ...);
 
 /* Non-fatal error. Print error message */
 void err_msg(const char *fmt, ...);
+
+#endif
