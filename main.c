@@ -30,6 +30,7 @@
 #include "error.h"
 #include "interface.h"
 #include "output.h"
+#include "packet.h"
 
 linkdef rx; /* data received */
 linkdef tx; /* data transmitted */
@@ -45,8 +46,6 @@ static int init();
 static void run();
 static void sig_alarm(int signo);
 static void calculate_rate();
-static void read_packets(int fd);
-static void handle_cooked_packet(char *buffer);
 
 int main(int argc, char **argv)
 {
@@ -87,13 +86,12 @@ int main(int argc, char **argv)
 
 #ifdef linux
     fd = init();
-    local_addr = malloc(sizeof(struct sockaddr_in));
-    get_local_address(device, (struct sockaddr *) local_addr);
     init_ncurses();
     run(fd);
     endwin(); /* end curses mode */
     free(device);
     free(local_addr);
+    close(fd);
 #endif
 }
 
@@ -105,7 +103,7 @@ void print_help(char *prg)
     printf("     -l  List available interfaces\n");
     printf("     -p  Use promiscuous mode\n");
     printf("     -c  Capture and print packets\n");
-    printf("     -v  Print verbose information\n"); 
+    printf("     -v  Print verbose information\n");
     printf("     -h  Print this help summary\n");
 }
 
@@ -126,7 +124,6 @@ int init()
             err_quit("Cannot find active network device\n");
         }
     }
-
     if (capture) {
         /* SOCK_RAW packet sockets include the link level header */
         if ((sockfd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {
@@ -156,6 +153,9 @@ int init()
         err_sys("sigaction error");
     }
 
+    local_addr = malloc(sizeof (struct sockaddr_in));
+    get_local_address(device, (struct sockaddr *) local_addr);
+
     return sockfd;
 }
 
@@ -163,52 +163,15 @@ int init()
 void run(int fd)
 {
     print_header();
-    alarm(1);
+    //alarm(1);
     while (1) {
         if (signal_flag) {
             signal_flag = 0;
             alarm(1);
             calculate_rate();
         }
-        print_rate();
-        read_packets(fd);
-    }
-}
-
-void read_packets(int sockfd)
-{
-    char buffer[SNAPLEN];
-    int n;
-
-    memset(buffer, 0, SNAPLEN);
-    if ((n = read(sockfd, buffer, SNAPLEN)) == -1) {
-        err_sys("read error");
-    }
-    if (!capture) {
-        handle_cooked_packet(buffer);
-    }
-}
-
-void handle_cooked_packet(char *buffer)
-{
-    struct iphdr *ip;
-    char srcaddr[INET_ADDRSTRLEN];
-    char dstaddr[INET_ADDRSTRLEN];
-
-    ip = (struct iphdr *) buffer;
-    if (inet_ntop(AF_INET, &ip->saddr, srcaddr, INET_ADDRSTRLEN) == NULL) {
-        err_msg("inet_ntop error");
-    }
-    if (inet_ntop(AF_INET, &ip->daddr, dstaddr, INET_ADDRSTRLEN) == NULL) {
-        err_msg("inet_ntop error");
-    }
-    if (memcmp(&ip->saddr, &local_addr->sin_addr, sizeof(ip->saddr)) == 0) {
-        tx.num_packets++;
-        tx.tot_bytes += ntohs(ip->tot_len);
-    }
-    if (memcmp(&ip->daddr, &local_addr->sin_addr, sizeof(ip->daddr)) == 0) {
-        rx.num_packets++;
-        rx.tot_bytes += ntohs(ip->tot_len);
+        //print_rate();
+        read_packet(fd);
     }
 }
 
