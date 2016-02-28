@@ -26,6 +26,8 @@
 #ifdef linux
 #include <netpacket/packet.h>
 #endif
+#include <poll.h>
+#include <fcntl.h>
 #include "misc.h"
 #include "error.h"
 #include "interface.h"
@@ -87,8 +89,9 @@ int main(int argc, char **argv)
 #ifdef linux
     fd = init();
     init_ncurses();
+    create_layout();
     run(fd);
-    endwin(); /* end curses mode */
+    end_ncurses();
     free(device);
     free(local_addr);
     close(fd);
@@ -115,7 +118,7 @@ void sig_alarm(int signo)
 /* Initialize device and prepare for reading */
 int init()
 {
-    int sockfd;
+    int sockfd, flag;
     struct sockaddr_ll ll_addr; /* device independent physical layer address */
     struct sigaction act;
 
@@ -135,6 +138,15 @@ int init()
             err_sys("socket error");
         }
     }
+
+    /* use non-blocking socket */
+    if ((flag = fcntl(sockfd, F_GETFL, 0)) == -1) {
+        err_quit("fcntl error");
+    }
+    if (fcntl(sockfd, F_SETFL, flag | O_NONBLOCK) == -1) {
+        err_quit("fcntl error");
+    }
+
     setuid(getuid()); /* no need for root access anymore */
     memset(&rx, 0, sizeof(linkdef));
     memset(&tx, 0, sizeof(linkdef));
@@ -162,16 +174,28 @@ int init()
 /* The main run loop */
 void run(int fd)
 {
-    print_header();
-    //alarm(1);
+    struct pollfd fds[] = {
+        { fd, POLLIN },
+        { STDIN_FILENO, POLLIN }
+    };
+
+    if (!capture) alarm(1);
     while (1) {
         if (signal_flag) {
             signal_flag = 0;
             alarm(1);
             calculate_rate();
         }
-        //print_rate();
-        read_packet(fd);
+        if (poll(fds, 2, -1) == -1) {
+            err_sys("poll error");
+        }
+        if (fds[0].revents & POLLIN) {
+            read_packet(fd);
+        }
+        if (fds[1].revents & POLLIN) {
+            get_input();
+        }
+        if (!capture) print_rate();
     }
 }
 

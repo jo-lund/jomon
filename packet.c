@@ -109,9 +109,7 @@ void handle_arp(char *buffer)
              arp_header->arp_tha[0], arp_header->arp_tha[1], arp_header->arp_tha[2],
              arp_header->arp_tha[2], arp_header->arp_tha[4], arp_header->arp_tha[5]);
 
-     /* arp opcode (command) */
-    info.op = ntohs(arp_header->arp_op);
-
+    info.op = ntohs(arp_header->arp_op); /* arp opcode (command) */
     print_arp(&info);
 }
 
@@ -138,16 +136,17 @@ void handle_arp(char *buffer)
 void handle_ip(char *buffer)
 {
     struct iphdr *ip;
-    char srcaddr[INET_ADDRSTRLEN];
-    char dstaddr[INET_ADDRSTRLEN];
+    struct ip_info info;
 
     ip = (struct iphdr *) buffer;
-    if (inet_ntop(AF_INET, &ip->saddr, srcaddr, INET_ADDRSTRLEN) == NULL) {
+    if (inet_ntop(AF_INET, &ip->saddr, info.src, INET_ADDRSTRLEN) == NULL) {
         err_msg("inet_ntop error");
     }
-    if (inet_ntop(AF_INET, &ip->daddr, dstaddr, INET_ADDRSTRLEN) == NULL) {
+    if (inet_ntop(AF_INET, &ip->daddr, info.dst, INET_ADDRSTRLEN) == NULL) {
         err_msg("inet_ntop error");
     }
+
+    /* this can be optimized by only filtering for packets matching host ip address */
     if (memcmp(&ip->saddr, &local_addr->sin_addr, sizeof(ip->saddr)) == 0) {
         tx.num_packets++;
         tx.tot_bytes += ntohs(ip->tot_len);
@@ -156,4 +155,5 @@ void handle_ip(char *buffer)
         rx.num_packets++;
         rx.tot_bytes += ntohs(ip->tot_len);
     }
+    print_ip(&info);
 }

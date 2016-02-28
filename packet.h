@@ -14,6 +14,11 @@ struct arp_info {
     uint16_t op; /* ARP opcode */
 };
 
+struct ip_info {
+    char src[INET_ADDRSTRLEN];
+    char dst[INET_ADDRSTRLEN];
+};
+
 /* get a packet from the network interface card */
 void read_packet(int sockfd);
 
