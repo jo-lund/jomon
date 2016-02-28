@@ -10,9 +10,9 @@ typedef struct node {
 static node_t *head = NULL;
 static node_t *tail = NULL;
 
-#define INIT_NODE(n) n = malloc(sizeof(node_t));\
-    n->data = data;
-    n->next = NULL;
+#define INIT_NODE(n) n = malloc(sizeof(node_t)); \
+    n->data = data;                              \
+    n->next = NULL;                              \
     n->prev = NULL;
 
 const void *get_data(const node_t *n)
