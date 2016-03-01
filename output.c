@@ -8,15 +8,26 @@
 #define DESTX 18
 #define PROTX 36
 #define INFOX 46
-#define HEADER_HEIGHT 4
 
-static WINDOW *wmain;
+#define HEADER_HEIGHT 4
+#define STATUS_HEIGHT 1
+
+typedef node_t line;
+
 static WINDOW *wheader;
+static WINDOW *wmain;
+static WINDOW *wstatus;
+
 static int outy = 0;
+static int interactive = 0;
+
+/* keep a pointer to the top and bottom line */
+static const line *top;
+static const line *bottom;
 
 static void print_header();
 static void scroll_window();
-static void store_line();
+static void print(char *buf);
 
 void init_ncurses()
 {
@@ -31,13 +42,14 @@ void init_ncurses()
 void end_ncurses()
 {
     endwin(); /* end curses mode */
-    clear_list();
+    list_clear();
 }
 
 void create_layout()
 {
     wheader = newwin(HEADER_HEIGHT, COLS, 0, 0);
-    wmain = newwin(LINES - HEADER_HEIGHT, COLS, HEADER_HEIGHT, 0);
+    wmain = newwin(LINES - HEADER_HEIGHT - STATUS_HEIGHT, COLS, HEADER_HEIGHT, 0);
+    wstatus = newwin(STATUS_HEIGHT, COLS, LINES - STATUS_HEIGHT, 0);
     nodelay(wmain, TRUE); /* input functions must be non-blocking */
     keypad(wmain, TRUE);
     print_header();
@@ -48,48 +60,65 @@ void create_layout()
 /* scroll the window if necessary */
 void scroll_window()
 {
-    if (outy >= LINES - HEADER_HEIGHT) {
+    if (!top) top = list_begin();
+    if (outy >= LINES - HEADER_HEIGHT - STATUS_HEIGHT) {
+        outy = LINES - HEADER_HEIGHT - STATUS_HEIGHT - 1;
         scroll(wmain);
-        outy = LINES - HEADER_HEIGHT - 1;
+        top = list_next(top);
+        bottom = list_end();
     }
-}
-
-/* need to buffer every line */
-void store_line()
-{
-    chtype *buffer;
-
-    buffer = (chtype *) malloc((COLS + 1) * sizeof(chtype));
-    mvwinchnstr(wmain, outy, 0, buffer, COLS);
-    push_back(buffer);
 }
 
 void get_input()
 {
     int c = 0;
-    const chtype *buffer;
+    const char *buffer;
 
     c = wgetch(wmain);
     switch (c) {
+    case 'i':
+        if (interactive) {
+            if (outy >= LINES - HEADER_HEIGHT - STATUS_HEIGHT) {
+                const line *n = list_end();
+
+                werase(wmain);
+                for (int i = LINES - HEADER_HEIGHT - STATUS_HEIGHT - 1; i >= 0 && n; i--) {
+                    mvwprintw(wmain, i, 0, "%s", list_data(n));
+                    n = list_prev(n);
+                }
+                top = n;
+                wrefresh(wmain);
+            }
+            interactive = 0;
+            werase(wstatus);
+            wrefresh(wstatus);
+        } else {
+            interactive = 1;
+            mvwprintw(wstatus, 0, 0, "(interactive)");
+            wrefresh(wstatus);
+        }
+        break;
     case 'q':
-        //mvwprintw(wmain, outy++, 0, "q");
         break;
     case KEY_UP:
-        //mvwprintw(wmain, outy++, 0, "KEY_UP");
-        /* buffer = get_data(node); */
-        /* for (int i = 0; buffer[i] != 0; i++) { */
-        /*     mvwaddch(wmain, outy, i, buffer[i]); */
-        /* } */
-        /* wrefresh(wmain); */
+        if (list_prev(top)) {
+            top = list_prev(top);
+            bottom = list_prev(bottom);
+            wscrl(wmain, -1);
+            buffer = list_data(top);
+            mvwprintw(wmain, 0, 0, buffer);
+            wrefresh(wmain);
+        }
         break;
     case KEY_DOWN:
-        //mvwprintw(wmain, outy++, 0, "KEY_DOWN");
-        /* wscrl(wmain, 1); */
-        /* buffer = get_data(node); */
-        /* for (int i = 0; buffer[i] != 0; i++) { */
-        /*     mvwaddch(wmain, outy, i, buffer[i]); */
-        /* } */
-        /* wrefresh(wmain); */
+        if (list_next(bottom)) {
+            bottom = list_next(bottom);
+            top = list_next(top);
+            wscrl(wmain, 1);
+            buffer = list_data(bottom);
+            mvwprintw(wmain, LINES - HEADER_HEIGHT - STATUS_HEIGHT - 1, 0, buffer);
+            wrefresh(wmain);
+        }
         break;
     }
 }
@@ -130,35 +159,41 @@ void print_rate()
     //refresh();
 }
 
+void print(char *buf)
+{
+    list_push_back(buf); /* need to buffer every line */
+    if (!interactive || (interactive && outy < LINES - HEADER_HEIGHT - STATUS_HEIGHT)) {
+        scroll_window();
+        mvwprintw(wmain, outy, 0, "%s", buf);
+        outy++;
+        wrefresh(wmain);
+    }
+}
+
 void print_arp(struct arp_info *info)
 {
-    scroll_window();
-    mvwprintw(wmain, outy, SOURCEX, "%s", info->sip);
-    mvwprintw(wmain, outy, DESTX, "%s", info->tip);
-    mvwprintw(wmain, outy, PROTX, "ARP");
+    char *buffer;
 
+    buffer = malloc(COLS + 1);
     switch (info->op) {
     case ARPOP_REQUEST:
-        mvwprintw(wmain, outy, INFOX, "ARP request: Looking for hardware address of %s", info->tip);
+        snprintf(buffer, COLS + 1, "%-18s%-18s%-10sARP request: Looking for hardware address of %s", info->sip, info->tip, "ARP", info->tip);
         break;
     case ARPOP_REPLY:
-        mvwprintw(wmain, outy, INFOX, "ARP reply: %s has hardware address %s", info->sip, info->sha);
+        snprintf(buffer, COLS + 1, "%-18s%-18s%-10sARP reply: %s has hardware address %s", info->sip, info->tip, "ARP", info->sip, info->sha);
         break;
     default:
+        snprintf(buffer, COLS + 1, "%-18s%-18s%-10sOpcode %d", info->sip, info->tip, "ARP", info->op);
         break;
     }
-    store_line();
-    outy++;
-    wrefresh(wmain);
+    print(buffer);
 }
 
 void print_ip(struct ip_info *info)
 {
-    scroll_window();
-    mvwprintw(wmain, outy, SOURCEX, "%s", info->src);
-    mvwprintw(wmain, outy, DESTX, "%s", info->dst);
-    mvwprintw(wmain, outy, PROTX, "IP");
-    store_line();
-    outy++;
-    wrefresh(wmain);
+    char *buffer;
+
+    buffer = malloc(COLS + 1);
+    snprintf(buffer, COLS + 1, "%-18s%-18s%-10s", info->src, info->dst, "IP");
+    print(buffer);
 }

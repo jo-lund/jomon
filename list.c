@@ -15,12 +15,7 @@ static node_t *tail = NULL;
     n->next = NULL;                              \
     n->prev = NULL;
 
-const void *get_data(const node_t *n)
-{
-    return n->data;
-}
-
-void push_back(void *data)
+void list_push_back(void *data)
 {
     if (!head) {
         INIT_NODE(head);
@@ -42,7 +37,7 @@ void push_back(void *data)
     }
 }
 
-void push_front(void *data)
+void list_push_front(void *data)
 {
     if (!head) {
         INIT_NODE(head);
@@ -57,7 +52,7 @@ void push_front(void *data)
     }
 }
 
-void pop_back()
+void list_pop_back()
 {
     if (tail) {
         node_t *t = tail;
@@ -68,7 +63,7 @@ void pop_back()
     }
 }
 
-void pop_front()
+void list_pop_front()
 {
     if (head) {
         node_t *h = head;
@@ -79,7 +74,15 @@ void pop_front()
     }
 }
 
-const void *back()
+inline const void *list_data(const node_t *n)
+{
+    if (n) {
+        return n->data;
+    }
+    return NULL;
+}
+
+inline const void *list_back()
 {
     if (tail) {
         return tail->data;
@@ -87,7 +90,7 @@ const void *back()
     return NULL;
 }
 
-const void *front()
+inline const void *list_front()
 {
     if (head) {
         return head->data;
@@ -95,17 +98,17 @@ const void *front()
     return NULL;
 }
 
-const node_t *begin()
+inline const node_t *list_begin()
 {
     return head;
 }
 
-const node_t *end()
+inline const node_t *list_end()
 {
     return tail;
 }
 
-const node_t *get_prev(const node_t *n)
+inline const node_t *list_prev(const node_t *n)
 {
     if (n) {
         return n->prev;
@@ -113,7 +116,7 @@ const node_t *get_prev(const node_t *n)
     return NULL;
 }
 
-const node_t *get_next(const node_t *n)
+inline const node_t *list_next(const node_t *n)
 {
     if (n) {
         return n->next;
@@ -121,7 +124,7 @@ const node_t *get_next(const node_t *n)
     return NULL;
 }
 
-void clear_list()
+void list_clear()
 {
     node_t *n = head;
 
