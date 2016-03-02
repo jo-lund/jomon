@@ -141,21 +141,24 @@ int init()
 
     /* use non-blocking socket */
     if ((flag = fcntl(sockfd, F_GETFL, 0)) == -1) {
-        err_quit("fcntl error");
+        err_sys("fcntl error");
     }
     if (fcntl(sockfd, F_SETFL, flag | O_NONBLOCK) == -1) {
-        err_quit("fcntl error");
+        err_sys("fcntl error");
     }
 
     setuid(getuid()); /* no need for root access anymore */
     memset(&rx, 0, sizeof(linkdef));
     memset(&tx, 0, sizeof(linkdef));
     memset(&ll_addr, 0, sizeof(ll_addr));
+    ll_addr.sll_family = PF_PACKET;
     ll_addr.sll_protocol = htons(ETH_P_ALL);
-    ll_addr.sll_ifindex = htonl(get_interface_index(device));
+    ll_addr.sll_ifindex = get_interface_index(device);
 
     /* only receive packets on the specified interface */
-    bind(sockfd, (struct sockaddr *) &ll_addr, sizeof(ll_addr));
+    if (bind(sockfd, (struct sockaddr *) &ll_addr, sizeof(ll_addr)) == -1) {
+        err_sys("bind error");
+    }
 
     /* set up an alarm signal handler */
     act.sa_handler = sig_alarm;
