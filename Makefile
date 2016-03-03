@@ -29,6 +29,7 @@ $(BUILDDIR)/%.o : %.c
 	@mkdir -p $(dir $@)
 	$(CC) -c $(CFLAGS) $(CPPFLAGS) $< -o $@
 	$(CC) -MM $*.c > $(BUILDDIR)/$*.d
+	@sed -i 's|.*:|$(BUILDDIR)/$*.o:|' $(BUILDDIR)/$*.d # prefix target with BUILDDIR
 
 # Include dependency info for existing object files
 -include $(objects:.o=.d)
