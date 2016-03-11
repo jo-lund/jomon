@@ -215,6 +215,7 @@ void print_ip(struct ip_info *info)
         /* get the host name of source and destination */
         gethost(info->src, sname, HOSTNAMELEN);
         gethost(info->dst, dname, HOSTNAMELEN);
+        // TEMP: Fix this!
         sname[35] = '\0';
         dname[35] = '\0';
         n = snprintf(buffer, COLS + 1, "%-36s%-36s", sname, dname);
@@ -250,7 +251,32 @@ void print_udp(struct ip_info *info, char *buf, int n)
         if (info->udp.dns.qr == 0) {
             switch (info->udp.dns.opcode) {
             case QUERY:
-                snprintf(buf + n, COLS + 1 - n, "%-10sStandard query", "DNS");
+                n += snprintf(buf + n, COLS + 1 - n, "%-10sStandard query: ", "DNS");
+                switch (info->udp.dns.qtype) {
+                case DNS_TYPE_PTR:
+                    n += snprintf(buf + n, COLS + 1 - n, "QTYPE = PTR");
+                    break;
+                default:
+                    n += snprintf(buf + n, COLS + 1 - n, "QTYPE = %d", info->udp.dns.qtype);
+                    break;
+                }
+                switch (info->udp.dns.qclass) {
+                case DNS_CLASS_IN:
+                    n += snprintf(buf + n, COLS + 1 - n, ", QCLASS = IN");
+                    break;
+                case DNS_CLASS_CS:
+                    n += snprintf(buf + n, COLS + 1 - n, ", QCLASS = CS");
+                    break;
+                case DNS_CLASS_CH:
+                    n += snprintf(buf + n, COLS + 1 - n, ", QCLASS = CH");
+                    break;
+                case DNS_CLASS_HS:
+                    n += snprintf(buf + n, COLS + 1 - n, ", QCLASS = HS");
+                    break;
+                default:
+                    break;
+                }
+                n += snprintf(buf + n, COLS + 1 - n, ", QNAME = %s", info->udp.dns.qname);
                 break;
             case IQUERY:
                 snprintf(buf + n, COLS + 1 - n, "%-10sInverse query", "DNS");

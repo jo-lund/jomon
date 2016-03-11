@@ -304,7 +304,6 @@ bool handle_dns(char *buffer, struct udphdr *udp, struct ip_info *info)
     if ((buffer[4] << 8 | buffer[5]) != 0x1) { /* the QDCOUNT will in practice always be one */
         return false;
     }
-    
     if (buffer[2] & 0x80) { /* DNS response */
         info->udp.dns.qr = 1;
         info->udp.dns.rcode = buffer[3] & 0x0f; /* response code */
@@ -327,6 +326,24 @@ bool handle_dns(char *buffer, struct udphdr *udp, struct ip_info *info)
 
         /* opcode - specifies the kind of query in the message */
         info->udp.dns.opcode = buffer[2] & 0x78;
+
+        buffer += 12; /* skip DNS header */
+
+        /* QUESTION section */
+        int n = 0;
+        int len = buffer[0];
+        while (len) {
+            // Check for buffer overflow. Should not happen, however.
+            memcpy(info->udp.dns.qname + n, buffer + 1, len);
+            n += len;
+            info->udp.dns.qname[n++] = '.';
+            buffer += len + 1; /* skip length octet + label */
+            len = buffer[0];
+        }
+        buffer++;
+        info->udp.dns.qname[n - 1] = '\0';
+        info->udp.dns.qtype = buffer[0] << 8 | buffer[1];
+        info->udp.dns.qclass = buffer[2] << 8 | buffer[3];
     }
  
     return true;
