@@ -252,15 +252,15 @@ void print_udp(struct ip_info *info, char *buf, int n)
             switch (info->udp.dns.opcode) {
             case QUERY:
                 n += snprintf(buf + n, COLS + 1 - n, "%-10sStandard query: ", "DNS");
-                switch (info->udp.dns.qtype) {
+                switch (info->udp.dns.question.qtype) {
                 case DNS_TYPE_PTR:
                     n += snprintf(buf + n, COLS + 1 - n, "QTYPE = PTR");
                     break;
                 default:
-                    n += snprintf(buf + n, COLS + 1 - n, "QTYPE = %d", info->udp.dns.qtype);
+                    n += snprintf(buf + n, COLS + 1 - n, "QTYPE = %d", info->udp.dns.question.qtype);
                     break;
                 }
-                switch (info->udp.dns.qclass) {
+                switch (info->udp.dns.question.qclass) {
                 case DNS_CLASS_IN:
                     n += snprintf(buf + n, COLS + 1 - n, ", QCLASS = IN");
                     break;
@@ -276,7 +276,7 @@ void print_udp(struct ip_info *info, char *buf, int n)
                 default:
                     break;
                 }
-                n += snprintf(buf + n, COLS + 1 - n, ", QNAME = %s", info->udp.dns.qname);
+                n += snprintf(buf + n, COLS + 1 - n, ", QNAME = %s", info->udp.dns.question.qname);
                 break;
             case IQUERY:
                 snprintf(buf + n, COLS + 1 - n, "%-10sInverse query", "DNS");

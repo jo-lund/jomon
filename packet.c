@@ -11,6 +11,8 @@
 #include "error.h"
 #include "output.h"
 
+#define DNS_PTR_LEN 2
+
 static void handle_ethernet(char *buffer);
 static void handle_arp(char *buffer);
 static void handle_ip(char *buffer);
@@ -20,6 +22,7 @@ static void handle_tcp(char *buffer, struct ip_info *info);
 static void handle_udp(char *buffer, struct ip_info *info);
 static bool handle_dns(char *buffer, struct udphdr *udp, struct ip_info *info);
 static void check_address(char *buffer);
+static int parse_dns_name(char *buffer, char *ptr, char name[]);
 
 void read_packet(int sockfd)
 {
@@ -226,7 +229,7 @@ void handle_ip(char *buffer)
 void handle_udp(char *buffer, struct ip_info *info)
 {
     struct udphdr *udp;
-    
+
     udp = (struct udphdr *) buffer;
     info->udp.src_port = ntohs(udp->source);
     info->udp.dst_port = ntohs(udp->dest);
@@ -234,8 +237,8 @@ void handle_udp(char *buffer, struct ip_info *info)
 }
 
 /*
- * Handle DNS message. Will return false if not DNS.
- * 
+ * Handle DNS messages. Will return false if not DNS.
+ *
  * Format of message (http://tools.ietf.org/html/rfc1035):
  * +---------------------+
  * |        Header       |
@@ -249,7 +252,7 @@ void handle_udp(char *buffer, struct ip_info *info)
  * |      Additional     | RRs holding additional information
  * +---------------------+
  *
- * DNS header: 
+ * DNS header:
  *
  *                                 1  1  1  1  1  1
  *   0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
@@ -286,8 +289,9 @@ void handle_udp(char *buffer, struct ip_info *info)
 bool handle_dns(char *buffer, struct udphdr *udp, struct ip_info *info)
 {
     info->udp.dns.qr = -1;
+    char *ptr = buffer;
 
-    /* 
+    /*
      * UDP header length (8 bytes) + DNS header length (12 bytes).
      * DNS Messages carried by UDP are restricted to 512 bytes (not counting the 
      * UDP header.
@@ -301,52 +305,124 @@ bool handle_dns(char *buffer, struct udphdr *udp, struct ip_info *info)
         return false;
     }
 
-    if ((buffer[4] << 8 | buffer[5]) != 0x1) { /* the QDCOUNT will in practice always be one */
+    // TODO: Handle more than one question
+    if ((ptr[4] << 8 | ptr[5]) != 0x1) { /* the QDCOUNT will in practice always be one */
         return false;
     }
-    if (buffer[2] & 0x80) { /* DNS response */
+    if (ptr[2] & 0x80) { /* DNS response */
+        int ancount = ptr[6] << 8 | ptr[7];
+
         info->udp.dns.qr = 1;
-        info->udp.dns.rcode = buffer[3] & 0x0f; /* response code */
+        info->udp.dns.aa = ptr[2] & 0x04; /* authoritative answer */
+        info->udp.dns.rcode = ptr[3] & 0x0f; /* response code */
+        ptr += DNS_HDRLEN;
+
+        /* QUESTION section */
+        /* parse and skip the name entry */
+        ptr += parse_dns_name(buffer, ptr, info->udp.dns.question.qname);
+        info->udp.dns.question.qtype = ptr[0] << 8 | ptr[1];
+        info->udp.dns.question.qclass = ptr[2] << 8 | ptr[3];
+
+        /* ANSWER section */
+        // TODO: Handle more than one answer
+        if (ancount) {
+            uint16_t rdlen;
+
+            ptr += 4;
+            ptr += parse_dns_name(buffer, ptr, info->udp.dns.answer.name);
+            info->udp.dns.answer.type = ptr[0] << 8 | ptr[1];
+            info->udp.dns.answer.class = ptr[2] << 8 | ptr[3];
+            info->udp.dns.answer.ttl = ptr[4] << 24 | ptr[5] << 16 | ptr[6] << 8 | ptr[7];
+            rdlen = ptr[8] << 8 | ptr[9];
+            ptr += 10; /* skip to rdata field */
+            if (info->udp.dns.answer.class == DNS_CLASS_IN) {
+                switch (info->udp.dns.answer.type) {
+                case DNS_TYPE_A:
+                    if (rdlen == 4) {
+                        info->udp.dns.answer.rdata.address = ptr[0] << 24 | ptr[1] << 16 | ptr[2] << 8 | ptr[3];
+                    }
+                    break;
+                case DNS_TYPE_CNAME:
+                    parse_dns_name(buffer, ptr, info->udp.dns.answer.rdata.cname);
+                    break;
+                case DNS_TYPE_PTR:
+                    parse_dns_name(buffer, ptr, info->udp.dns.answer.rdata.ptrdname);
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
     } else { /* DNS query */
-        if (buffer[3] & 0x0f != 0) { /* RCODE will be zero */
+        if (ptr[3] & 0x0f != 0) { /* RCODE will be zero */
             return false;
         }
         /* ANCOUNT and NSCOUNT values are zero */
-        if ((buffer[6] << 8 | buffer[7]) != 0 && (buffer[8] << 8 | buffer[9]) != 0) {
+        if ((ptr[6] << 8 | ptr[7]) != 0 && (ptr[8] << 8 | ptr[9]) != 0) {
             return false;
         }
         /*
          * ARCOUNT will typically be 0, 1, or 2, depending on whether EDNS0
          * (RFC 2671) or TSIG (RFC 2845) are used
          */
-        if ((buffer[10] << 8 | buffer[11]) > 2) {
+        if ((ptr[10] << 8 | ptr[11]) > 2) {
             return false;
         }
         info->udp.dns.qr = 0;
 
         /* opcode - specifies the kind of query in the message */
-        info->udp.dns.opcode = buffer[2] & 0x78;
-
-        buffer += 12; /* skip DNS header */
+        info->udp.dns.opcode = ptr[2] & 0x78;
+        ptr += DNS_HDRLEN;
 
         /* QUESTION section */
-        int n = 0;
-        int len = buffer[0];
-        while (len) {
-            // Check for buffer overflow. Should not happen, however.
-            memcpy(info->udp.dns.qname + n, buffer + 1, len);
-            n += len;
-            info->udp.dns.qname[n++] = '.';
-            buffer += len + 1; /* skip length octet + label */
-            len = buffer[0];
-        }
-        buffer++;
-        info->udp.dns.qname[n - 1] = '\0';
-        info->udp.dns.qtype = buffer[0] << 8 | buffer[1];
-        info->udp.dns.qclass = buffer[2] << 8 | buffer[3];
+        ptr += parse_dns_name(buffer, ptr, info->udp.dns.question.qname);
+        info->udp.dns.question.qtype = ptr[0] << 8 | ptr[1];
+        info->udp.dns.question.qclass = ptr[2] << 8 | ptr[3];
     }
- 
+
     return true;
+}
+
+int parse_dns_name(char *buffer, char *ptr, char name[])
+{
+    int n = 0; /* total length of name entry */
+    int label_length = ptr[0];
+    bool compression = false;
+
+    while (label_length) {
+        /*
+         * The max size of a label is 63 bytes, so a length with the first 2 bits
+         * containing 11 indicates that the label is a pointer to a prior
+         * occurrence of the same name. The pointer is an offset from the
+         * beginning of the DNS message, i.e. the ID field of the header.
+         *
+         * The pointer takes the form of a two octet sequence:
+         *
+         * +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+         * | 1  1|                OFFSET                   |
+         * +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+         */
+        // BUG: Correct this for the case where we have a sequence of labels
+        // ending with a pointer. Then it needs to return the total length of
+        // the name entry encountered so far + DNS_PTR_LEN
+        if (label_length & 0x1200) {
+            uint16_t offset = (ptr[0] & 0x3f) << 8 | ptr[1];
+
+            compression = true;
+            label_length = buffer[offset];
+            memcpy(name + n, buffer + offset + 1, label_length);
+            ptr = buffer + offset; /* ptr will point to start of label */
+        } else {
+            memcpy(name + n, ptr + 1, label_length);
+        }
+        n += label_length;
+        name[n++] = '.';
+        ptr += label_length + 1; /* skip length octet + rest of label */
+        label_length = ptr[0];
+    }
+    name[n - 1] = '\0';
+    n++; /* add null label */
+    return compression ? DNS_PTR_LEN : n;
 }
 
 

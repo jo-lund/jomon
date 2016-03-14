@@ -7,6 +7,7 @@
 #define HW_ADDRSTRLEN 18
 
 #define UDP_HDRLEN 8
+#define DNS_HDRLEN 12
 #define DNS_NAMELEN 255
 
 /* DNS opcodes */
@@ -39,10 +40,10 @@
 #define DNS_TYPE_MINFO 14  /* mailbox or mail list information */
 #define DNS_TYPE_MX 15     /* mail exchange */
 #define DNS_TYPE_TXT 16    /* text strings */
-#define DNS_QTYPE_AXFR 252   /* A request for a transfer of an entire zone */
-#define DNS_QTYPE_MAILB 253  /* A request for mailbox-related records (MB, MG or MR) */
-#define DNS_QTYPE_MAILA 254  /* A request for mail agent RRs (Obsolete - see MX) */
-#define DNS_QTYPE_STAR 255   /* A request for all records */
+#define DNS_QTYPE_AXFR 252   /* a request for a transfer of an entire zone */
+#define DNS_QTYPE_MAILB 253  /* a request for mailbox-related records (MB, MG or MR) */
+#define DNS_QTYPE_MAILA 254  /* a request for mail agent RRs (Obsolete - see MX) */
+#define DNS_QTYPE_STAR 255   /* a request for all records */
 
 /* DNS classes */
 #define DNS_CLASS_IN 1      /* the Internet */
@@ -60,6 +61,49 @@ struct arp_info {
     uint16_t op;               /* ARP opcode */
 };
 
+struct dns_info {
+    // TODO: Make into bit fields. QR should only be one bit.
+    int8_t qr; /* -1 not DNS, 0 DNS query, 1 DNS response */
+    uint8_t opcode; // 4 bits
+    uint8_t aa; // 1 bit
+    uint8_t rcode; // 4 bits
+
+    /* question section */
+    struct {
+        char qname[DNS_NAMELEN];
+        uint16_t qtype;  /* QTYPES are a superset of TYPES */
+        uint16_t qclass; /* QCLASS values are a superset of CLASS values */
+    } question;
+
+    /* answer section */
+    struct resource_record {
+        /* a domain name to which the resource record pertains */
+        char name[DNS_NAMELEN];
+        uint16_t type;
+        uint16_t class;
+        /*
+         * Specifies the time interval (in seconds) that the resource record
+         * may be cached before it should be discarded.  Zero values are
+         * interpreted to mean that the RR can only be used for the
+         * transaction in progress, and should not be cached. */
+        uint32_t ttl;
+        /*
+         * The format of rdata varies according to the type and class of the
+         * resource record.
+         */
+        union {
+            /* a domain name which specifies the canonical or primary name
+               for the owner. The owner name is an alias. */
+            char cname[DNS_NAMELEN];
+            /* a domain name which points to some location in the domain
+               name space. */
+            char ptrdname[DNS_NAMELEN];
+            uint32_t address; /* a 32 bit internet address */
+        } rdata;
+    } answer;
+};
+
+// TODO: Improve the structure of this
 struct ip_info {
     char src[INET_ADDRSTRLEN];
     char dst[INET_ADDRSTRLEN];
@@ -68,15 +112,8 @@ struct ip_info {
         struct {
             uint16_t src_port;
             uint16_t dst_port;
-            struct {
-                // TODO: Make into bit fields. QR should only be one bit.
-                int8_t qr; /* -1 not DNS, 0 DNS query, 1 DNS response */
-                uint8_t opcode; // 4 bits
-                uint8_t rcode; // 4 bits
-                char qname[DNS_NAMELEN];
-                uint16_t qtype;  /* QTYPES are a superset of TYPES */
-                uint16_t qclass; /* QCLASS values are a superset of CLASS values */
-            } dns;
+            // TODO: Should be made into a pointer
+            struct dns_info dns;
         } udp;
         struct {
             uint16_t src_port;
