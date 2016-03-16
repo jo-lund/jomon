@@ -53,6 +53,14 @@
 #define DNS_CLASS_HS 4      /* Hesiod */
 #define DNS_QCLASS_STAR 255 /* any class */
 
+enum udp_app {
+    UNKNOWN,
+    DNS,
+    SNMP,
+    RIP,
+    DHCP
+};
+
 struct arp_info {
     char sip[INET_ADDRSTRLEN]; /* sender IP address */
     char tip[INET_ADDRSTRLEN]; /* target IP address */
@@ -62,11 +70,10 @@ struct arp_info {
 };
 
 struct dns_info {
-    // TODO: Make into bit fields. QR should only be one bit.
-    int8_t qr; /* -1 not DNS, 0 DNS query, 1 DNS response */
-    uint8_t opcode; // 4 bits
-    uint8_t aa; // 1 bit
-    uint8_t rcode; // 4 bits
+    unsigned int qr     : 1; /* 0 DNS query, 1 DNS response */
+    unsigned int opcode : 4;
+    unsigned int aa     : 1;
+    unsigned int rcode  : 4;
 
     /* question section */
     struct {
@@ -112,6 +119,7 @@ struct ip_info {
         struct {
             uint16_t src_port;
             uint16_t dst_port;
+            uint8_t utype; /* specifies the protocol carried in the UDP packet */
             // TODO: Should be made into a pointer
             struct dns_info dns;
         } udp;
@@ -121,6 +129,7 @@ struct ip_info {
         } tcp;
         struct {
             uint8_t type;
+            uint8_t max_resp_time;
             char group_addr[INET_ADDRSTRLEN];
         } igmp;
     };

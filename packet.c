@@ -6,7 +6,7 @@
 #include <netinet/in.h>
 #include <netinet/udp.h>
 #include <sys/socket.h>
-#include <netinet/igmp.h>
+#include <linux/igmp.h>
 #include "packet.h"
 #include "misc.h"
 #include "error.h"
@@ -234,7 +234,11 @@ void handle_udp(char *buffer, struct ip_info *info)
     udp = (struct udphdr *) buffer;
     info->udp.src_port = ntohs(udp->source);
     info->udp.dst_port = ntohs(udp->dest);
-    handle_dns(buffer + UDP_HDRLEN, udp, info);
+    if (handle_dns(buffer + UDP_HDRLEN, udp, info)) {
+        info->udp.utype = DNS;
+    } else {
+        info->udp.utype = UNKNOWN;
+    }
 }
 
 /*
@@ -289,7 +293,6 @@ void handle_udp(char *buffer, struct ip_info *info)
  */
 bool handle_dns(char *buffer, struct udphdr *udp, struct ip_info *info)
 {
-    info->udp.dns.qr = -1;
     char *ptr = buffer;
 
     /*
@@ -434,21 +437,46 @@ void handle_icmp(char *buffer)
 /*
  * IGMP message format:
  *
- * 0                   1                   2                   3
- * 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *  0                   1                   2                   3
+ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * |      Type     | Max Resp Time |           Checksum            |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * |                         Group Address                         |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Messages must be atleast 8 bytes.
+ *
+ * Message Type                  Destination Group
+ * ------------                  -----------------
+ * General Query                 All hosts (224.0.0.1)
+ * Group-Specific Query          The group being queried
+ * Membership Report             The group being reported
+ * Leave Message                 All routers (224.0.0.2)
+ *
+ * 224.0.0.22 is the IGMPv3 multicast address.
+ *
+ * Max Resp Time specifies the maximum allowed time before sending a responding
+ * report in units of 1/10 seconds. It is only meaningful in membership queries.
+ * Default: 100 (10 seconds).
+ *
+ * Message query:
+ * - A general query has group address field 0 and is sent to the all hosts
+ *   multicast group (224.0.0.1)
+ * - A group specific query must have a valid multicast group address
+ * - The Query Interval is the interval between general queries sent by the
+ *   querier. Default: 125 seconds.
+ *
  */
 void handle_igmp(char *buffer, struct ip_info *info)
 {
-    struct igmp *igmp_msg;
+    struct igmphdr *igmp;
 
-    igmp_msg = (struct igmp *) buffer;
-    info->igmp.type = igmp_msg->igmp_type;
-    if (inet_ntop(AF_INET, &igmp_msg->igmp_group, info->igmp.group_addr, INET_ADDRSTRLEN) == NULL) {
+    igmp = (struct igmphdr *) buffer;
+    info->igmp.type = igmp->type;
+    info->igmp.max_resp_time = igmp->code; // routing code?
+    if (inet_ntop(AF_INET, &igmp->group, info->igmp.group_addr, 
+                  INET_ADDRSTRLEN) == NULL) {
         err_msg("inet_ntop error");
     }
 }

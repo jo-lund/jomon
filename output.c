@@ -2,16 +2,11 @@
 #include <net/if_arp.h>
 #include <string.h>
 #include <netdb.h>
-#include <netinet/igmp.h>
+#include <linux/igmp.h>
 #include "misc.h"
 #include "output.h"
 #include "list.h"
 #include "error.h"
-
-#define SOURCEX 0
-#define DESTX 36
-#define PROTX 72
-#define INFOX 82
 
 #define HEADER_HEIGHT 4
 #define STATUS_HEIGHT 1
@@ -55,6 +50,7 @@ static void print(char *buf);
 static void gethost(char *addr, char *host, int hostlen);
 static void print_udp(struct ip_info *info, char *buf);
 static void print_igmp(struct ip_info *info, char *buf);
+static void print_dns(struct ip_info *info, char *buf);
 static int print_dns_class(char *buf, uint16_t class, int n);
 
 void init_ncurses()
@@ -170,10 +166,10 @@ void print_header()
         mvwprintw(wheader, ++y, 0, "TX:");
         attroff(A_BOLD);
     } else {
-        mvwprintw(wheader, y, SOURCEX, "Source");
-        mvwprintw(wheader, y, DESTX, "Destination");
-        mvwprintw(wheader, y, PROTX, "Protocol");
-        mvwprintw(wheader, y, INFOX, "Info");
+        mvwprintw(wheader, y, 0, "Source");
+        mvwprintw(wheader, y, ADDR_WIDTH, "Destination");
+        mvwprintw(wheader, y, 2 * ADDR_WIDTH, "Protocol");
+        mvwprintw(wheader, y, 2 * ADDR_WIDTH + PROT_WIDTH, "Info");
         mvwchgat(wheader, y, 0, -1, A_STANDOUT, 0, NULL);
     }
     wrefresh(wheader);
@@ -267,81 +263,91 @@ void print_ip(struct ip_info *info)
 
 void print_udp(struct ip_info *info, char *buf)
 {
-    if (info->udp.dns.qr == -1) {
+    switch (info->udp.utype) {
+    case UNKNOWN:
         PRINT_PROTOCOL(buf, "UDP");
         PRINT_INFO(buf, 0, "Source port %d  Destination port %d", info->udp.src_port,
                    info->udp.dst_port);
-    } else {
-        int n = 0;
+        break;
+    case DNS:
+        print_dns(info, buf);
+        break;
+    default:
+        break;
+    }
+}
 
-        PRINT_PROTOCOL(buf, "DNS");
-        if (info->udp.dns.qr == 0) {
-            switch (info->udp.dns.opcode) {
-            case QUERY:
-                n += PRINT_INFO(buf, n, "Standard query: ");
-                switch (info->udp.dns.question.qtype) {
-                case DNS_TYPE_PTR:
-                    n += PRINT_INFO(buf, n, "TYPE = PTR");
-                    break;
-                default:
-                    n += PRINT_INFO(buf, n, "TYPE = %d", info->udp.dns.question.qtype);
-                    break;
-                }
-                n += print_dns_class(buf, info->udp.dns.question.qclass, n);
-                PRINT_INFO(buf, n, "  QNAME = %s", info->udp.dns.question.qname);
-                break;
-            case IQUERY:
-                PRINT_INFO(buf, n, "Inverse query");
-                break;
-            case STATUS:
-                PRINT_INFO(buf, n, "Server status request");
-                break;
-            }
-        } else {
-            switch (info->udp.dns.rcode) {
-            case NO_ERROR:
-                n += PRINT_INFO(buf, n, "Response: ");
-                break;
-            case FORMAT_ERROR:
-                PRINT_INFO(buf, n, "Response: format error");
-                return;
-            case SERVER_FAILURE:
-                PRINT_INFO(buf, n, "Response: server failure");
-                return;
-            case NAME_ERROR:
-                PRINT_INFO(buf, n, "Response: name error");
-                return;
-            case NOT_IMPLEMENTED:
-                PRINT_INFO(buf, n, "Response: request not supported");
-                return;
-            case REFUSED:
-                PRINT_INFO(buf, n, "Response: operation refused");
-                return;
-            }
-            switch (info->udp.dns.answer.type) {
-            case DNS_TYPE_A:
-            {
-                char addr[INET_ADDRSTRLEN];
-                uint32_t haddr = htonl(info->udp.dns.answer.rdata.address);
+void print_dns(struct ip_info *info, char *buf)
+{
+    int n = 0;
 
-                if (inet_ntop(AF_INET, (struct in_addr *) &haddr, addr, sizeof(addr)) == NULL) {
-                    err_msg("inet_ntop error");
-                }
-                n += PRINT_INFO(buf, n, "TYPE = A  %s", addr);
-                break;
-            }
-            case DNS_TYPE_CNAME:
-                n += PRINT_INFO(buf, n, "TYPE = CNAME  %s", info->udp.dns.answer.rdata.cname);
-                break;
+    PRINT_PROTOCOL(buf, "DNS");
+    if (info->udp.dns.qr == 0) {
+        switch (info->udp.dns.opcode) {
+        case QUERY:
+            n += PRINT_INFO(buf, n, "Standard query: ");
+            switch (info->udp.dns.question.qtype) {
             case DNS_TYPE_PTR:
-                n += PRINT_INFO(buf, n, "TYPE = PTR  %s", info->udp.dns.answer.rdata.ptrdname);
+                n += PRINT_INFO(buf, n, "TYPE = PTR");
                 break;
             default:
-                n += PRINT_INFO(buf, n, "TYPE = %d", info->udp.dns.answer.type);
+                n += PRINT_INFO(buf, n, "TYPE = %d", info->udp.dns.question.qtype);
                 break;
             }
-            print_dns_class(buf, info->udp.dns.answer.class, n);
+            n += print_dns_class(buf, info->udp.dns.question.qclass, n);
+            PRINT_INFO(buf, n, "  QNAME = %s", info->udp.dns.question.qname);
+            break;
+        case IQUERY:
+            PRINT_INFO(buf, n, "Inverse query");
+            break;
+        case STATUS:
+            PRINT_INFO(buf, n, "Server status request");
+            break;
         }
+    } else {
+        switch (info->udp.dns.rcode) {
+        case NO_ERROR:
+            n += PRINT_INFO(buf, n, "Response: ");
+            break;
+        case FORMAT_ERROR:
+            PRINT_INFO(buf, n, "Response: format error");
+            return;
+        case SERVER_FAILURE:
+            PRINT_INFO(buf, n, "Response: server failure");
+            return;
+        case NAME_ERROR:
+            PRINT_INFO(buf, n, "Response: name error");
+            return;
+        case NOT_IMPLEMENTED:
+            PRINT_INFO(buf, n, "Response: request not supported");
+            return;
+        case REFUSED:
+            PRINT_INFO(buf, n, "Response: operation refused");
+            return;
+        }
+        switch (info->udp.dns.answer.type) {
+        case DNS_TYPE_A:
+        {
+            char addr[INET_ADDRSTRLEN];
+            uint32_t haddr = htonl(info->udp.dns.answer.rdata.address);
+
+            if (inet_ntop(AF_INET, (struct in_addr *) &haddr, addr, sizeof(addr)) == NULL) {
+                err_msg("inet_ntop error");
+            }
+            n += PRINT_INFO(buf, n, "TYPE = A  %s", addr);
+            break;
+        }
+        case DNS_TYPE_CNAME:
+            n += PRINT_INFO(buf, n, "TYPE = CNAME  %s", info->udp.dns.answer.rdata.cname);
+            break;
+        case DNS_TYPE_PTR:
+            n += PRINT_INFO(buf, n, "TYPE = PTR  %s", info->udp.dns.answer.rdata.ptrdname);
+            break;
+        default:
+            n += PRINT_INFO(buf, n, "TYPE = %d", info->udp.dns.answer.type);
+            break;
+        }
+        print_dns_class(buf, info->udp.dns.answer.class, n);
     }
 }
 
@@ -374,18 +380,23 @@ void print_igmp(struct ip_info *info, char *buf)
 
     PRINT_PROTOCOL(buf, "IGMP");
     switch (info->igmp.type) {
-    case IGMP_MEMBERSHIP_QUERY:
-        n += PRINT_INFO(buf, n, "Membership query");
+    case IGMP_HOST_MEMBERSHIP_QUERY:
+        n += PRINT_INFO(buf, n, "Membership query  Max response time: %d seconds", info->igmp.max_resp_time / 10);
         break;
-    case IGMP_V1_MEMBERSHIP_REPORT:
-    case IGMP_V2_MEMBERSHIP_REPORT:
+    case IGMP_HOST_MEMBERSHIP_REPORT:
         n += PRINT_INFO(buf, n, "Membership report");
         break;
-    case IGMP_V2_LEAVE_GROUP:
+    case IGMPV2_HOST_MEMBERSHIP_REPORT:
+        n += PRINT_INFO(buf, n, "IGMP2 Membership report");
+        break;
+    case IGMP_HOST_LEAVE_MESSAGE:
         n += PRINT_INFO(buf, n, "Leave group");
         break;
+    case IGMPV3_HOST_MEMBERSHIP_REPORT:
+        n += PRINT_INFO(buf, n, "IGMP3 Membership report");
+        break;
     default:
-        n += PRINT_INFO(buf, n, "Type %d", info->igmp.type);
+        n += PRINT_INFO(buf, n, "Type 0x%x", info->igmp.type);
         break;
     }
     PRINT_INFO(buf, n, "  Group address: %s", info->igmp.group_addr);
