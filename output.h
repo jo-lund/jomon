@@ -21,7 +21,7 @@ void create_layout();
 /* print the rate of the transmission */
 void print_rate();
 
-/* print arp frame information */
+/* print ARP frame information */
 void print_arp(struct arp_info *info);
 
 /* print IP packet information */

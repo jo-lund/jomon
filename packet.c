@@ -6,6 +6,7 @@
 #include <netinet/in.h>
 #include <netinet/udp.h>
 #include <sys/socket.h>
+#include <netinet/igmp.h>
 #include "packet.h"
 #include "misc.h"
 #include "error.h"
@@ -17,7 +18,7 @@ static void handle_ethernet(char *buffer);
 static void handle_arp(char *buffer);
 static void handle_ip(char *buffer);
 static void handle_icmp(char *buffer);
-static void handle_igmp(char *buffer);
+static void handle_igmp(char *buffer, struct ip_info *info);
 static void handle_tcp(char *buffer, struct ip_info *info);
 static void handle_udp(char *buffer, struct ip_info *info);
 static bool handle_dns(char *buffer, struct udphdr *udp, struct ip_info *info);
@@ -202,7 +203,7 @@ void handle_ip(char *buffer)
         handle_icmp(buffer + header_len);
         break;
     case IPPROTO_IGMP:
-        handle_igmp(buffer + header_len);
+        handle_igmp(buffer + header_len, &info);
         break;
     case IPPROTO_TCP:
         handle_tcp(buffer + header_len, &info);
@@ -318,7 +319,6 @@ bool handle_dns(char *buffer, struct udphdr *udp, struct ip_info *info)
         ptr += DNS_HDRLEN;
 
         /* QUESTION section */
-        /* parse and skip the name entry */
         ptr += parse_dns_name(buffer, ptr, info->udp.dns.question.qname);
         info->udp.dns.question.qtype = ptr[0] << 8 | ptr[1];
         info->udp.dns.question.qclass = ptr[2] << 8 | ptr[3];
@@ -431,9 +431,26 @@ void handle_icmp(char *buffer)
 
 }
 
-void handle_igmp(char *buffer)
+/*
+ * IGMP message format:
+ *
+ * 0                   1                   2                   3
+ * 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |      Type     | Max Resp Time |           Checksum            |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |                         Group Address                         |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ */
+void handle_igmp(char *buffer, struct ip_info *info)
 {
+    struct igmp *igmp_msg;
 
+    igmp_msg = (struct igmp *) buffer;
+    info->igmp.type = igmp_msg->igmp_type;
+    if (inet_ntop(AF_INET, &igmp_msg->igmp_group, info->igmp.group_addr, INET_ADDRSTRLEN) == NULL) {
+        err_msg("inet_ntop error");
+    }
 }
 
 void handle_tcp(char *buffer, struct ip_info *info)

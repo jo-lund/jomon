@@ -119,6 +119,10 @@ struct ip_info {
             uint16_t src_port;
             uint16_t dst_port;
         } tcp;
+        struct {
+            uint8_t type;
+            char group_addr[INET_ADDRSTRLEN];
+        } igmp;
     };
 };
 
