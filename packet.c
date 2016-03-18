@@ -228,7 +228,7 @@ void handle_udp(char *buffer, struct ip_info *info)
     info->udp.len = ntohs(udp->len);
 
     bool valid = false;
-    for (int i = 0; i < 2  && !valid; i++) {
+    for (int i = 0; i < 2 && !valid; i++) {
         info->udp.utype = *((uint16_t *) &info->udp + i);
         valid = check_port(buffer + UDP_HDRLEN, info, info->udp.utype);
     }
@@ -247,7 +247,6 @@ bool check_port(char *buffer, struct ip_info *info, uint16_t port)
     }
     return false;
 }
-
 
 /*
  * Handle DNS messages. Will return false if not DNS.
@@ -365,7 +364,7 @@ bool handle_dns(char *buffer, struct ip_info *info)
             }
         }
     } else { /* DNS query */
-        if (ptr[3] & 0x0f != 0) { /* RCODE will be zero */
+        if ((ptr[3] & 0x0f) != 0) { /* RCODE will be zero */
             return false;
         }
         /* ANCOUNT and NSCOUNT values are zero */
