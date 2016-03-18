@@ -138,7 +138,6 @@ void list_interfaces()
                          iflist[i].hwaddr[0], iflist[i].hwaddr[1],
                          iflist[i].hwaddr[2], iflist[i].hwaddr[3],
                          iflist[i].hwaddr[4], iflist[i].hwaddr[5]);
-                hwaddr[17] = '\0';
                 printf("\tHW addr: %s\n", hwaddr);
             } else {
                 printf("\tHW addr len: %d\n", iflist[i].addrlen);
