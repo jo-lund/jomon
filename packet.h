@@ -53,12 +53,11 @@
 #define DNS_CLASS_HS 4      /* Hesiod */
 #define DNS_QCLASS_STAR 255 /* any class */
 
-enum udp_app {
-    UNKNOWN,
-    DNS,
-    SNMP,
-    RIP,
-    DHCP
+enum Port {
+    DNS = 53,   /* Domain Name Service */
+    NBNS = 137, /* NetBIOS Name Service */
+    NBDS = 138, /* NetBIOS Datagram Service */
+    NBSS = 139  /* NetBIOS Session Service */
 };
 
 struct arp_info {
@@ -70,10 +69,16 @@ struct arp_info {
 };
 
 struct dns_info {
+    uint16_t id; /* A 16 bit identifier */
     unsigned int qr     : 1; /* 0 DNS query, 1 DNS response */
-    unsigned int opcode : 4;
-    unsigned int aa     : 1;
-    unsigned int rcode  : 4;
+    unsigned int opcode : 4; /* specifies the kind of query in the message */
+    unsigned int aa     : 1; /* authoritative answer */
+    unsigned int tc     : 1; /* truncation - specifies that the message was truncated */
+    unsigned int rd     : 1; /* recursion desired - if set it directs the name server
+                                to pursue the query recursively */
+    unsigned int ra     : 1; /* recursion avilable - denotes whether recursive query
+                                support is available in the name server */
+    unsigned int rcode  : 4; /* response code */
 
     /* question section */
     struct {
@@ -119,7 +124,8 @@ struct ip_info {
         struct {
             uint16_t src_port;
             uint16_t dst_port;
-            uint8_t utype; /* specifies the protocol carried in the UDP packet */
+            uint16_t len;
+            uint16_t utype; /* specifies the protocol carried in the UDP packet */
             // TODO: Should be made into a pointer
             struct dns_info dns;
         } udp;

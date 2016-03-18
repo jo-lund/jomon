@@ -21,9 +21,11 @@ static void handle_icmp(char *buffer);
 static void handle_igmp(char *buffer, struct ip_info *info);
 static void handle_tcp(char *buffer, struct ip_info *info);
 static void handle_udp(char *buffer, struct ip_info *info);
-static bool handle_dns(char *buffer, struct udphdr *udp, struct ip_info *info);
+static bool handle_dns(char *buffer, struct ip_info *info);
+static bool handle_nbns(char *buffer, struct ip_info *info);
 static void check_address(char *buffer);
 static int parse_dns_name(char *buffer, char *ptr, char name[]);
+static bool check_port(char *buffer, struct ip_info *info, uint16_t port);
 
 void read_packet(int sockfd)
 {
@@ -110,23 +112,12 @@ void handle_ethernet(char *buffer)
  * |HT |PT |S|S|OP | Ethernet  |  IP   | Ethernet  |  IP   |
  * |   |   | | |   |  Address  |Address|  Address  |Address|
  * +---+---+-+-+---+-----------+-------+-----------+-------+
- *   ^   ^  ^ ^  ^
- *   |   |  | |  |
- *   |   |  | |  +-- Operation: 1 = ARP request,  2 =  ARP reply
- *   |   |  | |                 3 = RARP request, 4 = RARP reply
- *   |   |  | |
- *   |   |  | +-- Protocol Size, number of bytes
- *   |   |  |     in the requested network address.
- *   |   |  |     IP has 4-byte addresses, so 0x04.
- *   |   |  |
- *   |   |  +-- Hardware Size, number of bytes in
- *   |   |      the specified hardware address.
- *   |   |      Ethernet has 6-byte addresses, so 0x06.
- *   |   |
- *   |   +-- Protocol Type, 0x0800 = IP.
- *   |
- *   +-- Hardware Type, Ethernet = 0x0001.
  *
+ * HT: Hardware Type
+ * PT: Protocol Type
+ * HS: Hardware Size, number of bytes in the specified hardware address
+ * PS: Protocol Size, number of bytes in the requested network address
+ * OP: Operation. 1 = ARP request, 2 = ARP reply, 3 = RARP request, 4 = RARP reply
  */
 void handle_arp(char *buffer)
 {
@@ -234,12 +225,29 @@ void handle_udp(char *buffer, struct ip_info *info)
     udp = (struct udphdr *) buffer;
     info->udp.src_port = ntohs(udp->source);
     info->udp.dst_port = ntohs(udp->dest);
-    if (handle_dns(buffer + UDP_HDRLEN, udp, info)) {
-        info->udp.utype = DNS;
-    } else {
-        info->udp.utype = UNKNOWN;
+    info->udp.len = ntohs(udp->len);
+
+    bool valid = false;
+    for (int i = 0; i < 2  && !valid; i++) {
+        info->udp.utype = *((uint16_t *) &info->udp + i);
+        valid = check_port(buffer + UDP_HDRLEN, info, info->udp.utype);
     }
+
 }
+
+bool check_port(char *buffer, struct ip_info *info, uint16_t port)
+{
+    switch (port) {
+    case DNS:
+        return handle_dns(buffer, info);
+    case NBNS:
+        return handle_nbns(buffer, info);
+    default:
+        break;
+    }
+    return false;
+}
+
 
 /*
  * Handle DNS messages. Will return false if not DNS.
@@ -291,7 +299,7 @@ void handle_udp(char *buffer, struct ip_info *info)
  *          resource records in the additional records section.
  *
  */
-bool handle_dns(char *buffer, struct udphdr *udp, struct ip_info *info)
+bool handle_dns(char *buffer, struct ip_info *info)
 {
     char *ptr = buffer;
 
@@ -300,12 +308,7 @@ bool handle_dns(char *buffer, struct udphdr *udp, struct ip_info *info)
      * DNS Messages carried by UDP are restricted to 512 bytes (not counting the 
      * UDP header.
      */
-    if (ntohs(udp->len < 20) || ntohs(udp->len) > 520) {
-        return false;
-    }
-
-    /* DNS primarily uses UDP on port number 53 to serve requests */
-    if (ntohs(udp->source) != 53 && ntohs(udp->dest) != 53) {
+    if (info->udp.len < 20 || info->udp.len > 520) {
         return false;
     }
 
@@ -313,12 +316,17 @@ bool handle_dns(char *buffer, struct udphdr *udp, struct ip_info *info)
     if ((ptr[4] << 8 | ptr[5]) != 0x1) { /* the QDCOUNT will in practice always be one */
         return false;
     }
+    info->udp.dns.id = ptr[0] << 8 | ptr[1];
+    info->udp.dns.tc = ptr[2] & 0x02;
+    info->udp.dns.rd = ptr[2] & 0x01;
+
     if (ptr[2] & 0x80) { /* DNS response */
         int ancount = ptr[6] << 8 | ptr[7];
 
         info->udp.dns.qr = 1;
-        info->udp.dns.aa = ptr[2] & 0x04; /* authoritative answer */
-        info->udp.dns.rcode = ptr[3] & 0x0f; /* response code */
+        info->udp.dns.aa = ptr[2] & 0x04;
+        info->udp.dns.ra = ptr[3] & 0x80U;
+        info->udp.dns.rcode = ptr[3] & 0x0f;
         ptr += DNS_HDRLEN;
 
         /* QUESTION section */
@@ -372,8 +380,6 @@ bool handle_dns(char *buffer, struct udphdr *udp, struct ip_info *info)
             return false;
         }
         info->udp.dns.qr = 0;
-
-        /* opcode - specifies the kind of query in the message */
         info->udp.dns.opcode = ptr[2] & 0x78;
         ptr += DNS_HDRLEN;
 
@@ -467,6 +473,7 @@ void handle_icmp(char *buffer)
  * - The Query Interval is the interval between general queries sent by the
  *   querier. Default: 125 seconds.
  *
+ * TODO: Handle IGMPv3 membership query
  */
 void handle_igmp(char *buffer, struct ip_info *info)
 {
@@ -474,8 +481,8 @@ void handle_igmp(char *buffer, struct ip_info *info)
 
     igmp = (struct igmphdr *) buffer;
     info->igmp.type = igmp->type;
-    info->igmp.max_resp_time = igmp->code; // routing code?
-    if (inet_ntop(AF_INET, &igmp->group, info->igmp.group_addr, 
+    info->igmp.max_resp_time = igmp->code;
+    if (inet_ntop(AF_INET, &igmp->group, info->igmp.group_addr,
                   INET_ADDRSTRLEN) == NULL) {
         err_msg("inet_ntop error");
     }
@@ -484,4 +491,9 @@ void handle_igmp(char *buffer, struct ip_info *info)
 void handle_tcp(char *buffer, struct ip_info *info)
 {
 
+}
+
+bool handle_nbns(char *buffer, struct ip_info *info)
+{
+    return false;
 }

@@ -201,7 +201,6 @@ void print(char *buf)
 void print_arp(struct arp_info *info)
 {
     char *buffer;
-    int n = 0;
 
     buffer = malloc(COLS + 1);
     switch (info->op) {
@@ -264,15 +263,13 @@ void print_ip(struct ip_info *info)
 void print_udp(struct ip_info *info, char *buf)
 {
     switch (info->udp.utype) {
-    case UNKNOWN:
-        PRINT_PROTOCOL(buf, "UDP");
-        PRINT_INFO(buf, 0, "Source port %d  Destination port %d", info->udp.src_port,
-                   info->udp.dst_port);
-        break;
     case DNS:
         print_dns(info, buf);
         break;
     default:
+        PRINT_PROTOCOL(buf, "UDP");
+        PRINT_INFO(buf, 0, "Source port: %d  Destination port: %d", info->udp.src_port,
+                   info->udp.dst_port);
         break;
     }
 }
@@ -381,7 +378,8 @@ void print_igmp(struct ip_info *info, char *buf)
     PRINT_PROTOCOL(buf, "IGMP");
     switch (info->igmp.type) {
     case IGMP_HOST_MEMBERSHIP_QUERY:
-        n += PRINT_INFO(buf, n, "Membership query  Max response time: %d seconds", info->igmp.max_resp_time / 10);
+        n += PRINT_INFO(buf, n, "Membership query  Max response time: %d seconds",
+                        info->igmp.max_resp_time / 10);
         break;
     case IGMP_HOST_MEMBERSHIP_REPORT:
         n += PRINT_INFO(buf, n, "Membership report");
@@ -410,7 +408,6 @@ void gethost(char *addr, char *host, int hostlen)
 {
     struct sockaddr_in saddr;
     struct in_addr naddr;
-    int err;
 
     inet_pton(AF_INET, addr, &naddr);
     memset(&saddr, 0, sizeof(struct sockaddr_in));

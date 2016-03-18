@@ -13,8 +13,9 @@ void end_ncurses();
 void get_input();
 
 /*
- * Create the default layout of the screen. It will make two windows. One
- * containing the header, and below that the main screen with packet information.
+ * Create the default layout of the screen. It will make three windows. One
+ * containing the header, another the main screen with packet information, and
+ * below that a statusbar.
  */
 void create_layout();
 
