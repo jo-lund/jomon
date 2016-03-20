@@ -9,19 +9,21 @@
 #define UDP_HDRLEN 8
 #define DNS_HDRLEN 12
 #define DNS_NAMELEN 255
+#define NBNS_NAMELEN 16
+#define MAX_NBNS_ADDR 8
 
 /* DNS opcodes */
-#define QUERY 0  /* standard query */
-#define IQUERY 1 /* inverse query */
-#define STATUS 2 /* server status request */
+#define DNS_QUERY 0  /* standard query */
+#define DNS_IQUERY 1 /* inverse query */
+#define DNS_STATUS 2 /* server status request */
 
 /* DNS response codes */
-#define NO_ERROR 0         /* no error condition */
-#define FORMAT_ERROR 1     /* name server was unable to interpret the query */
-#define SERVER_FAILURE 2   /* name server was unable to process the query */
-#define NAME_ERROR 3       /* the domain name referenced in the query does not exist */
-#define NOT_IMPLEMENTED 4  /* name server does not support the requested kind of query */
-#define REFUSED 5          /* name server refuses to perform the specified operation */
+#define DNS_NO_ERROR 0         /* no error condition */
+#define DNS_FORMAT_ERROR 1     /* name server was unable to interpret the query */
+#define DNS_SERVER_FAILURE 2   /* name server was unable to process the query */
+#define DNS_NAME_ERROR 3       /* the domain name referenced in the query does not exist */
+#define DNS_NOT_IMPLEMENTED 4  /* name server does not support the requested kind of query */
+#define DNS_REFUSED 5          /* name server refuses to perform the specified operation */
 
 /* DNS types */
 #define DNS_TYPE_A 1       /* a host address */
@@ -53,8 +55,42 @@
 #define DNS_CLASS_HS 4      /* Hesiod */
 #define DNS_QCLASS_STAR 255 /* any class */
 
+/* NBNS opcodes */
+#define NBNS_QUERY 0
+#define NBNS_REGISTRATION 5
+#define NBNS_RELEASE 6
+#define NBNS_WACK 7
+#define NBNS_REFRESH 8
+
+/* NBNS response codes */
+#define NBNS_FMT_ERR 0x1 /* Format Error. Request was invalidly formatted */
+#define NBNS_SRV_ERR 0x2 /* Server failure. Problem with NBNS, cannot process name */
+#define NBNS_IMP_ERR 0x4 /* Unsupported request error. Allowable only for challenging 
+                            NBNS when gets an Update type registration request */
+#define NBNS_RFS_ERR 0x5 /* Refused error. For policy reasons server will not
+                            register this name from this host */
+#define NBNS_ACT_ERR 0x6 /* Active error. Name is owned by another node */
+#define NBNS_CFT_ERR 0x7 /* Name in conflict error. A UNIQUE name is owned by more
+                            than one node */
+
+/* NBNS types */
+#define NBNS_A 0X0001 /* IP address Resource Record */
+#define NBNS_NS 0x0002 /* Name Server Resource Record */
+#define NBNS_NULL 0x000A /* NULL Resource Record */
+#define NBNS_NB 0x0020 /* NetBIOS general Name Service Resource Record */
+#define NBNS_NBSTAT 0x0021 /* NetBIOS NODE STATUS Resource Record */
+
+/* NBNS class */
+#define NBNS_IN 0x0001 /* Internet class */
+
 enum Port {
     DNS = 53,   /* Domain Name Service */
+    /*
+     * NetBIOS is used for SMB/CIFS-based Windows file sharing. SMB can now run
+     * Directly over TCP port 445, so NetBIOS is used for legacy support. Newer
+     * Windows system can use DNS for all the purposes for which NBNS was used
+     * previously.
+     */
     NBNS = 137, /* NetBIOS Name Service */
     NBDS = 138, /* NetBIOS Datagram Service */
     NBSS = 139  /* NetBIOS Session Service */
@@ -82,7 +118,7 @@ struct dns_info {
 
     /* question section */
     struct {
-        char qname[DNS_NAMELEN];
+        char qname[DNS_NAMELEN + 1];
         uint16_t qtype;  /* QTYPES are a superset of TYPES */
         uint16_t qclass; /* QCLASS values are a superset of CLASS values */
     } question;
@@ -90,7 +126,7 @@ struct dns_info {
     /* answer section */
     struct resource_record {
         /* a domain name to which the resource record pertains */
-        char name[DNS_NAMELEN];
+        char name[DNS_NAMELEN + 1];
         uint16_t type;
         uint16_t class;
         /*
@@ -106,13 +142,65 @@ struct dns_info {
         union {
             /* a domain name which specifies the canonical or primary name
                for the owner. The owner name is an alias. */
-            char cname[DNS_NAMELEN];
+            char cname[DNS_NAMELEN + 1];
             /* a domain name which points to some location in the domain
                name space. */
-            char ptrdname[DNS_NAMELEN];
+            char ptrdname[DNS_NAMELEN + 1];
             uint32_t address; /* a 32 bit internet address */
         } rdata;
     } answer;
+};
+
+struct nbns_info {
+    uint16_t id; /* transaction ID */
+    unsigned int r      : 1; /* 0 request, 1 response */
+    unsigned int opcode : 4; /* packet type code */
+    unsigned int aa     : 1; /* authoritative answer */
+    unsigned int tc     : 1; /* truncation */
+    unsigned int rd     : 1; /* recursion desired */
+    unsigned int ra     : 1; /* recursion avilable */
+    unsigned int broadcast : 1; /* 1 broadcast or multicast, 0 unicast */
+    unsigned int rcode  : 4;
+    unsigned int rr     : 1; /* set if it contains a reource record */
+
+    /* question section */
+    struct {
+        /* the compressed name representation of the NetBIOS name for the request */
+        char qname[NBNS_NAMELEN + 1];
+        uint16_t qtype;  /* the type of request */
+        uint16_t qclass; /* the class of the request */
+    } question;
+
+    /* answer/additional records section */
+    struct rr {
+        /* the compressed name representation of the NetBIOS name corresponding
+           to this resource record */
+        char rrname[NBNS_NAMELEN + 1];
+        uint16_t rrtype; /* resource record type code */
+        uint16_t rrclass; /* resource record class code */
+        uint32_t ttl; /* the Time To Live of the resource record's name */
+
+        /* rrtype and rrclass dependent field */
+        struct {
+            /*
+             * group name flag.
+             * 1 rrname is a group NetBIOS name
+             * 0 rrname is a unique NetBIOS name
+             */
+            unsigned int g : 1;
+            /*
+             * Owner Node Type:
+             *    00 = B node
+             *    01 = P node
+             *    10 = M node
+             *    11 = Reserved for future use
+             * For registration requests this is the claimant's type.
+             * For responses this is the actual owner's type.
+             */
+            unsigned int ont : 2;
+            uint32_t address[MAX_NBNS_ADDR]; /* IP address[es] of the name's owner */
+        } nb;
+    } record;
 };
 
 // TODO: Improve the structure of this
@@ -127,7 +215,10 @@ struct ip_info {
             uint16_t len;
             uint16_t utype; /* specifies the protocol carried in the UDP packet */
             // TODO: Should be made into a pointer
-            struct dns_info dns;
+            union {
+                struct dns_info dns;
+                struct nbns_info nbns;
+            };
         } udp;
         struct {
             uint16_t src_port;

@@ -7,6 +7,7 @@
 #include <netinet/udp.h>
 #include <sys/socket.h>
 #include <linux/igmp.h>
+#include <ctype.h>
 #include "packet.h"
 #include "misc.h"
 #include "error.h"
@@ -14,22 +15,31 @@
 
 #define DNS_PTR_LEN 2
 
-static void handle_ethernet(char *buffer);
-static void handle_arp(char *buffer);
-static void handle_ip(char *buffer);
-static void handle_icmp(char *buffer);
-static void handle_igmp(char *buffer, struct ip_info *info);
-static void handle_tcp(char *buffer, struct ip_info *info);
-static void handle_udp(char *buffer, struct ip_info *info);
-static bool handle_dns(char *buffer, struct ip_info *info);
-static bool handle_nbns(char *buffer, struct ip_info *info);
-static void check_address(char *buffer);
-static int parse_dns_name(char *buffer, char *ptr, char name[]);
-static bool check_port(char *buffer, struct ip_info *info, uint16_t port);
+static void handle_ethernet(unsigned char *buffer);
+static void handle_arp(unsigned char *buffer);
+static void handle_ip(unsigned char *buffer);
+static void handle_icmp(unsigned char *buffer);
+static void handle_igmp(unsigned char *buffer, struct ip_info *info);
+static void handle_tcp(unsigned char *buffer, struct ip_info *info);
+static void handle_udp(unsigned char *buffer, struct ip_info *info);
+static bool handle_dns(unsigned char *buffer, struct ip_info *info);
+static int parse_dns_name(unsigned char *buffer, unsigned char *ptr, char name[]);
+static bool handle_nbns(unsigned char *buffer, struct ip_info *info);
+static void decode_nbns_name(char *dest, char *src);
+static void parse_nbns_record(unsigned char *buffer, unsigned char *ptr, struct ip_info *info);
+static void check_address(unsigned char *buffer);
+static bool check_port(unsigned char *buffer, struct ip_info *info, uint16_t port);
+
+enum dns_section_count {
+    QDCOUNT,
+    ANCOUNT,
+    NSCOUNT,
+    ARCOUNT
+};
 
 void read_packet(int sockfd)
 {
-    char buffer[SNAPLEN];
+    unsigned char buffer[SNAPLEN];
     int n;
 
     memset(buffer, 0, SNAPLEN);
@@ -45,7 +55,7 @@ void read_packet(int sockfd)
     }
 }
 
-void check_address(char *buffer)
+void check_address(unsigned char *buffer)
 {
     char src[INET_ADDRSTRLEN];
     char dst[INET_ADDRSTRLEN];
@@ -81,7 +91,7 @@ void check_address(char *buffer)
  * +-----------+-----------+---+
  *
  */
-void handle_ethernet(char *buffer)
+void handle_ethernet(unsigned char *buffer)
 {
     struct ethhdr *eth_header;
 
@@ -119,7 +129,7 @@ void handle_ethernet(char *buffer)
  * PS: Protocol Size, number of bytes in the requested network address
  * OP: Operation. 1 = ARP request, 2 = ARP reply, 3 = RARP request, 4 = RARP reply
  */
-void handle_arp(char *buffer)
+void handle_arp(unsigned char *buffer)
 {
     struct ether_arp *arp_header;
     struct arp_info info;
@@ -173,7 +183,7 @@ void handle_arp(char *buffer)
  * Protocol: Defines the protocol used in the data portion of the packet.
  *
 */
-void handle_ip(char *buffer)
+void handle_ip(unsigned char *buffer)
 {
     struct iphdr *ip;
     struct ip_info info;
@@ -218,24 +228,23 @@ void handle_ip(char *buffer)
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  */
-void handle_udp(char *buffer, struct ip_info *info)
+void handle_udp(unsigned char *buffer, struct ip_info *info)
 {
     struct udphdr *udp;
+    bool valid = false;
 
     udp = (struct udphdr *) buffer;
     info->udp.src_port = ntohs(udp->source);
     info->udp.dst_port = ntohs(udp->dest);
     info->udp.len = ntohs(udp->len);
 
-    bool valid = false;
     for (int i = 0; i < 2 && !valid; i++) {
         info->udp.utype = *((uint16_t *) &info->udp + i);
         valid = check_port(buffer + UDP_HDRLEN, info, info->udp.utype);
     }
-
 }
 
-bool check_port(char *buffer, struct ip_info *info, uint16_t port)
+bool check_port(unsigned char *buffer, struct ip_info *info, uint16_t port)
 {
     switch (port) {
     case DNS:
@@ -297,10 +306,12 @@ bool check_port(char *buffer, struct ip_info *info, uint16_t port)
  * ARCOUNT: an unsigned 16 bit integer specifying the number of
  *          resource records in the additional records section.
  *
+ * TODO: Handle authority and additional records.
  */
-bool handle_dns(char *buffer, struct ip_info *info)
+bool handle_dns(unsigned char *buffer, struct ip_info *info)
 {
-    char *ptr = buffer;
+    unsigned char *ptr = buffer;
+    uint16_t section_count[4]; /* number of entries in the specific sections */
 
     /*
      * UDP header length (8 bytes) + DNS header length (12 bytes).
@@ -316,16 +327,18 @@ bool handle_dns(char *buffer, struct ip_info *info)
         return false;
     }
     info->udp.dns.id = ptr[0] << 8 | ptr[1];
+    info->udp.dns.qr = (ptr[2] & 0x80) >> 7;
+    info->udp.dns.opcode = ptr[2] & 0x78;
+    info->udp.dns.aa = ptr[2] & 0x04;
     info->udp.dns.tc = ptr[2] & 0x02;
     info->udp.dns.rd = ptr[2] & 0x01;
+    info->udp.dns.ra = ptr[3] & 0x80;
+    info->udp.dns.rcode = ptr[3] & 0x0f;
+    for (int i = 0, j = 4; i < 4; i++, j += 2) {
+        section_count[i] = ptr[j] << 8 | ptr[j + 1];
+    }
 
-    if (ptr[2] & 0x80) { /* DNS response */
-        int ancount = ptr[6] << 8 | ptr[7];
-
-        info->udp.dns.qr = 1;
-        info->udp.dns.aa = ptr[2] & 0x04;
-        info->udp.dns.ra = ptr[3] & 0x80U;
-        info->udp.dns.rcode = ptr[3] & 0x0f;
+    if (info->udp.dns.qr) { /* DNS response */
         ptr += DNS_HDRLEN;
 
         /* QUESTION section */
@@ -335,10 +348,10 @@ bool handle_dns(char *buffer, struct ip_info *info)
 
         /* ANSWER section */
         // TODO: Handle more than one answer
-        if (ancount) {
+        if (section_count[ANCOUNT]) {
             uint16_t rdlen;
 
-            ptr += 4;
+            ptr += 4; /* skip qtype and qclass */
             ptr += parse_dns_name(buffer, ptr, info->udp.dns.answer.name);
             info->udp.dns.answer.type = ptr[0] << 8 | ptr[1];
             info->udp.dns.answer.class = ptr[2] << 8 | ptr[3];
@@ -364,22 +377,20 @@ bool handle_dns(char *buffer, struct ip_info *info)
             }
         }
     } else { /* DNS query */
-        if ((ptr[3] & 0x0f) != 0) { /* RCODE will be zero */
+        if (info->udp.dns.rcode != 0) { /* RCODE will be zero */
             return false;
         }
         /* ANCOUNT and NSCOUNT values are zero */
-        if ((ptr[6] << 8 | ptr[7]) != 0 && (ptr[8] << 8 | ptr[9]) != 0) {
+        if (section_count[ANCOUNT] != 0 && section_count[NSCOUNT] != 0) {
             return false;
         }
         /*
          * ARCOUNT will typically be 0, 1, or 2, depending on whether EDNS0
          * (RFC 2671) or TSIG (RFC 2845) are used
          */
-        if ((ptr[10] << 8 | ptr[11]) > 2) {
+        if (section_count[ARCOUNT] > 2) {
             return false;
         }
-        info->udp.dns.qr = 0;
-        info->udp.dns.opcode = ptr[2] & 0x78;
         ptr += DNS_HDRLEN;
 
         /* QUESTION section */
@@ -391,18 +402,30 @@ bool handle_dns(char *buffer, struct ip_info *info)
     return true;
 }
 
-int parse_dns_name(char *buffer, char *ptr, char name[])
+/*
+ * A domain name in a message can be represented as:
+ *
+ * - a sequence of labels ending in a zero octet
+ * - a pointer
+ * - a sequence of labels ending with a pointer
+ *
+ * Each label is represented as a one octet length field followed by that number
+ * of octets. The high order two bits of the length field must be zero.
+ */
+int parse_dns_name(unsigned char *buffer, unsigned char *ptr, char name[])
 {
-    int n = 0; /* total length of name entry */
-    int label_length = ptr[0];
+    unsigned int n = 0; /* total length of name entry */
+    unsigned int label_length = ptr[0];
     bool compression = false;
+    unsigned int name_ptr_len = 0;
+    unsigned char *p = ptr;
 
     while (label_length) {
         /*
          * The max size of a label is 63 bytes, so a length with the first 2 bits
-         * containing 11 indicates that the label is a pointer to a prior
-         * occurrence of the same name. The pointer is an offset from the
-         * beginning of the DNS message, i.e. the ID field of the header.
+         * set to 11 indicates that the label is a pointer to a prior occurrence
+         * of the same name. The pointer is an offset from the beginnng of the
+         * DNS message, i.e. the ID field of the header.
          *
          * The pointer takes the form of a two octet sequence:
          *
@@ -410,31 +433,173 @@ int parse_dns_name(char *buffer, char *ptr, char name[])
          * | 1  1|                OFFSET                   |
          * +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
          */
-        // BUG: Correct this for the case where we have a sequence of labels
-        // ending with a pointer. Then it needs to return the total length of
-        // the name entry encountered so far + DNS_PTR_LEN
-        if (label_length & 0x1200) {
-            uint16_t offset = (ptr[0] & 0x3f) << 8 | ptr[1];
+        if (label_length & 0xc0) {
+            uint16_t offset = (p[0] & 0x3f) << 8 | p[1];
 
             compression = true;
             label_length = buffer[offset];
             memcpy(name + n, buffer + offset + 1, label_length);
-            ptr = buffer + offset; /* ptr will point to start of label */
+            p = buffer + offset; /* p will point to start of label */
+             /*
+              * Total length of the name entry encountered so far + ptr. If name
+              * is just a pointer, n will be 0
+              */
+            name_ptr_len = n + DNS_PTR_LEN;
         } else {
-            memcpy(name + n, ptr + 1, label_length);
+            memcpy(name + n, p + 1, label_length);
         }
         n += label_length;
         name[n++] = '.';
-        ptr += label_length + 1; /* skip length octet + rest of label */
-        label_length = ptr[0];
+        p += label_length + 1; /* skip length octet + rest of label */
+        label_length = p[0];
     }
     name[n - 1] = '\0';
     n++; /* add null label */
-    return compression ? DNS_PTR_LEN : n;
+    return compression ? name_ptr_len : n;
 }
 
+/*
+ * NBNS serves much of the same purpose as DNS, and the NetBIOS Name Service
+ * packets follow the packet structure defined in DNS.
+ *
+ * NBNS header:
+ *
+ *                      1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |         NAME_TRN_ID           | OPCODE  |   NM_FLAGS  | RCODE |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |          QDCOUNT              |           ANCOUNT             |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |          NSCOUNT              |           ARCOUNT             |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * NM_FLAGS:
+ *
+ *   0   1   2   3   4   5   6
+ * +---+---+---+---+---+---+---+
+ * |AA |TC |RD |RA | 0 | 0 | B |
+ * +---+---+---+---+---+---+---+
+ */
+bool handle_nbns(unsigned char *buffer, struct ip_info *info)
+{
+    /* max packet length for UDP is 576 */
+    if (info->udp.len > 576) {
+        return false;
+    }
+    unsigned char *ptr = buffer;
+    uint16_t section_count[4]; /* number of entries in the specific sections */
 
-void handle_icmp(char *buffer)
+    info->udp.nbns.id = ptr[0] << 8 | ptr[1];
+    info->udp.nbns.opcode = ptr[2] & 0x78;
+    info->udp.nbns.aa = ptr[2] & 0x04;
+    info->udp.nbns.tc = ptr[2] & 0x02;
+    info->udp.nbns.rd = ptr[2] & 0x01;
+    info->udp.nbns.ra = ptr[3] & 0x80U;
+    info->udp.nbns.broadcast = ptr[3] & 0x10;
+    info->udp.nbns.rcode = ptr[3] & 0x0f;
+    for (int i = 0, j = 4; i < 4; i++, j += 2) {
+        section_count[i] = ptr[j] << 8 | ptr[j + 1];
+    }
+
+    /*
+     * the first bit in the opcode field specifies whether it is a request (0)
+     * or a response (1)
+     */
+    info->udp.nbns.r = (ptr[2] & 0x80U) >> 7;
+    info->udp.nbns.rr = 0;
+
+    if (info->udp.nbns.r) { /* response */
+        if (section_count[QDCOUNT] != 0) { /* QDCOUNT is always 0 for responses */
+            return false;
+        }
+        ptr += DNS_HDRLEN;
+
+        /* ANSWER section */
+        if (section_count[ANCOUNT]) {
+            parse_nbns_record(buffer, ptr, info);
+        }
+    } else { /* request */
+        if (info->udp.nbns.aa) { /* authoritative answer is only to be set in responses */
+            return false;
+        }
+        if (section_count[QDCOUNT] == 0) { /* QDCOUNT must be non-zero for requests */
+            return false;
+        }
+        ptr += DNS_HDRLEN;
+
+        /* QUESTION section */
+        char name[DNS_NAMELEN];
+        ptr += parse_dns_name(buffer, ptr, name);
+        decode_nbns_name(info->udp.nbns.question.qname, name);
+        info->udp.nbns.question.qtype = ptr[0] << 8 | ptr[1];
+        info->udp.nbns.question.qclass = ptr[2] << 8 | ptr[3];
+
+        /* Additional records section */
+        if (section_count[ARCOUNT] > 0) {
+            ptr += 4; /* skip qtype and qclass */
+            parse_nbns_record(buffer, ptr, info);
+        }
+    }
+
+    return true;
+}
+
+/*
+ * The 16 byte NetBIOS name is mapped into a 32 byte wide field using a
+ * reversible, half-ASCII, biased encoding, cf. RFC 1001, First-level encoding
+ */
+void decode_nbns_name(char *dest, char *src)
+{
+    for (int i = 0; i < 16; i++) {
+        dest[i] = (src[2*i] - 'A') << 4 | (src[2*i + 1] - 'A');
+    }
+    // TODO: Fix this properly
+    int c = 14;
+    while (c && isspace(dest[c])) { /* remove trailing whitespaces */
+        c--;
+    }
+    dest[c + 1] = '\0';
+}
+
+/*
+ * Parse a NBNS resource record
+ */
+void parse_nbns_record(unsigned char *buffer, unsigned char *ptr, struct ip_info *info)
+{
+    int rdlen;
+    char name[DNS_NAMELEN];
+
+    info->udp.nbns.rr = 1;
+    ptr += parse_dns_name(buffer, ptr, name);
+    decode_nbns_name(info->udp.nbns.record.rrname, name);
+    info->udp.nbns.record.rrtype = ptr[0] << 8 | ptr[1];
+    info->udp.nbns.record.rrclass = ptr[2] << 8 | ptr[3];
+    info->udp.nbns.record.ttl = ptr[4] << 24 | ptr[5] << 16 | ptr[6] << 8 | ptr[7];
+    rdlen = ptr[8] << 8 | ptr[9];
+    ptr += 10; /* skip to rdata field */
+
+    // TODO: Support more types
+    switch (info->udp.nbns.record.rrtype) {
+    case NBNS_NB:
+        if (rdlen >= 6 && rdlen < MAX_NBNS_ADDR * 4) {
+            info->udp.nbns.record.nb.g = ptr[0] & 0x80U;
+            info->udp.nbns.record.nb.ont = ptr[0] & 0x60;
+            rdlen -= 2;
+            ptr += 2;
+            for (int i = 0, j = 0; j < rdlen; i++, j += 4) {
+                info->udp.nbns.record.nb.address[i] =
+                    ptr[j] << 24 | ptr[j + 1] << 16 | ptr[j + 2] << 8 | ptr[j + 3];
+            }
+        }
+        break;
+    case NBNS_NULL:
+    default:
+        break;
+    }
+}
+
+void handle_icmp(unsigned char *buffer)
 {
 
 }
@@ -474,7 +639,7 @@ void handle_icmp(char *buffer)
  *
  * TODO: Handle IGMPv3 membership query
  */
-void handle_igmp(char *buffer, struct ip_info *info)
+void handle_igmp(unsigned char *buffer, struct ip_info *info)
 {
     struct igmphdr *igmp;
 
@@ -487,12 +652,7 @@ void handle_igmp(char *buffer, struct ip_info *info)
     }
 }
 
-void handle_tcp(char *buffer, struct ip_info *info)
+void handle_tcp(unsigned char *buffer, struct ip_info *info)
 {
 
-}
-
-bool handle_nbns(char *buffer, struct ip_info *info)
-{
-    return false;
 }
