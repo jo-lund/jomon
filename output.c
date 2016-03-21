@@ -292,8 +292,8 @@ void print_dns(struct ip_info *info, char *buf)
         case DNS_QUERY:
             n += PRINT_INFO(buf, n, "Standard query: ");
             n += print_dns_type(info, buf, info->udp.dns.question.qtype, n);
+            n += PRINT_INFO(buf, n, " %s", info->udp.dns.question.qname);
             n += print_dns_class(buf, info->udp.dns.question.qclass, n);
-            PRINT_INFO(buf, n, " QNAME = %s", info->udp.dns.question.qname);
             break;
         case DNS_IQUERY:
             PRINT_INFO(buf, n, "Inverse query");
@@ -324,8 +324,8 @@ void print_dns(struct ip_info *info, char *buf)
             n += PRINT_INFO(buf, n, "Response: ");
             break;
         }
-        n += print_dns_type(info, buf, info->udp.dns.answer.type, n);
-        print_dns_class(buf, info->udp.dns.answer.class, n);
+        n += print_dns_type(info, buf, info->udp.dns.record[0].type, n);
+        print_dns_class(buf, info->udp.dns.record[0].class, n);
     }
 }
 
@@ -336,10 +336,10 @@ int print_dns_type(struct ip_info *info, char *buf, uint16_t type, int n)
     switch (type) {
     case DNS_TYPE_A:
     {
-        num_chars += PRINT_INFO(buf, n, "TYPE = A");
+        num_chars += PRINT_INFO(buf, n, "A");
         if (info->udp.dns.qr) {
             char addr[INET_ADDRSTRLEN];
-            uint32_t haddr = htonl(info->udp.dns.answer.rdata.address);
+            uint32_t haddr = htonl(info->udp.dns.record[0].rdata.address);
 
             if (inet_ntop(AF_INET, (struct in_addr *) &haddr, addr, sizeof(addr)) == NULL) {
                 err_msg("inet_ntop error");
@@ -349,15 +349,15 @@ int print_dns_type(struct ip_info *info, char *buf, uint16_t type, int n)
         break;
     }
     case DNS_TYPE_CNAME:
-        num_chars += PRINT_INFO(buf, n, "TYPE = CNAME");
+        num_chars += PRINT_INFO(buf, n, "CNAME");
         if (info->udp.dns.qr) {
-            num_chars += PRINT_INFO(buf, n + num_chars, " %s", info->udp.dns.answer.rdata.cname);
+            num_chars += PRINT_INFO(buf, n + num_chars, " %s", info->udp.dns.record[0].rdata.cname);
         }
         break;
     case DNS_TYPE_PTR:
-        num_chars += PRINT_INFO(buf, n, "TYPE = PTR");
+        num_chars += PRINT_INFO(buf, n, "PTR");
         if (info->udp.dns.qr) {
-            num_chars += PRINT_INFO(buf, n + num_chars, " %s", info->udp.dns.answer.rdata.ptrdname);
+            num_chars += PRINT_INFO(buf, n + num_chars, " %s", info->udp.dns.record[0].rdata.ptrdname);
         }
         break;
     default:
@@ -373,16 +373,16 @@ int print_dns_class(char *buf, uint16_t class, int n)
 
     switch (class) {
     case DNS_CLASS_IN:
-        num_chars = PRINT_INFO(buf, n, " CLASS = IN");
+        num_chars = PRINT_INFO(buf, n, " IN");
         break;
     case DNS_CLASS_CS:
-        num_chars = PRINT_INFO(buf, n, " CLASS = CS");
+        num_chars = PRINT_INFO(buf, n, " CS");
         break;
     case DNS_CLASS_CH:
-        num_chars = PRINT_INFO(buf, n, " CLASS = CH");
+        num_chars = PRINT_INFO(buf, n, " CH");
         break;
     case DNS_CLASS_HS:
-        num_chars = PRINT_INFO(buf, n, " CLASS = HS");
+        num_chars = PRINT_INFO(buf, n, " HS");
         break;
     default:
         break;
@@ -428,8 +428,8 @@ void print_nbns(struct ip_info *info, char *buf)
         }
         n += print_nbns_opcode(buf, info->udp.nbns.opcode, n);
         n += PRINT_INFO(buf, n, " response:");
-        n += print_nbns_type(buf, info->udp.nbns.record.rrtype, n);
-        n += PRINT_INFO(buf, n, " %s", info->udp.nbns.record.rrname);
+        n += print_nbns_type(buf, info->udp.nbns.record[0].rrtype, n);
+        n += PRINT_INFO(buf, n, " %s", info->udp.nbns.record[0].rrname);
         print_nbns_record(info, buf, n);
     }
 }
@@ -477,18 +477,43 @@ int print_nbns_record(struct ip_info *info, char *buf, int n)
 {
     int num_chars = 0;
 
-    if (info->udp.nbns.record.nb.g) {
-        num_chars += PRINT_INFO(buf, n, "  Group NetBIOS name");
-    } else {
-        num_chars += PRINT_INFO(buf, n, "  Unique NetBIOS name");
-    }
-    char addr[INET_ADDRSTRLEN];
-    uint32_t haddr = htonl(info->udp.nbns.record.nb.address[0]);
+    switch (info->udp.nbns.record[0].rrtype) {
+    case NBNS_NB:
+    {
+        if (info->udp.nbns.record[0].rdata.nb.g) {
+            num_chars += PRINT_INFO(buf, n, "  Group NetBIOS name");
+        } else {
+            num_chars += PRINT_INFO(buf, n, "  Unique NetBIOS name");
+        }
+        char addr[INET_ADDRSTRLEN];
+        uint32_t haddr = htonl(info->udp.nbns.record[0].rdata.nb.address[0]);
 
-    if (inet_ntop(AF_INET, (struct in_addr *) &haddr, addr, sizeof(addr)) == NULL) {
-        err_msg("inet_ntop error");
+        if (inet_ntop(AF_INET, (struct in_addr *) &haddr, addr, sizeof(addr)) == NULL) {
+            err_msg("inet_ntop error");
+        }
+        num_chars += PRINT_INFO(buf, n + num_chars, " %s", addr);
+        break;
     }
-    num_chars += PRINT_INFO(buf, n + num_chars, "  %s", addr);
+    case NBNS_NS:
+        num_chars += PRINT_INFO(buf, n, " NSD Name: %s", info->udp.nbns.record[0].rdata.nsdname);
+        break;
+    case NBNS_A:
+    {
+        char addr[INET_ADDRSTRLEN];
+        uint32_t haddr = htonl(info->udp.nbns.record[0].rdata.nsdipaddr);
+
+        if (inet_ntop(AF_INET, (struct in_addr *) &haddr, addr, sizeof(addr)) == NULL) {
+            err_msg("inet_ntop error");
+        }
+        num_chars += PRINT_INFO(buf, n, " NSD IP address: %s", addr);
+        break;
+    }
+    case NBNS_NBSTAT:
+        num_chars += PRINT_INFO(buf, n, "NBSTAT");
+        break;
+    default:
+        break;
+    }
     return num_chars;
 }
 

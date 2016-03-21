@@ -8,8 +8,11 @@
 
 #define UDP_HDRLEN 8
 #define DNS_HDRLEN 12
-#define DNS_NAMELEN 255
+#define DNS_NAMELEN 253
+#define MAX_DNS_RECORDS 14
 #define NBNS_NAMELEN 16
+#define MAX_NBNS_RECORDS 14
+#define MAX_NBNS_NAMES 8
 #define MAX_NBNS_ADDR 8
 
 /* DNS opcodes */
@@ -42,6 +45,7 @@
 #define DNS_TYPE_MINFO 14  /* mailbox or mail list information */
 #define DNS_TYPE_MX 15     /* mail exchange */
 #define DNS_TYPE_TXT 16    /* text strings */
+#define DNS_TYPE_AAAA 28   /* a host IPv6 address */
 #define DNS_QTYPE_AXFR 252   /* a request for a transfer of an entire zone */
 #define DNS_QTYPE_MAILB 253  /* a request for mailbox-related records (MB, MG or MR) */
 #define DNS_QTYPE_MAILA 254  /* a request for mail agent RRs (Obsolete - see MX) */
@@ -148,7 +152,7 @@ struct dns_info {
             char ptrdname[DNS_NAMELEN + 1];
             uint32_t address; /* a 32 bit internet address */
         } rdata;
-    } answer;
+    } record[MAX_DNS_RECORDS];
 };
 
 struct nbns_info {
@@ -181,26 +185,34 @@ struct nbns_info {
         uint32_t ttl; /* the Time To Live of the resource record's name */
 
         /* rrtype and rrclass dependent field */
-        struct {
-            /*
-             * group name flag.
-             * 1 rrname is a group NetBIOS name
-             * 0 rrname is a unique NetBIOS name
-             */
-            unsigned int g : 1;
-            /*
-             * Owner Node Type:
-             *    00 = B node
-             *    01 = P node
-             *    10 = M node
-             *    11 = Reserved for future use
-             * For registration requests this is the claimant's type.
-             * For responses this is the actual owner's type.
-             */
-            unsigned int ont : 2;
-            uint32_t address[MAX_NBNS_ADDR]; /* IP address[es] of the name's owner */
-        } nb;
-    } record;
+        union {
+            struct {
+                /*
+                 * group name flag.
+                 * 1 rrname is a group NetBIOS name
+                 * 0 rrname is a unique NetBIOS name
+                 */
+                unsigned int g : 1;
+                /*
+                 * Owner Node Type:
+                 *    00 = B node
+                 *    01 = P node
+                 *    10 = M node
+                 *    11 = Reserved for future use
+                 * For registration requests this is the claimant's type.
+                 * For responses this is the actual owner's type.
+                 */
+                unsigned int ont : 2;
+                uint32_t address[MAX_NBNS_ADDR]; /* IP address[es] of the name's owner */
+            } nb;
+            struct {
+                char node_name[NBNS_NAMELEN + 1];
+                uint16_t name_flags;
+            } nbstat[MAX_NBNS_NAMES];
+            char nsdname[NBNS_NAMELEN + 1];
+            uint32_t nsdipaddr;
+        } rdata;
+    } record[MAX_NBNS_RECORDS];
 };
 
 // TODO: Improve the structure of this
