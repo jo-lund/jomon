@@ -241,6 +241,17 @@ struct ip_info {
             uint8_t max_resp_time;
             char group_addr[INET_ADDRSTRLEN];
         } igmp;
+        struct {
+            uint8_t type;
+            uint8_t code;
+            union {
+                struct { /* used in echo request/reply messages */
+                    uint16_t id;
+                    uint16_t seq_num;
+                } echo;
+                uint32_t gateway; /* gateway address, used in redirect messages */
+            };
+        } icmp;
     };
 };
 

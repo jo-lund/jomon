@@ -3,6 +3,7 @@
 #include <string.h>
 #include <netdb.h>
 #include <linux/igmp.h>
+#include <netinet/ip_icmp.h>
 #include "misc.h"
 #include "output.h"
 #include "list.h"
@@ -49,6 +50,7 @@ static void scroll_window();
 static void print(char *buf);
 static void gethost(char *addr, char *host, int hostlen);
 static void print_udp(struct ip_info *info, char *buf);
+static void print_icmp(struct ip_info *info, char *buf);
 static void print_igmp(struct ip_info *info, char *buf);
 static void print_dns(struct ip_info *info, char *buf);
 static int print_dns_class(char *buf, uint16_t class, int n);
@@ -248,7 +250,7 @@ void print_ip(struct ip_info *info)
     }
     switch (info->protocol) {
     case IPPROTO_ICMP:
-        PRINT_PROTOCOL(buffer, "ICMP");
+        print_icmp(info, buffer);
         break;
     case IPPROTO_IGMP:
         print_igmp(info, buffer);
@@ -515,6 +517,24 @@ int print_nbns_record(struct ip_info *info, char *buf, int n)
         break;
     }
     return num_chars;
+}
+
+void print_icmp(struct ip_info *info, char *buf)
+{
+    int n = 0;
+
+    PRINT_PROTOCOL(buf, "ICMP");
+    switch (info->icmp.type) {
+    case ICMP_ECHOREPLY:
+        PRINT_INFO(buf, n, "Echo reply:   id = 0x%x  seq = %d", info->icmp.echo.id, info->icmp.echo.seq_num);
+        break;
+    case ICMP_ECHO:
+        PRINT_INFO(buf, n, "Echo request: id = 0x%x  seq = %d", info->icmp.echo.id, info->icmp.echo.seq_num);
+        break;
+    default:
+        PRINT_INFO(buf, n, "Type: %d", info->icmp.type);
+        break;
+    }
 }
 
 void print_igmp(struct ip_info *info, char *buf)

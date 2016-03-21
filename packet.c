@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <linux/igmp.h>
 #include <ctype.h>
+#include <netinet/ip_icmp.h>
 #include "packet.h"
 #include "misc.h"
 #include "error.h"
@@ -18,7 +19,7 @@
 static void handle_ethernet(unsigned char *buffer);
 static void handle_arp(unsigned char *buffer);
 static void handle_ip(unsigned char *buffer);
-static void handle_icmp(unsigned char *buffer);
+static void handle_icmp(unsigned char *buffer, struct ip_info *info);
 static void handle_igmp(unsigned char *buffer, struct ip_info *info);
 static void handle_tcp(unsigned char *buffer, struct ip_info *info);
 static void handle_udp(unsigned char *buffer, struct ip_info *info);
@@ -202,7 +203,7 @@ void handle_ip(unsigned char *buffer)
 
     switch (ip->protocol) {
     case IPPROTO_ICMP:
-        handle_icmp(buffer + header_len);
+        handle_icmp(buffer + header_len, &info);
         break;
     case IPPROTO_IGMP:
         handle_igmp(buffer + header_len, &info);
@@ -649,9 +650,32 @@ void parse_nbns_record(int i, unsigned char *buffer, unsigned char *ptr, struct 
     }
 }
 
-void handle_icmp(unsigned char *buffer)
-{
+/*
+ * ICMP message format:
+ *
+ * 0                   1                   2                   3
+ * 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |     Type      |     Code      |          Checksum             |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |                             unused                            |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |      Internet Header + 64 bits of Original Data Datagram      |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * The ICMP header is 8 bytes.
+ */
 
+void handle_icmp(unsigned char *buffer, struct ip_info *info)
+{
+    struct icmphdr *icmp = (struct icmphdr *) buffer;
+
+    info->icmp.type = icmp->type;
+    info->icmp.code = icmp->code;
+    if (icmp->type == ICMP_ECHOREPLY || icmp->type == ICMP_ECHO) {
+        info->icmp.echo.id = ntohs(icmp->un.echo.id);
+        info->icmp.echo.seq_num = ntohs(icmp->un.echo.sequence);
+    }
 }
 
 /*
