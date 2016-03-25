@@ -4,6 +4,7 @@
 #include <netdb.h>
 #include <linux/igmp.h>
 #include <netinet/ip_icmp.h>
+#include <signal.h>
 #include "misc.h"
 #include "output.h"
 #include "list.h"
@@ -131,6 +132,7 @@ void get_input()
         }
         break;
     case 'q':
+        kill(0, SIGINT);
         break;
     case 'n':
         numeric = !numeric;

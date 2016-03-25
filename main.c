@@ -28,6 +28,7 @@
 #endif
 #include <poll.h>
 #include <fcntl.h>
+#include <errno.h>
 #include "misc.h"
 #include "error.h"
 #include "interface.h"
@@ -42,18 +43,20 @@ int verbose;
 int promiscuous;
 int capture;
 static volatile sig_atomic_t signal_flag = 0;
+static int fd; /* packet socket file descriptor */
 
 static void print_help(char *prg);
 static int init();
 static void run();
 static void sig_alarm(int signo);
+static void sig_int(int signo);
+static void finish();
 static void calculate_rate();
 
 int main(int argc, char **argv)
 {
     char *prg_name = argv[0];
     int opt;
-    int fd;
     int n;
 
     capture = 0;
@@ -91,10 +94,7 @@ int main(int argc, char **argv)
     init_ncurses();
     create_layout();
     run(fd);
-    end_ncurses();
-    free(device);
-    free(local_addr);
-    close(fd);
+    finish();
 #endif
 }
 
@@ -115,12 +115,26 @@ void sig_alarm(int signo)
     signal_flag = 1;
 }
 
+void sig_int(int signo)
+{
+    finish();
+}
+
+void finish()
+{
+    end_ncurses();
+    free(device);
+    free(local_addr);
+    close(fd);
+    exit(0);
+}
+
 /* Initialize device and prepare for reading */
 int init()
 {
     int sockfd, flag;
     struct sockaddr_ll ll_addr; /* device independent physical layer address */
-    struct sigaction act;
+    struct sigaction act, acti;
 
     if (!device) {
         if (!(device = get_default_interface())) {
@@ -160,11 +174,16 @@ int init()
         err_sys("bind error");
     }
 
-    /* set up an alarm signal handler */
+    /* set up an alarm and interrupt signal handler */
     act.sa_handler = sig_alarm;
     sigemptyset(&act.sa_mask);
     act.sa_flags = SA_RESTART;
     if (sigaction(SIGALRM, &act, NULL) == -1) {
+        err_sys("sigaction error");
+    }
+    acti.sa_handler = sig_int;
+    sigemptyset(&acti.sa_mask);
+    if (sigaction(SIGINT, &acti, NULL) == -1) {
         err_sys("sigaction error");
     }
 
@@ -190,6 +209,7 @@ void run(int fd)
             calculate_rate();
         }
         if (poll(fds, 2, -1) == -1) {
+            if (errno == EINTR) continue;
             err_sys("poll error");
         }
         if (fds[0].revents & POLLIN) {

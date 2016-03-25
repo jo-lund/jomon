@@ -10,6 +10,7 @@ void init_ncurses();
 /* end ncurses mode */
 void end_ncurses();
 
+/* get input from user */
 void get_input();
 
 /*
