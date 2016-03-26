@@ -10,23 +10,19 @@ typedef struct node {
 static node_t *head = NULL;
 static node_t *tail = NULL;
 
-#define INIT_NODE(n) n = malloc(sizeof(node_t)); \
-    n->data = data;                              \
-    n->next = NULL;                              \
-    n->prev = NULL;
+#define INIT_NODE(n)                             \
+    do {                                         \
+        n = malloc(sizeof(node_t));              \
+        n->data = data;                          \
+        n->next = NULL;                          \
+        n->prev = NULL;                          \
+    } while (0);
 
 void list_push_back(void *data)
 {
     if (!head) {
         INIT_NODE(head);
         tail = head;
-    } else if (head == tail) {
-        node_t *node;
-
-        INIT_NODE(node);
-        head->next = node;
-        node->prev = head;
-        tail = node;
     } else {
         node_t *node;
 
@@ -106,6 +102,16 @@ inline const node_t *list_begin()
 inline const node_t *list_end()
 {
     return tail;
+}
+
+const node_t *list_ith(int index)
+{
+    node_t *n = head;
+
+    for (int i = 0; i < index && n; i++) {
+        n = n->next;
+    }
+    return n;
 }
 
 inline const node_t *list_prev(const node_t *n)
