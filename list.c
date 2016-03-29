@@ -9,6 +9,7 @@ typedef struct node {
 
 static node_t *head = NULL;
 static node_t *tail = NULL;
+static int size = 0;
 
 #define INIT_NODE(n)                             \
     do {                                         \
@@ -31,6 +32,7 @@ void list_push_back(void *data)
         node->prev = tail;
         tail = node;
     }
+    size++;
 }
 
 void list_push_front(void *data)
@@ -46,6 +48,7 @@ void list_push_front(void *data)
         node->next = head;
         head = node;
     }
+    size++;
 }
 
 void list_pop_back()
@@ -56,6 +59,7 @@ void list_pop_back()
         tail = t->prev;
         free(t->data);
         free(t);
+        size--;
     }
 }
 
@@ -67,6 +71,7 @@ void list_pop_front()
         head = h->next;
         free(h->data);
         free(h);
+        size--;
     }
 }
 
@@ -130,6 +135,11 @@ inline const node_t *list_next(const node_t *n)
     return NULL;
 }
 
+inline int list_size()
+{
+    return size;
+}
+
 void list_clear()
 {
     node_t *n = head;
@@ -141,4 +151,5 @@ void list_clear()
         free(tmp->data);
         free(tmp);
     }
+    size = 0;
 }

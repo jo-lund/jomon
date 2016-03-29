@@ -42,4 +42,7 @@ const node_t *list_next(const node_t *n);
 /* get the data stored in node n */
 const void *list_data(const node_t *n);
 
+/* return the number of elements */
+int list_size();
+
 #endif
