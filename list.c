@@ -151,5 +151,7 @@ void list_clear()
         free(tmp->data);
         free(tmp);
     }
+    head = NULL;
+    tail = NULL;
     size = 0;
 }
