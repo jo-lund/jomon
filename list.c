@@ -57,6 +57,7 @@ void list_pop_back()
         node_t *t = tail;
 
         tail = t->prev;
+        tail->next = NULL;
         free(t->data);
         free(t);
         size--;
@@ -69,6 +70,7 @@ void list_pop_front()
         node_t *h = head;
 
         head = h->next;
+        head->prev = NULL;
         free(h->data);
         free(h);
         size--;
