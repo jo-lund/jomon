@@ -34,6 +34,7 @@
 #include "interface.h"
 #include "output.h"
 #include "packet.h"
+#include "vector.h"
 
 linkdef rx; /* data received */
 linkdef tx; /* data transmitted */
@@ -123,6 +124,7 @@ void sig_int(int signo)
 void finish()
 {
     end_ncurses();
+    vector_clear();
     free(device);
     free(local_addr);
     close(fd);
@@ -190,10 +192,13 @@ int init()
     local_addr = malloc(sizeof (struct sockaddr_in));
     get_local_address(device, (struct sockaddr *) local_addr);
 
+    /* Initialize table to store packets */
+    vector_init(1000);
+
     return sockfd;
 }
 
-/* The main run loop */
+/* The main event loop */
 void run(int fd)
 {
     struct pollfd fds[] = {
@@ -213,7 +218,18 @@ void run(int fd)
             err_sys("poll error");
         }
         if (fds[0].revents & POLLIN) {
-            read_packet(fd);
+            unsigned char buffer[SNAPLEN];
+            unsigned char *data;
+            size_t n;
+            struct packet p;
+
+            n = read_packet(fd, buffer, SNAPLEN, &p);
+            if (n > ETHERNET_HDRLEN) {
+                data = (unsigned char *) malloc(n);
+                memcpy(data, buffer, n);
+                vector_push_back(data);
+                print_packet(&p);
+            }
         }
         if (fds[1].revents & POLLIN) {
             get_input();

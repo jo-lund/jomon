@@ -9,6 +9,8 @@
 #include "output.h"
 #include "list.h"
 #include "error.h"
+#include "util.h"
+#include "vector.h"
 
 #define HEADER_HEIGHT 4
 #define STATUS_HEIGHT 1
@@ -33,23 +35,22 @@
         PRINT_INFO(buffer, 0, fmt, ## __VA_ARGS__);  \
     } while (0)
 
-typedef node_t line;
-
 static WINDOW *wheader;
 static WINDOW *wmain;
 static WINDOW *wstatus;
+static WINDOW *wsub_main; /* sub window of wmain */
+
 static int outy = 0;
 static int interactive = 0;
 static int numeric = 1;
-
-/* keep a pointer to the top and bottom line */
-static const line *top;
-static const line *bottom;
+static int screen_line = 0;
 
 static void print_header();
 static void scroll_window();
-static void print(char *buf);
 static void gethost(char *addr, char *host, int hostlen);
+static void print(char *buf, int key);
+static void print_arp(char *buffer, struct arp_info *info);
+static void print_ip(char *buffer, struct ip_info *info);
 static void print_udp(struct ip_info *info, char *buf);
 static void print_icmp(struct ip_info *info, char *buf);
 static void print_igmp(struct ip_info *info, char *buf);
@@ -61,14 +62,19 @@ static int print_nbns_opcode(char *buf, uint8_t opcode, int n);
 static int print_nbns_type(char *buf, uint8_t type, int n);
 static int print_nbns_record(struct ip_info *info, char *buf, int n);
 
+static char *alloc_print_buffer(struct packet *p, int size);
+static void print_information(int lineno, bool select);
+static void print_arp_verbose(int lineno);
+
 void init_ncurses()
 {
     initscr(); /* initialize curses mode */
     cbreak(); /* disable line buffering */
     noecho();
     curs_set(0); /* make the cursor invisible */
-    //use_default_colors();
-    //start_color();
+    use_default_colors();
+    start_color();
+    init_pair(1, COLOR_WHITE, COLOR_BLUE);
 }
 
 void end_ncurses()
@@ -86,49 +92,72 @@ void create_layout()
     keypad(wmain, TRUE);
     print_header();
     scrollok(wmain, TRUE); /* enable scrolling */
-    wsetscrreg(wmain, 0, LINES - HEADER_HEIGHT);
 }
 
 /* scroll the window if necessary */
 void scroll_window()
 {
-    if (!top) top = list_begin();
-
     if (outy >= LINES - HEADER_HEIGHT - STATUS_HEIGHT) {
         outy = LINES - HEADER_HEIGHT - STATUS_HEIGHT - 1;
         scroll(wmain);
-        top = list_next(top);
-        bottom = list_end();
+        list_pop_front(); /* list will always contain the lines on the visible screen */
     }
 }
 
 void get_input()
 {
     int c = 0;
-    const char *buffer;
+    static int selection_line = 0;
+    static bool selected = false;
 
     c = wgetch(wmain);
     switch (c) {
     case 'i':
         if (interactive) {
             if (outy >= LINES - HEADER_HEIGHT - STATUS_HEIGHT) {
-                const line *n = list_end();
+                struct packet p;
+                int y, x;
+                unsigned char *buf;
+                int c = vector_size() - 1;
 
+                getmaxyx(wmain, y, x);
                 werase(wmain);
-                for (int i = LINES - HEADER_HEIGHT - STATUS_HEIGHT - 1; i >= 0 && n; i--) {
-                    mvwprintw(wmain, i, 0, "%s", list_data(n));
-                    n = list_prev(n);
+                list_clear();
+
+                /* print the new lines stored in vector from bottom to top of screen */
+                for (int i = y - 1; i >= 0; i--, c--) {
+                    char *buffer;
+
+                    buf = vector_get_data(c);
+                    handle_ethernet(buf, &p); /* deserialize packet */
+                    buffer = alloc_print_buffer(&p, x + 1);
+                    mvwprintw(wmain, i, 0, "%s", buffer);
+                    list_push_front(buffer);
                 }
-                top = n;
-                wrefresh(wmain);
             }
             interactive = 0;
             werase(wstatus);
             wrefresh(wstatus);
+
+            /* remove selection bar */
+            mvwchgat(wmain, screen_line, 0, -1, A_NORMAL, 0, NULL);
+            wrefresh(wmain);
+            screen_line = 0;
         } else {
+            int y, x;
+            int lineno;
+
             interactive = 1;
             mvwprintw(wstatus, 0, 0, "(interactive)");
             wrefresh(wstatus);
+            getmaxyx(wmain, y, x);
+            lineno = vector_size() - 1; /* bottom line number */
+            selection_line = lineno - (y - 1); /* top line on screen */
+            if (selection_line < 0) selection_line = 0;
+
+            /* print selection bar */
+            mvwchgat(wmain, 0, 0, -1, A_NORMAL, 1, NULL);
+            wrefresh(wmain);
         }
         break;
     case 'q':
@@ -138,25 +167,121 @@ void get_input()
         numeric = !numeric;
         break;
     case KEY_UP:
-        if (list_prev(top)) {
-            top = list_prev(top);
-            bottom = list_prev(bottom);
+    {
+        int x, y;
+
+        getmaxyx(wmain, y, x);
+
+        if (selection_line > 0 && screen_line == 0) {
+            unsigned char *buf;
+            struct packet p;
+            char *buffer;
+
+            selection_line--;
+            list_pop_back();
             wscrl(wmain, -1);
-            buffer = list_data(top);
-            mvwprintw(wmain, 0, 0, buffer);
-            wrefresh(wmain);
+            buf = vector_get_data(selection_line);
+            handle_ethernet(buf, &p); /* deserialize packet */
+            buffer = alloc_print_buffer(&p, x + 1);
+            print(buffer, KEY_UP);
+
+            /* deselect previous line and highlight next at top */
+            mvwchgat(wmain, 1, 0, -1, A_NORMAL, 0, NULL);
+            mvwchgat(wmain, 0, 0, -1, A_NORMAL, 1, NULL);
+        } else if (selection_line > 0) {
+            /* deselect previous line and highlight next */
+            mvwchgat(wmain, screen_line, 0, -1, A_NORMAL, 0, NULL);
+            mvwchgat(wmain, --screen_line, 0, -1, A_NORMAL, 1, NULL);
+            selection_line--;
         }
+        wrefresh(wmain);
         break;
+    }
     case KEY_DOWN:
-        if (list_next(bottom)) {
-            bottom = list_next(bottom);
-            top = list_next(top);
-            wscrl(wmain, 1);
-            buffer = list_data(bottom);
-            mvwprintw(wmain, LINES - HEADER_HEIGHT - STATUS_HEIGHT - 1, 0, buffer);
-            wrefresh(wmain);
+    {
+        int x, y;
+
+        getmaxyx(wmain, y, x);
+
+        /* scroll screen if the selection bar is at the bottom */
+        if (screen_line == y - 1) {
+            if (selection_line + 1 > vector_size()) return;
+            unsigned char *buf = vector_get_data(++selection_line);
+            struct packet p;
+
+            if (buf) {
+                char *buffer;
+
+                list_pop_front();
+                wscrl(wmain, 1);
+                handle_ethernet(buf, &p); /* deserialize packet */
+                buffer = alloc_print_buffer(&p, x + 1);
+                print(buffer, KEY_DOWN);
+
+                /* deselect previous line and highlight next line at bottom */
+                mvwchgat(wmain, y - 2, 0, -1, A_NORMAL, 0, NULL);
+                mvwchgat(wmain, y - 1, 0, -1, A_NORMAL, 1, NULL);
+            }
+        } else {
+            /* deselect previous line and highlight next */
+            mvwchgat(wmain, screen_line, 0, -1, A_NORMAL, 0, NULL);
+            mvwchgat(wmain, ++screen_line, 0, -1, A_NORMAL, 1, NULL);
+            selection_line++;
+        }
+        wrefresh(wmain);
+        break;
+    }
+    case KEY_ENTER:
+    case '\n':
+        if (interactive) {
+            selected = !selected;
+            print_information(selection_line, selected);
         }
         break;
+    default:
+        break;
+    }
+}
+
+/*
+ * Print more information about a packet. This will print every detail about the
+ * specific protocol header and payload.
+ */
+// TODO: Make this generic
+void print_information(int lineno, bool select)
+{
+    if (select) {
+        const node_t *l = list_ith(screen_line + 1);
+
+        /* make space for protocol specific information */
+        wsub_main = derwin(wmain, 10, COLS, screen_line + 1, 0);
+        wclrtobot(wsub_main);
+        wrefresh(wsub_main);
+
+        outy = screen_line + 10 + 1;
+        /* print the remaining lines on the screen below the sub window */
+        while (l) {
+            mvwprintw(wmain, outy++, 0, "%s", (char *) list_data(l));
+            l = list_next(l);
+        }
+        print_arp_verbose(lineno); /* print information in sub window */
+        wrefresh(wmain);
+    } else {
+        const node_t *l = list_begin();
+
+        /*
+         * Print the entire screen. This can be optimized to just print the lines
+         * that are below the selected line
+         */
+        delwin(wsub_main);
+        werase(wmain);
+        outy = 0;
+        while (l) {
+            mvwprintw(wmain, outy++, 0, "%s", (char *) list_data(l));
+            l = list_next(l);
+        }
+        mvwchgat(wmain, screen_line, 0, -1, A_NORMAL, 1, NULL);
+        wrefresh(wmain);
     }
 }
 
@@ -184,6 +309,35 @@ void print_header()
     wrefresh(wheader);
 }
 
+void print_packet(struct packet *p)
+{
+    char *buffer;
+    int y, x;
+
+    getmaxyx(wmain, y, x);
+    buffer = alloc_print_buffer(p, x + 1);
+    print(buffer, -1);
+}
+
+/* allocate buffer with specified size and write packet to buffer */
+char *alloc_print_buffer(struct packet *p, int size)
+{
+    char *buffer;
+
+    buffer = (char *) malloc(size);
+    switch (p->ut) {
+    case ARP:
+        print_arp(buffer, &p->arp);
+        break;
+    case IPv4:
+        print_ip(buffer, &p->ip);
+        break;
+    default:
+        break;
+    }
+    return buffer;
+}
+
 void print_rate()
 {
     //int rxmbytes = rx.tot_bytes / (1024 * 1024);
@@ -196,22 +350,35 @@ void print_rate()
     //refresh();
 }
 
-void print(char *buf)
+/* print buffer to standard output */
+void print(char *buf, int key)
 {
-    list_push_back(buf); /* need to buffer every line */
-    if (!interactive || (interactive && outy < LINES - HEADER_HEIGHT - STATUS_HEIGHT)) {
-        scroll_window();
-        mvwprintw(wmain, outy, 0, "%s", buf);
-        outy++;
+    switch (key) {
+    case KEY_UP:
+        list_push_front(buf);
+        mvwprintw(wmain, 0, 0, "%s", buf);
         wrefresh(wmain);
+        break;
+    case KEY_DOWN:
+        list_push_back(buf);
+        mvwprintw(wmain, LINES - HEADER_HEIGHT - STATUS_HEIGHT - 1, 0, "%s", buf);
+        wrefresh(wmain);
+        break;
+    default: /* new packet from the network interface */
+        if (!interactive || (interactive && outy < LINES - HEADER_HEIGHT - STATUS_HEIGHT)) {
+            list_push_back(buf); /* buffer every line on screen */
+            scroll_window();
+            mvwprintw(wmain, outy, 0, "%s", buf);
+            outy++;
+            wrefresh(wmain);
+        }
+        break;
     }
 }
 
-void print_arp(struct arp_info *info)
+/* print ARP frame information */
+void print_arp(char *buffer, struct arp_info *info)
 {
-    char *buffer;
-
-    buffer = malloc(COLS + 1);
     switch (info->op) {
     case ARPOP_REQUEST:
         PRINT_LINE(buffer, info->sip, info->tip, "ARP",
@@ -225,14 +392,32 @@ void print_arp(struct arp_info *info)
         PRINT_LINE(buffer, info->sip, info->tip, "ARP", "Opcode %d", info->op);
         break;
     }
-    print(buffer);
 }
 
-void print_ip(struct ip_info *info)
+void print_arp_verbose(int lineno)
 {
-    char *buffer;
+    int y = 0;
+    unsigned char *buf;
+    struct arp_info info;
 
-    buffer = malloc(COLS + 1);
+    // TEMP: Fix this
+    buf = vector_get_data(lineno);
+    handle_arp(buf + ETH_HLEN, &info);
+
+    mvwprintw(wsub_main, y, 4, "Hardware type: %d (%s)", info.ht, get_arp_hardware_type(info.ht));
+    mvwprintw(wsub_main, ++y, 4, "Protocol type: 0x%x (%s)", info.pt, get_arp_protocol_type(info.pt));
+    mvwprintw(wsub_main, ++y, 4, "Hardware size: %d", info.hs);
+    mvwprintw(wsub_main, ++y, 4, "Protocol size: %d", info.ps);
+    mvwprintw(wsub_main, ++y, 4, "Opcode: %d (%s)", info.op, get_arp_opcode(info.op));
+    mvwprintw(wsub_main, ++y, 0, "");
+    mvwprintw(wsub_main, ++y, 4, "Sender IP: %-15s  HW: %s", info.sip, info.sha);
+    mvwprintw(wsub_main, ++y, 4, "Target IP: %-15s  HW: %s", info.tip, info.tha);
+    wrefresh(wsub_main);
+}
+
+/* print IP packet information */
+void print_ip(char *buffer, struct ip_info *info)
+{
     if (!numeric && (info->protocol != IPPROTO_UDP ||
                      info->protocol == IPPROTO_UDP && info->udp.dns.qr == -1)) {
         char sname[HOSTNAMELEN];
@@ -266,7 +451,6 @@ void print_ip(struct ip_info *info)
     default:
         break;
     }
-    print(buffer);
 }
 
 void print_udp(struct ip_info *info, char *buf)

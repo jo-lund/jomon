@@ -2,16 +2,19 @@
 #define PACKET_H
 
 #include <netinet/in.h>
+#include <stdbool.h>
 
 /* hardware address length (format aa:bb:cc:dd:ee:ff) */
 #define HW_ADDRSTRLEN 18
 
+#define ARP_SIZE 28 /* size of an ARP packet (header + payload) */
+#define ETHERNET_HDRLEN 14
 #define UDP_HDRLEN 8
 #define DNS_HDRLEN 12
 #define DNS_NAMELEN 253
 #define MAX_DNS_RECORDS 14
 #define NBNS_NAMELEN 16
-#define MAX_NBNS_RECORDS 14
+#define MAX_NBNS_RECORDS 4
 #define MAX_NBNS_NAMES 8
 #define MAX_NBNS_ADDR 8
 
@@ -87,7 +90,7 @@
 /* NBNS class */
 #define NBNS_IN 0x0001 /* Internet class */
 
-enum Port {
+enum port {
     DNS = 53,   /* Domain Name Service */
     /*
      * NetBIOS is used for SMB/CIFS-based Windows file sharing. SMB can now run
@@ -100,12 +103,24 @@ enum Port {
     NBSS = 139  /* NetBIOS Session Service */
 };
 
+enum packet_type {
+    UNKNOWN = -1,
+    ARP,
+    IPv4,
+    IPv6,
+    PAE
+};
+
 struct arp_info {
-    char sip[INET_ADDRSTRLEN]; /* sender IP address */
-    char tip[INET_ADDRSTRLEN]; /* target IP address */
-    char sha[HW_ADDRSTRLEN];   /* sender hardware address */
-    char tha[HW_ADDRSTRLEN];   /* target hardware address */
-    uint16_t op;               /* ARP opcode */
+    char sip[INET_ADDRSTRLEN];   /* sender IP address */
+    char tip[INET_ADDRSTRLEN];   /* target IP address */
+    char sha[HW_ADDRSTRLEN];     /* sender hardware address */
+    char tha[HW_ADDRSTRLEN];     /* target hardware address */
+    uint16_t ht;                 /* hardware type, e.g. Ethernet, Amateur radio */
+    uint16_t pt;                 /* protocol type, IPv4 is 0x0800 */
+    uint8_t hs;                  /* hardware size */
+    uint8_t ps;                  /* protocol size */
+    uint16_t op;                 /* ARP opcode */
 };
 
 struct dns_info {
@@ -255,7 +270,27 @@ struct ip_info {
     };
 };
 
+/* generic packet struct that can be used for every type of packet */
+struct packet {
+    enum packet_type ut;
+    union {
+        struct arp_info arp;
+        struct ip_info ip;
+    };
+};
+
 /* get a packet from the network interface card */
-void read_packet(int sockfd);
+size_t read_packet(int sockfd, unsigned char *buffer, size_t n, struct packet *p);
+
+void handle_ethernet(unsigned char *buffer, struct packet *p);
+void handle_arp(unsigned char *buffer, struct arp_info *info);
+void handle_ip(unsigned char *buffer, struct ip_info *info);
+void handle_icmp(unsigned char *buffer, struct ip_info *info);
+void handle_igmp(unsigned char *buffer, struct ip_info *info);
+void handle_tcp(unsigned char *buffer, struct ip_info *info);
+void handle_udp(unsigned char *buffer, struct ip_info *info);
+bool handle_dns(unsigned char *buffer, struct ip_info *info);
+bool handle_nbns(unsigned char *buffer, struct ip_info *info);
+
 
 #endif

@@ -16,22 +16,6 @@
 
 #define DNS_PTR_LEN 2
 
-static void handle_ethernet(unsigned char *buffer);
-static void handle_arp(unsigned char *buffer);
-static void handle_ip(unsigned char *buffer);
-static void handle_icmp(unsigned char *buffer, struct ip_info *info);
-static void handle_igmp(unsigned char *buffer, struct ip_info *info);
-static void handle_tcp(unsigned char *buffer, struct ip_info *info);
-static void handle_udp(unsigned char *buffer, struct ip_info *info);
-static bool handle_dns(unsigned char *buffer, struct ip_info *info);
-static int parse_dns_name(unsigned char *buffer, unsigned char *ptr, char name[]);
-static void parse_dns_record(int i, unsigned char *buffer, unsigned char *ptr, struct ip_info *info);
-static bool handle_nbns(unsigned char *buffer, struct ip_info *info);
-static void decode_nbns_name(char *dest, char *src);
-static void parse_nbns_record(int i, unsigned char *buffer, unsigned char *ptr, struct ip_info *info);
-static void check_address(unsigned char *buffer);
-static bool check_port(unsigned char *buffer, struct ip_info *info, uint16_t port);
-
 enum dns_section_count {
     QDCOUNT,
     ANCOUNT,
@@ -39,22 +23,28 @@ enum dns_section_count {
     ARCOUNT
 };
 
-void read_packet(int sockfd)
+static int parse_dns_name(unsigned char *buffer, unsigned char *ptr, char name[]);
+static void parse_dns_record(int i, unsigned char *buffer, unsigned char *ptr, struct ip_info *info);
+static void decode_nbns_name(char *dest, char *src);
+static void parse_nbns_record(int i, unsigned char *buffer, unsigned char *ptr, struct ip_info *info);
+static void check_address(unsigned char *buffer);
+static bool check_port(unsigned char *buffer, struct ip_info *info, uint16_t port);
+
+size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet *p)
 {
-    unsigned char buffer[SNAPLEN];
     int n;
 
-    memset(buffer, 0, SNAPLEN);
-
     // TODO: Use recvfrom and read the sockaddr_ll struct.
-    if ((n = read(sockfd, buffer, SNAPLEN)) == -1) {
+    if ((n = read(sockfd, buffer, len)) == -1) {
         err_sys("read error");
     }
+
     if (!capture) {
         check_address(buffer);
     } else {
-        handle_ethernet(buffer);
+        handle_ethernet(buffer, p);
     }
+    return n;
 }
 
 void check_address(unsigned char *buffer)
@@ -93,18 +83,30 @@ void check_address(unsigned char *buffer)
  * +-----------+-----------+---+
  *
  */
-void handle_ethernet(unsigned char *buffer)
+void handle_ethernet(unsigned char *buffer, struct packet *p)
 {
     struct ethhdr *eth_header;
 
     eth_header = (struct ethhdr *) buffer;
     switch (ntohs(eth_header->h_proto)) {
     case ETH_P_IP:
-        handle_ip(buffer + ETH_HLEN);
+    {
+        struct ip_info ip;
+
+        handle_ip(buffer + ETH_HLEN, &ip);
+        p->ip = ip;
+        p->ut = IPv4;
         break;
+    }
     case ETH_P_ARP:
-        handle_arp(buffer + ETH_HLEN);
+    {
+        struct arp_info arp;
+
+        handle_arp(buffer + ETH_HLEN, &arp);
+        p->arp = arp;
+        p->ut = ARP;
         break;
+    }
     case ETH_P_IPV6:
         break;
     case ETH_P_PAE:
@@ -131,33 +133,35 @@ void handle_ethernet(unsigned char *buffer)
  * PS: Protocol Size, number of bytes in the requested network address
  * OP: Operation. 1 = ARP request, 2 = ARP reply, 3 = RARP request, 4 = RARP reply
  */
-void handle_arp(unsigned char *buffer)
+void handle_arp(unsigned char *buffer, struct arp_info *info)
 {
     struct ether_arp *arp_header;
-    struct arp_info info;
 
     arp_header = (struct ether_arp *) buffer;
 
     /* sender protocol address */
-    if (inet_ntop(AF_INET, &arp_header->arp_spa, info.sip, INET_ADDRSTRLEN) == NULL) {
+    if (inet_ntop(AF_INET, &arp_header->arp_spa, info->sip, INET_ADDRSTRLEN) == NULL) {
         err_msg("inet_ntop error");
     }
 
     /* target protocol address */
-    if (inet_ntop(AF_INET, &arp_header->arp_tpa, info.tip, INET_ADDRSTRLEN) == NULL) {
+    if (inet_ntop(AF_INET, &arp_header->arp_tpa, info->tip, INET_ADDRSTRLEN) == NULL) {
         err_msg("inet_ntop error");
     }
 
     /* sender/target hardware address */
-    snprintf(info.sha, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
+    snprintf(info->sha, HW_ADDRSTRLEN + 1, "%02x:%02x:%02x:%02x:%02x:%02x",
              arp_header->arp_sha[0], arp_header->arp_sha[1], arp_header->arp_sha[2],
              arp_header->arp_sha[2], arp_header->arp_sha[4], arp_header->arp_sha[5]);
-    snprintf(info.tha, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
+    snprintf(info->tha, HW_ADDRSTRLEN + 1, "%02x:%02x:%02x:%02x:%02x:%02x",
              arp_header->arp_tha[0], arp_header->arp_tha[1], arp_header->arp_tha[2],
              arp_header->arp_tha[2], arp_header->arp_tha[4], arp_header->arp_tha[5]);
 
-    info.op = ntohs(arp_header->arp_op); /* arp opcode (command) */
-    print_arp(&info);
+    info->op = ntohs(arp_header->arp_op); /* arp opcode (command) */
+    info->ht = ntohs(arp_header->arp_hrd);
+    info->pt = ntohs(arp_header->arp_pro);
+    info->hs = arp_header->arp_hln;
+    info->ps = arp_header->arp_pln;
 }
 
 /*
@@ -185,37 +189,35 @@ void handle_arp(unsigned char *buffer)
  * Protocol: Defines the protocol used in the data portion of the packet.
  *
 */
-void handle_ip(unsigned char *buffer)
+void handle_ip(unsigned char *buffer, struct ip_info *info)
 {
     struct iphdr *ip;
-    struct ip_info info;
     int header_len;
 
     ip = (struct iphdr *) buffer;
-    if (inet_ntop(AF_INET, &ip->saddr, info.src, INET_ADDRSTRLEN) == NULL) {
+    if (inet_ntop(AF_INET, &ip->saddr, info->src, INET_ADDRSTRLEN) == NULL) {
         err_msg("inet_ntop error");
     }
-    if (inet_ntop(AF_INET, &ip->daddr, info.dst, INET_ADDRSTRLEN) == NULL) {
+    if (inet_ntop(AF_INET, &ip->daddr, info->dst, INET_ADDRSTRLEN) == NULL) {
         err_msg("inet_ntop error");
     }
-    info.protocol = ip->protocol;
+    info->protocol = ip->protocol;
     header_len = ip->ihl * 4;
 
     switch (ip->protocol) {
     case IPPROTO_ICMP:
-        handle_icmp(buffer + header_len, &info);
+        handle_icmp(buffer + header_len, info);
         break;
     case IPPROTO_IGMP:
-        handle_igmp(buffer + header_len, &info);
+        handle_igmp(buffer + header_len, info);
         break;
     case IPPROTO_TCP:
-        handle_tcp(buffer + header_len, &info);
+        handle_tcp(buffer + header_len, info);
         break;
     case IPPROTO_UDP:
-        handle_udp(buffer + header_len, &info);
+        handle_udp(buffer + header_len, info);
         break;
     }
-    print_ip(&info);
 }
 
 /*
