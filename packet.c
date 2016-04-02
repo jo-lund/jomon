@@ -346,14 +346,15 @@ bool handle_dns(unsigned char *buffer, struct ip_info *info)
         /* Answer/Authority/Additional records sections */
         int i = ANCOUNT;
         int c = 0;
+
         while (i < 4) {
             int j;
 
             for (j = 0; j < info->udp.dns.section_count[i] && c < MAX_DNS_RECORDS; j++) {
                 parse_dns_record(j, buffer, &ptr, info);
+                c++;
             }
             i++;
-            c += j;
         }
     } else { /* DNS query */
         if (info->udp.dns.rcode != 0) { /* RCODE will be zero */
