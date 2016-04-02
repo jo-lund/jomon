@@ -1,7 +1,6 @@
 #include <arpa/inet.h>
 #include <net/if_arp.h>
 #include <string.h>
-#include <netdb.h>
 #include <linux/igmp.h>
 #include <netinet/ip_icmp.h>
 #include <signal.h>
@@ -17,6 +16,7 @@
 #define HOSTNAMELEN 255 /* maximum 255 according to rfc1035 */
 #define ADDR_WIDTH 36
 #define PROT_WIDTH 10
+#define MAXLINE 1000
 
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
@@ -47,7 +47,6 @@ static int screen_line = 0;
 
 static void print_header();
 static void scroll_window();
-static void gethost(char *addr, char *host, int hostlen);
 static void print(char *buf, int key);
 static void print_arp(char *buffer, struct arp_info *info);
 static void print_ip(char *buffer, struct ip_info *info);
@@ -62,9 +61,15 @@ static int print_nbns_opcode(char *buf, uint8_t opcode, int n);
 static int print_nbns_type(char *buf, uint8_t type, int n);
 static int print_nbns_record(struct ip_info *info, char *buf, int n);
 
-static char *alloc_print_buffer(struct packet *p, int size);
 static void print_information(int lineno, bool select);
-static void print_arp_verbose(int lineno);
+static void print_arp_verbose(struct arp_info *info);
+static void print_ip_verbose(struct ip_info *info);
+static void print_udp_verbose(struct ip_info *info);
+static void print_dns_verbose(struct dns_info *info);
+
+static char *alloc_print_buffer(struct packet *p, int size);
+static void create_subwindow(int num_lines);
+static void delete_subwindow();
 
 void init_ncurses()
 {
@@ -74,7 +79,7 @@ void init_ncurses()
     curs_set(0); /* make the cursor invisible */
     use_default_colors();
     start_color();
-    init_pair(1, COLOR_WHITE, COLOR_BLUE);
+    init_pair(1, COLOR_WHITE, COLOR_CYAN);
 }
 
 void end_ncurses()
@@ -243,46 +248,184 @@ void get_input()
     }
 }
 
+void create_subwindow(int num_lines)
+{
+    const node_t *l = list_ith(screen_line + 1);
+
+    /* make space for protocol specific information */
+    wsub_main = derwin(wmain, num_lines, COLS, screen_line + 1, 0);
+    wclrtobot(wsub_main);
+    wrefresh(wsub_main);
+
+    outy = screen_line + num_lines + 1;
+    /* print the remaining lines on the screen below the sub window */
+    while (l) {
+        mvwprintw(wmain, outy++, 0, "%s", (char *) list_data(l));
+        l = list_next(l);
+    }
+    wrefresh(wmain);
+}
+
+void delete_subwindow()
+{
+    /*
+     * Print the entire screen. This can be optimized to just print the lines
+     * that are below the selected line
+     */
+    const node_t *l = list_begin();
+
+    delwin(wsub_main);
+    werase(wmain);
+    outy = 0;
+    while (l) {
+        mvwprintw(wmain, outy++, 0, "%s", (char *) list_data(l));
+        l = list_next(l);
+    }
+    mvwchgat(wmain, screen_line, 0, -1, A_NORMAL, 1, NULL);
+    wrefresh(wmain);
+}
+
 /*
- * Print more information about a packet. This will print every detail about the
+ * Print more information about a packet. This will print more details about the
  * specific protocol header and payload.
  */
-// TODO: Make this generic
 void print_information(int lineno, bool select)
 {
     if (select) {
-        const node_t *l = list_ith(screen_line + 1);
+        unsigned char *buf;
+        struct packet p;
 
-        /* make space for protocol specific information */
-        wsub_main = derwin(wmain, 10, COLS, screen_line + 1, 0);
-        wclrtobot(wsub_main);
-        wrefresh(wsub_main);
-
-        outy = screen_line + 10 + 1;
-        /* print the remaining lines on the screen below the sub window */
-        while (l) {
-            mvwprintw(wmain, outy++, 0, "%s", (char *) list_data(l));
-            l = list_next(l);
+        buf = vector_get_data(lineno);
+        handle_ethernet(buf, &p);
+        switch (p.ut) {
+        case ARP:
+            print_arp_verbose(&p.arp);
+            break;
+        case IPv4:
+            print_ip_verbose(&p.ip);
+            break;
+        default:
+            break;
         }
-        print_arp_verbose(lineno); /* print information in sub window */
-        wrefresh(wmain);
     } else {
-        const node_t *l = list_begin();
-
-        /*
-         * Print the entire screen. This can be optimized to just print the lines
-         * that are below the selected line
-         */
-        delwin(wsub_main);
-        werase(wmain);
-        outy = 0;
-        while (l) {
-            mvwprintw(wmain, outy++, 0, "%s", (char *) list_data(l));
-            l = list_next(l);
-        }
-        mvwchgat(wmain, screen_line, 0, -1, A_NORMAL, 1, NULL);
-        wrefresh(wmain);
+        delete_subwindow();
     }
+}
+
+void print_arp_verbose(struct arp_info *info)
+{
+    int y = 0;
+
+    create_subwindow(10);
+    mvwprintw(wsub_main, y, 0, "");
+    mvwprintw(wsub_main, ++y, 4, "Hardware type: %d (%s)", info->ht, get_arp_hardware_type(info->ht));
+    mvwprintw(wsub_main, ++y, 4, "Protocol type: 0x%x (%s)", info->pt, get_arp_protocol_type(info->pt));
+    mvwprintw(wsub_main, ++y, 4, "Hardware size: %d", info->hs);
+    mvwprintw(wsub_main, ++y, 4, "Protocol size: %d", info->ps);
+    mvwprintw(wsub_main, ++y, 4, "Opcode: %d (%s)", info->op, get_arp_opcode(info->op));
+    mvwprintw(wsub_main, ++y, 0, "");
+    mvwprintw(wsub_main, ++y, 4, "Sender IP: %-15s  HW: %s", info->sip, info->sha);
+    mvwprintw(wsub_main, ++y, 4, "Target IP: %-15s  HW: %s", info->tip, info->tha);
+    wrefresh(wsub_main);
+}
+
+void print_ip_verbose(struct ip_info *info)
+{
+    switch (info->protocol) {
+    case IPPROTO_ICMP:
+        break;
+    case IPPROTO_IGMP:
+        break;
+    case IPPROTO_TCP:
+        break;
+    case IPPROTO_UDP:
+        print_udp_verbose(info);
+    default:
+        break;
+    }
+}
+
+void print_udp_verbose(struct ip_info *info)
+{
+    switch (info->udp.utype) {
+    case DNS:
+        print_dns_verbose(&info->udp.dns);
+        break;
+    case NBNS:
+        //print_nbns_verbose(info->udp.nbns);
+        break;
+    default:
+        break;
+    }
+}
+
+void print_dns_verbose(struct dns_info *info)
+{
+    int y = 0;
+    int i = 1;
+    int records = 0;
+
+    /* number of resource records */
+    while (i < 4) {
+        records += info->section_count[i++];
+    }
+    create_subwindow(11 + records);
+    mvwprintw(wsub_main, y, 0, "");
+    mvwprintw(wsub_main, ++y, 4, "ID: 0x%x", info->id);
+    mvwprintw(wsub_main, ++y, 4, "QR: %d (%s)", info->qr, info->qr ? "DNS Response" : "DNS Query");
+    mvwprintw(wsub_main, ++y, 4, "Opcode: %d (%s)", info->opcode, get_dns_opcode(info->opcode));
+    mvwprintw(wsub_main, ++y, 4, "Flags: %d%d%d%d", info->aa, info->tc, info->rd, info->ra);
+    mvwprintw(wsub_main, ++y, 4, "Rcode: %d (%s)", info->rcode, get_dns_rcode(info->rcode));
+    mvwprintw(wsub_main, ++y, 4, "Question: %d, Answer: %d, Authority: %d, Additional records: %d",
+              info->section_count[QDCOUNT], info->section_count[ANCOUNT],
+              info->section_count[NSCOUNT], info->section_count[ARCOUNT]);
+    mvwprintw(wsub_main, ++y, 0, "");
+    i = info->section_count[QDCOUNT];
+    while (i--) {
+        mvwprintw(wsub_main, ++y, 4, "QNAME: %s, QTYPE: %s, QCLASS: %s",
+                  info->question.qname, get_dns_type_extended(info->question.qtype),
+                  get_dns_class_extended(info->question.qclass));
+    }
+    if (records) {
+        char buffer[MAXLINE];
+
+        i = 0;
+        mvwprintw(wsub_main, ++y, 4, "Resource records:");
+        while (records--) {
+            int n = 0;
+            int namelen;
+
+            n += snprintf(buffer, MAXLINE, "%s\t", info->record[i].name);
+            n += snprintf(buffer + n, MAXLINE - n, "%-6s", get_dns_class(info->record[i].class));
+            n += snprintf(buffer + n, MAXLINE - n, "%-8s", get_dns_type(info->record[i].type));
+            switch (info->record[i].type) {
+            case DNS_TYPE_A:
+            {
+                char addr[INET_ADDRSTRLEN];
+                uint32_t haddr = htonl(info->record[i].rdata.address);
+
+                inet_ntop(AF_INET, (struct in_addr *) &haddr, addr, sizeof(addr));
+                n += snprintf(buffer + n, MAXLINE - n, "%s", addr);
+                break;
+            }
+            case DNS_TYPE_NS:
+                n += snprintf(buffer + n, MAXLINE - n, "%s", info->record[i].rdata.nsdname);
+                break;
+            case DNS_TYPE_CNAME:
+                n += snprintf(buffer + n, MAXLINE - n, "%s", info->record[i].rdata.cname);
+                break;
+            case DNS_TYPE_PTR:
+                n += snprintf(buffer + n, MAXLINE - n, "%s", info->record[i].rdata.ptrdname);
+                break;
+            default:
+                n += snprintf(buffer + n, MAXLINE - n, "type: %d", info->record[i].type);
+                break;
+            }
+            mvwprintw(wsub_main, ++y, 8, "%s", buffer);
+            i++;
+        }
+    }
+    wrefresh(wsub_main);
 }
 
 void print_header()
@@ -392,27 +535,6 @@ void print_arp(char *buffer, struct arp_info *info)
         PRINT_LINE(buffer, info->sip, info->tip, "ARP", "Opcode %d", info->op);
         break;
     }
-}
-
-void print_arp_verbose(int lineno)
-{
-    int y = 0;
-    unsigned char *buf;
-    struct arp_info info;
-
-    // TEMP: Fix this
-    buf = vector_get_data(lineno);
-    handle_arp(buf + ETH_HLEN, &info);
-
-    mvwprintw(wsub_main, y, 4, "Hardware type: %d (%s)", info.ht, get_arp_hardware_type(info.ht));
-    mvwprintw(wsub_main, ++y, 4, "Protocol type: 0x%x (%s)", info.pt, get_arp_protocol_type(info.pt));
-    mvwprintw(wsub_main, ++y, 4, "Hardware size: %d", info.hs);
-    mvwprintw(wsub_main, ++y, 4, "Protocol size: %d", info.ps);
-    mvwprintw(wsub_main, ++y, 4, "Opcode: %d (%s)", info.op, get_arp_opcode(info.op));
-    mvwprintw(wsub_main, ++y, 0, "");
-    mvwprintw(wsub_main, ++y, 4, "Sender IP: %-15s  HW: %s", info.sip, info.sha);
-    mvwprintw(wsub_main, ++y, 4, "Target IP: %-15s  HW: %s", info.tip, info.tha);
-    wrefresh(wsub_main);
 }
 
 /* print IP packet information */
@@ -536,6 +658,12 @@ int print_dns_type(struct ip_info *info, char *buf, uint16_t type, int n)
         }
         break;
     }
+    case DNS_TYPE_NS:
+        num_chars += PRINT_INFO(buf, n, "NSDNAME");
+        if (info->udp.dns.qr) {
+            num_chars += PRINT_INFO(buf, n + num_chars, " %s", info->udp.dns.record[0].rdata.nsdname);
+        }
+        break;
     case DNS_TYPE_CNAME:
         num_chars += PRINT_INFO(buf, n, "CNAME");
         if (info->udp.dns.qr) {
@@ -750,21 +878,4 @@ void print_igmp(struct ip_info *info, char *buf)
         break;
     }
     PRINT_INFO(buf, n, "  Group address: %s", info->igmp.group_addr);
-}
-
-/*
- * Get host name from addr, which is in dotted-decimal format. This will send a
- * DNS request over UDP.
- */
-void gethost(char *addr, char *host, int hostlen)
-{
-    struct sockaddr_in saddr;
-    struct in_addr naddr;
-
-    inet_pton(AF_INET, addr, &naddr);
-    memset(&saddr, 0, sizeof(struct sockaddr_in));
-    saddr.sin_family = AF_INET;
-    saddr.sin_addr = naddr;
-    getnameinfo((struct sockaddr *) &saddr, sizeof(struct sockaddr_in),
-                host, hostlen, NULL, 0, 0);
 }
