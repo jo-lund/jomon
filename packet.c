@@ -16,17 +16,10 @@
 
 #define DNS_PTR_LEN 2
 
-enum dns_section_count {
-    QDCOUNT,
-    ANCOUNT,
-    NSCOUNT,
-    ARCOUNT
-};
-
 static int parse_dns_name(unsigned char *buffer, unsigned char *ptr, char name[]);
-static void parse_dns_record(int i, unsigned char *buffer, unsigned char *ptr, struct ip_info *info);
+static void parse_dns_record(int i, unsigned char *buffer, unsigned char **ptr, struct ip_info *info);
 static void decode_nbns_name(char *dest, char *src);
-static void parse_nbns_record(int i, unsigned char *buffer, unsigned char *ptr, struct ip_info *info);
+static void parse_nbns_record(int i, unsigned char *buffer, unsigned char **ptr, struct ip_info *info);
 static void check_address(unsigned char *buffer);
 static bool check_port(unsigned char *buffer, struct ip_info *info, uint16_t port);
 
@@ -315,7 +308,6 @@ bool check_port(unsigned char *buffer, struct ip_info *info, uint16_t port)
 bool handle_dns(unsigned char *buffer, struct ip_info *info)
 {
     unsigned char *ptr = buffer;
-    uint16_t section_count[4]; /* number of entries in the specific sections */
 
     /*
      * UDP header length (8 bytes) + DNS header length (12 bytes).
@@ -339,7 +331,7 @@ bool handle_dns(unsigned char *buffer, struct ip_info *info)
     info->udp.dns.ra = ptr[3] & 0x80;
     info->udp.dns.rcode = ptr[3] & 0x0f;
     for (int i = 0, j = 4; i < 4; i++, j += 2) {
-        section_count[i] = ptr[j] << 8 | ptr[j + 1];
+        info->udp.dns.section_count[i] = ptr[j] << 8 | ptr[j + 1];
     }
 
     if (info->udp.dns.qr) { /* DNS response */
@@ -357,8 +349,8 @@ bool handle_dns(unsigned char *buffer, struct ip_info *info)
         while (i < 4) {
             int j;
 
-            for (j = 0; j < section_count[i] && c < MAX_DNS_RECORDS; j++) {
-                parse_dns_record(j, buffer, ptr, info);
+            for (j = 0; j < info->udp.dns.section_count[i] && c < MAX_DNS_RECORDS; j++) {
+                parse_dns_record(j, buffer, &ptr, info);
             }
             i++;
             c += j;
@@ -368,14 +360,14 @@ bool handle_dns(unsigned char *buffer, struct ip_info *info)
             return false;
         }
         /* ANCOUNT and NSCOUNT values are zero */
-        if (section_count[ANCOUNT] != 0 && section_count[NSCOUNT] != 0) {
+        if (info->udp.dns.section_count[ANCOUNT] != 0 && info->udp.dns.section_count[NSCOUNT] != 0) {
             return false;
         }
         /*
          * ARCOUNT will typically be 0, 1, or 2, depending on whether EDNS0
          * (RFC 2671) or TSIG (RFC 2845) are used
          */
-        if (section_count[ARCOUNT] > 2) {
+        if (info->udp.dns.section_count[ARCOUNT] > 2) {
             return false;
         }
         ptr += DNS_HDRLEN;
@@ -405,6 +397,8 @@ int parse_dns_name(unsigned char *buffer, unsigned char *ptr, char name[])
     unsigned int label_length = ptr[0];
     bool compression = false;
     unsigned int name_ptr_len = 0;
+
+    if (!label_length) return 1; /* length octet */
 
     while (label_length) {
         /*
@@ -448,33 +442,36 @@ int parse_dns_name(unsigned char *buffer, unsigned char *ptr, char name[])
  * Parse a DNS resource record.
  * int i is the recource record index.
  */
-void parse_dns_record(int i, unsigned char *buffer, unsigned char *ptr, struct ip_info *info)
+void parse_dns_record(int i, unsigned char *buffer, unsigned char **ptr, struct ip_info *info)
 {
     uint16_t rdlen;
 
-    ptr += parse_dns_name(buffer, ptr, info->udp.dns.record[i].name);
-    info->udp.dns.record[i].type = ptr[0] << 8 | ptr[1];
-    info->udp.dns.record[i].class = ptr[2] << 8 | ptr[3];
-    info->udp.dns.record[i].ttl = ptr[4] << 24 | ptr[5] << 16 | ptr[6] << 8 | ptr[7];
-    rdlen = ptr[8] << 8 | ptr[9];
-    ptr += 10; /* skip to rdata field */
+    *ptr += parse_dns_name(buffer, *ptr, info->udp.dns.record[i].name);
+    info->udp.dns.record[i].type = (*ptr)[0] << 8 | (*ptr)[1];
+    info->udp.dns.record[i].class = (*ptr)[2] << 8 | (*ptr)[3];
+    info->udp.dns.record[i].ttl = (*ptr)[4] << 24 | (*ptr)[5] << 16 | (*ptr)[6] << 8 | (*ptr)[7];
+    rdlen = (*ptr)[8] << 8 | (*ptr)[9];
+    *ptr += 10; /* skip to rdata field */
     if (info->udp.dns.record[i].class == DNS_CLASS_IN) {
         switch (info->udp.dns.record[i].type) {
         case DNS_TYPE_A:
             if (rdlen == 4) {
-                info->udp.dns.record[i].rdata.address = ptr[0] << 24 | ptr[1] << 16 | ptr[2] << 8 | ptr[3];
+                info->udp.dns.record[i].rdata.address = (*ptr)[0] << 24 | (*ptr)[1] << 16 | (*ptr)[2] << 8 | (*ptr)[3];
             }
             break;
+        case DNS_TYPE_NS:
+            parse_dns_name(buffer, *ptr, info->udp.dns.record[i].rdata.nsdname);
         case DNS_TYPE_CNAME:
-            parse_dns_name(buffer, ptr, info->udp.dns.record[i].rdata.cname);
+            parse_dns_name(buffer, *ptr, info->udp.dns.record[i].rdata.cname);
             break;
         case DNS_TYPE_PTR:
-            parse_dns_name(buffer, ptr, info->udp.dns.record[i].rdata.ptrdname);
+            parse_dns_name(buffer, *ptr, info->udp.dns.record[i].rdata.ptrdname);
             break;
         default:
             break;
         }
     }
+    *ptr += rdlen;
 }
 
 /*
@@ -507,7 +504,6 @@ bool handle_nbns(unsigned char *buffer, struct ip_info *info)
         return false;
     }
     unsigned char *ptr = buffer;
-    uint16_t section_count[4]; /* number of entries in the specific sections */
 
     info->udp.nbns.id = ptr[0] << 8 | ptr[1];
     info->udp.nbns.opcode = ptr[2] & 0x78;
@@ -518,7 +514,7 @@ bool handle_nbns(unsigned char *buffer, struct ip_info *info)
     info->udp.nbns.broadcast = ptr[3] & 0x10;
     info->udp.nbns.rcode = ptr[3] & 0x0f;
     for (int i = 0, j = 4; i < 4; i++, j += 2) {
-        section_count[i] = ptr[j] << 8 | ptr[j + 1];
+        info->udp.nbns.section_count[i] = ptr[j] << 8 | ptr[j + 1];
     }
 
     /*
@@ -529,7 +525,7 @@ bool handle_nbns(unsigned char *buffer, struct ip_info *info)
     info->udp.nbns.rr = 0;
 
     if (info->udp.nbns.r) { /* response */
-        if (section_count[QDCOUNT] != 0) { /* QDCOUNT is always 0 for responses */
+        if (info->udp.nbns.section_count[QDCOUNT] != 0) { /* QDCOUNT is always 0 for responses */
             return false;
         }
         ptr += DNS_HDRLEN;
@@ -537,8 +533,8 @@ bool handle_nbns(unsigned char *buffer, struct ip_info *info)
         /* Answer/Authority/Additional records sections */
         int i = ANCOUNT;
         while (i < 4) { /* There will be max 1 record for each section */
-            if (section_count[i]) {
-                parse_nbns_record(i - 1, buffer, ptr, info);
+            if (info->udp.nbns.section_count[i]) {
+                parse_nbns_record(i - 1, buffer, &ptr, info);
             }
             i++;
         }
@@ -546,7 +542,7 @@ bool handle_nbns(unsigned char *buffer, struct ip_info *info)
         if (info->udp.nbns.aa) { /* authoritative answer is only to be set in responses */
             return false;
         }
-        if (section_count[QDCOUNT] == 0) { /* QDCOUNT must be non-zero for requests */
+        if (info->udp.nbns.section_count[QDCOUNT] == 0) { /* QDCOUNT must be non-zero for requests */
             return false;
         }
         ptr += DNS_HDRLEN;
@@ -560,8 +556,8 @@ bool handle_nbns(unsigned char *buffer, struct ip_info *info)
         ptr += 4; /* skip qtype and qclass */
 
         /* Additional records section */
-        if (section_count[ARCOUNT]) {
-            parse_nbns_record(0, buffer, ptr, info);
+        if (info->udp.nbns.section_count[ARCOUNT]) {
+            parse_nbns_record(0, buffer, &ptr, info);
         }
     }
 
@@ -589,65 +585,68 @@ void decode_nbns_name(char *dest, char *src)
  * Parse a NBNS resource record.
  * int i is the resource record index.
  */
-void parse_nbns_record(int i, unsigned char *buffer, unsigned char *ptr, struct ip_info *info)
+void parse_nbns_record(int i, unsigned char *buffer, unsigned char **ptr, struct ip_info *info)
 {
     int rdlen;
     char name[DNS_NAMELEN];
 
     info->udp.nbns.rr = 1;
-    ptr += parse_dns_name(buffer, ptr, name);
+    *ptr += parse_dns_name(buffer, *ptr, name);
     decode_nbns_name(info->udp.nbns.record[i].rrname, name);
-    info->udp.nbns.record[i].rrtype = ptr[0] << 8 | ptr[1];
-    info->udp.nbns.record[i].rrclass = ptr[2] << 8 | ptr[3];
-    info->udp.nbns.record[i].ttl = ptr[4] << 24 | ptr[5] << 16 | ptr[6] << 8 | ptr[7];
-    rdlen = ptr[8] << 8 | ptr[9];
-    ptr += 10; /* skip to rdata field */
+    info->udp.nbns.record[i].rrtype = (*ptr)[0] << 8 | (*ptr)[1];
+    info->udp.nbns.record[i].rrclass = (*ptr)[2] << 8 | (*ptr)[3];
+    info->udp.nbns.record[i].ttl = (*ptr)[4] << 24 | (*ptr)[5] << 16 | (*ptr)[6] << 8 | (*ptr)[7];
+    rdlen = (*ptr)[8] << 8 | (*ptr)[9];
+    *ptr += 10; /* skip to rdata field */
 
     switch (info->udp.nbns.record[i].rrtype) {
     case NBNS_NB:
         if (rdlen >= 6) {
-            info->udp.nbns.record[i].rdata.nb.g = ptr[0] & 0x80U;
-            info->udp.nbns.record[i].rdata.nb.ont = ptr[0] & 0x60;
+            info->udp.nbns.record[i].rdata.nb.g = (*ptr)[0] & 0x80U;
+            info->udp.nbns.record[i].rdata.nb.ont = (*ptr)[0] & 0x60;
             rdlen -= 2;
-            ptr += 2;
+            (*ptr) += 2;
             for (int j = 0, k = 0; k < rdlen && k < MAX_NBNS_ADDR * 4 ; j++, k += 4) {
                 info->udp.nbns.record[i].rdata.nb.address[i] =
-                    ptr[k] << 24 | ptr[k + 1] << 16 | ptr[k + 2] << 8 | ptr[k + 3];
+                    (*ptr)[k] << 24 | (*ptr)[k + 1] << 16 | (*ptr)[k + 2] << 8 | (*ptr)[k + 3];
             }
         }
+        *ptr += rdlen;
         break;
     case NBNS_NS:
     {
         char name[DNS_NAMELEN];
 
-        ptr += parse_dns_name(buffer, ptr, name);
+        *ptr += parse_dns_name(buffer, *ptr, name);
         decode_nbns_name(info->udp.nbns.record[i].rdata.nsdname, name);
         break;
     }
     case NBNS_A:
         if (rdlen == 4) {
             info->udp.nbns.record[i].rdata.nsdipaddr =
-                ptr[0] << 24 | ptr[1] << 16 | ptr[2] << 8 | ptr[3];
+                (*ptr)[0] << 24 | (*ptr)[1] << 16 | (*ptr)[2] << 8 | (*ptr)[3];
         }
+        *ptr += rdlen;
         break;
     case NBNS_NBSTAT:
     {
         uint8_t num_names;
 
-        num_names = ptr[0];
-        ptr++;
+        num_names = (*ptr)[0];
+        (*ptr)++;
         for (int j = 0; j < num_names; j++) {
-            memcpy(info->udp.nbns.record[i].rdata.nbstat[j].node_name, ptr, NBNS_NAMELEN);
+            memcpy(info->udp.nbns.record[i].rdata.nbstat[j].node_name, (*ptr), NBNS_NAMELEN);
             info->udp.nbns.record[i].rdata.nbstat[j].node_name[NBNS_NAMELEN] = '\0';
-            ptr += NBNS_NAMELEN;
-            info->udp.nbns.record[i].rdata.nbstat[j].name_flags = ptr[0] << 8 | ptr[1];
-            ptr += 2;
+            *ptr += NBNS_NAMELEN;
+            info->udp.nbns.record[i].rdata.nbstat[j].name_flags = (*ptr)[0] << 8 | (*ptr)[1];
+            *ptr += 2;
         }
         // TODO: Include statistics
         break;
     }
     case NBNS_NULL:
     default:
+        *ptr += rdlen;
         break;
     }
 }

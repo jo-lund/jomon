@@ -123,6 +123,13 @@ struct arp_info {
     uint16_t op;                 /* ARP opcode */
 };
 
+enum dns_section_count {
+    QDCOUNT,
+    ANCOUNT,
+    NSCOUNT,
+    ARCOUNT
+};
+
 struct dns_info {
     uint16_t id; /* A 16 bit identifier */
     unsigned int qr     : 1; /* 0 DNS query, 1 DNS response */
@@ -134,6 +141,7 @@ struct dns_info {
     unsigned int ra     : 1; /* recursion avilable - denotes whether recursive query
                                 support is available in the name server */
     unsigned int rcode  : 4; /* response code */
+    enum dns_section_count section_count[4];
 
     /* question section */
     struct {
@@ -165,6 +173,9 @@ struct dns_info {
             /* a domain name which points to some location in the domain
                name space. */
             char ptrdname[DNS_NAMELEN + 1];
+            /* a domain name which specifies a host which should be
+               authoritative for the specified class and domain */
+            char nsdname[DNS_NAMELEN + 1];
             uint32_t address; /* a 32 bit internet address */
         } rdata;
     } record[MAX_DNS_RECORDS];
@@ -181,6 +192,7 @@ struct nbns_info {
     unsigned int broadcast : 1; /* 1 broadcast or multicast, 0 unicast */
     unsigned int rcode  : 4;
     unsigned int rr     : 1; /* set if it contains a reource record */
+    enum dns_section_count section_count[4];
 
     /* question section */
     struct {
@@ -270,7 +282,7 @@ struct ip_info {
     };
 };
 
-/* generic packet struct that can be used for every type of packet */
+/* generic packet structure that can be used for every type of packet */
 struct packet {
     enum packet_type ut;
     union {
