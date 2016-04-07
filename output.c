@@ -102,8 +102,11 @@ void create_layout()
 /* scroll the window if necessary */
 void scroll_window()
 {
-    if (outy >= LINES - HEADER_HEIGHT - STATUS_HEIGHT) {
-        outy = LINES - HEADER_HEIGHT - STATUS_HEIGHT - 1;
+    int x, y;
+
+    getmaxyx(wmain, y, x);
+    if (outy >= y) {
+        outy = y - 1;
         scroll(wmain);
         list_pop_front(); /* list will always contain the lines on the visible screen */
     }
@@ -119,13 +122,14 @@ void get_input()
     switch (c) {
     case 'i':
         if (interactive) {
-            if (outy >= LINES - HEADER_HEIGHT - STATUS_HEIGHT) {
+            int x, y;
+
+            getmaxyx(wmain, y, x);
+            if (outy >= y) {
                 struct packet p;
-                int y, x;
                 unsigned char *buf;
                 int c = vector_size() - 1;
 
-                getmaxyx(wmain, y, x);
                 werase(wmain);
                 list_clear();
 
@@ -176,7 +180,6 @@ void get_input()
         int x, y;
 
         getmaxyx(wmain, y, x);
-
         if (selection_line > 0 && screen_line == 0) {
             unsigned char *buf;
             struct packet p;
@@ -250,14 +253,17 @@ void get_input()
 
 void create_subwindow(int num_lines)
 {
+    int x, y;
     const node_t *l = list_ith(screen_line + 1);
 
-    /* make space for protocol specific information */
-    wsub_main = derwin(wmain, num_lines, COLS, screen_line + 1, 0);
-    wclrtobot(wsub_main);
-    wrefresh(wsub_main);
+    getmaxyx(wmain, y, x);
 
+    /* make space for protocol specific information */
+    wsub_main = derwin(wmain, num_lines, x, screen_line + 1, 0);
+    wmove(wmain, screen_line + 1, 0);
+    wclrtobot(wmain); /* clear everything below selection bar */
     outy = screen_line + num_lines + 1;
+
     /* print the remaining lines on the screen below the sub window */
     while (l) {
         mvwprintw(wmain, outy++, 0, "%s", (char *) list_data(l));
@@ -326,6 +332,7 @@ void print_arp_verbose(struct arp_info *info)
     mvwprintw(wsub_main, ++y, 0, "");
     mvwprintw(wsub_main, ++y, 4, "Sender IP: %-15s  HW: %s", info->sip, info->sha);
     mvwprintw(wsub_main, ++y, 4, "Target IP: %-15s  HW: %s", info->tip, info->tha);
+    touchwin(wmain);
     wrefresh(wsub_main);
 }
 
@@ -425,6 +432,7 @@ void print_dns_verbose(struct dns_info *info)
             i++;
         }
     }
+    touchwin(wmain);
     wrefresh(wsub_main);
 }
 
@@ -496,6 +504,9 @@ void print_rate()
 /* print buffer to standard output */
 void print(char *buf, int key)
 {
+    int x, y;
+
+    getmaxyx(wmain, y, x);
     switch (key) {
     case KEY_UP:
         list_push_front(buf);
@@ -504,11 +515,11 @@ void print(char *buf, int key)
         break;
     case KEY_DOWN:
         list_push_back(buf);
-        mvwprintw(wmain, LINES - HEADER_HEIGHT - STATUS_HEIGHT - 1, 0, "%s", buf);
+        mvwprintw(wmain, y - 1, 0, "%s", buf);
         wrefresh(wmain);
         break;
     default: /* new packet from the network interface */
-        if (!interactive || (interactive && outy < LINES - HEADER_HEIGHT - STATUS_HEIGHT)) {
+        if (!interactive || (interactive && outy < y)) {
             list_push_back(buf); /* buffer every line on screen */
             scroll_window();
             mvwprintw(wmain, outy, 0, "%s", buf);
