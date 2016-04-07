@@ -14,6 +14,14 @@ void serialize_arp(unsigned char *buf, struct arp_info *info);
  */
 void gethost(char *addr, char *host, int hostlen);
 
+/*
+ * Concatenate fmt string to buf. Will never print passed the size of buf.
+ * Expects buf to already contain a string or that buf is zeroed.
+ *
+ * Returns the number of bytes written.
+ */
+int snprintcat(char *buf, int size, char *fmt, ...);
+
 const char *get_arp_hardware_type(uint16_t type);
 const char *get_arp_protocol_type(uint16_t type);
 const char *get_arp_opcode(uint16_t opcode);

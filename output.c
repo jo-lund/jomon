@@ -16,7 +16,6 @@
 #define HOSTNAMELEN 255 /* maximum 255 according to rfc1035 */
 #define ADDR_WIDTH 36
 #define PROT_WIDTH 10
-#define MAXLINE 1000
 
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
@@ -394,17 +393,19 @@ void print_dns_verbose(struct dns_info *info)
                   get_dns_class_extended(info->question.qclass));
     }
     if (records) {
-        char buffer[MAXLINE];
+        int mx, my;
 
         i = 0;
+        getmaxyx(wmain, my, mx);
         mvwprintw(wsub_main, ++y, 4, "Resource records:");
         while (records--) {
             int n = 0;
             int namelen;
+            char buffer[mx + 1];
 
-            n += snprintf(buffer, MAXLINE, "%s\t", info->record[i].name);
-            n += snprintf(buffer + n, MAXLINE - n, "%-6s", get_dns_class(info->record[i].class));
-            n += snprintf(buffer + n, MAXLINE - n, "%-8s", get_dns_type(info->record[i].type));
+            snprintf(buffer, mx + 1, "%s\t", info->record[i].name);
+            snprintcat(buffer, mx + 1, "%-6s", get_dns_class(info->record[i].class));
+            snprintcat(buffer, mx + 1, "%-8s", get_dns_type(info->record[i].type));
             switch (info->record[i].type) {
             case DNS_TYPE_A:
             {
@@ -412,20 +413,20 @@ void print_dns_verbose(struct dns_info *info)
                 uint32_t haddr = htonl(info->record[i].rdata.address);
 
                 inet_ntop(AF_INET, (struct in_addr *) &haddr, addr, sizeof(addr));
-                n += snprintf(buffer + n, MAXLINE - n, "%s", addr);
+                snprintcat(buffer, mx + 1 - n, "%s", addr);
                 break;
             }
             case DNS_TYPE_NS:
-                n += snprintf(buffer + n, MAXLINE - n, "%s", info->record[i].rdata.nsdname);
+                snprintcat(buffer, mx + 1, "%s", info->record[i].rdata.nsdname);
                 break;
             case DNS_TYPE_CNAME:
-                n += snprintf(buffer + n, MAXLINE - n, "%s", info->record[i].rdata.cname);
+                snprintcat(buffer, mx + 1, "%s", info->record[i].rdata.cname);
                 break;
             case DNS_TYPE_PTR:
-                n += snprintf(buffer + n, MAXLINE - n, "%s", info->record[i].rdata.ptrdname);
+                snprintcat(buffer, mx + 1, "%s", info->record[i].rdata.ptrdname);
                 break;
             default:
-                n += snprintf(buffer + n, MAXLINE - n, "type: %d", info->record[i].type);
+                snprintcat(buffer, mx + 1, "type: %d", info->record[i].type);
                 break;
             }
             mvwprintw(wsub_main, ++y, 8, "%s", buffer);

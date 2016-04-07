@@ -5,6 +5,8 @@
 #include <string.h>
 #include <netdb.h>
 #include <netinet/if_ether.h>
+#include <stdio.h>
+#include <stdarg.h>
 #include "util.h"
 #include "packet.h"
 #include "vector.h"
@@ -65,6 +67,19 @@ void gethost(char *addr, char *host, int hostlen)
     saddr.sin_addr = naddr;
     getnameinfo((struct sockaddr *) &saddr, sizeof(struct sockaddr_in),
                 host, hostlen, NULL, 0, 0);
+}
+
+int snprintcat(char *buf, int size, char *fmt, ...)
+{
+    va_list ap;
+    int len;
+    int n;
+
+    len = strnlen(buf, size);
+    va_start(ap, fmt);
+    n = vsnprintf(buf + len, size - len, fmt, ap);
+    va_end(ap);
+    return n;
 }
 
 const char *get_arp_hardware_type(uint16_t type)
