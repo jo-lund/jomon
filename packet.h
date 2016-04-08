@@ -11,9 +11,9 @@
 #define ETHERNET_HDRLEN 14
 #define UDP_HDRLEN 8
 #define DNS_HDRLEN 12
-#define DNS_NAMELEN 253
+#define DNS_NAMELEN 254
 #define MAX_DNS_RECORDS 14
-#define NBNS_NAMELEN 16
+#define NBNS_NAMELEN 17
 #define MAX_NBNS_RECORDS 4
 #define MAX_NBNS_NAMES 8
 #define MAX_NBNS_ADDR 8
@@ -130,6 +130,7 @@ enum dns_section_count {
     ARCOUNT
 };
 
+// TODO: Make a pointer to the variable length portions
 struct dns_info {
     uint16_t id; /* A 16 bit identifier */
     unsigned int qr     : 1; /* 0 DNS query, 1 DNS response */
@@ -145,7 +146,7 @@ struct dns_info {
 
     /* question section */
     struct {
-        char qname[DNS_NAMELEN + 1];
+        char qname[DNS_NAMELEN];
         uint16_t qtype;  /* QTYPES are a superset of TYPES */
         uint16_t qclass; /* QCLASS values are a superset of CLASS values */
     } question;
@@ -153,7 +154,7 @@ struct dns_info {
     /* answer section */
     struct resource_record {
         /* a domain name to which the resource record pertains */
-        char name[DNS_NAMELEN + 1];
+        char name[DNS_NAMELEN];
         uint16_t type;
         uint16_t class;
         /*
@@ -169,13 +170,13 @@ struct dns_info {
         union {
             /* a domain name which specifies the canonical or primary name
                for the owner. The owner name is an alias. */
-            char cname[DNS_NAMELEN + 1];
+            char cname[DNS_NAMELEN];
             /* a domain name which points to some location in the domain
                name space. */
-            char ptrdname[DNS_NAMELEN + 1];
+            char ptrdname[DNS_NAMELEN];
             /* a domain name which specifies a host which should be
                authoritative for the specified class and domain */
-            char nsdname[DNS_NAMELEN + 1];
+            char nsdname[DNS_NAMELEN];
             uint32_t address; /* a 32 bit internet address */
         } rdata;
     } record[MAX_DNS_RECORDS];
@@ -197,7 +198,7 @@ struct nbns_info {
     /* question section */
     struct {
         /* the compressed name representation of the NetBIOS name for the request */
-        char qname[NBNS_NAMELEN + 1];
+        char qname[NBNS_NAMELEN];
         uint16_t qtype;  /* the type of request */
         uint16_t qclass; /* the class of the request */
     } question;
@@ -206,7 +207,7 @@ struct nbns_info {
     struct rr {
         /* the compressed name representation of the NetBIOS name corresponding
            to this resource record */
-        char rrname[NBNS_NAMELEN + 1];
+        char rrname[NBNS_NAMELEN];
         uint16_t rrtype; /* resource record type code */
         uint16_t rrclass; /* resource record class code */
         uint32_t ttl; /* the Time To Live of the resource record's name */
@@ -233,10 +234,10 @@ struct nbns_info {
                 uint32_t address[MAX_NBNS_ADDR]; /* IP address[es] of the name's owner */
             } nb;
             struct {
-                char node_name[NBNS_NAMELEN + 1];
+                char node_name[NBNS_NAMELEN];
                 uint16_t name_flags;
             } nbstat[MAX_NBNS_NAMES];
-            char nsdname[NBNS_NAMELEN + 1];
+            char nsdname[NBNS_NAMELEN];
             uint32_t nsdipaddr;
         } rdata;
     } record[MAX_NBNS_RECORDS];

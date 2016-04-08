@@ -143,10 +143,10 @@ void handle_arp(unsigned char *buffer, struct arp_info *info)
     }
 
     /* sender/target hardware address */
-    snprintf(info->sha, HW_ADDRSTRLEN + 1, "%02x:%02x:%02x:%02x:%02x:%02x",
+    snprintf(info->sha, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
              arp_header->arp_sha[0], arp_header->arp_sha[1], arp_header->arp_sha[2],
              arp_header->arp_sha[2], arp_header->arp_sha[4], arp_header->arp_sha[5]);
-    snprintf(info->tha, HW_ADDRSTRLEN + 1, "%02x:%02x:%02x:%02x:%02x:%02x",
+    snprintf(info->tha, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
              arp_header->arp_tha[0], arp_header->arp_tha[1], arp_header->arp_tha[2],
              arp_header->arp_tha[2], arp_header->arp_tha[4], arp_header->arp_tha[5]);
 
