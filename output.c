@@ -35,12 +35,15 @@
 static WINDOW *wheader;
 static WINDOW *wmain;
 static WINDOW *wstatus;
-static WINDOW *wsub_main; /* sub window of wmain */
+static WINDOW *wsub_main; /* subwindow of wmain */
 
 static int outy = 0;
 static int interactive = 0;
 static int numeric = 1;
 static int screen_line = 0;
+
+/* the number of lines to be scrolled in order to print verbose packet information */
+static int scrollvy = 0;
 
 static void print_header();
 static void scroll_window();
@@ -87,9 +90,12 @@ void end_ncurses()
 
 void create_layout()
 {
-    wheader = newwin(HEADER_HEIGHT, COLS, 0, 0);
-    wmain = newwin(LINES - HEADER_HEIGHT - STATUS_HEIGHT, COLS, HEADER_HEIGHT, 0);
-    wstatus = newwin(STATUS_HEIGHT, COLS, LINES - STATUS_HEIGHT, 0);
+    int mx, my;
+
+    getmaxyx(stdscr, my, mx);
+    wheader = newwin(HEADER_HEIGHT, mx, 0, 0);
+    wmain = newwin(my - HEADER_HEIGHT - STATUS_HEIGHT, mx, HEADER_HEIGHT, 0);
+    wstatus = newwin(STATUS_HEIGHT, mx, my - STATUS_HEIGHT, 0);
     nodelay(wmain, TRUE); /* input functions must be non-blocking */
     keypad(wmain, TRUE);
     print_header();
@@ -255,6 +261,15 @@ void create_subwindow(int num_lines)
 
     getmaxyx(wmain, my, mx);
 
+    /* if there is not enough space for the information to be printed, the
+        screen needs to be scrolled to make room for all the lines */
+    if (my - (screen_line + 1) < num_lines) {
+        scrollvy = num_lines - (my - (screen_line + 1));
+        wscrl(wmain, scrollvy);
+        screen_line -= scrollvy;
+        wrefresh(wmain);
+    }
+
     /* make space for protocol specific information */
     wsub_main = derwin(wmain, num_lines, mx, screen_line + 1, 0);
     wmove(wmain, screen_line + 1, 0);
@@ -262,9 +277,11 @@ void create_subwindow(int num_lines)
     outy = screen_line + num_lines + 1;
 
     /* print the remaining lines on the screen below the sub window */
-    while (l) {
-        mvwprintw(wmain, outy++, 0, "%s", (char *) list_data(l));
-        l = list_next(l);
+    if (!scrollvy) {
+        while (l) {
+            mvwprintw(wmain, outy++, 0, "%s", (char *) list_data(l));
+            l = list_next(l);
+        }
     }
     wrefresh(wmain);
 }
@@ -277,6 +294,10 @@ void delete_subwindow()
      */
     const node_t *l = list_begin();
 
+    if (scrollvy) {
+        screen_line += scrollvy;
+        scrollvy = 0;
+    }
     delwin(wsub_main);
     werase(wmain);
     outy = 0;
@@ -397,8 +418,6 @@ void print_dns_verbose(struct dns_info *info)
         getmaxyx(wmain, my, mx);
         mvwprintw(wsub_main, ++y, 4, "Resource records:");
         while (records--) {
-            int n = 0;
-            int namelen;
             char buffer[mx + 1];
 
             snprintf(buffer, mx + 1, "%s\t", info->record[i].name);
@@ -411,7 +430,7 @@ void print_dns_verbose(struct dns_info *info)
                 uint32_t haddr = htonl(info->record[i].rdata.address);
 
                 inet_ntop(AF_INET, (struct in_addr *) &haddr, addr, sizeof(addr));
-                snprintcat(buffer, mx + 1 - n, "%s", addr);
+                snprintcat(buffer, mx + 1, "%s", addr);
                 break;
             }
             case DNS_TYPE_NS:
@@ -842,7 +861,6 @@ void print_nbns_record(struct ip_info *info, char *buf, int n)
 
 void print_icmp(struct ip_info *info, char *buf)
 {
-    int n = 0;
     int mx, my;
 
     getmaxyx(wmain, my, mx);
@@ -862,7 +880,6 @@ void print_icmp(struct ip_info *info, char *buf)
 
 void print_igmp(struct ip_info *info, char *buf)
 {
-    int n = 0;
     int mx, my;
 
     getmaxyx(wmain, my, mx);
