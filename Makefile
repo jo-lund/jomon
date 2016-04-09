@@ -1,5 +1,4 @@
 MACHINE := $(shell uname -smo | sed 's/ /-/g')
-HAVE_PCAP := 0
 CC := gcc
 CXX := g++
 CFLAGS += -g -std=gnu99
@@ -15,13 +14,7 @@ BUILDDIR := build
 TARGETDIR := bin
 TESTDIR := unittests
 
-ifeq ($(HAVE_PCAP), 1)
-  sources = $(wildcard *.c)
-  LIBS += -lpcap
-else
-  sources = $(filter-out pcap%, $(wildcard *.c))
-endif
-
+sources = $(wildcard *.c)
 objects = $(patsubst %.c,$(BUILDDIR)/%.o,$(sources))
 
 monitor : $(objects)
