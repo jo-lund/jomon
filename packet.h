@@ -142,7 +142,7 @@ struct dns_info {
     unsigned int ra     : 1; /* recursion avilable - denotes whether recursive query
                                 support is available in the name server */
     unsigned int rcode  : 4; /* response code */
-    enum dns_section_count section_count[4];
+    unsigned int section_count[4];
 
     /* question section */
     struct {

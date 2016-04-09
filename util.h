@@ -2,10 +2,10 @@
 #define UTIL_H
 
 struct arp_info;
+struct resource_record;
 
 // TODO: This should be moved to its own file. Will be used for injecting
 // packets.
-
 void serialize_arp(unsigned char *buf, struct arp_info *info);
 
 /*
@@ -21,6 +21,9 @@ void gethost(char *addr, char *host, int hostlen);
  * Returns the number of bytes written.
  */
 int snprintcat(char *buf, int size, char *fmt, ...);
+
+/* Get the size of the longest domain name in the RRs */
+int get_max_namelen(struct resource_record *record, int n);
 
 const char *get_arp_hardware_type(uint16_t type);
 const char *get_arp_protocol_type(uint16_t type);

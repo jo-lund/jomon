@@ -82,6 +82,19 @@ int snprintcat(char *buf, int size, char *fmt, ...)
     return n;
 }
 
+int get_max_namelen(struct resource_record *record, int n)
+{
+    int maxlen = 0;
+
+    for (int i = 0; i < n; i++) {
+        int len = strlen(record[i].name);
+        if (len > maxlen) {
+            maxlen = len;
+        }
+    }
+    return maxlen;
+}
+
 const char *get_arp_hardware_type(uint16_t type)
 {
     switch (type) {

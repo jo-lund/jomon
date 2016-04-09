@@ -54,8 +54,6 @@ static void print_udp(struct ip_info *info, char *buf);
 static void print_icmp(struct ip_info *info, char *buf);
 static void print_igmp(struct ip_info *info, char *buf);
 static void print_dns(struct ip_info *info, char *buf);
-static void print_dns_class(char *buf, uint16_t class, int n);
-static void print_dns_type(struct ip_info *info, char *buf, uint16_t type, int n);
 static void print_nbns(struct ip_info *info, char *buf);
 static void print_nbns_opcode(char *buf, uint8_t opcode, int n);
 static void print_nbns_type(char *buf, uint8_t type, int n);
@@ -67,6 +65,7 @@ static void print_ip_verbose(struct ip_info *info);
 static void print_udp_verbose(struct ip_info *info);
 static void print_dns_verbose(struct dns_info *info);
 static void print_dns_soa(struct dns_info *info, int i, int y, int x);
+static void print_dns_type(struct dns_info *info, int i, char *buf, int n, uint16_t type, bool *soa);
 
 static char *alloc_print_buffer(struct packet *p, int size);
 static void create_subwindow(int num_lines);
@@ -415,63 +414,67 @@ void print_dns_verbose(struct dns_info *info)
     }
     if (records) {
         int mx, my;
+        int len;
 
         i = 0;
         getmaxyx(wmain, my, mx);
         mvwprintw(wsub_main, ++y, 4, "Resource records:");
+        len = get_max_namelen(info->record, records);
         while (records--) {
             char buffer[mx + 1];
+            bool soa = false;
 
-            snprintf(buffer, mx + 1, "%s\t", info->record[i].name);
+            snprintf(buffer, mx + 1, "%-*s", len + 4, info->record[i].name);
             snprintcat(buffer, mx + 1, "%-6s", get_dns_class(info->record[i].class));
             snprintcat(buffer, mx + 1, "%-8s", get_dns_type(info->record[i].type));
-            switch (info->record[i].type) {
-            case DNS_TYPE_A:
-            {
-                char addr[INET_ADDRSTRLEN];
-                uint32_t haddr = htonl(info->record[i].rdata.address);
-
-                inet_ntop(AF_INET, (struct in_addr *) &haddr, addr, sizeof(addr));
-                snprintcat(buffer, mx + 1, "%s", addr);
-                mvwprintw(wsub_main, ++y, 8, "%s", buffer);
-                break;
-            }
-            case DNS_TYPE_NS:
-                snprintcat(buffer, mx + 1, "%s", info->record[i].rdata.nsdname);
-                mvwprintw(wsub_main, ++y, 8, "%s", buffer);
-                break;
-            case DNS_TYPE_CNAME:
-                snprintcat(buffer, mx + 1, "%s", info->record[i].rdata.cname);
-                mvwprintw(wsub_main, ++y, 8, "%s", buffer);
-                break;
-            case DNS_TYPE_SOA:
-                mvwprintw(wsub_main, ++y, 8, "%s", buffer);
+            print_dns_type(info, i, buffer, mx + 1, info->record[i].type, &soa);
+            mvwprintw(wsub_main, ++y, 8, "%s", buffer);
+            if (soa) {
                 mvwprintw(wsub_main, ++y, 0, "");
                 print_dns_soa(info, i, y + 1, 8);
-                break;
-            case DNS_TYPE_PTR:
-                snprintcat(buffer, mx + 1, "%s", info->record[i].rdata.ptrdname);
-                mvwprintw(wsub_main, ++y, 8, "%s", buffer);
-                break;
-            case DNS_TYPE_AAAA:
-            {
-                char addr[INET6_ADDRSTRLEN];
-                
-                inet_ntop(AF_INET6, (struct in_addr *) info->record[i].rdata.ipv6addr, addr, sizeof(addr));
-                snprintcat(buffer, mx + 1, "%s", addr);
-                mvwprintw(wsub_main, ++y, 8, "%s", buffer);
-                break;
-            }
-            default:
-                snprintcat(buffer, mx + 1, "type: %d", info->record[i].type);
-                mvwprintw(wsub_main, ++y, 8, "%s", buffer);
-                break;
             }
             i++;
         }
     }
     touchwin(wmain);
     wrefresh(wsub_main);
+}
+
+void print_dns_type(struct dns_info *info, int i, char *buf, int n, uint16_t type, bool *soa)
+{
+    switch (type) {
+    case DNS_TYPE_A:
+    {
+        char addr[INET_ADDRSTRLEN];
+        uint32_t haddr = htonl(info->record[i].rdata.address);
+
+        inet_ntop(AF_INET, (struct in_addr *) &haddr, addr, sizeof(addr));
+        snprintcat(buf, n, "%s", addr);
+        break;
+    }
+    case DNS_TYPE_NS:
+        snprintcat(buf, n, "%s", info->record[i].rdata.nsdname);
+        break;
+    case DNS_TYPE_SOA:
+        if (soa) *soa = true;
+        break;
+    case DNS_TYPE_CNAME:
+        snprintcat(buf, n, "%s", info->record[i].rdata.cname);
+        break;
+    case DNS_TYPE_PTR:
+        snprintcat(buf, n, "%s", info->record[i].rdata.ptrdname);
+        break;
+    case DNS_TYPE_AAAA:
+    {
+        char addr[INET6_ADDRSTRLEN];
+
+        inet_ntop(AF_INET6, (struct in_addr *) info->record[i].rdata.ipv6addr, addr, sizeof(addr));
+        snprintcat(buf, n, "%s", addr);
+        break;
+    }
+    default:
+        break;
+    }
 }
 
 void print_dns_soa(struct dns_info *info, int i, int y, int x)
@@ -671,9 +674,9 @@ void print_dns(struct ip_info *info, char *buf)
         switch (info->udp.dns.opcode) {
         case DNS_QUERY:
             PRINT_INFO(buf, mx + 1, "Standard query: ");
-            print_dns_type(info, buf, info->udp.dns.question.qtype, mx + 1);
-            PRINT_INFO(buf, mx + 1, " %s", info->udp.dns.question.qname);
-            print_dns_class(buf, info->udp.dns.question.qclass, mx + 1);
+            PRINT_INFO(buf, mx + 1, "%s ", info->udp.dns.question.qname);
+            PRINT_INFO(buf, mx + 1, "%s ", get_dns_class(info->udp.dns.question.qclass));
+            PRINT_INFO(buf, mx + 1, "%s", get_dns_type(info->udp.dns.question.qtype));
             break;
         case DNS_IQUERY:
             PRINT_INFO(buf, mx + 1, "Inverse query");
@@ -704,76 +707,18 @@ void print_dns(struct ip_info *info, char *buf)
             PRINT_INFO(buf, mx + 1, "Response: ");
             break;
         }
-        print_dns_type(info, buf, info->udp.dns.record[0].type, mx + 1);
-        print_dns_class(buf, info->udp.dns.record[0].class, mx + 1);
-    }
-}
+        // TODO: Need to print the proper name for all values.
+        PRINT_INFO(buf, mx + 1, "%s ", info->udp.dns.record[0].name);
+        PRINT_INFO(buf, mx + 1, "%s ", get_dns_class(info->udp.dns.record[0].class));
+        PRINT_INFO(buf, mx + 1, "%s ", get_dns_type(info->udp.dns.record[0].type));
+        int records = info->udp.dns.section_count[ANCOUNT];
+        int i = 0;
 
-void print_dns_type(struct ip_info *info, char *buf, uint16_t type, int n)
-{
-    switch (type) {
-    case DNS_TYPE_A:
-        PRINT_INFO(buf, n, "A");
-        if (info->udp.dns.qr) {
-            char addr[INET_ADDRSTRLEN];
-            uint32_t haddr = htonl(info->udp.dns.record[0].rdata.address);
-
-            if (inet_ntop(AF_INET, (struct in_addr *) &haddr, addr, sizeof(addr)) == NULL) {
-                err_msg("inet_ntop error");
-            }
-            PRINT_INFO(buf, n, " %s", addr);
+        while (records--) {
+            print_dns_type(&info->udp.dns, i, buf, mx + 1, info->udp.dns.record[i].type, NULL);
+            PRINT_INFO(buf, mx + 1, " ");
+            i++;
         }
-        break;
-    case DNS_TYPE_NS:
-        PRINT_INFO(buf, n, "NSDNAME");
-        if (info->udp.dns.qr) {
-            PRINT_INFO(buf, n, " %s", info->udp.dns.record[0].rdata.nsdname);
-        }
-        break;
-    case DNS_TYPE_CNAME:
-        PRINT_INFO(buf, n, "CNAME");
-        if (info->udp.dns.qr) {
-            PRINT_INFO(buf, n, " %s", info->udp.dns.record[0].rdata.cname);
-        }
-        break;
-    case DNS_TYPE_PTR:
-        PRINT_INFO(buf, n, "PTR");
-        if (info->udp.dns.qr) {
-            PRINT_INFO(buf, n, " %s", info->udp.dns.record[0].rdata.ptrdname);
-        }
-        break;
-    case DNS_TYPE_AAAA:
-        PRINT_INFO(buf, n, "AAAA");
-        if (info->udp.dns.qr) {
-            char addr[INET6_ADDRSTRLEN];
-
-            inet_ntop(AF_INET6, (struct in_addr *) info->udp.dns.record[0].rdata.ipv6addr, addr, sizeof(addr));
-            PRINT_INFO(buf, n, " %s", addr);
-        }
-        break;
-    default:
-        PRINT_INFO(buf, n, "TYPE = %d", type);
-        break;
-    }
-}
-
-void print_dns_class(char *buf, uint16_t class, int n)
-{
-    switch (class) {
-    case DNS_CLASS_IN:
-        PRINT_INFO(buf, n, " IN");
-        break;
-    case DNS_CLASS_CS:
-        PRINT_INFO(buf, n, " CS");
-        break;
-    case DNS_CLASS_CH:
-        PRINT_INFO(buf, n, " CH");
-        break;
-    case DNS_CLASS_HS:
-        PRINT_INFO(buf, n, " HS");
-        break;
-    default:
-        break;
     }
 }
 
