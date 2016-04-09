@@ -459,20 +459,40 @@ void parse_dns_record(int i, unsigned char *buffer, unsigned char **ptr, struct 
             if (rdlen == 4) {
                 info->udp.dns.record[i].rdata.address = (*ptr)[0] << 24 | (*ptr)[1] << 16 | (*ptr)[2] << 8 | (*ptr)[3];
             }
+            *ptr += rdlen;
             break;
         case DNS_TYPE_NS:
-            parse_dns_name(buffer, *ptr, info->udp.dns.record[i].rdata.nsdname);
+            *ptr += parse_dns_name(buffer, *ptr, info->udp.dns.record[i].rdata.nsdname);
         case DNS_TYPE_CNAME:
-            parse_dns_name(buffer, *ptr, info->udp.dns.record[i].rdata.cname);
+            *ptr += parse_dns_name(buffer, *ptr, info->udp.dns.record[i].rdata.cname);
+            break;
+        case DNS_TYPE_SOA:
+            *ptr += parse_dns_name(buffer, *ptr, info->udp.dns.record[i].rdata.soa.mname);
+            *ptr += parse_dns_name(buffer, *ptr, info->udp.dns.record[i].rdata.soa.rname);
+            info->udp.dns.record[i].rdata.soa.serial = (*ptr)[0] << 24 | (*ptr)[1] << 16 | (*ptr)[2] << 8 | (*ptr)[3];
+            info->udp.dns.record[i].rdata.soa.retry = (*ptr)[4] << 24 | (*ptr)[5] << 16 | (*ptr)[6] << 8 | (*ptr)[7];
+            info->udp.dns.record[i].rdata.soa.expire = (*ptr)[8] << 24 | (*ptr)[9] << 16 | (*ptr)[10] << 8 | (*ptr)[11];
+            info->udp.dns.record[i].rdata.soa.minimum = (*ptr)[12] << 24 | (*ptr)[13] << 16 | (*ptr)[14] << 8 | (*ptr)[15];
+            *ptr += 16;
             break;
         case DNS_TYPE_PTR:
-            parse_dns_name(buffer, *ptr, info->udp.dns.record[i].rdata.ptrdname);
+            *ptr += parse_dns_name(buffer, *ptr, info->udp.dns.record[i].rdata.ptrdname);
+            break;
+        case DNS_TYPE_AAAA:
+            if (rdlen == 16) {
+                for (int j = 0; j < rdlen; j++) {
+                    info->udp.dns.record[i].rdata.ipv6addr[j] = (*ptr)[j];
+                }
+            }
+            *ptr += rdlen;
             break;
         default:
+            *ptr += rdlen;
             break;
         }
+    } else {
+        *ptr += rdlen;
     }
-    *ptr += rdlen;
 }
 
 /*

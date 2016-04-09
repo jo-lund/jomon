@@ -177,7 +177,29 @@ struct dns_info {
             /* a domain name which specifies a host which should be
                authoritative for the specified class and domain */
             char nsdname[DNS_NAMELEN];
-            uint32_t address; /* a 32 bit internet address */
+            uint32_t address; /* a 32 bit IPv4 internet address */
+
+             /* zone of authority */
+            struct {
+                /* the domain name of the name server that was the
+                   original or primary source of data for this zone */
+                char mname[DNS_NAMELEN];
+                /* a domain name which specifies the mailbox of the
+                   person responsible for this zone */
+                char rname[DNS_NAMELEN];
+                uint32_t serial; /* the version number of the original copy of the zone */
+                /* all times are in units of seconds */
+                int32_t refresh; /* time interval before the zone should be refreshed */
+                int32_t retry; /* time interval that should elapse before a
+                                  failed refresh should be retried */
+                int32_t expire; /* time value that specifies the upper limit on
+                                   the time interval that can elapse before the
+                                   zone is no longer authoritative */
+                uint32_t minimum; /* the minimum ttl field that should be exported
+                                     with any RR from this zone */
+            } soa;
+
+            uint8_t ipv6addr[16];
         } rdata;
     } record[MAX_DNS_RECORDS];
 };
