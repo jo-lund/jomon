@@ -550,7 +550,6 @@ bool handle_nbns(unsigned char *buffer, struct ip_info *info)
      * or a response (1)
      */
     info->udp.nbns.r = (ptr[2] & 0x80U) >> 7;
-    info->udp.nbns.rr = 0;
 
     if (info->udp.nbns.r) { /* response */
         if (info->udp.nbns.section_count[QDCOUNT] != 0) { /* QDCOUNT is always 0 for responses */
@@ -618,7 +617,6 @@ void parse_nbns_record(int i, unsigned char *buffer, unsigned char **ptr, struct
     int rdlen;
     char name[DNS_NAMELEN];
 
-    info->udp.nbns.rr = 1;
     *ptr += parse_dns_name(buffer, *ptr, name);
     decode_nbns_name(info->udp.nbns.record[i].rrname, name);
     info->udp.nbns.record[i].rrtype = (*ptr)[0] << 8 | (*ptr)[1];
@@ -635,9 +633,10 @@ void parse_nbns_record(int i, unsigned char *buffer, unsigned char **ptr, struct
             rdlen -= 2;
             (*ptr) += 2;
             for (int j = 0, k = 0; k < rdlen && k < MAX_NBNS_ADDR * 4 ; j++, k += 4) {
-                info->udp.nbns.record[i].rdata.nb.address[i] =
+                info->udp.nbns.record[i].rdata.nb.address[j] =
                     (*ptr)[k] << 24 | (*ptr)[k + 1] << 16 | (*ptr)[k + 2] << 8 | (*ptr)[k + 3];
             }
+            info->udp.nbns.record[i].rdata.nb.num_addr = rdlen / 4;
         }
         *ptr += rdlen;
         break;

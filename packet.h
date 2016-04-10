@@ -70,6 +70,7 @@
 #define NBNS_REFRESH 8
 
 /* NBNS response codes */
+#define NBNS_NO_ERROR 0
 #define NBNS_FMT_ERR 0x1 /* Format Error. Request was invalidly formatted */
 #define NBNS_SRV_ERR 0x2 /* Server failure. Problem with NBNS, cannot process name */
 #define NBNS_IMP_ERR 0x4 /* Unsupported request error. Allowable only for challenging 
@@ -89,6 +90,11 @@
 
 /* NBNS class */
 #define NBNS_IN 0x0001 /* Internet class */
+
+/* NBNS owner node type */
+#define NBNS_BNODE 0
+#define NBNS_PNODE 1
+#define NBNS_MNODE 2
 
 enum port {
     DNS = 53,   /* Domain Name Service */
@@ -204,6 +210,7 @@ struct dns_info {
     } record[MAX_DNS_RECORDS];
 };
 
+// TODO: Make a pointer to the variable length portions
 struct nbns_info {
     uint16_t id; /* transaction ID */
     unsigned int r      : 1; /* 0 request, 1 response */
@@ -214,8 +221,7 @@ struct nbns_info {
     unsigned int ra     : 1; /* recursion avilable */
     unsigned int broadcast : 1; /* 1 broadcast or multicast, 0 unicast */
     unsigned int rcode  : 4;
-    unsigned int rr     : 1; /* set if it contains a reource record */
-    enum dns_section_count section_count[4];
+    unsigned int section_count[4];
 
     /* question section */
     struct {
@@ -253,6 +259,7 @@ struct nbns_info {
                  * For responses this is the actual owner's type.
                  */
                 unsigned int ont : 2;
+                uint8_t num_addr;
                 uint32_t address[MAX_NBNS_ADDR]; /* IP address[es] of the name's owner */
             } nb;
             struct {
