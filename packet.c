@@ -32,7 +32,7 @@ size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet 
         err_sys("read error");
     }
 
-    if (!capture) {
+    if (statistics) {
         check_address(buffer);
     } else {
         handle_ethernet(buffer, p);

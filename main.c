@@ -42,7 +42,7 @@ struct sockaddr_in *local_addr;
 char *device = NULL;
 int verbose;
 int promiscuous;
-int capture;
+int statistics;
 static volatile sig_atomic_t signal_flag = 0;
 static int fd; /* packet socket file descriptor */
 
@@ -60,9 +60,9 @@ int main(int argc, char **argv)
     int opt;
     int n;
 
-    capture = 0;
+    statistics = 0;
     promiscuous = 0;
-    while ((opt = getopt(argc, argv, "i:lhvpc")) != -1) {
+    while ((opt = getopt(argc, argv, "i:lhvps")) != -1) {
         switch (opt) {
         case 'i':
             n = strlen(optarg);
@@ -80,8 +80,8 @@ int main(int argc, char **argv)
         case 'v':
             verbose = 1;
             break;
-        case 'c':
-            capture = 1;
+        case 's':
+            statistics = 1;
             break;
         case 'h':
         default:
@@ -106,7 +106,7 @@ void print_help(char *prg)
     printf("     -i  Specify network interface\n");
     printf("     -l  List available interfaces\n");
     printf("     -p  Use promiscuous mode\n");
-    printf("     -c  Capture and print packets\n");
+    printf("     -s  Show statistics page\n");
     printf("     -v  Print verbose information\n");
     printf("     -h  Print this help summary\n");
 }
@@ -143,7 +143,7 @@ int init()
             err_quit("Cannot find active network device\n");
         }
     }
-    if (capture) {
+    if (!statistics) {
         /* SOCK_RAW packet sockets include the link level header */
         if ((sockfd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {
             err_sys("socket error");
@@ -206,7 +206,7 @@ void run(int fd)
         { STDIN_FILENO, POLLIN }
     };
 
-    if (!capture) alarm(1);
+    if (statistics) alarm(1);
     while (1) {
         if (signal_flag) {
             signal_flag = 0;
@@ -234,7 +234,7 @@ void run(int fd)
         if (fds[1].revents & POLLIN) {
             get_input();
         }
-        if (!capture) print_rate();
+        if (statistics) print_rate();
     }
 }
 

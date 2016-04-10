@@ -587,7 +587,7 @@ void print_header()
     inet_ntop(AF_INET, &local_addr->sin_addr, addr, sizeof(addr));
     mvwprintw(wheader, ++y, 0, "Local address: %s", addr);
     y += 2;
-    if (!capture) {
+    if (statistics) {
         attron(A_BOLD);
         mvwprintw(wheader, y, 0, "RX:");
         mvwprintw(wheader, ++y, 0, "TX:");

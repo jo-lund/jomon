@@ -1,6 +1,8 @@
 #ifndef MISC_H
 #define MISC_H
 
+// TODO: Clean up this file
+
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <net/ethernet.h>
@@ -33,11 +35,9 @@ typedef struct {
 extern struct sockaddr_in *local_addr;
 extern int verbose;
 extern int promiscuous;
-extern int capture;
+extern int statistics;
 extern linkdef rx; /* data received */
 extern linkdef tx; /* data transmitted */
 extern char *device;
-
-int check_ip(const u_char *bytes);
 
 #endif
