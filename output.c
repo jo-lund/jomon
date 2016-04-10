@@ -55,9 +55,6 @@ static void print_icmp(struct ip_info *info, char *buf);
 static void print_igmp(struct ip_info *info, char *buf);
 static void print_dns(struct ip_info *info, char *buf);
 static void print_nbns(struct ip_info *info, char *buf);
-static void print_nbns_opcode(char *buf, uint8_t opcode, int n);
-static void print_nbns_type(char *buf, uint8_t type, int n);
-static void print_nbns_record(struct ip_info *info, char *buf, int n);
 
 static void print_information(int lineno, bool select);
 static void print_arp_verbose(struct arp_info *info);
@@ -65,7 +62,9 @@ static void print_ip_verbose(struct ip_info *info);
 static void print_udp_verbose(struct ip_info *info);
 static void print_dns_verbose(struct dns_info *info);
 static void print_dns_soa(struct dns_info *info, int i, int y, int x);
-static void print_dns_type(struct dns_info *info, int i, char *buf, int n, uint16_t type, bool *soa);
+static void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t type, bool *soa);
+static void print_nbns_verbose(struct nbns_info *info);
+static void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t type);
 
 static char *alloc_print_buffer(struct packet *p, int size);
 static void create_subwindow(int num_lines);
@@ -377,7 +376,7 @@ void print_udp_verbose(struct ip_info *info)
         print_dns_verbose(&info->udp.dns);
         break;
     case NBNS:
-        //print_nbns_verbose(info->udp.nbns);
+        print_nbns_verbose(&info->udp.nbns);
         break;
     default:
         break;
@@ -427,7 +426,7 @@ void print_dns_verbose(struct dns_info *info)
             snprintf(buffer, mx + 1, "%-*s", len + 4, info->record[i].name);
             snprintcat(buffer, mx + 1, "%-6s", get_dns_class(info->record[i].class));
             snprintcat(buffer, mx + 1, "%-8s", get_dns_type(info->record[i].type));
-            print_dns_type(info, i, buffer, mx + 1, info->record[i].type, &soa);
+            print_dns_record(info, i, buffer, mx + 1, info->record[i].type, &soa);
             mvwprintw(wsub_main, ++y, 8, "%s", buffer);
             if (soa) {
                 mvwprintw(wsub_main, ++y, 0, "");
@@ -440,7 +439,7 @@ void print_dns_verbose(struct dns_info *info)
     wrefresh(wsub_main);
 }
 
-void print_dns_type(struct dns_info *info, int i, char *buf, int n, uint16_t type, bool *soa)
+void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t type, bool *soa)
 {
     switch (type) {
     case DNS_TYPE_A:
@@ -486,6 +485,97 @@ void print_dns_soa(struct dns_info *info, int i, int y, int x)
     mvwprintw(wsub_main, ++y, x, "Retry: %d", info->record[i].rdata.soa.retry);
     mvwprintw(wsub_main, ++y, x, "Expire: %d", info->record[i].rdata.soa.expire);
     mvwprintw(wsub_main, ++y, x, "Minimum: %d", info->record[i].rdata.soa.minimum);
+}
+
+void print_nbns_verbose(struct nbns_info *info)
+{
+    int y = 0;
+    int i = 1;
+    int records = 0;
+
+    /* number of resource records */
+    while (i < 4) {
+        records += info->section_count[i++];
+    }
+    create_subwindow(10 + records);
+    mvwprintw(wsub_main, y, 0, "");
+    mvwprintw(wsub_main, ++y, 4, "ID: 0x%x", info->id);
+    mvwprintw(wsub_main, ++y, 4, "Response flag: %d (%s)", info->r, info->r ? "Response" : "Request");
+    mvwprintw(wsub_main, ++y, 4, "Opcode: %d (%s)", info->opcode, get_nbns_opcode(info->opcode));
+    mvwprintw(wsub_main, ++y, 4, "Flags: %d%d%d%d%d", info->aa, info->tc, info->rd, info->ra, info->broadcast);
+    mvwprintw(wsub_main, ++y, 4, "Rcode: %d (%s)", info->rcode, get_nbns_rcode(info->rcode));
+    mvwprintw(wsub_main, ++y, 4, "Question Entries: %d, Answer RRs: %d, Authority RRs: %d, Additional RRs: %d",
+              info->section_count[QDCOUNT], info->section_count[ANCOUNT],
+              info->section_count[NSCOUNT], info->section_count[ARCOUNT]);
+    mvwprintw(wsub_main, ++y, 0, "");
+
+    /* question entry */
+    if (info->section_count[QDCOUNT]) {
+        mvwprintw(wsub_main, ++y, 4, "Question name: %s, Question type: %s, Question class: IN (Internet)",
+                  info->question.qname, get_nbns_type_extended(info->question.qtype));
+    }
+
+    if (records) {
+        int mx, my;
+        int len;
+
+        i = 0;
+        getmaxyx(wmain, my, mx);
+        mvwprintw(wsub_main, ++y, 4, "Resource records:");
+        while (records--) {
+            char buffer[mx + 1];
+
+            snprintf(buffer, mx + 1, "%s\t", info->record[i].rrname);
+            snprintcat(buffer, mx + 1, "IN\t");
+            snprintcat(buffer, mx + 1, "%s\t", get_nbns_type(info->record[i].rrtype));
+            print_nbns_record(info, i, buffer, mx + 1, info->record[i].rrtype);
+            mvwprintw(wsub_main, ++y, 8, "%s", buffer);
+            i++;
+        }
+    }
+    touchwin(wmain);
+    wrefresh(wsub_main);
+}
+
+void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t type)
+{
+    switch (info->record[i].rrtype) {
+    case NBNS_NB:
+    {
+        if (info->record[i].rdata.nb.g) {
+            snprintcat(buf, n, "Group NetBIOS name ");
+        } else {
+            snprintcat(buf, n, "Unique NetBIOS name ");
+        }
+        int addrs = info->record[i].rdata.nb.num_addr;
+        snprintcat(buf, n, "%s ", get_nbns_node_type(info->record[i].rdata.nb.ont));
+        while (addrs--) {
+            char addr[INET_ADDRSTRLEN];
+            uint32_t haddr = htonl(info->record[i].rdata.nb.address[0]);
+
+            inet_ntop(AF_INET, (struct in_addr *) &haddr, addr, sizeof(addr));
+            snprintcat(buf, n, "%s ", addr);
+        }
+        break;
+    }
+    case NBNS_NS:
+        snprintcat(buf, n, " NSD Name: %s", info->record[i].rdata.nsdname);
+        break;
+    case NBNS_A:
+    {
+        char addr[INET_ADDRSTRLEN];
+        uint32_t haddr = htonl(info->record[i].rdata.nsdipaddr);
+
+        inet_ntop(AF_INET, (struct in_addr *) &haddr, addr, sizeof(addr));
+        snprintcat(buf, n, " NSD IP address: %s", addr);
+        break;
+    }
+    case NBNS_NBSTAT:
+        snprintcat(buf, n, "NBSTAT");
+        break;
+    default:
+        break;
+    }
 }
 
 void print_header()
@@ -715,7 +805,7 @@ void print_dns(struct ip_info *info, char *buf)
         int i = 0;
 
         while (records--) {
-            print_dns_type(&info->udp.dns, i, buf, mx + 1, info->udp.dns.record[i].type, NULL);
+            print_dns_record(&info->udp.dns, i, buf, mx + 1, info->udp.dns.record[i].type, NULL);
             PRINT_INFO(buf, mx + 1, " ");
             i++;
         }
@@ -729,12 +819,14 @@ void print_nbns(struct ip_info *info, char *buf)
     getmaxyx(wmain, my, mx);
     PRINT_PROTOCOL(buf, mx + 1, "NBNS");
     if (info->udp.nbns.r == 0) {
-        print_nbns_opcode(buf, info->udp.nbns.opcode, mx + 1);
-        PRINT_INFO(buf, mx + 1, " request:");
-        print_nbns_type(buf, info->udp.nbns.question.qtype, mx + 1);
-        PRINT_INFO(buf, mx + 1, " %s", info->udp.nbns.question.qname);
-        if (info->udp.nbns.rr) {
-            print_nbns_record(info, buf, mx + 1);
+        char opcode[16];
+
+        strncpy(opcode, get_nbns_opcode(info->udp.nbns.opcode), sizeof(opcode));
+        PRINT_INFO(buf, mx + 1, "Name %s request: ", strtolower(opcode, strlen(opcode)));
+        PRINT_INFO(buf, mx + 1, "%s ", info->udp.nbns.question.qname);
+        PRINT_INFO(buf, mx + 1, "%s ", get_nbns_type(info->udp.nbns.question.qtype));
+        if (info->udp.nbns.section_count[ARCOUNT]) {
+            print_nbns_record(&info->udp.nbns, 0, buf, mx + 1, info->udp.nbns.record[0].rrtype);
         }
     } else {
         switch (info->udp.nbns.rcode) {
@@ -759,85 +851,13 @@ void print_nbns(struct ip_info *info, char *buf)
         default:
             break;
         }
-        print_nbns_opcode(buf, info->udp.nbns.opcode, mx + 1);
-        PRINT_INFO(buf, mx + 1, " response:");
-        print_nbns_type(buf, info->udp.nbns.record[0].rrtype, mx + 1);
-        PRINT_INFO(buf, mx + 1, " %s", info->udp.nbns.record[0].rrname);
-        print_nbns_record(info, buf, mx + 1);
-    }
-}
+        char opcode[16];
 
-void print_nbns_opcode(char *buf, uint8_t opcode, int n)
-{
-    switch (opcode) {
-    case NBNS_QUERY:
-        PRINT_INFO(buf, n, "Name query");
-        break;
-    case NBNS_REGISTRATION:
-        PRINT_INFO(buf, n, "Name registration");
-        break;
-    case NBNS_REFRESH:
-        PRINT_INFO(buf, n, "Name refresh");
-        break;
-    default:
-        PRINT_INFO(buf, n, "Opcode: %d", opcode);
-        break;
-    }
-}
-
-void print_nbns_type(char *buf, uint8_t type, int n)
-{
-    switch (type) {
-    case NBNS_NB:
-        PRINT_INFO(buf, n, " NB");
-        break;
-    case NBNS_NBSTAT:
-        PRINT_INFO(buf, n, " Node status request");
-        break;
-    default:
-        PRINT_INFO(buf, n, " TYPE = %d", type);
-        break;
-    }
-}
-
-void print_nbns_record(struct ip_info *info, char *buf, int n)
-{
-    switch (info->udp.nbns.record[0].rrtype) {
-    case NBNS_NB:
-    {
-        if (info->udp.nbns.record[0].rdata.nb.g) {
-            PRINT_INFO(buf, n, "  Group NetBIOS name");
-        } else {
-            PRINT_INFO(buf, n, "  Unique NetBIOS name");
-        }
-        char addr[INET_ADDRSTRLEN];
-        uint32_t haddr = htonl(info->udp.nbns.record[0].rdata.nb.address[0]);
-
-        if (inet_ntop(AF_INET, (struct in_addr *) &haddr, addr, sizeof(addr)) == NULL) {
-            err_msg("inet_ntop error");
-        }
-        PRINT_INFO(buf, n, " %s", addr);
-        break;
-    }
-    case NBNS_NS:
-        PRINT_INFO(buf, n, " NSD Name: %s", info->udp.nbns.record[0].rdata.nsdname);
-        break;
-    case NBNS_A:
-    {
-        char addr[INET_ADDRSTRLEN];
-        uint32_t haddr = htonl(info->udp.nbns.record[0].rdata.nsdipaddr);
-
-        if (inet_ntop(AF_INET, (struct in_addr *) &haddr, addr, sizeof(addr)) == NULL) {
-            err_msg("inet_ntop error");
-        }
-        PRINT_INFO(buf, n, " NSD IP address: %s", addr);
-        break;
-    }
-    case NBNS_NBSTAT:
-        PRINT_INFO(buf, n, "NBSTAT");
-        break;
-    default:
-        break;
+        strncpy(opcode, get_nbns_opcode(info->udp.nbns.opcode), sizeof(opcode));
+        PRINT_INFO(buf, mx + 1, "Name %s response: ", strtolower(opcode, strlen(opcode)));
+        PRINT_INFO(buf, mx + 1, "%s ", info->udp.nbns.record[0].rrname);
+        PRINT_INFO(buf, mx + 1, "%s ", get_nbns_type(info->udp.nbns.record[0].rrtype));
+        print_nbns_record(&info->udp.nbns, 0, buf, mx + 1, info->udp.nbns.record[0].rrtype);
     }
 }
 

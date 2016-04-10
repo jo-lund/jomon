@@ -7,6 +7,7 @@
 #include <netinet/if_ether.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <ctype.h>
 #include "util.h"
 #include "packet.h"
 #include "vector.h"
@@ -82,6 +83,14 @@ int snprintcat(char *buf, int size, char *fmt, ...)
     return n;
 }
 
+char *strtolower(char *str, size_t n)
+{
+    for (int i = 0; i < n; i++) {
+        str[i] = tolower(str[i]);
+    }
+    return str;
+}
+
 int get_max_namelen(struct resource_record *record, int n)
 {
     int maxlen = 0;
@@ -95,7 +104,7 @@ int get_max_namelen(struct resource_record *record, int n)
     return maxlen;
 }
 
-const char *get_arp_hardware_type(uint16_t type)
+char *get_arp_hardware_type(uint16_t type)
 {
     switch (type) {
     case ARPHRD_ETHER:
@@ -107,7 +116,7 @@ const char *get_arp_hardware_type(uint16_t type)
     }
 }
 
-const char *get_arp_protocol_type(uint16_t type)
+char *get_arp_protocol_type(uint16_t type)
 {
     switch (type) {
     case ETH_P_IP:
@@ -121,7 +130,7 @@ const char *get_arp_protocol_type(uint16_t type)
     }
 }
 
-const char *get_arp_opcode(uint16_t opcode)
+char *get_arp_opcode(uint16_t opcode)
 {
     switch (opcode) {
     case ARPOP_REQUEST:
@@ -133,7 +142,7 @@ const char *get_arp_opcode(uint16_t opcode)
     }
 }
 
-const char *get_dns_opcode(uint8_t opcode)
+char *get_dns_opcode(uint8_t opcode)
 {
     switch (opcode) {
     case DNS_QUERY:
@@ -147,7 +156,7 @@ const char *get_dns_opcode(uint8_t opcode)
     }
 }
 
-const char *get_dns_rcode(uint8_t rcode)
+char *get_dns_rcode(uint8_t rcode)
 {
     switch (rcode) {
     case DNS_FORMAT_ERROR:
@@ -167,7 +176,7 @@ const char *get_dns_rcode(uint8_t rcode)
     }
 }
 
-const char *get_dns_type(uint16_t type)
+char *get_dns_type(uint16_t type)
 {
     switch (type) {
     case DNS_TYPE_A:
@@ -189,7 +198,7 @@ const char *get_dns_type(uint16_t type)
     }
 }
 
-const char *get_dns_type_extended(uint16_t type)
+char *get_dns_type_extended(uint16_t type)
 {
     switch (type) {
     case DNS_TYPE_A:
@@ -211,7 +220,7 @@ const char *get_dns_type_extended(uint16_t type)
     }
 }
 
-const char *get_dns_class(uint16_t class)
+char *get_dns_class(uint16_t class)
 {
     switch (class) {
     case DNS_CLASS_IN:
@@ -227,7 +236,7 @@ const char *get_dns_class(uint16_t class)
     }
 }
 
-const char *get_dns_class_extended(uint16_t class)
+char *get_dns_class_extended(uint16_t class)
 {
     switch (class) {
     case DNS_CLASS_IN:
@@ -238,6 +247,96 @@ const char *get_dns_class_extended(uint16_t class)
         return "CH (Chaos class)";
     case DNS_CLASS_HS:
         return "HS (Hesiod)";
+    default:
+        return "";
+    }
+}
+
+char *get_nbns_opcode(uint8_t opcode)
+{
+    switch (opcode) {
+    case NBNS_QUERY:
+        return "Query";
+    case NBNS_REGISTRATION:
+        return "Registration";
+    case NBNS_RELEASE:
+        return "Release";
+    case NBNS_WACK:
+        return "WACK";
+    case NBNS_REFRESH:
+        return "Refresh";
+    default:
+        return "";
+    }
+}
+
+char *get_nbns_rcode(uint8_t rcode)
+{
+    switch (rcode) {
+    case NBNS_NO_ERROR:
+        return "No error";
+    case NBNS_FMT_ERR:
+        return "Format Error. Request was invalidly formatted";
+    case NBNS_SRV_ERR:
+        return "Server failure. Problem with NBNS, cannot process name";
+    case NBNS_IMP_ERR:
+        return "Unsupported request error";
+    case NBNS_RFS_ERR:
+        return "Refused error";
+    case NBNS_ACT_ERR:
+        return "Active error. Name is owned by another node";
+    case NBNS_CFT_ERR:
+        return "Name in conflict error";
+    default:
+        return "";
+    }
+}
+
+char *get_nbns_type(uint16_t qtype)
+{
+    switch (qtype) {
+    case NBNS_A:
+        return "A";
+    case NBNS_NS:
+        return "NS";
+    case NBNS_NULL:
+        return "NULL";
+    case NBNS_NB:
+        return "NB";
+    case NBNS_NBSTAT:
+        return "NBSTAT";
+    default:
+        return "";
+    }
+}
+
+char *get_nbns_type_extended(uint16_t qtype)
+{
+    switch (qtype) {
+    case NBNS_A:
+        return "A (IP address)";
+    case NBNS_NS:
+        return "NS (Name Server";
+    case NBNS_NULL:
+        return "NULL";
+    case NBNS_NB:
+        return "NB (NetBIOS general Name Service)";
+    case NBNS_NBSTAT:
+        return "NBSTAT (NetBIOS NODE STATUS)";
+    default:
+        return "";
+    }
+}
+
+char *get_nbns_node_type(uint8_t type)
+{
+    switch (type) {
+    case NBNS_BNODE:
+        return "B Node";
+    case NBNS_PNODE:
+        return "P Node";
+    case NBNS_MNODE:
+        return "M Node";
     default:
         return "";
     }
