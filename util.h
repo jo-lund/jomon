@@ -43,5 +43,8 @@ char *get_nbns_rcode(uint8_t rcode);
 char *get_nbns_type(uint16_t qtype);
 char *get_nbns_type_extended(uint16_t qtype);
 char *get_nbns_node_type(uint8_t type);
+char *get_icmp_dest_unreach_code(uint8_t code);
+char *get_icmp_type(uint8_t type);
+char *get_igmp_type(uint8_t type);
 
 #endif

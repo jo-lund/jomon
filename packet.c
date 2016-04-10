@@ -700,6 +700,7 @@ void handle_icmp(unsigned char *buffer, struct ip_info *info)
 
     info->icmp.type = icmp->type;
     info->icmp.code = icmp->code;
+    info->icmp.checksum = htons(info->icmp.checksum);
     if (icmp->type == ICMP_ECHOREPLY || icmp->type == ICMP_ECHO) {
         info->icmp.echo.id = ntohs(icmp->un.echo.id);
         info->icmp.echo.seq_num = ntohs(icmp->un.echo.sequence);
@@ -748,6 +749,7 @@ void handle_igmp(unsigned char *buffer, struct ip_info *info)
     igmp = (struct igmphdr *) buffer;
     info->igmp.type = igmp->type;
     info->igmp.max_resp_time = igmp->code;
+    info->igmp.checksum = htons(igmp->csum);
     if (inet_ntop(AF_INET, &igmp->group, info->igmp.group_addr,
                   INET_ADDRSTRLEN) == NULL) {
         err_msg("inet_ntop error");

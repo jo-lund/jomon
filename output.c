@@ -65,6 +65,8 @@ static void print_dns_soa(struct dns_info *info, int i, int y, int x);
 static void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t type, bool *soa);
 static void print_nbns_verbose(struct nbns_info *info);
 static void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t type);
+static void print_icmp_verbose(struct ip_info *info);
+static void print_igmp_verbose(struct ip_info *info);
 
 static char *alloc_print_buffer(struct packet *p, int size);
 static void create_subwindow(int num_lines);
@@ -357,8 +359,10 @@ void print_ip_verbose(struct ip_info *info)
 {
     switch (info->protocol) {
     case IPPROTO_ICMP:
+        print_icmp_verbose(info);
         break;
     case IPPROTO_IGMP:
+        print_igmp_verbose(info);
         break;
     case IPPROTO_TCP:
         break;
@@ -367,6 +371,58 @@ void print_ip_verbose(struct ip_info *info)
     default:
         break;
     }
+}
+
+void print_icmp_verbose(struct ip_info *info)
+{
+    int y = 0;
+
+    if (info->icmp.type == ICMP_ECHOREPLY || info->icmp.type == ICMP_ECHO) {
+        create_subwindow(7);
+    } else {
+        create_subwindow(5);
+    }
+    mvwprintw(wsub_main, y, 0, "");
+    mvwprintw(wsub_main, ++y, 4, "Type: %d (%s)", info->icmp.type, get_icmp_type(info->icmp.type));
+    switch (info->icmp.type) {
+    case ICMP_ECHOREPLY:
+    case ICMP_ECHO:
+        mvwprintw(wsub_main, ++y, 4, "Code: %d", info->icmp.code);
+        break;
+    case ICMP_DEST_UNREACH:
+        mvwprintw(wsub_main, ++y, 4, "Code: %d (%s)", info->icmp.code, get_icmp_dest_unreach_code(info->icmp.code));
+        break;
+    default:
+        break;
+    }
+    mvwprintw(wsub_main, ++y, 4, "Checksum: %d", info->icmp.checksum);
+    if (info->icmp.type == ICMP_ECHOREPLY || info->icmp.type == ICMP_ECHO) {
+        mvwprintw(wsub_main, ++y, 4, "Identifier: 0x%x", info->icmp.echo.id);
+        mvwprintw(wsub_main, ++y, 4, "Sequence number: %d", info->icmp.echo.seq_num);
+    }
+    mvwprintw(wsub_main, ++y, 0, "");
+    touchwin(wmain);
+    wrefresh(wsub_main);
+}
+
+void print_igmp_verbose(struct ip_info *info)
+{
+    int y = 0;
+
+    create_subwindow(6);
+    mvwprintw(wsub_main, y, 0, "");
+    mvwprintw(wsub_main, ++y, 4, "Type: %d (%s)", info->igmp.type, get_igmp_type(info->icmp.type));
+    if (info->igmp.type == IGMP_HOST_MEMBERSHIP_QUERY) {
+        if (!strcmp(info->igmp.group_addr, "0.0.0.0")) {
+            mvwprintw(wsub_main, ++y, 4, " -- General query", info->igmp.type, get_igmp_type(info->icmp.type));
+        } else {
+            mvwprintw(wsub_main, ++y, 4, " -- Group-specific query", info->igmp.type, get_igmp_type(info->icmp.type));
+        }
+    }
+    mvwprintw(wsub_main, ++y, 4, "Max response time: %d seconds", info->igmp.max_resp_time / 10);
+    mvwprintw(wsub_main, ++y, 4, "Checksum: %d", info->igmp.checksum);
+    mvwprintw(wsub_main, ++y, 4, "Group address: %s", info->igmp.group_addr);
+    mvwprintw(wsub_main, ++y, 0, "");
 }
 
 void print_udp_verbose(struct ip_info *info)
@@ -873,6 +929,9 @@ void print_icmp(struct ip_info *info, char *buf)
         break;
     case ICMP_ECHO:
         PRINT_INFO(buf, mx + 1, "Echo request: id = 0x%x  seq = %d", info->icmp.echo.id, info->icmp.echo.seq_num);
+        break;
+    case ICMP_DEST_UNREACH:
+        PRINT_INFO(buf, mx + 1, "%s", get_icmp_dest_unreach_code(info->icmp.code));
         break;
     default:
         PRINT_INFO(buf, mx + 1, "Type: %d", info->icmp.type);

@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <ctype.h>
+#include <netinet/ip_icmp.h>
+#include <linux/igmp.h>
 #include "util.h"
 #include "packet.h"
 #include "vector.h"
@@ -337,6 +339,84 @@ char *get_nbns_node_type(uint8_t type)
         return "P Node";
     case NBNS_MNODE:
         return "M Node";
+    default:
+        return "";
+    }
+}
+
+char *get_icmp_type(uint8_t type)
+{
+    switch (type) {
+    case ICMP_ECHOREPLY:
+        return "Echo Reply";
+    case ICMP_DEST_UNREACH:
+        return "Destination Unreachable";
+    case ICMP_SOURCE_QUENCH:
+        return "Source Quench";
+    case ICMP_REDIRECT:
+        return "Redirect (change route)";
+    case ICMP_ECHO:
+        return "Echo Request";
+    case ICMP_TIME_EXCEEDED:
+        return "Time Exceeded";
+    case ICMP_PARAMETERPROB:
+        return "Parameter Problem";
+    case ICMP_TIMESTAMP:
+        return "Timestamp Request";
+    case ICMP_TIMESTAMPREPLY:
+        return "Timestamp Reply";
+    case ICMP_INFO_REQUEST:
+        return "Information Request";
+    case ICMP_INFO_REPLY:
+        return "Information Reply";
+    case ICMP_ADDRESS:
+        return "Address Mask Request";
+    case ICMP_ADDRESSREPLY:
+        return "Address Mask Reply";
+    default:
+        return "";
+    }
+}
+
+char *get_icmp_dest_unreach_code(uint8_t code)
+{
+    switch (code) {
+    case ICMP_NET_UNREACH:
+        return "Network Unreachable";
+    case ICMP_HOST_UNREACH:
+        return "Host Unreachable";
+    case ICMP_PROT_UNREACH:
+        return "Protocol Unreachable";
+    case ICMP_PORT_UNREACH:
+        return "Port Unreachable";
+    case ICMP_FRAG_NEEDED:
+        return "Fragmentation Needed/DF set";
+    case ICMP_SR_FAILED:
+        return "Source Route failed";
+    case ICMP_PKT_FILTERED:
+        return "Packet filtered";
+    case ICMP_PREC_VIOLATION:
+        return "Precedence violation";
+    case ICMP_PREC_CUTOFF:
+        return "Precedence cut off";
+    default:
+        return "";
+    }
+}
+
+char *get_igmp_type(uint8_t type)
+{
+    switch (type) {
+    case IGMP_HOST_MEMBERSHIP_QUERY:
+        return "Membership query";
+    case IGMP_HOST_MEMBERSHIP_REPORT:
+        return "Version 1 Membership report";
+    case IGMPV2_HOST_MEMBERSHIP_REPORT:
+        return "Version 2 Membership report";
+    case IGMPV3_HOST_MEMBERSHIP_REPORT:
+        return "Version 3 Membership report";
+    case IGMP_HOST_LEAVE_MESSAGE:
+        return "Leave group";
     default:
         return "";
     }

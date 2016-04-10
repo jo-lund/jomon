@@ -296,11 +296,13 @@ struct ip_info {
         struct {
             uint8_t type;
             uint8_t max_resp_time;
+            uint16_t checksum;
             char group_addr[INET_ADDRSTRLEN];
         } igmp;
         struct {
             uint8_t type;
             uint8_t code;
+            uint16_t checksum;
             union {
                 struct { /* used in echo request/reply messages */
                     uint16_t id;
