@@ -348,9 +348,7 @@ bool handle_dns(unsigned char *buffer, struct ip_info *info)
         int c = 0;
 
         while (i < 4) {
-            int j;
-
-            for (j = 0; j < info->udp.dns.section_count[i] && c < MAX_DNS_RECORDS; j++) {
+            for (int j = 0; j < info->udp.dns.section_count[i] && c < MAX_DNS_RECORDS; j++) {
                 parse_dns_record(j, buffer, &ptr, info);
                 c++;
             }
@@ -417,15 +415,24 @@ int parse_dns_name(unsigned char *buffer, unsigned char *ptr, char name[])
         if (label_length & 0xc0) {
             uint16_t offset = (ptr[0] & 0x3f) << 8 | ptr[1];
 
-            compression = true;
             label_length = buffer[offset];
             memcpy(name + n, buffer + offset + 1, label_length);
             ptr = buffer + offset; /* ptr will point to start of label */
-             /*
-              * Total length of the name entry encountered so far + ptr. If name
-              * is just a pointer, n will be 0
-              */
-            name_ptr_len = n + DNS_PTR_LEN;
+
+            /*
+             * Only update name_ptr_len if this is the first pointer encountered.
+             * name_ptr_len must not include the ptrs in the prior occurrence of
+             * the same name, i.e. if the name is a pointer to a sequence of
+             * labeles ending in a pointer.
+             */
+            if (!compression) {
+                /*
+                 * Total length of the name entry encountered so far + ptr. If name
+                 * is just a pointer, n will be 0
+                 */
+                name_ptr_len = n + DNS_PTR_LEN;
+            }
+            compression = true;
         } else {
             memcpy(name + n, ptr + 1, label_length);
         }
