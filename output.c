@@ -38,16 +38,14 @@ static WINDOW *wstatus;
 static WINDOW *wsub_main; /* subwindow of wmain */
 
 static int outy = 0;
-static int interactive = 0;
-static int numeric = 1;
-static int screen_line = 0;
-
-/* the number of lines to be scrolled in order to print verbose packet information */
-static int scrollvy = 0;
+static bool interactive = false;
+static bool numeric = true;
+static int selection_line = 0;
+static int top = 0; /* index to top of screen */
 
 static void print_header();
 static void scroll_window();
-static void print(char *buf, int key);
+static void print(char *buf);
 static void print_arp(char *buffer, struct arp_info *info);
 static void print_ip(char *buffer, struct ip_info *info);
 static void print_udp(struct ip_info *info, char *buf);
@@ -71,6 +69,9 @@ static void print_igmp_verbose(struct ip_info *info);
 static char *alloc_print_buffer(struct packet *p, int size);
 static void create_subwindow(int num_lines);
 static void delete_subwindow();
+static void set_interactive(bool interactive_mode);
+static void handle_keydown();
+static void handle_keyup();
 
 void init_ncurses()
 {
@@ -81,6 +82,7 @@ void init_ncurses()
     use_default_colors();
     start_color();
     init_pair(1, COLOR_WHITE, COLOR_CYAN);
+    set_escdelay(25); /* set escdelay to 25 ms */
 }
 
 void end_ncurses()
@@ -112,6 +114,7 @@ void scroll_window()
     if (outy >= my) {
         outy = my - 1;
         scroll(wmain);
+        top++;
         list_pop_front(); /* list will always contain the lines on the visible screen */
     }
 }
@@ -119,59 +122,12 @@ void scroll_window()
 void get_input()
 {
     int c = 0;
-    static int selection_line = 0;
     static bool selected = false;
 
     c = wgetch(wmain);
     switch (c) {
     case 'i':
-        if (interactive) {
-            int mx, my;
-
-            getmaxyx(wmain, my, mx);
-            if (outy >= my) {
-                struct packet p;
-                unsigned char *buf;
-                int c = vector_size() - 1;
-
-                werase(wmain);
-                list_clear();
-
-                /* print the new lines stored in vector from bottom to top of screen */
-                for (int i = my - 1; i >= 0; i--, c--) {
-                    char *buffer;
-
-                    buf = vector_get_data(c);
-                    handle_ethernet(buf, &p); /* deserialize packet */
-                    buffer = alloc_print_buffer(&p, mx + 1);
-                    mvwprintw(wmain, i, 0, "%s", buffer);
-                    list_push_front(buffer);
-                }
-            }
-            interactive = 0;
-            werase(wstatus);
-            wrefresh(wstatus);
-
-            /* remove selection bar */
-            mvwchgat(wmain, screen_line, 0, -1, A_NORMAL, 0, NULL);
-            wrefresh(wmain);
-            screen_line = 0;
-        } else {
-            int my, mx;
-            int lineno;
-
-            interactive = 1;
-            mvwprintw(wstatus, 0, 0, "(interactive)");
-            wrefresh(wstatus);
-            getmaxyx(wmain, my, mx);
-            lineno = vector_size() - 1; /* bottom line number */
-            selection_line = lineno - (my - 1); /* top line on screen */
-            if (selection_line < 0) selection_line = 0;
-
-            /* print selection bar */
-            mvwchgat(wmain, 0, 0, -1, A_NORMAL, 1, NULL);
-            wrefresh(wmain);
-        }
+        set_interactive(!interactive);
         break;
     case 'q':
         kill(0, SIGINT);
@@ -180,69 +136,11 @@ void get_input()
         numeric = !numeric;
         break;
     case KEY_UP:
-    {
-        int mx, my;
-
-        getmaxyx(wmain, my, mx);
-        if (selection_line > 0 && screen_line == 0) {
-            unsigned char *buf;
-            struct packet p;
-            char *buffer;
-
-            selection_line--;
-            list_pop_back();
-            wscrl(wmain, -1);
-            buf = vector_get_data(selection_line);
-            handle_ethernet(buf, &p); /* deserialize packet */
-            buffer = alloc_print_buffer(&p, mx + 1);
-            print(buffer, KEY_UP);
-
-            /* deselect previous line and highlight next at top */
-            mvwchgat(wmain, 1, 0, -1, A_NORMAL, 0, NULL);
-            mvwchgat(wmain, 0, 0, -1, A_NORMAL, 1, NULL);
-        } else if (selection_line > 0) {
-            /* deselect previous line and highlight next */
-            mvwchgat(wmain, screen_line, 0, -1, A_NORMAL, 0, NULL);
-            mvwchgat(wmain, --screen_line, 0, -1, A_NORMAL, 1, NULL);
-            selection_line--;
-        }
-        wrefresh(wmain);
+        handle_keyup();
         break;
-    }
     case KEY_DOWN:
-    {
-        int mx, my;
-
-        getmaxyx(wmain, my, mx);
-
-        /* scroll screen if the selection bar is at the bottom */
-        if (screen_line == my - 1) {
-            if (selection_line + 1 > vector_size()) return;
-            unsigned char *buf = vector_get_data(++selection_line);
-            struct packet p;
-
-            if (buf) {
-                char *buffer;
-
-                list_pop_front();
-                wscrl(wmain, 1);
-                handle_ethernet(buf, &p); /* deserialize packet */
-                buffer = alloc_print_buffer(&p, mx + 1);
-                print(buffer, KEY_DOWN);
-
-                /* deselect previous line and highlight next line at bottom */
-                mvwchgat(wmain, my - 2, 0, -1, A_NORMAL, 0, NULL);
-                mvwchgat(wmain, my - 1, 0, -1, A_NORMAL, 1, NULL);
-            }
-        } else {
-            /* deselect previous line and highlight next */
-            mvwchgat(wmain, screen_line, 0, -1, A_NORMAL, 0, NULL);
-            mvwchgat(wmain, ++screen_line, 0, -1, A_NORMAL, 1, NULL);
-            selection_line++;
-        }
-        wrefresh(wmain);
+        handle_keydown();
         break;
-    }
     case KEY_ENTER:
     case '\n':
         if (interactive) {
@@ -250,21 +148,160 @@ void get_input()
             print_information(selection_line, selected);
         }
         break;
+    case 27: /* esc key */
+        if (interactive) {
+            set_interactive(false);
+        }
+        break;
     default:
         break;
+    }
+}
+
+void handle_keyup()
+{
+    int mx, my;
+
+    getmaxyx(wmain, my, mx);
+    if (!interactive) {
+        set_interactive(true);
+    }
+
+    /* scroll screen if the selection bar is at the top */
+    if (top && selection_line == top) {
+        unsigned char *buf = vector_get_data(--selection_line);
+        struct packet p;
+
+        top--;
+        if (buf) {
+            char *line;
+
+            list_pop_back();
+            wscrl(wmain, -1);
+            handle_ethernet(buf, &p); /* deserialize packet */
+            line = alloc_print_buffer(&p, mx + 1);
+            list_push_front(line);
+            mvwprintw(wmain, 0, 0, "%s", line);
+
+            /* deselect previous line and highlight next at top */
+            mvwchgat(wmain, 1, 0, -1, A_NORMAL, 0, NULL);
+            mvwchgat(wmain, 0, 0, -1, A_NORMAL, 1, NULL);
+        }
+    } else if (selection_line > 0) {
+         int screen_line = selection_line - top;
+
+        /* deselect previous line and highlight next */
+        mvwchgat(wmain, screen_line, 0, -1, A_NORMAL, 0, NULL);
+        mvwchgat(wmain, screen_line - 1, 0, -1, A_NORMAL, 1, NULL);
+        selection_line--;
+    }
+    wrefresh(wmain);
+}
+
+void handle_keydown()
+{
+    if (selection_line >= vector_size() - 1) return;
+
+    int mx, my;
+
+    getmaxyx(wmain, my, mx);
+    if (!interactive) {
+        set_interactive(true);
+    }
+
+    /* scroll screen if the selection bar is at the bottom */
+    if (selection_line - top == my - 1) {
+        unsigned char *buf = vector_get_data(++selection_line);
+        struct packet p;
+
+        top++;
+        if (buf) {
+            char *line;
+
+            list_pop_front();
+            wscrl(wmain, 1);
+            handle_ethernet(buf, &p); /* deserialize packet */
+            line = alloc_print_buffer(&p, mx + 1);
+            list_push_back(line);
+            mvwprintw(wmain, my - 1, 0, "%s", line);
+
+            /* deselect previous line and highlight next line at bottom */
+            mvwchgat(wmain, my - 2, 0, -1, A_NORMAL, 0, NULL);
+            mvwchgat(wmain, my - 1, 0, -1, A_NORMAL, 1, NULL);
+        }
+    } else {
+        int screen_line = selection_line - top;
+
+        /* deselect previous line and highlight next */
+        mvwchgat(wmain, screen_line, 0, -1, A_NORMAL, 0, NULL);
+        mvwchgat(wmain, screen_line + 1, 0, -1, A_NORMAL, 1, NULL);
+        selection_line++;
+    }
+    wrefresh(wmain);
+}
+
+void set_interactive(bool interactive_mode)
+{
+    if (!vector_size()) return;
+
+    int my, mx;
+
+    getmaxyx(wmain, my, mx);
+    if (interactive_mode) {
+        interactive = true;
+        mvwprintw(wstatus, 0, 0, "(interactive)");
+        wrefresh(wstatus);
+        selection_line = top;
+
+        /* print selection bar */
+        mvwchgat(wmain, 0, 0, -1, A_NORMAL, 1, NULL);
+        wrefresh(wmain);
+    } else {
+        if (outy >= my) {
+            struct packet p;
+            unsigned char *buf;
+            int c = vector_size() - 1;
+
+            werase(wmain);
+            list_clear();
+
+            /* print the new lines stored in vector from bottom to top of screen */
+            for (int i = my - 1; i >= 0; i--, c--) {
+                char *buffer;
+
+                buf = vector_get_data(c);
+                handle_ethernet(buf, &p); /* deserialize packet */
+                buffer = alloc_print_buffer(&p, mx + 1);
+                mvwprintw(wmain, i, 0, "%s", buffer);
+                list_push_front(buffer);
+            }
+            top = c + 1;
+        } else {
+            /* remove selection bar */
+            mvwchgat(wmain, selection_line - top, 0, -1, A_NORMAL, 0, NULL);
+        }
+        interactive = false;
+        wrefresh(wmain);
+        werase(wstatus);
+        wrefresh(wstatus);
     }
 }
 
 void create_subwindow(int num_lines)
 {
     int mx, my;
-    const node_t *l = list_ith(screen_line + 1);
+    int screen_line;
+    const node_t *l;
 
     getmaxyx(wmain, my, mx);
+    screen_line = selection_line - top;
+    l = list_ith(screen_line + 1);
 
     /* if there is not enough space for the information to be printed, the
         screen needs to be scrolled to make room for all the lines */
     if (my - (screen_line + 1) < num_lines) {
+        int scrollvy;
+
         scrollvy = num_lines - (my - (screen_line + 1));
         wscrl(wmain, scrollvy);
         screen_line -= scrollvy;
@@ -278,30 +315,29 @@ void create_subwindow(int num_lines)
     outy = screen_line + num_lines + 1;
 
     /* print the remaining lines on the screen below the sub window */
-    if (!scrollvy) {
-        while (l) {
-            mvwprintw(wmain, outy++, 0, "%s", (char *) list_data(l));
-            l = list_next(l);
-        }
+    while (l) {
+        mvwprintw(wmain, outy++, 0, "%s", (char *) list_data(l));
+        l = list_next(l);
     }
     wrefresh(wmain);
 }
 
 void delete_subwindow()
 {
+    int my, mx;
+    int screen_line;
+    const node_t *l = list_begin();
+
+    getmaxyx(wmain, my, mx);
+    screen_line = selection_line - top;
+    delwin(wsub_main);
+    werase(wmain);
+    outy = 0;
+
     /*
      * Print the entire screen. This can be optimized to just print the lines
      * that are below the selected line
      */
-    const node_t *l = list_begin();
-
-    if (scrollvy) {
-        screen_line += scrollvy;
-        scrollvy = 0;
-    }
-    delwin(wsub_main);
-    werase(wmain);
-    outy = 0;
     while (l) {
         mvwprintw(wmain, outy++, 0, "%s", (char *) list_data(l));
         l = list_next(l);
@@ -665,7 +701,7 @@ void print_packet(struct packet *p)
 
     getmaxyx(wmain, my, mx);
     buffer = alloc_print_buffer(p, mx + 1);
-    print(buffer, -1);
+    print(buffer);
 }
 
 /* allocate buffer with specified size and write packet to buffer */
@@ -700,31 +736,17 @@ void print_rate()
 }
 
 /* print buffer to standard output */
-void print(char *buf, int key)
+void print(char *buf)
 {
     int mx, my;
 
     getmaxyx(wmain, my, mx);
-    switch (key) {
-    case KEY_UP:
-        list_push_front(buf);
-        mvwprintw(wmain, 0, 0, "%s", buf);
+    if (!interactive || (interactive && outy < my)) {
+        list_push_back(buf); /* buffer every line on screen */
+        scroll_window();
+        mvwprintw(wmain, outy, 0, "%s", buf);
+        outy++;
         wrefresh(wmain);
-        break;
-    case KEY_DOWN:
-        list_push_back(buf);
-        mvwprintw(wmain, my - 1, 0, "%s", buf);
-        wrefresh(wmain);
-        break;
-    default: /* new packet from the network interface */
-        if (!interactive || (interactive && outy < my)) {
-            list_push_back(buf); /* buffer every line on screen */
-            scroll_window();
-            mvwprintw(wmain, outy, 0, "%s", buf);
-            outy++;
-            wrefresh(wmain);
-        }
-        break;
     }
 }
 
