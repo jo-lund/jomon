@@ -16,6 +16,7 @@
 #define HOSTNAMELEN 255 /* maximum 255 according to rfc1035 */
 #define ADDR_WIDTH 36
 #define PROT_WIDTH 10
+#define KEY_ESC 27
 
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
@@ -40,19 +41,19 @@ static WINDOW *wsub_main; /* subwindow of wmain */
 static int outy = 0;
 static bool interactive = false;
 static bool numeric = true;
-static int selection_line = 0;
-static int top = 0; /* index to top of screen */
+static uint32_t selection_line = 0;
+static uint32_t top = 0; /* index to top of screen */
 
 static void print_header();
 static void scroll_window();
 static void print(char *buf);
 static void print_arp(char *buffer, struct arp_info *info);
 static void print_ip(char *buffer, struct ip_info *info);
-static void print_udp(struct ip_info *info, char *buf);
-static void print_icmp(struct ip_info *info, char *buf);
-static void print_igmp(struct ip_info *info, char *buf);
-static void print_dns(struct ip_info *info, char *buf);
-static void print_nbns(struct ip_info *info, char *buf);
+static void print_udp(struct ip_info *info, char *buf, int n);
+static void print_icmp(struct ip_info *info, char *buf, int n);
+static void print_igmp(struct ip_info *info, char *buf, int n);
+static void print_dns(struct ip_info *info, char *buf, int n);
+static void print_nbns(struct ip_info *info, char *buf, int n);
 
 static void print_information(int lineno, bool select);
 static void print_arp_verbose(struct arp_info *info);
@@ -148,7 +149,7 @@ void get_input()
             print_information(selection_line, selected);
         }
         break;
-    case 27: /* esc key */
+    case KEY_ESC:
         if (interactive) {
             set_interactive(false);
         }
@@ -179,7 +180,7 @@ void handle_keyup()
             list_pop_back();
             wscrl(wmain, -1);
             handle_ethernet(buf, &p); /* deserialize packet */
-            line = alloc_print_buffer(&p, mx + 1);
+            line = alloc_print_buffer(&p, mx);
             list_push_front(line);
             mvwprintw(wmain, 0, 0, "%s", line);
 
@@ -221,7 +222,7 @@ void handle_keydown()
             list_pop_front();
             wscrl(wmain, 1);
             handle_ethernet(buf, &p); /* deserialize packet */
-            line = alloc_print_buffer(&p, mx + 1);
+            line = alloc_print_buffer(&p, mx);
             list_push_back(line);
             mvwprintw(wmain, my - 1, 0, "%s", line);
 
@@ -271,7 +272,7 @@ void set_interactive(bool interactive_mode)
 
                 buf = vector_get_data(c);
                 handle_ethernet(buf, &p); /* deserialize packet */
-                buffer = alloc_print_buffer(&p, mx + 1);
+                buffer = alloc_print_buffer(&p, mx);
                 mvwprintw(wmain, i, 0, "%s", buffer);
                 list_push_front(buffer);
             }
@@ -512,13 +513,13 @@ void print_dns_verbose(struct dns_info *info)
         mvwprintw(wsub_main, ++y, 4, "Resource records:");
         len = get_max_namelen(info->record, records);
         while (records--) {
-            char buffer[mx + 1];
+            char buffer[mx];
             bool soa = false;
 
-            snprintf(buffer, mx + 1, "%-*s", len + 4, info->record[i].name);
-            snprintcat(buffer, mx + 1, "%-6s", get_dns_class(info->record[i].class));
-            snprintcat(buffer, mx + 1, "%-8s", get_dns_type(info->record[i].type));
-            print_dns_record(info, i, buffer, mx + 1, info->record[i].type, &soa);
+            snprintf(buffer, mx, "%-*s", len + 4, info->record[i].name);
+            snprintcat(buffer, mx, "%-6s", get_dns_class(info->record[i].class));
+            snprintcat(buffer, mx, "%-8s", get_dns_type(info->record[i].type));
+            print_dns_record(info, i, buffer, mx, info->record[i].type, &soa);
             mvwprintw(wsub_main, ++y, 8, "%s", buffer);
             if (soa) {
                 mvwprintw(wsub_main, ++y, 0, "");
@@ -615,12 +616,12 @@ void print_nbns_verbose(struct nbns_info *info)
         getmaxyx(wmain, my, mx);
         mvwprintw(wsub_main, ++y, 4, "Resource records:");
         while (records--) {
-            char buffer[mx + 1];
+            char buffer[mx];
 
-            snprintf(buffer, mx + 1, "%s\t", info->record[i].rrname);
-            snprintcat(buffer, mx + 1, "IN\t");
-            snprintcat(buffer, mx + 1, "%s\t", get_nbns_type(info->record[i].rrtype));
-            print_nbns_record(info, i, buffer, mx + 1, info->record[i].rrtype);
+            snprintf(buffer, mx, "%s\t", info->record[i].rrname);
+            snprintcat(buffer, mx, "IN\t");
+            snprintcat(buffer, mx, "%s\t", get_nbns_type(info->record[i].rrtype));
+            print_nbns_record(info, i, buffer, mx, info->record[i].rrtype);
             mvwprintw(wsub_main, ++y, 8, "%s", buffer);
             i++;
         }
@@ -700,7 +701,7 @@ void print_packet(struct packet *p)
     int my, mx;
 
     getmaxyx(wmain, my, mx);
-    buffer = alloc_print_buffer(p, mx + 1);
+    buffer = alloc_print_buffer(p, mx);
     print(buffer);
 }
 
@@ -758,15 +759,15 @@ void print_arp(char *buffer, struct arp_info *info)
     getmaxyx(wmain, my, mx);
     switch (info->op) {
     case ARPOP_REQUEST:
-        PRINT_LINE(buffer, mx + 1, info->sip, info->tip, "ARP",
+        PRINT_LINE(buffer, mx, info->sip, info->tip, "ARP",
                    "Request: Looking for hardware address of %s", info->tip);
         break;
     case ARPOP_REPLY:
-        PRINT_LINE(buffer, mx + 1, info->sip, info->tip, "ARP",
+        PRINT_LINE(buffer, mx, info->sip, info->tip, "ARP",
                    "Reply: %s has hardware address %s", info->sip, info->sha);
         break;
     default:
-        PRINT_LINE(buffer, mx + 1, info->sip, info->tip, "ARP", "Opcode %d", info->op);
+        PRINT_LINE(buffer, mx, info->sip, info->tip, "ARP", "Opcode %d", info->op);
         break;
     }
 }
@@ -788,143 +789,132 @@ void print_ip(char *buffer, struct ip_info *info)
         // TEMP: Fix this!
         sname[35] = '\0';
         dname[35] = '\0';
-        PRINT_ADDRESS(buffer, mx + 1, sname, dname);
+        PRINT_ADDRESS(buffer, mx, sname, dname);
     } else {
-        PRINT_ADDRESS(buffer, mx + 1, info->src, info->dst);
+        PRINT_ADDRESS(buffer, mx, info->src, info->dst);
     }
     switch (info->protocol) {
     case IPPROTO_ICMP:
-        print_icmp(info, buffer);
+        print_icmp(info, buffer, mx);
         break;
     case IPPROTO_IGMP:
-        print_igmp(info, buffer);
+        print_igmp(info, buffer, mx);
         break;
     case IPPROTO_TCP:
-        PRINT_PROTOCOL(buffer, mx + 1, "TCP");
+        PRINT_PROTOCOL(buffer, mx, "TCP");
         break;
     case IPPROTO_UDP:
-        print_udp(info, buffer);
+        print_udp(info, buffer, mx);
         break;
     default:
         break;
     }
 }
 
-void print_udp(struct ip_info *info, char *buf)
+void print_udp(struct ip_info *info, char *buf, int n)
 {
     switch (info->udp.utype) {
     case DNS:
-        print_dns(info, buf);
+        print_dns(info, buf, n);
         break;
     case NBNS:
-        print_nbns(info, buf);
+        print_nbns(info, buf, n);
         break;
     default:
-    {
-        int mx, my;
-
-        getmaxyx(wmain, my, mx);
-        PRINT_PROTOCOL(buf, mx + 1, "UDP");
-        PRINT_INFO(buf, mx + 1, "Source port: %d  Destination port: %d", info->udp.src_port,
+        PRINT_PROTOCOL(buf, n, "UDP");
+        PRINT_INFO(buf, n, "Source port: %d  Destination port: %d", info->udp.src_port,
                    info->udp.dst_port);
         break;
     }
-    }
 }
 
-void print_dns(struct ip_info *info, char *buf)
+void print_dns(struct ip_info *info, char *buf, int n)
 {
-    int mx, my;
-
-    getmaxyx(wmain, my, mx);
-    PRINT_PROTOCOL(buf, mx + 1, "DNS");
+    PRINT_PROTOCOL(buf, n, "DNS");
     if (info->udp.dns.qr == 0) {
         switch (info->udp.dns.opcode) {
         case DNS_QUERY:
-            PRINT_INFO(buf, mx + 1, "Standard query: ");
-            PRINT_INFO(buf, mx + 1, "%s ", info->udp.dns.question.qname);
-            PRINT_INFO(buf, mx + 1, "%s ", get_dns_class(info->udp.dns.question.qclass));
-            PRINT_INFO(buf, mx + 1, "%s", get_dns_type(info->udp.dns.question.qtype));
+            PRINT_INFO(buf, n, "Standard query: ");
+            PRINT_INFO(buf, n, "%s ", info->udp.dns.question.qname);
+            PRINT_INFO(buf, n, "%s ", get_dns_class(info->udp.dns.question.qclass));
+            PRINT_INFO(buf, n, "%s", get_dns_type(info->udp.dns.question.qtype));
             break;
         case DNS_IQUERY:
-            PRINT_INFO(buf, mx + 1, "Inverse query");
+            PRINT_INFO(buf, n, "Inverse query");
             break;
         case DNS_STATUS:
-            PRINT_INFO(buf, mx + 1, "Server status request");
+            PRINT_INFO(buf, n, "Server status request");
             break;
         }
     } else {
         switch (info->udp.dns.rcode) {
         case DNS_FORMAT_ERROR:
-            PRINT_INFO(buf, mx + 1, "Response: format error");
+            PRINT_INFO(buf, n, "Response: format error");
             return;
         case DNS_SERVER_FAILURE:
-            PRINT_INFO(buf, mx + 1, "Response: server failure");
+            PRINT_INFO(buf, n, "Response: server failure");
             return;
         case DNS_NAME_ERROR:
-            PRINT_INFO(buf, mx + 1, "Response: name error");
+            PRINT_INFO(buf, n, "Response: name error");
             return;
         case DNS_NOT_IMPLEMENTED:
-            PRINT_INFO(buf, mx + 1, "Response: request not supported");
+            PRINT_INFO(buf, n, "Response: request not supported");
             return;
         case DNS_REFUSED:
-            PRINT_INFO(buf, mx + 1, "Response: operation refused");
+            PRINT_INFO(buf, n, "Response: operation refused");
             return;
         case DNS_NO_ERROR:
         default:
-            PRINT_INFO(buf, mx + 1, "Response: ");
+            PRINT_INFO(buf, n, "Response: ");
             break;
         }
         // TODO: Need to print the proper name for all values.
-        PRINT_INFO(buf, mx + 1, "%s ", info->udp.dns.record[0].name);
-        PRINT_INFO(buf, mx + 1, "%s ", get_dns_class(info->udp.dns.record[0].class));
-        PRINT_INFO(buf, mx + 1, "%s ", get_dns_type(info->udp.dns.record[0].type));
+        PRINT_INFO(buf, n, "%s ", info->udp.dns.record[0].name);
+        PRINT_INFO(buf, n, "%s ", get_dns_class(info->udp.dns.record[0].class));
+        PRINT_INFO(buf, n, "%s ", get_dns_type(info->udp.dns.record[0].type));
         int records = info->udp.dns.section_count[ANCOUNT];
         int i = 0;
 
         while (records--) {
-            print_dns_record(&info->udp.dns, i, buf, mx + 1, info->udp.dns.record[i].type, NULL);
-            PRINT_INFO(buf, mx + 1, " ");
+            print_dns_record(&info->udp.dns, i, buf, n, info->udp.dns.record[i].type, NULL);
+            PRINT_INFO(buf, n, " ");
             i++;
         }
     }
 }
 
-void print_nbns(struct ip_info *info, char *buf)
+void print_nbns(struct ip_info *info, char *buf, int n)
 {
-    int mx, my;
-
-    getmaxyx(wmain, my, mx);
-    PRINT_PROTOCOL(buf, mx + 1, "NBNS");
+    PRINT_PROTOCOL(buf, n, "NBNS");
     if (info->udp.nbns.r == 0) {
         char opcode[16];
 
         strncpy(opcode, get_nbns_opcode(info->udp.nbns.opcode), sizeof(opcode));
-        PRINT_INFO(buf, mx + 1, "Name %s request: ", strtolower(opcode, strlen(opcode)));
-        PRINT_INFO(buf, mx + 1, "%s ", info->udp.nbns.question.qname);
-        PRINT_INFO(buf, mx + 1, "%s ", get_nbns_type(info->udp.nbns.question.qtype));
+        PRINT_INFO(buf, n, "Name %s request: ", strtolower(opcode, strlen(opcode)));
+        PRINT_INFO(buf, n, "%s ", info->udp.nbns.question.qname);
+        PRINT_INFO(buf, n, "%s ", get_nbns_type(info->udp.nbns.question.qtype));
         if (info->udp.nbns.section_count[ARCOUNT]) {
-            print_nbns_record(&info->udp.nbns, 0, buf, mx + 1, info->udp.nbns.record[0].rrtype);
+            print_nbns_record(&info->udp.nbns, 0, buf, n, info->udp.nbns.record[0].rrtype);
         }
     } else {
         switch (info->udp.nbns.rcode) {
         case NBNS_FMT_ERR:
-            PRINT_INFO(buf, mx + 1, "Format Error. Request was invalidly formatted");
+            PRINT_INFO(buf, n, "Format Error. Request was invalidly formatted");
             return;
         case NBNS_SRV_ERR:
-            PRINT_INFO(buf, mx + 1, "Server failure. Problem with NBNS, cannot process name");
+            PRINT_INFO(buf, n, "Server failure. Problem with NBNS, cannot process name");
             return;
         case NBNS_IMP_ERR:
-            PRINT_INFO(buf, mx + 1, "Unsupported request error");
+            PRINT_INFO(buf, n, "Unsupported request error");
             return;
         case NBNS_RFS_ERR:
-            PRINT_INFO(buf, mx + 1, "Refused error");
+            PRINT_INFO(buf, n, "Refused error");
             return;
         case NBNS_ACT_ERR:
-            PRINT_INFO(buf, mx + 1, "Active error. Name is owned by another node");
+            PRINT_INFO(buf, n, "Active error. Name is owned by another node");
             return;
         case NBNS_CFT_ERR:
-            PRINT_INFO(buf, mx + 1, "Name in conflict error");
+            PRINT_INFO(buf, n, "Name in conflict error");
             return;
         default:
             break;
@@ -932,61 +922,55 @@ void print_nbns(struct ip_info *info, char *buf)
         char opcode[16];
 
         strncpy(opcode, get_nbns_opcode(info->udp.nbns.opcode), sizeof(opcode));
-        PRINT_INFO(buf, mx + 1, "Name %s response: ", strtolower(opcode, strlen(opcode)));
-        PRINT_INFO(buf, mx + 1, "%s ", info->udp.nbns.record[0].rrname);
-        PRINT_INFO(buf, mx + 1, "%s ", get_nbns_type(info->udp.nbns.record[0].rrtype));
-        print_nbns_record(&info->udp.nbns, 0, buf, mx + 1, info->udp.nbns.record[0].rrtype);
+        PRINT_INFO(buf, n, "Name %s response: ", strtolower(opcode, strlen(opcode)));
+        PRINT_INFO(buf, n, "%s ", info->udp.nbns.record[0].rrname);
+        PRINT_INFO(buf, n, "%s ", get_nbns_type(info->udp.nbns.record[0].rrtype));
+        print_nbns_record(&info->udp.nbns, 0, buf, n, info->udp.nbns.record[0].rrtype);
     }
 }
 
-void print_icmp(struct ip_info *info, char *buf)
+void print_icmp(struct ip_info *info, char *buf, int n)
 {
-    int mx, my;
-
-    getmaxyx(wmain, my, mx);
-    PRINT_PROTOCOL(buf, mx + 1, "ICMP");
+    PRINT_PROTOCOL(buf, n, "ICMP");
     switch (info->icmp.type) {
     case ICMP_ECHOREPLY:
-        PRINT_INFO(buf, mx + 1, "Echo reply:   id = 0x%x  seq = %d", info->icmp.echo.id, info->icmp.echo.seq_num);
+        PRINT_INFO(buf, n, "Echo reply:   id = 0x%x  seq = %d", info->icmp.echo.id, info->icmp.echo.seq_num);
         break;
     case ICMP_ECHO:
-        PRINT_INFO(buf, mx + 1, "Echo request: id = 0x%x  seq = %d", info->icmp.echo.id, info->icmp.echo.seq_num);
+        PRINT_INFO(buf, n, "Echo request: id = 0x%x  seq = %d", info->icmp.echo.id, info->icmp.echo.seq_num);
         break;
     case ICMP_DEST_UNREACH:
-        PRINT_INFO(buf, mx + 1, "%s", get_icmp_dest_unreach_code(info->icmp.code));
+        PRINT_INFO(buf, n, "%s", get_icmp_dest_unreach_code(info->icmp.code));
         break;
     default:
-        PRINT_INFO(buf, mx + 1, "Type: %d", info->icmp.type);
+        PRINT_INFO(buf, n, "Type: %d", info->icmp.type);
         break;
     }
 }
 
-void print_igmp(struct ip_info *info, char *buf)
+void print_igmp(struct ip_info *info, char *buf, int n)
 {
-    int mx, my;
-
-    getmaxyx(wmain, my, mx);
-    PRINT_PROTOCOL(buf, mx + 1, "IGMP");
+    PRINT_PROTOCOL(buf, n, "IGMP");
     switch (info->igmp.type) {
     case IGMP_HOST_MEMBERSHIP_QUERY:
-        PRINT_INFO(buf, mx + 1, "Membership query  Max response time: %d seconds",
+        PRINT_INFO(buf, n, "Membership query  Max response time: %d seconds",
                         info->igmp.max_resp_time / 10);
         break;
     case IGMP_HOST_MEMBERSHIP_REPORT:
-        PRINT_INFO(buf, mx + 1, "Membership report");
+        PRINT_INFO(buf, n, "Membership report");
         break;
     case IGMPV2_HOST_MEMBERSHIP_REPORT:
-        PRINT_INFO(buf, mx + 1, "IGMP2 Membership report");
+        PRINT_INFO(buf, n, "IGMP2 Membership report");
         break;
     case IGMP_HOST_LEAVE_MESSAGE:
-        PRINT_INFO(buf, mx + 1, "Leave group");
+        PRINT_INFO(buf, n, "Leave group");
         break;
     case IGMPV3_HOST_MEMBERSHIP_REPORT:
-        PRINT_INFO(buf, mx + 1, "IGMP3 Membership report");
+        PRINT_INFO(buf, n, "IGMP3 Membership report");
         break;
     default:
-        PRINT_INFO(buf, mx + 1, "Type 0x%x", info->igmp.type);
+        PRINT_INFO(buf, n, "Type 0x%x", info->igmp.type);
         break;
     }
-    PRINT_INFO(buf, mx + 1, "  Group address: %s", info->igmp.group_addr);
+    PRINT_INFO(buf, n, "  Group address: %s", info->igmp.group_addr);
 }
