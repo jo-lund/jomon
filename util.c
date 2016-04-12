@@ -93,7 +93,7 @@ char *strtolower(char *str, size_t n)
     return str;
 }
 
-int get_max_namelen(struct resource_record *record, int n)
+int get_max_namelen(struct dns_resource_record *record, int n)
 {
     int maxlen = 0;
 

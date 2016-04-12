@@ -16,6 +16,15 @@
 
 #define DNS_PTR_LEN 2
 
+static void handle_arp(unsigned char *buffer, struct arp_info *info);
+static void handle_ip(unsigned char *buffer, struct ip_info *info);
+static void handle_icmp(unsigned char *buffer, struct ip_info *info);
+static void handle_igmp(unsigned char *buffer, struct ip_info *info);
+static void handle_tcp(unsigned char *buffer, struct ip_info *info);
+static void handle_udp(unsigned char *buffer, struct ip_info *info);
+static bool handle_dns(unsigned char *buffer, struct ip_info *info);
+static bool handle_nbns(unsigned char *buffer, struct ip_info *info);
+static bool handle_ssdp(unsigned char *buffer, struct ip_info *info);
 static int parse_dns_name(unsigned char *buffer, unsigned char *ptr, char name[]);
 static void parse_dns_record(int i, unsigned char *buffer, unsigned char **ptr, struct ip_info *info);
 static void decode_nbns_name(char *dest, char *src);
@@ -31,11 +40,10 @@ size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet 
     if ((n = read(sockfd, buffer, len)) == -1) {
         err_sys("read error");
     }
-
     if (statistics) {
         check_address(buffer);
-    } else {
-        handle_ethernet(buffer, p);
+    } else if (!handle_ethernet(buffer, p)) {
+        return 0;
     }
     return n;
 }
@@ -76,7 +84,7 @@ void check_address(unsigned char *buffer)
  * +-----------+-----------+---+
  *
  */
-void handle_ethernet(unsigned char *buffer, struct packet *p)
+bool handle_ethernet(unsigned char *buffer, struct packet *p)
 {
     struct ethhdr *eth_header;
 
@@ -86,27 +94,25 @@ void handle_ethernet(unsigned char *buffer, struct packet *p)
     {
         struct ip_info ip;
 
-        handle_ip(buffer + ETH_HLEN, &ip);
-        p->ip = ip;
+        handle_ip(buffer + ETH_HLEN, &p->ip);
         p->ut = IPv4;
-        break;
+        return true;
     }
     case ETH_P_ARP:
     {
         struct arp_info arp;
 
-        handle_arp(buffer + ETH_HLEN, &arp);
-        p->arp = arp;
+        handle_arp(buffer + ETH_HLEN, &p->arp);
         p->ut = ARP;
-        break;
+        return true;
     }
     case ETH_P_IPV6:
-        break;
+        return false;
     case ETH_P_PAE:
-        break;
+        return false;
     default:
         printf("Ethernet protocol: 0x%x\n", ntohs(eth_header->h_proto));
-        break;
+        return false;
     }
 }
 
@@ -248,10 +254,11 @@ bool check_port(unsigned char *buffer, struct ip_info *info, uint16_t port)
         return handle_dns(buffer, info);
     case NBNS:
         return handle_nbns(buffer, info);
+    case SSDP:
+        return handle_ssdp(buffer, info);
     default:
-        break;
+        return false;
     }
-    return false;
 }
 
 /*
@@ -322,61 +329,71 @@ bool handle_dns(unsigned char *buffer, struct ip_info *info)
     if ((ptr[4] << 8 | ptr[5]) != 0x1) { /* the QDCOUNT will in practice always be one */
         return false;
     }
-    info->udp.dns.id = ptr[0] << 8 | ptr[1];
-    info->udp.dns.qr = (ptr[2] & 0x80) >> 7;
-    info->udp.dns.opcode = ptr[2] & 0x78;
-    info->udp.dns.aa = ptr[2] & 0x04;
-    info->udp.dns.tc = ptr[2] & 0x02;
-    info->udp.dns.rd = ptr[2] & 0x01;
-    info->udp.dns.ra = ptr[3] & 0x80;
-    info->udp.dns.rcode = ptr[3] & 0x0f;
+    info->udp.dns = malloc(sizeof(struct dns_info));
+    info->udp.dns->id = ptr[0] << 8 | ptr[1];
+    info->udp.dns->qr = (ptr[2] & 0x80) >> 7;
+    info->udp.dns->opcode = ptr[2] & 0x78;
+    info->udp.dns->aa = ptr[2] & 0x04;
+    info->udp.dns->tc = ptr[2] & 0x02;
+    info->udp.dns->rd = ptr[2] & 0x01;
+    info->udp.dns->ra = ptr[3] & 0x80;
+    info->udp.dns->rcode = ptr[3] & 0x0f;
     for (int i = 0, j = 4; i < 4; i++, j += 2) {
-        info->udp.dns.section_count[i] = ptr[j] << 8 | ptr[j + 1];
+        info->udp.dns->section_count[i] = ptr[j] << 8 | ptr[j + 1];
     }
 
-    if (info->udp.dns.qr) { /* DNS response */
+    if (info->udp.dns->qr) { /* DNS response */
         ptr += DNS_HDRLEN;
 
         /* QUESTION section */
-        ptr += parse_dns_name(buffer, ptr, info->udp.dns.question.qname);
-        info->udp.dns.question.qtype = ptr[0] << 8 | ptr[1];
-        info->udp.dns.question.qclass = ptr[2] << 8 | ptr[3];
+        ptr += parse_dns_name(buffer, ptr, info->udp.dns->question.qname);
+        info->udp.dns->question.qtype = ptr[0] << 8 | ptr[1];
+        info->udp.dns->question.qclass = ptr[2] << 8 | ptr[3];
         ptr += 4; /* skip qtype and qclass */
 
         /* Answer/Authority/Additional records sections */
-        int i = ANCOUNT;
-        int c = 0;
+        int num_records = 0;
 
-        while (i < 4) {
-            for (int j = 0; j < info->udp.dns.section_count[i] && c < MAX_DNS_RECORDS; j++) {
-                parse_dns_record(j, buffer, &ptr, info);
-                c++;
-            }
-            i++;
+        for (int i = ANCOUNT; i < 4; i++) {
+            num_records += info->udp.dns->section_count[i];
+        }
+        info->udp.dns->record = malloc(num_records * sizeof(struct dns_resource_record));
+        for (int i = 0; i < num_records; i++) {
+            parse_dns_record(i, buffer, &ptr, info);
         }
     } else { /* DNS query */
-        if (info->udp.dns.rcode != 0) { /* RCODE will be zero */
+        if (info->udp.dns->rcode != 0) { /* RCODE will be zero */
             return false;
         }
         /* ANCOUNT and NSCOUNT values are zero */
-        if (info->udp.dns.section_count[ANCOUNT] != 0 && info->udp.dns.section_count[NSCOUNT] != 0) {
+        if (info->udp.dns->section_count[ANCOUNT] != 0 && info->udp.dns->section_count[NSCOUNT] != 0) {
             return false;
         }
         /*
          * ARCOUNT will typically be 0, 1, or 2, depending on whether EDNS0
          * (RFC 2671) or TSIG (RFC 2845) are used
          */
-        if (info->udp.dns.section_count[ARCOUNT] > 2) {
+        if (info->udp.dns->section_count[ARCOUNT] > 2) {
             return false;
         }
         ptr += DNS_HDRLEN;
 
         /* QUESTION section */
-        ptr += parse_dns_name(buffer, ptr, info->udp.dns.question.qname);
-        info->udp.dns.question.qtype = ptr[0] << 8 | ptr[1];
-        info->udp.dns.question.qclass = ptr[2] << 8 | ptr[3];
-    }
+        ptr += parse_dns_name(buffer, ptr, info->udp.dns->question.qname);
+        info->udp.dns->question.qtype = ptr[0] << 8 | ptr[1];
+        info->udp.dns->question.qclass = ptr[2] << 8 | ptr[3];
 
+        /* Additional records */
+        if (info->udp.dns->section_count[ARCOUNT]) {
+            info->udp.dns->record = malloc(info->udp.dns->section_count[ARCOUNT] *
+                                           sizeof(struct dns_resource_record));
+            for (int i = 0; i < info->udp.dns->section_count[ARCOUNT]; i++) {
+                parse_dns_record(i, buffer, &ptr, info);
+            }
+        } else {
+            info->udp.dns->record = NULL;
+        }
+    }
     return true;
 }
 
@@ -454,41 +471,41 @@ void parse_dns_record(int i, unsigned char *buffer, unsigned char **ptr, struct 
 {
     uint16_t rdlen;
 
-    *ptr += parse_dns_name(buffer, *ptr, info->udp.dns.record[i].name);
-    info->udp.dns.record[i].type = (*ptr)[0] << 8 | (*ptr)[1];
-    info->udp.dns.record[i].class = (*ptr)[2] << 8 | (*ptr)[3];
-    info->udp.dns.record[i].ttl = (*ptr)[4] << 24 | (*ptr)[5] << 16 | (*ptr)[6] << 8 | (*ptr)[7];
+    *ptr += parse_dns_name(buffer, *ptr, info->udp.dns->record[i].name);
+    info->udp.dns->record[i].type = (*ptr)[0] << 8 | (*ptr)[1];
+    info->udp.dns->record[i].class = (*ptr)[2] << 8 | (*ptr)[3];
+    info->udp.dns->record[i].ttl = (*ptr)[4] << 24 | (*ptr)[5] << 16 | (*ptr)[6] << 8 | (*ptr)[7];
     rdlen = (*ptr)[8] << 8 | (*ptr)[9];
     *ptr += 10; /* skip to rdata field */
-    if (info->udp.dns.record[i].class == DNS_CLASS_IN) {
-        switch (info->udp.dns.record[i].type) {
+    if (info->udp.dns->record[i].class == DNS_CLASS_IN) {
+        switch (info->udp.dns->record[i].type) {
         case DNS_TYPE_A:
             if (rdlen == 4) {
-                info->udp.dns.record[i].rdata.address = (*ptr)[0] << 24 | (*ptr)[1] << 16 | (*ptr)[2] << 8 | (*ptr)[3];
+                info->udp.dns->record[i].rdata.address = (*ptr)[0] << 24 | (*ptr)[1] << 16 | (*ptr)[2] << 8 | (*ptr)[3];
             }
             *ptr += rdlen;
             break;
         case DNS_TYPE_NS:
-            *ptr += parse_dns_name(buffer, *ptr, info->udp.dns.record[i].rdata.nsdname);
+            *ptr += parse_dns_name(buffer, *ptr, info->udp.dns->record[i].rdata.nsdname);
         case DNS_TYPE_CNAME:
-            *ptr += parse_dns_name(buffer, *ptr, info->udp.dns.record[i].rdata.cname);
+            *ptr += parse_dns_name(buffer, *ptr, info->udp.dns->record[i].rdata.cname);
             break;
         case DNS_TYPE_SOA:
-            *ptr += parse_dns_name(buffer, *ptr, info->udp.dns.record[i].rdata.soa.mname);
-            *ptr += parse_dns_name(buffer, *ptr, info->udp.dns.record[i].rdata.soa.rname);
-            info->udp.dns.record[i].rdata.soa.serial = (*ptr)[0] << 24 | (*ptr)[1] << 16 | (*ptr)[2] << 8 | (*ptr)[3];
-            info->udp.dns.record[i].rdata.soa.retry = (*ptr)[4] << 24 | (*ptr)[5] << 16 | (*ptr)[6] << 8 | (*ptr)[7];
-            info->udp.dns.record[i].rdata.soa.expire = (*ptr)[8] << 24 | (*ptr)[9] << 16 | (*ptr)[10] << 8 | (*ptr)[11];
-            info->udp.dns.record[i].rdata.soa.minimum = (*ptr)[12] << 24 | (*ptr)[13] << 16 | (*ptr)[14] << 8 | (*ptr)[15];
+            *ptr += parse_dns_name(buffer, *ptr, info->udp.dns->record[i].rdata.soa.mname);
+            *ptr += parse_dns_name(buffer, *ptr, info->udp.dns->record[i].rdata.soa.rname);
+            info->udp.dns->record[i].rdata.soa.serial = (*ptr)[0] << 24 | (*ptr)[1] << 16 | (*ptr)[2] << 8 | (*ptr)[3];
+            info->udp.dns->record[i].rdata.soa.retry = (*ptr)[4] << 24 | (*ptr)[5] << 16 | (*ptr)[6] << 8 | (*ptr)[7];
+            info->udp.dns->record[i].rdata.soa.expire = (*ptr)[8] << 24 | (*ptr)[9] << 16 | (*ptr)[10] << 8 | (*ptr)[11];
+            info->udp.dns->record[i].rdata.soa.minimum = (*ptr)[12] << 24 | (*ptr)[13] << 16 | (*ptr)[14] << 8 | (*ptr)[15];
             *ptr += 16;
             break;
         case DNS_TYPE_PTR:
-            *ptr += parse_dns_name(buffer, *ptr, info->udp.dns.record[i].rdata.ptrdname);
+            *ptr += parse_dns_name(buffer, *ptr, info->udp.dns->record[i].rdata.ptrdname);
             break;
         case DNS_TYPE_AAAA:
             if (rdlen == 16) {
                 for (int j = 0; j < rdlen; j++) {
-                    info->udp.dns.record[i].rdata.ipv6addr[j] = (*ptr)[j];
+                    info->udp.dns->record[i].rdata.ipv6addr[j] = (*ptr)[j];
                 }
             }
             *ptr += rdlen;
@@ -533,43 +550,46 @@ bool handle_nbns(unsigned char *buffer, struct ip_info *info)
     }
     unsigned char *ptr = buffer;
 
-    info->udp.nbns.id = ptr[0] << 8 | ptr[1];
-    info->udp.nbns.opcode = ptr[2] & 0x78;
-    info->udp.nbns.aa = ptr[2] & 0x04;
-    info->udp.nbns.tc = ptr[2] & 0x02;
-    info->udp.nbns.rd = ptr[2] & 0x01;
-    info->udp.nbns.ra = ptr[3] & 0x80;
-    info->udp.nbns.broadcast = ptr[3] & 0x10;
-    info->udp.nbns.rcode = ptr[3] & 0x0f;
+    info->udp.nbns = malloc(sizeof(struct nbns_info));
+    info->udp.nbns->id = ptr[0] << 8 | ptr[1];
+    info->udp.nbns->opcode = ptr[2] & 0x78;
+    info->udp.nbns->aa = ptr[2] & 0x04;
+    info->udp.nbns->tc = ptr[2] & 0x02;
+    info->udp.nbns->rd = ptr[2] & 0x01;
+    info->udp.nbns->ra = ptr[3] & 0x80;
+    info->udp.nbns->broadcast = ptr[3] & 0x10;
+    info->udp.nbns->rcode = ptr[3] & 0x0f;
     for (int i = 0, j = 4; i < 4; i++, j += 2) {
-        info->udp.nbns.section_count[i] = ptr[j] << 8 | ptr[j + 1];
+        info->udp.nbns->section_count[i] = ptr[j] << 8 | ptr[j + 1];
     }
 
     /*
      * the first bit in the opcode field specifies whether it is a request (0)
      * or a response (1)
      */
-    info->udp.nbns.r = (ptr[2] & 0x80U) >> 7;
+    info->udp.nbns->r = (ptr[2] & 0x80U) >> 7;
 
-    if (info->udp.nbns.r) { /* response */
-        if (info->udp.nbns.section_count[QDCOUNT] != 0) { /* QDCOUNT is always 0 for responses */
+    if (info->udp.nbns->r) { /* response */
+        if (info->udp.nbns->section_count[QDCOUNT] != 0) { /* QDCOUNT is always 0 for responses */
             return false;
         }
         ptr += DNS_HDRLEN;
 
         /* Answer/Authority/Additional records sections */
         int i = ANCOUNT;
-        while (i < 4) { /* There will be max 1 record for each section */
-            if (info->udp.nbns.section_count[i]) {
-                parse_nbns_record(i - 1, buffer, &ptr, info);
-            }
-            i++;
+        int num_records = 0;
+        while (i < 4) {
+            num_records += info->udp.nbns->section_count[i++];
+        }
+        info->udp.nbns->record = malloc(num_records * sizeof(struct nbns_rr));
+        for (int j = 0; j < num_records; j++) {
+            parse_nbns_record(j, buffer, &ptr, info);
         }
     } else { /* request */
-        if (info->udp.nbns.aa) { /* authoritative answer is only to be set in responses */
+        if (info->udp.nbns->aa) { /* authoritative answer is only to be set in responses */
             return false;
         }
-        if (info->udp.nbns.section_count[QDCOUNT] == 0) { /* QDCOUNT must be non-zero for requests */
+        if (info->udp.nbns->section_count[QDCOUNT] == 0) { /* QDCOUNT must be non-zero for requests */
             return false;
         }
         ptr += DNS_HDRLEN;
@@ -577,14 +597,17 @@ bool handle_nbns(unsigned char *buffer, struct ip_info *info)
         /* QUESTION section */
         char name[DNS_NAMELEN];
         ptr += parse_dns_name(buffer, ptr, name);
-        decode_nbns_name(info->udp.nbns.question.qname, name);
-        info->udp.nbns.question.qtype = ptr[0] << 8 | ptr[1];
-        info->udp.nbns.question.qclass = ptr[2] << 8 | ptr[3];
+        decode_nbns_name(info->udp.nbns->question.qname, name);
+        info->udp.nbns->question.qtype = ptr[0] << 8 | ptr[1];
+        info->udp.nbns->question.qclass = ptr[2] << 8 | ptr[3];
         ptr += 4; /* skip qtype and qclass */
 
         /* Additional records section */
-        if (info->udp.nbns.section_count[ARCOUNT]) {
+        if (info->udp.nbns->section_count[ARCOUNT]) {
+            info->udp.nbns->record = malloc(sizeof(struct nbns_rr));
             parse_nbns_record(0, buffer, &ptr, info);
+        } else {
+            info->udp.nbns->record = NULL;
         }
     }
 
@@ -618,25 +641,25 @@ void parse_nbns_record(int i, unsigned char *buffer, unsigned char **ptr, struct
     char name[DNS_NAMELEN];
 
     *ptr += parse_dns_name(buffer, *ptr, name);
-    decode_nbns_name(info->udp.nbns.record[i].rrname, name);
-    info->udp.nbns.record[i].rrtype = (*ptr)[0] << 8 | (*ptr)[1];
-    info->udp.nbns.record[i].rrclass = (*ptr)[2] << 8 | (*ptr)[3];
-    info->udp.nbns.record[i].ttl = (*ptr)[4] << 24 | (*ptr)[5] << 16 | (*ptr)[6] << 8 | (*ptr)[7];
+    decode_nbns_name(info->udp.nbns->record[i].rrname, name);
+    info->udp.nbns->record[i].rrtype = (*ptr)[0] << 8 | (*ptr)[1];
+    info->udp.nbns->record[i].rrclass = (*ptr)[2] << 8 | (*ptr)[3];
+    info->udp.nbns->record[i].ttl = (*ptr)[4] << 24 | (*ptr)[5] << 16 | (*ptr)[6] << 8 | (*ptr)[7];
     rdlen = (*ptr)[8] << 8 | (*ptr)[9];
     *ptr += 10; /* skip to rdata field */
 
-    switch (info->udp.nbns.record[i].rrtype) {
+    switch (info->udp.nbns->record[i].rrtype) {
     case NBNS_NB:
         if (rdlen >= 6) {
-            info->udp.nbns.record[i].rdata.nb.g = (*ptr)[0] & 0x80U;
-            info->udp.nbns.record[i].rdata.nb.ont = (*ptr)[0] & 0x60;
+            info->udp.nbns->record[i].rdata.nb.g = (*ptr)[0] & 0x80U;
+            info->udp.nbns->record[i].rdata.nb.ont = (*ptr)[0] & 0x60;
             rdlen -= 2;
             (*ptr) += 2;
             for (int j = 0, k = 0; k < rdlen && k < MAX_NBNS_ADDR * 4 ; j++, k += 4) {
-                info->udp.nbns.record[i].rdata.nb.address[j] =
+                info->udp.nbns->record[i].rdata.nb.address[j] =
                     (*ptr)[k] << 24 | (*ptr)[k + 1] << 16 | (*ptr)[k + 2] << 8 | (*ptr)[k + 3];
             }
-            info->udp.nbns.record[i].rdata.nb.num_addr = rdlen / 4;
+            info->udp.nbns->record[i].rdata.nb.num_addr = rdlen / 4;
         }
         *ptr += rdlen;
         break;
@@ -645,12 +668,12 @@ void parse_nbns_record(int i, unsigned char *buffer, unsigned char **ptr, struct
         char name[DNS_NAMELEN];
 
         *ptr += parse_dns_name(buffer, *ptr, name);
-        decode_nbns_name(info->udp.nbns.record[i].rdata.nsdname, name);
+        decode_nbns_name(info->udp.nbns->record[i].rdata.nsdname, name);
         break;
     }
     case NBNS_A:
         if (rdlen == 4) {
-            info->udp.nbns.record[i].rdata.nsdipaddr =
+            info->udp.nbns->record[i].rdata.nsdipaddr =
                 (*ptr)[0] << 24 | (*ptr)[1] << 16 | (*ptr)[2] << 8 | (*ptr)[3];
         }
         *ptr += rdlen;
@@ -662,10 +685,10 @@ void parse_nbns_record(int i, unsigned char *buffer, unsigned char **ptr, struct
         num_names = (*ptr)[0];
         (*ptr)++;
         for (int j = 0; j < num_names; j++) {
-            memcpy(info->udp.nbns.record[i].rdata.nbstat[j].node_name, (*ptr), NBNS_NAMELEN);
-            info->udp.nbns.record[i].rdata.nbstat[j].node_name[NBNS_NAMELEN] = '\0';
+            memcpy(info->udp.nbns->record[i].rdata.nbstat[j].node_name, (*ptr), NBNS_NAMELEN);
+            info->udp.nbns->record[i].rdata.nbstat[j].node_name[NBNS_NAMELEN] = '\0';
             *ptr += NBNS_NAMELEN;
-            info->udp.nbns.record[i].rdata.nbstat[j].name_flags = (*ptr)[0] << 8 | (*ptr)[1];
+            info->udp.nbns->record[i].rdata.nbstat[j].name_flags = (*ptr)[0] << 8 | (*ptr)[1];
             *ptr += 2;
         }
         // TODO: Include statistics
@@ -676,6 +699,29 @@ void parse_nbns_record(int i, unsigned char *buffer, unsigned char **ptr, struct
         *ptr += rdlen;
         break;
     }
+}
+
+/*
+ * The Simple Service Discovery Protocol (SSDP) is a network protocol based on
+ * the Internet Protocol Suite for advertisement and discovery of network
+ * services and presence information. It is a text-based protocol based on HTTPU.
+ * Services are announced by the hosting system with multicast addressing to a
+ * specifically designated IP multicast address at UDP port number 1900.
+ *
+ * SSDP uses a NOTIFY HTTP method to announce the establishment or withdrawal of
+ * services (presence) information to the multicast group. A client that wishes
+ * to discover available services on a network uses the M-SEARCH method.
+ * Responses to such search requests are sent via unicast addressing to the
+ * originating address and port number of the multicast request.
+ *
+ */
+bool handle_ssdp(unsigned char *buffer, struct ip_info *info)
+{
+    int n = info->udp.len - UDP_HDRLEN;
+
+    info->udp.ssdp = malloc(n);
+    strncpy(info->udp.ssdp, buffer, n);
+    return true;
 }
 
 /*

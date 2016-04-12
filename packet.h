@@ -12,9 +12,7 @@
 #define UDP_HDRLEN 8
 #define DNS_HDRLEN 12
 #define DNS_NAMELEN 254
-#define MAX_DNS_RECORDS 14
 #define NBNS_NAMELEN 17
-#define MAX_NBNS_RECORDS 4
 #define MAX_NBNS_NAMES 8
 #define MAX_NBNS_ADDR 8
 
@@ -106,7 +104,8 @@ enum port {
      */
     NBNS = 137, /* NetBIOS Name Service */
     NBDS = 138, /* NetBIOS Datagram Service */
-    NBSS = 139  /* NetBIOS Session Service */
+    NBSS = 139, /* NetBIOS Session Service */
+    SSDP = 1900 /* Simple Service Discovery Protocol */
 };
 
 enum packet_type {
@@ -158,7 +157,7 @@ struct dns_info {
     } question;
 
     /* answer section */
-    struct resource_record {
+    struct dns_resource_record {
         /* a domain name to which the resource record pertains */
         char name[DNS_NAMELEN];
         uint16_t type;
@@ -207,7 +206,7 @@ struct dns_info {
 
             uint8_t ipv6addr[16];
         } rdata;
-    } record[MAX_DNS_RECORDS];
+    } *record;
 };
 
 // TODO: Make a pointer to the variable length portions
@@ -232,7 +231,7 @@ struct nbns_info {
     } question;
 
     /* answer/additional records section */
-    struct rr {
+    struct nbns_rr {
         /* the compressed name representation of the NetBIOS name corresponding
            to this resource record */
         char rrname[NBNS_NAMELEN];
@@ -269,7 +268,7 @@ struct nbns_info {
             char nsdname[NBNS_NAMELEN];
             uint32_t nsdipaddr;
         } rdata;
-    } record[MAX_NBNS_RECORDS];
+    } *record;
 };
 
 // TODO: Improve the structure of this
@@ -283,10 +282,10 @@ struct ip_info {
             uint16_t dst_port;
             uint16_t len;
             uint16_t utype; /* specifies the protocol carried in the UDP packet */
-            // TODO: Should be made into a pointer
             union {
-                struct dns_info dns;
-                struct nbns_info nbns;
+                struct dns_info *dns;
+                struct nbns_info *nbns;
+                char *ssdp;
             };
         } udp;
         struct {
@@ -326,15 +325,6 @@ struct packet {
 /* get a packet from the network interface card */
 size_t read_packet(int sockfd, unsigned char *buffer, size_t n, struct packet *p);
 
-void handle_ethernet(unsigned char *buffer, struct packet *p);
-void handle_arp(unsigned char *buffer, struct arp_info *info);
-void handle_ip(unsigned char *buffer, struct ip_info *info);
-void handle_icmp(unsigned char *buffer, struct ip_info *info);
-void handle_igmp(unsigned char *buffer, struct ip_info *info);
-void handle_tcp(unsigned char *buffer, struct ip_info *info);
-void handle_udp(unsigned char *buffer, struct ip_info *info);
-bool handle_dns(unsigned char *buffer, struct ip_info *info);
-bool handle_nbns(unsigned char *buffer, struct ip_info *info);
-
+bool handle_ethernet(unsigned char *buffer, struct packet *p);
 
 #endif

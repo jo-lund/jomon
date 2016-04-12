@@ -52,6 +52,7 @@ static void run();
 static void sig_alarm(int signo);
 static void sig_int(int signo);
 static void finish();
+static void free_mem(void *data);
 static void calculate_rate();
 
 int main(int argc, char **argv)
@@ -193,7 +194,7 @@ int init()
     get_local_address(device, (struct sockaddr *) local_addr);
 
     /* Initialize table to store packets */
-    vector_init(1000);
+    vector_init(1000, free_mem);
 
     return sockfd;
 }
@@ -219,16 +220,16 @@ void run(int fd)
         }
         if (fds[0].revents & POLLIN) {
             unsigned char buffer[SNAPLEN];
-            unsigned char *data;
             size_t n;
-            struct packet p;
+            struct packet *p;
 
-            n = read_packet(fd, buffer, SNAPLEN, &p);
+            p = malloc(sizeof(struct packet));
+            n = read_packet(fd, buffer, SNAPLEN, p);
             if (n > ETHERNET_HDRLEN) {
-                data = (unsigned char *) malloc(n);
-                memcpy(data, buffer, n);
-                vector_push_back(data);
-                print_packet(&p);
+                vector_push_back(p);
+                print_packet(p);
+            } else {
+                free_mem(p);
             }
         }
         if (fds[1].revents & POLLIN) {
@@ -236,6 +237,40 @@ void run(int fd)
         }
         if (statistics) print_rate();
     }
+}
+
+void free_mem(void *data)
+{
+    struct packet *p = (struct packet *) data;
+
+    if (p->ut == IPv4) {
+        switch (p->ip.protocol) {
+        case IPPROTO_UDP:
+            switch (p->ip.udp.utype) {
+            case DNS:
+                if (p->ip.udp.dns->record) {
+                    free(p->ip.udp.dns->record);
+                }
+                free(p->ip.udp.dns);
+                break;
+            case NBNS:
+                if (p->ip.udp.nbns->record) {
+                    free(p->ip.udp.nbns->record);
+                }
+                free(p->ip.udp.nbns);
+                break;
+            case SSDP:
+                free(p->ip.udp.ssdp);
+                break;
+            default:
+                break;
+            }
+            break;
+        default:
+            break;
+        }
+    }
+    free(p);
 }
 
 void calculate_rate()

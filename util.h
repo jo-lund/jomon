@@ -2,7 +2,7 @@
 #define UTIL_H
 
 struct arp_info;
-struct resource_record;
+struct dns_resource_record;
 
 // TODO: This should be moved to its own file. Will be used for injecting
 // packets.
@@ -26,7 +26,7 @@ int snprintcat(char *buf, int size, char *fmt, ...);
 char *strtolower(char *str, size_t n);
 
 /* Get the size of the longest domain name in the RRs */
-int get_max_namelen(struct resource_record *record, int n);
+int get_max_namelen(struct dns_resource_record *record, int n);
 
 /* Convert type to string */
 char *get_arp_hardware_type(uint16_t type);

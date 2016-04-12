@@ -1,16 +1,18 @@
 #ifndef VECTOR_H
 #define VECTOR_H
 
+typedef void (*deallocate)(void *);
+
 /* initialize vector with size of sz */
-void vector_init(int sz);
+void vector_init(int sz, deallocate func);
 
 /* insert element at the end */
 void vector_push_back(void *data);
 
-/* Remove element at the end. Space will not be deallocated */
+/* Remove element at the end. Total capacity will not be reduced */
 void vector_pop_back();
 
-/* get data from end of the vector */
+/* get data from end of vector */
 void *vector_back();
 
 /* Get the ith element. Return null if no element */

@@ -10,10 +10,12 @@ typedef struct item {
 static item_t *buf;
 static unsigned int c = 0;
 static unsigned int size = 0;
+static deallocate dealloc_mem;
 
-void vector_init(int sz)
+void vector_init(int sz, deallocate func)
 {
     size = sz;
+    dealloc_mem = func;
     buf = (item_t *) malloc(size * sizeof(struct item));
 }
 
@@ -34,7 +36,11 @@ void vector_push_back(void *data)
 inline void vector_pop_back()
 {
     if (c) {
-        free(buf[c].data);
+        if (dealloc_mem) {
+            dealloc_mem(buf[c].data);
+        } else {
+            free(buf[c].data);
+        }
         c--;
     }
 }
@@ -60,7 +66,11 @@ inline int vector_size()
 void vector_clear()
 {
     for (unsigned int i = 0; i < c; i++) {
-        free(buf[i].data);
+        if (dealloc_mem) {
+            dealloc_mem(buf[i].data);
+        } else {
+            free(buf[i].data);
+        }
     }
     free(buf);
     size = 0;

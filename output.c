@@ -170,17 +170,15 @@ void handle_keyup()
 
     /* scroll screen if the selection bar is at the top */
     if (top && selection_line == top) {
-        unsigned char *buf = vector_get_data(--selection_line);
-        struct packet p;
+        struct packet *p = vector_get_data(--selection_line);
 
         top--;
-        if (buf) {
+        if (p) {
             char *line;
 
             list_pop_back();
             wscrl(wmain, -1);
-            handle_ethernet(buf, &p); /* deserialize packet */
-            line = alloc_print_buffer(&p, mx);
+            line = alloc_print_buffer(p, mx);
             list_push_front(line);
             mvwprintw(wmain, 0, 0, "%s", line);
 
@@ -212,17 +210,15 @@ void handle_keydown()
 
     /* scroll screen if the selection bar is at the bottom */
     if (selection_line - top == my - 1) {
-        unsigned char *buf = vector_get_data(++selection_line);
-        struct packet p;
+        struct packet *p = vector_get_data(++selection_line);
 
         top++;
-        if (buf) {
+        if (p) {
             char *line;
 
             list_pop_front();
             wscrl(wmain, 1);
-            handle_ethernet(buf, &p); /* deserialize packet */
-            line = alloc_print_buffer(&p, mx);
+            line = alloc_print_buffer(p, mx);
             list_push_back(line);
             mvwprintw(wmain, my - 1, 0, "%s", line);
 
@@ -259,8 +255,6 @@ void set_interactive(bool interactive_mode)
         wrefresh(wmain);
     } else {
         if (outy >= my) {
-            struct packet p;
-            unsigned char *buf;
             int c = vector_size() - 1;
 
             werase(wmain);
@@ -268,11 +262,11 @@ void set_interactive(bool interactive_mode)
 
             /* print the new lines stored in vector from bottom to top of screen */
             for (int i = my - 1; i >= 0; i--, c--) {
+                struct packet *p;
                 char *buffer;
 
-                buf = vector_get_data(c);
-                handle_ethernet(buf, &p); /* deserialize packet */
-                buffer = alloc_print_buffer(&p, mx);
+                p = vector_get_data(c);
+                buffer = alloc_print_buffer(p, mx);
                 mvwprintw(wmain, i, 0, "%s", buffer);
                 list_push_front(buffer);
             }
@@ -354,17 +348,15 @@ void delete_subwindow()
 void print_information(int lineno, bool select)
 {
     if (select) {
-        unsigned char *buf;
-        struct packet p;
+        struct packet *p;
 
-        buf = vector_get_data(lineno);
-        handle_ethernet(buf, &p);
-        switch (p.ut) {
+        p = vector_get_data(lineno);
+        switch (p->ut) {
         case ARP:
-            print_arp_verbose(&p.arp);
+            print_arp_verbose(&p->arp);
             break;
         case IPv4:
-            print_ip_verbose(&p.ip);
+            print_ip_verbose(&p->ip);
             break;
         default:
             break;
@@ -466,10 +458,10 @@ void print_udp_verbose(struct ip_info *info)
 {
     switch (info->udp.utype) {
     case DNS:
-        print_dns_verbose(&info->udp.dns);
+        print_dns_verbose(info->udp.dns);
         break;
     case NBNS:
-        print_nbns_verbose(&info->udp.nbns);
+        print_nbns_verbose(info->udp.nbns);
         break;
     default:
         break;
@@ -508,11 +500,10 @@ void print_dns_verbose(struct dns_info *info)
         int mx, my;
         int len;
 
-        i = 0;
         getmaxyx(wmain, my, mx);
         mvwprintw(wsub_main, ++y, 4, "Resource records:");
         len = get_max_namelen(info->record, records);
-        while (records--) {
+        for (int i = 0; i < records; i++) {
             char buffer[mx];
             bool soa = false;
 
@@ -525,7 +516,6 @@ void print_dns_verbose(struct dns_info *info)
                 mvwprintw(wsub_main, ++y, 0, "");
                 print_dns_soa(info, i, y + 1, 8);
             }
-            i++;
         }
     }
     touchwin(wmain);
@@ -710,7 +700,7 @@ char *alloc_print_buffer(struct packet *p, int size)
 {
     char *buffer;
 
-    buffer = (char *) malloc(size);
+    buffer = malloc(size);
     switch (p->ut) {
     case ARP:
         print_arp(buffer, &p->arp);
@@ -779,7 +769,7 @@ void print_ip(char *buffer, struct ip_info *info)
 
     getmaxyx(wmain, my, mx);
     if (!numeric && (info->protocol != IPPROTO_UDP ||
-                     info->protocol == IPPROTO_UDP && info->udp.dns.qr == -1)) {
+                     info->protocol == IPPROTO_UDP && info->udp.dns->qr == -1)) {
         char sname[HOSTNAMELEN];
         char dname[HOSTNAMELEN];
 
@@ -831,13 +821,13 @@ void print_udp(struct ip_info *info, char *buf, int n)
 void print_dns(struct ip_info *info, char *buf, int n)
 {
     PRINT_PROTOCOL(buf, n, "DNS");
-    if (info->udp.dns.qr == 0) {
-        switch (info->udp.dns.opcode) {
+    if (info->udp.dns->qr == 0) {
+        switch (info->udp.dns->opcode) {
         case DNS_QUERY:
             PRINT_INFO(buf, n, "Standard query: ");
-            PRINT_INFO(buf, n, "%s ", info->udp.dns.question.qname);
-            PRINT_INFO(buf, n, "%s ", get_dns_class(info->udp.dns.question.qclass));
-            PRINT_INFO(buf, n, "%s", get_dns_type(info->udp.dns.question.qtype));
+            PRINT_INFO(buf, n, "%s ", info->udp.dns->question.qname);
+            PRINT_INFO(buf, n, "%s ", get_dns_class(info->udp.dns->question.qclass));
+            PRINT_INFO(buf, n, "%s", get_dns_type(info->udp.dns->question.qtype));
             break;
         case DNS_IQUERY:
             PRINT_INFO(buf, n, "Inverse query");
@@ -847,7 +837,7 @@ void print_dns(struct ip_info *info, char *buf, int n)
             break;
         }
     } else {
-        switch (info->udp.dns.rcode) {
+        switch (info->udp.dns->rcode) {
         case DNS_FORMAT_ERROR:
             PRINT_INFO(buf, n, "Response: format error");
             return;
@@ -869,14 +859,14 @@ void print_dns(struct ip_info *info, char *buf, int n)
             break;
         }
         // TODO: Need to print the proper name for all values.
-        PRINT_INFO(buf, n, "%s ", info->udp.dns.record[0].name);
-        PRINT_INFO(buf, n, "%s ", get_dns_class(info->udp.dns.record[0].class));
-        PRINT_INFO(buf, n, "%s ", get_dns_type(info->udp.dns.record[0].type));
-        int records = info->udp.dns.section_count[ANCOUNT];
+        PRINT_INFO(buf, n, "%s ", info->udp.dns->record[0].name);
+        PRINT_INFO(buf, n, "%s ", get_dns_class(info->udp.dns->record[0].class));
+        PRINT_INFO(buf, n, "%s ", get_dns_type(info->udp.dns->record[0].type));
+        int records = info->udp.dns->section_count[ANCOUNT];
         int i = 0;
 
         while (records--) {
-            print_dns_record(&info->udp.dns, i, buf, n, info->udp.dns.record[i].type, NULL);
+            print_dns_record(info->udp.dns, i, buf, n, info->udp.dns->record[i].type, NULL);
             PRINT_INFO(buf, n, " ");
             i++;
         }
@@ -886,18 +876,18 @@ void print_dns(struct ip_info *info, char *buf, int n)
 void print_nbns(struct ip_info *info, char *buf, int n)
 {
     PRINT_PROTOCOL(buf, n, "NBNS");
-    if (info->udp.nbns.r == 0) {
+    if (info->udp.nbns->r == 0) {
         char opcode[16];
 
-        strncpy(opcode, get_nbns_opcode(info->udp.nbns.opcode), sizeof(opcode));
+        strncpy(opcode, get_nbns_opcode(info->udp.nbns->opcode), sizeof(opcode));
         PRINT_INFO(buf, n, "Name %s request: ", strtolower(opcode, strlen(opcode)));
-        PRINT_INFO(buf, n, "%s ", info->udp.nbns.question.qname);
-        PRINT_INFO(buf, n, "%s ", get_nbns_type(info->udp.nbns.question.qtype));
-        if (info->udp.nbns.section_count[ARCOUNT]) {
-            print_nbns_record(&info->udp.nbns, 0, buf, n, info->udp.nbns.record[0].rrtype);
+        PRINT_INFO(buf, n, "%s ", info->udp.nbns->question.qname);
+        PRINT_INFO(buf, n, "%s ", get_nbns_type(info->udp.nbns->question.qtype));
+        if (info->udp.nbns->section_count[ARCOUNT]) {
+            print_nbns_record(info->udp.nbns, 0, buf, n, info->udp.nbns->record[0].rrtype);
         }
     } else {
-        switch (info->udp.nbns.rcode) {
+        switch (info->udp.nbns->rcode) {
         case NBNS_FMT_ERR:
             PRINT_INFO(buf, n, "Format Error. Request was invalidly formatted");
             return;
@@ -921,11 +911,11 @@ void print_nbns(struct ip_info *info, char *buf, int n)
         }
         char opcode[16];
 
-        strncpy(opcode, get_nbns_opcode(info->udp.nbns.opcode), sizeof(opcode));
+        strncpy(opcode, get_nbns_opcode(info->udp.nbns->opcode), sizeof(opcode));
         PRINT_INFO(buf, n, "Name %s response: ", strtolower(opcode, strlen(opcode)));
-        PRINT_INFO(buf, n, "%s ", info->udp.nbns.record[0].rrname);
-        PRINT_INFO(buf, n, "%s ", get_nbns_type(info->udp.nbns.record[0].rrtype));
-        print_nbns_record(&info->udp.nbns, 0, buf, n, info->udp.nbns.record[0].rrtype);
+        PRINT_INFO(buf, n, "%s ", info->udp.nbns->record[0].rrname);
+        PRINT_INFO(buf, n, "%s ", get_nbns_type(info->udp.nbns->record[0].rrtype));
+        print_nbns_record(info->udp.nbns, 0, buf, n, info->udp.nbns->record[0].rrtype);
     }
 }
 
