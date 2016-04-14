@@ -600,12 +600,10 @@ void print_nbns_verbose(struct nbns_info *info)
 
     if (records) {
         int mx, my;
-        int len;
 
-        i = 0;
         getmaxyx(wmain, my, mx);
         mvwprintw(wsub_main, ++y, 4, "Resource records:");
-        while (records--) {
+        for (int i = 0; i < records; i++) {
             char buffer[mx];
 
             snprintf(buffer, mx, "%s\t", info->record[i].rrname);
@@ -613,7 +611,6 @@ void print_nbns_verbose(struct nbns_info *info)
             snprintcat(buffer, mx, "%s\t", get_nbns_type(info->record[i].rrtype));
             print_nbns_record(info, i, buffer, mx, info->record[i].rrtype);
             mvwprintw(wsub_main, ++y, 8, "%s", buffer);
-            i++;
         }
     }
     touchwin(wmain);
@@ -862,13 +859,9 @@ void print_dns(struct ip_info *info, char *buf, int n)
         PRINT_INFO(buf, n, "%s ", info->udp.dns->record[0].name);
         PRINT_INFO(buf, n, "%s ", get_dns_class(info->udp.dns->record[0].class));
         PRINT_INFO(buf, n, "%s ", get_dns_type(info->udp.dns->record[0].type));
-        int records = info->udp.dns->section_count[ANCOUNT];
-        int i = 0;
-
-        while (records--) {
+        for (int i = 0; i < info->udp.dns->section_count[ANCOUNT]; i++) {
             print_dns_record(info->udp.dns, i, buf, n, info->udp.dns->record[i].type, NULL);
             PRINT_INFO(buf, n, " ");
-            i++;
         }
     }
 }

@@ -92,16 +92,12 @@ bool handle_ethernet(unsigned char *buffer, struct packet *p)
     switch (ntohs(eth_header->h_proto)) {
     case ETH_P_IP:
     {
-        struct ip_info ip;
-
         handle_ip(buffer + ETH_HLEN, &p->ip);
         p->ut = IPv4;
         return true;
     }
     case ETH_P_ARP:
     {
-        struct arp_info arp;
-
         handle_arp(buffer + ETH_HLEN, &p->arp);
         p->ut = ARP;
         return true;
