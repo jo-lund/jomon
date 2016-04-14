@@ -7,9 +7,11 @@ typedef struct node {
     struct node *prev;
 } node_t;
 
-static node_t *head = NULL;
-static node_t *tail = NULL;
-static int size = 0;
+typedef struct list {
+    node_t *head;
+    node_t *tail;
+    int size;
+} list_t;
 
 #define INIT_NODE(n)                             \
     do {                                         \
@@ -19,62 +21,82 @@ static int size = 0;
         n->prev = NULL;                          \
     } while (0);
 
-void list_push_back(void *data)
+list_t *list_init()
 {
-    if (!head) {
-        INIT_NODE(head);
-        tail = head;
+    list_t *list;
+
+    list = malloc(sizeof(list_t));
+    list->head = NULL;
+    list->tail = NULL;
+    list->size = 0;
+
+    return list;
+}
+
+list_t *list_push_front(list_t *list, void *data)
+{
+    if (!list->head) {
+        INIT_NODE(list->head);
+        list->tail = list->head;
     } else {
         node_t *node;
 
         INIT_NODE(node);
-        tail->next = node;
-        node->prev = tail;
-        tail = node;
+        list->head->prev = node;
+        node->next = list->head;
+        list->head = node;
     }
-    size++;
+    list->size++;
+
+    return list;
 }
 
-void list_push_front(void *data)
+list_t *list_push_back(list_t *list, void *data)
 {
-    if (!head) {
-        INIT_NODE(head);
-        tail = head;
+    if (!list->head) {
+        INIT_NODE(list->head);
+        list->tail = list->head;
     } else {
         node_t *node;
 
         INIT_NODE(node);
-        head->prev = node;
-        node->next = head;
-        head = node;
+        list->tail->next = node;
+        node->prev = list->tail;
+        list->tail = node;
     }
-    size++;
+    list->size++;
+
+    return list;
 }
 
-void list_pop_back()
+list_t *list_pop_front(list_t *list)
 {
-    if (tail) {
-        node_t *t = tail;
+    if (list->head) {
+        node_t *h = list->head;
 
-        tail = t->prev;
-        tail->next = NULL;
-        free(t->data);
-        free(t);
-        size--;
-    }
-}
-
-void list_pop_front()
-{
-    if (head) {
-        node_t *h = head;
-
-        head = h->next;
-        head->prev = NULL;
+        list->head = h->next;
+        list->head->prev = NULL;
         free(h->data);
         free(h);
-        size--;
+        list->size--;
     }
+
+    return list;
+}
+
+list_t *list_pop_back(list_t *list)
+{
+    if (list->tail) {
+        node_t *t = list->tail;
+
+        list->tail = t->prev;
+        list->tail->next = NULL;
+        free(t->data);
+        free(t);
+        list->size--;
+    }
+
+    return list;
 }
 
 inline const void *list_data(const node_t *n)
@@ -85,35 +107,35 @@ inline const void *list_data(const node_t *n)
     return NULL;
 }
 
-inline const void *list_back()
+inline const void *list_back(list_t *list)
 {
-    if (tail) {
-        return tail->data;
+    if (list->tail) {
+        return list->tail->data;
     }
     return NULL;
 }
 
-inline const void *list_front()
+inline const void *list_front(list_t *list)
 {
-    if (head) {
-        return head->data;
+    if (list->head) {
+        return list->head->data;
     }
     return NULL;
 }
 
-inline const node_t *list_begin()
+inline const node_t *list_begin(list_t *list)
 {
-    return head;
+    return list->head;
 }
 
-inline const node_t *list_end()
+inline const node_t *list_end(list_t *list)
 {
-    return tail;
+    return list->tail;
 }
 
-const node_t *list_ith(int index)
+const node_t *list_ith(list_t *list, int index)
 {
-    node_t *n = head;
+    node_t *n = list->head;
 
     for (int i = 0; i < index && n; i++) {
         n = n->next;
@@ -137,14 +159,14 @@ inline const node_t *list_next(const node_t *n)
     return NULL;
 }
 
-inline int list_size()
+inline int list_size(list_t *list)
 {
-    return size;
+    return list->size;
 }
 
-void list_clear()
+list_t *list_clear(list_t *list)
 {
-    node_t *n = head;
+    node_t *n = list->head;
 
     while (n) {
         node_t *tmp = n;
@@ -153,7 +175,10 @@ void list_clear()
         free(tmp->data);
         free(tmp);
     }
-    head = NULL;
-    tail = NULL;
-    size = 0;
+    list->head = NULL;
+    list->tail = NULL;
+    list->size = 0;
+    free(list);
+
+    return list;
 }

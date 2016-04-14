@@ -43,6 +43,7 @@ static bool interactive = false;
 static bool numeric = true;
 static uint32_t selection_line = 0;
 static uint32_t top = 0; /* index to top of screen */
+static list_t *screen_list;
 
 static void print_header();
 static void scroll_window();
@@ -84,12 +85,13 @@ void init_ncurses()
     start_color();
     init_pair(1, COLOR_WHITE, COLOR_CYAN);
     set_escdelay(25); /* set escdelay to 25 ms */
+    screen_list = list_init(screen_list);
 }
 
 void end_ncurses()
 {
     endwin(); /* end curses mode */
-    list_clear();
+    list_clear(screen_list);
 }
 
 void create_layout()
@@ -116,7 +118,7 @@ void scroll_window()
         outy = my - 1;
         scroll(wmain);
         top++;
-        list_pop_front(); /* list will always contain the lines on the visible screen */
+        screen_list = list_pop_front(screen_list); /* screen_list will always contain the lines on the visible screen */
     }
 }
 
@@ -176,10 +178,10 @@ void handle_keyup()
         if (p) {
             char *line;
 
-            list_pop_back();
+            screen_list = list_pop_back(screen_list);
             wscrl(wmain, -1);
             line = alloc_print_buffer(p, mx);
-            list_push_front(line);
+            screen_list = list_push_front(screen_list, line);
             mvwprintw(wmain, 0, 0, "%s", line);
 
             /* deselect previous line and highlight next at top */
@@ -216,10 +218,10 @@ void handle_keydown()
         if (p) {
             char *line;
 
-            list_pop_front();
+            screen_list = list_pop_front(screen_list);
             wscrl(wmain, 1);
             line = alloc_print_buffer(p, mx);
-            list_push_back(line);
+            screen_list = list_push_back(screen_list, line);
             mvwprintw(wmain, my - 1, 0, "%s", line);
 
             /* deselect previous line and highlight next line at bottom */
@@ -258,7 +260,7 @@ void set_interactive(bool interactive_mode)
             int c = vector_size() - 1;
 
             werase(wmain);
-            list_clear();
+            screen_list = list_clear(screen_list);
 
             /* print the new lines stored in vector from bottom to top of screen */
             for (int i = my - 1; i >= 0; i--, c--) {
@@ -268,7 +270,7 @@ void set_interactive(bool interactive_mode)
                 p = vector_get_data(c);
                 buffer = alloc_print_buffer(p, mx);
                 mvwprintw(wmain, i, 0, "%s", buffer);
-                list_push_front(buffer);
+                screen_list = list_push_front(screen_list, buffer);
             }
             top = c + 1;
         } else {
@@ -290,7 +292,7 @@ void create_subwindow(int num_lines)
 
     getmaxyx(wmain, my, mx);
     screen_line = selection_line - top;
-    l = list_ith(screen_line + 1);
+    l = list_ith(screen_list, screen_line + 1);
 
     /* if there is not enough space for the information to be printed, the
         screen needs to be scrolled to make room for all the lines */
@@ -321,7 +323,7 @@ void delete_subwindow()
 {
     int my, mx;
     int screen_line;
-    const node_t *l = list_begin();
+    const node_t *l = list_begin(screen_list);
 
     getmaxyx(wmain, my, mx);
     screen_line = selection_line - top;
@@ -730,7 +732,7 @@ void print(char *buf)
 
     getmaxyx(wmain, my, mx);
     if (!interactive || (interactive && outy < my)) {
-        list_push_back(buf); /* buffer every line on screen */
+        screen_list = list_push_back(screen_list, buf); /* buffer every line on screen */
         scroll_window();
         mvwprintw(wmain, outy, 0, "%s", buf);
         outy++;
