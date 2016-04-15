@@ -31,20 +31,58 @@ static void parse_nbns_record(int i, unsigned char *buffer, unsigned char **ptr,
 static void check_address(unsigned char *buffer);
 static bool check_port(unsigned char *buffer, struct ip_info *info, uint16_t port);
 
-size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet *p)
+size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet **p)
 {
     int n;
 
-    // TODO: Use recvfrom and read the sockaddr_ll struct.
+    *p = malloc(sizeof(struct packet));
     if ((n = read(sockfd, buffer, len)) == -1) {
+        free_packet(*p);
         err_sys("read error");
     }
+    // TODO: This needs to be handled differently
     if (statistics) {
         check_address(buffer);
-    } else if (!handle_ethernet(buffer, p)) {
+    } else if (!handle_ethernet(buffer, *p)) {
+        free_packet(*p);
         return 0;
     }
     return n;
+}
+
+void free_packet(void *data)
+{
+    struct packet *p = (struct packet *) data;
+
+    if (p->ut == IPv4) {
+        switch (p->ip.protocol) {
+        case IPPROTO_UDP:
+            switch (p->ip.udp.utype) {
+            case DNS:
+                if (p->ip.udp.dns->record) {
+                    free(p->ip.udp.dns->record);
+                }
+                free(p->ip.udp.dns);
+                break;
+            case NBNS:
+                if (p->ip.udp.nbns->record) {
+                    free(p->ip.udp.nbns->record);
+                }
+                free(p->ip.udp.nbns);
+                break;
+            case SSDP:
+                free(p->ip.udp.ssdp->str);
+                free(p->ip.udp.ssdp);
+                break;
+            default:
+                break;
+            }
+            break;
+        default:
+            break;
+        }
+    }
+    free(p);
 }
 
 void check_address(unsigned char *buffer)

@@ -325,8 +325,14 @@ struct packet {
     };
 };
 
-/* get a packet from the network interface card */
-size_t read_packet(int sockfd, unsigned char *buffer, size_t n, struct packet *p);
+/*
+ * Gets a packet from the network interface card. Will allocate enough memory
+ * for packet. This needs to be freed with free_packet.
+ */
+size_t read_packet(int sockfd, unsigned char *buffer, size_t n, struct packet **p);
+
+/* Frees the memory allocated for packet */
+void free_packet(void *packet);
 
 bool handle_ethernet(unsigned char *buffer, struct packet *p);
 

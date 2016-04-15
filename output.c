@@ -283,7 +283,6 @@ void create_subwindow(int num_lines)
 {
     int mx, my;
     int screen_line;
-    const node_t *l;
     int c;
 
     getmaxyx(wmain, my, mx);
@@ -459,18 +458,20 @@ void print_igmp_verbose(struct ip_info *info)
 
     create_subwindow(6);
     mvwprintw(wsub_main, y, 0, "");
-    mvwprintw(wsub_main, ++y, 4, "Type: %d (%s)", info->igmp.type, get_igmp_type(info->icmp.type));
+    mvwprintw(wsub_main, ++y, 4, "Type: %d (%s) ", info->igmp.type, get_igmp_type(info->icmp.type));
     if (info->igmp.type == IGMP_HOST_MEMBERSHIP_QUERY) {
         if (!strcmp(info->igmp.group_addr, "0.0.0.0")) {
-            mvwprintw(wsub_main, ++y, 4, " -- General query", info->igmp.type, get_igmp_type(info->icmp.type));
+            mvwprintw(wsub_main, y, 4, "General query", info->igmp.type, get_igmp_type(info->icmp.type));
         } else {
-            mvwprintw(wsub_main, ++y, 4, " -- Group-specific query", info->igmp.type, get_igmp_type(info->icmp.type));
+            mvwprintw(wsub_main, y, 4, "Group-specific query", info->igmp.type, get_igmp_type(info->icmp.type));
         }
     }
     mvwprintw(wsub_main, ++y, 4, "Max response time: %d seconds", info->igmp.max_resp_time / 10);
     mvwprintw(wsub_main, ++y, 4, "Checksum: %d", info->igmp.checksum);
     mvwprintw(wsub_main, ++y, 4, "Group address: %s", info->igmp.group_addr);
     mvwprintw(wsub_main, ++y, 0, "");
+    touchwin(wmain);
+    wrefresh(wsub_main);
 }
 
 void print_udp_verbose(struct ip_info *info)
