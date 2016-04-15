@@ -135,7 +135,6 @@ enum dns_section_count {
     ARCOUNT
 };
 
-// TODO: Make a pointer to the variable length portions
 struct dns_info {
     uint16_t id; /* A 16 bit identifier */
     unsigned int qr     : 1; /* 0 DNS query, 1 DNS response */
@@ -209,7 +208,6 @@ struct dns_info {
     } *record;
 };
 
-// TODO: Make a pointer to the variable length portions
 struct nbns_info {
     uint16_t id; /* transaction ID */
     unsigned int r      : 1; /* 0 request, 1 response */
@@ -271,6 +269,11 @@ struct nbns_info {
     } *record;
 };
 
+struct ssdp_info {
+    char *str;
+    int n;
+};
+
 // TODO: Improve the structure of this
 struct ip_info {
     char src[INET_ADDRSTRLEN];
@@ -285,7 +288,7 @@ struct ip_info {
             union {
                 struct dns_info *dns;
                 struct nbns_info *nbns;
-                char *ssdp;
+                struct ssdp_info *ssdp;
             };
         } udp;
         struct {

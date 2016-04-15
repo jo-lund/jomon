@@ -12,7 +12,6 @@
 #include "packet.h"
 #include "misc.h"
 #include "error.h"
-#include "output.h"
 
 #define DNS_PTR_LEN 2
 
@@ -713,10 +712,11 @@ void parse_nbns_record(int i, unsigned char *buffer, unsigned char **ptr, struct
  */
 bool handle_ssdp(unsigned char *buffer, struct ip_info *info)
 {
-    int n = info->udp.len - UDP_HDRLEN;
+    info->udp.ssdp = malloc(sizeof(struct ssdp_info));
+    info->udp.ssdp->n = info->udp.len - UDP_HDRLEN;
+    info->udp.ssdp->str = malloc(info->udp.ssdp->n);
+    strncpy(info->udp.ssdp->str, buffer, info->udp.ssdp->n);
 
-    info->udp.ssdp = malloc(n);
-    strncpy(info->udp.ssdp, buffer, n);
     return true;
 }
 

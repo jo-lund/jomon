@@ -45,6 +45,9 @@ static uint32_t selection_line = 0;
 static uint32_t top = 0; /* index to top of screen */
 static list_t *screen_list;
 
+/* the number of lines to be scrolled in order to print verbose packet information */
+static int scrollvy = 0;
+
 static void print_header();
 static void scroll_window();
 static void print(char *buf);
@@ -55,6 +58,7 @@ static void print_icmp(struct ip_info *info, char *buf, int n);
 static void print_igmp(struct ip_info *info, char *buf, int n);
 static void print_dns(struct ip_info *info, char *buf, int n);
 static void print_nbns(struct ip_info *info, char *buf, int n);
+static void print_ssdp(struct ip_info *info, char *buf, int n);
 
 static void print_information(int lineno, bool select);
 static void print_arp_verbose(struct arp_info *info);
@@ -67,6 +71,7 @@ static void print_nbns_verbose(struct nbns_info *info);
 static void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t type);
 static void print_icmp_verbose(struct ip_info *info);
 static void print_igmp_verbose(struct ip_info *info);
+static void print_ssdp_verbose(struct ssdp_info *info);
 
 static char *alloc_print_buffer(struct packet *p, int size);
 static void create_subwindow(int num_lines);
@@ -85,13 +90,13 @@ void init_ncurses()
     start_color();
     init_pair(1, COLOR_WHITE, COLOR_CYAN);
     set_escdelay(25); /* set escdelay to 25 ms */
-    screen_list = list_init(screen_list);
+    screen_list = list_init(NULL);
 }
 
 void end_ncurses()
 {
     endwin(); /* end curses mode */
-    list_clear(screen_list);
+    list_free(screen_list);
 }
 
 void create_layout()
@@ -297,11 +302,10 @@ void create_subwindow(int num_lines)
     /* if there is not enough space for the information to be printed, the
         screen needs to be scrolled to make room for all the lines */
     if (my - (screen_line + 1) < num_lines) {
-        int scrollvy;
-
         scrollvy = num_lines - (my - (screen_line + 1));
         wscrl(wmain, scrollvy);
         screen_line -= scrollvy;
+        selection_line -= scrollvy;
         wrefresh(wmain);
     }
 
@@ -338,6 +342,11 @@ void delete_subwindow()
     while (l) {
         mvwprintw(wmain, outy++, 0, "%s", (char *) list_data(l));
         l = list_next(l);
+    }
+    if (scrollvy) {
+        screen_line += scrollvy;
+        selection_line += scrollvy;
+        scrollvy = 0;
     }
     mvwchgat(wmain, screen_line, 0, -1, A_NORMAL, 1, NULL);
     wrefresh(wmain);
@@ -464,6 +473,9 @@ void print_udp_verbose(struct ip_info *info)
         break;
     case NBNS:
         print_nbns_verbose(info->udp.nbns);
+        break;
+    case SSDP:
+        print_ssdp_verbose(info->udp.ssdp);
         break;
     default:
         break;
@@ -660,6 +672,27 @@ void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t
     }
 }
 
+void print_ssdp_verbose(struct ssdp_info *ssdp)
+{
+    list_t *ssdp_fields;
+    const node_t *n;
+    int y = 0;
+
+    ssdp_fields = list_init(NULL);
+    parse_ssdp(ssdp->str, ssdp->n, &ssdp_fields);
+    create_subwindow(list_size(ssdp_fields) + 2);
+    mvwprintw(wsub_main, y, 0, "");
+    n = list_begin(ssdp_fields);
+    while (n) {
+        mvwprintw(wsub_main, ++y, 4, "%s", (char *) list_data(n));
+        n = list_next(n);
+    }
+    list_free(ssdp_fields);
+    mvwprintw(wsub_main, ++y, 0, "");
+    touchwin(wmain);
+    wrefresh(wsub_main);
+}
+
 void print_header()
 {
     int y = 0;
@@ -809,6 +842,9 @@ void print_udp(struct ip_info *info, char *buf, int n)
     case NBNS:
         print_nbns(info, buf, n);
         break;
+    case SSDP:
+        print_ssdp(info, buf, n);
+        break;
     default:
         PRINT_PROTOCOL(buf, n, "UDP");
         PRINT_INFO(buf, n, "Source port: %d  Destination port: %d", info->udp.src_port,
@@ -911,6 +947,25 @@ void print_nbns(struct ip_info *info, char *buf, int n)
         PRINT_INFO(buf, n, "%s ", info->udp.nbns->record[0].rrname);
         PRINT_INFO(buf, n, "%s ", get_nbns_type(info->udp.nbns->record[0].rrtype));
         print_nbns_record(info->udp.nbns, 0, buf, n, info->udp.nbns->record[0].rrtype);
+    }
+}
+
+void print_ssdp(struct ip_info *info, char *buf, int n)
+{
+    char *p;
+
+    PRINT_PROTOCOL(buf, n, "SSDP");
+    p = strchr(info->udp.ssdp->str, '\r');
+    if (*(p + 1) == '\n') {
+        int len;
+        int buflen;
+
+        len = p - info->udp.ssdp->str;
+        buflen = strlen(buf);
+        if (buflen + len + 1 < n) {
+            strncpy(buf + buflen, info->udp.ssdp->str, len);
+            buf[buflen + len] = '\0';
+        }
     }
 }
 

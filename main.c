@@ -260,6 +260,7 @@ void free_mem(void *data)
                 free(p->ip.udp.nbns);
                 break;
             case SSDP:
+                free(p->ip.udp.ssdp->str);
                 free(p->ip.udp.ssdp);
                 break;
             default:

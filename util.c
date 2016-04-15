@@ -106,6 +106,26 @@ int get_max_namelen(struct dns_resource_record *record, int n)
     return maxlen;
 }
 
+void parse_ssdp(char *str, int n, list_t **msg_header)
+{
+    char *token;
+    char cstr[n];
+
+    strncpy(cstr, str, n);
+    token = strtok(cstr, "\r\n");
+    while (token) {
+        int len;
+        char *field;
+
+        len = strlen(token);
+        field = malloc(len + 1);
+        strncpy(field, token, len);
+        field[len] = '\0';
+        *msg_header = list_push_back(*msg_header, field);
+        token = strtok(NULL, "\r\n");
+    }
+}
+
 char *get_arp_hardware_type(uint16_t type)
 {
     switch (type) {

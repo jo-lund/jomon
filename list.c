@@ -10,6 +10,7 @@ typedef struct node {
 typedef struct list {
     node_t *head;
     node_t *tail;
+    list_deallocate func;
     int size;
 } list_t;
 
@@ -21,13 +22,14 @@ typedef struct list {
         n->prev = NULL;                          \
     } while (0);
 
-list_t *list_init()
+list_t *list_init(list_deallocate func)
 {
     list_t *list;
 
     list = malloc(sizeof(list_t));
     list->head = NULL;
     list->tail = NULL;
+    list->func = func;
     list->size = 0;
 
     return list;
@@ -76,7 +78,11 @@ list_t *list_pop_front(list_t *list)
 
         list->head = h->next;
         list->head->prev = NULL;
-        free(h->data);
+        if (list->func) {
+            list->func(h->data);
+        } else {
+            free(h->data);
+        }
         free(h);
         list->size--;
     }
@@ -91,7 +97,11 @@ list_t *list_pop_back(list_t *list)
 
         list->tail = t->prev;
         list->tail->next = NULL;
-        free(t->data);
+        if (list->func) {
+            list->func(t->data);
+        } else {
+            free(t->data);
+        }
         free(t);
         list->size--;
     }
@@ -99,7 +109,7 @@ list_t *list_pop_back(list_t *list)
     return list;
 }
 
-inline const void *list_data(const node_t *n)
+inline void *list_data(const node_t *n)
 {
     if (n) {
         return n->data;
@@ -107,7 +117,7 @@ inline const void *list_data(const node_t *n)
     return NULL;
 }
 
-inline const void *list_back(list_t *list)
+inline void *list_back(list_t *list)
 {
     if (list->tail) {
         return list->tail->data;
@@ -115,7 +125,7 @@ inline const void *list_back(list_t *list)
     return NULL;
 }
 
-inline const void *list_front(list_t *list)
+inline void *list_front(list_t *list)
 {
     if (list->head) {
         return list->head->data;
@@ -172,13 +182,23 @@ list_t *list_clear(list_t *list)
         node_t *tmp = n;
 
         n = n->next;
-        free(tmp->data);
+        if (list->func) {
+            list->func(tmp->data);
+        } else {
+            free(tmp->data);
+        }
         free(tmp);
     }
     list->head = NULL;
     list->tail = NULL;
     list->size = 0;
-    free(list);
 
     return list;
+}
+
+void list_free(list_t *list)
+{
+    list = list_clear(list);
+    free(list);
+    list = NULL;
 }

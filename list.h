@@ -4,49 +4,63 @@
 typedef struct node node_t;
 typedef struct list list_t;
 
-/* initialize list */
-list_t *list_init();
+typedef void (*list_deallocate)(void *);
 
-/* insert element at the front */
+/*
+ * Initializes list.
+ *
+ * Allocates resources for list that needs to be freed with list_free
+ */
+list_t *list_init(list_deallocate func);
+
+/* Inserts element at the front */
 list_t *list_push_front(list_t *list, void *data);
 
-/* insert element at the end */
+/* Inserts element at the end */
 list_t *list_push_back(list_t *list, void *data);
 
-/* remove element from the front */
+/* Removes element from the front and deallocates memory */
 list_t *list_pop_front(list_t *list);
 
-/* remove element from the end */
+/* Removes element from the end and deallocates memory */
 list_t *list_pop_back(list_t *list);
 
-/* clear the list -- this will deallocate all memory associated with list */
-list_t *list_clear(list_t *list);
+/* Returns data from front of the list */
+void *list_front(list_t *list);
 
-/* get data from front of the list */
-const void *list_front(list_t *list);
+/* Returns data from end of the list */
+void *list_back(list_t *list);
 
-/* get data from end of the list */
-const void *list_back(list_t *list);
-
-/* return pointer to beginning of list */
+/* Returns pointer to beginning of list */
 const node_t *list_begin(list_t *list);
 
-/* return pointer to end of list */
+/* Returns pointer to end of list */
 const node_t *list_end(list_t *list);
 
-/* return pointer to the ith element */
+/* Returns pointer to the ith element */
 const node_t *list_ith(list_t *list, int index);
 
-/* get previous node */
+/* Returns pointer to previous node */
 const node_t *list_prev(const node_t *n);
 
-/* get next node */
+/* Returns pointer to next node */
 const node_t *list_next(const node_t *n);
 
-/* get the data stored in node n */
-const void *list_data(const node_t *n);
+/* Returns the data stored in node n */
+void *list_data(const node_t *n);
 
-/* return the number of elements */
+/* Returns the number of elements */
 int list_size(list_t *list);
+
+/*
+ * Clears the list
+ *
+ * Will deallocate memory for the nodes and data but not the list_t structure.
+ * To free all memory associated with list use list_free.
+ */
+list_t *list_clear(list_t *list);
+
+/* Frees all memory used by list */
+void list_free(list_t *list);
 
 #endif
