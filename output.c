@@ -43,7 +43,6 @@ static bool interactive = false;
 static bool numeric = true;
 static uint32_t selection_line = 0;
 static uint32_t top = 0; /* index to top of screen */
-static list_t *screen_list;
 
 /* the number of lines to be scrolled in order to print verbose packet information */
 static int scrollvy = 0;
@@ -51,14 +50,14 @@ static int scrollvy = 0;
 static void print_header();
 static void scroll_window();
 static void print(char *buf);
-static void print_arp(char *buffer, struct arp_info *info);
-static void print_ip(char *buffer, struct ip_info *info);
-static void print_udp(struct ip_info *info, char *buf, int n);
-static void print_icmp(struct ip_info *info, char *buf, int n);
-static void print_igmp(struct ip_info *info, char *buf, int n);
-static void print_dns(struct ip_info *info, char *buf, int n);
-static void print_nbns(struct ip_info *info, char *buf, int n);
-static void print_ssdp(struct ip_info *info, char *buf, int n);
+static void print_arp(char *buf, int n, struct arp_info *info);
+static void print_ip(char *buf, int n, struct ip_info *info);
+static void print_udp(char *buf, int n, struct ip_info *info);
+static void print_icmp(char *buf, int n, struct ip_info *info);
+static void print_igmp(char *buf, int n, struct ip_info *info);
+static void print_dns(char *buf, int n, struct ip_info *info);
+static void print_nbns(char *buf, int n, struct ip_info *info);
+static void print_ssdp(char *buf, int n, struct ip_info *info);
 
 static void print_information(int lineno, bool select);
 static void print_arp_verbose(struct arp_info *info);
@@ -73,7 +72,7 @@ static void print_icmp_verbose(struct ip_info *info);
 static void print_igmp_verbose(struct ip_info *info);
 static void print_ssdp_verbose(struct ssdp_info *info);
 
-static char *alloc_print_buffer(struct packet *p, int size);
+static void print_buffer(char *buf, int size, struct packet *p);
 static void create_subwindow(int num_lines);
 static void delete_subwindow();
 static void set_interactive(bool interactive_mode);
@@ -90,13 +89,11 @@ void init_ncurses()
     start_color();
     init_pair(1, COLOR_WHITE, COLOR_CYAN);
     set_escdelay(25); /* set escdelay to 25 ms */
-    screen_list = list_init(NULL);
 }
 
 void end_ncurses()
 {
     endwin(); /* end curses mode */
-    list_free(screen_list);
 }
 
 void create_layout()
@@ -123,7 +120,6 @@ void scroll_window()
         outy = my - 1;
         scroll(wmain);
         top++;
-        screen_list = list_pop_front(screen_list); /* screen_list will always contain the lines on the visible screen */
     }
 }
 
@@ -181,12 +177,10 @@ void handle_keyup()
 
         top--;
         if (p) {
-            char *line;
+            char line[mx];
 
-            screen_list = list_pop_back(screen_list);
             wscrl(wmain, -1);
-            line = alloc_print_buffer(p, mx);
-            screen_list = list_push_front(screen_list, line);
+            print_buffer(line, mx, p);
             mvwprintw(wmain, 0, 0, "%s", line);
 
             /* deselect previous line and highlight next at top */
@@ -221,12 +215,10 @@ void handle_keydown()
 
         top++;
         if (p) {
-            char *line;
+            char line[mx];
 
-            screen_list = list_pop_front(screen_list);
             wscrl(wmain, 1);
-            line = alloc_print_buffer(p, mx);
-            screen_list = list_push_back(screen_list, line);
+            print_buffer(line, mx, p);
             mvwprintw(wmain, my - 1, 0, "%s", line);
 
             /* deselect previous line and highlight next line at bottom */
@@ -265,17 +257,15 @@ void set_interactive(bool interactive_mode)
             int c = vector_size() - 1;
 
             werase(wmain);
-            screen_list = list_clear(screen_list);
 
             /* print the new lines stored in vector from bottom to top of screen */
             for (int i = my - 1; i >= 0; i--, c--) {
                 struct packet *p;
-                char *buffer;
+                char buffer[mx];
 
                 p = vector_get_data(c);
-                buffer = alloc_print_buffer(p, mx);
+                print_buffer(buffer, mx, p);
                 mvwprintw(wmain, i, 0, "%s", buffer);
-                screen_list = list_push_front(screen_list, buffer);
             }
             top = c + 1;
         } else {
@@ -294,10 +284,11 @@ void create_subwindow(int num_lines)
     int mx, my;
     int screen_line;
     const node_t *l;
+    int c;
 
     getmaxyx(wmain, my, mx);
     screen_line = selection_line - top;
-    l = list_ith(screen_list, screen_line + 1);
+    c = selection_line + 1;
 
     /* if there is not enough space for the information to be printed, the
         screen needs to be scrolled to make room for all the lines */
@@ -315,10 +306,18 @@ void create_subwindow(int num_lines)
     wclrtobot(wmain); /* clear everything below selection bar */
     outy = screen_line + num_lines + 1;
 
-    /* print the remaining lines on the screen below the sub window */
-    while (l) {
-        mvwprintw(wmain, outy++, 0, "%s", (char *) list_data(l));
-        l = list_next(l);
+    if (!scrollvy) {
+        while (c < top + my) {
+            struct packet *p;
+            char buffer[mx];
+
+            p = vector_get_data(c);
+            if (p) {
+                print_buffer(buffer, mx, p);
+                mvwprintw(wmain, outy++, 0, "%s", buffer);
+            }
+            c++;
+        }
     }
     wrefresh(wmain);
 }
@@ -327,7 +326,7 @@ void delete_subwindow()
 {
     int my, mx;
     int screen_line;
-    const node_t *l = list_begin(screen_list);
+    int c;
 
     getmaxyx(wmain, my, mx);
     screen_line = selection_line - top;
@@ -339,10 +338,19 @@ void delete_subwindow()
      * Print the entire screen. This can be optimized to just print the lines
      * that are below the selected line
      */
-    while (l) {
-        mvwprintw(wmain, outy++, 0, "%s", (char *) list_data(l));
-        l = list_next(l);
+    c = top;
+    while (c < top + my) {
+        struct packet *p;
+        char buffer[mx];
+
+        p = vector_get_data(c);
+        if (p) {
+            print_buffer(buffer, mx, p);
+            mvwprintw(wmain, outy++, 0, "%s", buffer);
+        }
+        c++;
     }
+
     if (scrollvy) {
         screen_line += scrollvy;
         selection_line += scrollvy;
@@ -719,31 +727,28 @@ void print_header()
 
 void print_packet(struct packet *p)
 {
-    char *buffer;
     int my, mx;
 
     getmaxyx(wmain, my, mx);
-    buffer = alloc_print_buffer(p, mx);
-    print(buffer);
+
+    char buf[mx];
+    print_buffer(buf, mx, p);
+    print(buf);
 }
 
-/* allocate buffer with specified size and write packet to buffer */
-char *alloc_print_buffer(struct packet *p, int size)
+/* write packet to buffer */
+void print_buffer(char *buf, int size, struct packet *p)
 {
-    char *buffer;
-
-    buffer = malloc(size);
     switch (p->ut) {
     case ARP:
-        print_arp(buffer, &p->arp);
+        print_arp(buf, size, &p->arp);
         break;
     case IPv4:
-        print_ip(buffer, &p->ip);
+        print_ip(buf, size, &p->ip);
         break;
     default:
         break;
     }
-    return buffer;
 }
 
 void print_rate()
@@ -758,14 +763,13 @@ void print_rate()
     //refresh();
 }
 
-/* print buffer to standard output */
+/* write buffer to standard output */
 void print(char *buf)
 {
     int mx, my;
 
     getmaxyx(wmain, my, mx);
     if (!interactive || (interactive && outy < my)) {
-        screen_list = list_push_back(screen_list, buf); /* buffer every line on screen */
         scroll_window();
         mvwprintw(wmain, outy, 0, "%s", buf);
         outy++;
@@ -774,32 +778,26 @@ void print(char *buf)
 }
 
 /* print ARP frame information */
-void print_arp(char *buffer, struct arp_info *info)
+void print_arp(char *buf, int n, struct arp_info *info)
 {
-    int mx, my;
-
-    getmaxyx(wmain, my, mx);
     switch (info->op) {
     case ARPOP_REQUEST:
-        PRINT_LINE(buffer, mx, info->sip, info->tip, "ARP",
+        PRINT_LINE(buf, n, info->sip, info->tip, "ARP",
                    "Request: Looking for hardware address of %s", info->tip);
         break;
     case ARPOP_REPLY:
-        PRINT_LINE(buffer, mx, info->sip, info->tip, "ARP",
+        PRINT_LINE(buf, n, info->sip, info->tip, "ARP",
                    "Reply: %s has hardware address %s", info->sip, info->sha);
         break;
     default:
-        PRINT_LINE(buffer, mx, info->sip, info->tip, "ARP", "Opcode %d", info->op);
+        PRINT_LINE(buf, n, info->sip, info->tip, "ARP", "Opcode %d", info->op);
         break;
     }
 }
 
 /* print IP packet information */
-void print_ip(char *buffer, struct ip_info *info)
+void print_ip(char *buf, int n, struct ip_info *info)
 {
-    int mx, my;
-
-    getmaxyx(wmain, my, mx);
     if (!numeric && (info->protocol != IPPROTO_UDP ||
                      info->protocol == IPPROTO_UDP && info->udp.dns->qr == -1)) {
         char sname[HOSTNAMELEN];
@@ -811,39 +809,39 @@ void print_ip(char *buffer, struct ip_info *info)
         // TEMP: Fix this!
         sname[35] = '\0';
         dname[35] = '\0';
-        PRINT_ADDRESS(buffer, mx, sname, dname);
+        PRINT_ADDRESS(buf, n, sname, dname);
     } else {
-        PRINT_ADDRESS(buffer, mx, info->src, info->dst);
+        PRINT_ADDRESS(buf, n, info->src, info->dst);
     }
     switch (info->protocol) {
     case IPPROTO_ICMP:
-        print_icmp(info, buffer, mx);
+        print_icmp(buf, n, info);
         break;
     case IPPROTO_IGMP:
-        print_igmp(info, buffer, mx);
+        print_igmp(buf, n, info);
         break;
     case IPPROTO_TCP:
-        PRINT_PROTOCOL(buffer, mx, "TCP");
+        PRINT_PROTOCOL(buf, n, "TCP");
         break;
     case IPPROTO_UDP:
-        print_udp(info, buffer, mx);
+        print_udp(buf, n, info);
         break;
     default:
         break;
     }
 }
 
-void print_udp(struct ip_info *info, char *buf, int n)
+void print_udp(char *buf, int n, struct ip_info *info)
 {
     switch (info->udp.utype) {
     case DNS:
-        print_dns(info, buf, n);
+        print_dns(buf, n, info);
         break;
     case NBNS:
-        print_nbns(info, buf, n);
+        print_nbns(buf, n, info);
         break;
     case SSDP:
-        print_ssdp(info, buf, n);
+        print_ssdp(buf, n, info);
         break;
     default:
         PRINT_PROTOCOL(buf, n, "UDP");
@@ -853,7 +851,7 @@ void print_udp(struct ip_info *info, char *buf, int n)
     }
 }
 
-void print_dns(struct ip_info *info, char *buf, int n)
+void print_dns(char *buf, int n, struct ip_info *info)
 {
     PRINT_PROTOCOL(buf, n, "DNS");
     if (info->udp.dns->qr == 0) {
@@ -904,7 +902,7 @@ void print_dns(struct ip_info *info, char *buf, int n)
     }
 }
 
-void print_nbns(struct ip_info *info, char *buf, int n)
+void print_nbns(char *buf, int n, struct ip_info *info)
 {
     PRINT_PROTOCOL(buf, n, "NBNS");
     if (info->udp.nbns->r == 0) {
@@ -950,7 +948,7 @@ void print_nbns(struct ip_info *info, char *buf, int n)
     }
 }
 
-void print_ssdp(struct ip_info *info, char *buf, int n)
+void print_ssdp(char *buf, int n, struct ip_info *info)
 {
     char *p;
 
@@ -969,7 +967,7 @@ void print_ssdp(struct ip_info *info, char *buf, int n)
     }
 }
 
-void print_icmp(struct ip_info *info, char *buf, int n)
+void print_icmp(char *buf, int n, struct ip_info *info)
 {
     PRINT_PROTOCOL(buf, n, "ICMP");
     switch (info->icmp.type) {
@@ -988,7 +986,7 @@ void print_icmp(struct ip_info *info, char *buf, int n)
     }
 }
 
-void print_igmp(struct ip_info *info, char *buf, int n)
+void print_igmp(char *buf, int n, struct ip_info *info)
 {
     PRINT_PROTOCOL(buf, n, "IGMP");
     switch (info->igmp.type) {
