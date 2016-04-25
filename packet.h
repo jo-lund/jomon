@@ -163,7 +163,7 @@ struct dns_info {
         uint16_t class;
         /*
          * Specifies the time interval (in seconds) that the resource record
-         * may be cached before it should be discarded.  Zero values are
+         * may be cached before it should be discarded. Zero values are
          * interpreted to mean that the RR can only be used for the
          * transaction in progress, and should not be cached. */
         uint32_t ttl;
@@ -284,6 +284,7 @@ struct ip_info {
             uint16_t src_port;
             uint16_t dst_port;
             uint16_t len;
+            uint16_t checksum;
             uint16_t utype; /* specifies the protocol carried in the UDP packet */
             union {
                 struct dns_info *dns;
@@ -294,6 +295,22 @@ struct ip_info {
         struct {
             uint16_t src_port;
             uint16_t dst_port;
+            uint32_t seq_num;
+            uint32_t ack_num;
+            unsigned int offset : 4;
+            unsigned int ns  : 1;
+            unsigned int cwr : 1;
+            unsigned int ece : 1;
+            unsigned int urg : 1;
+            unsigned int ack : 1;
+            unsigned int psh : 1;
+            unsigned int rst : 1;
+            unsigned int syn : 1;
+            unsigned int fin : 1;
+            uint16_t window;
+            uint16_t checksum;
+            uint16_t urg_ptr;
+            unsigned char *options;
         } tcp;
         struct {
             uint8_t type;

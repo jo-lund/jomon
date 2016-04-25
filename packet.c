@@ -9,6 +9,7 @@
 #include <linux/igmp.h>
 #include <ctype.h>
 #include <netinet/ip_icmp.h>
+#include <netinet/tcp.h>
 #include "packet.h"
 #include "misc.h"
 #include "error.h"
@@ -273,6 +274,7 @@ void handle_udp(unsigned char *buffer, struct ip_info *info)
     info->udp.src_port = ntohs(udp->source);
     info->udp.dst_port = ntohs(udp->dest);
     info->udp.len = ntohs(udp->len);
+    info->udp.checksum = ntohs(udp->check);
 
     for (int i = 0; i < 2 && !valid; i++) {
         info->udp.utype = *((uint16_t *) &info->udp + i);
@@ -829,14 +831,90 @@ void handle_igmp(unsigned char *buffer, struct ip_info *info)
     igmp = (struct igmphdr *) buffer;
     info->igmp.type = igmp->type;
     info->igmp.max_resp_time = igmp->code;
-    info->igmp.checksum = htons(igmp->csum);
+    info->igmp.checksum = ntohs(igmp->csum);
     if (inet_ntop(AF_INET, &igmp->group, info->igmp.group_addr,
                   INET_ADDRSTRLEN) == NULL) {
         err_msg("inet_ntop error");
     }
 }
 
+/*
+ * TCP header
+ *
+ *  0                   1                   2                   3
+ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |          Source Port          |       Destination Port        |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |                        Sequence Number                        |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |                    Acknowledgment Number                      |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |  Data | Res |N|C|E|U|A|P|R|S|F|                               |
+ * | Offset|     |S|W|C|R|C|S|S|Y|I|            Window             |
+ * |       |     | |R|E|G|K|H|T|N|N|                               |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |           Checksum            |         Urgent Pointer        |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |                    Options                    |    Padding    |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |                             data                              |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Sequence Number: The sequence number of the first data octet in this segment (except
+ *                  when SYN is present). If SYN is present the sequence number is the
+ *                  initial sequence number (ISN) and the first data octet is ISN+1.
+ * Ack Number: If the ACK control bit is set this field contains the value of the
+ *             next sequence number the sender of the segment is expecting to
+ *             receive. Once a connection is established this is always sent.
+ * Data Offset: The number of 32 bits words in the TCP header. This indicates where the
+ *               data begins.
+ * Res: Reserved. Must be zero.
+ * Control bits:
+ *
+ * NS: ECN-nonce concealment protection (experimental: see RFC 3540)
+ * CWR: Congestion Window Reduced (CWR) flag is set by the sending host to
+ *      indicate that it received a TCP segment with the ECE flag set and had
+ *      responded in congestion control mechanism (added to header by RFC 3168).
+ * ECE: ECN-Echo has a dual role, depending on the value of the SYN flag. It indicates:
+ *      If the SYN flag is set (1), that the TCP peer is ECN capable.
+ *      If the SYN flag is clear (0), that a packet with Congestion Experienced flag set
+ *      (ECN=11) in IP header received during normal transmission (added to header by
+ *      RFC 3168).
+ * URG: Urgent Pointer field significant
+ * ACK: Acknowledgment field significant
+ * PSH: Push Function
+ * RST: Reset the connection
+ * SYN: Synchronize sequence numbers
+ * FIN: No more data from sender
+ *
+ * Window: The number of data octets beginning with the one indicated in the
+ *         acknowledgment field which the sender of this segment is willing to accept.
+ * Checksum: The checksum field is the 16 bit one's complement of the one's
+ *           complement sum of all 16 bit words in the header and text.
+ * Urgent Pointer: This field communicates the current value of the urgent pointer as a
+ *            positive offset from the sequence number in this segment. The
+ *            urgent pointer points to the sequence number of the octet following
+ *            the urgent data.  This field is only be interpreted in segments with
+ *            the URG control bit set.
+ */
 void handle_tcp(unsigned char *buffer, struct ip_info *info)
 {
+    struct tcphdr *tcp;
 
+    tcp = (struct tcphdr *) buffer;
+    info->tcp.src_port = ntohs(tcp->source);
+    info->tcp.dst_port = ntohs(tcp->dest);
+    info->tcp.seq_num = ntohl(tcp->seq);
+    info->tcp.ack_num = ntohl(tcp->ack_seq);
+    info->tcp.offset = tcp->doff;
+    info->tcp.urg = tcp->urg;
+    info->tcp.ack = tcp->ack;
+    info->tcp.psh = tcp->psh;
+    info->tcp.rst = tcp->rst;
+    info->tcp.syn = tcp->syn;
+    info->tcp.fin = tcp->fin;
+    info->tcp.window = ntohs(tcp->window);
+    info->tcp.checksum = ntohs(tcp->check);
+    info->tcp.urg_ptr = ntohs(tcp->urg_ptr);
 }
