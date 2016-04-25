@@ -128,8 +128,8 @@ void list_interfaces()
         default:
             printf("\tUnknown type: %d\n", iflist[i].type);
             break;
-        }
 #endif
+        }
         if (iflist[i].hwaddr) {
             if (iflist[i].addrlen == 6) {
                 char hwaddr[18];

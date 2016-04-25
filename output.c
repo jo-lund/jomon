@@ -372,7 +372,6 @@ void delete_subwindow()
 {
     int my, mx;
     int screen_line;
-    int c;
 
     getmaxyx(wmain, my, mx);
     screen_line = selection_line - top;
