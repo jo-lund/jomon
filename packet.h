@@ -96,6 +96,7 @@
 
 enum port {
     DNS = 53,   /* Domain Name Service */
+    HTTP = 80,  /* Hypertext Transfer Protocol */
     /*
      * NetBIOS is used for SMB/CIFS-based Windows file sharing. SMB can now run
      * Directly over TCP port 445, so NetBIOS is used for legacy support. Newer
@@ -271,7 +272,16 @@ struct nbns_info {
 
 struct ssdp_info {
     char *str;
-    int n;
+    int n; /* length of str */
+};
+
+struct application_info {
+    uint16_t utype; /* specifies the application layer protocol */
+    union {
+        struct dns_info *dns;
+        struct nbns_info *nbns;
+        struct ssdp_info *ssdp;
+    };
 };
 
 // TODO: Improve the structure of this
@@ -285,12 +295,7 @@ struct ip_info {
             uint16_t dst_port;
             uint16_t len;
             uint16_t checksum;
-            uint16_t utype; /* specifies the protocol carried in the UDP packet */
-            union {
-                struct dns_info *dns;
-                struct nbns_info *nbns;
-                struct ssdp_info *ssdp;
-            };
+            struct application_info data;
         } udp;
         struct {
             uint16_t src_port;
@@ -311,6 +316,7 @@ struct ip_info {
             uint16_t checksum;
             uint16_t urg_ptr;
             unsigned char *options;
+            struct application_info data;
         } tcp;
         struct {
             uint8_t type;
@@ -335,7 +341,7 @@ struct ip_info {
 
 /* generic packet structure that can be used for every type of packet */
 struct packet {
-    enum packet_type ut;
+    enum packet_type ptype;
     union {
         struct arp_info arp;
         struct ip_info ip;
@@ -344,7 +350,7 @@ struct packet {
 
 /*
  * Gets a packet from the network interface card. Will allocate enough memory
- * for packet. This needs to be freed with free_packet.
+ * for packet, which needs to be freed with free_packet.
  */
 size_t read_packet(int sockfd, unsigned char *buffer, size_t n, struct packet **p);
 

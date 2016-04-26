@@ -20,17 +20,19 @@ static void handle_arp(unsigned char *buffer, struct arp_info *info);
 static void handle_ip(unsigned char *buffer, struct ip_info *info);
 static void handle_icmp(unsigned char *buffer, struct ip_info *info);
 static void handle_igmp(unsigned char *buffer, struct ip_info *info);
-static void handle_tcp(unsigned char *buffer, struct ip_info *info);
-static void handle_udp(unsigned char *buffer, struct ip_info *info);
-static bool handle_dns(unsigned char *buffer, struct ip_info *info);
-static bool handle_nbns(unsigned char *buffer, struct ip_info *info);
-static bool handle_ssdp(unsigned char *buffer, struct ip_info *info);
-static int parse_dns_name(unsigned char *buffer, unsigned char *ptr, char name[]);
-static void parse_dns_record(int i, unsigned char *buffer, unsigned char **ptr, struct ip_info *info);
-static void decode_nbns_name(char *dest, char *src);
-static void parse_nbns_record(int i, unsigned char *buffer, unsigned char **ptr, struct ip_info *info);
+static bool handle_tcp(unsigned char *buffer, struct ip_info *info);
+static bool handle_udp(unsigned char *buffer, struct ip_info *info);
+static bool check_port(unsigned char *buffer, struct application_info *info, uint16_t port, uint16_t packet_len);
 static void check_address(unsigned char *buffer);
-static bool check_port(unsigned char *buffer, struct ip_info *info, uint16_t port);
+
+/* application layer protocol handlers */
+static bool handle_dns(unsigned char *buffer, struct application_info *info);
+static bool handle_nbns(unsigned char *buffer, struct application_info *info);
+static bool handle_ssdp(unsigned char *buffer, struct application_info *info, uint16_t len);
+static int parse_dns_name(unsigned char *buffer, unsigned char *ptr, char name[]);
+static void parse_dns_record(int i, unsigned char *buffer, unsigned char **ptr, struct dns_info *info);
+static void decode_nbns_name(char *dest, char *src);
+static void parse_nbns_record(int i, unsigned char *buffer, unsigned char **ptr, struct nbns_info *info);
 
 size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet **p)
 {
@@ -55,25 +57,25 @@ void free_packet(void *data)
 {
     struct packet *p = (struct packet *) data;
 
-    if (p->ut == IPv4) {
+    if (p->ptype == IPv4) {
         switch (p->ip.protocol) {
         case IPPROTO_UDP:
-            switch (p->ip.udp.utype) {
+            switch (p->ip.udp.data.utype) {
             case DNS:
-                if (p->ip.udp.dns->record) {
-                    free(p->ip.udp.dns->record);
+                if (p->ip.udp.data.dns->record) {
+                    free(p->ip.udp.data.dns->record);
                 }
-                free(p->ip.udp.dns);
+                free(p->ip.udp.data.dns);
                 break;
             case NBNS:
-                if (p->ip.udp.nbns->record) {
-                    free(p->ip.udp.nbns->record);
+                if (p->ip.udp.data.nbns->record) {
+                    free(p->ip.udp.data.nbns->record);
                 }
-                free(p->ip.udp.nbns);
+                free(p->ip.udp.data.nbns);
                 break;
             case SSDP:
-                free(p->ip.udp.ssdp->str);
-                free(p->ip.udp.ssdp);
+                free(p->ip.udp.data.ssdp->str);
+                free(p->ip.udp.data.ssdp);
                 break;
             default:
                 break;
@@ -131,13 +133,13 @@ bool handle_ethernet(unsigned char *buffer, struct packet *p)
     case ETH_P_IP:
     {
         handle_ip(buffer + ETH_HLEN, &p->ip);
-        p->ut = IPv4;
+        p->ptype = IPv4;
         return true;
     }
     case ETH_P_ARP:
     {
         handle_arp(buffer + ETH_HLEN, &p->arp);
-        p->ut = ARP;
+        p->ptype = ARP;
         return true;
     }
     case ETH_P_IPV6:
@@ -265,7 +267,7 @@ void handle_ip(unsigned char *buffer, struct ip_info *info)
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  */
-void handle_udp(unsigned char *buffer, struct ip_info *info)
+bool handle_udp(unsigned char *buffer, struct ip_info *info)
 {
     struct udphdr *udp;
     bool valid = false;
@@ -276,13 +278,105 @@ void handle_udp(unsigned char *buffer, struct ip_info *info)
     info->udp.len = ntohs(udp->len);
     info->udp.checksum = ntohs(udp->check);
 
-    for (int i = 0; i < 2 && !valid; i++) {
-        info->udp.utype = *((uint16_t *) &info->udp + i);
-        valid = check_port(buffer + UDP_HDRLEN, info, info->udp.utype);
+    for (int i = 0; i < 2; i++) {
+        info->udp.data.utype = *((uint16_t *) &info->udp + i);
+        if (check_port(buffer + UDP_HDRLEN, &info->udp.data, info->udp.data.utype, info->udp.len - UDP_HDRLEN))
+            return true;
     }
+    info->udp.data.utype = 0; /* port not handled */
+    return false;
 }
 
-bool check_port(unsigned char *buffer, struct ip_info *info, uint16_t port)
+/*
+ * TCP header
+ *
+ *  0                   1                   2                   3
+ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |          Source Port          |       Destination Port        |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |                        Sequence Number                        |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |                    Acknowledgment Number                      |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |  Data | Res |N|C|E|U|A|P|R|S|F|                               |
+ * | Offset|     |S|W|C|R|C|S|S|Y|I|            Window             |
+ * |       |     | |R|E|G|K|H|T|N|N|                               |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |           Checksum            |         Urgent Pointer        |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |                    Options                    |    Padding    |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |                             data                              |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Sequence Number: The sequence number of the first data octet in this segment (except
+ *                  when SYN is present). If SYN is present the sequence number is the
+ *                  initial sequence number (ISN) and the first data octet is ISN+1.
+ * Ack Number: If the ACK control bit is set this field contains the value of the
+ *             next sequence number the sender of the segment is expecting to
+ *             receive. Once a connection is established this is always sent.
+ * Data Offset: The number of 32 bits words in the TCP header. This indicates where the
+ *               data begins.
+ * Res: Reserved. Must be zero.
+ * Control bits:
+ *
+ * NS: ECN-nonce concealment protection (experimental: see RFC 3540)
+ * CWR: Congestion Window Reduced (CWR) flag is set by the sending host to
+ *      indicate that it received a TCP segment with the ECE flag set and had
+ *      responded in congestion control mechanism (added to header by RFC 3168).
+ * ECE: ECN-Echo has a dual role, depending on the value of the SYN flag. It indicates:
+ *      If the SYN flag is set (1), that the TCP peer is ECN capable.
+ *      If the SYN flag is clear (0), that a packet with Congestion Experienced flag set
+ *      (ECN=11) in IP header received during normal transmission (added to header by
+ *      RFC 3168).
+ * URG: Urgent Pointer field significant
+ * ACK: Acknowledgment field significant
+ * PSH: Push Function
+ * RST: Reset the connection
+ * SYN: Synchronize sequence numbers
+ * FIN: No more data from sender
+ *
+ * Window: The number of data octets beginning with the one indicated in the
+ *         acknowledgment field which the sender of this segment is willing to accept.
+ * Checksum: The checksum field is the 16 bit one's complement of the one's
+ *           complement sum of all 16 bit words in the header and text.
+ * Urgent Pointer: This field communicates the current value of the urgent pointer as a
+ *            positive offset from the sequence number in this segment. The
+ *            urgent pointer points to the sequence number of the octet following
+ *            the urgent data.  This field is only be interpreted in segments with
+ *            the URG control bit set.
+ */
+bool handle_tcp(unsigned char *buffer, struct ip_info *info)
+{
+    struct tcphdr *tcp;
+
+    tcp = (struct tcphdr *) buffer;
+    info->tcp.src_port = ntohs(tcp->source);
+    info->tcp.dst_port = ntohs(tcp->dest);
+    info->tcp.seq_num = ntohl(tcp->seq);
+    info->tcp.ack_num = ntohl(tcp->ack_seq);
+    info->tcp.offset = tcp->doff;
+    info->tcp.urg = tcp->urg;
+    info->tcp.ack = tcp->ack;
+    info->tcp.psh = tcp->psh;
+    info->tcp.rst = tcp->rst;
+    info->tcp.syn = tcp->syn;
+    info->tcp.fin = tcp->fin;
+    info->tcp.window = ntohs(tcp->window);
+    info->tcp.checksum = ntohs(tcp->check);
+    info->tcp.urg_ptr = ntohs(tcp->urg_ptr);
+
+    for (int i = 0; i < 2; i++) {
+        info->tcp.data.utype = *((uint16_t *) &info->tcp + i);
+        if (check_port(buffer + info->tcp.offset / 4, &info->tcp.data, info->tcp.data.utype, 0))
+            return true;
+    }
+    info->tcp.data.utype = 0; /* port not handled */
+    return false;
+}
+
+bool check_port(unsigned char *buffer, struct application_info *info, uint16_t port, uint16_t packet_len)
 {
     switch (port) {
     case DNS:
@@ -290,7 +384,7 @@ bool check_port(unsigned char *buffer, struct ip_info *info, uint16_t port)
     case NBNS:
         return handle_nbns(buffer, info);
     case SSDP:
-        return handle_ssdp(buffer, info);
+        return handle_ssdp(buffer, info, packet_len);
     default:
         return false;
     }
@@ -347,86 +441,81 @@ bool check_port(unsigned char *buffer, struct ip_info *info, uint16_t port)
  *
  * TODO: Handle authority and additional records.
  */
-bool handle_dns(unsigned char *buffer, struct ip_info *info)
+bool handle_dns(unsigned char *buffer, struct application_info *info)
 {
     unsigned char *ptr = buffer;
-
-    /*
-     * UDP header length (8 bytes) + DNS header length (12 bytes).
-     * DNS Messages carried by UDP are restricted to 512 bytes (not counting the 
-     * UDP header.
-     */
-    if (info->udp.len < 20 || info->udp.len > 520) {
-        return false;
-    }
 
     // TODO: Handle more than one question
     if ((ptr[4] << 8 | ptr[5]) != 0x1) { /* the QDCOUNT will in practice always be one */
         return false;
     }
-    info->udp.dns = malloc(sizeof(struct dns_info));
-    info->udp.dns->id = ptr[0] << 8 | ptr[1];
-    info->udp.dns->qr = (ptr[2] & 0x80) >> 7;
-    info->udp.dns->opcode = ptr[2] & 0x78;
-    info->udp.dns->aa = ptr[2] & 0x04;
-    info->udp.dns->tc = ptr[2] & 0x02;
-    info->udp.dns->rd = ptr[2] & 0x01;
-    info->udp.dns->ra = ptr[3] & 0x80;
-    info->udp.dns->rcode = ptr[3] & 0x0f;
+
+    info->dns = malloc(sizeof(struct dns_info));
+    info->dns->id = ptr[0] << 8 | ptr[1];
+    info->dns->qr = (ptr[2] & 0x80) >> 7;
+    info->dns->opcode = ptr[2] & 0x78;
+    info->dns->aa = ptr[2] & 0x04;
+    info->dns->tc = ptr[2] & 0x02;
+    info->dns->rd = ptr[2] & 0x01;
+    info->dns->ra = ptr[3] & 0x80;
+    info->dns->rcode = ptr[3] & 0x0f;
     for (int i = 0, j = 4; i < 4; i++, j += 2) {
-        info->udp.dns->section_count[i] = ptr[j] << 8 | ptr[j + 1];
+        info->dns->section_count[i] = ptr[j] << 8 | ptr[j + 1];
     }
 
-    if (info->udp.dns->qr) { /* DNS response */
+    if (info->dns->qr) { /* DNS response */
         ptr += DNS_HDRLEN;
 
         /* QUESTION section */
-        ptr += parse_dns_name(buffer, ptr, info->udp.dns->question.qname);
-        info->udp.dns->question.qtype = ptr[0] << 8 | ptr[1];
-        info->udp.dns->question.qclass = ptr[2] << 8 | ptr[3];
+        ptr += parse_dns_name(buffer, ptr, info->dns->question.qname);
+        info->dns->question.qtype = ptr[0] << 8 | ptr[1];
+        info->dns->question.qclass = ptr[2] << 8 | ptr[3];
         ptr += 4; /* skip qtype and qclass */
 
         /* Answer/Authority/Additional records sections */
         int num_records = 0;
 
         for (int i = ANCOUNT; i < 4; i++) {
-            num_records += info->udp.dns->section_count[i];
+            num_records += info->dns->section_count[i];
         }
-        info->udp.dns->record = malloc(num_records * sizeof(struct dns_resource_record));
+        info->dns->record = malloc(num_records * sizeof(struct dns_resource_record));
         for (int i = 0; i < num_records; i++) {
-            parse_dns_record(i, buffer, &ptr, info);
+            parse_dns_record(i, buffer, &ptr, info->dns);
         }
     } else { /* DNS query */
-        if (info->udp.dns->rcode != 0) { /* RCODE will be zero */
+        if (info->dns->rcode != 0) { /* RCODE will be zero */
+            free(info->dns);
             return false;
         }
         /* ANCOUNT and NSCOUNT values are zero */
-        if (info->udp.dns->section_count[ANCOUNT] != 0 && info->udp.dns->section_count[NSCOUNT] != 0) {
+        if (info->dns->section_count[ANCOUNT] != 0 && info->dns->section_count[NSCOUNT] != 0) {
+            free(info->dns);
             return false;
         }
         /*
          * ARCOUNT will typically be 0, 1, or 2, depending on whether EDNS0
          * (RFC 2671) or TSIG (RFC 2845) are used
          */
-        if (info->udp.dns->section_count[ARCOUNT] > 2) {
+        if (info->dns->section_count[ARCOUNT] > 2) {
+            free(info->dns);
             return false;
         }
         ptr += DNS_HDRLEN;
 
         /* QUESTION section */
-        ptr += parse_dns_name(buffer, ptr, info->udp.dns->question.qname);
-        info->udp.dns->question.qtype = ptr[0] << 8 | ptr[1];
-        info->udp.dns->question.qclass = ptr[2] << 8 | ptr[3];
+        ptr += parse_dns_name(buffer, ptr, info->dns->question.qname);
+        info->dns->question.qtype = ptr[0] << 8 | ptr[1];
+        info->dns->question.qclass = ptr[2] << 8 | ptr[3];
 
         /* Additional records */
-        if (info->udp.dns->section_count[ARCOUNT]) {
-            info->udp.dns->record = malloc(info->udp.dns->section_count[ARCOUNT] *
+        if (info->dns->section_count[ARCOUNT]) {
+            info->dns->record = malloc(info->dns->section_count[ARCOUNT] *
                                            sizeof(struct dns_resource_record));
-            for (int i = 0; i < info->udp.dns->section_count[ARCOUNT]; i++) {
-                parse_dns_record(i, buffer, &ptr, info);
+            for (int i = 0; i < info->dns->section_count[ARCOUNT]; i++) {
+                parse_dns_record(i, buffer, &ptr, info->dns);
             }
         } else {
-            info->udp.dns->record = NULL;
+            info->dns->record = NULL;
         }
     }
     return true;
@@ -502,45 +591,45 @@ int parse_dns_name(unsigned char *buffer, unsigned char *ptr, char name[])
  * Parse a DNS resource record.
  * int i is the recource record index.
  */
-void parse_dns_record(int i, unsigned char *buffer, unsigned char **ptr, struct ip_info *info)
+void parse_dns_record(int i, unsigned char *buffer, unsigned char **ptr, struct dns_info *dns)
 {
     uint16_t rdlen;
 
-    *ptr += parse_dns_name(buffer, *ptr, info->udp.dns->record[i].name);
-    info->udp.dns->record[i].type = (*ptr)[0] << 8 | (*ptr)[1];
-    info->udp.dns->record[i].class = (*ptr)[2] << 8 | (*ptr)[3];
-    info->udp.dns->record[i].ttl = (*ptr)[4] << 24 | (*ptr)[5] << 16 | (*ptr)[6] << 8 | (*ptr)[7];
+    *ptr += parse_dns_name(buffer, *ptr, dns->record[i].name);
+    dns->record[i].type = (*ptr)[0] << 8 | (*ptr)[1];
+    dns->record[i].class = (*ptr)[2] << 8 | (*ptr)[3];
+    dns->record[i].ttl = (*ptr)[4] << 24 | (*ptr)[5] << 16 | (*ptr)[6] << 8 | (*ptr)[7];
     rdlen = (*ptr)[8] << 8 | (*ptr)[9];
     *ptr += 10; /* skip to rdata field */
-    if (info->udp.dns->record[i].class == DNS_CLASS_IN) {
-        switch (info->udp.dns->record[i].type) {
+    if (dns->record[i].class == DNS_CLASS_IN) {
+        switch (dns->record[i].type) {
         case DNS_TYPE_A:
             if (rdlen == 4) {
-                info->udp.dns->record[i].rdata.address = (*ptr)[0] << 24 | (*ptr)[1] << 16 | (*ptr)[2] << 8 | (*ptr)[3];
+                dns->record[i].rdata.address = (*ptr)[0] << 24 | (*ptr)[1] << 16 | (*ptr)[2] << 8 | (*ptr)[3];
             }
             *ptr += rdlen;
             break;
         case DNS_TYPE_NS:
-            *ptr += parse_dns_name(buffer, *ptr, info->udp.dns->record[i].rdata.nsdname);
+            *ptr += parse_dns_name(buffer, *ptr, dns->record[i].rdata.nsdname);
         case DNS_TYPE_CNAME:
-            *ptr += parse_dns_name(buffer, *ptr, info->udp.dns->record[i].rdata.cname);
+            *ptr += parse_dns_name(buffer, *ptr, dns->record[i].rdata.cname);
             break;
         case DNS_TYPE_SOA:
-            *ptr += parse_dns_name(buffer, *ptr, info->udp.dns->record[i].rdata.soa.mname);
-            *ptr += parse_dns_name(buffer, *ptr, info->udp.dns->record[i].rdata.soa.rname);
-            info->udp.dns->record[i].rdata.soa.serial = (*ptr)[0] << 24 | (*ptr)[1] << 16 | (*ptr)[2] << 8 | (*ptr)[3];
-            info->udp.dns->record[i].rdata.soa.retry = (*ptr)[4] << 24 | (*ptr)[5] << 16 | (*ptr)[6] << 8 | (*ptr)[7];
-            info->udp.dns->record[i].rdata.soa.expire = (*ptr)[8] << 24 | (*ptr)[9] << 16 | (*ptr)[10] << 8 | (*ptr)[11];
-            info->udp.dns->record[i].rdata.soa.minimum = (*ptr)[12] << 24 | (*ptr)[13] << 16 | (*ptr)[14] << 8 | (*ptr)[15];
+            *ptr += parse_dns_name(buffer, *ptr, dns->record[i].rdata.soa.mname);
+            *ptr += parse_dns_name(buffer, *ptr, dns->record[i].rdata.soa.rname);
+            dns->record[i].rdata.soa.serial = (*ptr)[0] << 24 | (*ptr)[1] << 16 | (*ptr)[2] << 8 | (*ptr)[3];
+            dns->record[i].rdata.soa.retry = (*ptr)[4] << 24 | (*ptr)[5] << 16 | (*ptr)[6] << 8 | (*ptr)[7];
+            dns->record[i].rdata.soa.expire = (*ptr)[8] << 24 | (*ptr)[9] << 16 | (*ptr)[10] << 8 | (*ptr)[11];
+            dns->record[i].rdata.soa.minimum = (*ptr)[12] << 24 | (*ptr)[13] << 16 | (*ptr)[14] << 8 | (*ptr)[15];
             *ptr += 16;
             break;
         case DNS_TYPE_PTR:
-            *ptr += parse_dns_name(buffer, *ptr, info->udp.dns->record[i].rdata.ptrdname);
+            *ptr += parse_dns_name(buffer, *ptr, dns->record[i].rdata.ptrdname);
             break;
         case DNS_TYPE_AAAA:
             if (rdlen == 16) {
                 for (int j = 0; j < rdlen; j++) {
-                    info->udp.dns->record[i].rdata.ipv6addr[j] = (*ptr)[j];
+                    dns->record[i].rdata.ipv6addr[j] = (*ptr)[j];
                 }
             }
             *ptr += rdlen;
@@ -577,35 +666,32 @@ void parse_dns_record(int i, unsigned char *buffer, unsigned char **ptr, struct 
  * |AA |TC |RD |RA | 0 | 0 | B |
  * +---+---+---+---+---+---+---+
  */
-bool handle_nbns(unsigned char *buffer, struct ip_info *info)
+bool handle_nbns(unsigned char *buffer, struct application_info *info)
 {
-    /* max packet length for UDP is 576 */
-    if (info->udp.len > 576) {
-        return false;
-    }
     unsigned char *ptr = buffer;
 
-    info->udp.nbns = malloc(sizeof(struct nbns_info));
-    info->udp.nbns->id = ptr[0] << 8 | ptr[1];
-    info->udp.nbns->opcode = ptr[2] & 0x78;
-    info->udp.nbns->aa = ptr[2] & 0x04;
-    info->udp.nbns->tc = ptr[2] & 0x02;
-    info->udp.nbns->rd = ptr[2] & 0x01;
-    info->udp.nbns->ra = ptr[3] & 0x80;
-    info->udp.nbns->broadcast = ptr[3] & 0x10;
-    info->udp.nbns->rcode = ptr[3] & 0x0f;
+    info->nbns = malloc(sizeof(struct nbns_info));
+    info->nbns->id = ptr[0] << 8 | ptr[1];
+    info->nbns->opcode = ptr[2] & 0x78;
+    info->nbns->aa = ptr[2] & 0x04;
+    info->nbns->tc = ptr[2] & 0x02;
+    info->nbns->rd = ptr[2] & 0x01;
+    info->nbns->ra = ptr[3] & 0x80;
+    info->nbns->broadcast = ptr[3] & 0x10;
+    info->nbns->rcode = ptr[3] & 0x0f;
     for (int i = 0, j = 4; i < 4; i++, j += 2) {
-        info->udp.nbns->section_count[i] = ptr[j] << 8 | ptr[j + 1];
+        info->nbns->section_count[i] = ptr[j] << 8 | ptr[j + 1];
     }
 
     /*
      * the first bit in the opcode field specifies whether it is a request (0)
      * or a response (1)
      */
-    info->udp.nbns->r = (ptr[2] & 0x80U) >> 7;
+    info->nbns->r = (ptr[2] & 0x80U) >> 7;
 
-    if (info->udp.nbns->r) { /* response */
-        if (info->udp.nbns->section_count[QDCOUNT] != 0) { /* QDCOUNT is always 0 for responses */
+    if (info->nbns->r) { /* response */
+        if (info->nbns->section_count[QDCOUNT] != 0) { /* QDCOUNT is always 0 for responses */
+            free(info->nbns);
             return false;
         }
         ptr += DNS_HDRLEN;
@@ -614,17 +700,19 @@ bool handle_nbns(unsigned char *buffer, struct ip_info *info)
         int i = ANCOUNT;
         int num_records = 0;
         while (i < 4) {
-            num_records += info->udp.nbns->section_count[i++];
+            num_records += info->nbns->section_count[i++];
         }
-        info->udp.nbns->record = malloc(num_records * sizeof(struct nbns_rr));
+        info->nbns->record = malloc(num_records * sizeof(struct nbns_rr));
         for (int j = 0; j < num_records; j++) {
-            parse_nbns_record(j, buffer, &ptr, info);
+            parse_nbns_record(j, buffer, &ptr, info->nbns);
         }
     } else { /* request */
-        if (info->udp.nbns->aa) { /* authoritative answer is only to be set in responses */
+        if (info->nbns->aa) { /* authoritative answer is only to be set in responses */
+            free(info->nbns);
             return false;
         }
-        if (info->udp.nbns->section_count[QDCOUNT] == 0) { /* QDCOUNT must be non-zero for requests */
+        if (info->nbns->section_count[QDCOUNT] == 0) { /* QDCOUNT must be non-zero for requests */
+            free(info->nbns);
             return false;
         }
         ptr += DNS_HDRLEN;
@@ -632,17 +720,17 @@ bool handle_nbns(unsigned char *buffer, struct ip_info *info)
         /* QUESTION section */
         char name[DNS_NAMELEN];
         ptr += parse_dns_name(buffer, ptr, name);
-        decode_nbns_name(info->udp.nbns->question.qname, name);
-        info->udp.nbns->question.qtype = ptr[0] << 8 | ptr[1];
-        info->udp.nbns->question.qclass = ptr[2] << 8 | ptr[3];
+        decode_nbns_name(info->nbns->question.qname, name);
+        info->nbns->question.qtype = ptr[0] << 8 | ptr[1];
+        info->nbns->question.qclass = ptr[2] << 8 | ptr[3];
         ptr += 4; /* skip qtype and qclass */
 
         /* Additional records section */
-        if (info->udp.nbns->section_count[ARCOUNT]) {
-            info->udp.nbns->record = malloc(sizeof(struct nbns_rr));
-            parse_nbns_record(0, buffer, &ptr, info);
+        if (info->nbns->section_count[ARCOUNT]) {
+            info->nbns->record = malloc(sizeof(struct nbns_rr));
+            parse_nbns_record(0, buffer, &ptr, info->nbns);
         } else {
-            info->udp.nbns->record = NULL;
+            info->nbns->record = NULL;
         }
     }
 
@@ -670,31 +758,31 @@ void decode_nbns_name(char *dest, char *src)
  * Parse a NBNS resource record.
  * int i is the resource record index.
  */
-void parse_nbns_record(int i, unsigned char *buffer, unsigned char **ptr, struct ip_info *info)
+void parse_nbns_record(int i, unsigned char *buffer, unsigned char **ptr, struct nbns_info *nbns)
 {
     int rdlen;
     char name[DNS_NAMELEN];
 
     *ptr += parse_dns_name(buffer, *ptr, name);
-    decode_nbns_name(info->udp.nbns->record[i].rrname, name);
-    info->udp.nbns->record[i].rrtype = (*ptr)[0] << 8 | (*ptr)[1];
-    info->udp.nbns->record[i].rrclass = (*ptr)[2] << 8 | (*ptr)[3];
-    info->udp.nbns->record[i].ttl = (*ptr)[4] << 24 | (*ptr)[5] << 16 | (*ptr)[6] << 8 | (*ptr)[7];
+    decode_nbns_name(nbns->record[i].rrname, name);
+    nbns->record[i].rrtype = (*ptr)[0] << 8 | (*ptr)[1];
+    nbns->record[i].rrclass = (*ptr)[2] << 8 | (*ptr)[3];
+    nbns->record[i].ttl = (*ptr)[4] << 24 | (*ptr)[5] << 16 | (*ptr)[6] << 8 | (*ptr)[7];
     rdlen = (*ptr)[8] << 8 | (*ptr)[9];
     *ptr += 10; /* skip to rdata field */
 
-    switch (info->udp.nbns->record[i].rrtype) {
+    switch (nbns->record[i].rrtype) {
     case NBNS_NB:
         if (rdlen >= 6) {
-            info->udp.nbns->record[i].rdata.nb.g = (*ptr)[0] & 0x80U;
-            info->udp.nbns->record[i].rdata.nb.ont = (*ptr)[0] & 0x60;
+            nbns->record[i].rdata.nb.g = (*ptr)[0] & 0x80U;
+            nbns->record[i].rdata.nb.ont = (*ptr)[0] & 0x60;
             rdlen -= 2;
             (*ptr) += 2;
             for (int j = 0, k = 0; k < rdlen && k < MAX_NBNS_ADDR * 4 ; j++, k += 4) {
-                info->udp.nbns->record[i].rdata.nb.address[j] =
+                nbns->record[i].rdata.nb.address[j] =
                     (*ptr)[k] << 24 | (*ptr)[k + 1] << 16 | (*ptr)[k + 2] << 8 | (*ptr)[k + 3];
             }
-            info->udp.nbns->record[i].rdata.nb.num_addr = rdlen / 4;
+            nbns->record[i].rdata.nb.num_addr = rdlen / 4;
         }
         *ptr += rdlen;
         break;
@@ -703,12 +791,12 @@ void parse_nbns_record(int i, unsigned char *buffer, unsigned char **ptr, struct
         char name[DNS_NAMELEN];
 
         *ptr += parse_dns_name(buffer, *ptr, name);
-        decode_nbns_name(info->udp.nbns->record[i].rdata.nsdname, name);
+        decode_nbns_name(nbns->record[i].rdata.nsdname, name);
         break;
     }
     case NBNS_A:
         if (rdlen == 4) {
-            info->udp.nbns->record[i].rdata.nsdipaddr =
+            nbns->record[i].rdata.nsdipaddr =
                 (*ptr)[0] << 24 | (*ptr)[1] << 16 | (*ptr)[2] << 8 | (*ptr)[3];
         }
         *ptr += rdlen;
@@ -720,10 +808,10 @@ void parse_nbns_record(int i, unsigned char *buffer, unsigned char **ptr, struct
         num_names = (*ptr)[0];
         (*ptr)++;
         for (int j = 0; j < num_names; j++) {
-            memcpy(info->udp.nbns->record[i].rdata.nbstat[j].node_name, (*ptr), NBNS_NAMELEN);
-            info->udp.nbns->record[i].rdata.nbstat[j].node_name[NBNS_NAMELEN] = '\0';
+            memcpy(nbns->record[i].rdata.nbstat[j].node_name, (*ptr), NBNS_NAMELEN);
+            nbns->record[i].rdata.nbstat[j].node_name[NBNS_NAMELEN] = '\0';
             *ptr += NBNS_NAMELEN;
-            info->udp.nbns->record[i].rdata.nbstat[j].name_flags = (*ptr)[0] << 8 | (*ptr)[1];
+            nbns->record[i].rdata.nbstat[j].name_flags = (*ptr)[0] << 8 | (*ptr)[1];
             *ptr += 2;
         }
         // TODO: Include statistics
@@ -750,12 +838,12 @@ void parse_nbns_record(int i, unsigned char *buffer, unsigned char **ptr, struct
  * originating address and port number of the multicast request.
  *
  */
-bool handle_ssdp(unsigned char *buffer, struct ip_info *info)
+bool handle_ssdp(unsigned char *buffer, struct application_info *info, uint16_t len)
 {
-    info->udp.ssdp = malloc(sizeof(struct ssdp_info));
-    info->udp.ssdp->n = info->udp.len - UDP_HDRLEN;
-    info->udp.ssdp->str = malloc(info->udp.ssdp->n);
-    strncpy(info->udp.ssdp->str, buffer, info->udp.ssdp->n);
+    info->ssdp = malloc(sizeof(struct ssdp_info));
+    info->ssdp->n = len;
+    info->ssdp->str = malloc(len);
+    strncpy(info->ssdp->str, buffer, len);
 
     return true;
 }
@@ -836,85 +924,4 @@ void handle_igmp(unsigned char *buffer, struct ip_info *info)
                   INET_ADDRSTRLEN) == NULL) {
         err_msg("inet_ntop error");
     }
-}
-
-/*
- * TCP header
- *
- *  0                   1                   2                   3
- *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |          Source Port          |       Destination Port        |
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |                        Sequence Number                        |
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |                    Acknowledgment Number                      |
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |  Data | Res |N|C|E|U|A|P|R|S|F|                               |
- * | Offset|     |S|W|C|R|C|S|S|Y|I|            Window             |
- * |       |     | |R|E|G|K|H|T|N|N|                               |
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |           Checksum            |         Urgent Pointer        |
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |                    Options                    |    Padding    |
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |                             data                              |
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *
- * Sequence Number: The sequence number of the first data octet in this segment (except
- *                  when SYN is present). If SYN is present the sequence number is the
- *                  initial sequence number (ISN) and the first data octet is ISN+1.
- * Ack Number: If the ACK control bit is set this field contains the value of the
- *             next sequence number the sender of the segment is expecting to
- *             receive. Once a connection is established this is always sent.
- * Data Offset: The number of 32 bits words in the TCP header. This indicates where the
- *               data begins.
- * Res: Reserved. Must be zero.
- * Control bits:
- *
- * NS: ECN-nonce concealment protection (experimental: see RFC 3540)
- * CWR: Congestion Window Reduced (CWR) flag is set by the sending host to
- *      indicate that it received a TCP segment with the ECE flag set and had
- *      responded in congestion control mechanism (added to header by RFC 3168).
- * ECE: ECN-Echo has a dual role, depending on the value of the SYN flag. It indicates:
- *      If the SYN flag is set (1), that the TCP peer is ECN capable.
- *      If the SYN flag is clear (0), that a packet with Congestion Experienced flag set
- *      (ECN=11) in IP header received during normal transmission (added to header by
- *      RFC 3168).
- * URG: Urgent Pointer field significant
- * ACK: Acknowledgment field significant
- * PSH: Push Function
- * RST: Reset the connection
- * SYN: Synchronize sequence numbers
- * FIN: No more data from sender
- *
- * Window: The number of data octets beginning with the one indicated in the
- *         acknowledgment field which the sender of this segment is willing to accept.
- * Checksum: The checksum field is the 16 bit one's complement of the one's
- *           complement sum of all 16 bit words in the header and text.
- * Urgent Pointer: This field communicates the current value of the urgent pointer as a
- *            positive offset from the sequence number in this segment. The
- *            urgent pointer points to the sequence number of the octet following
- *            the urgent data.  This field is only be interpreted in segments with
- *            the URG control bit set.
- */
-void handle_tcp(unsigned char *buffer, struct ip_info *info)
-{
-    struct tcphdr *tcp;
-
-    tcp = (struct tcphdr *) buffer;
-    info->tcp.src_port = ntohs(tcp->source);
-    info->tcp.dst_port = ntohs(tcp->dest);
-    info->tcp.seq_num = ntohl(tcp->seq);
-    info->tcp.ack_num = ntohl(tcp->ack_seq);
-    info->tcp.offset = tcp->doff;
-    info->tcp.urg = tcp->urg;
-    info->tcp.ack = tcp->ack;
-    info->tcp.psh = tcp->psh;
-    info->tcp.rst = tcp->rst;
-    info->tcp.syn = tcp->syn;
-    info->tcp.fin = tcp->fin;
-    info->tcp.window = ntohs(tcp->window);
-    info->tcp.checksum = ntohs(tcp->check);
-    info->tcp.urg_ptr = ntohs(tcp->urg_ptr);
 }
