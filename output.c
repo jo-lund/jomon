@@ -116,9 +116,9 @@ void create_layout()
 /* scroll the window if necessary */
 void scroll_window()
 {
-    int mx, my;
+    int my;
 
-    getmaxyx(wmain, my, mx);
+    my = getmaxy(wmain);
     if (outy >= my) {
         outy = my - 1;
         scroll(wmain);
@@ -577,10 +577,10 @@ void print_dns_verbose(struct dns_info *info)
                   get_dns_class_extended(info->question.qclass));
     }
     if (records) {
-        int mx, my;
+        int mx;
         int len;
 
-        getmaxyx(wmain, my, mx);
+        mx = getmaxx(wmain);
         mvwprintw(wsub_main, ++y, 4, "Resource records:");
         len = get_max_namelen(info->record, records);
         for (int i = 0; i < records; i++) {
@@ -679,9 +679,9 @@ void print_nbns_verbose(struct nbns_info *info)
     }
 
     if (records) {
-        int mx, my;
+        int mx;
 
-        getmaxyx(wmain, my, mx);
+        mx = getmaxx(wmain);
         mvwprintw(wsub_main, ++y, 4, "Resource records:");
         for (int i = 0; i < records; i++) {
             char buffer[mx];
@@ -785,11 +785,9 @@ void print_header()
 
 void print_packet(struct packet *p)
 {
-    int my, mx;
-
-    getmaxyx(wmain, my, mx);
-
+    int mx = getmaxx(wmain);
     char buf[mx];
+
     print_buffer(buf, mx, p);
     print(buf);
 }
@@ -824,9 +822,9 @@ void print_rate()
 /* write buffer to standard output */
 void print(char *buf)
 {
-    int mx, my;
+    int my;
 
-    getmaxyx(wmain, my, mx);
+    my = getmaxy(wmain);
     if (!interactive || (interactive && outy < my)) {
         scroll_window();
         mvwprintw(wmain, outy, 0, "%s", buf);
