@@ -53,11 +53,12 @@ static void print(char *buf);
 static void print_arp(char *buf, int n, struct arp_info *info);
 static void print_ip(char *buf, int n, struct ip_info *info);
 static void print_udp(char *buf, int n, struct ip_info *info);
+static void print_tcp(char *buf, int n, struct ip_info *info);
 static void print_icmp(char *buf, int n, struct ip_info *info);
 static void print_igmp(char *buf, int n, struct ip_info *info);
-static void print_dns(char *buf, int n, struct ip_info *info);
-static void print_nbns(char *buf, int n, struct ip_info *info);
-static void print_ssdp(char *buf, int n, struct ip_info *info);
+static void print_dns(char *buf, int n, struct dns_info *dns);
+static void print_nbns(char *buf, int n, struct nbns_info *nbns);
+static void print_ssdp(char *buf, int n, struct ssdp_info *ssdp);
 
 static void print_information(int lineno, bool select);
 static void print_arp_verbose(struct arp_info *info);
@@ -659,7 +660,7 @@ void print_nbns_verbose(struct nbns_info *info)
     while (i < 4) {
         records += info->section_count[i++];
     }
-    create_subwindow(10 + records);
+    create_subwindow(records ? 10 + records + 1 : 10);
     mvwprintw(wsub_main, y, 0, "");
     mvwprintw(wsub_main, ++y, 4, "ID: 0x%x", info->id);
     mvwprintw(wsub_main, ++y, 4, "Response flag: %d (%s)", info->r, info->r ? "Response" : "Request");
@@ -878,7 +879,7 @@ void print_ip(char *buf, int n, struct ip_info *info)
         print_igmp(buf, n, info);
         break;
     case IPPROTO_TCP:
-        PRINT_PROTOCOL(buf, n, "TCP");
+        print_tcp(buf, n, info);
         break;
     case IPPROTO_UDP:
         print_udp(buf, n, info);
@@ -888,17 +889,53 @@ void print_ip(char *buf, int n, struct ip_info *info)
     }
 }
 
+void print_tcp(char *buf, int n, struct ip_info *info)
+{
+    switch (info->tcp.data.utype) {
+    case DNS:
+        print_dns(buf, n, info->tcp.data.dns);
+        break;
+    case NBNS:
+        print_nbns(buf, n, info->tcp.data.nbns);
+        break;
+    default:
+        PRINT_PROTOCOL(buf, n, "TCP");
+        PRINT_INFO(buf, n, "Source port: %d  Destination port: %d", info->tcp.src_port,
+                   info->tcp.dst_port);
+        PRINT_INFO(buf, n, "  Flags: ");
+        if (info->tcp.urg) {
+            PRINT_INFO(buf, n, "URG ");
+        }
+        if (info->tcp.ack) {
+            PRINT_INFO(buf, n, "ACK ");
+        }
+        if (info->tcp.psh) {
+            PRINT_INFO(buf, n, "PSH ");
+        }
+        if (info->tcp.rst) {
+            PRINT_INFO(buf, n, "RST ");
+        }
+        if (info->tcp.syn) {
+            PRINT_INFO(buf, n, "SYN ");
+        }
+        if (info->tcp.fin) {
+            PRINT_INFO(buf, n, "FIN");
+        }
+        break;
+    }
+}
+
 void print_udp(char *buf, int n, struct ip_info *info)
 {
     switch (info->udp.data.utype) {
     case DNS:
-        print_dns(buf, n, info);
+        print_dns(buf, n, info->udp.data.dns);
         break;
     case NBNS:
-        print_nbns(buf, n, info);
+        print_nbns(buf, n, info->udp.data.nbns);
         break;
     case SSDP:
-        print_ssdp(buf, n, info);
+        print_ssdp(buf, n, info->udp.data.ssdp);
         break;
     default:
         PRINT_PROTOCOL(buf, n, "UDP");
@@ -908,16 +945,16 @@ void print_udp(char *buf, int n, struct ip_info *info)
     }
 }
 
-void print_dns(char *buf, int n, struct ip_info *info)
+void print_dns(char *buf, int n, struct dns_info *dns)
 {
     PRINT_PROTOCOL(buf, n, "DNS");
-    if (info->udp.data.dns->qr == 0) {
-        switch (info->udp.data.dns->opcode) {
+    if (dns->qr == 0) {
+        switch (dns->opcode) {
         case DNS_QUERY:
             PRINT_INFO(buf, n, "Standard query: ");
-            PRINT_INFO(buf, n, "%s ", info->udp.data.dns->question.qname);
-            PRINT_INFO(buf, n, "%s ", get_dns_class(info->udp.data.dns->question.qclass));
-            PRINT_INFO(buf, n, "%s", get_dns_type(info->udp.data.dns->question.qtype));
+            PRINT_INFO(buf, n, "%s ", dns->question.qname);
+            PRINT_INFO(buf, n, "%s ", get_dns_class(dns->question.qclass));
+            PRINT_INFO(buf, n, "%s", get_dns_type(dns->question.qtype));
             break;
         case DNS_IQUERY:
             PRINT_INFO(buf, n, "Inverse query");
@@ -927,7 +964,7 @@ void print_dns(char *buf, int n, struct ip_info *info)
             break;
         }
     } else {
-        switch (info->udp.data.dns->rcode) {
+        switch (dns->rcode) {
         case DNS_FORMAT_ERROR:
             PRINT_INFO(buf, n, "Response: format error");
             return;
@@ -949,31 +986,31 @@ void print_dns(char *buf, int n, struct ip_info *info)
             break;
         }
         // TODO: Need to print the proper name for all values.
-        PRINT_INFO(buf, n, "%s ", info->udp.data.dns->record[0].name);
-        PRINT_INFO(buf, n, "%s ", get_dns_class(info->udp.data.dns->record[0].class));
-        PRINT_INFO(buf, n, "%s ", get_dns_type(info->udp.data.dns->record[0].type));
-        for (int i = 0; i < info->udp.data.dns->section_count[ANCOUNT]; i++) {
-            print_dns_record(info->udp.data.dns, i, buf, n, info->udp.data.dns->record[i].type, NULL);
+        PRINT_INFO(buf, n, "%s ", dns->record[0].name);
+        PRINT_INFO(buf, n, "%s ", get_dns_class(dns->record[0].class));
+        PRINT_INFO(buf, n, "%s ", get_dns_type(dns->record[0].type));
+        for (int i = 0; i < dns->section_count[ANCOUNT]; i++) {
+            print_dns_record(dns, i, buf, n, dns->record[i].type, NULL);
             PRINT_INFO(buf, n, " ");
         }
     }
 }
 
-void print_nbns(char *buf, int n, struct ip_info *info)
+void print_nbns(char *buf, int n, struct nbns_info *nbns)
 {
     PRINT_PROTOCOL(buf, n, "NBNS");
-    if (info->udp.data.nbns->r == 0) {
+    if (nbns->r == 0) {
         char opcode[16];
 
-        strncpy(opcode, get_nbns_opcode(info->udp.data.nbns->opcode), sizeof(opcode));
+        strncpy(opcode, get_nbns_opcode(nbns->opcode), sizeof(opcode));
         PRINT_INFO(buf, n, "Name %s request: ", strtolower(opcode, strlen(opcode)));
-        PRINT_INFO(buf, n, "%s ", info->udp.data.nbns->question.qname);
-        PRINT_INFO(buf, n, "%s ", get_nbns_type(info->udp.data.nbns->question.qtype));
-        if (info->udp.data.nbns->section_count[ARCOUNT]) {
-            print_nbns_record(info->udp.data.nbns, 0, buf, n, info->udp.data.nbns->record[0].rrtype);
+        PRINT_INFO(buf, n, "%s ", nbns->question.qname);
+        PRINT_INFO(buf, n, "%s ", get_nbns_type(nbns->question.qtype));
+        if (nbns->section_count[ARCOUNT]) {
+            print_nbns_record(nbns, 0, buf, n, nbns->record[0].rrtype);
         }
     } else {
-        switch (info->udp.data.nbns->rcode) {
+        switch (nbns->rcode) {
         case NBNS_FMT_ERR:
             PRINT_INFO(buf, n, "Format Error. Request was invalidly formatted");
             return;
@@ -997,28 +1034,28 @@ void print_nbns(char *buf, int n, struct ip_info *info)
         }
         char opcode[16];
 
-        strncpy(opcode, get_nbns_opcode(info->udp.data.nbns->opcode), sizeof(opcode));
+        strncpy(opcode, get_nbns_opcode(nbns->opcode), sizeof(opcode));
         PRINT_INFO(buf, n, "Name %s response: ", strtolower(opcode, strlen(opcode)));
-        PRINT_INFO(buf, n, "%s ", info->udp.data.nbns->record[0].rrname);
-        PRINT_INFO(buf, n, "%s ", get_nbns_type(info->udp.data.nbns->record[0].rrtype));
-        print_nbns_record(info->udp.data.nbns, 0, buf, n, info->udp.data.nbns->record[0].rrtype);
+        PRINT_INFO(buf, n, "%s ", nbns->record[0].rrname);
+        PRINT_INFO(buf, n, "%s ", get_nbns_type(nbns->record[0].rrtype));
+        print_nbns_record(nbns, 0, buf, n, nbns->record[0].rrtype);
     }
 }
 
-void print_ssdp(char *buf, int n, struct ip_info *info)
+void print_ssdp(char *buf, int n, struct ssdp_info *ssdp)
 {
     char *p;
 
     PRINT_PROTOCOL(buf, n, "SSDP");
-    p = strchr(info->udp.data.ssdp->str, '\r');
+    p = strchr(ssdp->str, '\r');
     if (*(p + 1) == '\n') {
         int len;
         int buflen;
 
-        len = p - info->udp.data.ssdp->str;
+        len = p - ssdp->str;
         buflen = strlen(buf);
         if (buflen + len + 1 < n) {
-            strncpy(buf + buflen, info->udp.data.ssdp->str, len);
+            strncpy(buf + buflen, ssdp->str, len);
             buf[buflen + len] = '\0';
         }
     }
