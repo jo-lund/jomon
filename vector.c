@@ -47,7 +47,10 @@ inline void vector_pop_back()
 
 inline void *vector_back()
 {
-    return buf[c].data;
+    if (c) {
+        return buf[c - 1].data;
+    }
+    return NULL;
 }
 
 inline void *vector_get_data(int i)
@@ -74,4 +77,5 @@ void vector_clear()
     }
     free(buf);
     size = 0;
+    c = 0;
 }

@@ -38,7 +38,7 @@ clean :
 
 .PHONY : tags
 tags :
-	find . -name "*.h" -o -name "*.c" | etags -
+	@find . -name "*.h" -o -name "*.c" | etags -
 
 test : $(TESTS)
 

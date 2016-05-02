@@ -3,6 +3,7 @@
 
 #include <netinet/in.h>
 #include <stdbool.h>
+#include "list.h"
 
 /* hardware address length (format aa:bb:cc:dd:ee:ff) */
 #define HW_ADDRSTRLEN 18
@@ -115,18 +116,6 @@ enum packet_type {
     IPv4,
     IPv6,
     PAE
-};
-
-struct arp_info {
-    char sip[INET_ADDRSTRLEN];   /* sender IP address */
-    char tip[INET_ADDRSTRLEN];   /* target IP address */
-    char sha[HW_ADDRSTRLEN];     /* sender hardware address */
-    char tha[HW_ADDRSTRLEN];     /* target hardware address */
-    uint16_t ht;                 /* hardware type, e.g. Ethernet, Amateur radio */
-    uint16_t pt;                 /* protocol type, IPv4 is 0x0800 */
-    uint8_t hs;                  /* hardware size */
-    uint8_t ps;                  /* protocol size */
-    uint16_t op;                 /* ARP opcode */
 };
 
 enum dns_section_count {
@@ -280,7 +269,7 @@ struct application_info {
     union {
         struct dns_info *dns;
         struct nbns_info *nbns;
-        struct ssdp_info *ssdp;
+        list_t *ssdp;
     };
 };
 
@@ -337,6 +326,18 @@ struct ip_info {
             };
         } icmp;
     };
+};
+
+struct arp_info {
+    char sip[INET_ADDRSTRLEN];   /* sender IP address */
+    char tip[INET_ADDRSTRLEN];   /* target IP address */
+    char sha[HW_ADDRSTRLEN];     /* sender hardware address */
+    char tha[HW_ADDRSTRLEN];     /* target hardware address */
+    uint16_t ht;                 /* hardware type, e.g. Ethernet, Amateur radio */
+    uint16_t pt;                 /* protocol type, IPv4 is 0x0800 */
+    uint8_t hs;                  /* hardware size */
+    uint8_t ps;                  /* protocol size */
+    uint16_t op;                 /* ARP opcode */
 };
 
 /* generic packet structure that can be used for every type of packet */

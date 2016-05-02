@@ -30,13 +30,6 @@ char *strtolower(char *str, size_t n);
 /* Get the size of the longest domain name in the RRs */
 int get_max_namelen(struct dns_resource_record *record, int n);
 
-/*
- * Parse an SSDP string.
- *
- * Adds the SSDP message header fields to msg_header list
- */
-void parse_ssdp(char *str, int n, list_t **msg_header);
-
 // TODO: Simplify this.
 /* Convert type to string */
 char *get_arp_hardware_type(uint16_t type);

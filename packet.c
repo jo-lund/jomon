@@ -24,15 +24,18 @@ static bool handle_tcp(unsigned char *buffer, struct ip_info *info);
 static bool handle_udp(unsigned char *buffer, struct ip_info *info);
 static bool check_port(unsigned char *buffer, struct application_info *info, uint16_t port, uint16_t packet_len);
 static void check_address(unsigned char *buffer);
+static void free_protocol_data(struct application_info *info);
 
 /* application layer protocol handlers */
 static bool handle_dns(unsigned char *buffer, struct application_info *info);
 static bool handle_nbns(unsigned char *buffer, struct application_info *info);
 static bool handle_ssdp(unsigned char *buffer, struct application_info *info, uint16_t len);
+static bool handle_http(unsigned char *buffer, struct application_info *info);
 static int parse_dns_name(unsigned char *buffer, unsigned char *ptr, char name[]);
 static void parse_dns_record(int i, unsigned char *buffer, unsigned char **ptr, struct dns_info *info);
 static void decode_nbns_name(char *dest, char *src);
 static void parse_nbns_record(int i, unsigned char *buffer, unsigned char **ptr, struct nbns_info *info);
+static void parse_ssdp(char *str, int n, list_t **msg_header);
 
 size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet **p)
 {
@@ -60,32 +63,39 @@ void free_packet(void *data)
     if (p->ptype == IPv4) {
         switch (p->ip.protocol) {
         case IPPROTO_UDP:
-            switch (p->ip.udp.data.utype) {
-            case DNS:
-                if (p->ip.udp.data.dns->record) {
-                    free(p->ip.udp.data.dns->record);
-                }
-                free(p->ip.udp.data.dns);
-                break;
-            case NBNS:
-                if (p->ip.udp.data.nbns->record) {
-                    free(p->ip.udp.data.nbns->record);
-                }
-                free(p->ip.udp.data.nbns);
-                break;
-            case SSDP:
-                free(p->ip.udp.data.ssdp->str);
-                free(p->ip.udp.data.ssdp);
-                break;
-            default:
-                break;
-            }
+            free_protocol_data(&p->ip.udp.data);
+            break;
+        case IPPROTO_TCP:
+            free_protocol_data(&p->ip.tcp.data);
             break;
         default:
             break;
         }
     }
     free(p);
+}
+
+void free_protocol_data(struct application_info *info)
+{
+    switch (info->utype) {
+    case DNS:
+        if (info->dns->record) {
+            free(info->dns->record);
+        }
+        free(info->dns);
+        break;
+    case NBNS:
+        if (info->nbns->record) {
+            free(info->nbns->record);
+        }
+        free(info->nbns);
+        break;
+    case SSDP:
+        list_free(info->ssdp);
+        break;
+    default:
+        break;
+    }
 }
 
 void check_address(unsigned char *buffer)
@@ -256,6 +266,83 @@ void handle_ip(unsigned char *buffer, struct ip_info *info)
 }
 
 /*
+ * ICMP message format:
+ *
+ * 0                   1                   2                   3
+ * 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |     Type      |     Code      |          Checksum             |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |                             unused                            |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |      Internet Header + 64 bits of Original Data Datagram      |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * The ICMP header is 8 bytes.
+ */
+void handle_icmp(unsigned char *buffer, struct ip_info *info)
+{
+    struct icmphdr *icmp = (struct icmphdr *) buffer;
+
+    info->icmp.type = icmp->type;
+    info->icmp.code = icmp->code;
+    info->icmp.checksum = htons(info->icmp.checksum);
+    if (icmp->type == ICMP_ECHOREPLY || icmp->type == ICMP_ECHO) {
+        info->icmp.echo.id = ntohs(icmp->un.echo.id);
+        info->icmp.echo.seq_num = ntohs(icmp->un.echo.sequence);
+    }
+}
+
+/*
+ * IGMP message format:
+ *
+ *  0                   1                   2                   3
+ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |      Type     | Max Resp Time |           Checksum            |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |                         Group Address                         |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Messages must be atleast 8 bytes.
+ *
+ * Message Type                  Destination Group
+ * ------------                  -----------------
+ * General Query                 All hosts (224.0.0.1)
+ * Group-Specific Query          The group being queried
+ * Membership Report             The group being reported
+ * Leave Message                 All routers (224.0.0.2)
+ *
+ * 224.0.0.22 is the IGMPv3 multicast address.
+ *
+ * Max Resp Time specifies the maximum allowed time before sending a responding
+ * report in units of 1/10 seconds. It is only meaningful in membership queries.
+ * Default: 100 (10 seconds).
+ *
+ * Message query:
+ * - A general query has group address field 0 and is sent to the all hosts
+ *   multicast group (224.0.0.1)
+ * - A group specific query must have a valid multicast group address
+ * - The Query Interval is the interval between general queries sent by the
+ *   querier. Default: 125 seconds.
+ *
+ * TODO: Handle IGMPv3 membership query
+ */
+void handle_igmp(unsigned char *buffer, struct ip_info *info)
+{
+    struct igmphdr *igmp;
+
+    igmp = (struct igmphdr *) buffer;
+    info->igmp.type = igmp->type;
+    info->igmp.max_resp_time = igmp->code;
+    info->igmp.checksum = ntohs(igmp->csum);
+    if (inet_ntop(AF_INET, &igmp->group, info->igmp.group_addr,
+                  INET_ADDRSTRLEN) == NULL) {
+        err_msg("inet_ntop error");
+    }
+}
+
+/*
  * UDP header
  *
  * 0                   1                   2                   3
@@ -270,7 +357,6 @@ void handle_ip(unsigned char *buffer, struct ip_info *info)
 bool handle_udp(unsigned char *buffer, struct ip_info *info)
 {
     struct udphdr *udp;
-    bool valid = false;
 
     udp = (struct udphdr *) buffer;
     info->udp.src_port = ntohs(udp->source);
@@ -344,7 +430,7 @@ bool handle_udp(unsigned char *buffer, struct ip_info *info)
  * Urgent Pointer: This field communicates the current value of the urgent pointer as a
  *            positive offset from the sequence number in this segment. The
  *            urgent pointer points to the sequence number of the octet following
- *            the urgent data.  This field is only be interpreted in segments with
+ *            the urgent data. This field is only be interpreted in segments with
  *            the URG control bit set.
  */
 bool handle_tcp(unsigned char *buffer, struct ip_info *info)
@@ -385,6 +471,8 @@ bool check_port(unsigned char *buffer, struct application_info *info, uint16_t p
         return handle_nbns(buffer, info);
     case SSDP:
         return handle_ssdp(buffer, info, packet_len);
+    case HTTP:
+        return handle_http(buffer, info);
     default:
         return false;
     }
@@ -840,88 +928,40 @@ void parse_nbns_record(int i, unsigned char *buffer, unsigned char **ptr, struct
  */
 bool handle_ssdp(unsigned char *buffer, struct application_info *info, uint16_t len)
 {
-    info->ssdp = malloc(sizeof(struct ssdp_info));
-    info->ssdp->n = len;
-    info->ssdp->str = malloc(len);
-    strncpy(info->ssdp->str, buffer, len);
+    list_t *ssdp_fields;
 
+    ssdp_fields = list_init(NULL);
+    parse_ssdp((char *) buffer, len, &ssdp_fields);
+    info->ssdp = ssdp_fields;
     return true;
 }
 
 /*
- * ICMP message format:
+ * Parses an SSDP string.
  *
- * 0                   1                   2                   3
- * 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |     Type      |     Code      |          Checksum             |
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |                             unused                            |
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |      Internet Header + 64 bits of Original Data Datagram      |
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *
- * The ICMP header is 8 bytes.
+ * Adds the SSDP message header fields to msg_header list
  */
-
-void handle_icmp(unsigned char *buffer, struct ip_info *info)
+void parse_ssdp(char *str, int n, list_t **msg_header)
 {
-    struct icmphdr *icmp = (struct icmphdr *) buffer;
+    char *token;
+    char cstr[n];
 
-    info->icmp.type = icmp->type;
-    info->icmp.code = icmp->code;
-    info->icmp.checksum = htons(info->icmp.checksum);
-    if (icmp->type == ICMP_ECHOREPLY || icmp->type == ICMP_ECHO) {
-        info->icmp.echo.id = ntohs(icmp->un.echo.id);
-        info->icmp.echo.seq_num = ntohs(icmp->un.echo.sequence);
+    strncpy(cstr, str, n);
+    token = strtok(cstr, "\r\n");
+    while (token) {
+        int len;
+        char *field;
+
+        len = strlen(token);
+        field = malloc(len + 1);
+        strncpy(field, token, len);
+        field[len] = '\0';
+        *msg_header = list_push_back(*msg_header, field);
+        token = strtok(NULL, "\r\n");
     }
 }
 
-/*
- * IGMP message format:
- *
- *  0                   1                   2                   3
- *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |      Type     | Max Resp Time |           Checksum            |
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |                         Group Address                         |
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *
- * Messages must be atleast 8 bytes.
- *
- * Message Type                  Destination Group
- * ------------                  -----------------
- * General Query                 All hosts (224.0.0.1)
- * Group-Specific Query          The group being queried
- * Membership Report             The group being reported
- * Leave Message                 All routers (224.0.0.2)
- *
- * 224.0.0.22 is the IGMPv3 multicast address.
- *
- * Max Resp Time specifies the maximum allowed time before sending a responding
- * report in units of 1/10 seconds. It is only meaningful in membership queries.
- * Default: 100 (10 seconds).
- *
- * Message query:
- * - A general query has group address field 0 and is sent to the all hosts
- *   multicast group (224.0.0.1)
- * - A group specific query must have a valid multicast group address
- * - The Query Interval is the interval between general queries sent by the
- *   querier. Default: 125 seconds.
- *
- * TODO: Handle IGMPv3 membership query
- */
-void handle_igmp(unsigned char *buffer, struct ip_info *info)
+bool handle_http(unsigned char *buffer, struct application_info *info)
 {
-    struct igmphdr *igmp;
-
-    igmp = (struct igmphdr *) buffer;
-    info->igmp.type = igmp->type;
-    info->igmp.max_resp_time = igmp->code;
-    info->igmp.checksum = ntohs(igmp->csum);
-    if (inet_ntop(AF_INET, &igmp->group, info->igmp.group_addr,
-                  INET_ADDRSTRLEN) == NULL) {
-        err_msg("inet_ntop error");
-    }
+    return false;
 }

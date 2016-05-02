@@ -58,7 +58,7 @@ static void print_icmp(char *buf, int n, struct ip_info *info);
 static void print_igmp(char *buf, int n, struct ip_info *info);
 static void print_dns(char *buf, int n, struct dns_info *dns);
 static void print_nbns(char *buf, int n, struct nbns_info *nbns);
-static void print_ssdp(char *buf, int n, struct ssdp_info *ssdp);
+static void print_ssdp(char *buf, int n, list_t *ssdp);
 
 static void print_information(int lineno, bool select);
 static void print_arp_verbose(struct arp_info *info);
@@ -71,7 +71,7 @@ static void print_nbns_verbose(struct nbns_info *info);
 static void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t type);
 static void print_icmp_verbose(struct ip_info *info);
 static void print_igmp_verbose(struct ip_info *info);
-static void print_ssdp_verbose(struct ssdp_info *info);
+static void print_ssdp_verbose(list_t *ssdp);
 
 static void print_buffer(char *buf, int size, struct packet *p);
 static void create_subwindow(int num_lines);
@@ -660,7 +660,7 @@ void print_nbns_verbose(struct nbns_info *info)
     while (i < 4) {
         records += info->section_count[i++];
     }
-    create_subwindow(records ? 10 + records + 1 : 10);
+    create_subwindow(records ? 11 + records: 10);
     mvwprintw(wsub_main, y, 0, "");
     mvwprintw(wsub_main, ++y, 4, "ID: 0x%x", info->id);
     mvwprintw(wsub_main, ++y, 4, "Response flag: %d (%s)", info->r, info->r ? "Response" : "Request");
@@ -738,22 +738,18 @@ void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t
     }
 }
 
-void print_ssdp_verbose(struct ssdp_info *ssdp)
+void print_ssdp_verbose(list_t *ssdp)
 {
-    list_t *ssdp_fields;
     const node_t *n;
     int y = 0;
 
-    ssdp_fields = list_init(NULL);
-    parse_ssdp(ssdp->str, ssdp->n, &ssdp_fields);
-    create_subwindow(list_size(ssdp_fields) + 2);
+    create_subwindow(list_size(ssdp) + 2);
     mvwprintw(wsub_main, y, 0, "");
-    n = list_begin(ssdp_fields);
+    n = list_begin(ssdp);
     while (n) {
         mvwprintw(wsub_main, ++y, 4, "%s", (char *) list_data(n));
         n = list_next(n);
     }
-    list_free(ssdp_fields);
     mvwprintw(wsub_main, ++y, 0, "");
     touchwin(wmain);
     wrefresh(wsub_main);
@@ -1040,22 +1036,14 @@ void print_nbns(char *buf, int n, struct nbns_info *nbns)
     }
 }
 
-void print_ssdp(char *buf, int n, struct ssdp_info *ssdp)
+void print_ssdp(char *buf, int n, list_t *ssdp)
 {
-    char *p;
+    const node_t *node;
 
     PRINT_PROTOCOL(buf, n, "SSDP");
-    p = strchr(ssdp->str, '\r');
-    if (*(p + 1) == '\n') {
-        int len;
-        int buflen;
-
-        len = p - ssdp->str;
-        buflen = strlen(buf);
-        if (buflen + len + 1 < n) {
-            strncpy(buf + buflen, ssdp->str, len);
-            buf[buflen + len] = '\0';
-        }
+    node = list_begin(ssdp);
+    if (node) {
+        PRINT_INFO(buf, n, (char *) list_data(node));
     }
 }
 
