@@ -30,7 +30,7 @@ static void free_protocol_data(struct application_info *info);
 static bool handle_dns(unsigned char *buffer, struct application_info *info);
 static bool handle_nbns(unsigned char *buffer, struct application_info *info);
 static bool handle_ssdp(unsigned char *buffer, struct application_info *info, uint16_t len);
-static bool handle_http(unsigned char *buffer, struct application_info *info);
+static bool handle_http(unsigned char *buffer, struct application_info *info, uint16_t len);
 static int parse_dns_name(unsigned char *buffer, unsigned char *ptr, char name[]);
 static void parse_dns_record(int i, unsigned char *buffer, unsigned char **ptr, struct dns_info *info);
 static void decode_nbns_name(char *dest, char *src);
@@ -228,14 +228,19 @@ bool handle_arp(unsigned char *buffer, struct arp_info *info)
  *
  * IHL: Internet header length, the number of 32 bit words in the header.
  *      The minimum value for this field is 5: 5 * 32 = 160 bits (20 bytes).
- *
+ * Flags: Used to control and identify fragments
+ *        Bit 0: Reserved, must be zero
+ *        Bit 1: Don't Fragment (DF)
+ *        Bit 2: More Fragments (MF)
+ * Fragment offset: Specifies the offset of a particular fragment relative to
+ * the beginning of the unfragmented IP datagram. The first fragment has an offset
+ * of zero.
  * Protocol: Defines the protocol used in the data portion of the packet.
- *
-*/
+ */
 bool handle_ip(unsigned char *buffer, struct ip_info *info)
 {
     struct iphdr *ip;
-    int header_len;
+    unsigned int header_len;
 
     ip = (struct iphdr *) buffer;
     if (inet_ntop(AF_INET, &ip->saddr, info->src, INET_ADDRSTRLEN) == NULL) {
@@ -244,7 +249,20 @@ bool handle_ip(unsigned char *buffer, struct ip_info *info)
     if (inet_ntop(AF_INET, &ip->daddr, info->dst, INET_ADDRSTRLEN) == NULL) {
         err_msg("inet_ntop error");
     }
+    info->version = ip->version;
+    info->ihl = ip->ihl;
+
+    /* Originally defined as type of service, but now defined as differentiated
+       services code point and explicit congestion control */
+    info->dscp = ip->tos & 0xfc;
+    info->ecn = ip->tos & 0x03;
+
+    info->length = ntohs(ip->tot_len);
+    info->id = ntohs(ip->id);
+    info->foffset = ntohs(ip->frag_off);
+    info->ttl = ip->ttl;
     info->protocol = ip->protocol;
+    info->checksum = ntohs(ip->check);
     header_len = ip->ihl * 4;
 
     switch (ip->protocol) {
@@ -364,11 +382,13 @@ bool handle_udp(unsigned char *buffer, struct ip_info *info)
 
     for (int i = 0; i < 2; i++) {
         info->udp.data.utype = *((uint16_t *) &info->udp + i);
-        if (check_port(buffer + UDP_HDRLEN, &info->udp.data, info->udp.data.utype, info->udp.len - UDP_HDRLEN))
+        if (check_port(buffer + UDP_HDRLEN, &info->udp.data, info->udp.data.utype,
+                       info->udp.len - UDP_HDRLEN)) {
             return true;
+        }
     }
     info->udp.data.utype = 0; /* port not handled */
-    return false;
+    return true;
 }
 
 /*
@@ -453,11 +473,13 @@ bool handle_tcp(unsigned char *buffer, struct ip_info *info)
 
     for (int i = 0; i < 2; i++) {
         info->tcp.data.utype = *((uint16_t *) &info->tcp + i);
-        if (check_port(buffer + info->tcp.offset / 4, &info->tcp.data, info->tcp.data.utype, 0))
+        if (check_port(buffer + info->tcp.offset / 4, &info->tcp.data, info->tcp.data.utype,
+                       info->length - info->ihl * 4)) {
             return true;
+        }
     }
     info->tcp.data.utype = 0; /* port not handled */
-    return false;
+    return true;
 }
 
 bool check_port(unsigned char *buffer, struct application_info *info, uint16_t port, uint16_t packet_len)
@@ -470,7 +492,7 @@ bool check_port(unsigned char *buffer, struct application_info *info, uint16_t p
     case SSDP:
         return handle_ssdp(buffer, info, packet_len);
     case HTTP:
-        return handle_http(buffer, info);
+        return handle_http(buffer, info, packet_len);
     default:
         return false;
     }
@@ -570,14 +592,10 @@ bool handle_dns(unsigned char *buffer, struct application_info *info)
         }
     } else { /* DNS query */
         if (info->dns->rcode != 0) { /* RCODE will be zero */
-            free(info->dns);
-            info->dns = NULL;
             return false;
         }
         /* ANCOUNT and NSCOUNT values are zero */
         if (info->dns->section_count[ANCOUNT] != 0 && info->dns->section_count[NSCOUNT] != 0) {
-            free(info->dns);
-            info->dns = NULL;
             return false;
         }
         /*
@@ -585,8 +603,6 @@ bool handle_dns(unsigned char *buffer, struct application_info *info)
          * (RFC 2671) or TSIG (RFC 2845) are used
          */
         if (info->dns->section_count[ARCOUNT] > 2) {
-            free(info->dns);
-            info->dns = NULL;
             return false;
         }
         ptr += DNS_HDRLEN;
@@ -780,7 +796,6 @@ bool handle_nbns(unsigned char *buffer, struct application_info *info)
 
     if (info->nbns->r) { /* response */
         if (info->nbns->section_count[QDCOUNT] != 0) { /* QDCOUNT is always 0 for responses */
-            free(info->nbns);
             return false;
         }
         ptr += DNS_HDRLEN;
@@ -797,13 +812,9 @@ bool handle_nbns(unsigned char *buffer, struct application_info *info)
         }
     } else { /* request */
         if (info->nbns->aa) { /* authoritative answer is only to be set in responses */
-            free(info->nbns);
-            info->nbns = NULL;
             return false;
         }
         if (info->nbns->section_count[QDCOUNT] == 0) { /* QDCOUNT must be non-zero for requests */
-            free(info->nbns);
-            info->nbns = NULL;
             return false;
         }
         ptr += DNS_HDRLEN;
@@ -964,7 +975,7 @@ void parse_ssdp(char *str, int n, list_t **msg_header)
     }
 }
 
-bool handle_http(unsigned char *buffer, struct application_info *info)
+bool handle_http(unsigned char *buffer, struct application_info *info, uint16_t len)
 {
-    return false;
+    return true;
 }

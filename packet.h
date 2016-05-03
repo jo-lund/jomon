@@ -275,9 +275,19 @@ struct application_info {
 
 // TODO: Improve the structure of this
 struct ip_info {
+    unsigned int version : 4;
+    unsigned int ihl     : 4;
+    unsigned int dscp    : 6; /* Differentiated Services Code Point (RFC 2474) */
+    unsigned int ecn     : 2; /* Explicit congestion notification (RFC 3168) */
+    unsigned int flags   : 3;
+    uint16_t length; /* The entire packet size in bytes, including header and data */
+    uint16_t id; /* Identification field, used for uniquely identifying group of fragments */
+    uint16_t foffset; /* Fragment offset */
+    uint8_t ttl;
+    uint8_t protocol;
+    uint16_t checksum;
     char src[INET_ADDRSTRLEN];
     char dst[INET_ADDRSTRLEN];
-    uint8_t protocol;
     union {
         struct {
             uint16_t src_port;
