@@ -16,10 +16,10 @@
 
 #define DNS_PTR_LEN 2
 
-static void handle_arp(unsigned char *buffer, struct arp_info *info);
-static void handle_ip(unsigned char *buffer, struct ip_info *info);
-static void handle_icmp(unsigned char *buffer, struct ip_info *info);
-static void handle_igmp(unsigned char *buffer, struct ip_info *info);
+static bool handle_arp(unsigned char *buffer, struct arp_info *info);
+static bool handle_ip(unsigned char *buffer, struct ip_info *info);
+static bool handle_icmp(unsigned char *buffer, struct ip_info *info);
+static bool handle_igmp(unsigned char *buffer, struct ip_info *info);
 static bool handle_tcp(unsigned char *buffer, struct ip_info *info);
 static bool handle_udp(unsigned char *buffer, struct ip_info *info);
 static bool check_port(unsigned char *buffer, struct application_info *info, uint16_t port, uint16_t packet_len);
@@ -62,16 +62,20 @@ void free_packet(void *data)
         case IPPROTO_UDP:
             switch (p->ip.udp.data.utype) {
             case DNS:
-                if (p->ip.udp.data.dns->record) {
-                    free(p->ip.udp.data.dns->record);
+                if (p->ip.udp.data.dns) {
+                    if (p->ip.udp.data.dns->record) {
+                        free(p->ip.udp.data.dns->record);
+                    }
+                    free(p->ip.udp.data.dns);
                 }
-                free(p->ip.udp.data.dns);
                 break;
             case NBNS:
-                if (p->ip.udp.data.nbns->record) {
-                    free(p->ip.udp.data.nbns->record);
+                if (p->ip.udp.data.nbns) {
+                    if (p->ip.udp.data.nbns->record) {
+                        free(p->ip.udp.data.nbns->record);
+                    }
+                    free(p->ip.udp.data.nbns);
                 }
-                free(p->ip.udp.data.nbns);
                 break;
             case SSDP:
                 free(p->ip.udp.data.ssdp->str);
@@ -131,23 +135,20 @@ bool handle_ethernet(unsigned char *buffer, struct packet *p)
     eth_header = (struct ethhdr *) buffer;
     switch (ntohs(eth_header->h_proto)) {
     case ETH_P_IP:
-    {
-        handle_ip(buffer + ETH_HLEN, &p->ip);
         p->ptype = IPv4;
-        return true;
-    }
+        return handle_ip(buffer + ETH_HLEN, &p->ip);
     case ETH_P_ARP:
-    {
-        handle_arp(buffer + ETH_HLEN, &p->arp);
         p->ptype = ARP;
-        return true;
-    }
+        return handle_arp(buffer + ETH_HLEN, &p->arp);
     case ETH_P_IPV6:
-        return false;
     case ETH_P_PAE:
+        memset(p, 0, sizeof(struct packet));
         return false;
     default:
-        printf("Ethernet protocol: 0x%x\n", ntohs(eth_header->h_proto));
+        if (ntohs(eth_header->h_proto) >= ETH_P_802_3_MIN) {
+            printf("Ethernet protocol: 0x%x\n", ntohs(eth_header->h_proto));
+        }
+        memset(p, 0, sizeof(struct packet));
         return false;
     }
 }
@@ -168,7 +169,7 @@ bool handle_ethernet(unsigned char *buffer, struct packet *p)
  * PS: Protocol Size, number of bytes in the requested network address
  * OP: Operation. 1 = ARP request, 2 = ARP reply, 3 = RARP request, 4 = RARP reply
  */
-void handle_arp(unsigned char *buffer, struct arp_info *info)
+bool handle_arp(unsigned char *buffer, struct arp_info *info)
 {
     struct ether_arp *arp_header;
 
@@ -197,6 +198,7 @@ void handle_arp(unsigned char *buffer, struct arp_info *info)
     info->pt = ntohs(arp_header->arp_pro);
     info->hs = arp_header->arp_hln;
     info->ps = arp_header->arp_pln;
+    return true;
 }
 
 /*
@@ -224,7 +226,7 @@ void handle_arp(unsigned char *buffer, struct arp_info *info)
  * Protocol: Defines the protocol used in the data portion of the packet.
  *
 */
-void handle_ip(unsigned char *buffer, struct ip_info *info)
+bool handle_ip(unsigned char *buffer, struct ip_info *info)
 {
     struct iphdr *ip;
     int header_len;
@@ -241,17 +243,15 @@ void handle_ip(unsigned char *buffer, struct ip_info *info)
 
     switch (ip->protocol) {
     case IPPROTO_ICMP:
-        handle_icmp(buffer + header_len, info);
-        break;
+        return handle_icmp(buffer + header_len, info);
     case IPPROTO_IGMP:
-        handle_igmp(buffer + header_len, info);
-        break;
+        return handle_igmp(buffer + header_len, info);
     case IPPROTO_TCP:
-        handle_tcp(buffer + header_len, info);
-        break;
+        return handle_tcp(buffer + header_len, info);
     case IPPROTO_UDP:
-        handle_udp(buffer + header_len, info);
-        break;
+        return handle_udp(buffer + header_len, info);
+    default:
+        return false;
     }
 }
 
@@ -485,11 +485,13 @@ bool handle_dns(unsigned char *buffer, struct application_info *info)
     } else { /* DNS query */
         if (info->dns->rcode != 0) { /* RCODE will be zero */
             free(info->dns);
+            info->dns = NULL;
             return false;
         }
         /* ANCOUNT and NSCOUNT values are zero */
         if (info->dns->section_count[ANCOUNT] != 0 && info->dns->section_count[NSCOUNT] != 0) {
             free(info->dns);
+            info->dns = NULL;
             return false;
         }
         /*
@@ -498,6 +500,7 @@ bool handle_dns(unsigned char *buffer, struct application_info *info)
          */
         if (info->dns->section_count[ARCOUNT] > 2) {
             free(info->dns);
+            info->dns = NULL;
             return false;
         }
         ptr += DNS_HDRLEN;
@@ -709,10 +712,12 @@ bool handle_nbns(unsigned char *buffer, struct application_info *info)
     } else { /* request */
         if (info->nbns->aa) { /* authoritative answer is only to be set in responses */
             free(info->nbns);
+            info->nbns = NULL;
             return false;
         }
         if (info->nbns->section_count[QDCOUNT] == 0) { /* QDCOUNT must be non-zero for requests */
             free(info->nbns);
+            info->nbns = NULL;
             return false;
         }
         ptr += DNS_HDRLEN;
@@ -864,7 +869,7 @@ bool handle_ssdp(unsigned char *buffer, struct application_info *info, uint16_t 
  * The ICMP header is 8 bytes.
  */
 
-void handle_icmp(unsigned char *buffer, struct ip_info *info)
+bool handle_icmp(unsigned char *buffer, struct ip_info *info)
 {
     struct icmphdr *icmp = (struct icmphdr *) buffer;
 
@@ -875,6 +880,7 @@ void handle_icmp(unsigned char *buffer, struct ip_info *info)
         info->icmp.echo.id = ntohs(icmp->un.echo.id);
         info->icmp.echo.seq_num = ntohs(icmp->un.echo.sequence);
     }
+    return true;
 }
 
 /*
@@ -912,7 +918,7 @@ void handle_icmp(unsigned char *buffer, struct ip_info *info)
  *
  * TODO: Handle IGMPv3 membership query
  */
-void handle_igmp(unsigned char *buffer, struct ip_info *info)
+bool handle_igmp(unsigned char *buffer, struct ip_info *info)
 {
     struct igmphdr *igmp;
 
@@ -924,4 +930,5 @@ void handle_igmp(unsigned char *buffer, struct ip_info *info)
                   INET_ADDRSTRLEN) == NULL) {
         err_msg("inet_ntop error");
     }
+    return true;
 }
