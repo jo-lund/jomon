@@ -58,17 +58,13 @@ int main(int argc, char **argv)
 {
     char *prg_name = argv[0];
     int opt;
-    int n;
 
     statistics = 0;
     promiscuous = 0;
     while ((opt = getopt(argc, argv, "i:lhvps")) != -1) {
         switch (opt) {
         case 'i':
-            n = strlen(optarg);
-            device = malloc(n + 1);
-            strncpy(device, optarg, n);
-            device[n] = '\0';
+            device = strdup(optarg);
             break;
         case 'l':
             list_interfaces();
@@ -86,7 +82,7 @@ int main(int argc, char **argv)
         case 'h':
         default:
             print_help(prg_name);
-            exit(1);
+            exit(0);
         }
     }
 
