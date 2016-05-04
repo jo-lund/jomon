@@ -41,7 +41,7 @@ size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet 
 {
     int n;
 
-    *p = malloc(sizeof(struct packet));
+    *p = calloc(1, sizeof(struct packet));
     if ((n = read(sockfd, buffer, len)) == -1) {
         free_packet(*p);
         err_sys("read error");
@@ -148,13 +148,11 @@ bool handle_ethernet(unsigned char *buffer, struct packet *p)
         return handle_arp(buffer + ETH_HLEN, &p->arp);
     case ETH_P_IPV6:
     case ETH_P_PAE:
-        memset(p, 0, sizeof(struct packet));
         return false;
     default:
         if (ntohs(eth_header->h_proto) >= ETH_P_802_3_MIN) {
             printf("Ethernet protocol: 0x%x\n", ntohs(eth_header->h_proto));
         }
-        memset(p, 0, sizeof(struct packet));
         return false;
     }
 }
@@ -421,7 +419,7 @@ bool handle_udp(unsigned char *buffer, struct ip_info *info)
  *             next sequence number the sender of the segment is expecting to
  *             receive. Once a connection is established this is always sent.
  * Data Offset: The number of 32 bits words in the TCP header. This indicates where the
- *               data begins.
+ *              data begins.
  * Res: Reserved. Must be zero.
  * Control bits:
  *
@@ -471,11 +469,13 @@ bool handle_tcp(unsigned char *buffer, struct ip_info *info)
     info->tcp.checksum = ntohs(tcp->check);
     info->tcp.urg_ptr = ntohs(tcp->urg_ptr);
 
-    for (int i = 0; i < 2; i++) {
-        info->tcp.data.utype = *((uint16_t *) &info->tcp + i);
-        if (check_port(buffer + info->tcp.offset / 4, &info->tcp.data, info->tcp.data.utype,
-                       info->length - info->ihl * 4)) {
-            return true;
+    if (!tcp->syn || !tcp->fin || !tcp->rst) {
+        for (int i = 0; i < 2; i++) {
+            info->tcp.data.utype = *((uint16_t *) &info->tcp + i);
+            if (check_port(buffer + info->tcp.offset * 4, &info->tcp.data, info->tcp.data.utype,
+                           info->length - info->ihl * 4)) {
+                return true;
+            }
         }
     }
     info->tcp.data.utype = 0; /* port not handled */
