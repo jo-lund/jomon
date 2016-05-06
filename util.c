@@ -85,10 +85,11 @@ int snprintcat(char *buf, int size, char *fmt, ...)
     return n;
 }
 
-char *strtolower(char *str, size_t n)
+char *strtolower(char *str)
 {
-    for (int i = 0; i < n; i++) {
-        str[i] = tolower(str[i]);
+    while (*str != '\0') {
+        *str = tolower(*str);
+        str++;
     }
     return str;
 }

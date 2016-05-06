@@ -59,11 +59,13 @@ static void print_igmp(char *buf, int n, struct ip_info *info);
 static void print_dns(char *buf, int n, struct dns_info *dns);
 static void print_nbns(char *buf, int n, struct nbns_info *nbns);
 static void print_ssdp(char *buf, int n, list_t *ssdp);
+static void print_http(char *buf, int n, struct http_info *http);
 
 static void print_information(int lineno, bool select);
 static void print_arp_verbose(struct arp_info *info);
 static void print_ip_verbose(struct ip_info *info);
 static void print_udp_verbose(struct ip_info *info);
+static void print_tcp_verbose(struct ip_info *ip);
 static void print_dns_verbose(struct dns_info *info);
 static void print_dns_soa(struct dns_info *info, int i, int y, int x);
 static void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t type, bool *soa);
@@ -72,6 +74,7 @@ static void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, u
 static void print_icmp_verbose(struct ip_info *info);
 static void print_igmp_verbose(struct ip_info *info);
 static void print_ssdp_verbose(list_t *ssdp);
+static void print_http_verbose(struct http_info *http);
 
 static void print_buffer(char *buf, int size, struct packet *p);
 static void create_subwindow(int num_lines);
@@ -469,6 +472,7 @@ void print_ip_verbose(struct ip_info *info)
         print_igmp_verbose(info);
         break;
     case IPPROTO_TCP:
+        print_tcp_verbose(info);
         break;
     case IPPROTO_UDP:
         print_udp_verbose(info);
@@ -542,6 +546,23 @@ void print_udp_verbose(struct ip_info *info)
         break;
     case SSDP:
         print_ssdp_verbose(info->udp.data.ssdp);
+        break;
+    default:
+        break;
+    }
+}
+
+void print_tcp_verbose(struct ip_info *ip)
+{
+    switch (ip->tcp.data.utype) {
+    case HTTP:
+        print_http_verbose(ip->tcp.data.http);
+        break;
+    case DNS:
+        print_dns_verbose(ip->tcp.data.dns);
+        break;
+    case NBNS:
+        print_nbns_verbose(ip->tcp.data.nbns);
         break;
     default:
         break;
@@ -755,6 +776,11 @@ void print_ssdp_verbose(list_t *ssdp)
     wrefresh(wsub_main);
 }
 
+void print_http_verbose(struct http_info *http)
+{
+
+}
+
 void print_header()
 {
     int y = 0;
@@ -883,9 +909,58 @@ void print_ip(char *buf, int n, struct ip_info *info)
     }
 }
 
+void print_icmp(char *buf, int n, struct ip_info *info)
+{
+    PRINT_PROTOCOL(buf, n, "ICMP");
+    switch (info->icmp.type) {
+    case ICMP_ECHOREPLY:
+        PRINT_INFO(buf, n, "Echo reply:   id = 0x%x  seq = %d", info->icmp.echo.id, info->icmp.echo.seq_num);
+        break;
+    case ICMP_ECHO:
+        PRINT_INFO(buf, n, "Echo request: id = 0x%x  seq = %d", info->icmp.echo.id, info->icmp.echo.seq_num);
+        break;
+    case ICMP_DEST_UNREACH:
+        PRINT_INFO(buf, n, "%s", get_icmp_dest_unreach_code(info->icmp.code));
+        break;
+    default:
+        PRINT_INFO(buf, n, "Type: %d", info->icmp.type);
+        break;
+    }
+}
+
+void print_igmp(char *buf, int n, struct ip_info *info)
+{
+    PRINT_PROTOCOL(buf, n, "IGMP");
+    switch (info->igmp.type) {
+    case IGMP_HOST_MEMBERSHIP_QUERY:
+        PRINT_INFO(buf, n, "Membership query  Max response time: %d seconds",
+                        info->igmp.max_resp_time / 10);
+        break;
+    case IGMP_HOST_MEMBERSHIP_REPORT:
+        PRINT_INFO(buf, n, "Membership report");
+        break;
+    case IGMPV2_HOST_MEMBERSHIP_REPORT:
+        PRINT_INFO(buf, n, "IGMP2 Membership report");
+        break;
+    case IGMP_HOST_LEAVE_MESSAGE:
+        PRINT_INFO(buf, n, "Leave group");
+        break;
+    case IGMPV3_HOST_MEMBERSHIP_REPORT:
+        PRINT_INFO(buf, n, "IGMP3 Membership report");
+        break;
+    default:
+        PRINT_INFO(buf, n, "Type 0x%x", info->igmp.type);
+        break;
+    }
+    PRINT_INFO(buf, n, "  Group address: %s", info->igmp.group_addr);
+}
+
 void print_tcp(char *buf, int n, struct ip_info *info)
 {
     switch (info->tcp.data.utype) {
+    case HTTP:
+        print_http(buf, n, info->tcp.data.http);
+        break;
     case DNS:
         print_dns(buf, n, info->tcp.data.dns);
         break;
@@ -997,7 +1072,7 @@ void print_nbns(char *buf, int n, struct nbns_info *nbns)
         char opcode[16];
 
         strncpy(opcode, get_nbns_opcode(nbns->opcode), sizeof(opcode));
-        PRINT_INFO(buf, n, "Name %s request: ", strtolower(opcode, strlen(opcode)));
+        PRINT_INFO(buf, n, "Name %s request: ", strtolower(opcode));
         PRINT_INFO(buf, n, "%s ", nbns->question.qname);
         PRINT_INFO(buf, n, "%s ", get_nbns_type(nbns->question.qtype));
         if (nbns->section_count[ARCOUNT]) {
@@ -1029,7 +1104,7 @@ void print_nbns(char *buf, int n, struct nbns_info *nbns)
         char opcode[16];
 
         strncpy(opcode, get_nbns_opcode(nbns->opcode), sizeof(opcode));
-        PRINT_INFO(buf, n, "Name %s response: ", strtolower(opcode, strlen(opcode)));
+        PRINT_INFO(buf, n, "Name %s response: ", strtolower(opcode));
         PRINT_INFO(buf, n, "%s ", nbns->record[0].rrname);
         PRINT_INFO(buf, n, "%s ", get_nbns_type(nbns->record[0].rrtype));
         print_nbns_record(nbns, 0, buf, n, nbns->record[0].rrtype);
@@ -1047,48 +1122,8 @@ void print_ssdp(char *buf, int n, list_t *ssdp)
     }
 }
 
-void print_icmp(char *buf, int n, struct ip_info *info)
+void print_http(char *buf, int n, struct http_info *http)
 {
-    PRINT_PROTOCOL(buf, n, "ICMP");
-    switch (info->icmp.type) {
-    case ICMP_ECHOREPLY:
-        PRINT_INFO(buf, n, "Echo reply:   id = 0x%x  seq = %d", info->icmp.echo.id, info->icmp.echo.seq_num);
-        break;
-    case ICMP_ECHO:
-        PRINT_INFO(buf, n, "Echo request: id = 0x%x  seq = %d", info->icmp.echo.id, info->icmp.echo.seq_num);
-        break;
-    case ICMP_DEST_UNREACH:
-        PRINT_INFO(buf, n, "%s", get_icmp_dest_unreach_code(info->icmp.code));
-        break;
-    default:
-        PRINT_INFO(buf, n, "Type: %d", info->icmp.type);
-        break;
-    }
-}
-
-void print_igmp(char *buf, int n, struct ip_info *info)
-{
-    PRINT_PROTOCOL(buf, n, "IGMP");
-    switch (info->igmp.type) {
-    case IGMP_HOST_MEMBERSHIP_QUERY:
-        PRINT_INFO(buf, n, "Membership query  Max response time: %d seconds",
-                        info->igmp.max_resp_time / 10);
-        break;
-    case IGMP_HOST_MEMBERSHIP_REPORT:
-        PRINT_INFO(buf, n, "Membership report");
-        break;
-    case IGMPV2_HOST_MEMBERSHIP_REPORT:
-        PRINT_INFO(buf, n, "IGMP2 Membership report");
-        break;
-    case IGMP_HOST_LEAVE_MESSAGE:
-        PRINT_INFO(buf, n, "Leave group");
-        break;
-    case IGMPV3_HOST_MEMBERSHIP_REPORT:
-        PRINT_INFO(buf, n, "IGMP3 Membership report");
-        break;
-    default:
-        PRINT_INFO(buf, n, "Type 0x%x", info->igmp.type);
-        break;
-    }
-    PRINT_INFO(buf, n, "  Group address: %s", info->igmp.group_addr);
+    PRINT_PROTOCOL(buf, n, "HTTP");
+    PRINT_INFO(buf, n, "%s", http->start_line);
 }

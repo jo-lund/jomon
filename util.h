@@ -17,15 +17,15 @@ void serialize_arp(unsigned char *buf, struct arp_info *info);
 void gethost(char *addr, char *host, int hostlen);
 
 /*
- * Concatenate fmt string to buf. Will never print passed the size of buf.
+ * Concatenates fmt string to buf. Will never print passed the size of buf.
  * Expects buf to already contain a string or that buf is zeroed.
  *
  * Returns the number of bytes written.
  */
 int snprintcat(char *buf, int size, char *fmt, ...);
 
-/* Convert str to lower case */
-char *strtolower(char *str, size_t n);
+/* Converts str to lower case */
+char *strtolower(char *str);
 
 /* Get the size of the longest domain name in the RRs */
 int get_max_namelen(struct dns_resource_record *record, int n);
@@ -49,5 +49,4 @@ char *get_nbns_node_type(uint8_t type);
 char *get_icmp_dest_unreach_code(uint8_t code);
 char *get_icmp_type(uint8_t type);
 char *get_igmp_type(uint8_t type);
-
 #endif
