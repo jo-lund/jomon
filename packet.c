@@ -17,6 +17,7 @@
 #define DNS_PTR_LEN 2
 #define MAX_HTTP_LINE 4096
 
+static bool handle_ethernet(unsigned char *buffer, struct eth_info *eth);
 static bool handle_arp(unsigned char *buffer, struct arp_info *info);
 static bool handle_ip(unsigned char *buffer, struct ip_info *info);
 static bool handle_icmp(unsigned char *buffer, struct ip_info *info);
@@ -53,7 +54,7 @@ size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet 
     // TODO: This needs to be handled differently
     if (statistics) {
         check_address(buffer);
-    } else if (!handle_ethernet(buffer, *p)) {
+    } else if (!handle_ethernet(buffer, &(*p)->eth)) {
         free_packet(*p);
         return 0;
     }
@@ -64,17 +65,23 @@ void free_packet(void *data)
 {
     struct packet *p = (struct packet *) data;
 
-    if (p->ptype == IPv4) {
-        switch (p->ip.protocol) {
+    switch (p->eth.ethertype) {
+    case ETH_P_IP:
+        switch (p->eth.ip->protocol) {
         case IPPROTO_UDP:
-            free_protocol_data(&p->ip.udp.data);
+            free_protocol_data(&p->eth.ip->udp.data);
             break;
         case IPPROTO_TCP:
-            free_protocol_data(&p->ip.tcp.data);
+            free_protocol_data(&p->eth.ip->tcp.data);
             break;
         default:
             break;
         }
+        free(p->eth.ip);
+        break;
+    case ETH_P_ARP:
+        free(p->eth.arp);
+        break;
     }
     free(p);
 }
@@ -158,24 +165,28 @@ void check_address(unsigned char *buffer)
  * +-----------+-----------+---+
  *
  */
-bool handle_ethernet(unsigned char *buffer, struct packet *p)
+bool handle_ethernet(unsigned char *buffer, struct eth_info *eth)
 {
     struct ethhdr *eth_header;
 
     eth_header = (struct ethhdr *) buffer;
-    switch (ntohs(eth_header->h_proto)) {
+    eth->ethertype = ntohs(eth_header->h_proto);
+    memcpy(eth->mac_src, eth_header->h_source, ETH_ALEN);
+    memcpy(eth->mac_dst, eth_header->h_dest, ETH_ALEN);
+
+    switch (eth->ethertype) {
     case ETH_P_IP:
-        p->ptype = IPv4;
-        return handle_ip(buffer + ETH_HLEN, &p->ip);
+        eth->ip = malloc(sizeof(struct ip_info));
+        return handle_ip(buffer + ETH_HLEN, eth->ip);
     case ETH_P_ARP:
-        p->ptype = ARP;
-        return handle_arp(buffer + ETH_HLEN, &p->arp);
+        eth->arp = malloc(sizeof(struct arp_info));
+        return handle_arp(buffer + ETH_HLEN, eth->arp);
     case ETH_P_IPV6:
     case ETH_P_PAE:
         return false;
     default:
-        if (ntohs(eth_header->h_proto) >= ETH_P_802_3_MIN) {
-            printf("Ethernet protocol: 0x%x\n", ntohs(eth_header->h_proto));
+        if (eth->ethertype >= ETH_P_802_3_MIN) {
+            printf("Ethernet protocol: 0x%x\n", eth->ethertype);
         }
         return false;
     }

@@ -420,8 +420,8 @@ int print_lines(int from, int to, int y, int cols)
 }
 
 /*
- * Print more information about a packet. This will print more details about the
- * specific protocol header and payload.
+ * Print more information about a packet when selected. This will print more
+ * details about the specific protocol headers and payload.
  */
 void print_information(int lineno, bool select)
 {
@@ -429,12 +429,12 @@ void print_information(int lineno, bool select)
         struct packet *p;
 
         p = vector_get_data(lineno);
-        switch (p->ptype) {
-        case ARP:
-            print_arp_verbose(&p->arp);
+        switch (p->eth.ethertype) {
+        case ETH_P_ARP:
+            print_arp_verbose(p->eth.arp);
             break;
-        case IPv4:
-            print_ip_verbose(&p->ip);
+        case ETH_P_IP:
+            print_ip_verbose(p->eth.ip);
             break;
         default:
             break;
@@ -817,12 +817,12 @@ void print_packet(struct packet *p)
 /* write packet to buffer */
 void print_buffer(char *buf, int size, struct packet *p)
 {
-    switch (p->ptype) {
-    case ARP:
-        print_arp(buf, size, &p->arp);
+    switch (p->eth.ethertype) {
+    case ETH_P_ARP:
+        print_arp(buf, size, p->eth.arp);
         break;
-    case IPv4:
-        print_ip(buf, size, &p->ip);
+    case ETH_P_IP:
+        print_ip(buf, size, p->eth.ip);
         break;
     default:
         break;

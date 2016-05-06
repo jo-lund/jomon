@@ -112,10 +112,7 @@ enum port {
 
 enum packet_type {
     UNKNOWN = -1,
-    ARP,
-    IPv4,
-    IPv6,
-    PAE
+    ETHERNET
 };
 
 enum dns_section_count {
@@ -353,13 +350,23 @@ struct arp_info {
     uint16_t op;                 /* ARP opcode */
 };
 
-/* generic packet structure that can be used for every type of packet */
+struct eth_info {
+    unsigned char mac_src[ETH_ALEN];
+    unsigned char mac_dst[ETH_ALEN];
+    uint16_t ethertype;
+    union {
+        struct arp_info *arp;
+        struct ip_info *ip;
+    };
+};
+
+/*
+ * Generic packet structure that can be used for every type of packet. For now
+ * only support for Ethernet.
+ */
 struct packet {
     enum packet_type ptype;
-    union {
-        struct arp_info arp;
-        struct ip_info ip;
-    };
+    struct eth_info eth;
 };
 
 /*
@@ -370,7 +377,5 @@ size_t read_packet(int sockfd, unsigned char *buffer, size_t n, struct packet **
 
 /* Frees the memory allocated for packet */
 void free_packet(void *packet);
-
-bool handle_ethernet(unsigned char *buffer, struct packet *p);
 
 #endif
