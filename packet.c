@@ -15,6 +15,7 @@
 #include "error.h"
 
 #define DNS_PTR_LEN 2
+#define MAX_HTTP_LINE 4096
 
 static bool handle_arp(unsigned char *buffer, struct arp_info *info);
 static bool handle_ip(unsigned char *buffer, struct ip_info *info);
@@ -22,7 +23,8 @@ static bool handle_icmp(unsigned char *buffer, struct ip_info *info);
 static bool handle_igmp(unsigned char *buffer, struct ip_info *info);
 static bool handle_tcp(unsigned char *buffer, struct ip_info *info);
 static bool handle_udp(unsigned char *buffer, struct ip_info *info);
-static bool check_port(unsigned char *buffer, struct application_info *info, uint16_t port, uint16_t packet_len);
+static bool check_port(unsigned char *buffer, struct application_info *info, uint16_t port,
+                       uint16_t packet_len, bool *error);
 static void check_address(unsigned char *buffer);
 static void free_protocol_data(struct application_info *info);
 
@@ -36,6 +38,8 @@ static void parse_dns_record(int i, unsigned char *buffer, unsigned char **ptr, 
 static void decode_nbns_name(char *dest, char *src);
 static void parse_nbns_record(int i, unsigned char *buffer, unsigned char **ptr, struct nbns_info *info);
 static void parse_ssdp(char *str, int n, list_t **msg_header);
+static bool parse_http(char *buf, uint16_t len, struct http_info *http);
+static bool parse_http_header(char **str, unsigned int *len, list_t **header);
 
 size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet **p)
 {
@@ -79,19 +83,39 @@ void free_protocol_data(struct application_info *info)
 {
     switch (info->utype) {
     case DNS:
-        if (info->dns->record) {
-            free(info->dns->record);
+        if (info->dns) {
+            if (info->dns->record) {
+                free(info->dns->record);
+            }
+            free(info->dns);
         }
-        free(info->dns);
         break;
     case NBNS:
-        if (info->nbns->record) {
-            free(info->nbns->record);
+        if (info->nbns) {
+            if (info->nbns->record) {
+                free(info->nbns->record);
+            }
+            free(info->nbns);
         }
-        free(info->nbns);
         break;
     case SSDP:
-        list_free(info->ssdp);
+        if (info->ssdp) {
+            list_free(info->ssdp);
+        }
+        break;
+    case HTTP:
+        if (info->http) {
+            if (info->http->start_line) {
+                free(info->http->start_line);
+            }
+            if (info->http->header) {
+                list_free(info->http->header);
+            }
+            if (info->http->data) {
+                free(info->http->data);
+            }
+            free(info->http);
+        }
         break;
     default:
         break;
@@ -371,6 +395,7 @@ bool handle_igmp(unsigned char *buffer, struct ip_info *info)
 bool handle_udp(unsigned char *buffer, struct ip_info *info)
 {
     struct udphdr *udp;
+    bool error;
 
     udp = (struct udphdr *) buffer;
     info->udp.src_port = ntohs(udp->source);
@@ -381,11 +406,11 @@ bool handle_udp(unsigned char *buffer, struct ip_info *info)
     for (int i = 0; i < 2; i++) {
         info->udp.data.utype = *((uint16_t *) &info->udp + i);
         if (check_port(buffer + UDP_HDRLEN, &info->udp.data, info->udp.data.utype,
-                       info->udp.len - UDP_HDRLEN)) {
+                       info->udp.len - UDP_HDRLEN, &error)) {
             return true;
         }
     }
-    info->udp.data.utype = 0; /* port not handled */
+    info->udp.data.utype = 0;
     return true;
 }
 
@@ -452,6 +477,7 @@ bool handle_udp(unsigned char *buffer, struct ip_info *info)
 bool handle_tcp(unsigned char *buffer, struct ip_info *info)
 {
     struct tcphdr *tcp;
+    bool error;
 
     tcp = (struct tcphdr *) buffer;
     info->tcp.src_port = ntohs(tcp->source);
@@ -469,30 +495,44 @@ bool handle_tcp(unsigned char *buffer, struct ip_info *info)
     info->tcp.checksum = ntohs(tcp->check);
     info->tcp.urg_ptr = ntohs(tcp->urg_ptr);
 
-    if (!tcp->syn || !tcp->fin || !tcp->rst) {
+    /* only check port if there is a payload */
+    if (info->length - info->ihl * 4 - info->tcp.offset * 4 > 0) {
         for (int i = 0; i < 2; i++) {
             info->tcp.data.utype = *((uint16_t *) &info->tcp + i);
             if (check_port(buffer + info->tcp.offset * 4, &info->tcp.data, info->tcp.data.utype,
-                           info->length - info->ihl * 4)) {
+                           info->length - info->ihl * 4, &error)) {
                 return true;
             }
         }
     }
-    info->tcp.data.utype = 0; /* port not handled */
+    info->tcp.data.utype = 0;
     return true;
 }
 
-bool check_port(unsigned char *buffer, struct application_info *info, uint16_t port, uint16_t packet_len)
+/*
+ * Checks which well-known or registered port the packet originated from or is
+ * addressed to. On error the error argument will be set to true, e.g. if
+ * checksum correction is enabled and this calculation fails, on parsing error
+ * etc.
+ *
+ * Returns false if it's an ephemeral port or if the port is not yet supported.
+ */
+bool check_port(unsigned char *buffer, struct application_info *info, uint16_t port,
+                uint16_t packet_len, bool *error)
 {
     switch (port) {
     case DNS:
-        return handle_dns(buffer, info);
+        *error = handle_dns(buffer, info);
+        return true;
     case NBNS:
-        return handle_nbns(buffer, info);
+        *error = handle_nbns(buffer, info);
+        return true;
     case SSDP:
-        return handle_ssdp(buffer, info, packet_len);
+        *error = handle_ssdp(buffer, info, packet_len);
+        return true;
     case HTTP:
-        return handle_http(buffer, info, packet_len);
+        *error = handle_http(buffer, info, packet_len);
+        return true;
     default:
         return false;
     }
@@ -929,7 +969,7 @@ void parse_nbns_record(int i, unsigned char *buffer, unsigned char **ptr, struct
 /*
  * The Simple Service Discovery Protocol (SSDP) is a network protocol based on
  * the Internet Protocol Suite for advertisement and discovery of network
- * services and presence information. It is a text-based protocol based on HTTPU.
+ * services and presence information. It is a text-based protocol based on HTTP.
  * Services are announced by the hosting system with multicast addressing to a
  * specifically designated IP multicast address at UDP port number 1900.
  *
@@ -951,9 +991,11 @@ bool handle_ssdp(unsigned char *buffer, struct application_info *info, uint16_t 
 }
 
 /*
- * Parses an SSDP string.
+ * Parses an SSDP string. SSDP strings are based on HTTP1.1 but contains no
+ * message body.
  *
- * Adds the SSDP message header fields to msg_header list
+ * Copies the lines delimited by CRLF, i.e. the start line and the SSDP message
+ * header fields, to msg_header list.
  */
 void parse_ssdp(char *str, int n, list_t **msg_header)
 {
@@ -963,13 +1005,9 @@ void parse_ssdp(char *str, int n, list_t **msg_header)
     strncpy(cstr, str, n);
     token = strtok(cstr, "\r\n");
     while (token) {
-        int len;
         char *field;
 
-        len = strlen(token);
-        field = malloc(len + 1);
-        strncpy(field, token, len);
-        field[len] = '\0';
+        field = strdup(token);
         *msg_header = list_push_back(*msg_header, field);
         token = strtok(NULL, "\r\n");
     }
@@ -977,5 +1015,137 @@ void parse_ssdp(char *str, int n, list_t **msg_header)
 
 bool handle_http(unsigned char *buffer, struct application_info *info, uint16_t len)
 {
-    return true;
+    info->http = malloc(sizeof(struct http_info));
+    return parse_http((char *) buffer, len, info->http);
+}
+
+/*
+ * Parses an HTTP string
+ *
+ * Returns false if there is an error.
+ */
+bool parse_http(char *buffer, uint16_t len, struct http_info *http)
+{
+    char *ptr;
+    char line[MAX_HTTP_LINE];
+    bool is_http = false;
+    int i;
+    int n;
+
+    i = 0;
+    n = len;
+    ptr = buffer;
+
+    /* parse start line */
+    while (isascii(*ptr)) {
+        if (i > len || i > MAX_HTTP_LINE) return false;
+        if (*ptr == '\r') {
+            if (*++ptr == '\n') {
+                ptr++;
+                is_http = true;
+                break;
+            } else {
+                return false;
+            }
+        }
+        line[i++] = *ptr++;
+    }
+    if (!is_http) return false;
+    line[i] = '\0';
+    http->start_line = strdup(line);
+
+    /* parse header fields */
+    unsigned int header_len;
+
+    http->header = list_init(NULL);
+    n -= i;
+    header_len = n;
+    is_http = parse_http_header(&ptr, &header_len, &http->header);
+
+    /* copy message body */
+    if (is_http) {
+        n -= header_len;
+        if (n) {
+            http->data = malloc(n);
+            memcpy(http->data, ptr, n);
+        }
+    }
+    return is_http;
+}
+
+/*
+ * Parses the HTTP header and stores the lines containg the field and the value
+ * in a list. "len" is a value-result argument and its value is the length of
+ * the str argument. On return, the length of the header is stored in len (or
+ * where it failed in case of error).
+ *
+ * Returns the result of the operation.
+ */
+bool parse_http_header(char **str, unsigned int *len, list_t **header)
+{
+    int i, j;
+    bool eoh = false;
+    bool is_http = true;
+    char *ptr = *str;
+    char line[MAX_HTTP_LINE];
+    int n = *len;
+
+    static enum http_state {
+        FIELD,
+        VAL,
+        EOL
+    } state;
+
+    for (i = 0; i < n && !eoh && is_http; i += j) {
+        int c = 0;
+
+        state = FIELD;
+        is_http = false;
+        for (j = 0; !is_http && !eoh && isascii(*ptr) && j + i < n; j++, ptr++) {
+            if (c > MAX_HTTP_LINE) {
+                *len = i + j;
+                return false;
+            }
+            switch (state) {
+            case FIELD:
+                if (*ptr == ':') {
+                    state = VAL;
+                    line[c++] = *ptr;
+                } else if (*ptr == '\r') {
+                    *len = i + j;
+                    return false;
+                } else {
+                    line[c++] = *ptr;
+                }
+                break;
+            case VAL:
+                if (*ptr == ':') {
+                    *len = i + j;
+                    return false;
+                }
+                if (*ptr == '\r') {
+                    state = EOL;
+                } else {
+                    line[c++] = *ptr;
+                }
+                break;
+            case EOL:
+                if (*ptr != '\n') {
+                    *len = i + j;
+                    return false;
+                }
+                line[c] = '\0';
+                list_push_back(*header, strdup(line));
+                if (j == 1) {  /* end of header fields */
+                    *len = i + j;
+                    return true;
+                } else {
+                    is_http = true;
+                }
+                break;
+            }
+        }
+    }
+    *len = i;
+    return false;
 }

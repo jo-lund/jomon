@@ -259,9 +259,11 @@ struct nbns_info {
     } *record;
 };
 
-struct ssdp_info {
-    char *str;
-    int n; /* length of str */
+struct http_info {
+    char *start_line;
+    list_t *header;
+    char *data;
+    unsigned int len;
 };
 
 struct application_info {
@@ -269,6 +271,7 @@ struct application_info {
     union {
         struct dns_info *dns;
         struct nbns_info *nbns;
+        struct http_info *http;
         list_t *ssdp;
     };
 };
