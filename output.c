@@ -17,6 +17,13 @@
 #define ADDR_WIDTH 36
 #define PROT_WIDTH 10
 #define KEY_ESC 27
+#define MAX_SELECTABLE 4
+#define ETH_WINSIZE 4
+#define ARP_WINSIZE 9
+#define IP_WINSIZE 13
+#define TCP_WINSIZE 10
+#define UDP_WINSIZE 5
+#define IGMP_WINSIZE 6
 
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
@@ -33,11 +40,22 @@
         PRINT_INFO(buffer, n, fmt, ## __VA_ARGS__);       \
     } while (0)
 
+struct subwin {
+    int top;
+    int bottom;
+    int lineno;
+    WINDOW *wsub;
+    bool selected[MAX_SELECTABLE];
+};
+
+struct line {
+    bool selected;
+    struct subwin win;
+} *line_info;
+
 static WINDOW *wheader;
 static WINDOW *wmain;
 static WINDOW *wstatus;
-static WINDOW *wsub_main; /* subwindow of wmain */
-
 static int outy = 0;
 static bool interactive = false;
 static bool numeric = true;
@@ -47,9 +65,15 @@ static int top = 0; /* index to top of screen */
 /* the number of lines to be scrolled in order to print verbose packet information */
 static int scrollvy = 0;
 
-static void print_header();
+static void set_interactive(bool interactive_mode, int lines, int cols);
+static void handle_keydown(int lines, int cols);
+static void handle_keyup(int lines, int cols);
+static void scroll_page(int lines, int cols);
 static void scroll_window();
+static void print_buffer(char *buf, int size, struct packet *p);
+static int print_lines(int from, int to, int y, int cols);
 static void print(char *buf);
+static void print_header();
 static void print_arp(char *buf, int n, struct arp_info *info);
 static void print_ip(char *buf, int n, struct ip_info *info);
 static void print_udp(char *buf, int n, struct ip_info *info);
@@ -60,30 +84,30 @@ static void print_dns(char *buf, int n, struct dns_info *dns);
 static void print_nbns(char *buf, int n, struct nbns_info *nbns);
 static void print_ssdp(char *buf, int n, list_t *ssdp);
 static void print_http(char *buf, int n, struct http_info *http);
-
-static void print_information(int lineno, bool select);
-static void print_arp_verbose(struct arp_info *info);
-static void print_ip_verbose(struct ip_info *info);
-static void print_udp_verbose(struct ip_info *info);
-static void print_tcp_verbose(struct ip_info *ip);
-static void print_dns_verbose(struct dns_info *info);
-static void print_dns_soa(struct dns_info *info, int i, int y, int x);
 static void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t type, bool *soa);
-static void print_nbns_verbose(struct nbns_info *info);
 static void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t type);
-static void print_icmp_verbose(struct ip_info *info);
-static void print_igmp_verbose(struct ip_info *info);
-static void print_ssdp_verbose(list_t *ssdp);
-static void print_http_verbose(struct http_info *http);
 
-static void print_buffer(char *buf, int size, struct packet *p);
-static void create_subwindow(int num_lines);
+/* Print verbose packet information in a subwindow */
+static void create_subwindow(int num_lines, int lineno);
 static void delete_subwindow();
-static void set_interactive(bool interactive_mode, int lines, int cols);
-static void handle_keydown(int lines, int cols);
-static void handle_keyup(int lines, int cols);
-static void scroll_page(int lines, int cols);
-static int print_lines(int from, int to, int y, int cols);
+static bool update_subwin_selection(int lineno);
+static int calculate_subwin_size(struct packet *p, int screen_line);
+static int calculate_applayer_size(struct application_info *info, int screen_line);
+static void print_information();
+static void print_protocol_information(struct packet *p, int lineno);
+static void print_ethernet_verbose(struct packet *p, int lineno, int y);
+static void print_arp_verbose(struct packet *p, int lineno, int y);
+static void print_ip_verbose(struct ip_info *ip, int lineno, int y);
+static void print_udp_verbose(struct ip_info *ip, int lineno, int y);
+static void print_tcp_verbose(struct ip_info *ip, int lineno, int y);
+static void print_app_protocol(struct application_info *info, int lineno, int y);
+static void print_dns_verbose(struct dns_info *dns, int lineno, int y);
+static void print_dns_soa(struct dns_info *info, int i, int lineno, int y, int x);
+static void print_nbns_verbose(struct nbns_info *nbns, int lineno, int y);
+static void print_icmp_verbose(struct ip_info *ip, int lineno, int y);
+static void print_igmp_verbose(struct ip_info *info, int lineno, int y);
+static void print_ssdp_verbose(list_t *ssdp, int lineno, int y);
+static void print_http_verbose(struct http_info *http);
 
 void init_ncurses()
 {
@@ -100,6 +124,7 @@ void init_ncurses()
 void end_ncurses()
 {
     endwin(); /* end curses mode */
+    free(line_info);
 }
 
 void create_layout()
@@ -114,6 +139,7 @@ void create_layout()
     keypad(wmain, TRUE);
     print_header();
     scrollok(wmain, TRUE); /* enable scrolling */
+    line_info = calloc(my, sizeof(struct line));
 }
 
 /* scroll the window if necessary */
@@ -133,7 +159,6 @@ void get_input()
 {
     int c = 0;
     int mx, my;
-    static bool selected = false;
 
     getmaxyx(wmain, my, mx);
     c = wgetch(wmain);
@@ -156,8 +181,7 @@ void get_input()
     case KEY_ENTER:
     case '\n':
         if (interactive) {
-            selected = !selected;
-            print_information(selection_line, selected);
+            print_information();
         }
         break;
     case KEY_ESC:
@@ -340,63 +364,6 @@ void set_interactive(bool interactive_mode, int lines, int cols)
     }
 }
 
-void create_subwindow(int num_lines)
-{
-    int mx, my;
-    int screen_line;
-    int c;
-
-    getmaxyx(wmain, my, mx);
-    screen_line = selection_line - top;
-    c = selection_line + 1;
-
-    /* if there is not enough space for the information to be printed, the
-        screen needs to be scrolled to make room for all the lines */
-    if (my - (screen_line + 1) < num_lines) {
-        scrollvy = num_lines - (my - (screen_line + 1));
-        wscrl(wmain, scrollvy);
-        screen_line -= scrollvy;
-        selection_line -= scrollvy;
-        wrefresh(wmain);
-    }
-
-    /* make space for protocol specific information */
-    wsub_main = derwin(wmain, num_lines, mx, screen_line + 1, 0);
-    wmove(wmain, screen_line + 1, 0);
-    wclrtobot(wmain); /* clear everything below selection bar */
-    outy = screen_line + num_lines + 1;
-
-    if (!scrollvy) {
-        outy += print_lines(c, top + my, outy, mx);
-    }
-    wrefresh(wmain);
-}
-
-void delete_subwindow()
-{
-    int my, mx;
-    int screen_line;
-
-    getmaxyx(wmain, my, mx);
-    screen_line = selection_line - top;
-    delwin(wsub_main);
-    werase(wmain);
-
-    /*
-     * Print the entire screen. This can be optimized to just print the lines
-     * that are below the selected line
-     */
-    outy = print_lines(top, top + my, 0, mx);
-
-    if (scrollvy) {
-        screen_line += scrollvy;
-        selection_line += scrollvy;
-        scrollvy = 0;
-    }
-    mvwchgat(wmain, screen_line, 0, -1, A_NORMAL, 1, NULL);
-    wrefresh(wmain);
-}
-
 /*
  * Prints lines in the interval [from, to). 'y' specifies where on the screen it
  * will start to print. Returns how many lines are actually printed.
@@ -417,368 +384,6 @@ int print_lines(int from, int to, int y, int cols)
         c++;
     }
     return c;
-}
-
-/*
- * Print more information about a packet when selected. This will print more
- * details about the specific protocol headers and payload.
- */
-void print_information(int lineno, bool select)
-{
-    if (select) {
-        struct packet *p;
-
-        p = vector_get_data(lineno);
-        switch (p->eth.ethertype) {
-        case ETH_P_ARP:
-            print_arp_verbose(p->eth.arp);
-            break;
-        case ETH_P_IP:
-            print_ip_verbose(p->eth.ip);
-            break;
-        default:
-            break;
-        }
-    } else {
-        delete_subwindow();
-    }
-}
-
-void print_arp_verbose(struct arp_info *info)
-{
-    int y = 0;
-
-    create_subwindow(10);
-    mvwprintw(wsub_main, y, 0, "");
-    mvwprintw(wsub_main, ++y, 4, "Hardware type: %d (%s)", info->ht, get_arp_hardware_type(info->ht));
-    mvwprintw(wsub_main, ++y, 4, "Protocol type: 0x%x (%s)", info->pt, get_arp_protocol_type(info->pt));
-    mvwprintw(wsub_main, ++y, 4, "Hardware size: %d", info->hs);
-    mvwprintw(wsub_main, ++y, 4, "Protocol size: %d", info->ps);
-    mvwprintw(wsub_main, ++y, 4, "Opcode: %d (%s)", info->op, get_arp_opcode(info->op));
-    mvwprintw(wsub_main, ++y, 0, "");
-    mvwprintw(wsub_main, ++y, 4, "Sender IP: %-15s  HW: %s", info->sip, info->sha);
-    mvwprintw(wsub_main, ++y, 4, "Target IP: %-15s  HW: %s", info->tip, info->tha);
-    touchwin(wmain);
-    wrefresh(wsub_main);
-}
-
-void print_ip_verbose(struct ip_info *info)
-{
-    switch (info->protocol) {
-    case IPPROTO_ICMP:
-        print_icmp_verbose(info);
-        break;
-    case IPPROTO_IGMP:
-        print_igmp_verbose(info);
-        break;
-    case IPPROTO_TCP:
-        print_tcp_verbose(info);
-        break;
-    case IPPROTO_UDP:
-        print_udp_verbose(info);
-    default:
-        break;
-    }
-}
-
-void print_icmp_verbose(struct ip_info *info)
-{
-    int y = 0;
-
-    if (info->icmp.type == ICMP_ECHOREPLY || info->icmp.type == ICMP_ECHO) {
-        create_subwindow(7);
-    } else {
-        create_subwindow(5);
-    }
-    mvwprintw(wsub_main, y, 0, "");
-    mvwprintw(wsub_main, ++y, 4, "Type: %d (%s)", info->icmp.type, get_icmp_type(info->icmp.type));
-    switch (info->icmp.type) {
-    case ICMP_ECHOREPLY:
-    case ICMP_ECHO:
-        mvwprintw(wsub_main, ++y, 4, "Code: %d", info->icmp.code);
-        break;
-    case ICMP_DEST_UNREACH:
-        mvwprintw(wsub_main, ++y, 4, "Code: %d (%s)", info->icmp.code, get_icmp_dest_unreach_code(info->icmp.code));
-        break;
-    default:
-        break;
-    }
-    mvwprintw(wsub_main, ++y, 4, "Checksum: %d", info->icmp.checksum);
-    if (info->icmp.type == ICMP_ECHOREPLY || info->icmp.type == ICMP_ECHO) {
-        mvwprintw(wsub_main, ++y, 4, "Identifier: 0x%x", info->icmp.echo.id);
-        mvwprintw(wsub_main, ++y, 4, "Sequence number: %d", info->icmp.echo.seq_num);
-    }
-    mvwprintw(wsub_main, ++y, 0, "");
-    touchwin(wmain);
-    wrefresh(wsub_main);
-}
-
-void print_igmp_verbose(struct ip_info *info)
-{
-    int y = 0;
-
-    create_subwindow(6);
-    mvwprintw(wsub_main, y, 0, "");
-    mvwprintw(wsub_main, ++y, 4, "Type: %d (%s) ", info->igmp.type, get_igmp_type(info->icmp.type));
-    if (info->igmp.type == IGMP_HOST_MEMBERSHIP_QUERY) {
-        if (!strcmp(info->igmp.group_addr, "0.0.0.0")) {
-            mvwprintw(wsub_main, y, 4, "General query", info->igmp.type, get_igmp_type(info->icmp.type));
-        } else {
-            mvwprintw(wsub_main, y, 4, "Group-specific query", info->igmp.type, get_igmp_type(info->icmp.type));
-        }
-    }
-    mvwprintw(wsub_main, ++y, 4, "Max response time: %d seconds", info->igmp.max_resp_time / 10);
-    mvwprintw(wsub_main, ++y, 4, "Checksum: %d", info->igmp.checksum);
-    mvwprintw(wsub_main, ++y, 4, "Group address: %s", info->igmp.group_addr);
-    mvwprintw(wsub_main, ++y, 0, "");
-    touchwin(wmain);
-    wrefresh(wsub_main);
-}
-
-void print_udp_verbose(struct ip_info *info)
-{
-    switch (info->udp.data.utype) {
-    case DNS:
-        print_dns_verbose(info->udp.data.dns);
-        break;
-    case NBNS:
-        print_nbns_verbose(info->udp.data.nbns);
-        break;
-    case SSDP:
-        print_ssdp_verbose(info->udp.data.ssdp);
-        break;
-    default:
-        break;
-    }
-}
-
-void print_tcp_verbose(struct ip_info *ip)
-{
-    switch (ip->tcp.data.utype) {
-    case HTTP:
-        print_http_verbose(ip->tcp.data.http);
-        break;
-    case DNS:
-        print_dns_verbose(ip->tcp.data.dns);
-        break;
-    case NBNS:
-        print_nbns_verbose(ip->tcp.data.nbns);
-        break;
-    default:
-        break;
-    }
-}
-
-void print_dns_verbose(struct dns_info *info)
-{
-    int y = 0;
-    int i = 1;
-    int records = 0;
-    int authority = info->section_count[NSCOUNT];
-
-    /* number of resource records */
-    while (i < 4) {
-        records += info->section_count[i++];
-    }
-    create_subwindow(authority ? 19 + records : 11 + records);
-    mvwprintw(wsub_main, y, 0, "");
-    mvwprintw(wsub_main, ++y, 4, "ID: 0x%x", info->id);
-    mvwprintw(wsub_main, ++y, 4, "QR: %d (%s)", info->qr, info->qr ? "DNS Response" : "DNS Query");
-    mvwprintw(wsub_main, ++y, 4, "Opcode: %d (%s)", info->opcode, get_dns_opcode(info->opcode));
-    mvwprintw(wsub_main, ++y, 4, "Flags: %d%d%d%d", info->aa, info->tc, info->rd, info->ra);
-    mvwprintw(wsub_main, ++y, 4, "Rcode: %d (%s)", info->rcode, get_dns_rcode(info->rcode));
-    mvwprintw(wsub_main, ++y, 4, "Question: %d, Answer: %d, Authority: %d, Additional records: %d",
-              info->section_count[QDCOUNT], info->section_count[ANCOUNT],
-              info->section_count[NSCOUNT], info->section_count[ARCOUNT]);
-    mvwprintw(wsub_main, ++y, 0, "");
-    i = info->section_count[QDCOUNT];
-    while (i--) {
-        mvwprintw(wsub_main, ++y, 4, "QNAME: %s, QTYPE: %s, QCLASS: %s",
-                  info->question.qname, get_dns_type_extended(info->question.qtype),
-                  get_dns_class_extended(info->question.qclass));
-    }
-    if (records) {
-        int mx;
-        int len;
-
-        mx = getmaxx(wmain);
-        mvwprintw(wsub_main, ++y, 4, "Resource records:");
-        len = get_max_namelen(info->record, records);
-        for (int i = 0; i < records; i++) {
-            char buffer[mx];
-            bool soa = false;
-
-            snprintf(buffer, mx, "%-*s", len + 4, info->record[i].name);
-            snprintcat(buffer, mx, "%-6s", get_dns_class(info->record[i].class));
-            snprintcat(buffer, mx, "%-8s", get_dns_type(info->record[i].type));
-            print_dns_record(info, i, buffer, mx, info->record[i].type, &soa);
-            mvwprintw(wsub_main, ++y, 8, "%s", buffer);
-            if (soa) {
-                mvwprintw(wsub_main, ++y, 0, "");
-                print_dns_soa(info, i, y + 1, 8);
-            }
-        }
-    }
-    touchwin(wmain);
-    wrefresh(wsub_main);
-}
-
-void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t type, bool *soa)
-{
-    switch (type) {
-    case DNS_TYPE_A:
-    {
-        char addr[INET_ADDRSTRLEN];
-        uint32_t haddr = htonl(info->record[i].rdata.address);
-
-        inet_ntop(AF_INET, (struct in_addr *) &haddr, addr, sizeof(addr));
-        snprintcat(buf, n, "%s", addr);
-        break;
-    }
-    case DNS_TYPE_NS:
-        snprintcat(buf, n, "%s", info->record[i].rdata.nsdname);
-        break;
-    case DNS_TYPE_SOA:
-        if (soa) *soa = true;
-        break;
-    case DNS_TYPE_CNAME:
-        snprintcat(buf, n, "%s", info->record[i].rdata.cname);
-        break;
-    case DNS_TYPE_PTR:
-        snprintcat(buf, n, "%s", info->record[i].rdata.ptrdname);
-        break;
-    case DNS_TYPE_AAAA:
-    {
-        char addr[INET6_ADDRSTRLEN];
-
-        inet_ntop(AF_INET6, (struct in_addr *) info->record[i].rdata.ipv6addr, addr, sizeof(addr));
-        snprintcat(buf, n, "%s", addr);
-        break;
-    }
-    default:
-        break;
-    }
-}
-
-void print_dns_soa(struct dns_info *info, int i, int y, int x)
-{
-    mvwprintw(wsub_main, y, x, "mname: %s", info->record[i].rdata.soa.mname);
-    mvwprintw(wsub_main, ++y, x, "rname: %s", info->record[i].rdata.soa.rname);
-    mvwprintw(wsub_main, ++y, x, "Serial: %d", info->record[i].rdata.soa.serial);
-    mvwprintw(wsub_main, ++y, x, "Refresh: %d", info->record[i].rdata.soa.refresh);
-    mvwprintw(wsub_main, ++y, x, "Retry: %d", info->record[i].rdata.soa.retry);
-    mvwprintw(wsub_main, ++y, x, "Expire: %d", info->record[i].rdata.soa.expire);
-    mvwprintw(wsub_main, ++y, x, "Minimum: %d", info->record[i].rdata.soa.minimum);
-}
-
-void print_nbns_verbose(struct nbns_info *info)
-{
-    int y = 0;
-    int i = 1;
-    int records = 0;
-
-    /* number of resource records */
-    while (i < 4) {
-        records += info->section_count[i++];
-    }
-    create_subwindow(records ? 11 + records: 10);
-    mvwprintw(wsub_main, y, 0, "");
-    mvwprintw(wsub_main, ++y, 4, "ID: 0x%x", info->id);
-    mvwprintw(wsub_main, ++y, 4, "Response flag: %d (%s)", info->r, info->r ? "Response" : "Request");
-    mvwprintw(wsub_main, ++y, 4, "Opcode: %d (%s)", info->opcode, get_nbns_opcode(info->opcode));
-    mvwprintw(wsub_main, ++y, 4, "Flags: %d%d%d%d%d", info->aa, info->tc, info->rd, info->ra, info->broadcast);
-    mvwprintw(wsub_main, ++y, 4, "Rcode: %d (%s)", info->rcode, get_nbns_rcode(info->rcode));
-    mvwprintw(wsub_main, ++y, 4, "Question Entries: %d, Answer RRs: %d, Authority RRs: %d, Additional RRs: %d",
-              info->section_count[QDCOUNT], info->section_count[ANCOUNT],
-              info->section_count[NSCOUNT], info->section_count[ARCOUNT]);
-    mvwprintw(wsub_main, ++y, 0, "");
-
-    /* question entry */
-    if (info->section_count[QDCOUNT]) {
-        mvwprintw(wsub_main, ++y, 4, "Question name: %s, Question type: %s, Question class: IN (Internet)",
-                  info->question.qname, get_nbns_type_extended(info->question.qtype));
-    }
-
-    if (records) {
-        int mx;
-
-        mx = getmaxx(wmain);
-        mvwprintw(wsub_main, ++y, 4, "Resource records:");
-        for (int i = 0; i < records; i++) {
-            char buffer[mx];
-
-            snprintf(buffer, mx, "%s\t", info->record[i].rrname);
-            snprintcat(buffer, mx, "IN\t");
-            snprintcat(buffer, mx, "%s\t", get_nbns_type(info->record[i].rrtype));
-            print_nbns_record(info, i, buffer, mx, info->record[i].rrtype);
-            mvwprintw(wsub_main, ++y, 8, "%s", buffer);
-        }
-    }
-    touchwin(wmain);
-    wrefresh(wsub_main);
-}
-
-void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t type)
-{
-    switch (info->record[i].rrtype) {
-    case NBNS_NB:
-    {
-        if (info->record[i].rdata.nb.g) {
-            snprintcat(buf, n, "Group NetBIOS name ");
-        } else {
-            snprintcat(buf, n, "Unique NetBIOS name ");
-        }
-        int addrs = info->record[i].rdata.nb.num_addr;
-        snprintcat(buf, n, "%s ", get_nbns_node_type(info->record[i].rdata.nb.ont));
-        while (addrs--) {
-            char addr[INET_ADDRSTRLEN];
-            uint32_t haddr = htonl(info->record[i].rdata.nb.address[0]);
-
-            inet_ntop(AF_INET, (struct in_addr *) &haddr, addr, sizeof(addr));
-            snprintcat(buf, n, "%s ", addr);
-        }
-        break;
-    }
-    case NBNS_NS:
-        snprintcat(buf, n, " NSD Name: %s", info->record[i].rdata.nsdname);
-        break;
-    case NBNS_A:
-    {
-        char addr[INET_ADDRSTRLEN];
-        uint32_t haddr = htonl(info->record[i].rdata.nsdipaddr);
-
-        inet_ntop(AF_INET, (struct in_addr *) &haddr, addr, sizeof(addr));
-        snprintcat(buf, n, " NSD IP address: %s", addr);
-        break;
-    }
-    case NBNS_NBSTAT:
-        snprintcat(buf, n, "NBSTAT");
-        break;
-    default:
-        break;
-    }
-}
-
-void print_ssdp_verbose(list_t *ssdp)
-{
-    const node_t *n;
-    int y = 0;
-
-    create_subwindow(list_size(ssdp) + 2);
-    mvwprintw(wsub_main, y, 0, "");
-    n = list_begin(ssdp);
-    while (n) {
-        mvwprintw(wsub_main, ++y, 4, "%s", (char *) list_data(n));
-        n = list_next(n);
-    }
-    mvwprintw(wsub_main, ++y, 0, "");
-    touchwin(wmain);
-    wrefresh(wsub_main);
-}
-
-void print_http_verbose(struct http_info *http)
-{
-
 }
 
 void print_header()
@@ -1126,4 +731,675 @@ void print_http(char *buf, int n, struct http_info *http)
 {
     PRINT_PROTOCOL(buf, n, "HTTP");
     PRINT_INFO(buf, n, "%s", http->start_line);
+}
+
+void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t type, bool *soa)
+{
+    switch (type) {
+    case DNS_TYPE_A:
+    {
+        char addr[INET_ADDRSTRLEN];
+        uint32_t haddr = htonl(info->record[i].rdata.address);
+
+        inet_ntop(AF_INET, (struct in_addr *) &haddr, addr, sizeof(addr));
+        snprintcat(buf, n, "%s", addr);
+        break;
+    }
+    case DNS_TYPE_NS:
+        snprintcat(buf, n, "%s", info->record[i].rdata.nsdname);
+        break;
+    case DNS_TYPE_SOA:
+        if (soa) *soa = true;
+        break;
+    case DNS_TYPE_CNAME:
+        snprintcat(buf, n, "%s", info->record[i].rdata.cname);
+        break;
+    case DNS_TYPE_PTR:
+        snprintcat(buf, n, "%s", info->record[i].rdata.ptrdname);
+        break;
+    case DNS_TYPE_AAAA:
+    {
+        char addr[INET6_ADDRSTRLEN];
+
+        inet_ntop(AF_INET6, (struct in_addr *) info->record[i].rdata.ipv6addr, addr, sizeof(addr));
+        snprintcat(buf, n, "%s", addr);
+        break;
+    }
+    default:
+        break;
+    }
+}
+
+void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t type)
+{
+    switch (info->record[i].rrtype) {
+    case NBNS_NB:
+    {
+        if (info->record[i].rdata.nb.g) {
+            snprintcat(buf, n, "Group NetBIOS name ");
+        } else {
+            snprintcat(buf, n, "Unique NetBIOS name ");
+        }
+        int addrs = info->record[i].rdata.nb.num_addr;
+        snprintcat(buf, n, "%s ", get_nbns_node_type(info->record[i].rdata.nb.ont));
+        while (addrs--) {
+            char addr[INET_ADDRSTRLEN];
+            uint32_t haddr = htonl(info->record[i].rdata.nb.address[0]);
+
+            inet_ntop(AF_INET, (struct in_addr *) &haddr, addr, sizeof(addr));
+            snprintcat(buf, n, "%s ", addr);
+        }
+        break;
+    }
+    case NBNS_NS:
+        snprintcat(buf, n, " NSD Name: %s", info->record[i].rdata.nsdname);
+        break;
+    case NBNS_A:
+    {
+        char addr[INET_ADDRSTRLEN];
+        uint32_t haddr = htonl(info->record[i].rdata.nsdipaddr);
+
+        inet_ntop(AF_INET, (struct in_addr *) &haddr, addr, sizeof(addr));
+        snprintcat(buf, n, " NSD IP address: %s", addr);
+        break;
+    }
+    case NBNS_NBSTAT:
+        snprintcat(buf, n, "NBSTAT");
+        break;
+    default:
+        break;
+    }
+}
+
+void create_subwindow(int num_lines, int lineno)
+{
+    int mx, my;
+    int start_line;
+    int c;
+
+    getmaxyx(wmain, my, mx);
+    start_line = lineno - top;
+    c = lineno + 1;
+
+    /* if there is not enough space for the information to be printed, the
+        screen needs to be scrolled to make room for all the lines */
+    if (my - (start_line + 1) < num_lines) {
+        scrollvy = num_lines - (my - (start_line + 1));
+        wscrl(wmain, scrollvy);
+        start_line -= scrollvy;
+        selection_line -= scrollvy;
+        wrefresh(wmain);
+    }
+
+    /* make space for protocol specific information */
+    line_info[start_line].win.wsub = derwin(wmain, num_lines, mx, start_line + 1, 0);
+    line_info[start_line].win.top = start_line + 1;
+    line_info[start_line].win.bottom = line_info[start_line].win.top + num_lines - 1;
+    wmove(wmain, start_line + 1, 0);
+    wclrtobot(wmain); /* clear everything below selection bar */
+    outy = start_line + num_lines + 1;
+
+    if (!scrollvy) {
+        outy += print_lines(c, top + my, outy, mx);
+    }
+    wrefresh(wmain);
+}
+
+void delete_subwindow()
+{
+    int my, mx;
+    int screen_line;
+
+    getmaxyx(wmain, my, mx);
+    screen_line = selection_line - top;
+    delwin(line_info[screen_line].win.wsub);
+    memset(&line_info[screen_line].win, 0, sizeof(struct subwin));
+    werase(wmain);
+
+    /*
+     * Print the entire screen. This can be optimized to just print the lines
+     * that are below the selected line
+     */
+    outy = print_lines(top, top + my, 0, mx);
+
+    if (scrollvy) {
+        screen_line += scrollvy;
+        selection_line += scrollvy;
+        scrollvy = 0;
+    }
+    mvwchgat(wmain, screen_line, 0, -1, A_NORMAL, 1, NULL);
+    wrefresh(wmain);
+}
+
+/*
+ * Print more information about a packet when selected. This will print more
+ * details about the specific protocol headers and payload.
+ */
+void print_information()
+{
+    int screen_line;
+    struct packet *p;
+    static int prev_selection = -1;
+
+    if (prev_selection >= 0) {
+        screen_line = prev_selection - top;
+        if (line_info[screen_line].win.wsub) {
+            bool inside_subwin;
+
+            inside_subwin = update_subwin_selection(prev_selection);
+            if (inside_subwin) {
+                p = vector_get_data(prev_selection);
+                print_protocol_information(p, prev_selection);
+                return;
+            }
+        }
+    }
+    screen_line = selection_line - top;
+    line_info[screen_line].selected = !line_info[screen_line].selected;
+    if (line_info[screen_line].selected) {
+        p = vector_get_data(selection_line);
+        print_protocol_information(p, selection_line);
+    } else {
+        delete_subwindow();
+    }
+    prev_selection = selection_line;
+}
+
+/*
+ * Checks if selection_line is inside the subwindow, and if that's the case, updates the
+ * selection status of the selectable subwindow line.
+ *
+ * Returns true if it's inside the subwindow, else false.
+ * TODO: How to update the subwindow's selectable elements when there are some
+ * elements that are already selected?
+ */
+bool update_subwin_selection(int lineno)
+{
+    int screen_line;
+    int sline;
+
+    screen_line = selection_line - top;
+    sline = lineno - top;
+    if (screen_line >= line_info[sline].win.top &&
+        screen_line <= line_info[sline].win.bottom) {
+        int subline;
+        
+        subline = screen_line - line_info[sline].win.top;
+        if (subline < MAX_SELECTABLE) {
+            line_info[sline].win.selected[subline] = !line_info[sline].win.selected[subline];
+        }
+        return true;
+    }
+    return false;
+}
+
+/* Calculates size of subwindow */
+int calculate_subwin_size(struct packet *p, int screen_line)
+{
+    int size = 1;
+ 
+    if (line_info[screen_line].win.selected[0]) {
+        size += ETH_WINSIZE + 1;
+    } else {
+        size++;
+    }
+    if (p->eth.ethertype == ETH_P_ARP) {
+        if (line_info[screen_line].win.selected[1]) {
+            size += ARP_WINSIZE;
+        } else {
+            size++;
+        }
+    } else if (p->eth.ethertype == ETH_P_IP) {
+        if (line_info[screen_line].win.selected[1]) {
+            size += IP_WINSIZE + 1;
+        } else {
+            size++;
+        }
+        switch (p->eth.ip->protocol) {
+        case IPPROTO_TCP:
+            if (line_info[screen_line].win.selected[2]) {
+                size += TCP_WINSIZE;
+            }
+            size += calculate_applayer_size(&p->eth.ip->tcp.data, screen_line);
+            break;
+        case IPPROTO_UDP:
+            if (line_info[screen_line].win.selected[2]) {
+                size += UDP_WINSIZE;
+            }
+            size += calculate_applayer_size(&p->eth.ip->udp.data, screen_line);
+            break;
+        case IPPROTO_ICMP:
+            if (line_info[screen_line].win.selected[2]) {
+                if (p->eth.ip->icmp.type == ICMP_ECHOREPLY ||
+                    p->eth.ip->icmp.type == ICMP_ECHO) {
+                    size += 7;
+                } else {
+                    size += 5;
+                }
+            } else {
+                size++;
+            }
+            break;
+        case IPPROTO_IGMP:
+            if (line_info[screen_line].win.selected[2]) {
+                size += IGMP_WINSIZE;
+            } else {
+                size++;
+            }
+            break;
+        default:
+            break;
+        }
+    }
+    return size;
+}
+
+int calculate_applayer_size(struct application_info *info, int screen_line)
+{
+    int size = 1;
+
+    if (line_info[screen_line].win.selected[3]) {
+        switch (info->utype) {
+        case DNS:
+        {
+            int records = 0;
+            
+            /* number of resource records */
+            for (int i = 1; i < 4; i++) {
+                records += info->dns->section_count[i];
+            }
+            size += (info->dns->section_count[NSCOUNT] ? 18 + records : 10 + records);
+            break;
+        }
+        case NBNS:
+        {
+            int records = 0;
+
+            /* number of resource records */
+            for (int i = 1; i < 4; i++) {
+                records += info->nbns->section_count[i];
+            }
+            size += (records ? 11 + records : 10);
+            break;
+        }
+        case HTTP:
+            break;
+        case SSDP:
+            size += list_size(info->ssdp) + 2;
+            break;
+        default:
+            break;
+        }
+    } else {
+        size++;
+    }
+    return size;
+}
+
+void print_protocol_information(struct packet *p, int lineno)
+{
+    int screen_line = lineno - top;
+    int size = 0;
+    int y = 0;
+
+    size = calculate_subwin_size(p, lineno);
+
+    /* Delete old subwindow. TODO: Possible to just resize? */
+    if (line_info[screen_line].win.wsub) {
+        delete_subwindow(lineno);
+    }
+
+    /* print information in subwindow */
+    create_subwindow(size, lineno);
+    if (line_info[screen_line].win.selected[0]) {
+        mvwprintw(line_info[screen_line].win.wsub, y++, 2, "- Ethernet header");
+        print_ethernet_verbose(p, lineno, y);
+        y += ETH_WINSIZE;
+    } else {
+        mvwprintw(line_info[screen_line].win.wsub, y++, 2, "+ Ethernet header");
+    }
+    if (p->eth.ethertype == ETH_P_ARP) {
+        if (line_info[screen_line].win.selected[1]) {
+            mvwprintw(line_info[screen_line].win.wsub, y++, 2, "- ARP header");
+            print_arp_verbose(p, lineno, y);
+        } else {
+            mvwprintw(line_info[screen_line].win.wsub, y, 2, "+ ARP header");
+        }
+    } else if (p->eth.ethertype == ETH_P_IP) {
+        if (line_info[screen_line].win.selected[1]) {
+            mvwprintw(line_info[screen_line].win.wsub, y++, 2, "- IP header");
+            print_ip_verbose(p->eth.ip, lineno, y);
+            y += IP_WINSIZE;
+        } else {
+            mvwprintw(line_info[screen_line].win.wsub, y++, 2, "+ IP header");
+        }
+        switch (p->eth.ip->protocol) {
+        case IPPROTO_TCP:
+            if (line_info[screen_line].win.selected[2]) {
+                mvwprintw(line_info[screen_line].win.wsub, y++, 2, "- TCP header");
+                print_tcp_verbose(p->eth.ip, lineno, y);
+                y += TCP_WINSIZE;
+            } else {
+                mvwprintw(line_info[screen_line].win.wsub, y++, 2, "+ TCP header");
+            }
+            print_app_protocol(&p->eth.ip->tcp.data, lineno, y);
+            break;
+        case IPPROTO_UDP:
+            if (line_info[screen_line].win.selected[2]) {
+                mvwprintw(line_info[screen_line].win.wsub, y++, 2, "- UDP header");
+                print_udp_verbose(p->eth.ip, lineno, y);
+                y += UDP_WINSIZE;
+            } else {
+                mvwprintw(line_info[screen_line].win.wsub, y++, 2, "+ UDP header");
+            }
+            print_app_protocol(&p->eth.ip->udp.data, lineno, y);
+            break;
+        case IPPROTO_ICMP:
+            if (line_info[screen_line].win.selected[2]) {
+                mvwprintw(line_info[screen_line].win.wsub, y++, 2, "- ICMP header");
+                print_icmp_verbose(p->eth.ip, lineno, y);
+            } else {
+                mvwprintw(line_info[screen_line].win.wsub, y++, 2, "+ ICMP header");
+            }
+            break;
+        case IPPROTO_IGMP:
+            if (line_info[screen_line].win.selected[2]) {
+                mvwprintw(line_info[screen_line].win.wsub, y++, 2, "- IGMP header");
+                print_igmp_verbose(p->eth.ip, lineno, y);
+            } else {
+                mvwprintw(line_info[screen_line].win.wsub, y++, 2, "+ IGMP header");
+            }
+            break;
+        }        
+    }
+    mvwchgat(wmain, selection_line - top, 0, -1, A_NORMAL, 1, NULL);
+    touchwin(wmain);
+    wrefresh(line_info[screen_line].win.wsub);
+}
+
+void print_ethernet_verbose(struct packet *p, int lineno, int y)
+{
+    int screen_line = lineno - top;
+    char src[HW_ADDRSTRLEN];
+    char dst[HW_ADDRSTRLEN];
+
+    snprintf(src, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
+             p->eth.mac_src[0], p->eth.mac_src[1], p->eth.mac_src[2],
+             p->eth.mac_src[3], p->eth.mac_src[4], p->eth.mac_src[5]);
+    snprintf(dst, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
+             p->eth.mac_dst[0], p->eth.mac_dst[1], p->eth.mac_dst[2],
+             p->eth.mac_dst[3], p->eth.mac_dst[4], p->eth.mac_dst[5]);
+    mvwprintw(line_info[screen_line].win.wsub, y, 4, "MAC source: %s", src);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "MAC destination: %s", dst);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Ethertype: 0x%x", p->eth.ethertype);
+}
+
+void print_arp_verbose(struct packet *p, int lineno, int y)
+{
+    int screen_line = lineno - top;
+
+    mvwprintw(line_info[screen_line].win.wsub, y, 4, "Hardware type: %d (%s)", p->eth.arp->ht, get_arp_hardware_type(p->eth.arp->ht));
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Protocol type: 0x%x (%s)", p->eth.arp->pt, get_arp_protocol_type(p->eth.arp->pt));
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Hardware size: %d", p->eth.arp->hs);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Protocol size: %d", p->eth.arp->ps);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Opcode: %d (%s)", p->eth.arp->op, get_arp_opcode(p->eth.arp->op));
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 0, "");
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Sender IP: %-15s  HW: %s", p->eth.arp->sip, p->eth.arp->sha);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Target IP: %-15s  HW: %s", p->eth.arp->tip, p->eth.arp->tha);
+}
+
+void print_ip_verbose(struct ip_info *ip, int lineno, int y)
+{
+    int screen_line = lineno - top;
+
+    mvwprintw(line_info[screen_line].win.wsub, y, 4, "Version: %u", ip->version);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Internet Header Length (IHL): %u", ip->ihl);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Differentiated Services Code Point (DSCP): %u", ip->dscp);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Explicit Congestion Notification (ECN): %u", ip->ecn);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Total length: %u", ip->length);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Identification: %u", ip->id);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Flags: %u%u%u", ip->foffset & 0x80, ip->foffset & 0x40, ip->foffset & 0x20);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Time to live: %u", ip->ttl);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Protocol: %u", ip->protocol);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Checksum: %u", ip->checksum);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Source IP address: %s", ip->src);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Destination IP address: %s", ip->dst);
+}
+
+void print_icmp_verbose(struct ip_info *ip, int lineno, int y)
+{
+    int screen_line = lineno - top;
+
+    mvwprintw(line_info[screen_line].win.wsub, y, 4, "Type: %d (%s)", ip->icmp.type, get_icmp_type(ip->icmp.type));
+    switch (ip->icmp.type) {
+    case ICMP_ECHOREPLY:
+    case ICMP_ECHO:
+        mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Code: %d", ip->icmp.code);
+        break;
+    case ICMP_DEST_UNREACH:
+        mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Code: %d (%s)", ip->icmp.code, get_icmp_dest_unreach_code(ip->icmp.code));
+        break;
+    default:
+        break;
+    }
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Checksum: %d", ip->icmp.checksum);
+    if (ip->icmp.type == ICMP_ECHOREPLY || ip->icmp.type == ICMP_ECHO) {
+        mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Identifier: 0x%x", ip->icmp.echo.id);
+        mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Sequence number: %d", ip->icmp.echo.seq_num);
+    }
+}
+
+void print_igmp_verbose(struct ip_info *info, int lineno, int y)
+{
+    int screen_line = lineno - top;
+
+    mvwprintw(line_info[screen_line].win.wsub, y, 0, "");
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Type: %d (%s) ", info->igmp.type, get_igmp_type(info->icmp.type));
+    if (info->igmp.type == IGMP_HOST_MEMBERSHIP_QUERY) {
+        if (!strcmp(info->igmp.group_addr, "0.0.0.0")) {
+            mvwprintw(line_info[screen_line].win.wsub, y, 4, "General query", info->igmp.type, get_igmp_type(info->icmp.type));
+        } else {
+            mvwprintw(line_info[screen_line].win.wsub, y, 4, "Group-specific query", info->igmp.type, get_igmp_type(info->icmp.type));
+        }
+    }
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Max response time: %d seconds", info->igmp.max_resp_time / 10);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Checksum: %d", info->igmp.checksum);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Group address: %s", info->igmp.group_addr);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 0, "");
+}
+
+void print_udp_verbose(struct ip_info *ip, int lineno, int y)
+{
+    int screen_line = lineno - top;
+    
+    mvwprintw(line_info[screen_line].win.wsub, y, 4, "Source port: %u", ip->udp.src_port);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Destination port: %u", ip->udp.dst_port);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Length: %u", ip->udp.len);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Checksum: %u", ip->udp.checksum);
+}
+
+void print_tcp_verbose(struct ip_info *ip, int lineno, int y)
+{
+    int screen_line = lineno - top;
+    
+    mvwprintw(line_info[screen_line].win.wsub, y, 4, "Source port: %u", ip->tcp.src_port);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Destination port: %u", ip->tcp.dst_port);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Sequence number: %u", ip->tcp.seq_num);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Acknowledgment number: %u", ip->tcp.ack_num);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Data offset: %u", ip->tcp.offset);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Flags: %u%u%u%u%u%u%u%u%u",
+              ip->tcp.ns, ip->tcp.cwr, ip->tcp.ece, ip->tcp.urg, ip->tcp.ack,
+              ip->tcp.psh, ip->tcp.rst, ip->tcp.syn, ip->tcp.fin);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Window size: %u", ip->tcp.window);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Checksum: %u", ip->tcp.checksum);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Urgent pointer: %u", ip->tcp.urg_ptr);
+}
+
+void print_app_protocol(struct application_info *info, int lineno, int y)
+{
+    int screen_line = lineno - top;
+
+    switch (info->utype) {
+    case DNS:
+        if (line_info[screen_line].win.selected[3]) {
+            mvwprintw(line_info[screen_line].win.wsub, y++, 2, "- DNS header");
+            print_dns_verbose(info->dns, lineno, y);
+        } else {
+            mvwprintw(line_info[screen_line].win.wsub, y++, 2, "+ DNS header");
+        }
+        break;
+    case NBNS:
+        if (line_info[screen_line].win.selected[3]) {
+            mvwprintw(line_info[screen_line].win.wsub, y++, 2, "- NBNS header");
+            print_nbns_verbose(info->nbns, lineno, y);
+        } else {
+            mvwprintw(line_info[screen_line].win.wsub, y++, 2, "+ NBNS header");
+        }
+        break;
+    case SSDP:
+        if (line_info[screen_line].win.selected[3]) {
+            mvwprintw(line_info[screen_line].win.wsub, y++, 2, "- SSDP header");
+            print_ssdp_verbose(info->ssdp, lineno, y);
+        } else {
+            mvwprintw(line_info[screen_line].win.wsub, y++, 2, "+ SSDP header");
+        }
+        break;
+    case HTTP:
+        if (line_info[screen_line].win.selected[3]) {
+            mvwprintw(line_info[screen_line].win.wsub, y++, 2, "- HTTP header");
+            print_http_verbose(info->http);
+        } else {
+            mvwprintw(line_info[screen_line].win.wsub, y++, 2, "+ HTTP header");
+        }
+        break;
+    default:
+        break;
+    }
+    touchwin(wmain);
+    wrefresh(line_info[screen_line].win.wsub);
+}
+
+void print_dns_verbose(struct dns_info *dns, int lineno, int y)
+{
+    int records = 0;
+    int screen_line = lineno - top;
+
+    /* number of resource records */
+    for (int i = 1; i < 4; i++) {
+        records += dns->section_count[i];
+    }
+    mvwprintw(line_info[screen_line].win.wsub, y, 4, "ID: 0x%x", dns->id);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "QR: %d (%s)", dns->qr, dns->qr ? "DNS Response" : "DNS Query");
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Opcode: %d (%s)", dns->opcode, get_dns_opcode(dns->opcode));
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Flags: %d%d%d%d", dns->aa, dns->tc, dns->rd, dns->ra);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Rcode: %d (%s)", dns->rcode, get_dns_rcode(dns->rcode));
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Question: %d, Answer: %d, Authority: %d, Additional records: %d",
+              dns->section_count[QDCOUNT], dns->section_count[ANCOUNT],
+              dns->section_count[NSCOUNT], dns->section_count[ARCOUNT]);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 0, "");
+    for (int i = dns->section_count[QDCOUNT]; i > 0; i--) {
+        mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "QNAME: %s, QTYPE: %s, QCLASS: %s",
+                  dns->question.qname, get_dns_type_extended(dns->question.qtype),
+                  get_dns_class_extended(dns->question.qclass));
+    }
+    if (records) {
+        int mx;
+        int len;
+
+        mx = getmaxx(wmain);
+        mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Resource records:");
+        len = get_max_namelen(dns->record, records);
+        for (int i = 0; i < records; i++) {
+            char buffer[mx];
+            bool soa = false;
+
+            snprintf(buffer, mx, "%-*s", len + 4, dns->record[i].name);
+            snprintcat(buffer, mx, "%-6s", get_dns_class(dns->record[i].class));
+            snprintcat(buffer, mx, "%-8s", get_dns_type(dns->record[i].type));
+            print_dns_record(dns, i, buffer, mx, dns->record[i].type, &soa);
+            mvwprintw(line_info[screen_line].win.wsub, ++y, 8, "%s", buffer);
+            if (soa) {
+                mvwprintw(line_info[screen_line].win.wsub, ++y, 0, "");
+                print_dns_soa(dns, i, lineno, y + 1, 8);
+            }
+        }
+    }
+}
+
+void print_dns_soa(struct dns_info *info, int i, int lineno, int y, int x)
+{
+    int screen_line = lineno - top;
+
+    mvwprintw(line_info[screen_line].win.wsub, y, x, "mname: %s", info->record[i].rdata.soa.mname);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, x, "rname: %s", info->record[i].rdata.soa.rname);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, x, "Serial: %d", info->record[i].rdata.soa.serial);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, x, "Refresh: %d", info->record[i].rdata.soa.refresh);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, x, "Retry: %d", info->record[i].rdata.soa.retry);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, x, "Expire: %d", info->record[i].rdata.soa.expire);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, x, "Minimum: %d", info->record[i].rdata.soa.minimum);
+}
+
+void print_nbns_verbose(struct nbns_info *nbns, int lineno, int y)
+{
+    int records = 0;
+    int screen_line = lineno - top;
+
+    /* number of resource records */
+    for (int i = 1; i < 4; i++) {
+        records += nbns->section_count[i];
+    }
+    mvwprintw(line_info[screen_line].win.wsub, y, 0, "");
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "ID: 0x%x", nbns->id);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Response flag: %d (%s)", nbns->r, nbns->r ? "Response" : "Request");
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Opcode: %d (%s)", nbns->opcode, get_nbns_opcode(nbns->opcode));
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Flags: %d%d%d%d%d", nbns->aa, nbns->tc, nbns->rd, nbns->ra, nbns->broadcast);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Rcode: %d (%s)", nbns->rcode, get_nbns_rcode(nbns->rcode));
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Question Entries: %d, Answer RRs: %d, Authority RRs: %d, Additional RRs: %d",
+              nbns->section_count[QDCOUNT], nbns->section_count[ANCOUNT],
+              nbns->section_count[NSCOUNT], nbns->section_count[ARCOUNT]);
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 0, "");
+
+    /* question entry */
+    if (nbns->section_count[QDCOUNT]) {
+        mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Question name: %s, Question type: %s, Question class: IN (Internet)",
+                  nbns->question.qname, get_nbns_type_extended(nbns->question.qtype));
+    }
+
+    if (records) {
+        int mx;
+
+        mx = getmaxx(wmain);
+        mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Resource records:");
+        for (int i = 0; i < records; i++) {
+            char buffer[mx];
+
+            snprintf(buffer, mx, "%s\t", nbns->record[i].rrname);
+            snprintcat(buffer, mx, "IN\t");
+            snprintcat(buffer, mx, "%s\t", get_nbns_type(nbns->record[i].rrtype));
+            print_nbns_record(nbns, i, buffer, mx, nbns->record[i].rrtype);
+            mvwprintw(line_info[screen_line].win.wsub, ++y, 8, "%s", buffer);
+        }
+    }
+}
+
+
+void print_ssdp_verbose(list_t *ssdp, int lineno, int y)
+{
+    const node_t *n;
+    int screen_line = lineno - top;
+
+    mvwprintw(line_info[screen_line].win.wsub, y, 0, "");
+    n = list_begin(ssdp);
+    while (n) {
+        mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "%s", (char *) list_data(n));
+        n = list_next(n);
+    }
+    mvwprintw(line_info[screen_line].win.wsub, ++y, 0, "");
+    touchwin(wmain);
+    wrefresh(line_info[screen_line].win.wsub);
+}
+
+void print_http_verbose(struct http_info *http)
+{
+
 }
