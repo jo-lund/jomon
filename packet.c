@@ -541,9 +541,9 @@ bool check_port(unsigned char *buffer, struct application_info *info, uint16_t p
     case SSDP:
         *error = handle_ssdp(buffer, info, packet_len);
         return true;
-    case HTTP:
-        *error = handle_http(buffer, info, packet_len);
-        return true;
+    /* case HTTP: */
+    /*     *error = handle_http(buffer, info, packet_len); */
+    /*     return true; */
     default:
         return false;
     }
@@ -621,6 +621,7 @@ bool handle_dns(unsigned char *buffer, struct application_info *info)
     for (int i = 0, j = 4; i < 4; i++, j += 2) {
         info->dns->section_count[i] = ptr[j] << 8 | ptr[j + 1];
     }
+    info->dns->record = NULL;
 
     if (info->dns->qr) { /* DNS response */
         ptr += DNS_HDRLEN;
@@ -670,8 +671,6 @@ bool handle_dns(unsigned char *buffer, struct application_info *info)
             for (int i = 0; i < info->dns->section_count[ARCOUNT]; i++) {
                 parse_dns_record(i, buffer, &ptr, info->dns);
             }
-        } else {
-            info->dns->record = NULL;
         }
     }
     return true;
@@ -838,6 +837,7 @@ bool handle_nbns(unsigned char *buffer, struct application_info *info)
     for (int i = 0, j = 4; i < 4; i++, j += 2) {
         info->nbns->section_count[i] = ptr[j] << 8 | ptr[j + 1];
     }
+    info->nbns->record = NULL;
 
     /*
      * the first bit in the opcode field specifies whether it is a request (0)
@@ -882,8 +882,6 @@ bool handle_nbns(unsigned char *buffer, struct application_info *info)
         if (info->nbns->section_count[ARCOUNT]) {
             info->nbns->record = malloc(sizeof(struct nbns_rr));
             parse_nbns_record(0, buffer, &ptr, info->nbns);
-        } else {
-            info->nbns->record = NULL;
         }
     }
 
@@ -1079,6 +1077,7 @@ bool parse_http(char *buffer, uint16_t len, struct http_info *http)
         if (n) {
             http->data = malloc(n);
             memcpy(http->data, ptr, n);
+            http->len = n;
         }
     }
     return is_http;
