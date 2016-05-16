@@ -43,7 +43,6 @@
 struct subwin {
     int top;
     int bottom;
-    int lineno;
     WINDOW *wsub;
     bool selected[MAX_SELECTABLE];
 };
@@ -66,6 +65,7 @@ static int top = 0; /* index to top of screen */
 static int scrollvy = 0;
 
 static void set_interactive(bool interactive_mode, int lines, int cols);
+static bool check_line(int lines);
 static void handle_keydown(int lines, int cols);
 static void handle_keyup(int lines, int cols);
 static void scroll_page(int lines, int cols);
@@ -202,6 +202,24 @@ void get_input()
     }
 }
 
+/*
+ * Checks if there still are lines to highlight when moving the selection bar
+ * down. Returns true if that's the case.
+ */
+bool check_line(int lines)
+{
+    int num_lines = 0;
+
+    for (int i = 0; i < lines; i++) {
+        if (line_info[i].win.wsub) {
+            num_lines += (line_info[i].win.bottom - line_info[i].win.top + 1);
+        }
+    }
+    if (selection_line < vector_size() + num_lines - 1) return true;
+
+    return false;
+}
+
 void handle_keyup(int lines, int cols)
 {
     if (!interactive) {
@@ -237,7 +255,7 @@ void handle_keyup(int lines, int cols)
 
 void handle_keydown(int lines, int cols)
 {
-    if (selection_line >= vector_size() - 1) return;
+    if (!check_line(lines)) return;
 
     if (!interactive) {
         set_interactive(true, lines, cols);
@@ -482,7 +500,7 @@ void print_arp(char *buf, int n, struct arp_info *info)
 void print_ip(char *buf, int n, struct ip_info *info)
 {
     if (!numeric && (info->protocol != IPPROTO_UDP ||
-                     info->protocol == IPPROTO_UDP && info->udp.data.dns->qr == -1)) {
+                     (info->protocol == IPPROTO_UDP && info->udp.data.dns->qr == -1))) {
         char sname[HOSTNAMELEN];
         char dname[HOSTNAMELEN];
 
@@ -916,17 +934,17 @@ void print_information()
 bool update_subwin_selection(int lineno)
 {
     int screen_line;
-    int sline;
+    int sub_start_line;
 
     screen_line = selection_line - top;
-    sline = lineno - top;
-    if (screen_line >= line_info[sline].win.top &&
-        screen_line <= line_info[sline].win.bottom) {
+    sub_start_line = lineno - top;
+    if (screen_line >= line_info[sub_start_line].win.top &&
+        screen_line <= line_info[sub_start_line].win.bottom) {
         int subline;
         
-        subline = screen_line - line_info[sline].win.top;
+        subline = screen_line - line_info[sub_start_line].win.top;
         if (subline < MAX_SELECTABLE) {
-            line_info[sline].win.selected[subline] = !line_info[sline].win.selected[subline];
+            line_info[sub_start_line].win.selected[subline] = !line_info[sub_start_line].win.selected[subline];
         }
         return true;
     }
@@ -1117,6 +1135,49 @@ void print_protocol_information(struct packet *p, int lineno)
     wrefresh(line_info[screen_line].win.wsub);
 }
 
+
+void print_app_protocol(struct application_info *info, int lineno, int y)
+{
+    int screen_line = lineno - top;
+
+    switch (info->utype) {
+    case DNS:
+        if (line_info[screen_line].win.selected[3]) {
+            mvwprintw(line_info[screen_line].win.wsub, y++, 2, "- DNS header");
+            print_dns_verbose(info->dns, lineno, y);
+        } else {
+            mvwprintw(line_info[screen_line].win.wsub, y++, 2, "+ DNS header");
+        }
+        break;
+    case NBNS:
+        if (line_info[screen_line].win.selected[3]) {
+            mvwprintw(line_info[screen_line].win.wsub, y++, 2, "- NBNS header");
+            print_nbns_verbose(info->nbns, lineno, y);
+        } else {
+            mvwprintw(line_info[screen_line].win.wsub, y++, 2, "+ NBNS header");
+        }
+        break;
+    case SSDP:
+        if (line_info[screen_line].win.selected[3]) {
+            mvwprintw(line_info[screen_line].win.wsub, y++, 2, "- SSDP header");
+            print_ssdp_verbose(info->ssdp, lineno, y);
+        } else {
+            mvwprintw(line_info[screen_line].win.wsub, y++, 2, "+ SSDP header");
+        }
+        break;
+    case HTTP:
+        if (line_info[screen_line].win.selected[3]) {
+            mvwprintw(line_info[screen_line].win.wsub, y++, 2, "- HTTP header");
+            print_http_verbose(info->http);
+        } else {
+            mvwprintw(line_info[screen_line].win.wsub, y++, 2, "+ HTTP header");
+        }
+        break;
+    default:
+        break;
+    }
+}
+
 void print_ethernet_verbose(struct packet *p, int lineno, int y)
 {
     int screen_line = lineno - top;
@@ -1193,8 +1254,7 @@ void print_igmp_verbose(struct ip_info *info, int lineno, int y)
 {
     int screen_line = lineno - top;
 
-    mvwprintw(line_info[screen_line].win.wsub, y, 0, "");
-    mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Type: %d (%s) ", info->igmp.type, get_igmp_type(info->icmp.type));
+    mvwprintw(line_info[screen_line].win.wsub, y, 4, "Type: %d (%s) ", info->igmp.type, get_igmp_type(info->icmp.type));
     if (info->igmp.type == IGMP_HOST_MEMBERSHIP_QUERY) {
         if (!strcmp(info->igmp.group_addr, "0.0.0.0")) {
             mvwprintw(line_info[screen_line].win.wsub, y, 4, "General query", info->igmp.type, get_igmp_type(info->icmp.type));
@@ -1233,50 +1293,6 @@ void print_tcp_verbose(struct ip_info *ip, int lineno, int y)
     mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Window size: %u", ip->tcp.window);
     mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Checksum: %u", ip->tcp.checksum);
     mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Urgent pointer: %u", ip->tcp.urg_ptr);
-}
-
-void print_app_protocol(struct application_info *info, int lineno, int y)
-{
-    int screen_line = lineno - top;
-
-    switch (info->utype) {
-    case DNS:
-        if (line_info[screen_line].win.selected[3]) {
-            mvwprintw(line_info[screen_line].win.wsub, y++, 2, "- DNS header");
-            print_dns_verbose(info->dns, lineno, y);
-        } else {
-            mvwprintw(line_info[screen_line].win.wsub, y++, 2, "+ DNS header");
-        }
-        break;
-    case NBNS:
-        if (line_info[screen_line].win.selected[3]) {
-            mvwprintw(line_info[screen_line].win.wsub, y++, 2, "- NBNS header");
-            print_nbns_verbose(info->nbns, lineno, y);
-        } else {
-            mvwprintw(line_info[screen_line].win.wsub, y++, 2, "+ NBNS header");
-        }
-        break;
-    case SSDP:
-        if (line_info[screen_line].win.selected[3]) {
-            mvwprintw(line_info[screen_line].win.wsub, y++, 2, "- SSDP header");
-            print_ssdp_verbose(info->ssdp, lineno, y);
-        } else {
-            mvwprintw(line_info[screen_line].win.wsub, y++, 2, "+ SSDP header");
-        }
-        break;
-    case HTTP:
-        if (line_info[screen_line].win.selected[3]) {
-            mvwprintw(line_info[screen_line].win.wsub, y++, 2, "- HTTP header");
-            print_http_verbose(info->http);
-        } else {
-            mvwprintw(line_info[screen_line].win.wsub, y++, 2, "+ HTTP header");
-        }
-        break;
-    default:
-        break;
-    }
-    touchwin(wmain);
-    wrefresh(line_info[screen_line].win.wsub);
 }
 
 void print_dns_verbose(struct dns_info *dns, int lineno, int y)
