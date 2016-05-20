@@ -4,6 +4,8 @@
 #include <ncurses.h>
 #include "packet.h"
 
+extern bool numeric;
+
 /* initialize ncurses */
 void init_ncurses();
 

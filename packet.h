@@ -1,6 +1,7 @@
 #ifndef PACKET_H
 #define PACKET_H
 
+#include <linux/if_ether.h>
 #include <netinet/in.h>
 #include <stdbool.h>
 #include "list.h"
