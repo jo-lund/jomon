@@ -115,6 +115,11 @@ enum packet_type {
     ETHERNET
 };
 
+enum eth_encapsulation {
+    ETH_II,
+    ETH_802_3
+};
+
 enum dns_section_count {
     QDCOUNT,
     ANCOUNT,
@@ -353,6 +358,7 @@ struct eth_info {
     unsigned char mac_src[ETH_ALEN];
     unsigned char mac_dst[ETH_ALEN];
     uint16_t ethertype;
+    enum eth_encapsulation link;
     union {
         struct arp_info *arp;
         struct ip_info *ip;

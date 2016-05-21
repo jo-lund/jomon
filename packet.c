@@ -155,7 +155,7 @@ void check_address(unsigned char *buffer)
 }
 
 /*
- * Ethernet header
+ * Ethernet II header (802.3 MAC header with FT being length)
  *
  *       6           6       2
  * +-----------+-----------+---+
@@ -164,16 +164,41 @@ void check_address(unsigned char *buffer)
  * |  address  | address   |   |
  * +-----------+-----------+---+
  *
+ * 802.2 LLC
+ *
+ *     1        1        1
+ * +--------+--------+--------+
+ * | DSAP=K1| SSAP=K1| Control|
+ * +--------+--------+--------+
+ *
+ * 802.2 SNAP
+ *
+ * +--------+--------+---------+--------+--------+
+ * |Protocol Id or Org Code =K2|    EtherType    |
+ * +--------+--------+---------+--------+--------+
+ *
+ * The K1 value is 170 (decimal).
+ * The K2 value is 0 (zero).
+ * The control value is 3 (Unnumbered Information).
  */
 bool handle_ethernet(unsigned char *buffer, struct eth_info *eth)
 {
     struct ethhdr *eth_header;
 
     eth_header = (struct ethhdr *) buffer;
-    eth->ethertype = ntohs(eth_header->h_proto);
     memcpy(eth->mac_src, eth_header->h_source, ETH_ALEN);
     memcpy(eth->mac_dst, eth_header->h_dest, ETH_ALEN);
+    if (ntohs(eth_header->h_proto) >= ETH_P_802_3_MIN) {
+        eth->ethertype = ntohs(eth_header->h_proto);
+        eth->link = ETH_II;
+    } else {
+        unsigned char *ptr;
 
+        /* skip 802.3 MAC (14 bytes) + 802.2 LLC (3 bytes) + first 3 bytes of 802.2 SNAP */
+        ptr = buffer + sizeof(struct ethhdr) + 6;
+        eth->ethertype = ptr[0] << 8 | ptr[1];
+        eth->link = ETH_802_3;
+    }
     switch (eth->ethertype) {
     case ETH_P_IP:
         eth->ip = malloc(sizeof(struct ip_info));
@@ -185,9 +210,7 @@ bool handle_ethernet(unsigned char *buffer, struct eth_info *eth)
     case ETH_P_PAE:
         return false;
     default:
-        if (eth->ethertype >= ETH_P_802_3_MIN) {
-            printf("Ethernet protocol: 0x%x\n", eth->ethertype);
-        }
+        printf("Ethernet protocol: 0x%x\n", eth->ethertype);
         return false;
     }
 }
