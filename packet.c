@@ -177,7 +177,7 @@ void check_address(unsigned char *buffer)
  * |Protocol Id or Org Code =K2|    EtherType    |
  * +--------+--------+---------+--------+--------+
  *
- * The K1 value is 170 (decimal).
+ * The K1 value is 170 (decimal), 0xaa (hex).
  * The K2 value is 0 (zero).
  * The control value is 3 (Unnumbered Information).
  */
@@ -194,9 +194,11 @@ bool handle_ethernet(unsigned char *buffer, struct eth_info *eth)
     } else {
         unsigned char *ptr;
 
-        /* skip 802.3 MAC (14 bytes) + 802.2 LLC (3 bytes) + first 3 bytes of 802.2 SNAP */
-        ptr = buffer + sizeof(struct ethhdr) + 6;
-        eth->ethertype = ptr[0] << 8 | ptr[1];
+        ptr = buffer + sizeof(struct ethhdr); /* skip 802.3 MAC (14 bytes) */
+        if (ptr[0] == 0xaa) { /* SNAP extension */
+            ptr += 6; /* skip 802.2 LLC (3 bytes) + first 3 bytes of 802.2 SNAP */
+            eth->ethertype = ptr[0] << 8 | ptr[1];
+        }
         eth->link = ETH_802_3;
     }
     switch (eth->ethertype) {
@@ -210,7 +212,7 @@ bool handle_ethernet(unsigned char *buffer, struct eth_info *eth)
     case ETH_P_PAE:
         return false;
     default:
-        printf("Ethernet protocol: 0x%x\n", eth->ethertype);
+        //printf("Ethernet protocol: 0x%x\n", eth->ethertype);
         return false;
     }
 }
