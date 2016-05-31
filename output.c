@@ -1257,9 +1257,9 @@ void print_igmp_verbose(struct ip_info *info, int lineno, int y)
     mvwprintw(line_info[screen_line].win.wsub, y, 4, "Type: %d (%s) ", info->igmp.type, get_igmp_type(info->icmp.type));
     if (info->igmp.type == IGMP_HOST_MEMBERSHIP_QUERY) {
         if (!strcmp(info->igmp.group_addr, "0.0.0.0")) {
-            mvwprintw(line_info[screen_line].win.wsub, y, 4, "General query", info->igmp.type, get_igmp_type(info->icmp.type));
+            mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "General query", info->igmp.type, get_igmp_type(info->icmp.type));
         } else {
-            mvwprintw(line_info[screen_line].win.wsub, y, 4, "Group-specific query", info->igmp.type, get_igmp_type(info->icmp.type));
+            mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Group-specific query", info->igmp.type, get_igmp_type(info->icmp.type));
         }
     }
     mvwprintw(line_info[screen_line].win.wsub, ++y, 4, "Max response time: %d seconds", info->igmp.max_resp_time / 10);
