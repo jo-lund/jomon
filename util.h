@@ -39,7 +39,7 @@ char *get_dns_opcode(uint8_t opcode);
 char *get_dns_rcode(uint8_t rcode);
 char *get_dns_type(uint16_t type);
 char *get_dns_type_extended(uint16_t type);
-char *get_dns_class(uint16_t class);
+char *get_dns_class(uint16_t rrclass);
 char *get_dns_class_extended(uint16_t rrclass);
 char *get_nbns_opcode(uint8_t opcode);
 char *get_nbns_rcode(uint8_t rcode);
