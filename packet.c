@@ -777,11 +777,11 @@ void parse_dns_record(int i, unsigned char *buffer, unsigned char **ptr, struct 
 
     *ptr += parse_dns_name(buffer, *ptr, dns->record[i].name);
     dns->record[i].type = (*ptr)[0] << 8 | (*ptr)[1];
-    dns->record[i].class = (*ptr)[2] << 8 | (*ptr)[3];
+    dns->record[i].rrclass = (*ptr)[2] << 8 | (*ptr)[3];
     dns->record[i].ttl = (*ptr)[4] << 24 | (*ptr)[5] << 16 | (*ptr)[6] << 8 | (*ptr)[7];
     rdlen = (*ptr)[8] << 8 | (*ptr)[9];
     *ptr += 10; /* skip to rdata field */
-    if (dns->record[i].class == DNS_CLASS_IN) {
+    if (dns->record[i].rrclass == DNS_CLASS_IN) {
         switch (dns->record[i].type) {
         case DNS_TYPE_A:
             if (rdlen == 4) {

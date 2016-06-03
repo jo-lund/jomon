@@ -152,7 +152,7 @@ struct dns_info {
         /* a domain name to which the resource record pertains */
         char name[DNS_NAMELEN];
         uint16_t type;
-        uint16_t class;
+        uint16_t rrclass;
         /*
          * Specifies the time interval (in seconds) that the resource record
          * may be cached before it should be discarded. Zero values are
