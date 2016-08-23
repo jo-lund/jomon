@@ -365,6 +365,16 @@ struct eth_info {
     };
 };
 
+struct eth_802_2_llc {
+    uint8_t dsap; /* destination service access point */
+    uint8_t ssap; /* source service access point */
+    uint8_t control; /* possible to be 2 bytes? */
+    struct {
+        unsigned char oui[3]; /* IEEE Organizationally Unique Identifier */
+        uint16_t protocol_id; /* If OUI is 0 the protocol ID is the Ethernet type */
+    } snap;
+};
+
 /*
  * Generic packet structure that can be used for every type of packet. For now
  * only support for Ethernet.
@@ -375,12 +385,12 @@ struct packet {
 };
 
 /*
- * Gets a packet from the network interface card. Will allocate enough memory
+ * Get a packet from the network interface card. Will allocate enough memory
  * for packet, which needs to be freed with free_packet.
  */
 size_t read_packet(int sockfd, unsigned char *buffer, size_t n, struct packet **p);
 
-/* Frees the memory allocated for packet */
+/* Free the memory allocated for packet */
 void free_packet(void *packet);
 
 #endif

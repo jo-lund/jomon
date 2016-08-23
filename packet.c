@@ -155,7 +155,7 @@ void check_address(unsigned char *buffer)
 }
 
 /*
- * Ethernet II header (802.3 MAC header with FT being length)
+ * Ethernet header
  *
  *       6           6       2
  * +-----------+-----------+---+
@@ -164,22 +164,33 @@ void check_address(unsigned char *buffer)
  * |  address  | address   |   |
  * +-----------+-----------+---+
  *
- * 802.2 LLC
+ * FT, the frame type or EtherType, can be used for two different purposes.
+ * Values of 1500 and below (Ethernet 802.3) mean that it is used to indicate
+ * the size of the payload in bytes, while values of 1536 and above (Ethernet II)
+ * indicate that it is used as an EtherType, to indicate which protocol is
+ * encapsulated in the payload of the frame.
  *
- *     1        1        1
+ * There are several types of 802.3 frames, e.g. 802.2 LLC (Logical Link Control)
+ * and 802.2 SNAP (Subnetwork Access Protocol).
+ *
+ * 802.2 LLC Header
+ *
+ *     1        1      1 or 2
  * +--------+--------+--------+
  * | DSAP=K1| SSAP=K1| Control|
  * +--------+--------+--------+
  *
  * 802.2 SNAP
  *
+ * When SNAP extension is used, it is located right after the LLC header. The
+ * payload start bytes for SNAP is 0xaaaa, which means the K1 value is 0xaa.
+ * The control value is 3 (Unnumbered Information).
+ *
  * +--------+--------+---------+--------+--------+
  * |Protocol Id or Org Code =K2|    EtherType    |
  * +--------+--------+---------+--------+--------+
  *
- * The K1 value is 170 (decimal), 0xaa (hex).
  * The K2 value is 0 (zero).
- * The control value is 3 (Unnumbered Information).
  */
 bool handle_ethernet(unsigned char *buffer, struct eth_info *eth)
 {
@@ -189,15 +200,21 @@ bool handle_ethernet(unsigned char *buffer, struct eth_info *eth)
     memcpy(eth->mac_src, eth_header->h_source, ETH_ALEN);
     memcpy(eth->mac_dst, eth_header->h_dest, ETH_ALEN);
     if (ntohs(eth_header->h_proto) >= ETH_P_802_3_MIN) {
+        /* Ethernet II frame */
         eth->ethertype = ntohs(eth_header->h_proto);
         eth->link = ETH_II;
     } else {
+        /* Ethernet 802.3 frame */
         unsigned char *ptr;
+        uint16_t payload_start;
 
         ptr = buffer + sizeof(struct ethhdr); /* skip 802.3 MAC (14 bytes) */
-        if (ptr[0] == 0xaa) { /* SNAP extension */
+        payload_start = ptr[0] << 8 | ptr[1];
+        if (payload_start == 0xaaaa) { /* SNAP extension */
             ptr += 6; /* skip 802.2 LLC (3 bytes) + first 3 bytes of 802.2 SNAP */
             eth->ethertype = ptr[0] << 8 | ptr[1];
+        } else if (payload_start == 0x4242) { /* IEEE 802.1 Bridge Spanning Tree Protocol */
+
         }
         eth->link = ETH_802_3;
     }
