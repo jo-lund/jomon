@@ -23,12 +23,14 @@
 
 static struct preferences {
     bool link_selected;
+    bool link_arp_selected;
     bool network_selected;
     bool transport_selected;
     bool application_selected;
 } preferences;
 
 enum header_type {
+    NONE,
     ETHERNET_HDR,
     ARP_HDR,
     IP_HDR,
@@ -502,6 +504,7 @@ void delete_subwindow()
         free(subwindow.line);
         subwindow.line = NULL;
     }
+    subwindow.num_lines = 0;
     werase(wmain);
 
     /*
@@ -528,6 +531,7 @@ void create_sublines(struct packet *p, int size)
     if (preferences.link_selected) {
         subwindow.line[i].text = "- Ethernet header";
         subwindow.line[i].selected = true;
+        subwindow.line[i].selectable = true;
         subwindow.line[i].type = ETHERNET_HDR;
         i += ETH_WINSIZE;
     } else {
@@ -538,9 +542,10 @@ void create_sublines(struct packet *p, int size)
         i++;
     }
     if (p->eth.ethertype == ETH_P_ARP) {
-        if (preferences.network_selected) {
+        if (preferences.link_arp_selected) {
             subwindow.line[i].text = "- ARP header";
             subwindow.line[i].selected = true;
+            subwindow.line[i].selectable = true;
             subwindow.line[i].type = ARP_HDR;
         } else {
             subwindow.line[i].text = "+ ARP header";
@@ -553,10 +558,11 @@ void create_sublines(struct packet *p, int size)
         if (preferences.network_selected) {
             subwindow.line[i].text = "- IP header";
             subwindow.line[i].selected = true;
+            subwindow.line[i].selectable = true;
             subwindow.line[i].type = IP_HDR;
             i += IP_WINSIZE;
         } else {
-            subwindow.line[i].text = "- IP header";
+            subwindow.line[i].text = "+ IP header";
             subwindow.line[i].selected = false;
             subwindow.line[i].selectable = true;
             subwindow.line[i].type = IP_HDR;
@@ -567,6 +573,7 @@ void create_sublines(struct packet *p, int size)
             if (preferences.transport_selected) {
                 subwindow.line[i].text = "- TCP header";
                 subwindow.line[i].selected = true;
+                subwindow.line[i].selectable = true;
                 subwindow.line[i].type = TCP_HDR;
                 i += TCP_WINSIZE;
             } else {
@@ -582,6 +589,7 @@ void create_sublines(struct packet *p, int size)
             if (preferences.transport_selected) {
                 subwindow.line[i].text = "- UDP header";
                 subwindow.line[i].selected = true;
+                subwindow.line[i].selectable = true;
                 subwindow.line[i].type = UDP_HDR;
                 i += UDP_WINSIZE;
             } else {
@@ -597,6 +605,7 @@ void create_sublines(struct packet *p, int size)
             if (preferences.transport_selected) {
                 subwindow.line[i].text = "- ICMP header";
                 subwindow.line[i].selected = true;
+                subwindow.line[i].selectable = true;
             } else {
                 subwindow.line[i].text = "+ ICMP header";
                 subwindow.line[i].selected = false;
@@ -609,6 +618,7 @@ void create_sublines(struct packet *p, int size)
             if (preferences.transport_selected) {
                 subwindow.line[i].text = "- IGMP header";
                 subwindow.line[i].selected = true;
+                subwindow.line[i].selectable = true;
             } else {
                 subwindow.line[i].text = "+ IGMP header";
                 subwindow.line[i].selected = false;
@@ -627,6 +637,7 @@ void create_app_sublines(struct packet *p, int i)
     case DNS:
         if (preferences.application_selected) {
             subwindow.line[i].selected = true;
+            subwindow.line[i].selectable = true;
             subwindow.line[i].text = "- DNS header";
         } else {
             subwindow.line[i].selected = false;
@@ -638,6 +649,7 @@ void create_app_sublines(struct packet *p, int i)
     case NBNS:
         if (preferences.application_selected) {
             subwindow.line[i].selected = true;
+            subwindow.line[i].selectable = true;
             subwindow.line[i].text = "- NBNS header";
         } else {
             subwindow.line[i].selected = false;
@@ -649,6 +661,7 @@ void create_app_sublines(struct packet *p, int i)
     case HTTP:
         if (preferences.application_selected) {
             subwindow.line[i].selected = true;
+            subwindow.line[i].selectable = true;
             subwindow.line[i].text = "- HTTP header";
         } else {
             subwindow.line[i].selected = false;
@@ -660,6 +673,7 @@ void create_app_sublines(struct packet *p, int i)
     case SSDP:
         if (preferences.application_selected) {
             subwindow.line[i].selected = true;
+            subwindow.line[i].selectable = true;
             subwindow.line[i].text = "- SSDP header";
         } else {
             subwindow.line[i].selected = false;
@@ -709,16 +723,12 @@ void print_selected_packet()
  * selection status of the selectable subwindow line.
  *
  * Returns true if it's inside the subwindow, else false.
- * TODO: How to update the subwindow's selectable elements when there are some
- * elements that are already selected?
  */
 bool update_subwin_selection(int lineno)
 {
     int screen_line;
-    int sub_start_line;
 
     screen_line = selection_line - top;
-    sub_start_line = lineno - top;
     if (screen_line >= subwindow.top &&
         screen_line <= subwindow.top + subwindow.num_lines) {
         int subline;
@@ -731,6 +741,8 @@ bool update_subwin_selection(int lineno)
                 preferences.link_selected = subwindow.line[subline].selected;
                 break;
             case ARP_HDR:
+                preferences.link_arp_selected = subwindow.line[subline].selected;
+                break;
             case IP_HDR:
                 preferences.network_selected = subwindow.line[subline].selected;
                 break;
@@ -738,10 +750,12 @@ bool update_subwin_selection(int lineno)
             case TCP_HDR:
             case IGMP_HDR:
             case ICMP_HDR:
-                preferences.network_selected = subwindow.line[subline].selected;
+                preferences.transport_selected = subwindow.line[subline].selected;
                 break;
             case APP_HDR:
                 preferences.application_selected = subwindow.line[subline].selected;
+                break;
+            default:
                 break;
             }
         }
@@ -753,9 +767,8 @@ bool update_subwin_selection(int lineno)
 /* Calculate size of subwindow */
 int calculate_subwin_size(struct packet *p, int screen_line)
 {
-    int size = 1;
-
-    if (!subwindow.line) return 5; /* default subwindow size */
+    // ARP 3, unknown TCP/UDP 4, else 5
+    int size = 5; /* default subwindow size */
 
     for (int i = 0; i < subwindow.num_lines; i++) {
         if (subwindow.line[i].selected) {
@@ -771,7 +784,6 @@ int calculate_subwin_size(struct packet *p, int screen_line)
                 break;
             case TCP_HDR:
                 size += TCP_WINSIZE;
-                size += calculate_applayer_size(&p->eth.ip->udp.data, screen_line);
                 break;
             case UDP_HDR:
                 size += UDP_WINSIZE;
@@ -782,11 +794,16 @@ int calculate_subwin_size(struct packet *p, int screen_line)
                 break;
             case IGMP_HDR:
                 size += IGMP_WINSIZE;
+            case APP_HDR:
+                if (p->eth.ip->protocol == IPPROTO_UDP) {
+                    size += calculate_applayer_size(&p->eth.ip->udp.data, screen_line);
+                } else if (p->eth.ip->protocol == IPPROTO_TCP) {
+                    size += calculate_applayer_size(&p->eth.ip->tcp.data, screen_line);
+                }
+                break;
             default:
                 break;
             }
-        } else {
-            size++;
         }
     }
     return size;
@@ -836,9 +853,7 @@ int calculate_applayer_size(struct application_info *info, int screen_line)
 
 void print_protocol_information(struct packet *p, int lineno)
 {
-    int screen_line = lineno - top;
-    int size = 0;
-    int y = 0;
+    int size;
 
     size = calculate_subwin_size(p, lineno);
 
@@ -880,6 +895,8 @@ void print_protocol_information(struct packet *p, int lineno)
             case APP_HDR:
                 print_app_protocol(&p->eth.ip->udp.data, lineno, i + 1);
                 break;
+            default:
+                break;
             }
         }
     }
@@ -910,7 +927,6 @@ void print_app_protocol(struct application_info *info, int lineno, int y)
 
 void print_ethernet_verbose(struct packet *p, int lineno, int y)
 {
-    int screen_line = lineno - top;
     char src[HW_ADDRSTRLEN];
     char dst[HW_ADDRSTRLEN];
 
@@ -927,8 +943,6 @@ void print_ethernet_verbose(struct packet *p, int lineno, int y)
 
 void print_arp_verbose(struct packet *p, int lineno, int y)
 {
-    int screen_line = lineno - top;
-
     mvwprintw(subwindow.win, y, 4, "Hardware type: %d (%s)", p->eth.arp->ht, get_arp_hardware_type(p->eth.arp->ht));
     mvwprintw(subwindow.win, ++y, 4, "Protocol type: 0x%x (%s)", p->eth.arp->pt, get_arp_protocol_type(p->eth.arp->pt));
     mvwprintw(subwindow.win, ++y, 4, "Hardware size: %d", p->eth.arp->hs);
@@ -941,8 +955,6 @@ void print_arp_verbose(struct packet *p, int lineno, int y)
 
 void print_ip_verbose(struct ip_info *ip, int lineno, int y)
 {
-    int screen_line = lineno - top;
-
     mvwprintw(subwindow.win, y, 4, "Version: %u", ip->version);
     mvwprintw(subwindow.win, ++y, 4, "Internet Header Length (IHL): %u", ip->ihl);
     mvwprintw(subwindow.win, ++y, 4, "Differentiated Services Code Point (DSCP): %u", ip->dscp);
@@ -959,8 +971,6 @@ void print_ip_verbose(struct ip_info *ip, int lineno, int y)
 
 void print_icmp_verbose(struct ip_info *ip, int lineno, int y)
 {
-    int screen_line = lineno - top;
-
     mvwprintw(subwindow.win, y, 4, "Type: %d (%s)", ip->icmp.type, get_icmp_type(ip->icmp.type));
     switch (ip->icmp.type) {
     case ICMP_ECHOREPLY:
@@ -982,8 +992,6 @@ void print_icmp_verbose(struct ip_info *ip, int lineno, int y)
 
 void print_igmp_verbose(struct ip_info *info, int lineno, int y)
 {
-    int screen_line = lineno - top;
-
     mvwprintw(subwindow.win, y, 4, "Type: %d (%s) ", info->igmp.type, get_igmp_type(info->icmp.type));
     if (info->igmp.type == IGMP_HOST_MEMBERSHIP_QUERY) {
         if (!strcmp(info->igmp.group_addr, "0.0.0.0")) {
@@ -1000,8 +1008,6 @@ void print_igmp_verbose(struct ip_info *info, int lineno, int y)
 
 void print_udp_verbose(struct ip_info *ip, int lineno, int y)
 {
-    int screen_line = lineno - top;
-
     mvwprintw(subwindow.win, y, 4, "Source port: %u", ip->udp.src_port);
     mvwprintw(subwindow.win, ++y, 4, "Destination port: %u", ip->udp.dst_port);
     mvwprintw(subwindow.win, ++y, 4, "Length: %u", ip->udp.len);
@@ -1010,8 +1016,6 @@ void print_udp_verbose(struct ip_info *ip, int lineno, int y)
 
 void print_tcp_verbose(struct ip_info *ip, int lineno, int y)
 {
-    int screen_line = lineno - top;
-
     mvwprintw(subwindow.win, y, 4, "Source port: %u", ip->tcp.src_port);
     mvwprintw(subwindow.win, ++y, 4, "Destination port: %u", ip->tcp.dst_port);
     mvwprintw(subwindow.win, ++y, 4, "Sequence number: %u", ip->tcp.seq_num);
@@ -1028,7 +1032,6 @@ void print_tcp_verbose(struct ip_info *ip, int lineno, int y)
 void print_dns_verbose(struct dns_info *dns, int lineno, int y)
 {
     int records = 0;
-    int screen_line = lineno - top;
 
     /* number of resource records */
     for (int i = 1; i < 4; i++) {
@@ -1074,8 +1077,6 @@ void print_dns_verbose(struct dns_info *dns, int lineno, int y)
 
 void print_dns_soa(struct dns_info *info, int i, int lineno, int y, int x)
 {
-    int screen_line = lineno - top;
-
     mvwprintw(subwindow.win, y, x, "mname: %s", info->record[i].rdata.soa.mname);
     mvwprintw(subwindow.win, ++y, x, "rname: %s", info->record[i].rdata.soa.rname);
     mvwprintw(subwindow.win, ++y, x, "Serial: %d", info->record[i].rdata.soa.serial);
@@ -1088,7 +1089,6 @@ void print_dns_soa(struct dns_info *info, int i, int lineno, int y, int x)
 void print_nbns_verbose(struct nbns_info *nbns, int lineno, int y)
 {
     int records = 0;
-    int screen_line = lineno - top;
 
     /* number of resource records */
     for (int i = 1; i < 4; i++) {
@@ -1128,11 +1128,9 @@ void print_nbns_verbose(struct nbns_info *nbns, int lineno, int y)
     }
 }
 
-
 void print_ssdp_verbose(list_t *ssdp, int lineno, int y)
 {
     const node_t *n;
-    int screen_line = lineno - top;
 
     mvwprintw(subwindow.win, y, 0, "");
     n = list_begin(ssdp);
