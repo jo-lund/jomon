@@ -81,6 +81,7 @@ static void print_header();
 static void create_subwindow(int num_lines, int lineno);
 static void delete_subwindow();
 static bool update_subwin_selection(int lineno);
+static void set_subwindow_line(int i, char *text, bool selected, enum header_type type);
 static int calculate_subwin_size(struct packet *p, int screen_line);
 static int calculate_applayer_size(struct application_info *info, int screen_line);
 static void create_sublines(struct packet *p, int size);
@@ -526,105 +527,61 @@ void create_sublines(struct packet *p, int size)
 {
     int i = 0;
 
-    // TODO: Make a new function that does the if/else test. Way too much
-    // repetition
     if (preferences.link_selected) {
-        subwindow.line[i].text = "- Ethernet header";
-        subwindow.line[i].selected = true;
-        subwindow.line[i].selectable = true;
-        subwindow.line[i].type = ETHERNET_HDR;
+        set_subwindow_line(i, "- Ethernet header", true, ETHERNET_HDR);
         i += ETH_WINSIZE;
     } else {
-        subwindow.line[i].text = "+ Ethernet header";
-        subwindow.line[i].selected = false;
-        subwindow.line[i].selectable = true;
-        subwindow.line[i].type = ETHERNET_HDR;
+        set_subwindow_line(i, "+ Ethernet header", false, ETHERNET_HDR);
         i++;
     }
     if (p->eth.ethertype == ETH_P_ARP) {
         if (preferences.link_arp_selected) {
-            subwindow.line[i].text = "- ARP header";
-            subwindow.line[i].selected = true;
-            subwindow.line[i].selectable = true;
-            subwindow.line[i].type = ARP_HDR;
+            set_subwindow_line(i, "- ARP header", true, ARP_HDR);
         } else {
-            subwindow.line[i].text = "+ ARP header";
-            subwindow.line[i].selected = false;
-            subwindow.line[i].selectable = true;
-            subwindow.line[i].type = ARP_HDR;
+            set_subwindow_line(i, "+ ARP header", false, ARP_HDR);
             i++;
         }
     } else if (p->eth.ethertype == ETH_P_IP) {
         if (preferences.network_selected) {
-            subwindow.line[i].text = "- IP header";
-            subwindow.line[i].selected = true;
-            subwindow.line[i].selectable = true;
-            subwindow.line[i].type = IP_HDR;
+            set_subwindow_line(i, "- IP header", true, IP_HDR);
             i += IP_WINSIZE;
         } else {
-            subwindow.line[i].text = "+ IP header";
-            subwindow.line[i].selected = false;
-            subwindow.line[i].selectable = true;
-            subwindow.line[i].type = IP_HDR;
+            set_subwindow_line(i, "+ IP header", false, IP_HDR);
             i++;
         }
         switch (p->eth.ip->protocol) {
         case IPPROTO_TCP:
             if (preferences.transport_selected) {
-                subwindow.line[i].text = "- TCP header";
-                subwindow.line[i].selected = true;
-                subwindow.line[i].selectable = true;
-                subwindow.line[i].type = TCP_HDR;
+                set_subwindow_line(i, "- TCP header", true, TCP_HDR);
                 i += TCP_WINSIZE;
             } else {
-                subwindow.line[i].text = "+ TCP header";
-                subwindow.line[i].selected = false;
-                subwindow.line[i].selectable = true;
-                subwindow.line[i].type = TCP_HDR;
+                set_subwindow_line(i, "+ TCP header", false, TCP_HDR);
                 i++;
             }
             create_app_sublines(p, i);
             break;
         case IPPROTO_UDP:
             if (preferences.transport_selected) {
-                subwindow.line[i].text = "- UDP header";
-                subwindow.line[i].selected = true;
-                subwindow.line[i].selectable = true;
-                subwindow.line[i].type = UDP_HDR;
+                set_subwindow_line(i, "- UDP header", true, UDP_HDR);
                 i += UDP_WINSIZE;
             } else {
-                subwindow.line[i].text = "+ UDP header";
-                subwindow.line[i].selected = false;
-                subwindow.line[i].selectable = true;
-                subwindow.line[i].type = UDP_HDR;
+                set_subwindow_line(i, "+ UDP header", false, UDP_HDR);
                 i++;
             }
             create_app_sublines(p, i);
             break;
         case IPPROTO_ICMP:
             if (preferences.transport_selected) {
-                subwindow.line[i].text = "- ICMP header";
-                subwindow.line[i].selected = true;
-                subwindow.line[i].selectable = true;
+                set_subwindow_line(i, "- ICMP header", true, ICMP_HDR);
             } else {
-                subwindow.line[i].text = "+ ICMP header";
-                subwindow.line[i].selected = false;
-                subwindow.line[i].selectable = true;
-                subwindow.line[i].type = ICMP_HDR;
-                i++;
+                set_subwindow_line(i, "+ ICMP header", false, ICMP_HDR);
             }
             break;
         case IPPROTO_IGMP:
             if (preferences.transport_selected) {
-                subwindow.line[i].text = "- IGMP header";
-                subwindow.line[i].selected = true;
-                subwindow.line[i].selectable = true;
+                set_subwindow_line(i, "- IGMP header", true, ICMP_HDR);
             } else {
-                subwindow.line[i].text = "+ IGMP header";
-                subwindow.line[i].selected = false;
-                subwindow.line[i].selectable = true;
-                subwindow.line[i].type = IGMP_HDR;
-                i++;
+                set_subwindow_line(i, "+ IGMP header", false, ICMP_HDR);
             }
             break;
         }
@@ -636,53 +593,41 @@ void create_app_sublines(struct packet *p, int i)
     switch (p->eth.ip->udp.data.utype) {
     case DNS:
         if (preferences.application_selected) {
-            subwindow.line[i].selected = true;
-            subwindow.line[i].selectable = true;
-            subwindow.line[i].text = "- DNS header";
+            set_subwindow_line(i, "- DNS header", true, APP_HDR);
         } else {
-            subwindow.line[i].selected = false;
-            subwindow.line[i].selectable = true;
-            subwindow.line[i].text = "+ DNS header";
+            set_subwindow_line(i, "+ DNS header", false, APP_HDR);
         }
-        subwindow.line[i].type = APP_HDR;
     break;
     case NBNS:
         if (preferences.application_selected) {
-            subwindow.line[i].selected = true;
-            subwindow.line[i].selectable = true;
-            subwindow.line[i].text = "- NBNS header";
+            set_subwindow_line(i, "- NBNS header", true, APP_HDR);
         } else {
-            subwindow.line[i].selected = false;
-            subwindow.line[i].selectable = true;
-            subwindow.line[i].text = "+ NBNS header";
+            set_subwindow_line(i, "+ NBNS header", false, APP_HDR);
         }
-        subwindow.line[i].type = APP_HDR;
         break;
     case HTTP:
         if (preferences.application_selected) {
-            subwindow.line[i].selected = true;
-            subwindow.line[i].selectable = true;
-            subwindow.line[i].text = "- HTTP header";
+            set_subwindow_line(i, "- HTTP header", true, APP_HDR);
         } else {
-            subwindow.line[i].selected = false;
-            subwindow.line[i].selectable = true;
-            subwindow.line[i].text = "+ HTTP header";
+            set_subwindow_line(i, "+ HTTP header", false, APP_HDR);
         }
-        subwindow.line[i].type = APP_HDR;
         break;
     case SSDP:
         if (preferences.application_selected) {
-            subwindow.line[i].selected = true;
-            subwindow.line[i].selectable = true;
-            subwindow.line[i].text = "- SSDP header";
+            set_subwindow_line(i, "- SSDP header", true, APP_HDR);
         } else {
-            subwindow.line[i].selected = false;
-            subwindow.line[i].selectable = true;
-            subwindow.line[i].text = "+ SSDP header";
+            set_subwindow_line(i, "+ SSDP header", true, APP_HDR);
         }
-        subwindow.line[i].type = APP_HDR;
         break;
     }
+}
+
+void set_subwindow_line(int i, char *text, bool selected, enum header_type type)
+{
+    subwindow.line[i].text = text;
+    subwindow.line[i].selected = selected;
+    subwindow.line[i].selectable = true;
+    subwindow.line[i].type = type;
 }
 
 /*
