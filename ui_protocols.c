@@ -250,7 +250,7 @@ void print_dns(char *buf, int n, struct dns_info *dns)
         }
         // TODO: Need to print the proper name for all values.
         PRINT_INFO(buf, n, "%s ", dns->record[0].name);
-        PRINT_INFO(buf, n, "%s ", get_dns_class(dns->record[0].class));
+        PRINT_INFO(buf, n, "%s ", get_dns_class(dns->record[0].rrclass));
         PRINT_INFO(buf, n, "%s ", get_dns_type(dns->record[0].type));
         for (int i = 0; i < dns->section_count[ANCOUNT]; i++) {
             print_dns_record(dns, i, buf, n, dns->record[i].type, NULL);

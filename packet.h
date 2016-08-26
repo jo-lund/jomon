@@ -116,6 +116,11 @@ enum packet_type {
     ETHERNET
 };
 
+enum eth_encapsulation {
+    ETH_II,
+    ETH_802_3
+};
+
 enum dns_section_count {
     QDCOUNT,
     ANCOUNT,
@@ -148,7 +153,7 @@ struct dns_info {
         /* a domain name to which the resource record pertains */
         char name[DNS_NAMELEN];
         uint16_t type;
-        uint16_t class;
+        uint16_t rrclass;
         /*
          * Specifies the time interval (in seconds) that the resource record
          * may be cached before it should be discarded. Zero values are
@@ -354,10 +359,21 @@ struct eth_info {
     unsigned char mac_src[ETH_ALEN];
     unsigned char mac_dst[ETH_ALEN];
     uint16_t ethertype;
+    enum eth_encapsulation link;
     union {
         struct arp_info *arp;
         struct ip_info *ip;
     };
+};
+
+struct eth_802_2_llc {
+    uint8_t dsap; /* destination service access point */
+    uint8_t ssap; /* source service access point */
+    uint8_t control; /* possible to be 2 bytes? */
+    struct {
+        unsigned char oui[3]; /* IEEE Organizationally Unique Identifier */
+        uint16_t protocol_id; /* If OUI is 0 the protocol ID is the Ethernet type */
+    } snap;
 };
 
 /*
@@ -370,12 +386,12 @@ struct packet {
 };
 
 /*
- * Gets a packet from the network interface card. Will allocate enough memory
+ * Get a packet from the network interface card. Will allocate enough memory
  * for packet, which needs to be freed with free_packet.
  */
 size_t read_packet(int sockfd, unsigned char *buffer, size_t n, struct packet **p);
 
-/* Frees the memory allocated for packet */
+/* Free the memory allocated for packet */
 void free_packet(void *packet);
 
 #endif

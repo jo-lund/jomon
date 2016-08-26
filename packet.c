@@ -164,16 +164,60 @@ void check_address(unsigned char *buffer)
  * |  address  | address   |   |
  * +-----------+-----------+---+
  *
+ * FT, the frame type or EtherType, can be used for two different purposes.
+ * Values of 1500 and below (Ethernet 802.3) mean that it is used to indicate
+ * the size of the payload in bytes, while values of 1536 and above (Ethernet II)
+ * indicate that it is used as an EtherType, to indicate which protocol is
+ * encapsulated in the payload of the frame.
+ *
+ * There are several types of 802.3 frames, e.g. 802.2 LLC (Logical Link Control)
+ * and 802.2 SNAP (Subnetwork Access Protocol).
+ *
+ * 802.2 LLC Header
+ *
+ *     1        1      1 or 2
+ * +--------+--------+--------+
+ * | DSAP=K1| SSAP=K1| Control|
+ * +--------+--------+--------+
+ *
+ * 802.2 SNAP
+ *
+ * When SNAP extension is used, it is located right after the LLC header. The
+ * payload start bytes for SNAP is 0xaaaa, which means the K1 value is 0xaa.
+ * The control value is 3 (Unnumbered Information).
+ *
+ * +--------+--------+---------+--------+--------+
+ * |Protocol Id or Org Code =K2|    EtherType    |
+ * +--------+--------+---------+--------+--------+
+ *
+ * The K2 value is 0 (zero).
  */
 bool handle_ethernet(unsigned char *buffer, struct eth_info *eth)
 {
     struct ethhdr *eth_header;
 
     eth_header = (struct ethhdr *) buffer;
-    eth->ethertype = ntohs(eth_header->h_proto);
     memcpy(eth->mac_src, eth_header->h_source, ETH_ALEN);
     memcpy(eth->mac_dst, eth_header->h_dest, ETH_ALEN);
+    if (ntohs(eth_header->h_proto) >= ETH_P_802_3_MIN) {
+        /* Ethernet II frame */
+        eth->ethertype = ntohs(eth_header->h_proto);
+        eth->link = ETH_II;
+    } else {
+        /* Ethernet 802.3 frame */
+        unsigned char *ptr;
+        uint16_t payload_start;
 
+        ptr = buffer + sizeof(struct ethhdr); /* skip 802.3 MAC (14 bytes) */
+        payload_start = ptr[0] << 8 | ptr[1];
+        if (payload_start == 0xaaaa) { /* SNAP extension */
+            ptr += 6; /* skip 802.2 LLC (3 bytes) + first 3 bytes of 802.2 SNAP */
+            eth->ethertype = ptr[0] << 8 | ptr[1];
+        } else if (payload_start == 0x4242) { /* IEEE 802.1 Bridge Spanning Tree Protocol */
+
+        }
+        eth->link = ETH_802_3;
+    }
     switch (eth->ethertype) {
     case ETH_P_IP:
         eth->ip = malloc(sizeof(struct ip_info));
@@ -185,9 +229,7 @@ bool handle_ethernet(unsigned char *buffer, struct eth_info *eth)
     case ETH_P_PAE:
         return false;
     default:
-        if (eth->ethertype >= ETH_P_802_3_MIN) {
-            printf("Ethernet protocol: 0x%x\n", eth->ethertype);
-        }
+        //printf("Ethernet protocol: 0x%x\n", eth->ethertype);
         return false;
     }
 }
@@ -752,11 +794,11 @@ void parse_dns_record(int i, unsigned char *buffer, unsigned char **ptr, struct 
 
     *ptr += parse_dns_name(buffer, *ptr, dns->record[i].name);
     dns->record[i].type = (*ptr)[0] << 8 | (*ptr)[1];
-    dns->record[i].class = (*ptr)[2] << 8 | (*ptr)[3];
+    dns->record[i].rrclass = (*ptr)[2] << 8 | (*ptr)[3];
     dns->record[i].ttl = (*ptr)[4] << 24 | (*ptr)[5] << 16 | (*ptr)[6] << 8 | (*ptr)[7];
     rdlen = (*ptr)[8] << 8 | (*ptr)[9];
     *ptr += 10; /* skip to rdata field */
-    if (dns->record[i].class == DNS_CLASS_IN) {
+    if (dns->record[i].rrclass == DNS_CLASS_IN) {
         switch (dns->record[i].type) {
         case DNS_TYPE_A:
             if (rdlen == 4) {

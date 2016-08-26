@@ -940,9 +940,9 @@ void print_igmp_verbose(struct ip_info *info, int lineno, int y)
     mvwprintw(subwindow.win, y, 4, "Type: %d (%s) ", info->igmp.type, get_igmp_type(info->icmp.type));
     if (info->igmp.type == IGMP_HOST_MEMBERSHIP_QUERY) {
         if (!strcmp(info->igmp.group_addr, "0.0.0.0")) {
-            mvwprintw(subwindow.win, y, 4, "General query", info->igmp.type, get_igmp_type(info->icmp.type));
+            mvwprintw(subwindow.win, ++y, 4, "General query", info->igmp.type, get_igmp_type(info->icmp.type));
         } else {
-            mvwprintw(subwindow.win, y, 4, "Group-specific query", info->igmp.type, get_igmp_type(info->icmp.type));
+            mvwprintw(subwindow.win, ++y, 4, "Group-specific query", info->igmp.type, get_igmp_type(info->icmp.type));
         }
     }
     mvwprintw(subwindow.win, ++y, 4, "Max response time: %d seconds", info->igmp.max_resp_time / 10);
@@ -1008,7 +1008,7 @@ void print_dns_verbose(struct dns_info *dns, int lineno, int y)
             bool soa = false;
 
             snprintf(buffer, mx, "%-*s", len + 4, dns->record[i].name);
-            snprintcat(buffer, mx, "%-6s", get_dns_class(dns->record[i].class));
+            snprintcat(buffer, mx, "%-6s", get_dns_class(dns->record[i].rrclass));
             snprintcat(buffer, mx, "%-8s", get_dns_type(dns->record[i].type));
             print_dns_record(dns, i, buffer, mx, dns->record[i].type, &soa);
             mvwprintw(subwindow.win, ++y, 8, "%s", buffer);

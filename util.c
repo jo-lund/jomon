@@ -223,9 +223,9 @@ char *get_dns_type_extended(uint16_t type)
     }
 }
 
-char *get_dns_class(uint16_t class)
+char *get_dns_class(uint16_t rrclass)
 {
-    switch (class) {
+    switch (rrclass) {
     case DNS_CLASS_IN:
         return "IN";
     case DNS_CLASS_CS:
@@ -239,9 +239,9 @@ char *get_dns_class(uint16_t class)
     }
 }
 
-char *get_dns_class_extended(uint16_t class)
+char *get_dns_class_extended(uint16_t rrclass)
 {
-    switch (class) {
+    switch (rrclass) {
     case DNS_CLASS_IN:
         return "IN (Internet)";
     case DNS_CLASS_CS:
