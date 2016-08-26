@@ -76,8 +76,6 @@ static void scroll_window();
 static int print_lines(int from, int to, int y, int cols);
 static void print(char *buf);
 static void print_header();
-
-/* Print selected packet information in a subwindow */
 static void create_subwindow(int num_lines, int lineno);
 static void delete_subwindow();
 static bool update_subwin_selection(int lineno);
@@ -88,19 +86,7 @@ static void create_sublines(struct packet *p, int size);
 static void create_app_sublines(struct packet *p, int i);
 static void print_selected_packet();
 static void print_protocol_information(struct packet *p, int lineno);
-static void print_ethernet_verbose(struct packet *p, int lineno, int y);
-static void print_arp_verbose(struct packet *p, int lineno, int y);
-static void print_ip_verbose(struct ip_info *ip, int lineno, int y);
-static void print_udp_verbose(struct ip_info *ip, int lineno, int y);
-static void print_tcp_verbose(struct ip_info *ip, int lineno, int y);
 static void print_app_protocol(struct application_info *info, int lineno, int y);
-static void print_dns_verbose(struct dns_info *dns, int lineno, int y);
-static void print_dns_soa(struct dns_info *info, int i, int lineno, int y, int x);
-static void print_nbns_verbose(struct nbns_info *nbns, int lineno, int y);
-static void print_icmp_verbose(struct ip_info *ip, int lineno, int y);
-static void print_igmp_verbose(struct ip_info *info, int lineno, int y);
-static void print_ssdp_verbose(list_t *ssdp, int lineno, int y);
-static void print_http_verbose(struct http_info *http);
 
 void init_ncurses()
 {
@@ -817,25 +803,25 @@ void print_protocol_information(struct packet *p, int lineno)
         if (subwindow.line[i].selected) {
             switch (subwindow.line[i].type) {
             case ETHERNET_HDR:
-                print_ethernet_verbose(p, lineno, i + 1);
+                print_ethernet_verbose(subwindow.win, p, lineno, i + 1);
                 break;
             case ARP_HDR:
-                print_arp_verbose(p, lineno, i + 1);
+                print_arp_verbose(subwindow.win, p, lineno, i + 1);
                 break;
             case IP_HDR:
-                print_ip_verbose(p->eth.ip, lineno, i + 1);
+                print_ip_verbose(subwindow.win, p->eth.ip, lineno, i + 1);
                 break;
             case TCP_HDR:
-                print_tcp_verbose(p->eth.ip, lineno, i + 1);
+                print_tcp_verbose(subwindow.win, p->eth.ip, lineno, i + 1);
                 break;
             case UDP_HDR:
-                print_udp_verbose(p->eth.ip, lineno, i + 1);
+                print_udp_verbose(subwindow.win, p->eth.ip, lineno, i + 1);
                 break;
             case ICMP_HDR:
-                print_icmp_verbose(p->eth.ip, lineno, i + 1);
+                print_icmp_verbose(subwindow.win, p->eth.ip, lineno, i + 1);
                 break;
             case IGMP_HDR:
-                print_igmp_verbose(p->eth.ip, lineno, i + 1);
+                print_igmp_verbose(subwindow.win, p->eth.ip, lineno, i + 1);
                 break;
             case APP_HDR:
                 print_app_protocol(&p->eth.ip->udp.data, lineno, i + 1);
@@ -854,241 +840,18 @@ void print_app_protocol(struct application_info *info, int lineno, int y)
 {
     switch (info->utype) {
     case DNS:
-        print_dns_verbose(info->dns, lineno, y);
+        print_dns_verbose(subwindow.win, info->dns, lineno, y, getmaxx(wmain));
         break;
     case NBNS:
-        print_nbns_verbose(info->nbns, lineno, y);
+        print_nbns_verbose(subwindow.win, info->nbns, lineno, y, getmaxx(wmain));
         break;
     case SSDP:
-        print_ssdp_verbose(info->ssdp, lineno, y);
+        print_ssdp_verbose(subwindow.win, info->ssdp, lineno, y);
         break;
     case HTTP:
-        print_http_verbose(info->http);
+        print_http_verbose(subwindow.win, info->http);
         break;
     default:
         break;
     }
-}
-
-void print_ethernet_verbose(struct packet *p, int lineno, int y)
-{
-    char src[HW_ADDRSTRLEN];
-    char dst[HW_ADDRSTRLEN];
-
-    snprintf(src, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
-             p->eth.mac_src[0], p->eth.mac_src[1], p->eth.mac_src[2],
-             p->eth.mac_src[3], p->eth.mac_src[4], p->eth.mac_src[5]);
-    snprintf(dst, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
-             p->eth.mac_dst[0], p->eth.mac_dst[1], p->eth.mac_dst[2],
-             p->eth.mac_dst[3], p->eth.mac_dst[4], p->eth.mac_dst[5]);
-    mvwprintw(subwindow.win, y, 4, "MAC source: %s", src);
-    mvwprintw(subwindow.win, ++y, 4, "MAC destination: %s", dst);
-    mvwprintw(subwindow.win, ++y, 4, "Ethertype: 0x%x", p->eth.ethertype);
-}
-
-void print_arp_verbose(struct packet *p, int lineno, int y)
-{
-    mvwprintw(subwindow.win, y, 4, "Hardware type: %d (%s)", p->eth.arp->ht, get_arp_hardware_type(p->eth.arp->ht));
-    mvwprintw(subwindow.win, ++y, 4, "Protocol type: 0x%x (%s)", p->eth.arp->pt, get_arp_protocol_type(p->eth.arp->pt));
-    mvwprintw(subwindow.win, ++y, 4, "Hardware size: %d", p->eth.arp->hs);
-    mvwprintw(subwindow.win, ++y, 4, "Protocol size: %d", p->eth.arp->ps);
-    mvwprintw(subwindow.win, ++y, 4, "Opcode: %d (%s)", p->eth.arp->op, get_arp_opcode(p->eth.arp->op));
-    mvwprintw(subwindow.win, ++y, 0, "");
-    mvwprintw(subwindow.win, ++y, 4, "Sender IP: %-15s  HW: %s", p->eth.arp->sip, p->eth.arp->sha);
-    mvwprintw(subwindow.win, ++y, 4, "Target IP: %-15s  HW: %s", p->eth.arp->tip, p->eth.arp->tha);
-}
-
-void print_ip_verbose(struct ip_info *ip, int lineno, int y)
-{
-    mvwprintw(subwindow.win, y, 4, "Version: %u", ip->version);
-    mvwprintw(subwindow.win, ++y, 4, "Internet Header Length (IHL): %u", ip->ihl);
-    mvwprintw(subwindow.win, ++y, 4, "Differentiated Services Code Point (DSCP): %u", ip->dscp);
-    mvwprintw(subwindow.win, ++y, 4, "Explicit Congestion Notification (ECN): %u", ip->ecn);
-    mvwprintw(subwindow.win, ++y, 4, "Total length: %u", ip->length);
-    mvwprintw(subwindow.win, ++y, 4, "Identification: %u", ip->id);
-    mvwprintw(subwindow.win, ++y, 4, "Flags: %u%u%u", ip->foffset & 0x80, ip->foffset & 0x40, ip->foffset & 0x20);
-    mvwprintw(subwindow.win, ++y, 4, "Time to live: %u", ip->ttl);
-    mvwprintw(subwindow.win, ++y, 4, "Protocol: %u", ip->protocol);
-    mvwprintw(subwindow.win, ++y, 4, "Checksum: %u", ip->checksum);
-    mvwprintw(subwindow.win, ++y, 4, "Source IP address: %s", ip->src);
-    mvwprintw(subwindow.win, ++y, 4, "Destination IP address: %s", ip->dst);
-}
-
-void print_icmp_verbose(struct ip_info *ip, int lineno, int y)
-{
-    mvwprintw(subwindow.win, y, 4, "Type: %d (%s)", ip->icmp.type, get_icmp_type(ip->icmp.type));
-    switch (ip->icmp.type) {
-    case ICMP_ECHOREPLY:
-    case ICMP_ECHO:
-        mvwprintw(subwindow.win, ++y, 4, "Code: %d", ip->icmp.code);
-        break;
-    case ICMP_DEST_UNREACH:
-        mvwprintw(subwindow.win, ++y, 4, "Code: %d (%s)", ip->icmp.code, get_icmp_dest_unreach_code(ip->icmp.code));
-        break;
-    default:
-        break;
-    }
-    mvwprintw(subwindow.win, ++y, 4, "Checksum: %d", ip->icmp.checksum);
-    if (ip->icmp.type == ICMP_ECHOREPLY || ip->icmp.type == ICMP_ECHO) {
-        mvwprintw(subwindow.win, ++y, 4, "Identifier: 0x%x", ip->icmp.echo.id);
-        mvwprintw(subwindow.win, ++y, 4, "Sequence number: %d", ip->icmp.echo.seq_num);
-    }
-}
-
-void print_igmp_verbose(struct ip_info *info, int lineno, int y)
-{
-    mvwprintw(subwindow.win, y, 4, "Type: %d (%s) ", info->igmp.type, get_igmp_type(info->icmp.type));
-    if (info->igmp.type == IGMP_HOST_MEMBERSHIP_QUERY) {
-        if (!strcmp(info->igmp.group_addr, "0.0.0.0")) {
-            mvwprintw(subwindow.win, ++y, 4, "General query", info->igmp.type, get_igmp_type(info->icmp.type));
-        } else {
-            mvwprintw(subwindow.win, ++y, 4, "Group-specific query", info->igmp.type, get_igmp_type(info->icmp.type));
-        }
-    }
-    mvwprintw(subwindow.win, ++y, 4, "Max response time: %d seconds", info->igmp.max_resp_time / 10);
-    mvwprintw(subwindow.win, ++y, 4, "Checksum: %d", info->igmp.checksum);
-    mvwprintw(subwindow.win, ++y, 4, "Group address: %s", info->igmp.group_addr);
-    mvwprintw(subwindow.win, ++y, 0, "");
-}
-
-void print_udp_verbose(struct ip_info *ip, int lineno, int y)
-{
-    mvwprintw(subwindow.win, y, 4, "Source port: %u", ip->udp.src_port);
-    mvwprintw(subwindow.win, ++y, 4, "Destination port: %u", ip->udp.dst_port);
-    mvwprintw(subwindow.win, ++y, 4, "Length: %u", ip->udp.len);
-    mvwprintw(subwindow.win, ++y, 4, "Checksum: %u", ip->udp.checksum);
-}
-
-void print_tcp_verbose(struct ip_info *ip, int lineno, int y)
-{
-    mvwprintw(subwindow.win, y, 4, "Source port: %u", ip->tcp.src_port);
-    mvwprintw(subwindow.win, ++y, 4, "Destination port: %u", ip->tcp.dst_port);
-    mvwprintw(subwindow.win, ++y, 4, "Sequence number: %u", ip->tcp.seq_num);
-    mvwprintw(subwindow.win, ++y, 4, "Acknowledgment number: %u", ip->tcp.ack_num);
-    mvwprintw(subwindow.win, ++y, 4, "Data offset: %u", ip->tcp.offset);
-    mvwprintw(subwindow.win, ++y, 4, "Flags: %u%u%u%u%u%u%u%u%u",
-              ip->tcp.ns, ip->tcp.cwr, ip->tcp.ece, ip->tcp.urg, ip->tcp.ack,
-              ip->tcp.psh, ip->tcp.rst, ip->tcp.syn, ip->tcp.fin);
-    mvwprintw(subwindow.win, ++y, 4, "Window size: %u", ip->tcp.window);
-    mvwprintw(subwindow.win, ++y, 4, "Checksum: %u", ip->tcp.checksum);
-    mvwprintw(subwindow.win, ++y, 4, "Urgent pointer: %u", ip->tcp.urg_ptr);
-}
-
-void print_dns_verbose(struct dns_info *dns, int lineno, int y)
-{
-    int records = 0;
-
-    /* number of resource records */
-    for (int i = 1; i < 4; i++) {
-        records += dns->section_count[i];
-    }
-    mvwprintw(subwindow.win, y, 4, "ID: 0x%x", dns->id);
-    mvwprintw(subwindow.win, ++y, 4, "QR: %d (%s)", dns->qr, dns->qr ? "DNS Response" : "DNS Query");
-    mvwprintw(subwindow.win, ++y, 4, "Opcode: %d (%s)", dns->opcode, get_dns_opcode(dns->opcode));
-    mvwprintw(subwindow.win, ++y, 4, "Flags: %d%d%d%d", dns->aa, dns->tc, dns->rd, dns->ra);
-    mvwprintw(subwindow.win, ++y, 4, "Rcode: %d (%s)", dns->rcode, get_dns_rcode(dns->rcode));
-    mvwprintw(subwindow.win, ++y, 4, "Question: %d, Answer: %d, Authority: %d, Additional records: %d",
-              dns->section_count[QDCOUNT], dns->section_count[ANCOUNT],
-              dns->section_count[NSCOUNT], dns->section_count[ARCOUNT]);
-    mvwprintw(subwindow.win, ++y, 0, "");
-    for (int i = dns->section_count[QDCOUNT]; i > 0; i--) {
-        mvwprintw(subwindow.win, ++y, 4, "QNAME: %s, QTYPE: %s, QCLASS: %s",
-                  dns->question.qname, get_dns_type_extended(dns->question.qtype),
-                  get_dns_class_extended(dns->question.qclass));
-    }
-    if (records) {
-        int mx;
-        int len;
-
-        mx = getmaxx(wmain);
-        mvwprintw(subwindow.win, ++y, 4, "Resource records:");
-        len = get_max_namelen(dns->record, records);
-        for (int i = 0; i < records; i++) {
-            char buffer[mx];
-            bool soa = false;
-
-            snprintf(buffer, mx, "%-*s", len + 4, dns->record[i].name);
-            snprintcat(buffer, mx, "%-6s", get_dns_class(dns->record[i].rrclass));
-            snprintcat(buffer, mx, "%-8s", get_dns_type(dns->record[i].type));
-            print_dns_record(dns, i, buffer, mx, dns->record[i].type, &soa);
-            mvwprintw(subwindow.win, ++y, 8, "%s", buffer);
-            if (soa) {
-                mvwprintw(subwindow.win, ++y, 0, "");
-                print_dns_soa(dns, i, lineno, y + 1, 8);
-            }
-        }
-    }
-}
-
-void print_dns_soa(struct dns_info *info, int i, int lineno, int y, int x)
-{
-    mvwprintw(subwindow.win, y, x, "mname: %s", info->record[i].rdata.soa.mname);
-    mvwprintw(subwindow.win, ++y, x, "rname: %s", info->record[i].rdata.soa.rname);
-    mvwprintw(subwindow.win, ++y, x, "Serial: %d", info->record[i].rdata.soa.serial);
-    mvwprintw(subwindow.win, ++y, x, "Refresh: %d", info->record[i].rdata.soa.refresh);
-    mvwprintw(subwindow.win, ++y, x, "Retry: %d", info->record[i].rdata.soa.retry);
-    mvwprintw(subwindow.win, ++y, x, "Expire: %d", info->record[i].rdata.soa.expire);
-    mvwprintw(subwindow.win, ++y, x, "Minimum: %d", info->record[i].rdata.soa.minimum);
-}
-
-void print_nbns_verbose(struct nbns_info *nbns, int lineno, int y)
-{
-    int records = 0;
-
-    /* number of resource records */
-    for (int i = 1; i < 4; i++) {
-        records += nbns->section_count[i];
-    }
-    mvwprintw(subwindow.win, y, 0, "");
-    mvwprintw(subwindow.win, ++y, 4, "ID: 0x%x", nbns->id);
-    mvwprintw(subwindow.win, ++y, 4, "Response flag: %d (%s)", nbns->r, nbns->r ? "Response" : "Request");
-    mvwprintw(subwindow.win, ++y, 4, "Opcode: %d (%s)", nbns->opcode, get_nbns_opcode(nbns->opcode));
-    mvwprintw(subwindow.win, ++y, 4, "Flags: %d%d%d%d%d", nbns->aa, nbns->tc, nbns->rd, nbns->ra, nbns->broadcast);
-    mvwprintw(subwindow.win, ++y, 4, "Rcode: %d (%s)", nbns->rcode, get_nbns_rcode(nbns->rcode));
-    mvwprintw(subwindow.win, ++y, 4, "Question Entries: %d, Answer RRs: %d, Authority RRs: %d, Additional RRs: %d",
-              nbns->section_count[QDCOUNT], nbns->section_count[ANCOUNT],
-              nbns->section_count[NSCOUNT], nbns->section_count[ARCOUNT]);
-    mvwprintw(subwindow.win, ++y, 0, "");
-
-    /* question entry */
-    if (nbns->section_count[QDCOUNT]) {
-        mvwprintw(subwindow.win, ++y, 4, "Question name: %s, Question type: %s, Question class: IN (Internet)",
-                  nbns->question.qname, get_nbns_type_extended(nbns->question.qtype));
-    }
-
-    if (records) {
-        int mx;
-
-        mx = getmaxx(wmain);
-        mvwprintw(subwindow.win, ++y, 4, "Resource records:");
-        for (int i = 0; i < records; i++) {
-            char buffer[mx];
-
-            snprintf(buffer, mx, "%s\t", nbns->record[i].rrname);
-            snprintcat(buffer, mx, "IN\t");
-            snprintcat(buffer, mx, "%s\t", get_nbns_type(nbns->record[i].rrtype));
-            print_nbns_record(nbns, i, buffer, mx, nbns->record[i].rrtype);
-            mvwprintw(subwindow.win, ++y, 8, "%s", buffer);
-        }
-    }
-}
-
-void print_ssdp_verbose(list_t *ssdp, int lineno, int y)
-{
-    const node_t *n;
-
-    mvwprintw(subwindow.win, y, 0, "");
-    n = list_begin(ssdp);
-    while (n) {
-        mvwprintw(subwindow.win, ++y, 4, "%s", (char *) list_data(n));
-        n = list_next(n);
-    }
-    mvwprintw(subwindow.win, ++y, 0, "");
-    touchwin(wmain);
-    wrefresh(subwindow.win);
-}
-
-void print_http_verbose(struct http_info *http)
-{
-
 }

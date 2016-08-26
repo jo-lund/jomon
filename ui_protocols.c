@@ -34,6 +34,8 @@ static void print_dns(char *buf, int n, struct dns_info *dns);
 static void print_nbns(char *buf, int n, struct nbns_info *nbns);
 static void print_ssdp(char *buf, int n, list_t *ssdp);
 static void print_http(char *buf, int n, struct http_info *http);
+static void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t type, bool *soa);
+static void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t type);
 
 void print_buffer(char *buf, int size, struct packet *p)
 {
@@ -398,4 +400,220 @@ void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t
     default:
         break;
     }
+}
+
+void print_ethernet_verbose(WINDOW *win, struct packet *p, int lineno, int y)
+{
+    char src[HW_ADDRSTRLEN];
+    char dst[HW_ADDRSTRLEN];
+
+    snprintf(src, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
+             p->eth.mac_src[0], p->eth.mac_src[1], p->eth.mac_src[2],
+             p->eth.mac_src[3], p->eth.mac_src[4], p->eth.mac_src[5]);
+    snprintf(dst, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
+             p->eth.mac_dst[0], p->eth.mac_dst[1], p->eth.mac_dst[2],
+             p->eth.mac_dst[3], p->eth.mac_dst[4], p->eth.mac_dst[5]);
+    mvwprintw(win, y, 4, "MAC source: %s", src);
+    mvwprintw(win, ++y, 4, "MAC destination: %s", dst);
+    mvwprintw(win, ++y, 4, "Ethertype: 0x%x", p->eth.ethertype);
+}
+
+void print_arp_verbose(WINDOW *win, struct packet *p, int lineno, int y)
+{
+    mvwprintw(win, y, 4, "Hardware type: %d (%s)", p->eth.arp->ht, get_arp_hardware_type(p->eth.arp->ht));
+    mvwprintw(win, ++y, 4, "Protocol type: 0x%x (%s)", p->eth.arp->pt, get_arp_protocol_type(p->eth.arp->pt));
+    mvwprintw(win, ++y, 4, "Hardware size: %d", p->eth.arp->hs);
+    mvwprintw(win, ++y, 4, "Protocol size: %d", p->eth.arp->ps);
+    mvwprintw(win, ++y, 4, "Opcode: %d (%s)", p->eth.arp->op, get_arp_opcode(p->eth.arp->op));
+    mvwprintw(win, ++y, 0, "");
+    mvwprintw(win, ++y, 4, "Sender IP: %-15s  HW: %s", p->eth.arp->sip, p->eth.arp->sha);
+    mvwprintw(win, ++y, 4, "Target IP: %-15s  HW: %s", p->eth.arp->tip, p->eth.arp->tha);
+}
+
+void print_ip_verbose(WINDOW *win, struct ip_info *ip, int lineno, int y)
+{
+    mvwprintw(win, y, 4, "Version: %u", ip->version);
+    mvwprintw(win, ++y, 4, "Internet Header Length (IHL): %u", ip->ihl);
+    mvwprintw(win, ++y, 4, "Differentiated Services Code Point (DSCP): %u", ip->dscp);
+    mvwprintw(win, ++y, 4, "Explicit Congestion Notification (ECN): %u", ip->ecn);
+    mvwprintw(win, ++y, 4, "Total length: %u", ip->length);
+    mvwprintw(win, ++y, 4, "Identification: %u", ip->id);
+    mvwprintw(win, ++y, 4, "Flags: %u%u%u", ip->foffset & 0x80, ip->foffset & 0x40, ip->foffset & 0x20);
+    mvwprintw(win, ++y, 4, "Time to live: %u", ip->ttl);
+    mvwprintw(win, ++y, 4, "Protocol: %u", ip->protocol);
+    mvwprintw(win, ++y, 4, "Checksum: %u", ip->checksum);
+    mvwprintw(win, ++y, 4, "Source IP address: %s", ip->src);
+    mvwprintw(win, ++y, 4, "Destination IP address: %s", ip->dst);
+}
+
+void print_icmp_verbose(WINDOW *win, struct ip_info *ip, int lineno, int y)
+{
+    mvwprintw(win, y, 4, "Type: %d (%s)", ip->icmp.type, get_icmp_type(ip->icmp.type));
+    switch (ip->icmp.type) {
+    case ICMP_ECHOREPLY:
+    case ICMP_ECHO:
+        mvwprintw(win, ++y, 4, "Code: %d", ip->icmp.code);
+        break;
+    case ICMP_DEST_UNREACH:
+        mvwprintw(win, ++y, 4, "Code: %d (%s)", ip->icmp.code, get_icmp_dest_unreach_code(ip->icmp.code));
+        break;
+    default:
+        break;
+    }
+    mvwprintw(win, ++y, 4, "Checksum: %d", ip->icmp.checksum);
+    if (ip->icmp.type == ICMP_ECHOREPLY || ip->icmp.type == ICMP_ECHO) {
+        mvwprintw(win, ++y, 4, "Identifier: 0x%x", ip->icmp.echo.id);
+        mvwprintw(win, ++y, 4, "Sequence number: %d", ip->icmp.echo.seq_num);
+    }
+}
+
+void print_igmp_verbose(WINDOW *win, struct ip_info *info, int lineno, int y)
+{
+    mvwprintw(win, y, 4, "Type: %d (%s) ", info->igmp.type, get_igmp_type(info->icmp.type));
+    if (info->igmp.type == IGMP_HOST_MEMBERSHIP_QUERY) {
+        if (!strcmp(info->igmp.group_addr, "0.0.0.0")) {
+            mvwprintw(win, ++y, 4, "General query", info->igmp.type, get_igmp_type(info->icmp.type));
+        } else {
+            mvwprintw(win, ++y, 4, "Group-specific query", info->igmp.type, get_igmp_type(info->icmp.type));
+        }
+    }
+    mvwprintw(win, ++y, 4, "Max response time: %d seconds", info->igmp.max_resp_time / 10);
+    mvwprintw(win, ++y, 4, "Checksum: %d", info->igmp.checksum);
+    mvwprintw(win, ++y, 4, "Group address: %s", info->igmp.group_addr);
+    mvwprintw(win, ++y, 0, "");
+}
+
+void print_udp_verbose(WINDOW *win, struct ip_info *ip, int lineno, int y)
+{
+    mvwprintw(win, y, 4, "Source port: %u", ip->udp.src_port);
+    mvwprintw(win, ++y, 4, "Destination port: %u", ip->udp.dst_port);
+    mvwprintw(win, ++y, 4, "Length: %u", ip->udp.len);
+    mvwprintw(win, ++y, 4, "Checksum: %u", ip->udp.checksum);
+}
+
+void print_tcp_verbose(WINDOW *win, struct ip_info *ip, int lineno, int y)
+{
+    mvwprintw(win, y, 4, "Source port: %u", ip->tcp.src_port);
+    mvwprintw(win, ++y, 4, "Destination port: %u", ip->tcp.dst_port);
+    mvwprintw(win, ++y, 4, "Sequence number: %u", ip->tcp.seq_num);
+    mvwprintw(win, ++y, 4, "Acknowledgment number: %u", ip->tcp.ack_num);
+    mvwprintw(win, ++y, 4, "Data offset: %u", ip->tcp.offset);
+    mvwprintw(win, ++y, 4, "Flags: %u%u%u%u%u%u%u%u%u",
+              ip->tcp.ns, ip->tcp.cwr, ip->tcp.ece, ip->tcp.urg, ip->tcp.ack,
+              ip->tcp.psh, ip->tcp.rst, ip->tcp.syn, ip->tcp.fin);
+    mvwprintw(win, ++y, 4, "Window size: %u", ip->tcp.window);
+    mvwprintw(win, ++y, 4, "Checksum: %u", ip->tcp.checksum);
+    mvwprintw(win, ++y, 4, "Urgent pointer: %u", ip->tcp.urg_ptr);
+}
+
+void print_dns_verbose(WINDOW *win, struct dns_info *dns, int lineno, int y, int maxx)
+{
+    int records = 0;
+
+    /* number of resource records */
+    for (int i = 1; i < 4; i++) {
+        records += dns->section_count[i];
+    }
+    mvwprintw(win, y, 4, "ID: 0x%x", dns->id);
+    mvwprintw(win, ++y, 4, "QR: %d (%s)", dns->qr, dns->qr ? "DNS Response" : "DNS Query");
+    mvwprintw(win, ++y, 4, "Opcode: %d (%s)", dns->opcode, get_dns_opcode(dns->opcode));
+    mvwprintw(win, ++y, 4, "Flags: %d%d%d%d", dns->aa, dns->tc, dns->rd, dns->ra);
+    mvwprintw(win, ++y, 4, "Rcode: %d (%s)", dns->rcode, get_dns_rcode(dns->rcode));
+    mvwprintw(win, ++y, 4, "Question: %d, Answer: %d, Authority: %d, Additional records: %d",
+              dns->section_count[QDCOUNT], dns->section_count[ANCOUNT],
+              dns->section_count[NSCOUNT], dns->section_count[ARCOUNT]);
+    mvwprintw(win, ++y, 0, "");
+    for (int i = dns->section_count[QDCOUNT]; i > 0; i--) {
+        mvwprintw(win, ++y, 4, "QNAME: %s, QTYPE: %s, QCLASS: %s",
+                  dns->question.qname, get_dns_type_extended(dns->question.qtype),
+                  get_dns_class_extended(dns->question.qclass));
+    }
+    if (records) {
+        int len;
+
+        mvwprintw(win, ++y, 4, "Resource records:");
+        len = get_max_namelen(dns->record, records);
+        for (int i = 0; i < records; i++) {
+            char buffer[maxx];
+            bool soa = false;
+
+            snprintf(buffer, maxx, "%-*s", len + 4, dns->record[i].name);
+            snprintcat(buffer, maxx, "%-6s", get_dns_class(dns->record[i].rrclass));
+            snprintcat(buffer, maxx, "%-8s", get_dns_type(dns->record[i].type));
+            print_dns_record(dns, i, buffer, maxx, dns->record[i].type, &soa);
+            mvwprintw(win, ++y, 8, "%s", buffer);
+            if (soa) {
+                mvwprintw(win, ++y, 0, "");
+                print_dns_soa(win, dns, i, lineno, y + 1, 8);
+            }
+        }
+    }
+}
+
+void print_dns_soa(WINDOW *win, struct dns_info *info, int i, int lineno, int y, int x)
+{
+    mvwprintw(win, y, x, "mname: %s", info->record[i].rdata.soa.mname);
+    mvwprintw(win, ++y, x, "rname: %s", info->record[i].rdata.soa.rname);
+    mvwprintw(win, ++y, x, "Serial: %d", info->record[i].rdata.soa.serial);
+    mvwprintw(win, ++y, x, "Refresh: %d", info->record[i].rdata.soa.refresh);
+    mvwprintw(win, ++y, x, "Retry: %d", info->record[i].rdata.soa.retry);
+    mvwprintw(win, ++y, x, "Expire: %d", info->record[i].rdata.soa.expire);
+    mvwprintw(win, ++y, x, "Minimum: %d", info->record[i].rdata.soa.minimum);
+}
+
+void print_nbns_verbose(WINDOW *win, struct nbns_info *nbns, int lineno, int y, int maxx)
+{
+    int records = 0;
+
+    /* number of resource records */
+    for (int i = 1; i < 4; i++) {
+        records += nbns->section_count[i];
+    }
+    mvwprintw(win, y, 0, "");
+    mvwprintw(win, ++y, 4, "ID: 0x%x", nbns->id);
+    mvwprintw(win, ++y, 4, "Response flag: %d (%s)", nbns->r, nbns->r ? "Response" : "Request");
+    mvwprintw(win, ++y, 4, "Opcode: %d (%s)", nbns->opcode, get_nbns_opcode(nbns->opcode));
+    mvwprintw(win, ++y, 4, "Flags: %d%d%d%d%d", nbns->aa, nbns->tc, nbns->rd, nbns->ra, nbns->broadcast);
+    mvwprintw(win, ++y, 4, "Rcode: %d (%s)", nbns->rcode, get_nbns_rcode(nbns->rcode));
+    mvwprintw(win, ++y, 4, "Question Entries: %d, Answer RRs: %d, Authority RRs: %d, Additional RRs: %d",
+              nbns->section_count[QDCOUNT], nbns->section_count[ANCOUNT],
+              nbns->section_count[NSCOUNT], nbns->section_count[ARCOUNT]);
+    mvwprintw(win, ++y, 0, "");
+
+    /* question entry */
+    if (nbns->section_count[QDCOUNT]) {
+        mvwprintw(win, ++y, 4, "Question name: %s, Question type: %s, Question class: IN (Internet)",
+                  nbns->question.qname, get_nbns_type_extended(nbns->question.qtype));
+    }
+
+    if (records) {
+        mvwprintw(win, ++y, 4, "Resource records:");
+        for (int i = 0; i < records; i++) {
+            char buffer[maxx];
+
+            snprintf(buffer, maxx, "%s\t", nbns->record[i].rrname);
+            snprintcat(buffer, maxx, "IN\t");
+            snprintcat(buffer, maxx, "%s\t", get_nbns_type(nbns->record[i].rrtype));
+            print_nbns_record(nbns, i, buffer, maxx, nbns->record[i].rrtype);
+            mvwprintw(win, ++y, 8, "%s", buffer);
+        }
+    }
+}
+
+void print_ssdp_verbose(WINDOW *win, list_t *ssdp, int lineno, int y)
+{
+    const node_t *n;
+
+    mvwprintw(win, y, 0, "");
+    n = list_begin(ssdp);
+    while (n) {
+        mvwprintw(win, ++y, 4, "%s", (char *) list_data(n));
+        n = list_next(n);
+    }
+    mvwprintw(win, ++y, 0, "");
+}
+
+void print_http_verbose(WINDOW *win, struct http_info *http)
+{
+
 }
