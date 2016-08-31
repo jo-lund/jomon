@@ -14,11 +14,11 @@
 #define HEADER_HEIGHT 4
 #define STATUS_HEIGHT 1
 #define KEY_ESC 27
-#define ETH_WINSIZE 4
-#define ARP_WINSIZE 9
-#define IP_WINSIZE 13
-#define TCP_WINSIZE 10
-#define UDP_WINSIZE 5
+#define ETH_WINSIZE 5
+#define ARP_WINSIZE 10
+#define IP_WINSIZE 14
+#define TCP_WINSIZE 11
+#define UDP_WINSIZE 6
 #define IGMP_WINSIZE 6
 
 static struct preferences {
@@ -86,7 +86,7 @@ static void create_sublines(struct packet *p, int size);
 static void create_app_sublines(struct packet *p, int i);
 static void print_selected_packet();
 static void print_protocol_information(struct packet *p, int lineno);
-static void print_app_protocol(struct application_info *info, int lineno, int y);
+static void print_app_protocol(struct application_info *info, int y);
 
 void init_ncurses()
 {
@@ -602,7 +602,7 @@ void create_app_sublines(struct packet *p, int i)
         if (preferences.application_selected) {
             set_subwindow_line(i, "- SSDP header", true, APP_HDR);
         } else {
-            set_subwindow_line(i, "+ SSDP header", true, APP_HDR);
+            set_subwindow_line(i, "+ SSDP header", false, APP_HDR);
         }
         break;
     }
@@ -698,38 +698,116 @@ bool update_subwin_selection(int lineno)
 /* Calculate size of subwindow */
 int calculate_subwin_size(struct packet *p, int screen_line)
 {
-    // ARP 3, unknown TCP/UDP 4, else 5
-    int size = 5; /* default subwindow size */
+    int size = 0;
 
-    for (int i = 0; i < subwindow.num_lines; i++) {
-        if (subwindow.line[i].selected) {
+    if (!subwindow.win) {
+        if (preferences.link_selected) {
+            size += ETH_WINSIZE;
+        } else {
+            size++;
+        }
+        switch (p->eth.ethertype) {
+        case ETH_P_ARP:
+            if (preferences.link_arp_selected) {
+                size += ARP_WINSIZE;
+            } else {
+                size += 2;
+            }
+            break;
+        case ETH_P_IP:
+            if (preferences.network_selected) {
+                size += IP_WINSIZE;
+            } else {
+                size++;
+            }
+            switch (p->eth.ip->protocol) {
+            case IPPROTO_UDP:
+                if (preferences.transport_selected) {
+                    size += UDP_WINSIZE;
+                } else {
+                    size++;
+                }
+                size += calculate_applayer_size(&p->eth.ip->udp.data, screen_line);
+                break;
+            case IPPROTO_TCP:
+                if (preferences.transport_selected) {
+                    size += TCP_WINSIZE;
+                } else {
+                    size++;
+                }
+                size += calculate_applayer_size(&p->eth.ip->tcp.data, screen_line);
+                break;
+            case IPPROTO_ICMP:
+                if (preferences.transport_selected) {
+                    size += 7;
+                } else {
+                    size += 2;
+                }
+                break;
+            case IPPROTO_IGMP:
+                if (preferences.transport_selected) {
+                    size += IGMP_WINSIZE;
+                } else {
+                    size += 2;
+                }
+                break;
+            }
+            break;
+        default:
+            break;
+        }
+    } else {
+        for (int i = 0; i < subwindow.num_lines; i++) {
             switch (subwindow.line[i].type) {
             case ETHERNET_HDR:
-                size += ETH_WINSIZE + 1;
+                if (subwindow.line[i].selected) {
+                    size += ETH_WINSIZE;
+                } else {
+                    size++;
+                }
                 break;
             case ARP_HDR:
-                size += ARP_WINSIZE;
+                if (subwindow.line[i].selected) {
+                    size += ARP_WINSIZE;
+                } else {
+                    size += 2;
+                }
                 break;
             case IP_HDR:
-                size += IP_WINSIZE + 1;
+                if (subwindow.line[i].selected) {
+                    size += IP_WINSIZE;
+                } else {
+                    size++;
+                }
                 break;
             case TCP_HDR:
-                size += TCP_WINSIZE;
+                if (subwindow.line[i].selected) {
+                    size += TCP_WINSIZE;
+                } else {
+                    size++;
+                }
+                size += calculate_applayer_size(&p->eth.ip->udp.data, screen_line);
                 break;
             case UDP_HDR:
-                size += UDP_WINSIZE;
+                if (subwindow.line[i].selected) {
+                    size += UDP_WINSIZE;
+                } else {
+                    size++;
+                }
                 size += calculate_applayer_size(&p->eth.ip->udp.data, screen_line);
                 break;
             case ICMP_HDR:
-                size += 7;
+                if (subwindow.line[i].selected) {
+                    size += 7;
+                } else {
+                    size += 2;
+                }
                 break;
             case IGMP_HDR:
-                size += IGMP_WINSIZE;
-            case APP_HDR:
-                if (p->eth.ip->protocol == IPPROTO_UDP) {
-                    size += calculate_applayer_size(&p->eth.ip->udp.data, screen_line);
-                } else if (p->eth.ip->protocol == IPPROTO_TCP) {
-                    size += calculate_applayer_size(&p->eth.ip->tcp.data, screen_line);
+                if (subwindow.line[i].selected) {
+                    size += IGMP_WINSIZE;
+                } else {
+                    size += 2;
                 }
                 break;
             default:
@@ -742,42 +820,49 @@ int calculate_subwin_size(struct packet *p, int screen_line)
 
 int calculate_applayer_size(struct application_info *info, int screen_line)
 {
-    int size = 1;
+    int size = 0;
 
-    if (preferences.application_selected) {
-        switch (info->utype) {
-        case DNS:
-        {
+    switch (info->utype) {
+    case DNS:
+        if (preferences.application_selected) {
             int records = 0;
 
             /* number of resource records */
             for (int i = 1; i < 4; i++) {
                 records += info->dns->section_count[i];
             }
-            size += (info->dns->section_count[NSCOUNT] ? 18 + records : 10 + records);
-            break;
+            size += (info->dns->section_count[NSCOUNT] ? 19 + records : 11 + records);
+        } else {
+            size += 2;
         }
-        case NBNS:
-        {
+        break;
+    case NBNS:
+        if (preferences.application_selected) {
             int records = 0;
 
             /* number of resource records */
             for (int i = 1; i < 4; i++) {
                 records += info->nbns->section_count[i];
             }
-            size += (records ? 11 + records : 10);
-            break;
+            size += (records ? 12 + records : 11);
+        } else {
+            size += 2;
         }
-        case HTTP:
-            break;
-        case SSDP:
+        break;
+    case HTTP:
+        break;
+    case SSDP:
+        if (preferences.application_selected) {
             size += list_size(info->ssdp) + 2;
-            break;
-        default:
-            break;
+        } else {
+            size += 2;
         }
-    } else {
-        size++;
+        break;
+    default:
+        if (!preferences.transport_selected) {
+            size++;
+        }
+        break;
     }
     return size;
 }
@@ -803,28 +888,28 @@ void print_protocol_information(struct packet *p, int lineno)
         if (subwindow.line[i].selected) {
             switch (subwindow.line[i].type) {
             case ETHERNET_HDR:
-                print_ethernet_verbose(subwindow.win, p, lineno, i + 1);
+                print_ethernet_verbose(subwindow.win, p, i + 1);
                 break;
             case ARP_HDR:
-                print_arp_verbose(subwindow.win, p, lineno, i + 1);
+                print_arp_verbose(subwindow.win, p, i + 1);
                 break;
             case IP_HDR:
-                print_ip_verbose(subwindow.win, p->eth.ip, lineno, i + 1);
+                print_ip_verbose(subwindow.win, p->eth.ip, i + 1);
                 break;
             case TCP_HDR:
-                print_tcp_verbose(subwindow.win, p->eth.ip, lineno, i + 1);
+                print_tcp_verbose(subwindow.win, p->eth.ip, i + 1);
                 break;
             case UDP_HDR:
-                print_udp_verbose(subwindow.win, p->eth.ip, lineno, i + 1);
+                print_udp_verbose(subwindow.win, p->eth.ip, i + 1);
                 break;
             case ICMP_HDR:
-                print_icmp_verbose(subwindow.win, p->eth.ip, lineno, i + 1);
+                print_icmp_verbose(subwindow.win, p->eth.ip, i + 1);
                 break;
             case IGMP_HDR:
-                print_igmp_verbose(subwindow.win, p->eth.ip, lineno, i + 1);
+                print_igmp_verbose(subwindow.win, p->eth.ip, i + 1);
                 break;
             case APP_HDR:
-                print_app_protocol(&p->eth.ip->udp.data, lineno, i + 1);
+                print_app_protocol(&p->eth.ip->udp.data, i + 1);
                 break;
             default:
                 break;
@@ -836,17 +921,17 @@ void print_protocol_information(struct packet *p, int lineno)
     wrefresh(subwindow.win);
 }
 
-void print_app_protocol(struct application_info *info, int lineno, int y)
+void print_app_protocol(struct application_info *info, int y)
 {
     switch (info->utype) {
     case DNS:
-        print_dns_verbose(subwindow.win, info->dns, lineno, y, getmaxx(wmain));
+        print_dns_verbose(subwindow.win, info->dns, y, getmaxx(wmain));
         break;
     case NBNS:
-        print_nbns_verbose(subwindow.win, info->nbns, lineno, y, getmaxx(wmain));
+        print_nbns_verbose(subwindow.win, info->nbns, y, getmaxx(wmain));
         break;
     case SSDP:
-        print_ssdp_verbose(subwindow.win, info->ssdp, lineno, y);
+        print_ssdp_verbose(subwindow.win, info->ssdp, y);
         break;
     case HTTP:
         print_http_verbose(subwindow.win, info->http);

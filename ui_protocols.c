@@ -402,7 +402,7 @@ void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t
     }
 }
 
-void print_ethernet_verbose(WINDOW *win, struct packet *p, int lineno, int y)
+void print_ethernet_verbose(WINDOW *win, struct packet *p, int y)
 {
     char src[HW_ADDRSTRLEN];
     char dst[HW_ADDRSTRLEN];
@@ -418,7 +418,7 @@ void print_ethernet_verbose(WINDOW *win, struct packet *p, int lineno, int y)
     mvwprintw(win, ++y, 4, "Ethertype: 0x%x", p->eth.ethertype);
 }
 
-void print_arp_verbose(WINDOW *win, struct packet *p, int lineno, int y)
+void print_arp_verbose(WINDOW *win, struct packet *p, int y)
 {
     mvwprintw(win, y, 4, "Hardware type: %d (%s)", p->eth.arp->ht, get_arp_hardware_type(p->eth.arp->ht));
     mvwprintw(win, ++y, 4, "Protocol type: 0x%x (%s)", p->eth.arp->pt, get_arp_protocol_type(p->eth.arp->pt));
@@ -430,7 +430,7 @@ void print_arp_verbose(WINDOW *win, struct packet *p, int lineno, int y)
     mvwprintw(win, ++y, 4, "Target IP: %-15s  HW: %s", p->eth.arp->tip, p->eth.arp->tha);
 }
 
-void print_ip_verbose(WINDOW *win, struct ip_info *ip, int lineno, int y)
+void print_ip_verbose(WINDOW *win, struct ip_info *ip, int y)
 {
     mvwprintw(win, y, 4, "Version: %u", ip->version);
     mvwprintw(win, ++y, 4, "Internet Header Length (IHL): %u", ip->ihl);
@@ -446,7 +446,7 @@ void print_ip_verbose(WINDOW *win, struct ip_info *ip, int lineno, int y)
     mvwprintw(win, ++y, 4, "Destination IP address: %s", ip->dst);
 }
 
-void print_icmp_verbose(WINDOW *win, struct ip_info *ip, int lineno, int y)
+void print_icmp_verbose(WINDOW *win, struct ip_info *ip, int y)
 {
     mvwprintw(win, y, 4, "Type: %d (%s)", ip->icmp.type, get_icmp_type(ip->icmp.type));
     switch (ip->icmp.type) {
@@ -467,7 +467,7 @@ void print_icmp_verbose(WINDOW *win, struct ip_info *ip, int lineno, int y)
     }
 }
 
-void print_igmp_verbose(WINDOW *win, struct ip_info *info, int lineno, int y)
+void print_igmp_verbose(WINDOW *win, struct ip_info *info, int y)
 {
     mvwprintw(win, y, 4, "Type: %d (%s) ", info->igmp.type, get_igmp_type(info->icmp.type));
     if (info->igmp.type == IGMP_HOST_MEMBERSHIP_QUERY) {
@@ -483,7 +483,7 @@ void print_igmp_verbose(WINDOW *win, struct ip_info *info, int lineno, int y)
     mvwprintw(win, ++y, 0, "");
 }
 
-void print_udp_verbose(WINDOW *win, struct ip_info *ip, int lineno, int y)
+void print_udp_verbose(WINDOW *win, struct ip_info *ip, int y)
 {
     mvwprintw(win, y, 4, "Source port: %u", ip->udp.src_port);
     mvwprintw(win, ++y, 4, "Destination port: %u", ip->udp.dst_port);
@@ -491,7 +491,7 @@ void print_udp_verbose(WINDOW *win, struct ip_info *ip, int lineno, int y)
     mvwprintw(win, ++y, 4, "Checksum: %u", ip->udp.checksum);
 }
 
-void print_tcp_verbose(WINDOW *win, struct ip_info *ip, int lineno, int y)
+void print_tcp_verbose(WINDOW *win, struct ip_info *ip, int y)
 {
     mvwprintw(win, y, 4, "Source port: %u", ip->tcp.src_port);
     mvwprintw(win, ++y, 4, "Destination port: %u", ip->tcp.dst_port);
@@ -506,7 +506,7 @@ void print_tcp_verbose(WINDOW *win, struct ip_info *ip, int lineno, int y)
     mvwprintw(win, ++y, 4, "Urgent pointer: %u", ip->tcp.urg_ptr);
 }
 
-void print_dns_verbose(WINDOW *win, struct dns_info *dns, int lineno, int y, int maxx)
+void print_dns_verbose(WINDOW *win, struct dns_info *dns, int y, int maxx)
 {
     int records = 0;
 
@@ -544,13 +544,13 @@ void print_dns_verbose(WINDOW *win, struct dns_info *dns, int lineno, int y, int
             mvwprintw(win, ++y, 8, "%s", buffer);
             if (soa) {
                 mvwprintw(win, ++y, 0, "");
-                print_dns_soa(win, dns, i, lineno, y + 1, 8);
+                print_dns_soa(win, dns, i, y + 1, 8);
             }
         }
     }
 }
 
-void print_dns_soa(WINDOW *win, struct dns_info *info, int i, int lineno, int y, int x)
+void print_dns_soa(WINDOW *win, struct dns_info *info, int i, int y, int x)
 {
     mvwprintw(win, y, x, "mname: %s", info->record[i].rdata.soa.mname);
     mvwprintw(win, ++y, x, "rname: %s", info->record[i].rdata.soa.rname);
@@ -561,7 +561,7 @@ void print_dns_soa(WINDOW *win, struct dns_info *info, int i, int lineno, int y,
     mvwprintw(win, ++y, x, "Minimum: %d", info->record[i].rdata.soa.minimum);
 }
 
-void print_nbns_verbose(WINDOW *win, struct nbns_info *nbns, int lineno, int y, int maxx)
+void print_nbns_verbose(WINDOW *win, struct nbns_info *nbns, int y, int maxx)
 {
     int records = 0;
 
@@ -600,7 +600,7 @@ void print_nbns_verbose(WINDOW *win, struct nbns_info *nbns, int lineno, int y, 
     }
 }
 
-void print_ssdp_verbose(WINDOW *win, list_t *ssdp, int lineno, int y)
+void print_ssdp_verbose(WINDOW *win, list_t *ssdp, int y)
 {
     const node_t *n;
 
