@@ -4,12 +4,12 @@
 #include <arpa/inet.h>
 #include <netinet/ip_icmp.h>
 #include "misc.h"
-#include "output.h"
+#include "ui_layout.h"
+#include "ui_protocols.h"
 #include "list.h"
 #include "error.h"
 #include "util.h"
 #include "vector.h"
-#include "ui_protocols.h"
 
 #define HEADER_HEIGHT 4
 #define STATUS_HEIGHT 1

@@ -32,7 +32,7 @@
 #include "misc.h"
 #include "error.h"
 #include "interface.h"
-#include "output.h"
+#include "ui_layout.h"
 #include "packet.h"
 #include "vector.h"
 

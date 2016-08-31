@@ -3,7 +3,7 @@
 #include <linux/igmp.h>
 #include <netinet/ip_icmp.h>
 #include <string.h>
-#include "output.h"
+#include "ui_layout.h"
 #include "ui_protocols.h"
 #include "util.h"
 
