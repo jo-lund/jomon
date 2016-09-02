@@ -116,11 +116,6 @@ enum packet_type {
     ETHERNET
 };
 
-enum eth_encapsulation {
-    ETH_II,
-    ETH_802_3
-};
-
 enum dns_section_count {
     QDCOUNT,
     ANCOUNT,
@@ -355,25 +350,65 @@ struct arp_info {
     uint16_t op;                 /* ARP opcode */
 };
 
-struct eth_info {
-    unsigned char mac_src[ETH_ALEN];
-    unsigned char mac_dst[ETH_ALEN];
-    uint16_t ethertype;
-    enum eth_encapsulation link;
+/* 802.2 SNAP */
+struct snap_info {
+    unsigned char oui[3]; /* IEEE Organizationally Unique Identifier */
+    uint16_t protocol_id; /* If OUI is 0 the protocol ID is the Ethernet type */
     union {
         struct arp_info *arp;
         struct ip_info *ip;
     };
 };
 
-struct eth_802_2_llc {
+enum stp_bpdu_type {
+    CONFIG = 0x0,
+    RST = 0x2,
+    TCN = 0x80
+};
+
+/* Spanning Tree Protocol */
+struct stp_info {
+    uint16_t protocol_id;
+    uint8_t version;
+    uint8_t type; /* 0x00 Config BPDU, 0x80 TCN BPDU, 0x02 RST BPDU */
+    unsigned int tcack : 1; /* topology change acknowledgement */
+    unsigned int agreement : 1;
+    unsigned int forwarding : 1;
+    unsigned int learning : 1;
+    unsigned int port_role : 2; /* 01 alternate/backup, 10 root, 11 designated */
+    unsigned int proposal : 1;
+    unsigned int tc : 1; /* topology change */
+    uint8_t root_id[8]; /* CIST root id */
+    uint32_t root_pc; /* CIST External Path Cost */
+    uint8_t bridge_id[8]; /* CIST Regional Root id */
+    uint16_t port_id;
+    uint16_t msg_age; /* message age 1/256 seconds */
+    uint16_t max_age; /* 1/256 seconds */
+    uint16_t ht; /* hello time 1/256 seconds */
+    uint16_t fd; /* forward delay 1/256 seconds */
+    uint8_t version1_len;
+};
+
+/* Ethernet 802.2 Logical Link Control */
+struct eth_802_llc {
     uint8_t dsap; /* destination service access point */
     uint8_t ssap; /* source service access point */
     uint8_t control; /* possible to be 2 bytes? */
-    struct {
-        unsigned char oui[3]; /* IEEE Organizationally Unique Identifier */
-        uint16_t protocol_id; /* If OUI is 0 the protocol ID is the Ethernet type */
-    } snap;
+    union {
+        struct snap_info *snap;
+        struct stp_info *bpdu;
+    };
+};
+
+struct eth_info {
+    unsigned char mac_src[ETH_ALEN];
+    unsigned char mac_dst[ETH_ALEN];
+    uint16_t ethertype;
+    union {
+        struct eth_802_llc *llc;
+        struct arp_info *arp;
+        struct ip_info *ip;
+    };
 };
 
 /*
