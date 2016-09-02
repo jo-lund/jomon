@@ -296,10 +296,10 @@ bool handle_arp(unsigned char *buffer, struct arp_info *info)
     /* sender/target hardware address */
     snprintf(info->sha, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
              arp_header->arp_sha[0], arp_header->arp_sha[1], arp_header->arp_sha[2],
-             arp_header->arp_sha[2], arp_header->arp_sha[4], arp_header->arp_sha[5]);
+             arp_header->arp_sha[3], arp_header->arp_sha[4], arp_header->arp_sha[5]);
     snprintf(info->tha, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
              arp_header->arp_tha[0], arp_header->arp_tha[1], arp_header->arp_tha[2],
-             arp_header->arp_tha[2], arp_header->arp_tha[4], arp_header->arp_tha[5]);
+             arp_header->arp_tha[3], arp_header->arp_tha[4], arp_header->arp_tha[5]);
 
     info->op = ntohs(arp_header->arp_op); /* arp opcode (command) */
     info->ht = ntohs(arp_header->arp_hrd);
