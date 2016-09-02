@@ -16,18 +16,20 @@
 
 #define DNS_PTR_LEN 2
 #define MAX_HTTP_LINE 4096
+#define LLC_LEN 3
 
+static void check_address(unsigned char *buffer);
+static bool check_port(unsigned char *buffer, struct application_info *info, uint16_t port,
+                       uint16_t packet_len, bool *error);
+static void free_protocol_data(struct application_info *info);
 static bool handle_ethernet(unsigned char *buffer, struct eth_info *eth);
+static bool handle_stp(unsigned char *buffer, struct stp_info *bpdu, uint16_t len);
 static bool handle_arp(unsigned char *buffer, struct arp_info *info);
 static bool handle_ip(unsigned char *buffer, struct ip_info *info);
 static bool handle_icmp(unsigned char *buffer, struct ip_info *info);
 static bool handle_igmp(unsigned char *buffer, struct ip_info *info);
 static bool handle_tcp(unsigned char *buffer, struct ip_info *info);
 static bool handle_udp(unsigned char *buffer, struct ip_info *info);
-static bool check_port(unsigned char *buffer, struct application_info *info, uint16_t port,
-                       uint16_t packet_len, bool *error);
-static void check_address(unsigned char *buffer);
-static void free_protocol_data(struct application_info *info);
 
 /* application layer protocol handlers */
 static bool handle_dns(unsigned char *buffer, struct application_info *info);
@@ -65,6 +67,15 @@ void free_packet(void *data)
 {
     struct packet *p = (struct packet *) data;
 
+    if (p->eth.ethertype < ETH_P_802_3_MIN) {
+        if (p->eth.llc->dsap == 0xaa && p->eth.llc->ssap == 0xaa) {
+            free(p->eth.llc->snap);
+        } else if (p->eth.llc->dsap == 0x42 && p->eth.llc->ssap == 0x42) {
+            free(p->eth.llc->bpdu);
+        }
+        free(p->eth.llc);
+        return; // TODO: Handle IP encapsulation
+    }
     switch (p->eth.ethertype) {
     case ETH_P_IP:
         switch (p->eth.ip->protocol) {
@@ -175,12 +186,12 @@ void check_address(unsigned char *buffer)
  *
  * 802.2 LLC Header
  *
- *     1        1      1 or 2
+ *     1        1         1
  * +--------+--------+--------+
  * | DSAP=K1| SSAP=K1| Control|
  * +--------+--------+--------+
  *
- * 802.2 SNAP
+ * 802.2 SNAP Header
  *
  * When SNAP extension is used, it is located right after the LLC header. The
  * payload start bytes for SNAP is 0xaaaa, which means the K1 value is 0xaa.
@@ -199,25 +210,41 @@ bool handle_ethernet(unsigned char *buffer, struct eth_info *eth)
     eth_header = (struct ethhdr *) buffer;
     memcpy(eth->mac_src, eth_header->h_source, ETH_ALEN);
     memcpy(eth->mac_dst, eth_header->h_dest, ETH_ALEN);
-    if (ntohs(eth_header->h_proto) >= ETH_P_802_3_MIN) {
-        /* Ethernet II frame */
-        eth->ethertype = ntohs(eth_header->h_proto);
-        eth->link = ETH_II;
-    } else {
-        /* Ethernet 802.3 frame */
+    eth->ethertype = ntohs(eth_header->h_proto);
+
+    /* Ethernet 802.3 frame */
+    if (eth->ethertype < ETH_P_802_3_MIN) {
         unsigned char *ptr;
-        uint16_t payload_start;
 
-        ptr = buffer + sizeof(struct ethhdr); /* skip 802.3 MAC (14 bytes) */
-        payload_start = ptr[0] << 8 | ptr[1];
-        if (payload_start == 0xaaaa) { /* SNAP extension */
-            ptr += 6; /* skip 802.2 LLC (3 bytes) + first 3 bytes of 802.2 SNAP */
-            eth->ethertype = ptr[0] << 8 | ptr[1];
-        } else if (payload_start == 0x4242) { /* IEEE 802.1 Bridge Spanning Tree Protocol */
+        ptr = buffer + ETH_HLEN;
+        eth->llc = malloc(sizeof(struct eth_802_llc));
+        eth->llc->dsap = ptr[0];
+        eth->llc->ssap = ptr[1];
+        eth->llc->control = ptr[2];
 
+        /* Novell raw IEEE 802.3 non-standard variation frame */
+        if (eth->llc->dsap == 0xff && eth->llc->ssap == 0xff) {
+            return false; /* not handled */
         }
-        eth->link = ETH_802_3;
+        /* Spanning Tree Protocol */
+        if (eth->llc->dsap == 0x42 && eth->llc->ssap == 0x42) {
+            eth->llc->bpdu = malloc(sizeof(struct stp_info));
+            return handle_stp(ptr + LLC_LEN, eth->llc->bpdu, eth->ethertype);
+        }
+        /* SNAP extension */
+        if (eth->llc->dsap == 0xaa && eth->llc->ssap == 0xaa) {
+            eth->llc->snap = malloc(sizeof(struct snap_info));
+            ptr += LLC_LEN;
+            memcpy(eth->llc->snap->oui, ptr, 3);
+            ptr += 3; /* skip first 3 bytes of 802.2 SNAP */
+            eth->llc->snap->protocol_id = ptr[0] << 8 | ptr[1];
+
+            /* TODO: If OUI is 0 I need to figure out how to handle the internet
+               protocols that will be layered on top of SNAP */
+            return false;
+        }
     }
+
     switch (eth->ethertype) {
     case ETH_P_IP:
         eth->ip = malloc(sizeof(struct ip_info));
@@ -279,6 +306,44 @@ bool handle_arp(unsigned char *buffer, struct arp_info *info)
     info->pt = ntohs(arp_header->arp_pro);
     info->hs = arp_header->arp_hln;
     info->ps = arp_header->arp_pln;
+    return true;
+}
+
+/*
+ * IEEE 802.1 Bridge Spanning Tree Protocol
+ */
+bool handle_stp(unsigned char *buffer, struct stp_info *bpdu, uint16_t len)
+{
+    /* the BPDU shall contain at least 4 bytes */
+    if (len < 4) return false;
+
+    bpdu->protocol_id = buffer[0] << 8 | buffer[1];
+
+    /* protocol id 0x00 identifies the (Rapid) Spanning Tree Protocol */
+    if (!bpdu->protocol_id == 0x0) return false;
+
+    bpdu->version = buffer[2];
+    bpdu->type = buffer[3];
+
+    /* a configuration BPDU contains at least 35 bytes and RST BPDU 36 bytes */
+    if (len >= 35) {
+        bpdu->tcack = buffer[4] & 0x80;
+        bpdu->agreement = buffer[4] & 0x40;
+        bpdu->forwarding = buffer[4] & 0x20;
+        bpdu->learning = buffer[4] & 0x10;
+        bpdu->port_role = buffer[4] & 0x0c;
+        bpdu->proposal = buffer[4] & 0x02;
+        bpdu->tc = buffer[4] & 0x01;
+        memcpy(bpdu->root_id, &buffer[5], 8);
+        bpdu->root_pc = buffer[13] << 24 | buffer[14] << 16 | buffer[15] << 8 | buffer[16];
+        memcpy(bpdu->bridge_id, &buffer[17], 8);
+        bpdu->port_id = buffer[25] << 8 | buffer[26];
+        bpdu->msg_age = buffer[27] << 8 | buffer[28];
+        bpdu->max_age = buffer[29] << 8 | buffer[30];
+        bpdu->ht = buffer[31] << 8 | buffer[32];
+        bpdu->fd = buffer[33] << 8 | buffer[34];
+        if (len > 35) bpdu->version1_len = buffer[35];
+    }
     return true;
 }
 
