@@ -700,120 +700,60 @@ int calculate_subwin_size(struct packet *p, int screen_line)
 {
     int size = 0;
 
-    if (!subwindow.win) {
-        if (preferences.link_selected) {
-            size += ETH_WINSIZE;
+    if (preferences.link_selected) {
+        size += ETH_WINSIZE;
+    } else {
+        size++;
+    }
+    switch (p->eth.ethertype) {
+    case ETH_P_ARP:
+        if (preferences.link_arp_selected) {
+            size += ARP_WINSIZE;
+        } else {
+            size += 2;
+        }
+        break;
+    case ETH_P_IP:
+        if (preferences.network_selected) {
+            size += IP_WINSIZE;
         } else {
             size++;
         }
-        switch (p->eth.ethertype) {
-        case ETH_P_ARP:
-            if (preferences.link_arp_selected) {
-                size += ARP_WINSIZE;
+        switch (p->eth.ip->protocol) {
+        case IPPROTO_UDP:
+            if (preferences.transport_selected) {
+                size += UDP_WINSIZE;
+            } else {
+                size++;
+            }
+            size += calculate_applayer_size(&p->eth.ip->udp.data, screen_line);
+            break;
+        case IPPROTO_TCP:
+            if (preferences.transport_selected) {
+                size += TCP_WINSIZE;
+            } else {
+                size++;
+            }
+            size += calculate_applayer_size(&p->eth.ip->tcp.data, screen_line);
+            break;
+        case IPPROTO_ICMP:
+            if (preferences.transport_selected) {
+                size += 7;
             } else {
                 size += 2;
             }
             break;
-        case ETH_P_IP:
-            if (preferences.network_selected) {
-                size += IP_WINSIZE;
+        case IPPROTO_IGMP:
+            if (preferences.transport_selected) {
+                size += IGMP_WINSIZE;
             } else {
-                size++;
-            }
-            switch (p->eth.ip->protocol) {
-            case IPPROTO_UDP:
-                if (preferences.transport_selected) {
-                    size += UDP_WINSIZE;
-                } else {
-                    size++;
-                }
-                size += calculate_applayer_size(&p->eth.ip->udp.data, screen_line);
-                break;
-            case IPPROTO_TCP:
-                if (preferences.transport_selected) {
-                    size += TCP_WINSIZE;
-                } else {
-                    size++;
-                }
-                size += calculate_applayer_size(&p->eth.ip->tcp.data, screen_line);
-                break;
-            case IPPROTO_ICMP:
-                if (preferences.transport_selected) {
-                    size += 7;
-                } else {
-                    size += 2;
-                }
-                break;
-            case IPPROTO_IGMP:
-                if (preferences.transport_selected) {
-                    size += IGMP_WINSIZE;
-                } else {
-                    size += 2;
-                }
-                break;
+                size += 2;
             }
             break;
-        default:
-            break;
         }
-    } else {
-        for (int i = 0; i < subwindow.num_lines; i++) {
-            switch (subwindow.line[i].type) {
-            case ETHERNET_HDR:
-                if (subwindow.line[i].selected) {
-                    size += ETH_WINSIZE;
-                } else {
-                    size++;
-                }
-                break;
-            case ARP_HDR:
-                if (subwindow.line[i].selected) {
-                    size += ARP_WINSIZE;
-                } else {
-                    size += 2;
-                }
-                break;
-            case IP_HDR:
-                if (subwindow.line[i].selected) {
-                    size += IP_WINSIZE;
-                } else {
-                    size++;
-                }
-                break;
-            case TCP_HDR:
-                if (subwindow.line[i].selected) {
-                    size += TCP_WINSIZE;
-                } else {
-                    size++;
-                }
-                size += calculate_applayer_size(&p->eth.ip->udp.data, screen_line);
-                break;
-            case UDP_HDR:
-                if (subwindow.line[i].selected) {
-                    size += UDP_WINSIZE;
-                } else {
-                    size++;
-                }
-                size += calculate_applayer_size(&p->eth.ip->udp.data, screen_line);
-                break;
-            case ICMP_HDR:
-                if (subwindow.line[i].selected) {
-                    size += 7;
-                } else {
-                    size += 2;
-                }
-                break;
-            case IGMP_HDR:
-                if (subwindow.line[i].selected) {
-                    size += IGMP_WINSIZE;
-                } else {
-                    size += 2;
-                }
-                break;
-            default:
-                break;
-            }
-        }
+        break;
+    default:
+        break;
     }
     return size;
 }
