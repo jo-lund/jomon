@@ -99,34 +99,42 @@ void list_interfaces()
 
     /* print out information for each interface */
     for (i = 0; i < c; i++) {
-        printf("%s", iflist[i].name);
+        int len = strlen(iflist[i].name);
+        int width = 8;
+
+        if (len >= 8) {
+            width = len + 1;
+            printf("%-*s", width, iflist[i].name);
+        } else {
+            printf("%-*s", width, iflist[i].name);
+        }
         switch (iflist[i].type) {
 #ifdef MACOS
         case IFT_ETHER:
-            printf("\tEthernet\n");
+            printf("Ethernet\n");
             break;
         case IFT_LOOP:
-            printf("\tLoopback\n");
+            printf("Loopback\n");
             break;
         case IFT_SLIP:
-            printf("\tIP over generic TTY\n");
+            printf("IP over generic TTY\n");
             break;
         case IFT_IEEE1394:
-            printf("\tIEEE1394 High Performance SerialBus\n");
+            printf("IEEE1394 High Performance SerialBus\n");
             break;
 #endif
 #ifdef linux
         case ARPHRD_ETHER:
-            printf("\tEthernet\n");
+            printf("Ethernet\n");
             break;
         case ARPHRD_LOOPBACK:
-            printf("\tLoopback\n");
+            printf("Loopback\n");
             break;
         case ARPHRD_IEEE1394:
-            printf("\tIEEE1394 High Performance SerialBus\n");
+            printf("IEEE1394 High Performance SerialBus\n");
             break;
         default:
-            printf("\tUnknown type: %d\n", iflist[i].type);
+            printf("Unknown type: %d\n", iflist[i].type);
             break;
 #endif
         }
