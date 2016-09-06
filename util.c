@@ -87,9 +87,11 @@ int snprintcat(char *buf, int size, char *fmt, ...)
 
 char *strtolower(char *str)
 {
-    while (*str != '\0') {
-        *str = tolower(*str);
-        str++;
+    char *ptr = str;
+
+    while (*ptr != '\0') {
+        *ptr = tolower(*ptr);
+        ptr++;
     }
     return str;
 }
