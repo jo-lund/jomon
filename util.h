@@ -49,4 +49,6 @@ char *get_nbns_node_type(uint8_t type);
 char *get_icmp_dest_unreach_code(uint8_t code);
 char *get_icmp_type(uint8_t type);
 char *get_igmp_type(uint8_t type);
+char *get_stp_bpdu_type(uint8_t type);
+
 #endif

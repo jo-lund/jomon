@@ -24,6 +24,8 @@
 static struct preferences {
     bool link_selected;
     bool link_arp_selected;
+    bool link_llc_selected;
+    bool link_stp_selected;
     bool network_selected;
     bool transport_selected;
     bool application_selected;
@@ -33,6 +35,8 @@ enum header_type {
     NONE,
     ETHERNET_HDR,
     ARP_HDR,
+    LLC_HDR,
+    STP_HDR,
     IP_HDR,
     UDP_HDR,
     TCP_HDR,
@@ -514,10 +518,18 @@ void create_sublines(struct packet *p, int size)
     int i = 0;
 
     if (preferences.link_selected) {
-        set_subwindow_line(i, "- Ethernet header", true, ETHERNET_HDR);
+        if (p->eth.ethertype < ETH_P_802_3_MIN) {
+            set_subwindow_line(i, "- Ethernet 802.3 header", true, ETHERNET_HDR);
+        } else {
+            set_subwindow_line(i, "- Ethernet II header", true, ETHERNET_HDR);
+        }
         i += ETH_WINSIZE;
     } else {
-        set_subwindow_line(i, "+ Ethernet header", false, ETHERNET_HDR);
+        if (p->eth.ethertype < ETH_P_802_3_MIN) {
+            set_subwindow_line(i, "+ Ethernet 802.3 header", false, ETHERNET_HDR);
+        } else {
+            set_subwindow_line(i, "+ Ethernet II header", false, ETHERNET_HDR);
+        }
         i++;
     }
     if (p->eth.ethertype == ETH_P_ARP) {
@@ -570,6 +582,21 @@ void create_sublines(struct packet *p, int size)
                 set_subwindow_line(i, "+ IGMP header", false, ICMP_HDR);
             }
             break;
+        }
+    } else if (p->eth.ethertype < ETH_P_802_3_MIN) {
+        if (preferences.link_llc_selected) {
+            set_subwindow_line(i, "- LLC header", true, LLC_HDR);
+            i += ETH_WINSIZE;
+        } else {
+            set_subwindow_line(i, "+ LLC header", false, LLC_HDR);
+            i++;
+        }
+        if (preferences.link_stp_selected) {
+            set_subwindow_line(i, "- STP header", true, STP_HDR);
+            i += ETH_WINSIZE;
+        } else {
+            set_subwindow_line(i, "+ STP header", false, STP_HDR);
+            i += 2;
         }
     }
 }
@@ -674,6 +701,12 @@ bool update_subwin_selection(int lineno)
             case ARP_HDR:
                 preferences.link_arp_selected = subwindow.line[subline].selected;
                 break;
+            case LLC_HDR:
+                preferences.link_llc_selected = subwindow.line[subline].selected;
+                break;
+            case STP_HDR:
+                preferences.link_stp_selected = subwindow.line[subline].selected;
+                break;
             case IP_HDR:
                 preferences.network_selected = subwindow.line[subline].selected;
                 break;
@@ -753,6 +786,20 @@ int calculate_subwin_size(struct packet *p, int screen_line)
         }
         break;
     default:
+        if (p->eth.ethertype < ETH_P_802_3_MIN) {
+            if (preferences.link_llc_selected) {
+                size += ETH_WINSIZE;
+            } else {
+                size++;
+            }
+            if (p->eth.llc->dsap == 0x42 && p->eth.llc->ssap == 0x42) {
+                if (preferences.link_stp_selected) {
+                    size += 14;
+                } else {
+                    size += 2;
+                }
+            }
+        }
         break;
     }
     return size;
@@ -784,7 +831,7 @@ int calculate_applayer_size(struct application_info *info, int screen_line)
             for (int i = 1; i < 4; i++) {
                 records += info->nbns->section_count[i];
             }
-            size += (records ? 12 + records : 11);
+            size += (records ? 11 + records : 10);
         } else {
             size += 2;
         }
@@ -832,6 +879,12 @@ void print_protocol_information(struct packet *p, int lineno)
                 break;
             case ARP_HDR:
                 print_arp_verbose(subwindow.win, p, i + 1);
+                break;
+            case LLC_HDR:
+                print_llc_verbose(subwindow.win, p, i + 1);
+                break;
+            case STP_HDR:
+                print_stp_verbose(subwindow.win, p, i + 1);
                 break;
             case IP_HDR:
                 print_ip_verbose(subwindow.win, p->eth.ip, i + 1);

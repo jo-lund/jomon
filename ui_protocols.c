@@ -25,6 +25,7 @@
     } while (0)
 
 static void print_arp(char *buf, int n, struct arp_info *info);
+static void print_llc(char *buf, int n, struct eth_info *eth);
 static void print_ip(char *buf, int n, struct ip_info *info);
 static void print_udp(char *buf, int n, struct ip_info *info);
 static void print_tcp(char *buf, int n, struct ip_info *info);
@@ -47,6 +48,7 @@ void print_buffer(char *buf, int size, struct packet *p)
         print_ip(buf, size, p->eth.ip);
         break;
     default:
+        print_llc(buf, size, &p->eth);
         break;
     }
 }
@@ -66,6 +68,34 @@ void print_arp(char *buf, int n, struct arp_info *info)
     default:
         PRINT_LINE(buf, n, info->sip, info->tip, "ARP", "Opcode %d", info->op);
         break;
+    }
+}
+
+/* print Ethernet 802.3 frame information */
+void print_llc(char *buf, int n, struct eth_info *eth)
+{
+    if (eth->llc->dsap == 0x42 && eth->llc->ssap == 0x42) {
+        char smac[HW_ADDRSTRLEN];
+        char dmac[HW_ADDRSTRLEN];
+
+        snprintf(smac, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
+                 eth->mac_src[0], eth->mac_src[1], eth->mac_src[2],
+                 eth->mac_src[3], eth->mac_src[4], eth->mac_src[5]);
+        snprintf(dmac, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
+                 eth->mac_dst[0], eth->mac_dst[1], eth->mac_dst[2],
+                 eth->mac_dst[3], eth->mac_dst[4], eth->mac_dst[5]);
+        switch (eth->llc->bpdu->type) {
+        case CONFIG:
+            PRINT_LINE(buf, n, smac, dmac, "STP", "Configuration BPDU");
+            break;
+        case RST:
+            PRINT_LINE(buf, n, smac, dmac, "STP", "Rapid Spanning Tree BPDU. Root Path Cost: %u  Port ID: 0x%x",
+                       eth->llc->bpdu->root_pc, eth->llc->bpdu->port_id);
+            break;
+        case TCN:
+            PRINT_LINE(buf, n, smac, dmac, "STP", "Topology Change Notification BPDU");
+            break;
+        }
     }
 }
 
@@ -418,6 +448,13 @@ void print_ethernet_verbose(WINDOW *win, struct packet *p, int y)
     mvwprintw(win, ++y, 4, "Ethertype: 0x%x", p->eth.ethertype);
 }
 
+void print_llc_verbose(WINDOW *win, struct packet *p, int y)
+{
+    mvwprintw(win, y, 4, "DSAP: 0x%x", p->eth.llc->dsap);
+    mvwprintw(win, ++y, 4, "SSAP: 0x%x", p->eth.llc->ssap);
+    mvwprintw(win, ++y, 4, "Control: 0x%x", p->eth.llc->control);
+}
+
 void print_arp_verbose(WINDOW *win, struct packet *p, int y)
 {
     mvwprintw(win, y, 4, "Hardware type: %d (%s)", p->eth.arp->ht, get_arp_hardware_type(p->eth.arp->ht));
@@ -428,6 +465,45 @@ void print_arp_verbose(WINDOW *win, struct packet *p, int y)
     mvwprintw(win, ++y, 0, "");
     mvwprintw(win, ++y, 4, "Sender IP: %-15s  HW: %s", p->eth.arp->sip, p->eth.arp->sha);
     mvwprintw(win, ++y, 4, "Target IP: %-15s  HW: %s", p->eth.arp->tip, p->eth.arp->tha);
+}
+
+void print_stp_verbose(WINDOW *win, struct packet *p, int y)
+{
+    mvwprintw(win, y, 4, "Protocol Id: %d", p->eth.llc->bpdu->protocol_id);
+    mvwprintw(win, ++y, 4, "Version: %d", p->eth.llc->bpdu->version);
+    mvwprintw(win, ++y, 4, "Type: %d (%s)", p->eth.llc->bpdu->type, get_stp_bpdu_type(p->eth.llc->bpdu->type));
+    if (p->eth.llc->bpdu->type == CONFIG || p->eth.llc->bpdu->type == RST) {
+        char buf[1024];
+
+        memset(buf, 0, 1024);
+        snprintcat(buf, 1024, "Flags: ");
+        if (p->eth.llc->bpdu->tcack) snprintcat(buf, 1024, "Topology Change Ack, ");
+        if (p->eth.llc->bpdu->agreement) snprintcat(buf, 1024, "Agreement, ");
+        if (p->eth.llc->bpdu->forwarding) snprintcat(buf, 1024, "Forwarding, ");
+        if (p->eth.llc->bpdu->learning) snprintcat(buf, 1024, "Learning, ");
+        if (p->eth.llc->bpdu->proposal) snprintcat(buf, 1024, "Topology Change, ");
+        if (p->eth.llc->bpdu->port_role) {
+            snprintcat(buf, 1024, "Port Role: ");
+            if (p->eth.llc->bpdu->port_role == 0x01) snprintcat(buf, 1024, "Backup");
+            if (p->eth.llc->bpdu->port_role == 0x02) snprintcat(buf, 1024, "Root");
+            if (p->eth.llc->bpdu->port_role == 0x03) snprintcat(buf, 1024, "Designated");
+        }
+        mvwprintw(win, ++y, 4, "%s", buf);
+        mvwprintw(win, ++y, 4, "Root ID: %u/%02x.%02x.%02x.%02x.%02x.%02x", p->eth.llc->bpdu->root_id[0] << 8 |
+                  p->eth.llc->bpdu->root_id[1], p->eth.llc->bpdu->root_id[2], p->eth.llc->bpdu->root_id[3],
+                  p->eth.llc->bpdu->root_id[4], p->eth.llc->bpdu->root_id[5], p->eth.llc->bpdu->root_id[6],
+                  p->eth.llc->bpdu->root_id[7]);
+        mvwprintw(win, ++y, 4, "Root Path Cost: %d", p->eth.llc->bpdu->root_pc);
+        mvwprintw(win, ++y, 4, "Bridge ID: %u/%02x.%02x.%02x.%02x.%02x.%02x", p->eth.llc->bpdu->bridge_id[0] << 8 |
+                  p->eth.llc->bpdu->bridge_id[1], p->eth.llc->bpdu->bridge_id[2], p->eth.llc->bpdu->bridge_id[3],
+                  p->eth.llc->bpdu->bridge_id[4], p->eth.llc->bpdu->bridge_id[5], p->eth.llc->bpdu->bridge_id[6],
+                  p->eth.llc->bpdu->bridge_id[7]);
+        mvwprintw(win, ++y, 4, "Port ID: 0x%x", p->eth.llc->bpdu->port_id);
+        mvwprintw(win, ++y, 4, "Message Age: %u s.", p->eth.llc->bpdu->msg_age / 256);
+        mvwprintw(win, ++y, 4, "Max Age: %u s.", p->eth.llc->bpdu->max_age / 256);
+        mvwprintw(win, ++y, 4, "Hello Time: %u s.", p->eth.llc->bpdu->ht / 256);
+        mvwprintw(win, ++y, 4, "Forward Delay: %u s.", p->eth.llc->bpdu->fd / 256);
+    }
 }
 
 void print_ip_verbose(WINDOW *win, struct ip_info *ip, int y)
@@ -569,8 +645,7 @@ void print_nbns_verbose(WINDOW *win, struct nbns_info *nbns, int y, int maxx)
     for (int i = 1; i < 4; i++) {
         records += nbns->section_count[i];
     }
-    mvwprintw(win, y, 0, "");
-    mvwprintw(win, ++y, 4, "ID: 0x%x", nbns->id);
+    mvwprintw(win, y, 4, "ID: 0x%x", nbns->id);
     mvwprintw(win, ++y, 4, "Response flag: %d (%s)", nbns->r, nbns->r ? "Response" : "Request");
     mvwprintw(win, ++y, 4, "Opcode: %d (%s)", nbns->opcode, get_nbns_opcode(nbns->opcode));
     mvwprintw(win, ++y, 4, "Flags: %d%d%d%d%d", nbns->aa, nbns->tc, nbns->rd, nbns->ra, nbns->broadcast);

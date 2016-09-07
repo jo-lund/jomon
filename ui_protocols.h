@@ -8,6 +8,8 @@ void print_buffer(char *buf, int size, struct packet *p);
 
 void print_ethernet_verbose(WINDOW *win, struct packet *p, int y);
 void print_arp_verbose(WINDOW *win, struct packet *p, int y);
+void print_llc_verbose(WINDOW *win, struct packet *p, int y);
+void print_stp_verbose(WINDOW *win, struct packet *p, int y);
 void print_ip_verbose(WINDOW *win, struct ip_info *ip, int y);
 void print_udp_verbose(WINDOW *win, struct ip_info *ip, int y);
 void print_tcp_verbose(WINDOW *win, struct ip_info *ip, int y);

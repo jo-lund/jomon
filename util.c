@@ -420,6 +420,22 @@ char *get_igmp_type(uint8_t type)
         return "Version 3 Membership report";
     case IGMP_HOST_LEAVE_MESSAGE:
         return "Leave group";
+    case IGMP_PIM:
+        return "";
+    default:
+        return "";
+    }
+}
+
+char *get_stp_bpdu_type(uint8_t type)
+{
+    switch (type) {
+    case CONFIG:
+        return "Configuration BPDU";
+    case RST:
+        return "Rapid Spanning Tree BPDU";
+    case TCN:
+        return "Topology Change Notification BPDU";
     default:
         return "";
     }
