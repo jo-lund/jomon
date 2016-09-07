@@ -382,10 +382,12 @@ struct stp_info {
     uint32_t root_pc; /* CIST External Path Cost */
     uint8_t bridge_id[8]; /* CIST Regional Root id */
     uint16_t port_id;
-    uint16_t msg_age; /* message age 1/256 seconds */
-    uint16_t max_age; /* 1/256 seconds */
-    uint16_t ht; /* hello time 1/256 seconds */
-    uint16_t fd; /* forward delay 1/256 seconds */
+    /* Timer values represent a uint16_t number multiplied by a unit of time of
+       1/256 of a second. This permits times in the range [0, 256) seconds. */
+    uint16_t msg_age; /* message age */
+    uint16_t max_age;
+    uint16_t ht; /* hello time */
+    uint16_t fd; /* forward delay */
     uint8_t version1_len;
 };
 

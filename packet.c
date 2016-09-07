@@ -17,6 +17,7 @@
 #define DNS_PTR_LEN 2
 #define MAX_HTTP_LINE 4096
 #define LLC_LEN 3
+#define MULTICAST_ADDR_MASK 0xe
 
 static void check_address(unsigned char *buffer);
 static bool check_port(unsigned char *buffer, struct application_info *info, uint16_t port,
@@ -327,12 +328,12 @@ bool handle_stp(unsigned char *buffer, struct stp_info *bpdu, uint16_t len)
 
     /* a configuration BPDU contains at least 35 bytes and RST BPDU 36 bytes */
     if (len >= 35) {
-        bpdu->tcack = buffer[4] & 0x80;
-        bpdu->agreement = buffer[4] & 0x40;
-        bpdu->forwarding = buffer[4] & 0x20;
-        bpdu->learning = buffer[4] & 0x10;
-        bpdu->port_role = buffer[4] & 0x0c;
-        bpdu->proposal = buffer[4] & 0x02;
+        bpdu->tcack = (buffer[4] & 0x80) >> 7;
+        bpdu->agreement = (buffer[4] & 0x40) >> 6;
+        bpdu->forwarding = (buffer[4] & 0x20) >> 5;
+        bpdu->learning = (buffer[4] & 0x10) >> 4 ;
+        bpdu->port_role = (buffer[4] & 0x0c) >> 2;
+        bpdu->proposal = (buffer[4] & 0x02) >> 1;
         bpdu->tc = buffer[4] & 0x01;
         memcpy(bpdu->root_id, &buffer[5], 8);
         bpdu->root_pc = buffer[13] << 24 | buffer[14] << 16 | buffer[15] << 8 | buffer[16];
