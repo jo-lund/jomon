@@ -137,6 +137,9 @@ void free_protocol_data(struct application_info *info)
         }
         break;
     default:
+        if (info->payload) {
+            free(info->payload);
+        }
         break;
     }
 }
@@ -530,6 +533,10 @@ bool handle_udp(unsigned char *buffer, struct ip_info *info)
         }
     }
     info->udp.data.utype = 0;
+    /* unknown payload data */
+    if (info->udp.len - UDP_HDRLEN > 0) {
+        info->udp.data.payload = malloc(info->udp.len - UDP_HDRLEN);
+    }
     return true;
 }
 
@@ -597,6 +604,7 @@ bool handle_tcp(unsigned char *buffer, struct ip_info *info)
 {
     struct tcphdr *tcp;
     bool error;
+    uint16_t payload_len;
 
     tcp = (struct tcphdr *) buffer;
     info->tcp.src_port = ntohs(tcp->source);
@@ -613,9 +621,10 @@ bool handle_tcp(unsigned char *buffer, struct ip_info *info)
     info->tcp.window = ntohs(tcp->window);
     info->tcp.checksum = ntohs(tcp->check);
     info->tcp.urg_ptr = ntohs(tcp->urg_ptr);
+    payload_len = info->length - info->ihl * 4 - info->tcp.offset * 4;
 
     /* only check port if there is a payload */
-    if (info->length - info->ihl * 4 - info->tcp.offset * 4 > 0) {
+    if (payload_len > 0) {
         for (int i = 0; i < 2; i++) {
             info->tcp.data.utype = *((uint16_t *) &info->tcp + i);
             if (check_port(buffer + info->tcp.offset * 4, &info->tcp.data, info->tcp.data.utype,
@@ -625,30 +634,31 @@ bool handle_tcp(unsigned char *buffer, struct ip_info *info)
         }
     }
     info->tcp.data.utype = 0;
+    /* unknown payload data */
+    if (payload_len > 0) {
+        info->tcp.data.payload = malloc(payload_len);
+    }
     return true;
 }
 
 /*
  * Checks which well-known or registered port the packet originated from or is
  * addressed to. On error the error argument will be set to true, e.g. if
- * checksum correction is enabled and this calculation fails, on parsing error
- * etc.
+ * checksum correction is enabled and this calculation fails.
  *
- * Returns false if it's an ephemeral port or if the port is not yet supported.
+ * Returns false if it's an ephemeral port, the port is not yet supported or in
+ * case of errors in decoding the packet.
  */
 bool check_port(unsigned char *buffer, struct application_info *info, uint16_t port,
                 uint16_t packet_len, bool *error)
 {
     switch (port) {
     case DNS:
-        *error = handle_dns(buffer, info);
-        return true;
+        return handle_dns(buffer, info);
     case NBNS:
-        *error = handle_nbns(buffer, info);
-        return true;
+        return handle_nbns(buffer, info);
     case SSDP:
-        *error = handle_ssdp(buffer, info, packet_len);
-        return true;
+        return handle_ssdp(buffer, info, packet_len);
     /* case HTTP: */
     /*     *error = handle_http(buffer, info, packet_len); */
     /*     return true; */

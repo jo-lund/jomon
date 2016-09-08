@@ -271,13 +271,14 @@ struct application_info {
         struct nbns_info *nbns;
         struct http_info *http;
         list_t *ssdp;
+        unsigned char *payload;
     };
 };
 
 // TODO: Improve the structure of this
 struct ip_info {
     unsigned int version : 4;
-    unsigned int ihl     : 4;
+    unsigned int ihl     : 4; /* Internet Header Length */
     unsigned int dscp    : 6; /* Differentiated Services Code Point (RFC 2474) */
     unsigned int ecn     : 2; /* Explicit congestion notification (RFC 3168) */
     uint16_t length; /* The entire packet size in bytes, including header and data */
@@ -292,7 +293,7 @@ struct ip_info {
         struct {
             uint16_t src_port;
             uint16_t dst_port;
-            uint16_t len;
+            uint16_t len; /* length of UDP header and data */
             uint16_t checksum;
             struct application_info data;
         } udp;
