@@ -266,6 +266,7 @@ struct http_info {
 
 struct application_info {
     uint16_t utype; /* specifies the application layer protocol */
+    uint16_t payload_len;
     union {
         struct dns_info *dns;
         struct nbns_info *nbns;

@@ -533,9 +533,12 @@ bool handle_udp(unsigned char *buffer, struct ip_info *info)
         }
     }
     info->udp.data.utype = 0;
+
     /* unknown payload data */
     if (info->udp.len - UDP_HDRLEN > 0) {
         info->udp.data.payload = malloc(info->udp.len - UDP_HDRLEN);
+        info->udp.data.payload_len = info->udp.len - UDP_HDRLEN;
+        memcpy(info->udp.data.payload, buffer + UDP_HDRLEN, info->udp.data.payload_len);
     }
     return true;
 }
@@ -634,9 +637,12 @@ bool handle_tcp(unsigned char *buffer, struct ip_info *info)
         }
     }
     info->tcp.data.utype = 0;
+
     /* unknown payload data */
     if (payload_len > 0) {
         info->tcp.data.payload = malloc(payload_len);
+        info->tcp.data.payload_len = payload_len;
+        memcpy(info->tcp.data.payload, buffer + info->tcp.offset * 4, payload_len);
     }
     return true;
 }
