@@ -3,6 +3,7 @@
 #include <linux/igmp.h>
 #include <netinet/ip_icmp.h>
 #include <string.h>
+#include <ctype.h>
 #include "ui_layout.h"
 #include "ui_protocols.h"
 #include "util.h"
@@ -679,16 +680,48 @@ void print_ssdp_verbose(WINDOW *win, list_t *ssdp, int y)
 {
     const node_t *n;
 
-    mvwprintw(win, y, 0, "");
     n = list_begin(ssdp);
     while (n) {
-        mvwprintw(win, ++y, 4, "%s", (char *) list_data(n));
+        mvwprintw(win, y++, 4, "%s", (char *) list_data(n));
         n = list_next(n);
     }
-    mvwprintw(win, ++y, 0, "");
 }
 
-void print_http_verbose(WINDOW *win, struct http_info *http)
+void print_http_verbose(WINDOW *win, struct http_info *http, int y)
 {
 
+}
+
+void print_payload(WINDOW *win, unsigned char *payload, uint16_t len, int y)
+{
+    int size = 1024;
+    int num = 0;
+    char buf[size];
+
+    while (num < len) {
+        snprintf(buf, size, "%08x  ", num);
+        for (int i = num; i < num + 16; i++) {
+            if (i < len) {
+                snprintcat(buf, size, "%02x ", payload[i]);
+            } else {
+                snprintcat(buf, size, "   ");
+            }
+            if (i != 0 && i % 16 - 8 == 0) snprintcat(buf, size, " ");
+        }
+        snprintcat(buf, size, "|");
+        for (int i = num; i < num + 16; i++) {
+            if (i < len) {
+                if (isprint(payload[i])) {
+                    snprintcat(buf, size, "%c", payload[i]);
+                } else {
+                    snprintcat(buf, size, ".");
+                }
+            } else {
+                snprintcat(buf, size, " ");
+            }
+        }
+        snprintcat(buf, size, "|");
+        num += 16;
+        mvwprintw(win, y++, 4, "%s", buf);
+    }
 }

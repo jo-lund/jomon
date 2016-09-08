@@ -19,4 +19,5 @@ void print_nbns_verbose(WINDOW *win, struct nbns_info *nbns, int y, int maxx);
 void print_icmp_verbose(WINDOW *win, struct ip_info *ip, int y);
 void print_igmp_verbose(WINDOW *win, struct ip_info *info, int y);
 void print_ssdp_verbose(WINDOW *win, list_t *ssdp, int y);
-void print_http_verbose(WINDOW *win, struct http_info *http);
+void print_http_verbose(WINDOW *win, struct http_info *http, int y);
+void print_payload(WINDOW *win, unsigned char *payload, uint16_t len, int y);

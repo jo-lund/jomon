@@ -1,6 +1,7 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+#include <stdint.h>
 #include "list.h"
 
 struct arp_info;

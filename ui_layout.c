@@ -632,6 +632,13 @@ void create_app_sublines(struct packet *p, int i)
             set_subwindow_line(i, "+ SSDP header", false, APP_HDR);
         }
         break;
+    default:
+        if (preferences.application_selected) {
+            set_subwindow_line(i, "- Data", true, APP_HDR);
+        } else {
+            set_subwindow_line(i, "+ Data", false, APP_HDR);
+        }
+        break;
     }
 }
 
@@ -846,8 +853,10 @@ int calculate_applayer_size(struct application_info *info, int screen_line)
         }
         break;
     default:
-        if (!preferences.transport_selected) {
-            size++;
+        if (preferences.application_selected) {
+            size += info->payload_len / 16 + 3;
+        } else {
+            size += 2;
         }
         break;
     }
@@ -927,9 +936,10 @@ void print_app_protocol(struct application_info *info, int y)
         print_ssdp_verbose(subwindow.win, info->ssdp, y);
         break;
     case HTTP:
-        print_http_verbose(subwindow.win, info->http);
+        print_http_verbose(subwindow.win, info->http, y);
         break;
     default:
+        print_payload(subwindow.win, info->payload, info->payload_len, y);
         break;
     }
 }
