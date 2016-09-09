@@ -911,7 +911,11 @@ void print_protocol_information(struct packet *p, int lineno)
                 print_igmp_verbose(subwindow.win, p->eth.ip, i + 1);
                 break;
             case APP_HDR:
-                print_app_protocol(&p->eth.ip->udp.data, i + 1);
+                if (p->eth.ip->protocol == IPPROTO_UDP) {
+                    print_app_protocol(&p->eth.ip->udp.data, i + 1);
+                } else {
+                    print_app_protocol(&p->eth.ip->tcp.data, i + 1);
+                }
                 break;
             default:
                 break;
