@@ -606,7 +606,7 @@ void create_app_sublines(struct packet *p, int i)
     switch (p->eth.ip->udp.data.utype) {
     case DNS:
         if (preferences.application_selected) {
-            set_subwindow_line(i, "- Domain Name System (DNS) header", true, APP_HDR);
+            set_subwindow_line(i, "- Domain Name System (DNS)", true, APP_HDR);
         } else {
             set_subwindow_line(i, "+ Domain Name System (DNS)", false, APP_HDR);
         }
