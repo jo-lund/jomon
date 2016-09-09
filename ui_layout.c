@@ -519,83 +519,83 @@ void create_sublines(struct packet *p, int size)
 
     if (preferences.link_selected) {
         if (p->eth.ethertype < ETH_P_802_3_MIN) {
-            set_subwindow_line(i, "- Ethernet 802.3 header", true, ETHERNET_HDR);
+            set_subwindow_line(i, "- Ethernet 802.3", true, ETHERNET_HDR);
         } else {
-            set_subwindow_line(i, "- Ethernet II header", true, ETHERNET_HDR);
+            set_subwindow_line(i, "- Ethernet II", true, ETHERNET_HDR);
         }
         i += ETH_WINSIZE;
     } else {
         if (p->eth.ethertype < ETH_P_802_3_MIN) {
-            set_subwindow_line(i, "+ Ethernet 802.3 header", false, ETHERNET_HDR);
+            set_subwindow_line(i, "+ Ethernet 802.3", false, ETHERNET_HDR);
         } else {
-            set_subwindow_line(i, "+ Ethernet II header", false, ETHERNET_HDR);
+            set_subwindow_line(i, "+ Ethernet II", false, ETHERNET_HDR);
         }
         i++;
     }
     if (p->eth.ethertype == ETH_P_ARP) {
         if (preferences.link_arp_selected) {
-            set_subwindow_line(i, "- ARP header", true, ARP_HDR);
+            set_subwindow_line(i, "- Address Resolution Protocol (ARP)", true, ARP_HDR);
         } else {
-            set_subwindow_line(i, "+ ARP header", false, ARP_HDR);
+            set_subwindow_line(i, "+ Address Resolution Protocol (ARP)", false, ARP_HDR);
             i++;
         }
     } else if (p->eth.ethertype == ETH_P_IP) {
         if (preferences.network_selected) {
-            set_subwindow_line(i, "- IP header", true, IP_HDR);
+            set_subwindow_line(i, "- Internet Protocol (IP)", true, IP_HDR);
             i += IP_WINSIZE;
         } else {
-            set_subwindow_line(i, "+ IP header", false, IP_HDR);
+            set_subwindow_line(i, "+ Internet Protocol (IP)", false, IP_HDR);
             i++;
         }
         switch (p->eth.ip->protocol) {
         case IPPROTO_TCP:
             if (preferences.transport_selected) {
-                set_subwindow_line(i, "- TCP header", true, TCP_HDR);
+                set_subwindow_line(i, "- Transmission Control Protocol (TCP)", true, TCP_HDR);
                 i += TCP_WINSIZE;
             } else {
-                set_subwindow_line(i, "+ TCP header", false, TCP_HDR);
+                set_subwindow_line(i, "+ Transmission Control Protocol (TCP)", false, TCP_HDR);
                 i++;
             }
             create_app_sublines(p, i);
             break;
         case IPPROTO_UDP:
             if (preferences.transport_selected) {
-                set_subwindow_line(i, "- UDP header", true, UDP_HDR);
+                set_subwindow_line(i, "- User Datagram Protocol (UDP)", true, UDP_HDR);
                 i += UDP_WINSIZE;
             } else {
-                set_subwindow_line(i, "+ UDP header", false, UDP_HDR);
+                set_subwindow_line(i, "+ User Datagram Protocol (UDP)", false, UDP_HDR);
                 i++;
             }
             create_app_sublines(p, i);
             break;
         case IPPROTO_ICMP:
             if (preferences.transport_selected) {
-                set_subwindow_line(i, "- ICMP header", true, ICMP_HDR);
+                set_subwindow_line(i, "- Internet Control Message Protocol (ICMP)", true, ICMP_HDR);
             } else {
-                set_subwindow_line(i, "+ ICMP header", false, ICMP_HDR);
+                set_subwindow_line(i, "+ Internet Control Message Protocol (ICMP)", false, ICMP_HDR);
             }
             break;
         case IPPROTO_IGMP:
             if (preferences.transport_selected) {
-                set_subwindow_line(i, "- IGMP header", true, ICMP_HDR);
+                set_subwindow_line(i, "- Internet Group Management Protocol (IGMP)", true, ICMP_HDR);
             } else {
-                set_subwindow_line(i, "+ IGMP header", false, ICMP_HDR);
+                set_subwindow_line(i, "+ Internet Group Management Protocol (IGMP)", false, ICMP_HDR);
             }
             break;
         }
     } else if (p->eth.ethertype < ETH_P_802_3_MIN) {
         if (preferences.link_llc_selected) {
-            set_subwindow_line(i, "- LLC header", true, LLC_HDR);
+            set_subwindow_line(i, "- Logical Link Control (LLC)", true, LLC_HDR);
             i += ETH_WINSIZE;
         } else {
-            set_subwindow_line(i, "+ LLC header", false, LLC_HDR);
+            set_subwindow_line(i, "+ Logical Link Control (LLC)", false, LLC_HDR);
             i++;
         }
         if (preferences.link_stp_selected) {
-            set_subwindow_line(i, "- STP header", true, STP_HDR);
+            set_subwindow_line(i, "- Spanning Tree Protocol (STP)", true, STP_HDR);
             i += ETH_WINSIZE;
         } else {
-            set_subwindow_line(i, "+ STP header", false, STP_HDR);
+            set_subwindow_line(i, "+ Spanning Tree Protocol (STP)", false, STP_HDR);
             i += 2;
         }
     }
@@ -606,30 +606,30 @@ void create_app_sublines(struct packet *p, int i)
     switch (p->eth.ip->udp.data.utype) {
     case DNS:
         if (preferences.application_selected) {
-            set_subwindow_line(i, "- DNS header", true, APP_HDR);
+            set_subwindow_line(i, "- Domain Name System (DNS) header", true, APP_HDR);
         } else {
-            set_subwindow_line(i, "+ DNS header", false, APP_HDR);
+            set_subwindow_line(i, "+ Domain Name System (DNS)", false, APP_HDR);
         }
     break;
     case NBNS:
         if (preferences.application_selected) {
-            set_subwindow_line(i, "- NBNS header", true, APP_HDR);
+            set_subwindow_line(i, "- NetBIOS Name Service (NBNS)", true, APP_HDR);
         } else {
-            set_subwindow_line(i, "+ NBNS header", false, APP_HDR);
+            set_subwindow_line(i, "+ NetBIOS Name Service (NBNS)", false, APP_HDR);
         }
         break;
     case HTTP:
         if (preferences.application_selected) {
-            set_subwindow_line(i, "- HTTP header", true, APP_HDR);
+            set_subwindow_line(i, "- Hypertext Transfer Protocol (HTTP)", true, APP_HDR);
         } else {
-            set_subwindow_line(i, "+ HTTP header", false, APP_HDR);
+            set_subwindow_line(i, "+ Hypertext Transfer Protocol (HTTP)", false, APP_HDR);
         }
         break;
     case SSDP:
         if (preferences.application_selected) {
-            set_subwindow_line(i, "- SSDP header", true, APP_HDR);
+            set_subwindow_line(i, "- Simple Service Discovery Protocol (SSDP)", true, APP_HDR);
         } else {
-            set_subwindow_line(i, "+ SSDP header", false, APP_HDR);
+            set_subwindow_line(i, "+ Simple Service Discovery Protocol (SSDP)", false, APP_HDR);
         }
         break;
     default:
