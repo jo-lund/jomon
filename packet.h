@@ -9,9 +9,7 @@
 /* hardware address length (format aa:bb:cc:dd:ee:ff) */
 #define HW_ADDRSTRLEN 18
 
-#define ARP_SIZE 28 /* size of an ARP packet (header + payload) */
 #define ETHERNET_HDRLEN 14
-#define UDP_HDRLEN 8
 #define DNS_HDRLEN 12
 #define DNS_NAMELEN 254
 #define NBNS_NAMELEN 17
@@ -276,6 +274,56 @@ struct application_info {
     };
 };
 
+struct udp_info {
+    uint16_t src_port;
+    uint16_t dst_port;
+    uint16_t len; /* length of UDP header and data */
+    uint16_t checksum;
+    struct application_info data;
+};
+
+struct tcp {
+    uint16_t src_port;
+    uint16_t dst_port;
+    uint32_t seq_num;
+    uint32_t ack_num;
+    unsigned int offset : 4;
+    unsigned int ns  : 1;
+    unsigned int cwr : 1;
+    unsigned int ece : 1;
+    unsigned int urg : 1;
+    unsigned int ack : 1;
+    unsigned int psh : 1;
+    unsigned int rst : 1;
+    unsigned int syn : 1;
+    unsigned int fin : 1;
+    uint16_t window;
+    uint16_t checksum;
+    uint16_t urg_ptr;
+    unsigned char *options;
+    struct application_info data;
+};
+
+struct igmp_info {
+    uint8_t type;
+    uint8_t max_resp_time;
+    uint16_t checksum;
+    char group_addr[INET_ADDRSTRLEN];
+};
+
+struct icmp_info {
+    uint8_t type;
+    uint8_t code;
+    uint16_t checksum;
+    union {
+        struct { /* used in echo request/reply messages */
+            uint16_t id;
+            uint16_t seq_num;
+        } echo;
+        uint32_t gateway; /* gateway address, used in redirect messages */
+    };
+};
+
 // TODO: Improve the structure of this
 struct ip_info {
     unsigned int version : 4;
@@ -291,52 +339,11 @@ struct ip_info {
     char src[INET_ADDRSTRLEN];
     char dst[INET_ADDRSTRLEN];
     union {
-        struct {
-            uint16_t src_port;
-            uint16_t dst_port;
-            uint16_t len; /* length of UDP header and data */
-            uint16_t checksum;
-            struct application_info data;
-        } udp;
-        struct {
-            uint16_t src_port;
-            uint16_t dst_port;
-            uint32_t seq_num;
-            uint32_t ack_num;
-            unsigned int offset : 4;
-            unsigned int ns  : 1;
-            unsigned int cwr : 1;
-            unsigned int ece : 1;
-            unsigned int urg : 1;
-            unsigned int ack : 1;
-            unsigned int psh : 1;
-            unsigned int rst : 1;
-            unsigned int syn : 1;
-            unsigned int fin : 1;
-            uint16_t window;
-            uint16_t checksum;
-            uint16_t urg_ptr;
-            unsigned char *options;
-            struct application_info data;
-        } tcp;
-        struct {
-            uint8_t type;
-            uint8_t max_resp_time;
-            uint16_t checksum;
-            char group_addr[INET_ADDRSTRLEN];
-        } igmp;
-        struct {
-            uint8_t type;
-            uint8_t code;
-            uint16_t checksum;
-            union {
-                struct { /* used in echo request/reply messages */
-                    uint16_t id;
-                    uint16_t seq_num;
-                } echo;
-                uint32_t gateway; /* gateway address, used in redirect messages */
-            };
-        } icmp;
+        struct udp_info udp;
+        struct tcp tcp;
+        struct igmp_info igmp;
+        struct icmp_info icmp;
+        unsigned char *payload;
     };
 };
 
@@ -359,6 +366,7 @@ struct snap_info {
     union {
         struct arp_info *arp;
         struct ip_info *ip;
+        unsigned char *payload;
     };
 };
 
@@ -401,6 +409,7 @@ struct eth_802_llc {
     union {
         struct snap_info *snap;
         struct stp_info *bpdu;
+        unsigned char *payload;
     };
 };
 
@@ -412,6 +421,7 @@ struct eth_info {
         struct eth_802_llc *llc;
         struct arp_info *arp;
         struct ip_info *ip;
+        unsigned char *payload;
     };
 };
 
@@ -429,6 +439,14 @@ struct packet {
  * for packet, which needs to be freed with free_packet.
  */
 size_t read_packet(int sockfd, unsigned char *buffer, size_t n, struct packet **p);
+
+/*
+ * Decodes the data in buffer and stores a pointer to the decoded packet, which
+ * has to be freed by calling free_packet.
+ *
+ * Returns true if decoding succeeded, else false.
+ */
+bool decode_packet(unsigned char *buffer, size_t n, struct packet **p);
 
 /* Free the memory allocated for packet */
 void free_packet(void *packet);

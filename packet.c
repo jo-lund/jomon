@@ -16,21 +16,25 @@
 
 #define DNS_PTR_LEN 2
 #define MAX_HTTP_LINE 4096
-#define LLC_LEN 3
+#define ARP_SIZE 28 /* size of an ARP packet (header + payload) */
+#define LLC_HDR_LEN 3
+#define SNAP_HDR_LEN 5
+#define ICMP_HDR_LEN 8
+#define IGMP_HDR_LEN 8
+#define UDP_HDR_LEN 8
 #define MULTICAST_ADDR_MASK 0xe
 
-static void check_address(unsigned char *buffer);
 static bool check_port(unsigned char *buffer, struct application_info *info, uint16_t port,
                        uint16_t packet_len, bool *error);
 static void free_protocol_data(struct application_info *info);
-static bool handle_ethernet(unsigned char *buffer, struct eth_info *eth);
-static bool handle_stp(unsigned char *buffer, struct stp_info *bpdu, uint16_t len);
-static bool handle_arp(unsigned char *buffer, struct arp_info *info);
-static bool handle_ip(unsigned char *buffer, struct ip_info *info);
-static bool handle_icmp(unsigned char *buffer, struct ip_info *info);
-static bool handle_igmp(unsigned char *buffer, struct ip_info *info);
-static bool handle_tcp(unsigned char *buffer, struct ip_info *info);
-static bool handle_udp(unsigned char *buffer, struct ip_info *info);
+static bool handle_ethernet(unsigned char *buffer, int n, struct eth_info *eth);
+static bool handle_stp(unsigned char *buffer, uint16_t n, struct eth_802_llc *llc);
+static bool handle_arp(unsigned char *buffer, int n, struct eth_info *info);
+static bool handle_ip(unsigned char *buffer, int n, struct eth_info *info);
+static bool handle_icmp(unsigned char *buffer, int n, struct ip_info *info);
+static bool handle_igmp(unsigned char *buffer, int n, struct ip_info *info);
+static bool handle_tcp(unsigned char *buffer, int n, struct ip_info *info);
+static bool handle_udp(unsigned char *buffer, int n, struct ip_info *info);
 
 /* application layer protocol handlers */
 static bool handle_dns(unsigned char *buffer, struct application_info *info);
@@ -54,14 +58,21 @@ size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet 
         free_packet(*p);
         err_sys("read error");
     }
-    // TODO: This needs to be handled differently
-    if (statistics) {
-        check_address(buffer);
-    } else if (!handle_ethernet(buffer, &(*p)->eth)) {
+    if (!handle_ethernet(buffer, n, &(*p)->eth)) {
         free_packet(*p);
         return 0;
     }
     return n;
+}
+
+bool decode_packet(unsigned char *buffer, size_t len, struct packet **p)
+{
+    *p = calloc(1, sizeof(struct packet));
+    if (!handle_ethernet(buffer, len, &(*p)->eth)) {
+        free_packet(p);
+        return false;
+    }
+    return true;
 }
 
 void free_packet(void *data)
@@ -70,12 +81,17 @@ void free_packet(void *data)
 
     if (p->eth.ethertype < ETH_P_802_3_MIN) {
         if (p->eth.llc->dsap == 0xaa && p->eth.llc->ssap == 0xaa) {
+            if (p->eth.llc->snap->payload) {
+                free(p->eth.llc->snap->payload);
+            }
             free(p->eth.llc->snap);
         } else if (p->eth.llc->dsap == 0x42 && p->eth.llc->ssap == 0x42) {
             free(p->eth.llc->bpdu);
+        } else if (p->eth.llc->payload) {
+            free(p->eth.llc->payload);
         }
         free(p->eth.llc);
-        return; // TODO: Handle IP encapsulation
+        return;
     }
     switch (p->eth.ethertype) {
     case ETH_P_IP:
@@ -87,12 +103,20 @@ void free_packet(void *data)
             free_protocol_data(&p->eth.ip->tcp.data);
             break;
         default:
+            if (p->eth.ip->payload) {
+                free(p->eth.ip->payload);
+            }
             break;
         }
         free(p->eth.ip);
         break;
     case ETH_P_ARP:
         free(p->eth.arp);
+        break;
+    default:
+        if (p->eth.payload) {
+            free(p->eth.payload);
+        }
         break;
     }
     free(p);
@@ -144,31 +168,6 @@ void free_protocol_data(struct application_info *info)
     }
 }
 
-void check_address(unsigned char *buffer)
-{
-    char src[INET_ADDRSTRLEN];
-    char dst[INET_ADDRSTRLEN];
-    struct iphdr *ip;
-
-    ip = (struct iphdr *) buffer;
-    if (inet_ntop(AF_INET, &ip->saddr, src, INET_ADDRSTRLEN) == NULL) {
-        err_msg("inet_ntop error");
-    }
-    if (inet_ntop(AF_INET, &ip->daddr, dst, INET_ADDRSTRLEN) == NULL) {
-        err_msg("inet_ntop error");
-    }
-
-    /* this can be optimized by only filtering for packets matching host ip address */
-    if (memcmp(&ip->saddr, &local_addr->sin_addr, sizeof(ip->saddr)) == 0) {
-        tx.num_packets++;
-        tx.tot_bytes += ntohs(ip->tot_len);
-    }
-    if (memcmp(&ip->daddr, &local_addr->sin_addr, sizeof(ip->daddr)) == 0) {
-        rx.num_packets++;
-        rx.tot_bytes += ntohs(ip->tot_len);
-    }
-}
-
 /*
  * Ethernet header
  *
@@ -207,9 +206,10 @@ void check_address(unsigned char *buffer)
  *
  * The K2 value is 0 (zero).
  */
-bool handle_ethernet(unsigned char *buffer, struct eth_info *eth)
+bool handle_ethernet(unsigned char *buffer, int n, struct eth_info *eth)
 {
     struct ethhdr *eth_header;
+    bool error = false;
 
     eth_header = (struct ethhdr *) buffer;
     memcpy(eth->mac_src, eth_header->h_source, ETH_ALEN);
@@ -221,48 +221,56 @@ bool handle_ethernet(unsigned char *buffer, struct eth_info *eth)
         unsigned char *ptr;
 
         ptr = buffer + ETH_HLEN;
-        eth->llc = malloc(sizeof(struct eth_802_llc));
+        eth->llc = calloc(1, sizeof(struct eth_802_llc));
         eth->llc->dsap = ptr[0];
         eth->llc->ssap = ptr[1];
         eth->llc->control = ptr[2];
 
-        /* Novell raw IEEE 802.3 non-standard variation frame */
-        if (eth->llc->dsap == 0xff && eth->llc->ssap == 0xff) {
-            return false; /* not handled */
-        }
         /* Spanning Tree Protocol */
         if (eth->llc->dsap == 0x42 && eth->llc->ssap == 0x42) {
-            eth->llc->bpdu = malloc(sizeof(struct stp_info));
-            return handle_stp(ptr + LLC_LEN, eth->llc->bpdu, eth->ethertype);
-        }
-        /* SNAP extension */
-        if (eth->llc->dsap == 0xaa && eth->llc->ssap == 0xaa) {
+            error = !handle_stp(ptr + LLC_HDR_LEN, eth->ethertype - LLC_HDR_LEN, eth->llc);
+        } else if (eth->llc->dsap == 0xaa && eth->llc->ssap == 0xaa) {
+            /* SNAP extension */
             eth->llc->snap = malloc(sizeof(struct snap_info));
-            ptr += LLC_LEN;
+            ptr += LLC_HDR_LEN;
             memcpy(eth->llc->snap->oui, ptr, 3);
             ptr += 3; /* skip first 3 bytes of 802.2 SNAP */
             eth->llc->snap->protocol_id = ptr[0] << 8 | ptr[1];
 
-            /* TODO: If OUI is 0 I need to figure out how to handle the internet
-               protocols that will be layered on top of SNAP */
-            return false;
+            /* TODO: If OUI is 0 I need to to handle the internet protocols that
+               will be layered on top of SNAP */
+            ptr += 2;
+            int len = eth->ethertype - LLC_HDR_LEN - SNAP_HDR_LEN;
+
+            eth->llc->snap->payload = malloc(len);
+            memcpy(eth->llc->snap->payload, ptr, len);
+        } else { /* not handled */
+            int len = eth->ethertype - LLC_HDR_LEN;
+
+            eth->llc->payload = malloc(len);
+            memcpy(eth->llc->payload, ptr, len);
+        }
+    } else {
+        switch (eth->ethertype) {
+        case ETH_P_IP:
+            error = !handle_ip(buffer + ETH_HLEN, n, eth);
+            break;
+        case ETH_P_ARP:
+            error = !handle_arp(buffer + ETH_HLEN, n, eth);
+            break;
+        case ETH_P_IPV6:
+        case ETH_P_PAE:
+        default:
+            //printf("Ethernet protocol: 0x%x\n", eth->ethertype);
+            error = true;
+            break;
         }
     }
-
-    switch (eth->ethertype) {
-    case ETH_P_IP:
-        eth->ip = malloc(sizeof(struct ip_info));
-        return handle_ip(buffer + ETH_HLEN, eth->ip);
-    case ETH_P_ARP:
-        eth->arp = malloc(sizeof(struct arp_info));
-        return handle_arp(buffer + ETH_HLEN, eth->arp);
-    case ETH_P_IPV6:
-    case ETH_P_PAE:
-        return false;
-    default:
-        //printf("Ethernet protocol: 0x%x\n", eth->ethertype);
-        return false;
+    if (error) {
+        eth->payload = malloc(n - ETH_HLEN);
+        memcpy(eth->payload, buffer + ETH_HLEN, n - ETH_HLEN);
     }
+    return true;
 }
 
 /*
@@ -281,72 +289,77 @@ bool handle_ethernet(unsigned char *buffer, struct eth_info *eth)
  * PS: Protocol Size, number of bytes in the requested network address
  * OP: Operation. 1 = ARP request, 2 = ARP reply, 3 = RARP request, 4 = RARP reply
  */
-bool handle_arp(unsigned char *buffer, struct arp_info *info)
+bool handle_arp(unsigned char *buffer, int n, struct eth_info *eth)
 {
+    if (n < ARP_SIZE) return false;
+
     struct ether_arp *arp_header;
 
     arp_header = (struct ether_arp *) buffer;
+    eth->arp = malloc(sizeof(struct arp_info));
 
     /* sender protocol address */
-    if (inet_ntop(AF_INET, &arp_header->arp_spa, info->sip, INET_ADDRSTRLEN) == NULL) {
+    if (inet_ntop(AF_INET, &arp_header->arp_spa, eth->arp->sip, INET_ADDRSTRLEN) == NULL) {
         err_msg("inet_ntop error");
     }
 
     /* target protocol address */
-    if (inet_ntop(AF_INET, &arp_header->arp_tpa, info->tip, INET_ADDRSTRLEN) == NULL) {
+    if (inet_ntop(AF_INET, &arp_header->arp_tpa, eth->arp->tip, INET_ADDRSTRLEN) == NULL) {
         err_msg("inet_ntop error");
     }
 
     /* sender/target hardware address */
-    snprintf(info->sha, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
+    snprintf(eth->arp->sha, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
              arp_header->arp_sha[0], arp_header->arp_sha[1], arp_header->arp_sha[2],
              arp_header->arp_sha[3], arp_header->arp_sha[4], arp_header->arp_sha[5]);
-    snprintf(info->tha, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
+    snprintf(eth->arp->tha, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
              arp_header->arp_tha[0], arp_header->arp_tha[1], arp_header->arp_tha[2],
              arp_header->arp_tha[3], arp_header->arp_tha[4], arp_header->arp_tha[5]);
 
-    info->op = ntohs(arp_header->arp_op); /* arp opcode (command) */
-    info->ht = ntohs(arp_header->arp_hrd);
-    info->pt = ntohs(arp_header->arp_pro);
-    info->hs = arp_header->arp_hln;
-    info->ps = arp_header->arp_pln;
+    eth->arp->op = ntohs(arp_header->arp_op); /* arp opcode (command) */
+    eth->arp->ht = ntohs(arp_header->arp_hrd);
+    eth->arp->pt = ntohs(arp_header->arp_pro);
+    eth->arp->hs = arp_header->arp_hln;
+    eth->arp->ps = arp_header->arp_pln;
     return true;
 }
 
 /*
  * IEEE 802.1 Bridge Spanning Tree Protocol
  */
-bool handle_stp(unsigned char *buffer, struct stp_info *bpdu, uint16_t len)
+bool handle_stp(unsigned char *buffer, uint16_t n, struct eth_802_llc *llc)
 {
     /* the BPDU shall contain at least 4 bytes */
-    if (len < 4) return false;
+    if (n < 4) return false;
 
-    bpdu->protocol_id = buffer[0] << 8 | buffer[1];
+    uint16_t protocol_id = buffer[0] << 8 | buffer[1];
 
     /* protocol id 0x00 identifies the (Rapid) Spanning Tree Protocol */
-    if (!bpdu->protocol_id == 0x0) return false;
+    if (!protocol_id == 0x0) return false;
 
-    bpdu->version = buffer[2];
-    bpdu->type = buffer[3];
+    llc->bpdu = malloc(sizeof(struct stp_info));
+    llc->bpdu->protocol_id = protocol_id;
+    llc->bpdu->version = buffer[2];
+    llc->bpdu->type = buffer[3];
 
     /* a configuration BPDU contains at least 35 bytes and RST BPDU 36 bytes */
-    if (len >= 35) {
-        bpdu->tcack = (buffer[4] & 0x80) >> 7;
-        bpdu->agreement = (buffer[4] & 0x40) >> 6;
-        bpdu->forwarding = (buffer[4] & 0x20) >> 5;
-        bpdu->learning = (buffer[4] & 0x10) >> 4 ;
-        bpdu->port_role = (buffer[4] & 0x0c) >> 2;
-        bpdu->proposal = (buffer[4] & 0x02) >> 1;
-        bpdu->tc = buffer[4] & 0x01;
-        memcpy(bpdu->root_id, &buffer[5], 8);
-        bpdu->root_pc = buffer[13] << 24 | buffer[14] << 16 | buffer[15] << 8 | buffer[16];
-        memcpy(bpdu->bridge_id, &buffer[17], 8);
-        bpdu->port_id = buffer[25] << 8 | buffer[26];
-        bpdu->msg_age = buffer[27] << 8 | buffer[28];
-        bpdu->max_age = buffer[29] << 8 | buffer[30];
-        bpdu->ht = buffer[31] << 8 | buffer[32];
-        bpdu->fd = buffer[33] << 8 | buffer[34];
-        if (len > 35) bpdu->version1_len = buffer[35];
+    if (n >= 35) {
+        llc->bpdu->tcack = (buffer[4] & 0x80) >> 7;
+        llc->bpdu->agreement = (buffer[4] & 0x40) >> 6;
+        llc->bpdu->forwarding = (buffer[4] & 0x20) >> 5;
+        llc->bpdu->learning = (buffer[4] & 0x10) >> 4 ;
+        llc->bpdu->port_role = (buffer[4] & 0x0c) >> 2;
+        llc->bpdu->proposal = (buffer[4] & 0x02) >> 1;
+        llc->bpdu->tc = buffer[4] & 0x01;
+        memcpy(llc->bpdu->root_id, &buffer[5], 8);
+        llc->bpdu->root_pc = buffer[13] << 24 | buffer[14] << 16 | buffer[15] << 8 | buffer[16];
+        memcpy(llc->bpdu->bridge_id, &buffer[17], 8);
+        llc->bpdu->port_id = buffer[25] << 8 | buffer[26];
+        llc->bpdu->msg_age = buffer[27] << 8 | buffer[28];
+        llc->bpdu->max_age = buffer[29] << 8 | buffer[30];
+        llc->bpdu->ht = buffer[31] << 8 | buffer[32];
+        llc->bpdu->fd = buffer[33] << 8 | buffer[34];
+        if (n > 35) llc->bpdu->version1_len = buffer[35];
     }
     return true;
 }
@@ -381,46 +394,62 @@ bool handle_stp(unsigned char *buffer, struct stp_info *bpdu, uint16_t len)
  * of zero.
  * Protocol: Defines the protocol used in the data portion of the packet.
  */
-bool handle_ip(unsigned char *buffer, struct ip_info *info)
+bool handle_ip(unsigned char *buffer, int n, struct eth_info *eth)
 {
     struct iphdr *ip;
     unsigned int header_len;
+    bool error = false;
 
     ip = (struct iphdr *) buffer;
-    if (inet_ntop(AF_INET, &ip->saddr, info->src, INET_ADDRSTRLEN) == NULL) {
+
+    if (n < ip->ihl * 4) return false;
+
+    eth->ip = calloc(1, sizeof(struct ip_info));
+    if (inet_ntop(AF_INET, &ip->saddr, eth->ip->src, INET_ADDRSTRLEN) == NULL) {
         err_msg("inet_ntop error");
     }
-    if (inet_ntop(AF_INET, &ip->daddr, info->dst, INET_ADDRSTRLEN) == NULL) {
+    if (inet_ntop(AF_INET, &ip->daddr, eth->ip->dst, INET_ADDRSTRLEN) == NULL) {
         err_msg("inet_ntop error");
     }
-    info->version = ip->version;
-    info->ihl = ip->ihl;
+    eth->ip->version = ip->version;
+    eth->ip->ihl = ip->ihl;
 
     /* Originally defined as type of service, but now defined as differentiated
        services code point and explicit congestion control */
-    info->dscp = ip->tos & 0xfc;
-    info->ecn = ip->tos & 0x03;
+    eth->ip->dscp = ip->tos & 0xfc;
+    eth->ip->ecn = ip->tos & 0x03;
 
-    info->length = ntohs(ip->tot_len);
-    info->id = ntohs(ip->id);
-    info->foffset = ntohs(ip->frag_off);
-    info->ttl = ip->ttl;
-    info->protocol = ip->protocol;
-    info->checksum = ntohs(ip->check);
+    eth->ip->length = ntohs(ip->tot_len);
+    eth->ip->id = ntohs(ip->id);
+    eth->ip->foffset = ntohs(ip->frag_off);
+    eth->ip->ttl = ip->ttl;
+    eth->ip->protocol = ip->protocol;
+    eth->ip->checksum = ntohs(ip->check);
     header_len = ip->ihl * 4;
 
     switch (ip->protocol) {
     case IPPROTO_ICMP:
-        return handle_icmp(buffer + header_len, info);
+        error = !handle_icmp(buffer + header_len, n, eth->ip);
+        break;
     case IPPROTO_IGMP:
-        return handle_igmp(buffer + header_len, info);
+        error = !handle_igmp(buffer + header_len, n, eth->ip);
+        break;
     case IPPROTO_TCP:
-        return handle_tcp(buffer + header_len, info);
+        error = !handle_tcp(buffer + header_len, n, eth->ip);
+        break;
     case IPPROTO_UDP:
-        return handle_udp(buffer + header_len, info);
+        error = !handle_udp(buffer + header_len, n, eth->ip);
+        break;
+    case IPPROTO_PIM:
     default:
-        return false;
+        error = true;
+        break;
     }
+    if (error) {
+        eth->ip->payload = malloc(n - header_len);
+        memcpy(eth->ip->payload, buffer + header_len, n - header_len);
+    }
+    return true;
 }
 
 /*
@@ -438,8 +467,10 @@ bool handle_ip(unsigned char *buffer, struct ip_info *info)
  *
  * The ICMP header is 8 bytes.
  */
-bool handle_icmp(unsigned char *buffer, struct ip_info *info)
+bool handle_icmp(unsigned char *buffer, int n, struct ip_info *info)
 {
+    if (n < ICMP_HDR_LEN) return false;
+
     struct icmphdr *icmp = (struct icmphdr *) buffer;
 
     info->icmp.type = icmp->type;
@@ -487,8 +518,10 @@ bool handle_icmp(unsigned char *buffer, struct ip_info *info)
  *
  * TODO: Handle IGMPv3 membership query
  */
-bool handle_igmp(unsigned char *buffer, struct ip_info *info)
+bool handle_igmp(unsigned char *buffer, int n, struct ip_info *info)
 {
+    if (n < IGMP_HDR_LEN) return false;
+
     struct igmphdr *igmp;
 
     igmp = (struct igmphdr *) buffer;
@@ -514,8 +547,10 @@ bool handle_igmp(unsigned char *buffer, struct ip_info *info)
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  */
-bool handle_udp(unsigned char *buffer, struct ip_info *info)
+bool handle_udp(unsigned char *buffer, int n, struct ip_info *info)
 {
+    if (n < UDP_HDR_LEN) return false;
+
     struct udphdr *udp;
     bool error;
 
@@ -527,18 +562,18 @@ bool handle_udp(unsigned char *buffer, struct ip_info *info)
 
     for (int i = 0; i < 2; i++) {
         info->udp.data.utype = *((uint16_t *) &info->udp + i);
-        if (check_port(buffer + UDP_HDRLEN, &info->udp.data, info->udp.data.utype,
-                       info->udp.len - UDP_HDRLEN, &error)) {
+        if (check_port(buffer + UDP_HDR_LEN, &info->udp.data, info->udp.data.utype,
+                       info->udp.len - UDP_HDR_LEN, &error)) {
             return true;
         }
     }
     info->udp.data.utype = 0;
 
     /* unknown payload data */
-    if (info->udp.len - UDP_HDRLEN > 0) {
-        info->udp.data.payload = malloc(info->udp.len - UDP_HDRLEN);
-        info->udp.data.payload_len = info->udp.len - UDP_HDRLEN;
-        memcpy(info->udp.data.payload, buffer + UDP_HDRLEN, info->udp.data.payload_len);
+    if (info->udp.len - UDP_HDR_LEN > 0) {
+        info->udp.data.payload = malloc(info->udp.len - UDP_HDR_LEN);
+        info->udp.data.payload_len = info->udp.len - UDP_HDR_LEN;
+        memcpy(info->udp.data.payload, buffer + UDP_HDR_LEN, info->udp.data.payload_len);
     }
     return true;
 }
@@ -603,13 +638,15 @@ bool handle_udp(unsigned char *buffer, struct ip_info *info)
  *            the urgent data. This field is only be interpreted in segments with
  *            the URG control bit set.
  */
-bool handle_tcp(unsigned char *buffer, struct ip_info *info)
+bool handle_tcp(unsigned char *buffer, int n, struct ip_info *info)
 {
     struct tcphdr *tcp;
     bool error;
     uint16_t payload_len;
 
     tcp = (struct tcphdr *) buffer;
+    if (n < tcp->doff * 4) return false;
+
     info->tcp.src_port = ntohs(tcp->source);
     info->tcp.dst_port = ntohs(tcp->dest);
     info->tcp.seq_num = ntohl(tcp->seq);
@@ -768,10 +805,12 @@ bool handle_dns(unsigned char *buffer, struct application_info *info)
         }
     } else { /* DNS query */
         if (info->dns->rcode != 0) { /* RCODE will be zero */
+            free(info->dns);
             return false;
         }
         /* ANCOUNT and NSCOUNT values are zero */
         if (info->dns->section_count[ANCOUNT] != 0 && info->dns->section_count[NSCOUNT] != 0) {
+            free(info->dns);
             return false;
         }
         /*
@@ -779,6 +818,7 @@ bool handle_dns(unsigned char *buffer, struct application_info *info)
          * (RFC 2671) or TSIG (RFC 2845) are used
          */
         if (info->dns->section_count[ARCOUNT] > 2) {
+            free(info->dns);
             return false;
         }
         ptr += DNS_HDRLEN;
@@ -971,6 +1011,7 @@ bool handle_nbns(unsigned char *buffer, struct application_info *info)
 
     if (info->nbns->r) { /* response */
         if (info->nbns->section_count[QDCOUNT] != 0) { /* QDCOUNT is always 0 for responses */
+            free(info->nbns);
             return false;
         }
         ptr += DNS_HDRLEN;
@@ -987,9 +1028,11 @@ bool handle_nbns(unsigned char *buffer, struct application_info *info)
         }
     } else { /* request */
         if (info->nbns->aa) { /* authoritative answer is only to be set in responses */
+            free(info->nbns);
             return false;
         }
         if (info->nbns->section_count[QDCOUNT] == 0) { /* QDCOUNT must be non-zero for requests */
+            free(info->nbns);
             return false;
         }
         ptr += DNS_HDRLEN;
@@ -1148,8 +1191,14 @@ void parse_ssdp(char *str, int n, list_t **msg_header)
 
 bool handle_http(unsigned char *buffer, struct application_info *info, uint16_t len)
 {
+    bool error;
+
     info->http = malloc(sizeof(struct http_info));
-    return parse_http((char *) buffer, len, info->http);
+    error = parse_http((char *) buffer, len, info->http);
+    if (error) {
+        free(info->http);
+    }
+    return error;
 }
 
 /*
