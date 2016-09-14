@@ -27,4 +27,6 @@ void print_rate();
 
 void print_packet(struct packet *p);
 
+void print_file();
+
 #endif

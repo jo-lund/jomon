@@ -421,6 +421,15 @@ void print_packet(struct packet *p)
     print(buf);
 }
 
+void print_file()
+{
+    int my = getmaxy(wmain);
+
+    for (int i = 0; i < vector_size() && i < my; i++) {
+        print_packet(vector_get_data(i));
+    }
+}
+
 void print_rate()
 {
     //int rxmbytes = rx.tot_bytes / (1024 * 1024);

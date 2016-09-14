@@ -35,6 +35,7 @@
 #include "ui_layout.h"
 #include "packet.h"
 #include "vector.h"
+#include "file_pcap.h"
 
 linkdef rx; /* data received */
 linkdef tx; /* data transmitted */
@@ -44,10 +45,11 @@ int verbose;
 int promiscuous;
 int statistics;
 static volatile sig_atomic_t signal_flag = 0;
-static int fd; /* packet socket file descriptor */
+static int sockfd = -1; /* packet socket file descriptor */
 
 static void print_help(char *prg);
-static int init();
+static void init_socket();
+static void init_structures();
 static void run();
 static void sig_alarm(int signo);
 static void sig_int(int signo);
@@ -58,10 +60,11 @@ int main(int argc, char **argv)
 {
     char *prg_name = argv[0];
     int opt;
+    char *filename = NULL;
 
     statistics = 0;
     promiscuous = 0;
-    while ((opt = getopt(argc, argv, "i:lhvps")) != -1) {
+    while ((opt = getopt(argc, argv, "i:f:lhvps")) != -1) {
         switch (opt) {
         case 'i':
             device = strdup(optarg);
@@ -79,6 +82,9 @@ int main(int argc, char **argv)
         case 's':
             statistics = 1;
             break;
+        case 'f':
+            filename = optarg;
+            break;
         case 'h':
         default:
             print_help(prg_name);
@@ -87,23 +93,42 @@ int main(int argc, char **argv)
     }
 
 #ifdef linux
-    fd = init();
+    init_structures();
+    if (!device) {
+        if (!(device = get_default_interface())) {
+            err_quit("Cannot find active network device");
+        }
+    }
+    local_addr = malloc(sizeof (struct sockaddr_in));
+    get_local_address(device, (struct sockaddr *) local_addr);
+    if (filename) {
+        enum file_error err;
+
+        err = read_file(filename);
+        if (err != NO_ERROR) {
+            err_quit("Error in file: %s", filename);
+        }
+    } else {
+        init_socket();
+    }
     init_ncurses();
     create_layout();
-    run(fd);
+    if (filename) print_file();
+    run();
     finish();
 #endif
 }
 
 void print_help(char *prg)
 {
-    printf("Usage: %s [-lvhp] [-i interface]\n", prg);
+    printf("Usage: %s [-lvhp] [-i interface] [-f path]\n", prg);
     printf("Options:\n");
     printf("     -i  Specify network interface\n");
     printf("     -l  List available interfaces\n");
     printf("     -p  Use promiscuous mode\n");
     printf("     -s  Show statistics page\n");
     printf("     -v  Print verbose information\n");
+    printf("     -f  Read file in pcap format\n");
     printf("     -h  Print this help summary\n");
 }
 
@@ -123,22 +148,18 @@ void finish()
     vector_clear();
     free(device);
     free(local_addr);
-    close(fd);
+    if (sockfd > 0) {
+        close(sockfd);
+    }
     exit(0);
 }
 
 /* Initialize device and prepare for reading */
-int init()
+void init_socket()
 {
-    int sockfd, flag;
+    int flag;
     struct sockaddr_ll ll_addr; /* device independent physical layer address */
-    struct sigaction act, acti;
 
-    if (!device) {
-        if (!(device = get_default_interface())) {
-            err_quit("Cannot find active network device\n");
-        }
-    }
     if (!statistics) {
         /* SOCK_RAW packet sockets include the link level header */
         if ((sockfd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {
@@ -171,6 +192,11 @@ int init()
     if (bind(sockfd, (struct sockaddr *) &ll_addr, sizeof(ll_addr)) == -1) {
         err_sys("bind error");
     }
+}
+
+void init_structures()
+{
+    struct sigaction act, acti;
 
     /* set up an alarm and interrupt signal handler */
     act.sa_handler = sig_alarm;
@@ -185,20 +211,15 @@ int init()
         err_sys("sigaction error");
     }
 
-    local_addr = malloc(sizeof (struct sockaddr_in));
-    get_local_address(device, (struct sockaddr *) local_addr);
-
     /* Initialize table to store packets */
     vector_init(1000, free_packet);
-
-    return sockfd;
 }
 
 /* The main event loop */
-void run(int fd)
+void run()
 {
     struct pollfd fds[] = {
-        { fd, POLLIN },
+        { sockfd, POLLIN },
         { STDIN_FILENO, POLLIN }
     };
 
@@ -218,8 +239,8 @@ void run(int fd)
             size_t n;
             struct packet *p;
 
-            n = read_packet(fd, buffer, SNAPLEN, &p);
-            if (n > ETHERNET_HDRLEN) {
+            n = read_packet(sockfd, buffer, SNAPLEN, &p);
+            if (n) {
                 vector_push_back(p);
                 print_packet(p);
             }

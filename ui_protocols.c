@@ -49,7 +49,9 @@ void print_buffer(char *buf, int size, struct packet *p)
         print_ip(buf, size, p->eth.ip);
         break;
     default:
-        print_llc(buf, size, &p->eth);
+        if (p->eth.ethertype < ETH_P_802_3_MIN) {
+            print_llc(buf, size, &p->eth);
+        }
         break;
     }
 }
