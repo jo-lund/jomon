@@ -87,7 +87,7 @@ void free_packet(void *data)
             free(p->eth.llc->snap);
         } else if (p->eth.llc->dsap == 0x42 && p->eth.llc->ssap == 0x42) {
             free(p->eth.llc->bpdu);
-        } else if (p->eth.llc->payload) {
+        } else if (p->eth.llc->unknown_payload) {
             free(p->eth.llc->payload);
         }
         free(p->eth.llc);
@@ -103,7 +103,7 @@ void free_packet(void *data)
             free_protocol_data(&p->eth.ip->tcp.data);
             break;
         default:
-            if (p->eth.ip->payload) {
+            if (p->eth.ip->unknown_payload) {
                 free(p->eth.ip->payload);
             }
             break;
@@ -114,7 +114,7 @@ void free_packet(void *data)
         free(p->eth.arp);
         break;
     default:
-        if (p->eth.payload) {
+        if (p->eth.unknown_payload) {
             free(p->eth.payload);
         }
         break;
@@ -161,7 +161,7 @@ void free_protocol_data(struct application_info *info)
         }
         break;
     default:
-        if (info->payload) {
+        if (info->unknown_payload) {
             free(info->payload);
         }
         break;
@@ -208,6 +208,8 @@ void free_protocol_data(struct application_info *info)
  */
 bool handle_ethernet(unsigned char *buffer, int n, struct eth_info *eth)
 {
+    if (n < ETHERNET_HDRLEN) return false;
+
     struct ethhdr *eth_header;
     bool error = false;
 
@@ -267,6 +269,7 @@ bool handle_ethernet(unsigned char *buffer, int n, struct eth_info *eth)
         }
     }
     if (error) {
+        eth->unknown_payload = true;
         eth->payload = malloc(n - ETH_HLEN);
         memcpy(eth->payload, buffer + ETH_HLEN, n - ETH_HLEN);
     }
@@ -446,6 +449,7 @@ bool handle_ip(unsigned char *buffer, int n, struct eth_info *eth)
         break;
     }
     if (error) {
+        eth->ip->unknown_payload = true;
         eth->ip->payload = malloc(n - header_len);
         memcpy(eth->ip->payload, buffer + header_len, n - header_len);
     }
@@ -569,8 +573,9 @@ bool handle_udp(unsigned char *buffer, int n, struct ip_info *info)
     }
     info->udp.data.utype = 0;
 
-    /* unknown payload data */
+    /* unknown application payload data */
     if (info->udp.len - UDP_HDR_LEN > 0) {
+        info->udp.data.unknown_payload = true;
         info->udp.data.payload = malloc(info->udp.len - UDP_HDR_LEN);
         info->udp.data.payload_len = info->udp.len - UDP_HDR_LEN;
         memcpy(info->udp.data.payload, buffer + UDP_HDR_LEN, info->udp.data.payload_len);
@@ -675,8 +680,9 @@ bool handle_tcp(unsigned char *buffer, int n, struct ip_info *info)
     }
     info->tcp.data.utype = 0;
 
-    /* unknown payload data */
+    /* unknown application payload data */
     if (payload_len > 0) {
+        info->tcp.data.unknown_payload = true;
         info->tcp.data.payload = malloc(payload_len);
         info->tcp.data.payload_len = payload_len;
         memcpy(info->tcp.data.payload, buffer + info->tcp.offset * 4, payload_len);

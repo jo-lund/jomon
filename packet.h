@@ -265,6 +265,7 @@ struct http_info {
 struct application_info {
     uint16_t utype; /* specifies the application layer protocol */
     uint16_t payload_len;
+    bool unknown_payload;
     union {
         struct dns_info *dns;
         struct nbns_info *nbns;
@@ -338,6 +339,7 @@ struct ip_info {
     uint16_t checksum;
     char src[INET_ADDRSTRLEN];
     char dst[INET_ADDRSTRLEN];
+    bool unknown_payload;
     union {
         struct udp_info udp;
         struct tcp tcp;
@@ -363,6 +365,7 @@ struct arp_info {
 struct snap_info {
     unsigned char oui[3]; /* IEEE Organizationally Unique Identifier */
     uint16_t protocol_id; /* If OUI is 0 the protocol ID is the Ethernet type */
+    bool unknown_payload;
     union {
         struct arp_info *arp;
         struct ip_info *ip;
@@ -382,14 +385,14 @@ struct stp_info {
     uint8_t version;
     uint8_t type; /* 0x00 Config BPDU, 0x80 TCN BPDU, 0x02 RST BPDU */
     unsigned int tcack : 1; /* topology change acknowledgement */
-    unsigned int agreement : 1;
+    unsigned int agreement  : 1;
     unsigned int forwarding : 1;
-    unsigned int learning : 1;
-    unsigned int port_role : 2; /* 01 alternate/backup, 10 root, 11 designated */
-    unsigned int proposal : 1;
-    unsigned int tc : 1; /* topology change */
-    uint8_t root_id[8]; /* CIST root id */
-    uint32_t root_pc; /* CIST External Path Cost */
+    unsigned int learning   : 1;
+    unsigned int port_role  : 2; /* 01 alternate/backup, 10 root, 11 designated */
+    unsigned int proposal   : 1;
+    unsigned int tc : 1;  /* topology change */
+    uint8_t root_id[8];   /* CIST root id */
+    uint32_t root_pc;     /* CIST External Path Cost */
     uint8_t bridge_id[8]; /* CIST Regional Root id */
     uint16_t port_id;
     /* Timer values represent a uint16_t number multiplied by a unit of time of
@@ -406,6 +409,7 @@ struct eth_802_llc {
     uint8_t dsap; /* destination service access point */
     uint8_t ssap; /* source service access point */
     uint8_t control; /* possible to be 2 bytes? */
+    bool unknown_payload;
     union {
         struct snap_info *snap;
         struct stp_info *bpdu;
@@ -417,6 +421,7 @@ struct eth_info {
     unsigned char mac_src[ETH_ALEN];
     unsigned char mac_dst[ETH_ALEN];
     uint16_t ethertype;
+    bool unknown_payload;
     union {
         struct eth_802_llc *llc;
         struct arp_info *arp;
