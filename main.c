@@ -160,16 +160,9 @@ void init_socket()
     int flag;
     struct sockaddr_ll ll_addr; /* device independent physical layer address */
 
-    if (!statistics) {
-        /* SOCK_RAW packet sockets include the link level header */
-        if ((sockfd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {
-            err_sys("socket error");
-        }
-    } else {
-        /* SOCK_DGRAM are cooked packets with the link level header removed */
-        if ((sockfd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL))) == -1) {
-            err_sys("socket error");
-        }
+    /* SOCK_RAW packet sockets include the link level header */
+    if ((sockfd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {
+        err_sys("socket error");
     }
 
     /* use non-blocking socket */
@@ -196,7 +189,7 @@ void init_socket()
 
 void init_structures()
 {
-    struct sigaction act, acti;
+    struct sigaction act;
 
     /* set up an alarm and interrupt signal handler */
     act.sa_handler = sig_alarm;
@@ -205,9 +198,10 @@ void init_structures()
     if (sigaction(SIGALRM, &act, NULL) == -1) {
         err_sys("sigaction error");
     }
-    acti.sa_handler = sig_int;
-    sigemptyset(&acti.sa_mask);
-    if (sigaction(SIGINT, &acti, NULL) == -1) {
+    act.sa_handler = sig_int;
+    sigemptyset(&act.sa_mask);
+    act.sa_flags = 0;
+    if (sigaction(SIGINT, &act, NULL) == -1) {
         err_sys("sigaction error");
     }
 
@@ -228,7 +222,6 @@ void run()
         if (signal_flag) {
             signal_flag = 0;
             alarm(1);
-            calculate_rate();
         }
         if (poll(fds, 2, -1) == -1) {
             if (errno == EINTR) continue;
@@ -248,10 +241,10 @@ void run()
         if (fds[1].revents & POLLIN) {
             get_input();
         }
-        if (statistics) print_rate();
     }
 }
 
+// TODO: Move this
 void calculate_rate()
 {
     rx.kbps = (rx.tot_bytes - rx.prev_bytes) / 1024;

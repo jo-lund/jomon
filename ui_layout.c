@@ -431,18 +431,6 @@ void print_file()
     }
 }
 
-void print_rate()
-{
-    //int rxmbytes = rx.tot_bytes / (1024 * 1024);
-    //int txmbytes = tx.tot_bytes / (1024 * 1024);
-    //double rxmbitspsec = rx.kbps / 1024 * 8;
-    //double txmbitspsec = tx.kbps / 1024 * 8;
-
-    /* mvprintw(y - 1, 4, "%5.0f KB/s", rx.kbps); */
-    /* mvprintw(y, 3, " %5.0f KB/s", tx.kbps); */
-    //refresh();
-}
-
 /* write buffer to standard output */
 void print(char *buf)
 {
