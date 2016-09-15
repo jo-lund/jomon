@@ -92,11 +92,11 @@ enum file_error read_header(unsigned char *buf, size_t len)
 /* Return number of bytes left in buffer or -1 on error */
 int read_buf(unsigned char *buf, size_t len)
 {
-    struct packet *p;
-    uint32_t pkt_len;
     int n = len;
 
     while (n > 0) {
+        struct packet *p;
+        uint32_t pkt_len;
         pcaprec_hdr_t *pkt_hdr;
 
         if (n < sizeof(pcaprec_hdr_t)) {

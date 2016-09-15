@@ -75,6 +75,7 @@ bool decode_packet(unsigned char *buffer, size_t len, struct packet **p)
         free_packet(p);
         return false;
     }
+    (*p)->num = ++packet_count;
     return true;
 }
 
