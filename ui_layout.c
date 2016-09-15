@@ -275,6 +275,10 @@ void handle_keydown(int lines, int cols)
 
 void scroll_page(int lines, int cols)
 {
+    if (!interactive) {
+        set_interactive(true, lines, cols);
+    }
+
     if (lines > 0) { /* scroll page down */
         if (vector_size() <= lines) {
             mvwchgat(wmain, selection_line - top, 0, -1, A_NORMAL, 0, NULL);
