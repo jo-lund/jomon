@@ -67,6 +67,7 @@ static int outy = 0;
 static bool interactive = false;
 static int selection_line = 0;
 static int top = 0; /* index to top of screen */
+static bool capturing = true;
 
 /* the number of lines to be scrolled in order to print verbose packet information */
 static int scrollvy = 0;
@@ -340,7 +341,7 @@ void set_interactive(bool interactive_mode, int lines, int cols)
         mvwchgat(wmain, 0, 0, -1, A_NORMAL, 1, NULL);
         wrefresh(wmain);
     } else {
-        if (outy >= lines) {
+        if (outy >= lines && capturing) {
             int c = vector_size() - 1;
 
             werase(wmain);
@@ -426,6 +427,7 @@ void print_file()
 {
     int my = getmaxy(wmain);
 
+    capturing = false;
     for (int i = 0; i < vector_size() && i < my; i++) {
         print_packet(vector_get_data(i));
     }
