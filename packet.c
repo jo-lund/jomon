@@ -423,7 +423,7 @@ bool handle_ip(unsigned char *buffer, int n, struct eth_info *eth)
 
     /* Originally defined as type of service, but now defined as differentiated
        services code point and explicit congestion control */
-    eth->ip->dscp = ip->tos & 0xfc;
+    eth->ip->dscp = (ip->tos & 0xfc) >> 2;
     eth->ip->ecn = ip->tos & 0x03;
 
     eth->ip->length = ntohs(ip->tot_len);
@@ -783,11 +783,11 @@ bool handle_dns(unsigned char *buffer, struct application_info *info)
     info->dns = malloc(sizeof(struct dns_info));
     info->dns->id = ptr[0] << 8 | ptr[1];
     info->dns->qr = (ptr[2] & 0x80) >> 7;
-    info->dns->opcode = ptr[2] & 0x78;
-    info->dns->aa = ptr[2] & 0x04;
-    info->dns->tc = ptr[2] & 0x02;
+    info->dns->opcode = (ptr[2] & 0x78) >> 3;
+    info->dns->aa = (ptr[2] & 0x04) >> 2;
+    info->dns->tc = (ptr[2] & 0x02) >> 1;
     info->dns->rd = ptr[2] & 0x01;
-    info->dns->ra = ptr[3] & 0x80;
+    info->dns->ra = (ptr[3] & 0x80) >> 7;
     info->dns->rcode = ptr[3] & 0x0f;
     for (int i = 0, j = 4; i < 4; i++, j += 2) {
         info->dns->section_count[i] = ptr[j] << 8 | ptr[j + 1];
@@ -1001,11 +1001,11 @@ bool handle_nbns(unsigned char *buffer, struct application_info *info)
 
     info->nbns = malloc(sizeof(struct nbns_info));
     info->nbns->id = ptr[0] << 8 | ptr[1];
-    info->nbns->opcode = ptr[2] & 0x78;
-    info->nbns->aa = ptr[2] & 0x04;
-    info->nbns->tc = ptr[2] & 0x02;
+    info->nbns->opcode = (ptr[2] & 0x78) >> 3;
+    info->nbns->aa = (ptr[2] & 0x04) >> 2;
+    info->nbns->tc = (ptr[2] & 0x02) >> 1;
     info->nbns->rd = ptr[2] & 0x01;
-    info->nbns->ra = ptr[3] & 0x80;
+    info->nbns->ra = (ptr[3] & 0x80) >> 7;
     info->nbns->broadcast = ptr[3] & 0x10;
     info->nbns->rcode = ptr[3] & 0x0f;
     for (int i = 0, j = 4; i < 4; i++, j += 2) {
@@ -1102,8 +1102,8 @@ void parse_nbns_record(int i, unsigned char *buffer, unsigned char **ptr, struct
     switch (nbns->record[i].rrtype) {
     case NBNS_NB:
         if (rdlen >= 6) {
-            nbns->record[i].rdata.nb.g = (*ptr)[0] & 0x80U;
-            nbns->record[i].rdata.nb.ont = (*ptr)[0] & 0x60;
+            nbns->record[i].rdata.nb.g = ((*ptr)[0] & 0x80U) >> 7;
+            nbns->record[i].rdata.nb.ont = ((*ptr)[0] & 0x60) >> 5;
             rdlen -= 2;
             (*ptr) += 2;
             for (int j = 0, k = 0; k < rdlen && k < MAX_NBNS_ADDR * 4 ; j++, k += 4) {
