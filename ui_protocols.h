@@ -2,6 +2,7 @@
 
 #define ADDR_WIDTH 36
 #define PROT_WIDTH 10
+#define NUM_WIDTH 10
 
 /* write packet to buffer */
 void print_buffer(char *buf, int size, struct packet *p);

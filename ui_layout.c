@@ -403,10 +403,11 @@ void print_header()
         mvwprintw(wheader, ++y, 0, "TX:");
         attroff(A_BOLD);
     } else {
-        mvwprintw(wheader, y, 0, "Source");
-        mvwprintw(wheader, y, ADDR_WIDTH, "Destination");
-        mvwprintw(wheader, y, 2 * ADDR_WIDTH, "Protocol");
-        mvwprintw(wheader, y, 2 * ADDR_WIDTH + PROT_WIDTH, "Info");
+        mvwprintw(wheader, y, 0, "Number");
+        mvwprintw(wheader, y, NUM_WIDTH, "Source");
+        mvwprintw(wheader, y, ADDR_WIDTH + NUM_WIDTH, "Destination");
+        mvwprintw(wheader, y, 2 * ADDR_WIDTH + NUM_WIDTH, "Protocol");
+        mvwprintw(wheader, y, 2 * ADDR_WIDTH + PROT_WIDTH + NUM_WIDTH, "Info");
         mvwchgat(wheader, y, 0, -1, A_STANDOUT, 0, NULL);
     }
     wrefresh(wheader);

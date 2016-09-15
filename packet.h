@@ -436,6 +436,7 @@ struct eth_info {
  */
 struct packet {
     enum packet_type ptype;
+    uint32_t num;
     struct eth_info eth;
 };
 

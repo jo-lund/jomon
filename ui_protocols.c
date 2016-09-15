@@ -12,22 +12,25 @@
 
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
+#define PRINT_NUMBER(buffer, n, i)                      \
+    snprintf(buffer, n, "%-" STR(NUM_WIDTH) "u", i)
 #define PRINT_ADDRESS(buffer, n, src, dst)                              \
-    snprintf(buffer, n, "%-" STR(ADDR_WIDTH) "s" "%-" STR(ADDR_WIDTH) "s", src, dst)
+    snprintcat(buffer, n, "%-" STR(ADDR_WIDTH) "s" "%-" STR(ADDR_WIDTH) "s", src, dst)
 #define PRINT_PROTOCOL(buffer, n, prot)                     \
     snprintcat(buffer, n, "%-" STR(PROT_WIDTH) "s", prot)
 #define PRINT_INFO(buffer, n, fmt, ...)         \
     snprintcat(buffer, n, fmt, ## __VA_ARGS__)
-#define PRINT_LINE(buffer, n, src, dst, prot, fmt, ...)   \
-    do {                                                  \
-        PRINT_ADDRESS(buffer, n, src, dst);               \
-        PRINT_PROTOCOL(buffer, n, prot);                  \
-        PRINT_INFO(buffer, n, fmt, ## __VA_ARGS__);       \
+#define PRINT_LINE(buffer, n, i, src, dst, prot, fmt, ...)  \
+    do {                                                   \
+        PRINT_NUMBER(buffer, n, i);                        \
+        PRINT_ADDRESS(buffer, n, src, dst);                \
+        PRINT_PROTOCOL(buffer, n, prot);                   \
+        PRINT_INFO(buffer, n, fmt, ## __VA_ARGS__);        \
     } while (0)
 
-static void print_arp(char *buf, int n, struct arp_info *info);
-static void print_llc(char *buf, int n, struct eth_info *eth);
-static void print_ip(char *buf, int n, struct ip_info *info);
+static void print_arp(char *buf, int n, struct arp_info *info, uint32_t num);
+static void print_llc(char *buf, int n, struct eth_info *eth, uint32_t num);
+static void print_ip(char *buf, int n, struct ip_info *info, uint32_t num);
 static void print_udp(char *buf, int n, struct ip_info *info);
 static void print_tcp(char *buf, int n, struct ip_info *info);
 static void print_icmp(char *buf, int n, struct ip_info *info);
@@ -43,39 +46,39 @@ void print_buffer(char *buf, int size, struct packet *p)
 {
     switch (p->eth.ethertype) {
     case ETH_P_ARP:
-        print_arp(buf, size, p->eth.arp);
+        print_arp(buf, size, p->eth.arp, p->num);
         break;
     case ETH_P_IP:
-        print_ip(buf, size, p->eth.ip);
+        print_ip(buf, size, p->eth.ip, p->num);
         break;
     default:
         if (p->eth.ethertype < ETH_P_802_3_MIN) {
-            print_llc(buf, size, &p->eth);
+            print_llc(buf, size, &p->eth, p->num);
         }
         break;
     }
 }
 
 /* print ARP frame information */
-void print_arp(char *buf, int n, struct arp_info *info)
+void print_arp(char *buf, int n, struct arp_info *info, uint32_t num)
 {
     switch (info->op) {
     case ARPOP_REQUEST:
-        PRINT_LINE(buf, n, info->sip, info->tip, "ARP",
+        PRINT_LINE(buf, n, num, info->sip, info->tip, "ARP",
                    "Request: Looking for hardware address of %s", info->tip);
         break;
     case ARPOP_REPLY:
-        PRINT_LINE(buf, n, info->sip, info->tip, "ARP",
+        PRINT_LINE(buf, n, num, info->sip, info->tip, "ARP",
                    "Reply: %s has hardware address %s", info->sip, info->sha);
         break;
     default:
-        PRINT_LINE(buf, n, info->sip, info->tip, "ARP", "Opcode %d", info->op);
+        PRINT_LINE(buf, n, num, info->sip, info->tip, "ARP", "Opcode %d", info->op);
         break;
     }
 }
 
 /* print Ethernet 802.3 frame information */
-void print_llc(char *buf, int n, struct eth_info *eth)
+void print_llc(char *buf, int n, struct eth_info *eth, uint32_t num)
 {
     if (eth->llc->dsap == 0x42 && eth->llc->ssap == 0x42) {
         char smac[HW_ADDRSTRLEN];
@@ -89,22 +92,23 @@ void print_llc(char *buf, int n, struct eth_info *eth)
                  eth->mac_dst[3], eth->mac_dst[4], eth->mac_dst[5]);
         switch (eth->llc->bpdu->type) {
         case CONFIG:
-            PRINT_LINE(buf, n, smac, dmac, "STP", "Configuration BPDU");
+            PRINT_LINE(buf, n, num, smac, dmac, "STP", "Configuration BPDU");
             break;
         case RST:
-            PRINT_LINE(buf, n, smac, dmac, "STP", "Rapid Spanning Tree BPDU. Root Path Cost: %u  Port ID: 0x%x",
+            PRINT_LINE(buf, n, num, smac, dmac, "STP", "Rapid Spanning Tree BPDU. Root Path Cost: %u  Port ID: 0x%x",
                        eth->llc->bpdu->root_pc, eth->llc->bpdu->port_id);
             break;
         case TCN:
-            PRINT_LINE(buf, n, smac, dmac, "STP", "Topology Change Notification BPDU");
+            PRINT_LINE(buf, n, num, smac, dmac, "STP", "Topology Change Notification BPDU");
             break;
         }
     }
 }
 
 /* print IP packet information */
-void print_ip(char *buf, int n, struct ip_info *info)
+void print_ip(char *buf, int n, struct ip_info *info, uint32_t num)
 {
+    PRINT_NUMBER(buf, n, num);
     if (!numeric && (info->protocol != IPPROTO_UDP ||
                      (info->protocol == IPPROTO_UDP && info->udp.data.dns->qr == -1))) {
         char sname[HOSTNAMELEN];

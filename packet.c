@@ -24,6 +24,8 @@
 #define UDP_HDR_LEN 8
 #define MULTICAST_ADDR_MASK 0xe
 
+static uint32_t packet_count = 0;
+
 static bool check_port(unsigned char *buffer, struct application_info *info, uint16_t port,
                        uint16_t packet_len, bool *error);
 static void free_protocol_data(struct application_info *info);
@@ -62,6 +64,7 @@ size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet 
         free_packet(*p);
         return 0;
     }
+    (*p)->num = ++packet_count;
     return n;
 }
 
