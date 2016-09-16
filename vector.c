@@ -7,75 +7,83 @@ typedef struct item {
     void *data;
 } item_t;
 
-static item_t *buf;
-static unsigned int c = 0;
-static unsigned int size = 0;
-static deallocate dealloc_mem;
+struct vector {
+    item_t *buf;
+    unsigned int c;
+    unsigned int size;
+    vector_deallocate func;
+};
 
-void vector_init(int sz, deallocate func)
+vector_t *vector_init(int sz, vector_deallocate func)
 {
-    size = sz;
-    dealloc_mem = func;
-    buf = (item_t *) malloc(size * sizeof(struct item));
+    vector_t *vector;
+
+    vector = malloc(sizeof(vector_t));
+    vector->size = sz;
+    vector->c = 0;
+    vector->func= func;
+    vector->buf = (item_t *) malloc(vector->size * sizeof(struct item));
+
+    return vector;
 }
 
-void vector_push_back(void *data)
+void vector_push_back(vector_t *vector, void *data)
 {
     if (data) {
-        if (c >= size) {
+        if (vector->c >= vector->size) {
             item_t *newbuf;
 
-            newbuf = (item_t *) realloc(buf, size * sizeof(struct item) * FACTOR);
-            buf = newbuf;
-            size = size * FACTOR;
+            newbuf = (item_t *) realloc(vector->buf, vector->size * sizeof(struct item) * FACTOR);
+            vector->buf = newbuf;
+            vector->size = vector->size * FACTOR;
         }
-        buf[c++].data = data;
+        vector->buf[vector->c++].data = data;
     }
 }
 
-inline void vector_pop_back()
+inline void vector_pop_back(vector_t *vector)
 {
-    if (c) {
-        if (dealloc_mem) {
-            dealloc_mem(buf[c].data);
+    if (vector->c) {
+        if (vector->func) {
+            vector->func(vector->buf[vector->c].data);
         } else {
-            free(buf[c].data);
+            free(vector->buf[vector->c].data);
         }
-        c--;
+        vector->c--;
     }
 }
 
-inline void *vector_back()
+inline void *vector_back(vector_t *vector)
 {
-    if (c) {
-        return buf[c - 1].data;
+    if (vector->c) {
+        return vector->buf[vector->c - 1].data;
     }
     return NULL;
 }
 
-inline void *vector_get_data(int i)
+inline void *vector_get_data(vector_t *vector, int i)
 {
-    if (i < c) {
-        return buf[i].data;
+    if (i < vector->c) {
+        return vector->buf[i].data;
     }
     return NULL;
 }
 
-inline int vector_size()
+inline int vector_size(vector_t *vector)
 {
-    return c;
+    return vector->c;
 }
 
-void vector_clear()
+void vector_clear(vector_t *vector)
 {
-    for (unsigned int i = 0; i < c; i++) {
-        if (dealloc_mem) {
-            dealloc_mem(buf[i].data);
+    for (unsigned int i = 0; i < vector->c; i++) {
+        if (vector->func) {
+            vector->func(vector->buf[i].data);
         } else {
-            free(buf[i].data);
+            free(vector->buf[i].data);
         }
     }
-    free(buf);
-    size = 0;
-    c = 0;
+    free(vector->buf);
+    vector->size = 0;
+    vector->c = 0;
 }
