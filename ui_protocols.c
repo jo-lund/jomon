@@ -515,13 +515,24 @@ void print_stp_verbose(WINDOW *win, struct packet *p, int y)
 
 void print_ip_verbose(WINDOW *win, struct ip_info *ip, int y)
 {
+    int n = 64;
+    char buf[n];
+
     mvwprintw(win, y, 4, "Version: %u", ip->version);
     mvwprintw(win, ++y, 4, "Internet Header Length (IHL): %u", ip->ihl);
     mvwprintw(win, ++y, 4, "Differentiated Services Code Point (DSCP): %u", ip->dscp);
     mvwprintw(win, ++y, 4, "Explicit Congestion Notification (ECN): %u", ip->ecn);
     mvwprintw(win, ++y, 4, "Total length: %u", ip->length);
     mvwprintw(win, ++y, 4, "Identification: %u", ip->id);
-    mvwprintw(win, ++y, 4, "Flags: %u%u%u", ip->foffset & 0x80, ip->foffset & 0x40, ip->foffset & 0x20);
+    snprintf(buf, n, "Flags: %u%u%u", (ip->foffset & 0x8000) >> 15, (ip->foffset & 0x4000) >> 14,
+             (ip->foffset & 0x2000) >> 13);
+    if (ip->foffset & 0x4000 || ip->foffset & 0x2000) {
+        snprintcat(buf, n, " (");
+        if (ip->foffset & 0x4000) snprintcat(buf, n, "Don't Fragment ");
+        if (ip->foffset & 0x2000) snprintcat(buf, n, "More Fragments");
+        snprintcat(buf, n, ")");
+    }
+    mvwprintw(win, ++y, 4, buf);
     mvwprintw(win, ++y, 4, "Time to live: %u", ip->ttl);
     mvwprintw(win, ++y, 4, "Protocol: %u", ip->protocol);
     mvwprintw(win, ++y, 4, "Checksum: %u", ip->checksum);

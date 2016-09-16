@@ -333,7 +333,7 @@ struct ip_info {
     unsigned int ecn     : 2; /* Explicit congestion notification (RFC 3168) */
     uint16_t length; /* The entire packet size in bytes, including header and data */
     uint16_t id; /* Identification field, used for uniquely identifying group of fragments */
-    uint16_t foffset; /* Fragment offset */
+    uint16_t foffset; /* Fragment offset. The first 3 bits are flags.*/
     uint8_t ttl;
     uint8_t protocol;
     uint16_t checksum;
