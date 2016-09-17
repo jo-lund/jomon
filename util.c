@@ -440,3 +440,19 @@ char *get_stp_bpdu_type(uint8_t type)
         return "";
     }
 }
+
+char *get_transport_protocol(uint8_t protocol)
+{
+    switch (protocol) {
+    case IPPROTO_ICMP:
+        return "ICMP";
+    case IPPROTO_IGMP:
+        return "IGMP";
+    case IPPROTO_TCP:
+        return "TCP";
+    case IPPROTO_UDP:
+        return "UDP";
+    default:
+        return NULL;
+    }
+}

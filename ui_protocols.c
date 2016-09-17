@@ -515,26 +515,37 @@ void print_stp_verbose(WINDOW *win, struct packet *p, int y)
 
 void print_ip_verbose(WINDOW *win, struct ip_info *ip, int y)
 {
-    int n = 64;
-    char buf[n];
+    char *protocol;
 
     mvwprintw(win, y, 4, "Version: %u", ip->version);
     mvwprintw(win, ++y, 4, "Internet Header Length (IHL): %u", ip->ihl);
-    mvwprintw(win, ++y, 4, "Differentiated Services Code Point (DSCP): %u", ip->dscp);
-    mvwprintw(win, ++y, 4, "Explicit Congestion Notification (ECN): %u", ip->ecn);
+    mvwprintw(win, ++y, 4, "Differentiated Services Code Point (DSCP): 0x%x", ip->dscp);
+    mvwprintw(win, ++y, 4, "Explicit Congestion Notification (ECN): 0x%x", ip->ecn);
+    if (ip->ecn & 0x3) {
+        waddstr(win, " CE");
+    } else if (ip->ecn & 0x1) {
+        waddstr(win, " ECT(1)");
+    } else if (ip->ecn & 0x2) {
+        waddstr(win, " ECT(0)");
+    } else {
+        waddstr(win, " Not ECN-Capable");
+    }
     mvwprintw(win, ++y, 4, "Total length: %u", ip->length);
-    mvwprintw(win, ++y, 4, "Identification: %u", ip->id);
-    snprintf(buf, n, "Flags: %u%u%u", (ip->foffset & 0x8000) >> 15, (ip->foffset & 0x4000) >> 14,
+    mvwprintw(win, ++y, 4, "Identification: 0x%x (%u)", ip->id, ip->id);
+    mvwprintw(win, ++y, 4, "Flags: %u%u%u", (ip->foffset & 0x8000) >> 15, (ip->foffset & 0x4000) >> 14,
              (ip->foffset & 0x2000) >> 13);
     if (ip->foffset & 0x4000 || ip->foffset & 0x2000) {
-        snprintcat(buf, n, " (");
-        if (ip->foffset & 0x4000) snprintcat(buf, n, "Don't Fragment ");
-        if (ip->foffset & 0x2000) snprintcat(buf, n, "More Fragments");
-        snprintcat(buf, n, ")");
+        waddstr(win, " (");
+        if (ip->foffset & 0x4000) waddstr(win, "Don't Fragment");
+        if (ip->foffset & 0x2000) waddstr(win, "More Fragments");
+        waddstr(win, ")");
     }
-    mvwprintw(win, ++y, 4, buf);
     mvwprintw(win, ++y, 4, "Time to live: %u", ip->ttl);
     mvwprintw(win, ++y, 4, "Protocol: %u", ip->protocol);
+    protocol = get_transport_protocol(ip->protocol);
+    if (protocol) {
+        wprintw(win, " (%s)", protocol);
+    }
     mvwprintw(win, ++y, 4, "Checksum: %u", ip->checksum);
     mvwprintw(win, ++y, 4, "Source IP address: %s", ip->src);
     mvwprintw(win, ++y, 4, "Destination IP address: %s", ip->dst);
