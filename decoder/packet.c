@@ -2,24 +2,17 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <arpa/inet.h>
-#include <netinet/if_ether.h>
 #include <netinet/in.h>
 #include <netinet/udp.h>
 #include <sys/socket.h>
-#include <linux/igmp.h>
 #include <ctype.h>
-#include <netinet/ip_icmp.h>
 #include <netinet/tcp.h>
 #include "../misc.h"
 #include "../error.h"
 #include "packet.h"
 
-#define MAX_HTTP_LINE 4096
-#define ARP_SIZE 28 /* size of an ARP packet (header + payload) */
 #define LLC_HDR_LEN 3
 #define SNAP_HDR_LEN 5
-#define ICMP_HDR_LEN 8
-#define IGMP_HDR_LEN 8
 #define UDP_HDR_LEN 8
 #define MULTICAST_ADDR_MASK 0xe
 
@@ -29,20 +22,13 @@ static bool check_port(unsigned char *buffer, struct application_info *info, uin
                        uint16_t packet_len, bool *error);
 static void free_protocol_data(struct application_info *info);
 static bool handle_ethernet(unsigned char *buffer, int n, struct eth_info *eth);
-static bool handle_stp(unsigned char *buffer, uint16_t n, struct eth_802_llc *llc);
-static bool handle_arp(unsigned char *buffer, int n, struct eth_info *info);
 static bool handle_ip(unsigned char *buffer, int n, struct eth_info *info);
-static bool handle_icmp(unsigned char *buffer, int n, struct ip_info *info);
-static bool handle_igmp(unsigned char *buffer, int n, struct ip_info *info);
 static bool handle_tcp(unsigned char *buffer, int n, struct ip_info *info);
 static bool handle_udp(unsigned char *buffer, int n, struct ip_info *info);
 
 /* application layer protocol handlers */
 static bool handle_ssdp(unsigned char *buffer, struct application_info *info, uint16_t len);
-static bool handle_http(unsigned char *buffer, struct application_info *info, uint16_t len);
 static void parse_ssdp(char *str, int n, list_t **msg_header);
-static bool parse_http(char *buf, uint16_t len, struct http_info *http);
-static bool parse_http_header(char **str, unsigned int *len, list_t **header);
 
 size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet **p)
 {
@@ -274,97 +260,6 @@ bool handle_ethernet(unsigned char *buffer, int n, struct eth_info *eth)
 }
 
 /*
- * IPv4 over Ethernet ARP packet (28 bytes)
- *
- *   2   2  1 1  2       6         4           6       4
- * +---+---+-+-+---+-----------+-------+-----------+-------+
- * |   |   |H|P|   |  Sender   | Sender|  Target   |Target |
- * |HT |PT |S|S|OP | Ethernet  |  IP   | Ethernet  |  IP   |
- * |   |   | | |   |  Address  |Address|  Address  |Address|
- * +---+---+-+-+---+-----------+-------+-----------+-------+
- *
- * HT: Hardware Type
- * PT: Protocol Type
- * HS: Hardware Size, number of bytes in the specified hardware address
- * PS: Protocol Size, number of bytes in the requested network address
- * OP: Operation. 1 = ARP request, 2 = ARP reply, 3 = RARP request, 4 = RARP reply
- */
-bool handle_arp(unsigned char *buffer, int n, struct eth_info *eth)
-{
-    if (n < ARP_SIZE) return false;
-
-    struct ether_arp *arp_header;
-
-    arp_header = (struct ether_arp *) buffer;
-    eth->arp = malloc(sizeof(struct arp_info));
-
-    /* sender protocol address */
-    if (inet_ntop(AF_INET, &arp_header->arp_spa, eth->arp->sip, INET_ADDRSTRLEN) == NULL) {
-        err_msg("inet_ntop error");
-    }
-
-    /* target protocol address */
-    if (inet_ntop(AF_INET, &arp_header->arp_tpa, eth->arp->tip, INET_ADDRSTRLEN) == NULL) {
-        err_msg("inet_ntop error");
-    }
-
-    /* sender/target hardware address */
-    snprintf(eth->arp->sha, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
-             arp_header->arp_sha[0], arp_header->arp_sha[1], arp_header->arp_sha[2],
-             arp_header->arp_sha[3], arp_header->arp_sha[4], arp_header->arp_sha[5]);
-    snprintf(eth->arp->tha, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
-             arp_header->arp_tha[0], arp_header->arp_tha[1], arp_header->arp_tha[2],
-             arp_header->arp_tha[3], arp_header->arp_tha[4], arp_header->arp_tha[5]);
-
-    eth->arp->op = ntohs(arp_header->arp_op); /* arp opcode (command) */
-    eth->arp->ht = ntohs(arp_header->arp_hrd);
-    eth->arp->pt = ntohs(arp_header->arp_pro);
-    eth->arp->hs = arp_header->arp_hln;
-    eth->arp->ps = arp_header->arp_pln;
-    return true;
-}
-
-/*
- * IEEE 802.1 Bridge Spanning Tree Protocol
- */
-bool handle_stp(unsigned char *buffer, uint16_t n, struct eth_802_llc *llc)
-{
-    /* the BPDU shall contain at least 4 bytes */
-    if (n < 4) return false;
-
-    uint16_t protocol_id = buffer[0] << 8 | buffer[1];
-
-    /* protocol id 0x00 identifies the (Rapid) Spanning Tree Protocol */
-    if (!protocol_id == 0x0) return false;
-
-    llc->bpdu = malloc(sizeof(struct stp_info));
-    llc->bpdu->protocol_id = protocol_id;
-    llc->bpdu->version = buffer[2];
-    llc->bpdu->type = buffer[3];
-
-    /* a configuration BPDU contains at least 35 bytes and RST BPDU 36 bytes */
-    if (n >= 35) {
-        llc->bpdu->tcack = (buffer[4] & 0x80) >> 7;
-        llc->bpdu->agreement = (buffer[4] & 0x40) >> 6;
-        llc->bpdu->forwarding = (buffer[4] & 0x20) >> 5;
-        llc->bpdu->learning = (buffer[4] & 0x10) >> 4 ;
-        llc->bpdu->port_role = (buffer[4] & 0x0c) >> 2;
-        llc->bpdu->proposal = (buffer[4] & 0x02) >> 1;
-        llc->bpdu->tc = buffer[4] & 0x01;
-        memcpy(llc->bpdu->root_id, &buffer[5], 8);
-        llc->bpdu->root_pc = buffer[13] << 24 | buffer[14] << 16 | buffer[15] << 8 | buffer[16];
-        memcpy(llc->bpdu->bridge_id, &buffer[17], 8);
-        llc->bpdu->port_id = buffer[25] << 8 | buffer[26];
-        llc->bpdu->msg_age = buffer[27] << 8 | buffer[28];
-        llc->bpdu->max_age = buffer[29] << 8 | buffer[30];
-        llc->bpdu->ht = buffer[31] << 8 | buffer[32];
-        llc->bpdu->fd = buffer[33] << 8 | buffer[34];
-        if (n > 35) llc->bpdu->version1_len = buffer[35];
-    }
-    return true;
-}
-
-/*
  * IPv4 header
  *
  *  0                   1                   2                   3
@@ -449,89 +344,6 @@ bool handle_ip(unsigned char *buffer, int n, struct eth_info *eth)
         eth->ip->unknown_payload = true;
         eth->ip->payload = malloc(n - header_len);
         memcpy(eth->ip->payload, buffer + header_len, n - header_len);
-    }
-    return true;
-}
-
-/*
- * ICMP message format:
- *
- * 0                   1                   2                   3
- * 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |     Type      |     Code      |          Checksum             |
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |                             unused                            |
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |      Internet Header + 64 bits of Original Data Datagram      |
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *
- * The ICMP header is 8 bytes.
- */
-bool handle_icmp(unsigned char *buffer, int n, struct ip_info *info)
-{
-    if (n < ICMP_HDR_LEN) return false;
-
-    struct icmphdr *icmp = (struct icmphdr *) buffer;
-
-    info->icmp.type = icmp->type;
-    info->icmp.code = icmp->code;
-    info->icmp.checksum = htons(info->icmp.checksum);
-    if (icmp->type == ICMP_ECHOREPLY || icmp->type == ICMP_ECHO) {
-        info->icmp.echo.id = ntohs(icmp->un.echo.id);
-        info->icmp.echo.seq_num = ntohs(icmp->un.echo.sequence);
-    }
-    return true;
-}
-
-/*
- * IGMP message format:
- *
- *  0                   1                   2                   3
- *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |      Type     | Max Resp Time |           Checksum            |
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |                         Group Address                         |
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *
- * Messages must be atleast 8 bytes.
- *
- * Message Type                  Destination Group
- * ------------                  -----------------
- * General Query                 All hosts (224.0.0.1)
- * Group-Specific Query          The group being queried
- * Membership Report             The group being reported
- * Leave Message                 All routers (224.0.0.2)
- *
- * 224.0.0.22 is the IGMPv3 multicast address.
- *
- * Max Resp Time specifies the maximum allowed time before sending a responding
- * report in units of 1/10 seconds. It is only meaningful in membership queries.
- * Default: 100 (10 seconds).
- *
- * Message query:
- * - A general query has group address field 0 and is sent to the all hosts
- *   multicast group (224.0.0.1)
- * - A group specific query must have a valid multicast group address
- * - The Query Interval is the interval between general queries sent by the
- *   querier. Default: 125 seconds.
- *
- * TODO: Handle IGMPv3 membership query
- */
-bool handle_igmp(unsigned char *buffer, int n, struct ip_info *info)
-{
-    if (n < IGMP_HDR_LEN) return false;
-
-    struct igmphdr *igmp;
-
-    igmp = (struct igmphdr *) buffer;
-    info->igmp.type = igmp->type;
-    info->igmp.max_resp_time = igmp->code;
-    info->igmp.checksum = ntohs(igmp->csum);
-    if (inet_ntop(AF_INET, &igmp->group, info->igmp.group_addr,
-                  INET_ADDRSTRLEN) == NULL) {
-        err_msg("inet_ntop error");
     }
     return true;
 }
@@ -758,148 +570,4 @@ void parse_ssdp(char *str, int n, list_t **msg_header)
         *msg_header = list_push_back(*msg_header, field);
         token = strtok(NULL, "\r\n");
     }
-}
-
-bool handle_http(unsigned char *buffer, struct application_info *info, uint16_t len)
-{
-    bool error;
-
-    info->http = malloc(sizeof(struct http_info));
-    error = parse_http((char *) buffer, len, info->http);
-    if (error) {
-        free(info->http);
-    }
-    return error;
-}
-
-/*
- * Parses an HTTP string
- *
- * Returns false if there is an error.
- */
-bool parse_http(char *buffer, uint16_t len, struct http_info *http)
-{
-    char *ptr;
-    char line[MAX_HTTP_LINE];
-    bool is_http = false;
-    int i;
-    int n;
-
-    i = 0;
-    n = len;
-    ptr = buffer;
-
-    /* parse start line */
-    while (isascii(*ptr)) {
-        if (i > len || i > MAX_HTTP_LINE) return false;
-        if (*ptr == '\r') {
-            if (*++ptr == '\n') {
-                ptr++;
-                is_http = true;
-                break;
-            } else {
-                return false;
-            }
-        }
-        line[i++] = *ptr++;
-    }
-    if (!is_http) return false;
-    line[i] = '\0';
-    http->start_line = strdup(line);
-
-    /* parse header fields */
-    unsigned int header_len;
-
-    http->header = list_init(NULL);
-    n -= i;
-    header_len = n;
-    is_http = parse_http_header(&ptr, &header_len, &http->header);
-
-    /* copy message body */
-    if (is_http) {
-        n -= header_len;
-        if (n) {
-            http->data = malloc(n);
-            memcpy(http->data, ptr, n);
-            http->len = n;
-        }
-    }
-    return is_http;
-}
-
-/*
- * Parses the HTTP header and stores the lines containg the field and the value
- * in a list. "len" is a value-result argument and its value is the length of
- * the str argument. On return, the length of the header is stored in len (or
- * where it failed in case of error).
- *
- * Returns the result of the operation.
- */
-bool parse_http_header(char **str, unsigned int *len, list_t **header)
-{
-    int i, j;
-    bool eoh = false;
-    bool is_http = true;
-    char *ptr = *str;
-    char line[MAX_HTTP_LINE];
-    int n = *len;
-
-    static enum http_state {
-        FIELD,
-        VAL,
-        EOL
-    } state;
-
-    for (i = 0; i < n && !eoh && is_http; i += j) {
-        int c = 0;
-
-        state = FIELD;
-        is_http = false;
-        for (j = 0; !is_http && !eoh && isascii(*ptr) && j + i < n; j++, ptr++) {
-            if (c > MAX_HTTP_LINE) {
-                *len = i + j;
-                return false;
-            }
-            switch (state) {
-            case FIELD:
-                if (*ptr == ':') {
-                    state = VAL;
-                    line[c++] = *ptr;
-                } else if (*ptr == '\r') {
-                    *len = i + j;
-                    return false;
-                } else {
-                    line[c++] = *ptr;
-                }
-                break;
-            case VAL:
-                if (*ptr == ':') {
-                    *len = i + j;
-                    return false;
-                }
-                if (*ptr == '\r') {
-                    state = EOL;
-                } else {
-                    line[c++] = *ptr;
-                }
-                break;
-            case EOL:
-                if (*ptr != '\n') {
-                    *len = i + j;
-                    return false;
-                }
-                line[c] = '\0';
-                list_push_back(*header, strdup(line));
-                if (j == 1) {  /* end of header fields */
-                    *len = i + j;
-                    return true;
-                } else {
-                    is_http = true;
-                }
-                break;
-            }
-        }
-    }
-    *len = i;
-    return false;
 }

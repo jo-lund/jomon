@@ -33,13 +33,6 @@ int get_max_namelen(struct dns_resource_record *record, int n);
 
 // TODO: Simplify this.
 /* Convert type to string */
-char *get_arp_hardware_type(uint16_t type);
-char *get_arp_protocol_type(uint16_t type);
-char *get_arp_opcode(uint16_t opcode);
-char *get_icmp_dest_unreach_code(uint8_t code);
-char *get_icmp_type(uint8_t type);
-char *get_igmp_type(uint8_t type);
-char *get_stp_bpdu_type(uint8_t type);
 char *get_transport_protocol(uint8_t protocol);
 
 #endif

@@ -7,9 +7,11 @@
 #include "../list.h"
 #include "packet_dns.h"
 #include "packet_nbns.h"
-
-/* hardware address length (format aa:bb:cc:dd:ee:ff) */
-#define HW_ADDRSTRLEN 18
+#include "packet_icmp.h"
+#include "packet_igmp.h"
+#include "packet_http.h"
+#include "packet_arp.h"
+#include "packet_stp.h"
 
 #define ETHERNET_HDRLEN 14
 
@@ -31,13 +33,6 @@ enum port {
 enum packet_type {
     UNKNOWN = -1,
     ETHERNET
-};
-
-struct http_info {
-    char *start_line;
-    list_t *header;
-    char *data;
-    unsigned int len;
 };
 
 struct application_info {
@@ -83,26 +78,6 @@ struct tcp {
     struct application_info data;
 };
 
-struct igmp_info {
-    uint8_t type;
-    uint8_t max_resp_time;
-    uint16_t checksum;
-    char group_addr[INET_ADDRSTRLEN];
-};
-
-struct icmp_info {
-    uint8_t type;
-    uint8_t code;
-    uint16_t checksum;
-    union {
-        struct { /* used in echo request/reply messages */
-            uint16_t id;
-            uint16_t seq_num;
-        } echo;
-        uint32_t gateway; /* gateway address, used in redirect messages */
-    };
-};
-
 // TODO: Improve the structure of this
 struct ip_info {
     unsigned int version : 4;
@@ -127,18 +102,6 @@ struct ip_info {
     };
 };
 
-struct arp_info {
-    char sip[INET_ADDRSTRLEN];   /* sender IP address */
-    char tip[INET_ADDRSTRLEN];   /* target IP address */
-    char sha[HW_ADDRSTRLEN];     /* sender hardware address */
-    char tha[HW_ADDRSTRLEN];     /* target hardware address */
-    uint16_t ht;                 /* hardware type, e.g. Ethernet, Amateur radio */
-    uint16_t pt;                 /* protocol type, IPv4 is 0x0800 */
-    uint8_t hs;                  /* hardware size */
-    uint8_t ps;                  /* protocol size */
-    uint16_t op;                 /* ARP opcode */
-};
-
 /* 802.2 SNAP */
 struct snap_info {
     unsigned char oui[3]; /* IEEE Organizationally Unique Identifier */
@@ -149,37 +112,6 @@ struct snap_info {
         struct ip_info *ip;
         unsigned char *payload;
     };
-};
-
-enum stp_bpdu_type {
-    CONFIG = 0x0,
-    RST = 0x2,
-    TCN = 0x80
-};
-
-/* Spanning Tree Protocol */
-struct stp_info {
-    uint16_t protocol_id;
-    uint8_t version;
-    uint8_t type; /* 0x00 Config BPDU, 0x80 TCN BPDU, 0x02 RST BPDU */
-    unsigned int tcack : 1; /* topology change acknowledgement */
-    unsigned int agreement  : 1;
-    unsigned int forwarding : 1;
-    unsigned int learning   : 1;
-    unsigned int port_role  : 2; /* 01 alternate/backup, 10 root, 11 designated */
-    unsigned int proposal   : 1;
-    unsigned int tc : 1;  /* topology change */
-    uint8_t root_id[8];   /* CIST root id */
-    uint32_t root_pc;     /* CIST External Path Cost */
-    uint8_t bridge_id[8]; /* CIST Regional Root id */
-    uint16_t port_id;
-    /* Timer values represent a uint16_t number multiplied by a unit of time of
-       1/256 of a second. This permits times in the range [0, 256) seconds. */
-    uint16_t msg_age; /* message age */
-    uint16_t max_age;
-    uint16_t ht; /* hello time */
-    uint16_t fd; /* forward delay */
-    uint8_t version1_len;
 };
 
 /* Ethernet 802.2 Logical Link Control */
