@@ -33,7 +33,7 @@
 #include "error.h"
 #include "interface.h"
 #include "ui_layout.h"
-#include "packet.h"
+#include <packet.h>
 #include "vector.h"
 #include "file_pcap.h"
 

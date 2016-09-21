@@ -4,7 +4,7 @@
 #include <linux/if_ether.h>
 #include <netinet/in.h>
 #include <stdbool.h>
-#include "list.h"
+#include "../list.h"
 
 /* hardware address length (format aa:bb:cc:dd:ee:ff) */
 #define HW_ADDRSTRLEN 18

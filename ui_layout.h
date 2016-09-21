@@ -1,8 +1,8 @@
-#ifndef OUTPUT_H
-#define OUTPUT_H
+#ifndef UI_LAYOUT_H
+#define UI_LAYOUT_H
 
 #include <ncurses.h>
-#include "packet.h"
+#include <packet.h>
 
 extern bool numeric;
 

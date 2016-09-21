@@ -1,21 +1,22 @@
+srcdir := decoder
+incdir := decoder
+testdir := unittests
+BUILDDIR := build
+TARGETDIR := bin
+
 MACHINE := $(shell uname -smo | sed 's/ /-/g')
 CC := gcc
 CXX := g++
 CFLAGS += -g -std=gnu99
 CXXFLAGS += -Wno-write-strings
-CPPFLAGS += -Wall
+CPPFLAGS += -Wall $(addprefix -I,$(incdir))
 LIBS += -lncurses
 TESTS = util_test
 
-# Filesystem layout
-SRCDIR := .
-INCDIR := .
-BUILDDIR := build
-TARGETDIR := bin
-TESTDIR := unittests
-
 sources = $(wildcard *.c)
 objects = $(patsubst %.c,$(BUILDDIR)/%.o,$(sources))
+
+include decoder/module.mk
 
 monitor : $(objects)
 	@mkdir -p $(TARGETDIR)
@@ -42,8 +43,8 @@ tags :
 
 test : $(TESTS)
 
-$(TESTDIR)/util_test.o : $(TESTDIR)/util_test.c
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(TESTDIR)/util_test.c -o $@
+$(testdir)/util_test.o : $(testdir)/util_test.c
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(testdir)/util_test.c -o $@
 
-util_test : $(TESTDIR)/util_test.o
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -lgtest_main -lgtest -lpthread  $< -o $(TESTDIR)/$@
+util_test : $(testdir)/util_test.o
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -lgtest_main -lgtest -lpthread  $< -o $(testdir)/$@

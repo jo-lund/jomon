@@ -1,4 +1,7 @@
-#include "packet.h"
+#ifndef UI_PROTOCOLS_H
+#define UI_PROTOCOLS_H
+
+#include <packet.h>
 
 #define ADDR_WIDTH 36
 #define PROT_WIDTH 10
@@ -22,3 +25,5 @@ void print_igmp_verbose(WINDOW *win, struct ip_info *info, int y);
 void print_ssdp_verbose(WINDOW *win, list_t *ssdp, int y);
 void print_http_verbose(WINDOW *win, struct http_info *http, int y);
 void print_payload(WINDOW *win, unsigned char *payload, uint16_t len, int y);
+
+#endif

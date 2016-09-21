@@ -11,8 +11,8 @@
 #include <netinet/ip_icmp.h>
 #include <netinet/tcp.h>
 #include "packet.h"
-#include "misc.h"
-#include "error.h"
+#include "../misc.h"
+#include "../error.h"
 
 #define DNS_PTR_LEN 2
 #define MAX_HTTP_LINE 4096
@@ -397,8 +397,8 @@ bool handle_stp(unsigned char *buffer, uint16_t n, struct eth_802_llc *llc)
  *        Bit 1: Don't Fragment (DF)
  *        Bit 2: More Fragments (MF)
  * Fragment offset: Specifies the offset of a particular fragment relative to
- * the beginning of the unfragmented IP datagram. The first fragment has an offset
- * of zero.
+ * the beginning of the unfragmented IP datagram. The first fragment has an
+ * offset of zero.
  * Protocol: Defines the protocol used in the data portion of the packet.
  */
 bool handle_ip(unsigned char *buffer, int n, struct eth_info *eth)
