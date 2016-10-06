@@ -95,10 +95,8 @@ int main(int argc, char **argv)
 
 #ifdef linux
     init_structures();
-    if (!device) {
-        if (!(device = get_default_interface())) {
-            err_quit("Cannot find active network device");
-        }
+    if (!device && !(device = get_default_interface())) {
+        err_quit("Cannot find active network device");
     }
     local_addr = malloc(sizeof (struct sockaddr_in));
     get_local_address(device, (struct sockaddr *) local_addr);

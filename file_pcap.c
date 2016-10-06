@@ -110,7 +110,7 @@ int read_buf(unsigned char *buf, size_t len)
         }
         buf += sizeof(pcaprec_hdr_t);
         n -= sizeof(pcaprec_hdr_t);
-        if (decode_packet(buf, pkt_len, &p) == -1) {
+        if (!decode_packet(buf, pkt_len, &p)) {
             return -1;
         }
         vector_push_back(vector, p);
