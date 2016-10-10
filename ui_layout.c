@@ -676,7 +676,7 @@ void print_selected_packet()
             }
         }
     }
-    screen_line = selection_line - top;
+    screen_line = selection_line + scrollvy - top;
     line[screen_line].selected = !line[screen_line].selected;
     if (line[screen_line].selected) {
         p = vector_get_data(vector, selection_line);
@@ -684,7 +684,7 @@ void print_selected_packet()
     } else {
         delete_subwindow();
     }
-    prev_selection = selection_line;
+    prev_selection = selection_line + scrollvy;
 }
 
 /*
