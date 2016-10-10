@@ -42,7 +42,9 @@ enum header_type {
     TCP_HDR,
     IGMP_HDR,
     ICMP_HDR,
-    APP_HDR
+    APP_HDR,
+    UNKNOWN_NETWORK,
+    UNKNOWN_TRANSPORT
 };
 
 static struct line_info {
@@ -588,6 +590,16 @@ void create_sublines(struct packet *p, int size)
                 set_subwindow_line(i, "+ Internet Group Management Protocol (IGMP)", false, ICMP_HDR);
             }
             break;
+        default:
+            /* unknown transport layer payload */
+            if (p->eth.ip->payload_len) {
+                if (preferences.application_selected) {
+                    set_subwindow_line(i, "- Data", true, UNKNOWN_TRANSPORT);
+                } else {
+                    set_subwindow_line(i, "+ Data", false, UNKNOWN_TRANSPORT);
+                }
+            }
+
         }
     } else if (p->eth.ethertype < ETH_P_802_3_MIN) {
         if (preferences.link_llc_selected) {
@@ -604,6 +616,13 @@ void create_sublines(struct packet *p, int size)
             set_subwindow_line(i, "+ Spanning Tree Protocol (STP)", false, STP_HDR);
             i += 2;
         }
+    } else if (p->eth.payload_len) {
+        /* unknown network layer payload */
+        if (preferences.application_selected) {
+            set_subwindow_line(i, "- Data", true, UNKNOWN_NETWORK);
+        } else {
+            set_subwindow_line(i, "+ Data", false, UNKNOWN_NETWORK);
+        }
     }
 }
 
@@ -616,7 +635,7 @@ void create_app_sublines(struct packet *p, int i)
         } else {
             set_subwindow_line(i, "+ Domain Name System (DNS)", false, APP_HDR);
         }
-    break;
+        break;
     case NBNS:
         if (preferences.application_selected) {
             set_subwindow_line(i, "- NetBIOS Name Service (NBNS)", true, APP_HDR);
@@ -732,6 +751,8 @@ bool update_subwin_selection(int lineno)
             case ICMP_HDR:
                 preferences.transport_selected = subwindow.line[subline].selected;
                 break;
+            case UNKNOWN_NETWORK:
+            case UNKNOWN_TRANSPORT:
             case APP_HDR:
                 preferences.application_selected = subwindow.line[subline].selected;
                 break;
@@ -808,6 +829,16 @@ int calculate_subwin_size(struct packet *p, int screen_line)
                 size += 2;
             }
             break;
+        default:
+            /* unknown transport layer payload */
+            if (p->eth.ip->payload_len) {
+                if (preferences.application_selected) {
+                    size += p->eth.ip->payload_len / 16 + 3;
+                } else {
+                    size += 2;
+                }
+            }
+            break;
         }
         break;
     default:
@@ -824,6 +855,15 @@ int calculate_subwin_size(struct packet *p, int screen_line)
                     size += 2;
                 }
             }
+        } else if (p->eth.payload_len) {
+            /* unknown network layer payload */
+            if (preferences.application_selected) {
+                size += p->eth.payload_len / 16 + 3;
+            } else {
+                size += 2;
+            }
+        } else {
+            size++;
         }
         break;
     }
@@ -934,6 +974,12 @@ void print_protocol_information(struct packet *p, int lineno)
                 } else {
                     print_app_protocol(&p->eth.ip->tcp.data, i + 1);
                 }
+                break;
+            case UNKNOWN_NETWORK:
+                print_payload(subwindow.win, p->eth.payload, p->eth.payload_len, i + 1);
+                break;
+            case UNKNOWN_TRANSPORT:
+                print_payload(subwindow.win, p->eth.ip->payload, p->eth.ip->payload_len, i + 1);
                 break;
             default:
                 break;

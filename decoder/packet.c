@@ -70,7 +70,7 @@ void free_packet(void *data)
             free(p->eth.llc->snap);
         } else if (p->eth.llc->dsap == 0x42 && p->eth.llc->ssap == 0x42) {
             free(p->eth.llc->bpdu);
-        } else if (p->eth.llc->unknown_payload) {
+        } else if (p->eth.llc->payload_len) {
             free(p->eth.llc->payload);
         }
         free(p->eth.llc);
@@ -86,7 +86,7 @@ void free_packet(void *data)
             free_protocol_data(&p->eth.ip->tcp.data);
             break;
         default:
-            if (p->eth.ip->unknown_payload) {
+            if (p->eth.ip->payload_len) {
                 free(p->eth.ip->payload);
             }
             break;
@@ -97,7 +97,7 @@ void free_packet(void *data)
         free(p->eth.arp);
         break;
     default:
-        if (p->eth.unknown_payload) {
+        if (p->eth.payload_len) {
             free(p->eth.payload);
         }
         break;
@@ -144,7 +144,7 @@ void free_protocol_data(struct application_info *info)
         }
         break;
     default:
-        if (info->unknown_payload) {
+        if (info->payload_len) {
             free(info->payload);
         }
         break;
@@ -225,15 +225,13 @@ bool handle_ethernet(unsigned char *buffer, int n, struct eth_info *eth)
             /* TODO: If OUI is 0 I need to to handle the internet protocols that
                will be layered on top of SNAP */
             ptr += 2;
-            int len = eth->ethertype - LLC_HDR_LEN - SNAP_HDR_LEN;
-
-            eth->llc->snap->payload = malloc(len);
-            memcpy(eth->llc->snap->payload, ptr, len);
+            eth->llc->snap->payload_len = eth->ethertype - LLC_HDR_LEN - SNAP_HDR_LEN;
+            eth->llc->snap->payload = malloc(eth->llc->snap->payload_len);
+            memcpy(eth->llc->snap->payload, ptr, eth->llc->snap->payload_len);
         } else { /* not handled */
-            int len = eth->ethertype - LLC_HDR_LEN;
-
-            eth->llc->payload = malloc(len);
-            memcpy(eth->llc->payload, ptr, len);
+            eth->llc->payload_len = eth->ethertype - LLC_HDR_LEN;
+            eth->llc->payload = malloc(eth->llc->payload_len);
+            memcpy(eth->llc->payload, ptr, eth->llc->payload_len);
         }
     } else {
         switch (eth->ethertype) {
@@ -252,7 +250,7 @@ bool handle_ethernet(unsigned char *buffer, int n, struct eth_info *eth)
         }
     }
     if (error) {
-        eth->unknown_payload = true;
+        eth->payload_len = n - ETH_HLEN;
         eth->payload = malloc(n - ETH_HLEN);
         memcpy(eth->payload, buffer + ETH_HLEN, n - ETH_HLEN);
     }
@@ -341,7 +339,7 @@ bool handle_ip(unsigned char *buffer, int n, struct eth_info *eth)
         break;
     }
     if (error) {
-        eth->ip->unknown_payload = true;
+        eth->ip->payload_len = n - header_len;
         eth->ip->payload = malloc(n - header_len);
         memcpy(eth->ip->payload, buffer + header_len, n - header_len);
     }
@@ -384,7 +382,6 @@ bool handle_udp(unsigned char *buffer, int n, struct ip_info *info)
 
     /* unknown application payload data */
     if (info->udp.len - UDP_HDR_LEN > 0) {
-        info->udp.data.unknown_payload = true;
         info->udp.data.payload = malloc(info->udp.len - UDP_HDR_LEN);
         info->udp.data.payload_len = info->udp.len - UDP_HDR_LEN;
         memcpy(info->udp.data.payload, buffer + UDP_HDR_LEN, info->udp.data.payload_len);
@@ -491,7 +488,6 @@ bool handle_tcp(unsigned char *buffer, int n, struct ip_info *info)
 
     /* unknown application payload data */
     if (payload_len > 0) {
-        info->tcp.data.unknown_payload = true;
         info->tcp.data.payload = malloc(payload_len);
         info->tcp.data.payload_len = payload_len;
         memcpy(info->tcp.data.payload, buffer + info->tcp.offset * 4, payload_len);

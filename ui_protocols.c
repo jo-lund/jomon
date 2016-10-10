@@ -54,6 +54,17 @@ void print_buffer(char *buf, int size, struct packet *p)
     default:
         if (p->eth.ethertype < ETH_P_802_3_MIN) {
             print_llc(buf, size, &p->eth, p->num);
+        } else if (p->eth.payload_len) {
+            char smac[HW_ADDRSTRLEN];
+            char dmac[HW_ADDRSTRLEN];
+
+            snprintf(smac, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
+                     p->eth.mac_src[0], p->eth.mac_src[1], p->eth.mac_src[2],
+                     p->eth.mac_src[3], p->eth.mac_src[4], p->eth.mac_src[5]);
+            snprintf(dmac, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
+                     p->eth.mac_dst[0], p->eth.mac_dst[1], p->eth.mac_dst[2],
+                     p->eth.mac_dst[3], p->eth.mac_dst[4], p->eth.mac_dst[5]);
+            PRINT_LINE(buf, size, p->num, smac, dmac, "ETHERNET", "Unknown payload");
         }
         break;
     }
@@ -138,6 +149,8 @@ void print_ip(char *buf, int n, struct ip_info *info, uint32_t num)
         print_udp(buf, n, info);
         break;
     default:
+        PRINT_PROTOCOL(buf, n, "IP");
+        PRINT_INFO(buf, n, "Unknown payload");
         break;
     }
 }
@@ -734,7 +747,7 @@ void print_payload(WINDOW *win, unsigned char *payload, uint16_t len, int y)
             } else {
                 snprintcat(buf, size, "   ");
             }
-            if (i != 0 && i % 16 - 8 == 0) snprintcat(buf, size, " ");
+            if (i % 16 - 7 == 0) snprintcat(buf, size, " ");
         }
         snprintcat(buf, size, "|");
         for (int i = num; i < num + 16; i++) {

@@ -40,8 +40,7 @@ enum packet_type {
 
 struct application_info {
     uint16_t utype; /* specifies the application layer protocol */
-    uint16_t payload_len;
-    bool unknown_payload;
+    uint16_t payload_len; /* length of payload if application protocol is unknown */
     union {
         struct dns_info *dns;
         struct nbns_info *nbns;
@@ -95,7 +94,7 @@ struct ip_info {
     uint16_t checksum;
     char src[INET_ADDRSTRLEN];
     char dst[INET_ADDRSTRLEN];
-    bool unknown_payload;
+    uint16_t payload_len; /* length of payload if transport protocol is unknown */
     union {
         struct udp_info udp;
         struct tcp tcp;
@@ -109,7 +108,7 @@ struct ip_info {
 struct snap_info {
     unsigned char oui[3]; /* IEEE Organizationally Unique Identifier */
     uint16_t protocol_id; /* If OUI is 0 the protocol ID is the Ethernet type */
-    bool unknown_payload;
+    uint16_t payload_len; /* length of payload if unknown payload */
     union {
         struct arp_info *arp;
         struct ip_info *ip;
@@ -122,7 +121,7 @@ struct eth_802_llc {
     uint8_t dsap; /* destination service access point */
     uint8_t ssap; /* source service access point */
     uint8_t control; /* possible to be 2 bytes? */
-    bool unknown_payload;
+    uint16_t payload_len; /* length of payload if unknown payload */
     union {
         struct snap_info *snap;
         struct stp_info *bpdu;
@@ -134,7 +133,7 @@ struct eth_info {
     unsigned char mac_src[ETH_ALEN];
     unsigned char mac_dst[ETH_ALEN];
     uint16_t ethertype;
-    bool unknown_payload;
+    uint16_t payload_len; /* length of payload if ethertype is unknown */
     union {
         struct eth_802_llc *llc;
         struct arp_info *arp;
