@@ -460,6 +460,7 @@ void create_subwindow(int num_lines, int lineno)
     getmaxyx(wmain, my, mx);
     start_line = lineno - top;
     c = lineno + 1;
+    if (num_lines >= my) num_lines = my - 1;
 
     /* if there is not enough space for the information to be printed, the
         screen needs to be scrolled to make room for all the lines */
