@@ -170,5 +170,7 @@ bool decode_packet(unsigned char *buffer, size_t n, struct packet **p);
 void free_packet(void *packet);
 
 char *get_ethernet_type(uint16_t ethertype);
+char *get_ip_dscp(uint8_t dscp);
+char *get_ip_transport_protocol(uint8_t protocol);
 
 #endif

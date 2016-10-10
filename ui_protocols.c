@@ -533,10 +533,14 @@ void print_stp_verbose(WINDOW *win, struct packet *p, int y)
 void print_ip_verbose(WINDOW *win, struct ip_info *ip, int y)
 {
     char *protocol;
+    char *dscp;
 
     mvwprintw(win, y, 4, "Version: %u", ip->version);
     mvwprintw(win, ++y, 4, "Internet Header Length (IHL): %u", ip->ihl);
     mvwprintw(win, ++y, 4, "Differentiated Services Code Point (DSCP): 0x%x", ip->dscp);
+    if ((dscp = get_ip_dscp(ip->dscp))) {
+        wprintw(win, " %s", dscp);
+    }
     mvwprintw(win, ++y, 4, "Explicit Congestion Notification (ECN): 0x%x", ip->ecn);
     if (ip->ecn & 0x3) {
         waddstr(win, " CE");
@@ -559,8 +563,7 @@ void print_ip_verbose(WINDOW *win, struct ip_info *ip, int y)
     }
     mvwprintw(win, ++y, 4, "Time to live: %u", ip->ttl);
     mvwprintw(win, ++y, 4, "Protocol: %u", ip->protocol);
-    protocol = get_transport_protocol(ip->protocol);
-    if (protocol) {
+    if ((protocol = get_ip_transport_protocol(ip->protocol))) {
         wprintw(win, " (%s)", protocol);
     }
     mvwprintw(win, ++y, 4, "Checksum: %u", ip->checksum);

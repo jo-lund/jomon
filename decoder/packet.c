@@ -16,6 +16,29 @@
 #define UDP_HDR_LEN 8
 #define MULTICAST_ADDR_MASK 0xe
 
+/*
+ * IP Differentiated Services Code Point class selectors.
+ * Prior to DiffServ, IPv4 networks could use the Precedence field in the TOS
+ * byte of the IPv4 header to mark priority traffic. In order to maintain
+ * backward compatibility with network devices that still use the Precedence
+ * field, DiffServ defines the Class Selector PHB.
+ *
+ * The Class Selector code points are of the form 'xxx000'. The first three bits
+ * are the IP precedence bits. Each IP precedence value can be mapped into a
+ * DiffServ class. CS0 equals IP precedence 0, CS1 IP precedence 1, and so on.
+ * If a packet is received from a non-DiffServ aware router that used IP
+ * precedence markings, the DiffServ router can still understand the encoding as
+ * a Class Selector code point.
+ */
+#define CS0 0X0
+#define CS1 0X8
+#define CS2 0X10
+#define CS3 0X18
+#define CS4 0X20
+#define CS5 0X28
+#define CS6 0X30
+#define CS7 0X38
+
 static uint32_t packet_count = 0;
 
 static bool check_port(unsigned char *buffer, struct application_info *info, uint16_t port,
@@ -360,6 +383,46 @@ bool handle_ip(unsigned char *buffer, int n, struct eth_info *eth)
         memcpy(eth->ip->payload, buffer + header_len, n - header_len);
     }
     return true;
+}
+
+char *get_ip_dscp(uint8_t dscp)
+{
+    switch (dscp) {
+    case CS0:
+        return "Default";
+    case CS1:
+        return "Class Selector 1";
+    case CS2:
+        return "Class Selector 2";
+    case CS3:
+        return "Class Selector 3";
+    case CS4:
+        return "Class Selector 4";
+    case CS5:
+        return "Class Selector 5";
+    case CS6:
+        return "Class Selector 6";
+    default:
+        return NULL;
+    }
+}
+
+char *get_ip_transport_protocol(uint8_t protocol)
+{
+    switch (protocol) {
+    case IPPROTO_ICMP:
+        return "ICMP";
+    case IPPROTO_IGMP:
+        return "IGMP";
+    case IPPROTO_TCP:
+        return "TCP";
+    case IPPROTO_UDP:
+        return "UDP";
+    case IPPROTO_PIM:
+        return "PIM";
+    default:
+        return NULL;
+    }
 }
 
 /*

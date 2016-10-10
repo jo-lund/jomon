@@ -108,19 +108,3 @@ int get_max_namelen(struct dns_resource_record *record, int n)
     }
     return maxlen;
 }
-
-char *get_transport_protocol(uint8_t protocol)
-{
-    switch (protocol) {
-    case IPPROTO_ICMP:
-        return "ICMP";
-    case IPPROTO_IGMP:
-        return "IGMP";
-    case IPPROTO_TCP:
-        return "TCP";
-    case IPPROTO_UDP:
-        return "UDP";
-    default:
-        return NULL;
-    }
-}

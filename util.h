@@ -31,8 +31,4 @@ char *strtolower(char *str);
 /* Get the size of the longest domain name in the RRs */
 int get_max_namelen(struct dns_resource_record *record, int n);
 
-// TODO: Simplify this.
-/* Convert type to string */
-char *get_transport_protocol(uint8_t protocol);
-
 #endif
