@@ -257,6 +257,22 @@ bool handle_ethernet(unsigned char *buffer, int n, struct eth_info *eth)
     return true;
 }
 
+char *get_ethernet_type(uint16_t ethertype)
+{
+    switch (ethertype) {
+    case ETH_P_IP:
+        return "IPv4";
+    case ETH_P_ARP:
+        return "ARP";
+    case ETH_P_IPV6:
+        return "IPv6";
+    case ETH_P_PAE:
+        return "Port Access Entity";
+    default:
+        return NULL;
+    }
+}
+
 /*
  * IPv4 header
  *

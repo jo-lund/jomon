@@ -169,4 +169,6 @@ bool decode_packet(unsigned char *buffer, size_t n, struct packet **p);
 /* Free the memory allocated for packet */
 void free_packet(void *packet);
 
+char *get_ethernet_type(uint16_t ethertype);
+
 #endif

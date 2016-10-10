@@ -456,6 +456,7 @@ void print_ethernet_verbose(WINDOW *win, struct packet *p, int y)
 {
     char src[HW_ADDRSTRLEN];
     char dst[HW_ADDRSTRLEN];
+    char *type;
 
     snprintf(src, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
              p->eth.mac_src[0], p->eth.mac_src[1], p->eth.mac_src[2],
@@ -466,6 +467,9 @@ void print_ethernet_verbose(WINDOW *win, struct packet *p, int y)
     mvwprintw(win, y, 4, "MAC source: %s", src);
     mvwprintw(win, ++y, 4, "MAC destination: %s", dst);
     mvwprintw(win, ++y, 4, "Ethertype: 0x%x", p->eth.ethertype);
+    if ((type = get_ethernet_type(p->eth.ethertype))) {
+        wprintw(win, " (%s)", type);
+    }
 }
 
 void print_llc_verbose(WINDOW *win, struct packet *p, int y)
