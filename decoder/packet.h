@@ -15,6 +15,9 @@
 
 #define ETHERNET_HDRLEN 14
 
+#define TCP_PAYLOAD_LEN(p) \
+    p->eth.ip->length - p->eth.ip->ihl * 4 - p->eth.ip->tcp.offset * 4
+
 enum port {
     DNS = 53,   /* Domain Name Service */
     HTTP = 80,  /* Hypertext Transfer Protocol */

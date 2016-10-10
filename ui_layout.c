@@ -518,6 +518,7 @@ void delete_subwindow()
     wrefresh(wmain);
 }
 
+// TODO: Fix this!
 void create_sublines(struct packet *p, int size)
 {
     int i = 0;
@@ -638,10 +639,13 @@ void create_app_sublines(struct packet *p, int i)
         }
         break;
     default:
-        if (preferences.application_selected) {
-            set_subwindow_line(i, "- Data", true, APP_HDR);
-        } else {
-            set_subwindow_line(i, "+ Data", false, APP_HDR);
+        if ((p->eth.ip->protocol == IPPROTO_TCP && TCP_PAYLOAD_LEN(p) > 0) ||
+            p->eth.ip->protocol == IPPROTO_UDP) {
+            if (preferences.application_selected) {
+                set_subwindow_line(i, "- Data", true, APP_HDR);
+            } else {
+                set_subwindow_line(i, "+ Data", false, APP_HDR);
+            }
         }
         break;
     }
@@ -740,7 +744,9 @@ bool update_subwin_selection(int lineno)
     return false;
 }
 
-/* Calculate size of subwindow */
+/* Calculate size of subwindow
+ * TODO: Fix this!
+ */
 int calculate_subwin_size(struct packet *p, int screen_line)
 {
     int size = 0;
@@ -780,6 +786,13 @@ int calculate_subwin_size(struct packet *p, int screen_line)
                 size++;
             }
             size += calculate_applayer_size(&p->eth.ip->tcp.data, screen_line);
+            if (TCP_PAYLOAD_LEN(p) == 0) {
+                if (preferences.application_selected) {
+                    size -= 2;
+                } else {
+                    size--;
+                }
+            }
             break;
         case IPPROTO_ICMP:
             if (preferences.transport_selected) {
