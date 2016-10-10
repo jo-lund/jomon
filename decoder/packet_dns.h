@@ -51,50 +51,6 @@
 #define DNS_CLASS_HS 4      /* Hesiod */
 #define DNS_QCLASS_STAR 255 /* any class */
 
-/* DNS opcodes */
-#define DNS_QUERY 0  /* standard query */
-#define DNS_IQUERY 1 /* inverse query */
-#define DNS_STATUS 2 /* server status request */
-
-/* DNS response codes */
-#define DNS_NO_ERROR 0         /* no error condition */
-#define DNS_FORMAT_ERROR 1     /* name server was unable to interpret the query */
-#define DNS_SERVER_FAILURE 2   /* name server was unable to process the query */
-#define DNS_NAME_ERROR 3       /* the domain name referenced in the query does not exist */
-#define DNS_NOT_IMPLEMENTED 4  /* name server does not support the requested kind of query */
-#define DNS_REFUSED 5          /* name server refuses to perform the specified operation */
-
-/* DNS types */
-#define DNS_TYPE_A 1       /* a host address */
-#define DNS_TYPE_NS 2      /* an authoritative name server */
-#define DNS_TYPE_MD 3      /* a mail destination (Obsolete - use MX) */
-#define DNS_TYPE_MF 4      /* a mail forwarder (Obsolete - use MX) */
-#define DNS_TYPE_CNAME 5   /* the canonical name for an alias */
-#define DNS_TYPE_SOA 6     /* marks the start of a zone of authority */
-#define DNS_TYPE_MB 7      /* a mailbox domain name (EXPERIMENTAL) */
-#define DNS_TYPE_MG 8      /* a mail group member (EXPERIMENTAL) */
-#define DNS_TYPE_MR 9      /* a mail rename domain name (EXPERIMENTAL) */
-#define DNS_TYPE_NULL 10   /* a null RR (EXPERIMENTAL) */
-#define DNS_TYPE_WKS 11    /* a well known service description */
-#define DNS_TYPE_PTR 12    /* a domain name pointer */
-#define DNS_TYPE_HINFO 13  /* host information */
-#define DNS_TYPE_MINFO 14  /* mailbox or mail list information */
-#define DNS_TYPE_MX 15     /* mail exchange */
-#define DNS_TYPE_TXT 16    /* text strings */
-#define DNS_TYPE_AAAA 28   /* a host IPv6 address */
-#define DNS_QTYPE_AXFR 252   /* a request for a transfer of an entire zone */
-#define DNS_QTYPE_MAILB 253  /* a request for mailbox-related records (MB, MG or MR) */
-#define DNS_QTYPE_MAILA 254  /* a request for mail agent RRs (Obsolete - see MX) */
-#define DNS_QTYPE_STAR 255   /* a request for all records */
-
-/* DNS classes */
-#define DNS_CLASS_IN 1      /* the Internet */
-#define DNS_CLASS_CS 2      /* the CSNET class (Obsolete - used only for examples in
-                               obsolete RFCs) */
-#define DNS_CLASS_CH 3      /* the CHAOS class */
-#define DNS_CLASS_HS 4      /* Hesiod */
-#define DNS_QCLASS_STAR 255 /* any class */
-
 struct dns_info {
     uint16_t id; /* A 16 bit identifier */
     unsigned int qr     : 1; /* 0 DNS query, 1 DNS response */
