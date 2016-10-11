@@ -5,8 +5,8 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
-#include "ui_layout.h"
-#include "ui_protocols.h"
+#include "layout.h"
+#include "protocols.h"
 #include "../util.h"
 
 #define HOSTNAMELEN 255 /* maximum 255 according to rfc1035 */

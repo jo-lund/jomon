@@ -32,7 +32,7 @@
 #include "misc.h"
 #include "error.h"
 #include "interface.h"
-#include "ui/ui_layout.h"
+#include "ui/layout.h"
 #include "decoder/packet.h"
 #include "vector.h"
 #include "file_pcap.h"
