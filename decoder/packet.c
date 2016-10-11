@@ -39,6 +39,16 @@
 #define CS6 0X30
 #define CS7 0X38
 
+/* TCP Option-Kind */
+#define TCP_OPT_END 0       /* end of options list */
+#define TCP_OPT_NOP 1       /* no operation - this may be used to align option fields on
+                               32-bit boundaries */
+#define TCP_OPT_MSS 2       /* maximum segment size */
+#define TCP_OPT_WIN_SCALE 3 /* window scale */
+#define TCP_OPT_SAP 4       /* selective acknowledgement permitted */
+#define TCP_OPT_SACK 5      /* selective acknowledgement */
+#define TCP_OPT_TIMESTAMP 8 /* timestamp and echo of previous timestamp */
+
 static uint32_t packet_count = 0;
 
 static bool check_port(unsigned char *buffer, struct application_info *info, uint16_t port,
@@ -107,6 +117,9 @@ void free_packet(void *data)
             break;
         case IPPROTO_TCP:
             free_protocol_data(&p->eth.ip->tcp.data);
+            if (p->eth.ip->tcp.options) {
+                free(p->eth.ip->tcp.options);
+            }
             break;
         default:
             if (p->eth.ip->payload_len) {
@@ -333,7 +346,6 @@ bool handle_ip(unsigned char *buffer, int n, struct eth_info *eth)
     bool error = false;
 
     ip = (struct iphdr *) buffer;
-
     if (n < ip->ihl * 4) return false;
 
     eth->ip = calloc(1, sizeof(struct ip_info));
@@ -358,7 +370,6 @@ bool handle_ip(unsigned char *buffer, int n, struct eth_info *eth)
     eth->ip->protocol = ip->protocol;
     eth->ip->checksum = ntohs(ip->check);
     header_len = ip->ihl * 4;
-
     switch (ip->protocol) {
     case IPPROTO_ICMP:
         error = !handle_icmp(buffer + header_len, n, eth->ip);
@@ -551,6 +562,17 @@ bool handle_tcp(unsigned char *buffer, int n, struct ip_info *info)
     info->tcp.window = ntohs(tcp->window);
     info->tcp.checksum = ntohs(tcp->check);
     info->tcp.urg_ptr = ntohs(tcp->urg_ptr);
+
+    /* the minimum header without options is 20 bytes */
+    if (info->tcp.offset > 5) {
+        uint8_t options_len;
+
+        options_len = (info->tcp.offset - 5) * 4;
+        info->tcp.options = malloc(options_len);
+        memcpy(info->tcp.options, buffer + 20, options_len);
+    } else {
+        info->tcp.options = NULL;
+    }
     payload_len = info->length - info->ihl * 4 - info->tcp.offset * 4;
 
     /* only check port if there is a payload */
@@ -573,6 +595,69 @@ bool handle_tcp(unsigned char *buffer, int n, struct ip_info *info)
     }
     return true;
 }
+
+struct tcp_options *parse_tcp_options(unsigned char *data, int len)
+{
+    struct tcp_options *opt;
+
+    opt = calloc(1, sizeof(struct tcp_options));
+
+    /* the data is based on a tag-length-value encoding scheme */
+    while (len) {
+        uint8_t option_kind = *data;
+        uint8_t option_length = *++data; /* length of value + 1 byte tag and 1 byte length */
+
+        data++; /* skip length field */
+        switch (option_kind) {
+        case TCP_OPT_END:
+            return opt;
+        case TCP_OPT_NOP:
+            opt->nop++;
+            data++;
+            break;
+        case TCP_OPT_MSS:
+            if (option_length == 4) {
+                opt->mss = data[0] << 8 || data[1];
+            }
+            data += option_length - 2;
+            break;
+        case TCP_OPT_WIN_SCALE:
+            if (option_length == 3) {
+                opt->win_scale = *data;
+            }
+            data += option_length - 2;
+            break;
+        case TCP_OPT_SAP: /* 2 bytes */
+            opt->sack_permitted = true;
+            break;
+        case TCP_OPT_SACK:
+        {
+            int num_blocks = (option_length - 2) / 8;
+            struct tcp_sack_block *b;
+
+            opt->sack = list_init(NULL);
+            while (num_blocks--) {
+                b = malloc(sizeof(struct tcp_sack_block));
+                b->left_edge = data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3];
+                b->right_edge = data[4] << 24 | data[5] << 16 | data[6] << 8 | data[7];
+                list_push_back(opt->sack, b);
+                data += 8; /* each block is 8 bytes */
+            }
+            break;
+        }
+        case TCP_OPT_TIMESTAMP:
+            if (option_length == 10) {
+                opt->ts_val = data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3];
+                opt->ts_ecr = data[4] << 24 | data[5] << 16 | data[6] << 8 | data[7];
+            }
+            data += option_length - 2;
+            break;
+        }
+        len -= option_length;
+    }
+    return opt;
+}
+
 
 /*
  * Checks which well-known or registered port the packet originated from or is

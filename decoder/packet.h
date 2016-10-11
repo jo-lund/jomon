@@ -80,6 +80,22 @@ struct tcp {
     struct application_info data;
 };
 
+struct tcp_options {
+    uint8_t nop; /* count of nop padding bytes */
+    uint16_t mss;
+    uint8_t win_scale;
+    bool sack_permitted; /* may be sent in a SYN by a TCP that has been extended to
+                          * receive the SACK option once the connection has opened */
+    list_t *sack;    /* list of sack blocks */
+    uint32_t ts_val; /* timestamp value */
+    uint32_t ts_ecr; /* timestamp echo reply */
+};
+
+struct tcp_sack_block {
+    uint32_t left_edge;
+    uint32_t right_edge;
+};
+
 // TODO: Improve the structure of this
 struct ip_info {
     unsigned int version : 4;
@@ -168,6 +184,12 @@ bool decode_packet(unsigned char *buffer, size_t n, struct packet **p);
 
 /* Free the memory allocated for packet */
 void free_packet(void *packet);
+
+/*
+ * Parses and returns the TCP options in the TCP header.
+ * This needs to be freed by the caller.
+ */
+struct tcp_options *parse_tcp_options(unsigned char *data, int len);
 
 char *get_ethernet_type(uint16_t ethertype);
 char *get_ip_dscp(uint8_t dscp);
