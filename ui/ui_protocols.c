@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include "ui_layout.h"
 #include "ui_protocols.h"
-#include "util.h"
+#include "../util.h"
 
 #define HOSTNAMELEN 255 /* maximum 255 according to rfc1035 */
 

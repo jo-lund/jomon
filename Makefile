@@ -1,5 +1,5 @@
-srcdir := decoder
-incdir := decoder
+srcdir := decoder ui
+incdir := decoder ui
 testdir := unittests
 BUILDDIR := build
 TARGETDIR := bin
@@ -13,10 +13,8 @@ CPPFLAGS += -Wall $(addprefix -I,$(incdir))
 LIBS += -lncurses
 TESTS = util_test
 
-sources = $(wildcard *.c)
+sources = $(wildcard *.c decoder/*.c ui/*.c)
 objects = $(patsubst %.c,$(BUILDDIR)/%.o,$(sources))
-
-include decoder/module.mk
 
 monitor : $(objects)
 	@mkdir -p $(TARGETDIR)

@@ -13,7 +13,7 @@
 #include "util.h"
 #include "vector.h"
 #include "error.h"
-#include <packet.h>
+#include "decoder/packet.h"
 
 /*
  * Transform a hex string in the format aa:bb:cc:dd:ee:ff to its integer
