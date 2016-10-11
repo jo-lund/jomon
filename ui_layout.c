@@ -53,6 +53,7 @@ static struct line_info {
     bool selectable;
     bool selected;
     char *text;
+    uint32_t attr;
     enum header_type type;
 } *line;
 
@@ -88,7 +89,7 @@ static void print(char *buf);
 static void print_header();
 static void create_subwindow(int num_lines, int lineno);
 static void delete_subwindow();
-static bool update_subwin_selection(int lineno);
+static bool update_subwin_selection();
 static void set_subwindow_line(int i, char *text, bool selected, enum header_type type);
 static int calculate_subwin_size(struct packet *p, int screen_line);
 static int calculate_applayer_size(struct application_info *info, int screen_line);
@@ -235,11 +236,20 @@ void handle_keyup(int lines, int cols)
             mvwchgat(wmain, 0, 0, -1, A_NORMAL, 1, NULL);
         }
     } else if (selection_line > 0) {
-        int screen_line = selection_line - top;
+         int screen_line = selection_line - top;
 
-        /* deselect previous line and highlight next */
-        mvwchgat(wmain, screen_line, 0, -1, A_NORMAL, 0, NULL);
-        mvwchgat(wmain, screen_line - 1, 0, -1, A_NORMAL, 1, NULL);
+         /* deselect previous line and highlight next */
+         if (subwindow.win && screen_line >= subwindow.top &&
+             screen_line < subwindow.top + subwindow.num_lines) {
+             int subline = screen_line - subwindow.top;
+
+             mvwchgat(wmain, screen_line, 0, -1, subwindow.line[subline].attr, 0, NULL);
+             mvwchgat(wmain, screen_line - 1, 0, -1, subline == 0 ? A_NORMAL :
+                      subwindow.line[subline - 1].attr, 1, NULL);
+         } else {
+             mvwchgat(wmain, screen_line, 0, -1, A_NORMAL, 0, NULL);
+             mvwchgat(wmain, screen_line - 1, 0, -1, A_NORMAL, 1, NULL);
+         }
         selection_line--;
     }
     wrefresh(wmain);
@@ -273,8 +283,17 @@ void handle_keydown(int lines, int cols)
         int screen_line = selection_line - top;
 
         /* deselect previous line and highlight next */
-        mvwchgat(wmain, screen_line, 0, -1, A_NORMAL, 0, NULL);
-        mvwchgat(wmain, screen_line + 1, 0, -1, A_NORMAL, 1, NULL);
+        if (subwindow.win && screen_line + 1 >= subwindow.top &&
+            screen_line + 1 < subwindow.top + subwindow.num_lines) {
+            int subline = screen_line - subwindow.top;
+
+            mvwchgat(wmain, screen_line, 0, -1, subline == -1 ? A_NORMAL :
+                     subwindow.line[subline].attr, 0, NULL);
+            mvwchgat(wmain, screen_line + 1, 0, -1, subwindow.line[subline + 1].attr, 1, NULL);
+        } else {
+            mvwchgat(wmain, screen_line, 0, -1, A_NORMAL, 0, NULL);
+            mvwchgat(wmain, screen_line + 1, 0, -1, A_NORMAL, 1, NULL);
+        }
         selection_line++;
     }
     wrefresh(wmain);
@@ -688,6 +707,7 @@ void set_subwindow_line(int i, char *text, bool selected, enum header_type type)
     subwindow.line[i].text = text;
     subwindow.line[i].selected = selected;
     subwindow.line[i].selectable = true;
+    subwindow.line[i].attr = A_BOLD;
     subwindow.line[i].type = type;
 }
 
@@ -705,7 +725,7 @@ void print_selected_packet()
         if (subwindow.win) {
             bool inside_subwin;
 
-            inside_subwin = update_subwin_selection(prev_selection);
+            inside_subwin = update_subwin_selection();
             if (inside_subwin) {
                 p = vector_get_data(vector, prev_selection);
                 print_protocol_information(p, prev_selection);
@@ -730,7 +750,7 @@ void print_selected_packet()
  *
  * Returns true if it's inside the subwindow, else false.
  */
-bool update_subwin_selection(int lineno)
+bool update_subwin_selection()
 {
     int screen_line;
 
@@ -989,6 +1009,7 @@ void print_protocol_information(struct packet *p, int lineno)
             } else {
                 mvwprintw(subwindow.win, i, 2, subwindow.line[i].text);
             }
+            mvwchgat(subwindow.win, i, 0, -1, subwindow.line[i].attr, 0, NULL);
         }
         if (subwindow.line[i].selected) {
             switch (subwindow.line[i].type) {
@@ -1040,7 +1061,13 @@ void print_protocol_information(struct packet *p, int lineno)
             }
         }
     }
-    mvwchgat(wmain, selection_line - top, 0, -1, A_NORMAL, 1, NULL);
+    int subline = selection_line - top - subwindow.top;
+
+    if (subline >= 0) {
+        mvwchgat(wmain, selection_line - top, 0, -1, subwindow.line[subline].attr, 1, NULL);
+    } else {
+        mvwchgat(wmain, selection_line - top, 0, -1, A_NORMAL, 1, NULL);
+    }
     touchwin(wmain);
     wrefresh(subwindow.win);
 }
