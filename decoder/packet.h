@@ -187,9 +187,12 @@ void free_packet(void *packet);
 
 /*
  * Parses and returns the TCP options in the TCP header.
- * This needs to be freed by the caller.
+ * This needs to be freed by calling free_tcp_options.
  */
 struct tcp_options *parse_tcp_options(unsigned char *data, int len);
+
+/* Frees the tcp_options struct that was allocated by parse_tcp_options */
+void free_tcp_options(struct tcp_options *options);
 
 char *get_ethernet_type(uint16_t ethertype);
 char *get_ip_dscp(uint8_t dscp);

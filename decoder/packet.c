@@ -607,27 +607,28 @@ struct tcp_options *parse_tcp_options(unsigned char *data, int len)
         uint8_t option_kind = *data;
         uint8_t option_length = *++data; /* length of value + 1 byte tag and 1 byte length */
 
-        data++; /* skip length field */
         switch (option_kind) {
         case TCP_OPT_END:
             return opt;
         case TCP_OPT_NOP:
             opt->nop++;
-            data++;
             break;
         case TCP_OPT_MSS:
+            data++; /* skip length field */
             if (option_length == 4) {
-                opt->mss = data[0] << 8 || data[1];
+                opt->mss = data[0] << 8 | data[1];
             }
             data += option_length - 2;
             break;
         case TCP_OPT_WIN_SCALE:
+            data++; /* skip length field */
             if (option_length == 3) {
                 opt->win_scale = *data;
             }
             data += option_length - 2;
             break;
         case TCP_OPT_SAP: /* 2 bytes */
+            data++; /* skip length field */
             opt->sack_permitted = true;
             break;
         case TCP_OPT_SACK:
@@ -635,6 +636,7 @@ struct tcp_options *parse_tcp_options(unsigned char *data, int len)
             int num_blocks = (option_length - 2) / 8;
             struct tcp_sack_block *b;
 
+            data++; /* skip length field */
             opt->sack = list_init(NULL);
             while (num_blocks--) {
                 b = malloc(sizeof(struct tcp_sack_block));
@@ -646,6 +648,7 @@ struct tcp_options *parse_tcp_options(unsigned char *data, int len)
             break;
         }
         case TCP_OPT_TIMESTAMP:
+            data++; /* skip length field */
             if (option_length == 10) {
                 opt->ts_val = data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3];
                 opt->ts_ecr = data[4] << 24 | data[5] << 16 | data[6] << 8 | data[7];
@@ -658,6 +661,11 @@ struct tcp_options *parse_tcp_options(unsigned char *data, int len)
     return opt;
 }
 
+void free_tcp_options(struct tcp_options *options)
+{
+    if (options->sack) list_free(options->sack);
+    free(options);
+}
 
 /*
  * Checks which well-known or registered port the packet originated from or is
