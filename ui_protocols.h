@@ -17,6 +17,7 @@ void print_stp_verbose(WINDOW *win, struct packet *p, int y);
 void print_ip_verbose(WINDOW *win, struct ip_info *ip, int y);
 void print_udp_verbose(WINDOW *win, struct ip_info *ip, int y);
 void print_tcp_verbose(WINDOW *win, struct ip_info *ip, int y);
+void print_tcp_options(WINDOW *win, struct tcp *tcp, int y);
 void print_dns_verbose(WINDOW *win, struct dns_info *dns, int y, int maxx);
 void print_dns_soa(WINDOW *win, struct dns_info *info, int i, int y, int x);
 void print_nbns_verbose(WINDOW *win, struct nbns_info *nbns, int y, int maxx);

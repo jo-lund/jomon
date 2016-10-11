@@ -4,6 +4,7 @@
 #include <netinet/ip_icmp.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdlib.h>
 #include "ui_layout.h"
 #include "ui_protocols.h"
 #include "util.h"
@@ -623,12 +624,40 @@ void print_tcp_verbose(WINDOW *win, struct ip_info *ip, int y)
     mvwprintw(win, ++y, 4, "Sequence number: %u", ip->tcp.seq_num);
     mvwprintw(win, ++y, 4, "Acknowledgment number: %u", ip->tcp.ack_num);
     mvwprintw(win, ++y, 4, "Data offset: %u", ip->tcp.offset);
-    mvwprintw(win, ++y, 4, "Flags: %u%u%u%u%u%u%u%u%u",
+    mvwprintw(win, ++y, 4,
+              "Flags: %u (NS) %u (CWR) %u (ECE) %u (URG) %u (ACK) %u (PSH) %u (RST) %u (SYN) %u (FIN)",
               ip->tcp.ns, ip->tcp.cwr, ip->tcp.ece, ip->tcp.urg, ip->tcp.ack,
               ip->tcp.psh, ip->tcp.rst, ip->tcp.syn, ip->tcp.fin);
     mvwprintw(win, ++y, 4, "Window size: %u", ip->tcp.window);
     mvwprintw(win, ++y, 4, "Checksum: %u", ip->tcp.checksum);
     mvwprintw(win, ++y, 4, "Urgent pointer: %u", ip->tcp.urg_ptr);
+}
+
+void print_tcp_options(WINDOW *win, struct tcp *tcp, int y)
+{
+    if (tcp->options) {
+        struct tcp_options *opt;
+
+        opt = parse_tcp_options(tcp->options, (tcp->offset - 5) * 4);
+        if (opt->nop) mvwprintw(win, y, 6, "No operation: %u bytes", opt->nop);
+        if (opt->mss) mvwprintw(win, ++y, 6, "Maximum segment size: %u", opt->mss);
+        if (opt->win_scale) mvwprintw(win, ++y, 6, "Window scale: %u", opt->win_scale);
+        if (opt->sack_permitted) mvwprintw(win, ++y, 6, "Selective Acknowledgement permitted");
+        if (opt->sack) {
+            const node_t *n = list_begin(opt->sack);
+
+            while (n) {
+                struct tcp_sack_block *block = list_data(n);
+
+                mvwprintw(win, ++y, 6, "Left edge: %u", block->left_edge);
+                mvwprintw(win, ++y, 6, "Right edge: %u", block->right_edge);
+                n = list_next(n);
+            }
+        }
+        if (opt->ts_val) mvwprintw(win, ++y, 6, "Timestamp value: %u", opt->ts_val);
+        if (opt->ts_ecr) mvwprintw(win, ++y, 6, "Timestamp echo reply: %u", opt->ts_ecr);
+        free_tcp_options(opt);
+    }
 }
 
 void print_dns_verbose(WINDOW *win, struct dns_info *dns, int y, int maxx)

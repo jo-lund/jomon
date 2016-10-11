@@ -28,6 +28,7 @@ static struct preferences {
     bool link_stp_selected;
     bool network_selected;
     bool transport_selected;
+    bool tcp_options_selected;
     bool application_selected;
 } preferences;
 
@@ -40,6 +41,7 @@ enum header_type {
     IP_HDR,
     UDP_HDR,
     TCP_HDR,
+    TCP_OPTIONS,
     IGMP_HDR,
     ICMP_HDR,
     APP_HDR,
@@ -90,8 +92,10 @@ static bool update_subwin_selection(int lineno);
 static void set_subwindow_line(int i, char *text, bool selected, enum header_type type);
 static int calculate_subwin_size(struct packet *p, int screen_line);
 static int calculate_applayer_size(struct application_info *info, int screen_line);
+static int calculate_tcp_options_size(struct tcp *tcp);
 static void create_sublines(struct packet *p, int size);
 static void create_app_sublines(struct packet *p, int i);
+static bool is_suboption(enum header_type type);
 static void print_selected_packet();
 static void print_protocol_information(struct packet *p, int lineno);
 static void print_app_protocol(struct application_info *info, int y);
@@ -231,7 +235,7 @@ void handle_keyup(int lines, int cols)
             mvwchgat(wmain, 0, 0, -1, A_NORMAL, 1, NULL);
         }
     } else if (selection_line > 0) {
-         int screen_line = selection_line - top;
+        int screen_line = selection_line - top;
 
         /* deselect previous line and highlight next */
         mvwchgat(wmain, screen_line, 0, -1, A_NORMAL, 0, NULL);
@@ -559,7 +563,16 @@ void create_sublines(struct packet *p, int size)
         case IPPROTO_TCP:
             if (preferences.transport_selected) {
                 set_subwindow_line(i, "- Transmission Control Protocol (TCP)", true, TCP_HDR);
-                i += TCP_WINSIZE;
+                i += TCP_WINSIZE - 1;
+                if (p->eth.ip->tcp.options) {
+                    if (preferences.tcp_options_selected) {
+                        set_subwindow_line(i, "- Options", true, TCP_OPTIONS);
+                        i += calculate_tcp_options_size(&p->eth.ip->tcp) + 2;
+                    } else {
+                        set_subwindow_line(i, "+ Options", false, TCP_OPTIONS);
+                        i += 2;
+                    }
+                }
             } else {
                 set_subwindow_line(i, "+ Transmission Control Protocol (TCP)", false, TCP_HDR);
                 i++;
@@ -751,6 +764,9 @@ bool update_subwin_selection(int lineno)
             case ICMP_HDR:
                 preferences.transport_selected = subwindow.line[subline].selected;
                 break;
+            case TCP_OPTIONS:
+                preferences.tcp_options_selected = subwindow.line[subline].selected;
+                break;
             case UNKNOWN_NETWORK:
             case UNKNOWN_TRANSPORT:
             case APP_HDR:
@@ -802,7 +818,15 @@ int calculate_subwin_size(struct packet *p, int screen_line)
             break;
         case IPPROTO_TCP:
             if (preferences.transport_selected) {
-                size += TCP_WINSIZE;
+                if (p->eth.ip->tcp.options) {
+                    if (preferences.tcp_options_selected) {
+                        size += TCP_WINSIZE + calculate_tcp_options_size(&p->eth.ip->tcp) + 1;
+                    } else {
+                        size += TCP_WINSIZE + 1;
+                    }
+                } else {
+                    size += TCP_WINSIZE;
+                }
             } else {
                 size++;
             }
@@ -921,6 +945,29 @@ int calculate_applayer_size(struct application_info *info, int screen_line)
     return size;
 }
 
+int calculate_tcp_options_size(struct tcp *tcp)
+{
+    struct tcp_options *opt;
+    int lines = 0;
+
+    opt = parse_tcp_options(tcp->options, (tcp->offset - 5) * 4);
+    if (opt->nop) lines++;
+    if (opt->mss) lines++;
+    if (opt->win_scale) lines++;
+    if (opt->sack_permitted) lines++;
+    if (opt->sack) lines += list_size(opt->sack) * 2;
+    if (opt->ts_val) lines++;
+    if (opt->ts_ecr) lines++;
+    free_tcp_options(opt);
+
+    return lines;
+}
+
+bool is_suboption(enum header_type type)
+{
+    return type == TCP_OPTIONS;
+}
+
 void print_protocol_information(struct packet *p, int lineno)
 {
     int size;
@@ -937,7 +984,11 @@ void print_protocol_information(struct packet *p, int lineno)
     create_sublines(p, size);
     for (int i = 0; i < subwindow.num_lines; i++) {
         if (subwindow.line[i].text) {
-            mvwprintw(subwindow.win, i, 2, subwindow.line[i].text);
+            if (is_suboption(subwindow.line[i].type)) {
+                mvwprintw(subwindow.win, i, 4, subwindow.line[i].text);
+            } else {
+                mvwprintw(subwindow.win, i, 2, subwindow.line[i].text);
+            }
         }
         if (subwindow.line[i].selected) {
             switch (subwindow.line[i].type) {
@@ -958,6 +1009,9 @@ void print_protocol_information(struct packet *p, int lineno)
                 break;
             case TCP_HDR:
                 print_tcp_verbose(subwindow.win, p->eth.ip, i + 1);
+                break;
+            case TCP_OPTIONS:
+                print_tcp_options(subwindow.win, &p->eth.ip->tcp, i + 1);
                 break;
             case UDP_HDR:
                 print_udp_verbose(subwindow.win, p->eth.ip, i + 1);
