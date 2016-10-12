@@ -59,13 +59,9 @@ void print_buffer(char *buf, int size, struct packet *p)
             char smac[HW_ADDRSTRLEN];
             char dmac[HW_ADDRSTRLEN];
 
-            snprintf(smac, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
-                     p->eth.mac_src[0], p->eth.mac_src[1], p->eth.mac_src[2],
-                     p->eth.mac_src[3], p->eth.mac_src[4], p->eth.mac_src[5]);
-            snprintf(dmac, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
-                     p->eth.mac_dst[0], p->eth.mac_dst[1], p->eth.mac_dst[2],
-                     p->eth.mac_dst[3], p->eth.mac_dst[4], p->eth.mac_dst[5]);
-            PRINT_LINE(buf, size, p->num, smac, dmac, "ETHERNET", "Unknown payload");
+            HW_ADDR_NTOP(smac, p->eth.mac_src);
+            HW_ADDR_NTOP(dmac, p->eth.mac_dst);
+            PRINT_LINE(buf, size, p->num, smac, dmac, "ETH II", "Unknown payload");
         }
         break;
     }
@@ -74,14 +70,21 @@ void print_buffer(char *buf, int size, struct packet *p)
 /* print ARP frame information */
 void print_arp(char *buf, int n, struct arp_info *info, uint32_t num)
 {
+    char sip[INET_ADDRSTRLEN];
+    char tip[INET_ADDRSTRLEN];
+    char sha[HW_ADDRSTRLEN];
+
+    inet_ntop(AF_INET, info->sip, sip, INET_ADDRSTRLEN);
+    inet_ntop(AF_INET, info->tip, tip, INET_ADDRSTRLEN);
     switch (info->op) {
     case ARPOP_REQUEST:
-        PRINT_LINE(buf, n, num, info->sip, info->tip, "ARP",
-                   "Request: Looking for hardware address of %s", info->tip);
+        PRINT_LINE(buf, n, num, sip, tip, "ARP",
+                   "Request: Looking for hardware address of %s", tip);
         break;
     case ARPOP_REPLY:
-        PRINT_LINE(buf, n, num, info->sip, info->tip, "ARP",
-                   "Reply: %s has hardware address %s", info->sip, info->sha);
+        HW_ADDR_NTOP(sha, info->sha);
+        PRINT_LINE(buf, n, num, sip, tip, "ARP",
+                   "Reply: %s has hardware address %s", sip, sha);
         break;
     default:
         PRINT_LINE(buf, n, num, info->sip, info->tip, "ARP", "Opcode %d", info->op);
@@ -96,12 +99,8 @@ void print_llc(char *buf, int n, struct eth_info *eth, uint32_t num)
         char smac[HW_ADDRSTRLEN];
         char dmac[HW_ADDRSTRLEN];
 
-        snprintf(smac, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
-                 eth->mac_src[0], eth->mac_src[1], eth->mac_src[2],
-                 eth->mac_src[3], eth->mac_src[4], eth->mac_src[5]);
-        snprintf(dmac, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
-                 eth->mac_dst[0], eth->mac_dst[1], eth->mac_dst[2],
-                 eth->mac_dst[3], eth->mac_dst[4], eth->mac_dst[5]);
+        HW_ADDR_NTOP(smac, eth->mac_src);
+        HW_ADDR_NTOP(dmac, eth->mac_dst);
         switch (eth->llc->bpdu->type) {
         case CONFIG:
             PRINT_LINE(buf, n, num, smac, dmac, "STP", "Configuration BPDU");
@@ -459,12 +458,8 @@ void print_ethernet_verbose(WINDOW *win, struct packet *p, int y)
     char dst[HW_ADDRSTRLEN];
     char *type;
 
-    snprintf(src, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
-             p->eth.mac_src[0], p->eth.mac_src[1], p->eth.mac_src[2],
-             p->eth.mac_src[3], p->eth.mac_src[4], p->eth.mac_src[5]);
-    snprintf(dst, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
-             p->eth.mac_dst[0], p->eth.mac_dst[1], p->eth.mac_dst[2],
-             p->eth.mac_dst[3], p->eth.mac_dst[4], p->eth.mac_dst[5]);
+    HW_ADDR_NTOP(src, p->eth.mac_src);
+    HW_ADDR_NTOP(dst, p->eth.mac_dst);
     mvwprintw(win, y, 4, "MAC source: %s", src);
     mvwprintw(win, ++y, 4, "MAC destination: %s", dst);
     mvwprintw(win, ++y, 4, "Ethertype: 0x%x", p->eth.ethertype);
@@ -482,14 +477,23 @@ void print_llc_verbose(WINDOW *win, struct packet *p, int y)
 
 void print_arp_verbose(WINDOW *win, struct packet *p, int y)
 {
+    char sip[INET_ADDRSTRLEN];
+    char tip[INET_ADDRSTRLEN];
+    char sha[HW_ADDRSTRLEN];
+    char tha[HW_ADDRSTRLEN];
+
+    HW_ADDR_NTOP(sha, p->eth.arp->sha);
+    HW_ADDR_NTOP(tha, p->eth.arp->tha);
+    inet_ntop(AF_INET, p->eth.arp->sip, sip, INET_ADDRSTRLEN);
+    inet_ntop(AF_INET, p->eth.arp->tip, tip, INET_ADDRSTRLEN);
     mvwprintw(win, y, 4, "Hardware type: %d (%s)", p->eth.arp->ht, get_arp_hardware_type(p->eth.arp->ht));
     mvwprintw(win, ++y, 4, "Protocol type: 0x%x (%s)", p->eth.arp->pt, get_arp_protocol_type(p->eth.arp->pt));
     mvwprintw(win, ++y, 4, "Hardware size: %d", p->eth.arp->hs);
     mvwprintw(win, ++y, 4, "Protocol size: %d", p->eth.arp->ps);
     mvwprintw(win, ++y, 4, "Opcode: %d (%s)", p->eth.arp->op, get_arp_opcode(p->eth.arp->op));
     mvwprintw(win, ++y, 0, "");
-    mvwprintw(win, ++y, 4, "Sender IP: %-15s  HW: %s", p->eth.arp->sip, p->eth.arp->sha);
-    mvwprintw(win, ++y, 4, "Target IP: %-15s  HW: %s", p->eth.arp->tip, p->eth.arp->tha);
+    mvwprintw(win, ++y, 4, "Sender IP: %-15s  HW: %s", sip, sha);
+    mvwprintw(win, ++y, 4, "Target IP: %-15s  HW: %s", tip, tha);
 }
 
 void print_stp_verbose(WINDOW *win, struct packet *p, int y)

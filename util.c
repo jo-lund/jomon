@@ -53,10 +53,10 @@ void serialize_arp(unsigned char *buf, struct arp_info *info)
     buf[7] = info->op & 0x00ff;
 
     /* ARP payload */
-    hextoint(buf + 8, info->sha);
-    inet_pton(AF_INET, info->sip, buf + 14);
-    hextoint(buf + 18, info->tha);
-    inet_pton(AF_INET, info->tip, buf + 24);
+    memcpy(buf + 8, info->sha, ETH_ALEN);
+    memcpy(buf + 14, info->sip, 4);
+    memcpy(buf + 18, info->tha, ETH_ALEN);
+    memcpy(buf + 24, info->tip, 4);
 }
 
 void gethost(char *addr, char *host, int hostlen)

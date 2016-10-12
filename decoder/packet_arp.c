@@ -1,7 +1,7 @@
 #include <arpa/inet.h>
 #include <netinet/if_ether.h>
 #include <stdlib.h>
-#include <stdio.h>
+#include <string.h>
 #include "packet.h"
 #include "../error.h"
 
@@ -31,25 +31,10 @@ bool handle_arp(unsigned char *buffer, int n, struct eth_info *eth)
 
     arp_header = (struct ether_arp *) buffer;
     eth->arp = malloc(sizeof(struct arp_info));
-
-    /* sender protocol address */
-    if (inet_ntop(AF_INET, &arp_header->arp_spa, eth->arp->sip, INET_ADDRSTRLEN) == NULL) {
-        err_msg("inet_ntop error");
-    }
-
-    /* target protocol address */
-    if (inet_ntop(AF_INET, &arp_header->arp_tpa, eth->arp->tip, INET_ADDRSTRLEN) == NULL) {
-        err_msg("inet_ntop error");
-    }
-
-    /* sender/target hardware address */
-    snprintf(eth->arp->sha, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
-             arp_header->arp_sha[0], arp_header->arp_sha[1], arp_header->arp_sha[2],
-             arp_header->arp_sha[3], arp_header->arp_sha[4], arp_header->arp_sha[5]);
-    snprintf(eth->arp->tha, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",
-             arp_header->arp_tha[0], arp_header->arp_tha[1], arp_header->arp_tha[2],
-             arp_header->arp_tha[3], arp_header->arp_tha[4], arp_header->arp_tha[5]);
-
+    memcpy(eth->arp->sip, arp_header->arp_spa, 4); /* sender protocol address */
+    memcpy(eth->arp->tip, arp_header->arp_tpa, 4); /* target protocol address */
+    memcpy(eth->arp->sha, arp_header->arp_sha, ETH_ALEN); /* sender hardware address */
+    memcpy(eth->arp->tha, arp_header->arp_tha, ETH_ALEN); /* target hardware address */
     eth->arp->op = ntohs(arp_header->arp_op); /* arp opcode (command) */
     eth->arp->ht = ntohs(arp_header->arp_hrd);
     eth->arp->pt = ntohs(arp_header->arp_pro);
