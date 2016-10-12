@@ -233,10 +233,15 @@ void parse_dns_record(int i, unsigned char *buffer, unsigned char **ptr, struct 
             *ptr += parse_dns_name(buffer, *ptr, dns->record[i].rdata.soa.mname);
             *ptr += parse_dns_name(buffer, *ptr, dns->record[i].rdata.soa.rname);
             dns->record[i].rdata.soa.serial = (*ptr)[0] << 24 | (*ptr)[1] << 16 | (*ptr)[2] << 8 | (*ptr)[3];
-            dns->record[i].rdata.soa.retry = (*ptr)[4] << 24 | (*ptr)[5] << 16 | (*ptr)[6] << 8 | (*ptr)[7];
-            dns->record[i].rdata.soa.expire = (*ptr)[8] << 24 | (*ptr)[9] << 16 | (*ptr)[10] << 8 | (*ptr)[11];
-            dns->record[i].rdata.soa.minimum = (*ptr)[12] << 24 | (*ptr)[13] << 16 | (*ptr)[14] << 8 | (*ptr)[15];
-            *ptr += 16;
+            *ptr += 4;
+            dns->record[i].rdata.soa.refresh = (*ptr)[0] << 24 | (*ptr)[1] << 16 | (*ptr)[2] << 8 | (*ptr)[3];
+            *ptr += 4;
+            dns->record[i].rdata.soa.retry = (*ptr)[0] << 24 | (*ptr)[1] << 16 | (*ptr)[2] << 8 | (*ptr)[3];
+            *ptr += 4;
+            dns->record[i].rdata.soa.expire = (*ptr)[0] << 24 | (*ptr)[1] << 16 | (*ptr)[2] << 8 | (*ptr)[3];
+            *ptr += 4;
+            dns->record[i].rdata.soa.minimum = (*ptr)[0] << 24 | (*ptr)[1] << 16 | (*ptr)[2] << 8 | (*ptr)[3];
+            *ptr += 4;
             break;
         case DNS_TYPE_PTR:
             *ptr += parse_dns_name(buffer, *ptr, dns->record[i].rdata.ptrdname);
