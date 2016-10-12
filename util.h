@@ -7,6 +7,13 @@
 struct arp_info;
 struct dns_resource_record;
 
+struct tm_t {
+    int days;
+    int hours;
+    int mins;
+    int secs;
+};
+
 // TODO: This should be moved to its own file. Will be used for injecting
 // packets.
 void serialize_arp(unsigned char *buf, struct arp_info *info);
@@ -30,5 +37,14 @@ char *strtolower(char *str);
 
 /* Get the size of the longest domain name in the RRs */
 int get_max_namelen(struct dns_resource_record *record, int n);
+
+/* Converts seconds to number of days, hours, minutes and seconds */
+struct tm_t get_time(uint32_t num_secs);
+
+/*
+ * Converts the tm_t struct to a string of the form:
+ * "x days, x hours, x minutes, x seconds"
+ */
+void time_ntop(struct tm_t *time, char *result, int len);
 
 #endif

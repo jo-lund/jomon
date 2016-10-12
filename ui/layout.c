@@ -87,6 +87,11 @@ static void scroll_window();
 static int print_lines(int from, int to, int y, int cols);
 static void print(char *buf);
 static void print_header();
+static void print_selected_packet();
+static void print_protocol_information(struct packet *p, int lineno);
+static void print_app_protocol(struct application_info *info, int y);
+
+/* Handles subwindow layout */
 static void create_subwindow(int num_lines, int lineno);
 static void delete_subwindow();
 static bool update_subwin_selection();
@@ -98,9 +103,6 @@ static int calculate_dns_size(struct dns_info *dns);
 static void create_sublines(struct packet *p, int size);
 static void create_app_sublines(struct packet *p, int i);
 static bool is_suboption(enum header_type type);
-static void print_selected_packet();
-static void print_protocol_information(struct packet *p, int lineno);
-static void print_app_protocol(struct application_info *info, int y);
 
 void init_ncurses()
 {
@@ -477,6 +479,144 @@ void print(char *buf)
     }
 }
 
+/*
+ * Print more information about a packet when selected. This will print more
+ * details about the specific protocol headers and payload.
+ */
+void print_selected_packet()
+{
+    int screen_line;
+    struct packet *p;
+    static int prev_selection = -1;
+
+    if (prev_selection >= 0) {
+        if (subwindow.win) {
+            bool inside_subwin;
+
+            inside_subwin = update_subwin_selection();
+            if (inside_subwin) {
+                p = vector_get_data(vector, prev_selection);
+                print_protocol_information(p, prev_selection);
+                return;
+            }
+        }
+    }
+    screen_line = selection_line + scrollvy - top;
+    line[screen_line].selected = !line[screen_line].selected;
+    if (line[screen_line].selected) {
+        p = vector_get_data(vector, selection_line);
+        print_protocol_information(p, selection_line);
+    } else {
+        delete_subwindow();
+    }
+    prev_selection = selection_line + scrollvy;
+}
+
+void print_protocol_information(struct packet *p, int lineno)
+{
+    int size;
+
+    size = calculate_subwin_size(p, lineno);
+
+    /* Delete old subwindow. TODO: Possible to just resize? */
+    if (subwindow.win) {
+        delete_subwindow();
+    }
+
+    /* print information in subwindow */
+    create_subwindow(size, lineno);
+    create_sublines(p, size);
+    for (int i = 0; i < subwindow.num_lines; i++) {
+        if (subwindow.line[i].text) {
+            if (is_suboption(subwindow.line[i].type)) {
+                mvwprintw(subwindow.win, i, 4, subwindow.line[i].text);
+            } else {
+                mvwprintw(subwindow.win, i, 2, subwindow.line[i].text);
+            }
+            mvwchgat(subwindow.win, i, 0, -1, subwindow.line[i].attr, 0, NULL);
+        }
+        if (subwindow.line[i].selected) {
+            switch (subwindow.line[i].type) {
+            case ETHERNET_HDR:
+                print_ethernet_verbose(subwindow.win, p, i + 1);
+                break;
+            case ARP_HDR:
+                print_arp_verbose(subwindow.win, p, i + 1);
+                break;
+            case LLC_HDR:
+                print_llc_verbose(subwindow.win, p, i + 1);
+                break;
+            case STP_HDR:
+                print_stp_verbose(subwindow.win, p, i + 1);
+                break;
+            case IP_HDR:
+                print_ip_verbose(subwindow.win, p->eth.ip, i + 1);
+                break;
+            case TCP_HDR:
+                print_tcp_verbose(subwindow.win, p->eth.ip, i + 1);
+                break;
+            case TCP_OPTIONS:
+                print_tcp_options(subwindow.win, &p->eth.ip->tcp, i + 1);
+                break;
+            case UDP_HDR:
+                print_udp_verbose(subwindow.win, p->eth.ip, i + 1);
+                break;
+            case ICMP_HDR:
+                print_icmp_verbose(subwindow.win, p->eth.ip, i + 1);
+                break;
+            case IGMP_HDR:
+                print_igmp_verbose(subwindow.win, p->eth.ip, i + 1);
+                break;
+            case APP_HDR:
+                if (p->eth.ip->protocol == IPPROTO_UDP) {
+                    print_app_protocol(&p->eth.ip->udp.data, i + 1);
+                } else {
+                    print_app_protocol(&p->eth.ip->tcp.data, i + 1);
+                }
+                break;
+            case UNKNOWN_NETWORK:
+                print_payload(subwindow.win, p->eth.payload, p->eth.payload_len, i + 1);
+                break;
+            case UNKNOWN_TRANSPORT:
+                print_payload(subwindow.win, p->eth.ip->payload, p->eth.ip->payload_len, i + 1);
+                break;
+            default:
+                break;
+            }
+        }
+    }
+    int subline = selection_line - top - subwindow.top;
+
+    if (subline >= 0) {
+        mvwchgat(wmain, selection_line - top, 0, -1, subwindow.line[subline].attr, 1, NULL);
+    } else {
+        mvwchgat(wmain, selection_line - top, 0, -1, A_NORMAL, 1, NULL);
+    }
+    touchwin(wmain);
+    wrefresh(subwindow.win);
+}
+
+void print_app_protocol(struct application_info *info, int y)
+{
+    switch (info->utype) {
+    case DNS:
+        print_dns_verbose(subwindow.win, info->dns, y, getmaxx(wmain));
+        break;
+    case NBNS:
+        print_nbns_verbose(subwindow.win, info->nbns, y, getmaxx(wmain));
+        break;
+    case SSDP:
+        print_ssdp_verbose(subwindow.win, info->ssdp, y);
+        break;
+    case HTTP:
+        print_http_verbose(subwindow.win, info->http, y);
+        break;
+    default:
+        print_payload(subwindow.win, info->payload, info->payload_len, y);
+        break;
+    }
+}
+
 void create_subwindow(int num_lines, int lineno)
 {
     int mx, my;
@@ -710,39 +850,6 @@ void set_subwindow_line(int i, char *text, bool selected, enum header_type type)
     subwindow.line[i].selectable = true;
     subwindow.line[i].attr = A_BOLD;
     subwindow.line[i].type = type;
-}
-
-/*
- * Print more information about a packet when selected. This will print more
- * details about the specific protocol headers and payload.
- */
-void print_selected_packet()
-{
-    int screen_line;
-    struct packet *p;
-    static int prev_selection = -1;
-
-    if (prev_selection >= 0) {
-        if (subwindow.win) {
-            bool inside_subwin;
-
-            inside_subwin = update_subwin_selection();
-            if (inside_subwin) {
-                p = vector_get_data(vector, prev_selection);
-                print_protocol_information(p, prev_selection);
-                return;
-            }
-        }
-    }
-    screen_line = selection_line + scrollvy - top;
-    line[screen_line].selected = !line[screen_line].selected;
-    if (line[screen_line].selected) {
-        p = vector_get_data(vector, selection_line);
-        print_protocol_information(p, selection_line);
-    } else {
-        delete_subwindow();
-    }
-    prev_selection = selection_line + scrollvy;
 }
 
 /*
@@ -988,7 +1095,7 @@ int calculate_dns_size(struct dns_info *dns)
         records += dns->section_count[i];
     }
     if (dns->section_count[NSCOUNT]) {
-        size += dns->qr ? 22 + records : 19 + records;
+        size += dns->qr ? 21 + records : 18 + records;
     } else {
         size += dns->qr ? 14 + records : 10 + records;
     }
@@ -999,109 +1106,4 @@ int calculate_dns_size(struct dns_info *dns)
 bool is_suboption(enum header_type type)
 {
     return type == TCP_OPTIONS;
-}
-
-void print_protocol_information(struct packet *p, int lineno)
-{
-    int size;
-
-    size = calculate_subwin_size(p, lineno);
-
-    /* Delete old subwindow. TODO: Possible to just resize? */
-    if (subwindow.win) {
-        delete_subwindow();
-    }
-
-    /* print information in subwindow */
-    create_subwindow(size, lineno);
-    create_sublines(p, size);
-    for (int i = 0; i < subwindow.num_lines; i++) {
-        if (subwindow.line[i].text) {
-            if (is_suboption(subwindow.line[i].type)) {
-                mvwprintw(subwindow.win, i, 4, subwindow.line[i].text);
-            } else {
-                mvwprintw(subwindow.win, i, 2, subwindow.line[i].text);
-            }
-            mvwchgat(subwindow.win, i, 0, -1, subwindow.line[i].attr, 0, NULL);
-        }
-        if (subwindow.line[i].selected) {
-            switch (subwindow.line[i].type) {
-            case ETHERNET_HDR:
-                print_ethernet_verbose(subwindow.win, p, i + 1);
-                break;
-            case ARP_HDR:
-                print_arp_verbose(subwindow.win, p, i + 1);
-                break;
-            case LLC_HDR:
-                print_llc_verbose(subwindow.win, p, i + 1);
-                break;
-            case STP_HDR:
-                print_stp_verbose(subwindow.win, p, i + 1);
-                break;
-            case IP_HDR:
-                print_ip_verbose(subwindow.win, p->eth.ip, i + 1);
-                break;
-            case TCP_HDR:
-                print_tcp_verbose(subwindow.win, p->eth.ip, i + 1);
-                break;
-            case TCP_OPTIONS:
-                print_tcp_options(subwindow.win, &p->eth.ip->tcp, i + 1);
-                break;
-            case UDP_HDR:
-                print_udp_verbose(subwindow.win, p->eth.ip, i + 1);
-                break;
-            case ICMP_HDR:
-                print_icmp_verbose(subwindow.win, p->eth.ip, i + 1);
-                break;
-            case IGMP_HDR:
-                print_igmp_verbose(subwindow.win, p->eth.ip, i + 1);
-                break;
-            case APP_HDR:
-                if (p->eth.ip->protocol == IPPROTO_UDP) {
-                    print_app_protocol(&p->eth.ip->udp.data, i + 1);
-                } else {
-                    print_app_protocol(&p->eth.ip->tcp.data, i + 1);
-                }
-                break;
-            case UNKNOWN_NETWORK:
-                print_payload(subwindow.win, p->eth.payload, p->eth.payload_len, i + 1);
-                break;
-            case UNKNOWN_TRANSPORT:
-                print_payload(subwindow.win, p->eth.ip->payload, p->eth.ip->payload_len, i + 1);
-                break;
-            default:
-                break;
-            }
-        }
-    }
-    int subline = selection_line - top - subwindow.top;
-
-    if (subline >= 0) {
-        mvwchgat(wmain, selection_line - top, 0, -1, subwindow.line[subline].attr, 1, NULL);
-    } else {
-        mvwchgat(wmain, selection_line - top, 0, -1, A_NORMAL, 1, NULL);
-    }
-    touchwin(wmain);
-    wrefresh(subwindow.win);
-}
-
-void print_app_protocol(struct application_info *info, int y)
-{
-    switch (info->utype) {
-    case DNS:
-        print_dns_verbose(subwindow.win, info->dns, y, getmaxx(wmain));
-        break;
-    case NBNS:
-        print_nbns_verbose(subwindow.win, info->nbns, y, getmaxx(wmain));
-        break;
-    case SSDP:
-        print_ssdp_verbose(subwindow.win, info->ssdp, y);
-        break;
-    case HTTP:
-        print_http_verbose(subwindow.win, info->http, y);
-        break;
-    default:
-        print_payload(subwindow.win, info->payload, info->payload_len, y);
-        break;
-    }
 }

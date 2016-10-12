@@ -108,3 +108,57 @@ int get_max_namelen(struct dns_resource_record *record, int n)
     }
     return maxlen;
 }
+
+struct tm_t get_time(uint32_t num_secs)
+{
+    struct tm_t t;
+
+    t.days = num_secs / (60 * 60 * 24);
+    num_secs %= (60 * 60 * 24);
+    t.hours = num_secs / (60 * 60);
+    num_secs %= (60 * 60);
+    t.mins = num_secs / 60;
+    t.secs = num_secs % 60;
+    return t;
+}
+
+void time_ntop(struct tm_t *time, char *result, int len)
+{
+    bool found = false;
+
+    memset(result, 0, len);
+    if (time->days) {
+        snprintcat(result, len, time->days == 1 ? "%d day" : "%d days",
+                   time->days);
+        found = true;
+    }
+    if (time->hours) {
+        if (found) {
+            snprintcat(result, len, time->hours == 1 ? ", %d hour" : ", %d hours",
+                       time->hours);
+        } else {
+            snprintcat(result, len, time->hours == 1 ? "%d hour" : "%d hours",
+                       time->hours);
+            found = true;
+        }
+    }
+    if (time->mins) {
+        if (found) {
+            snprintcat(result, len, time->mins == 1 ? ", %d minute" :
+                       ", %d minutes", time->mins);
+        } else {
+            snprintcat(result, len, time->mins == 1 ? "%d minute" :
+                       "%d minutes", time->mins);
+            found = true;
+        }
+    }
+    if (time->secs) {
+        if (found) {
+            snprintcat(result, len, time->secs == 1 ? ", %d second" :
+                       ", %d seconds", time->secs);
+        } else {
+            snprintcat(result, len, time->secs == 1 ? "%d second" :
+                       "%d seconds", time->secs);
+        }
+    }
+}

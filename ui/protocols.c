@@ -712,7 +712,6 @@ void print_dns_verbose(WINDOW *win, struct dns_info *dns, int y, int maxx)
             print_dns_record(dns, i, buffer, maxx, dns->record[i].type, &soa);
             mvwprintw(win, ++y, 6, "%s", buffer);
             if (soa) {
-                mvwprintw(win, ++y, 0, "");
                 print_dns_soa(win, dns, i, y + 1, 6);
             }
         }
@@ -721,13 +720,29 @@ void print_dns_verbose(WINDOW *win, struct dns_info *dns, int y, int maxx)
 
 void print_dns_soa(WINDOW *win, struct dns_info *info, int i, int y, int x)
 {
-    mvwprintw(win, y, x, "mname: %s", info->record[i].rdata.soa.mname);
-    mvwprintw(win, ++y, x, "rname: %s", info->record[i].rdata.soa.rname);
-    mvwprintw(win, ++y, x, "Serial: %d", info->record[i].rdata.soa.serial);
-    mvwprintw(win, ++y, x, "Refresh: %d", info->record[i].rdata.soa.refresh);
-    mvwprintw(win, ++y, x, "Retry: %d", info->record[i].rdata.soa.retry);
-    mvwprintw(win, ++y, x, "Expire: %d", info->record[i].rdata.soa.expire);
-    mvwprintw(win, ++y, x, "Minimum: %d", info->record[i].rdata.soa.minimum);
+    char time[512];
+    struct tm_t tm;
+
+    mvwprintw(win, y, x, "mname (primary name server): %s", info->record[i].rdata.soa.mname);
+    mvwprintw(win, ++y, x, "rname (mailbox of responsible authority): %s",
+              info->record[i].rdata.soa.rname);
+    mvwprintw(win, ++y, x, "Serial number: %d", info->record[i].rdata.soa.serial);
+    tm = get_time(info->record[i].rdata.soa.refresh);
+    time_ntop(&tm, time, 512);
+    mvwprintw(win, ++y, x, "Refresh interval: %d (%s)",
+              info->record[i].rdata.soa.refresh, time);
+    tm = get_time(info->record[i].rdata.soa.retry);
+    time_ntop(&tm, time, 512);
+    mvwprintw(win, ++y, x, "Retry interval: %d (%s)",
+              info->record[i].rdata.soa.retry, time);
+    tm = get_time(info->record[i].rdata.soa.expire);
+    time_ntop(&tm, time, 512);
+    mvwprintw(win, ++y, x, "Expire limit: %d (%s)",
+              info->record[i].rdata.soa.expire, time);
+    tm = get_time(info->record[i].rdata.soa.minimum);
+    time_ntop(&tm, time, 512);
+    mvwprintw(win, ++y, x, "Minimum TTL: %d (%s)",
+              info->record[i].rdata.soa.minimum, time);
 }
 
 void print_nbns_verbose(WINDOW *win, struct nbns_info *nbns, int y, int maxx)
