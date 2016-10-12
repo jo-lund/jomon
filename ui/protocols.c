@@ -675,8 +675,19 @@ void print_dns_verbose(WINDOW *win, struct dns_info *dns, int y, int maxx)
     mvwprintw(win, y, 4, "ID: 0x%x", dns->id);
     mvwprintw(win, ++y, 4, "QR: %d (%s)", dns->qr, dns->qr ? "DNS Response" : "DNS Query");
     mvwprintw(win, ++y, 4, "Opcode: %d (%s)", dns->opcode, get_dns_opcode(dns->opcode));
-    mvwprintw(win, ++y, 4, "Flags: %d%d%d%d", dns->aa, dns->tc, dns->rd, dns->ra);
-    mvwprintw(win, ++y, 4, "Rcode: %d (%s)", dns->rcode, get_dns_rcode(dns->rcode));
+    if (dns->qr) {
+        mvwprintw(win, ++y, 4, "AA: %d (%s)", dns->aa, dns->aa ?
+                  "Authoritative answer" : "Not an authoritative answer");
+    }
+    mvwprintw(win, ++y, 4, "TC: %d (%s)", dns->tc, dns->tc ? "Truncation" :
+              "No truncation");
+    mvwprintw(win, ++y, 4, "RD: %d (%s)", dns->rd, dns->rd ?
+              "Recursion desired" : "No recursion desired");
+    if (dns->qr) {
+        mvwprintw(win, ++y, 4, "RA: %d (%s)", dns->ra, dns->ra ?
+                  "Recursion available" : "No recursion available");
+        mvwprintw(win, ++y, 4, "Rcode: %d (%s)", dns->rcode, get_dns_rcode(dns->rcode));
+    }
     mvwprintw(win, ++y, 4, "Question: %d, Answer: %d, Authority: %d, Additional records: %d",
               dns->section_count[QDCOUNT], dns->section_count[ANCOUNT],
               dns->section_count[NSCOUNT], dns->section_count[ARCOUNT]);
@@ -699,10 +710,10 @@ void print_dns_verbose(WINDOW *win, struct dns_info *dns, int y, int maxx)
             snprintcat(buffer, maxx, "%-6s", get_dns_class(dns->record[i].rrclass));
             snprintcat(buffer, maxx, "%-8s", get_dns_type(dns->record[i].type));
             print_dns_record(dns, i, buffer, maxx, dns->record[i].type, &soa);
-            mvwprintw(win, ++y, 8, "%s", buffer);
+            mvwprintw(win, ++y, 6, "%s", buffer);
             if (soa) {
                 mvwprintw(win, ++y, 0, "");
-                print_dns_soa(win, dns, i, y + 1, 8);
+                print_dns_soa(win, dns, i, y + 1, 6);
             }
         }
     }

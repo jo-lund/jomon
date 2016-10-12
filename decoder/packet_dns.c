@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "packet_dns.h"
@@ -55,8 +56,6 @@ static void parse_dns_record(int i, unsigned char *buffer, unsigned char **ptr, 
  *          server resource records in the authority records section.
  * ARCOUNT: an unsigned 16 bit integer specifying the number of
  *          resource records in the additional records section.
- *
- * TODO: Handle authority and additional records.
  */
 bool handle_dns(unsigned char *buffer, struct application_info *info)
 {

@@ -94,6 +94,7 @@ static void set_subwindow_line(int i, char *text, bool selected, enum header_typ
 static int calculate_subwin_size(struct packet *p, int screen_line);
 static int calculate_applayer_size(struct application_info *info, int screen_line);
 static int calculate_tcp_options_size(struct tcp *tcp);
+static int calculate_dns_size(struct dns_info *dns);
 static void create_sublines(struct packet *p, int size);
 static void create_app_sublines(struct packet *p, int i);
 static bool is_suboption(enum header_type type);
@@ -921,13 +922,7 @@ int calculate_applayer_size(struct application_info *info, int screen_line)
     switch (info->utype) {
     case DNS:
         if (preferences.application_selected) {
-            int records = 0;
-
-            /* number of resource records */
-            for (int i = 1; i < 4; i++) {
-                records += info->dns->section_count[i];
-            }
-            size += (info->dns->section_count[NSCOUNT] ? 19 + records : 11 + records);
+            size += calculate_dns_size(info->dns);
         } else {
             size += 2;
         }
@@ -981,6 +976,24 @@ int calculate_tcp_options_size(struct tcp *tcp)
     free_tcp_options(opt);
 
     return lines;
+}
+
+int calculate_dns_size(struct dns_info *dns)
+{
+    int records = 0;
+    int size = 0;
+
+    /* number of resource records */
+    for (int i = 1; i < 4; i++) {
+        records += dns->section_count[i];
+    }
+    if (dns->section_count[NSCOUNT]) {
+        size += dns->qr ? 22 + records : 19 + records;
+    } else {
+        size += dns->qr ? 14 + records : 10 + records;
+    }
+
+    return size;
 }
 
 bool is_suboption(enum header_type type)

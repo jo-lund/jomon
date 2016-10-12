@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 #define DNS_HDRLEN 12
-#define DNS_NAMELEN 254
+#define DNS_NAMELEN 255 /* a DNS name is 255 bytes or less */
 
 /* DNS opcodes */
 #define DNS_QUERY 0  /* standard query */
