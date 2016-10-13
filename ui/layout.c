@@ -227,6 +227,7 @@ void handle_keyup(int lines, int cols)
         struct packet *p = vector_get_data(vector, --selection_line);
 
         top--;
+        if (subwindow.win) subwindow.top++;
         if (p) {
             char line[cols];
 
@@ -271,6 +272,7 @@ void handle_keydown(int lines, int cols)
         struct packet *p = vector_get_data(vector, ++selection_line);
 
         top++;
+        if (subwindow.win) subwindow.top--;
         if (p) {
             char line[cols];
 
@@ -322,12 +324,14 @@ void scroll_page(int lines, int cols)
 
                 wscrl(wmain, scroll);
                 top += scroll;
+                if (subwindow.win) subwindow.top -= scroll;
                 if (selection_line >= vector_size(vector)) {
                     selection_line = vector_size(vector) - 1;
                 }
                 print_lines(bottom + 1, vector_size(vector), vector_size(vector) - scroll - top, cols);
             } else {
                 top += lines;
+                if (subwindow.win) subwindow.top -= lines;
                 wscrl(wmain, lines);
                 print_lines(top, top + lines, 0, cols);
             }
@@ -351,6 +355,7 @@ void scroll_page(int lines, int cols)
             } else {
                 wscrl(wmain, lines);
                 top += lines;
+                if (subwindow.win) subwindow.top -= lines;
                 print_lines(top, top - lines, 0, cols);
             }
             mvwchgat(wmain, selection_line - top, 0, -1, A_NORMAL, 1, NULL);
@@ -489,16 +494,14 @@ void print_selected_packet()
     struct packet *p;
     static int prev_selection = -1;
 
-    if (prev_selection >= 0) {
-        if (subwindow.win) {
-            bool inside_subwin;
+    if (prev_selection >= 0 && subwindow.win) {
+        bool inside_subwin;
 
-            inside_subwin = update_subwin_selection();
-            if (inside_subwin) {
-                p = vector_get_data(vector, prev_selection);
-                print_protocol_information(p, prev_selection);
-                return;
-            }
+        inside_subwin = update_subwin_selection();
+        if (inside_subwin) {
+            p = vector_get_data(vector, prev_selection);
+            print_protocol_information(p, prev_selection);
+            return;
         }
     }
     screen_line = selection_line + scrollvy - top;
