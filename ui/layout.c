@@ -50,18 +50,22 @@ enum header_type {
 };
 
 static struct line_info {
-    bool selectable;
+    int line_number;
     bool selected;
-    char *text;
-    uint32_t attr;
-    enum header_type type;
-} *line;
+} main_line;
 
 static struct subwin_info {
     WINDOW *win;
-    unsigned int top;
+    unsigned int top; /* index to the first line in the subwindow relative to the
+                         main window */
     unsigned int num_lines;
-    struct line_info *line;
+    struct subline_info {
+        bool selectable;
+        bool selected;
+        char *text;
+        uint32_t attr;
+        enum header_type type;
+    } *line;
 } subwindow;
 
 extern vector_t *vector;
@@ -71,11 +75,16 @@ static WINDOW *wmain;
 static WINDOW *wstatus;
 static int outy = 0;
 static bool interactive = false;
-static int selection_line = 0;
-static int top = 0; /* index to top of screen */
+static int selection_line = 0; /* index to the selection bar */
 static bool capturing = true;
 
-/* the number of lines to be scrolled in order to print verbose packet information */
+/*
+ * Index to top of screen. The screen will be between top + maximum number of
+ * lines of the main window, i.e. getmaxy(wmain).
+ */
+static int top = 0;
+
+/* the number of lines to be scrolled in order to print packet information */
 static int scrollvy = 0;
 
 static void set_interactive(bool interactive_mode, int lines, int cols);
@@ -121,7 +130,6 @@ void init_ncurses()
 void end_ncurses()
 {
     endwin(); /* end curses mode */
-    free(line);
 }
 
 void create_layout()
@@ -136,7 +144,6 @@ void create_layout()
     keypad(wmain, TRUE);
     print_header();
     scrollok(wmain, TRUE); /* enable scrolling */
-    line = calloc(my, sizeof(struct line_info));
 }
 
 /* scroll the window if necessary */
@@ -227,7 +234,10 @@ void handle_keyup(int lines, int cols)
         struct packet *p = vector_get_data(vector, --selection_line);
 
         top--;
-        if (subwindow.win) subwindow.top++;
+        if (subwindow.win) {
+            subwindow.top++;
+            main_line.line_number++;
+        }
         if (p) {
             char line[cols];
 
@@ -272,7 +282,10 @@ void handle_keydown(int lines, int cols)
         struct packet *p = vector_get_data(vector, ++selection_line);
 
         top++;
-        if (subwindow.win) subwindow.top--;
+        if (subwindow.win) {
+            subwindow.top--;
+            main_line.line_number--;
+        }
         if (p) {
             char line[cols];
 
@@ -324,14 +337,20 @@ void scroll_page(int lines, int cols)
 
                 wscrl(wmain, scroll);
                 top += scroll;
-                if (subwindow.win) subwindow.top -= scroll;
+                if (subwindow.win) {
+                    subwindow.top -= scroll;
+                    main_line.line_number -= scroll;
+                }
                 if (selection_line >= vector_size(vector)) {
                     selection_line = vector_size(vector) - 1;
                 }
                 print_lines(bottom + 1, vector_size(vector), vector_size(vector) - scroll - top, cols);
             } else {
                 top += lines;
-                if (subwindow.win) subwindow.top -= lines;
+                if (subwindow.win) {
+                    subwindow.top -= lines;
+                    main_line.line_number -= lines;
+                }
                 wscrl(wmain, lines);
                 print_lines(top, top + lines, 0, cols);
             }
@@ -355,7 +374,10 @@ void scroll_page(int lines, int cols)
             } else {
                 wscrl(wmain, lines);
                 top += lines;
-                if (subwindow.win) subwindow.top -= lines;
+                if (subwindow.win) {
+                    subwindow.top -= lines;
+                    main_line.line_number -= lines;
+                }
                 print_lines(top, top - lines, 0, cols);
             }
             mvwchgat(wmain, selection_line - top, 0, -1, A_NORMAL, 1, NULL);
@@ -505,8 +527,21 @@ void print_selected_packet()
         }
     }
     screen_line = selection_line + scrollvy - top;
-    line[screen_line].selected = !line[screen_line].selected;
-    if (line[screen_line].selected) {
+    if (screen_line == main_line.line_number) {
+        main_line.selected = !main_line.selected;
+    } else {
+        main_line.selected = true;
+
+        /* the index to the selected line needs to be adjusted in case of an
+           open subwindow */
+        if (subwindow.win && screen_line > subwindow.top) {
+            main_line.line_number = screen_line - subwindow.num_lines;
+            selection_line -= subwindow.num_lines;
+        } else {
+            main_line.line_number = screen_line;
+        }
+    }
+    if (main_line.selected) {
         p = vector_get_data(vector, selection_line);
         print_protocol_information(p, selection_line);
     } else {
@@ -642,7 +677,7 @@ void create_subwindow(int num_lines, int lineno)
     }
 
     /* make space for protocol specific information */
-    subwindow.line = calloc(num_lines, sizeof(struct line_info));
+    subwindow.line = calloc(num_lines, sizeof(struct subline_info));
     subwindow.win = derwin(wmain, num_lines, mx, start_line + 1, 0);
     subwindow.top = start_line + 1;
     subwindow.num_lines = num_lines;
@@ -867,7 +902,7 @@ bool update_subwin_selection()
 
     screen_line = selection_line - top;
     if (screen_line >= subwindow.top &&
-        screen_line <= subwindow.top + subwindow.num_lines) {
+        screen_line < subwindow.top + subwindow.num_lines) {
         int subline;
 
         subline = screen_line - subwindow.top;
