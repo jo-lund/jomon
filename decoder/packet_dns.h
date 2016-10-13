@@ -51,6 +51,13 @@
 #define DNS_CLASS_HS 4      /* Hesiod */
 #define DNS_QCLASS_STAR 255 /* any class */
 
+enum dns_section_count {
+    QDCOUNT,
+    ANCOUNT,
+    NSCOUNT,
+    ARCOUNT
+};
+
 struct dns_info {
     uint16_t id; /* A 16 bit identifier */
     unsigned int qr     : 1; /* 0 DNS query, 1 DNS response */
@@ -124,16 +131,9 @@ struct dns_info {
     } *record;
 };
 
-enum dns_section_count {
-    QDCOUNT,
-    ANCOUNT,
-    NSCOUNT,
-    ARCOUNT
-};
-
 struct application_info;
 
-bool handle_dns(unsigned char *buffer, struct application_info *info);
+bool handle_dns(unsigned char *buffer, struct application_info *info, uint16_t len);
 int parse_dns_name(unsigned char *buffer, unsigned char *ptr, char name[]);
 char *get_dns_opcode(uint8_t opcode);
 char *get_dns_rcode(uint8_t rcode);

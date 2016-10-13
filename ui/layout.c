@@ -638,6 +638,7 @@ void print_app_protocol(struct application_info *info, int y)
 {
     switch (info->utype) {
     case DNS:
+    case MDNS:
         print_dns_verbose(subwindow.win, info->dns, y, getmaxx(wmain));
         break;
     case NBNS:
@@ -841,6 +842,7 @@ void create_app_sublines(struct packet *p, int i)
 {
     switch (p->eth.ip->udp.data.utype) {
     case DNS:
+    case MDNS:
         if (preferences.application_selected) {
             set_subwindow_line(i, "- Domain Name System (DNS)", true, APP_HDR);
         } else {
@@ -1066,6 +1068,7 @@ int calculate_applayer_size(struct application_info *info, int screen_line)
 
     switch (info->utype) {
     case DNS:
+    case MDNS:
         if (preferences.application_selected) {
             size += calculate_dns_size(info->dns);
         } else {

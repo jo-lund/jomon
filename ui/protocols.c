@@ -36,7 +36,7 @@ static void print_udp(char *buf, int n, struct ip_info *info);
 static void print_tcp(char *buf, int n, struct ip_info *info);
 static void print_icmp(char *buf, int n, struct ip_info *info);
 static void print_igmp(char *buf, int n, struct ip_info *info);
-static void print_dns(char *buf, int n, struct dns_info *dns);
+static void print_dns(char *buf, int n, struct dns_info *dns, uint16_t type);
 static void print_nbns(char *buf, int n, struct nbns_info *nbns);
 static void print_ssdp(char *buf, int n, list_t *ssdp);
 static void print_http(char *buf, int n, struct http_info *http);
@@ -208,7 +208,8 @@ void print_tcp(char *buf, int n, struct ip_info *info)
         print_http(buf, n, info->tcp.data.http);
         break;
     case DNS:
-        print_dns(buf, n, info->tcp.data.dns);
+    case MDNS:
+        print_dns(buf, n, info->tcp.data.dns, info->tcp.data.utype);
         break;
     case NBNS:
         print_nbns(buf, n, info->tcp.data.nbns);
@@ -244,7 +245,8 @@ void print_udp(char *buf, int n, struct ip_info *info)
 {
     switch (info->udp.data.utype) {
     case DNS:
-        print_dns(buf, n, info->udp.data.dns);
+    case MDNS:
+        print_dns(buf, n, info->udp.data.dns, info->udp.data.utype);
         break;
     case NBNS:
         print_nbns(buf, n, info->udp.data.nbns);
@@ -260,9 +262,13 @@ void print_udp(char *buf, int n, struct ip_info *info)
     }
 }
 
-void print_dns(char *buf, int n, struct dns_info *dns)
+void print_dns(char *buf, int n, struct dns_info *dns, uint16_t type)
 {
-    PRINT_PROTOCOL(buf, n, "DNS");
+    if (type == DNS) {
+        PRINT_PROTOCOL(buf, n, "DNS");
+    } else {
+        PRINT_PROTOCOL(buf, n, "MDNS");
+    }
     if (dns->qr == 0) {
         switch (dns->opcode) {
         case DNS_QUERY:

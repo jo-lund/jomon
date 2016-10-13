@@ -57,15 +57,16 @@ static void parse_dns_record(int i, unsigned char *buffer, unsigned char **ptr, 
  * ARCOUNT: an unsigned 16 bit integer specifying the number of
  *          resource records in the additional records section.
  */
-bool handle_dns(unsigned char *buffer, struct application_info *info)
+bool handle_dns(unsigned char *buffer, struct application_info *info, uint16_t len)
 {
     unsigned char *ptr = buffer;
 
+    if (len < DNS_HDRLEN) return false;
+
     // TODO: Handle more than one question
-    if ((ptr[4] << 8 | ptr[5]) != 0x1) { /* the QDCOUNT will in practice always be one */
+    if ((ptr[4] << 8 | ptr[5]) > 0x1) { /* the QDCOUNT will in practice always be one */
         return false;
     }
-
     info->dns = malloc(sizeof(struct dns_info));
     info->dns->id = ptr[0] << 8 | ptr[1];
     info->dns->qr = (ptr[2] & 0x80) >> 7;
@@ -84,10 +85,12 @@ bool handle_dns(unsigned char *buffer, struct application_info *info)
         ptr += DNS_HDRLEN;
 
         /* QUESTION section */
-        ptr += parse_dns_name(buffer, ptr, info->dns->question.qname);
-        info->dns->question.qtype = ptr[0] << 8 | ptr[1];
-        info->dns->question.qclass = ptr[2] << 8 | ptr[3];
-        ptr += 4; /* skip qtype and qclass */
+        if (info->dns->section_count[QDCOUNT] > 0) {
+            ptr += parse_dns_name(buffer, ptr, info->dns->question.qname);
+            info->dns->question.qtype = ptr[0] << 8 | ptr[1];
+            info->dns->question.qclass = ptr[2] << 8 | ptr[3];
+            ptr += 4; /* skip qtype and qclass */
+        }
 
         /* Answer/Authority/Additional records sections */
         int num_records = 0;
@@ -120,9 +123,11 @@ bool handle_dns(unsigned char *buffer, struct application_info *info)
         ptr += DNS_HDRLEN;
 
         /* QUESTION section */
-        ptr += parse_dns_name(buffer, ptr, info->dns->question.qname);
-        info->dns->question.qtype = ptr[0] << 8 | ptr[1];
-        info->dns->question.qclass = ptr[2] << 8 | ptr[3];
+        if (info->dns->section_count[QDCOUNT] > 0) {
+            ptr += parse_dns_name(buffer, ptr, info->dns->question.qname);
+            info->dns->question.qtype = ptr[0] << 8 | ptr[1];
+            info->dns->question.qclass = ptr[2] << 8 | ptr[3];
+        }
 
         /* Additional records */
         if (info->dns->section_count[ARCOUNT]) {

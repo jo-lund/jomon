@@ -680,7 +680,8 @@ bool check_port(unsigned char *buffer, struct application_info *info, uint16_t p
 {
     switch (port) {
     case DNS:
-        return handle_dns(buffer, info);
+    case MDNS:
+        return handle_dns(buffer, info, packet_len);
     case NBNS:
         return handle_nbns(buffer, info);
     case SSDP:

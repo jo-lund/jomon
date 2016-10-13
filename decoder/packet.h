@@ -27,10 +27,11 @@ enum port {
      * Windows system can use DNS for all the purposes for which NBNS was used
      * previously.
      */
-    NBNS = 137, /* NetBIOS Name Service */
-    NBDS = 138, /* NetBIOS Datagram Service */
-    NBSS = 139, /* NetBIOS Session Service */
-    SSDP = 1900 /* Simple Service Discovery Protocol */
+    NBNS = 137,  /* NetBIOS Name Service */
+    NBDS = 138,  /* NetBIOS Datagram Service */
+    NBSS = 139,  /* NetBIOS Session Service */
+    SSDP = 1900, /* Simple Service Discovery Protocol */
+    MDNS = 5353  /* Multicast DNS */
 };
 
 enum packet_type {
