@@ -147,6 +147,17 @@ void free_protocol_data(struct application_info *info)
     case DNS:
         if (info->dns) {
             if (info->dns->record) {
+                switch (info->dns->record->type) {
+                case DNS_TYPE_HINFO:
+                    free(info->dns->record->rdata.hinfo.cpu);
+                    free(info->dns->record->rdata.hinfo.os);
+                    break;
+                case DNS_TYPE_TXT:
+                    list_free(info->dns->record->rdata.txt);
+                    break;
+                default:
+                    break;
+                }
                 free(info->dns->record);
             }
             free(info->dns);

@@ -412,6 +412,10 @@ void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t t
         snprintcat(buf, n, "%s", addr);
         break;
     }
+    case DNS_TYPE_HINFO:
+        snprintcat(buf, n, "%s ", info->record[i].rdata.hinfo.cpu);
+        snprintcat(buf, n, "%s", info->record[i].rdata.hinfo.os);
+        break;
     default:
         break;
     }

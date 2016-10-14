@@ -6,7 +6,8 @@
 
 #define DNS_PTR_LEN 2
 
-static void parse_dns_record(int i, unsigned char *buffer, unsigned char **ptr, struct dns_info *info);
+static void parse_dns_record(int i, unsigned char *buffer, unsigned char **data, struct dns_info *dns);
+static char *parse_dns_txt(unsigned char **data);
 
 /*
  * Handle DNS messages. Will return false if not DNS.
@@ -149,7 +150,9 @@ bool handle_dns(unsigned char *buffer, struct application_info *info, uint16_t l
  * - a sequence of labels ending with a pointer
  *
  * Each label is represented as a one octet length field followed by that number
- * of octets. The high order two bits of the length field must be zero.
+ * of octets. The high order two bits of the length field must be zero. Since
+ * every domain name ends with the null label of the root, a domain name is
+ * terminated by a length byte of zero.
  */
 int parse_dns_name(unsigned char *buffer, unsigned char *ptr, char name[])
 {
@@ -192,8 +195,8 @@ int parse_dns_name(unsigned char *buffer, unsigned char *ptr, char name[])
                  * is just a pointer, n will be 0
                  */
                 name_ptr_len = n + DNS_PTR_LEN;
+                compression = true;
             }
-            compression = true;
         } else {
             memcpy(name + n, ptr + 1, label_length);
         }
@@ -211,62 +214,104 @@ int parse_dns_name(unsigned char *buffer, unsigned char *ptr, char name[])
  * Parse a DNS resource record.
  * int i is the recource record index.
  */
-void parse_dns_record(int i, unsigned char *buffer, unsigned char **ptr, struct dns_info *dns)
+void parse_dns_record(int i, unsigned char *buffer, unsigned char **data, struct dns_info *dns)
 {
     uint16_t rdlen;
+    unsigned char *ptr = *data;
 
-    *ptr += parse_dns_name(buffer, *ptr, dns->record[i].name);
-    dns->record[i].type = (*ptr)[0] << 8 | (*ptr)[1];
-    dns->record[i].rrclass = (*ptr)[2] << 8 | (*ptr)[3];
-    dns->record[i].ttl = (*ptr)[4] << 24 | (*ptr)[5] << 16 | (*ptr)[6] << 8 | (*ptr)[7];
-    rdlen = (*ptr)[8] << 8 | (*ptr)[9];
-    *ptr += 10; /* skip to rdata field */
+    ptr += parse_dns_name(buffer, ptr, dns->record[i].name);
+    dns->record[i].type = ptr[0] << 8 | ptr[1];
+    dns->record[i].rrclass = ptr[2] << 8 | ptr[3];
+    dns->record[i].ttl = ptr[4] << 24 | ptr[5] << 16 | ptr[6] << 8 | ptr[7];
+    rdlen = ptr[8] << 8 | ptr[9];
+    ptr += 10; /* skip to rdata field */
 
     if (GET_MDNS_RRCLASS(dns->record[i].rrclass) == DNS_CLASS_IN) {
         switch (dns->record[i].type) {
         case DNS_TYPE_A:
             if (rdlen == 4) {
-                dns->record[i].rdata.address = (*ptr)[0] << 24 | (*ptr)[1] << 16 | (*ptr)[2] << 8 | (*ptr)[3];
+                dns->record[i].rdata.address = ptr[0] << 24 | ptr[1] << 16 | ptr[2] << 8 | ptr[3];
             }
-            *ptr += rdlen;
+            ptr += rdlen;
             break;
         case DNS_TYPE_NS:
-            *ptr += parse_dns_name(buffer, *ptr, dns->record[i].rdata.nsdname);
+            ptr += parse_dns_name(buffer, ptr, dns->record[i].rdata.nsdname);
         case DNS_TYPE_CNAME:
-            *ptr += parse_dns_name(buffer, *ptr, dns->record[i].rdata.cname);
+            ptr += parse_dns_name(buffer, ptr, dns->record[i].rdata.cname);
             break;
         case DNS_TYPE_SOA:
-            *ptr += parse_dns_name(buffer, *ptr, dns->record[i].rdata.soa.mname);
-            *ptr += parse_dns_name(buffer, *ptr, dns->record[i].rdata.soa.rname);
-            dns->record[i].rdata.soa.serial = (*ptr)[0] << 24 | (*ptr)[1] << 16 | (*ptr)[2] << 8 | (*ptr)[3];
-            *ptr += 4;
-            dns->record[i].rdata.soa.refresh = (*ptr)[0] << 24 | (*ptr)[1] << 16 | (*ptr)[2] << 8 | (*ptr)[3];
-            *ptr += 4;
-            dns->record[i].rdata.soa.retry = (*ptr)[0] << 24 | (*ptr)[1] << 16 | (*ptr)[2] << 8 | (*ptr)[3];
-            *ptr += 4;
-            dns->record[i].rdata.soa.expire = (*ptr)[0] << 24 | (*ptr)[1] << 16 | (*ptr)[2] << 8 | (*ptr)[3];
-            *ptr += 4;
-            dns->record[i].rdata.soa.minimum = (*ptr)[0] << 24 | (*ptr)[1] << 16 | (*ptr)[2] << 8 | (*ptr)[3];
-            *ptr += 4;
+            ptr += parse_dns_name(buffer, ptr, dns->record[i].rdata.soa.mname);
+            ptr += parse_dns_name(buffer, ptr, dns->record[i].rdata.soa.rname);
+            dns->record[i].rdata.soa.serial = ptr[0] << 24 | ptr[1] << 16 | ptr[2] << 8 | ptr[3];
+            ptr += 4;
+            dns->record[i].rdata.soa.refresh = ptr[0] << 24 | ptr[1] << 16 | ptr[2] << 8 | ptr[3];
+            ptr += 4;
+            dns->record[i].rdata.soa.retry = ptr[0] << 24 | ptr[1] << 16 | ptr[2] << 8 | ptr[3];
+            ptr += 4;
+            dns->record[i].rdata.soa.expire = ptr[0] << 24 | ptr[1] << 16 | ptr[2] << 8 | ptr[3];
+            ptr += 4;
+            dns->record[i].rdata.soa.minimum = ptr[0] << 24 | ptr[1] << 16 | ptr[2] << 8 | ptr[3];
+            ptr += 4;
             break;
         case DNS_TYPE_PTR:
-            *ptr += parse_dns_name(buffer, *ptr, dns->record[i].rdata.ptrdname);
+            ptr += parse_dns_name(buffer, ptr, dns->record[i].rdata.ptrdname);
             break;
         case DNS_TYPE_AAAA:
             if (rdlen == 16) {
                 for (int j = 0; j < rdlen; j++) {
-                    dns->record[i].rdata.ipv6addr[j] = (*ptr)[j];
+                    dns->record[i].rdata.ipv6addr[j] = ptr[j];
                 }
             }
-            *ptr += rdlen;
+            ptr += rdlen;
             break;
+        case DNS_TYPE_HINFO:
+            dns->record[i].rdata.hinfo.cpu = parse_dns_txt(&ptr);
+            dns->record[i].rdata.hinfo.os = parse_dns_txt(&ptr);
+            break;
+        case DNS_TYPE_TXT:
+        {
+            int i = 0;
+
+            dns->record[i].rdata.txt = list_init(NULL);
+            while (i < rdlen) {
+                char *txt;
+
+                txt = parse_dns_txt(&ptr);
+                list_push_back(dns->record[i].rdata.txt, txt);
+                i += strlen(txt) + 1;
+            }
+            break;
+        }
         default:
-            *ptr += rdlen;
+            ptr += rdlen;
             break;
         }
     } else {
-        *ptr += rdlen;
+        ptr += rdlen;
     }
+    *data = ptr; /* skip parsed dns record */
+}
+
+/*
+ * Parse DNS character strings. The strings are formatted as one byte length
+ * field followed by that number of bytes.
+ *
+ * Returns the character string formatted as a C string, which needs to be freed
+ * by the caller.
+ */
+char *parse_dns_txt(unsigned char **data)
+{
+    char *txt;
+    uint8_t len;
+    unsigned char *ptr = *data;
+
+    len = *ptr;
+    txt = malloc(len + 1);
+    memcpy(txt, ++ptr, len);
+    txt[len] = '\0';
+    ptr += len;
+    *data = ptr;
+    return txt;
 }
 
 char *get_dns_opcode(uint8_t opcode)
@@ -320,6 +365,8 @@ char *get_dns_type(uint16_t type)
         return "MX";
     case DNS_TYPE_AAAA:
         return "AAAA";
+    case DNS_TYPE_HINFO:
+        return "HINFO";
     default:
         return "";
     }
@@ -342,6 +389,8 @@ char *get_dns_type_extended(uint16_t type)
         return "MX (mail exchange)";
     case DNS_TYPE_AAAA:
         return "AAAA (IPv6 host address)";
+    case DNS_TYPE_HINFO:
+        return "HINFO (identifies the CPU and OS used by a host)";
     default:
         return "";
     }

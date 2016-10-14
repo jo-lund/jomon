@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 #define DNS_HDRLEN 12
-#define DNS_NAMELEN 255 /* a DNS name is 255 bytes or less */
+#define DNS_NAMELEN 256 /* a DNS name is 255 bytes or less + null byte */
 
 /* DNS opcodes */
 #define DNS_QUERY 0  /* standard query */
@@ -50,6 +50,9 @@
 #define DNS_CLASS_CH 3      /* the CHAOS class */
 #define DNS_CLASS_HS 4      /* Hesiod */
 #define DNS_QCLASS_STAR 255 /* any class */
+
+typedef struct list list_t;
+struct application_info;
 
 /*
  * In the Resource Record Sections of a Multicast DNS response, the top
@@ -130,6 +133,7 @@ struct dns_info {
                authoritative for the specified class and domain */
             char nsdname[DNS_NAMELEN];
             uint32_t address; /* a 32 bit IPv4 internet address */
+            uint8_t ipv6addr[16]; /* a 128 bit IPv6 address */
 
              /* start of authority */
             struct {
@@ -140,23 +144,43 @@ struct dns_info {
                    person responsible for this zone */
                 char rname[DNS_NAMELEN];
                 uint32_t serial; /* the version number of the original copy of the zone */
+
                 /* all times are in units of seconds */
-                int32_t refresh; /* time interval before the zone should be refreshed */
-                int32_t retry; /* time interval that should elapse before a
-                                  failed refresh should be retried */
-                int32_t expire; /* time value that specifies the upper limit on
-                                   the time interval that can elapse before the
-                                   zone is no longer authoritative */
+                int32_t refresh;  /* time interval before the zone should be refreshed */
+                int32_t retry;    /* time interval that should elapse before a
+                                     failed refresh should be retried */
+                int32_t expire;   /* time value that specifies the upper limit on
+                                     the time interval that can elapse before the
+                                     zone is no longer authoritative */
                 uint32_t minimum; /* the minimum ttl field that should be exported
                                      with any RR from this zone */
             } soa;
 
-            uint8_t ipv6addr[16];
+            /*
+             * HINFO records are used to acquire general information about a
+             * host. It contains CPU, a string which specifies the CPU type,
+             * and OS, a string which specifies the operating system type.
+             *
+             * RFC 1032 says that CPU and OS are character strings. No
+             * explanation on how the strings are formatted, but in practice they
+             * contain one byte length field followed by that number of bytes.
+             */
+            struct {
+                char *cpu;
+                char *os;
+            } hinfo;
+
+            /*
+             * TXT RRs are used to hold descriptive text.
+             *
+             * According to RFC 1032 txt_data can contain one or more character
+             * strings. The strings are formatted as one byte length field
+             * followed by that number of bytes.
+             */
+            list_t *txt;
         } rdata;
     } *record;
 };
-
-struct application_info;
 
 bool handle_dns(unsigned char *buffer, struct application_info *info, uint16_t len);
 int parse_dns_name(unsigned char *buffer, unsigned char *ptr, char name[]);
