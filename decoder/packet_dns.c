@@ -221,7 +221,8 @@ void parse_dns_record(int i, unsigned char *buffer, unsigned char **ptr, struct 
     dns->record[i].ttl = (*ptr)[4] << 24 | (*ptr)[5] << 16 | (*ptr)[6] << 8 | (*ptr)[7];
     rdlen = (*ptr)[8] << 8 | (*ptr)[9];
     *ptr += 10; /* skip to rdata field */
-    if (dns->record[i].rrclass == DNS_CLASS_IN) {
+
+    if (GET_MDNS_RRCLASS(dns->record[i].rrclass) == DNS_CLASS_IN) {
         switch (dns->record[i].type) {
         case DNS_TYPE_A:
             if (rdlen == 4) {

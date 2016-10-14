@@ -274,7 +274,7 @@ void print_dns(char *buf, int n, struct dns_info *dns, uint16_t type)
         case DNS_QUERY:
             PRINT_INFO(buf, n, "Standard query: ");
             PRINT_INFO(buf, n, "%s ", dns->question.qname);
-            PRINT_INFO(buf, n, "%s ", get_dns_class(dns->question.qclass));
+            PRINT_INFO(buf, n, "%s ", get_dns_class(GET_MDNS_RRCLASS(dns->question.qclass)));
             PRINT_INFO(buf, n, "%s", get_dns_type(dns->question.qtype));
             break;
         case DNS_IQUERY:
@@ -308,7 +308,7 @@ void print_dns(char *buf, int n, struct dns_info *dns, uint16_t type)
         }
         // TODO: Need to print the proper name for all values.
         PRINT_INFO(buf, n, "%s ", dns->record[0].name);
-        PRINT_INFO(buf, n, "%s ", get_dns_class(dns->record[0].rrclass));
+        PRINT_INFO(buf, n, "%s ", get_dns_class(GET_MDNS_RRCLASS(dns->record[0].rrclass)));
         PRINT_INFO(buf, n, "%s ", get_dns_type(dns->record[0].type));
         for (int i = 0; i < dns->section_count[ANCOUNT]; i++) {
             print_dns_record(dns, i, buf, n, dns->record[i].type, NULL);
@@ -701,7 +701,7 @@ void print_dns_verbose(WINDOW *win, struct dns_info *dns, int y, int maxx)
     for (int i = dns->section_count[QDCOUNT]; i > 0; i--) {
         mvwprintw(win, ++y, 4, "QNAME: %s, QTYPE: %s, QCLASS: %s",
                   dns->question.qname, get_dns_type_extended(dns->question.qtype),
-                  get_dns_class_extended(dns->question.qclass));
+                  get_dns_class_extended(GET_MDNS_RRCLASS(dns->question.qclass)));
     }
     if (records) {
         int len;
@@ -713,7 +713,7 @@ void print_dns_verbose(WINDOW *win, struct dns_info *dns, int y, int maxx)
             bool soa = false;
 
             snprintf(buffer, maxx, "%-*s", len + 4, dns->record[i].name);
-            snprintcat(buffer, maxx, "%-6s", get_dns_class(dns->record[i].rrclass));
+            snprintcat(buffer, maxx, "%-6s", get_dns_class(GET_MDNS_RRCLASS(dns->record[i].rrclass)));
             snprintcat(buffer, maxx, "%-8s", get_dns_type(dns->record[i].type));
             print_dns_record(dns, i, buffer, maxx, dns->record[i].type, &soa);
             mvwprintw(win, ++y, 6, "%s", buffer);

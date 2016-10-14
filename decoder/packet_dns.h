@@ -51,6 +51,31 @@
 #define DNS_CLASS_HS 4      /* Hesiod */
 #define DNS_QCLASS_STAR 255 /* any class */
 
+/*
+ * In the Resource Record Sections of a Multicast DNS response, the top
+ * bit of the rrclass field is used to indicate the cache-flush bit.
+ * This bit tells neighbouring hosts that this is not a shared record type.
+ * Instead of merging this new record additively into the cache in addition to
+ * any previous records with the same name, rrtype, and rrclass, all old records
+ * with that name, rrtype, and rrclass that were received more than one second
+ * ago are declared invalid, and marked to expire from the cache in one second.
+ * cf. RFC 6762, section 10.2
+ */
+#define GET_MDNS_CACHE_FLUSH(rrclass) (rrclass & 0x8000)
+
+/*
+ * Multicast DNS defines the top bit in the class field of a DNS
+ * question as the unicast-response bit. When this bit is set in a
+ * question, it indicates that the querier is willing to accept unicast
+ * replies in response to this specific query, as well as the usual
+ * multicast responses.
+ * cf RFC 6762, section 5.4
+*/
+#define GET_MDNS_UNICAST_RESPONSE(qclass) (qclass & 0x8000)
+
+/* Get the rrclass proper from the MDNS rrclass field */
+#define GET_MDNS_RRCLASS(rrclass) (rrclass & 0x7fff)
+
 enum dns_section_count {
     QDCOUNT,
     ANCOUNT,
@@ -106,7 +131,7 @@ struct dns_info {
             char nsdname[DNS_NAMELEN];
             uint32_t address; /* a 32 bit IPv4 internet address */
 
-             /* zone of authority */
+             /* start of authority */
             struct {
                 /* the domain name of the name server that was the
                    original or primary source of data for this zone */
