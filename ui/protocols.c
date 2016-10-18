@@ -416,6 +416,15 @@ void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t t
         snprintcat(buf, n, "%s ", info->record[i].rdata.hinfo.cpu);
         snprintcat(buf, n, "%s", info->record[i].rdata.hinfo.os);
         break;
+    case DNS_TYPE_TXT:
+    {
+        const node_t *node = list_begin(info->record[i].rdata.txt);
+
+        while (node) {
+            snprintcat(buf, n, "%s", (char *) list_data(node));
+            node = list_next(node);
+        }
+    }
     default:
         break;
     }

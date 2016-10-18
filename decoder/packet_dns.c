@@ -270,15 +270,15 @@ void parse_dns_record(int i, unsigned char *buffer, unsigned char **data, struct
             break;
         case DNS_TYPE_TXT:
         {
-            int i = 0;
+            int j = 0;
 
             dns->record[i].rdata.txt = list_init(NULL);
-            while (i < rdlen) {
+            while (j < rdlen) {
                 char *txt;
 
                 txt = parse_dns_txt(&ptr);
                 list_push_back(dns->record[i].rdata.txt, txt);
-                i += strlen(txt) + 1;
+                j += strlen(txt) + 1;
             }
             break;
         }
@@ -367,6 +367,8 @@ char *get_dns_type(uint16_t type)
         return "AAAA";
     case DNS_TYPE_HINFO:
         return "HINFO";
+    case DNS_TYPE_TXT:
+        return "TXT";
     default:
         return "";
     }
@@ -390,7 +392,9 @@ char *get_dns_type_extended(uint16_t type)
     case DNS_TYPE_AAAA:
         return "AAAA (IPv6 host address)";
     case DNS_TYPE_HINFO:
-        return "HINFO (identifies the CPU and OS used by a host)";
+        return "HINFO (host information)";
+    case DNS_TYPE_TXT:
+        return "TXT (text strings)";
     default:
         return "";
     }
