@@ -113,6 +113,13 @@ void print_llc(char *buf, int n, struct eth_info *eth, uint32_t num)
             PRINT_LINE(buf, n, num, smac, dmac, "STP", "Topology Change Notification BPDU");
             break;
         }
+    } else {
+        char smac[HW_ADDRSTRLEN];
+        char dmac[HW_ADDRSTRLEN];
+
+        HW_ADDR_NTOP(smac, eth->mac_src);
+        HW_ADDR_NTOP(dmac, eth->mac_dst);
+        PRINT_LINE(buf, n, num, smac, dmac, "ETH 802.3", "Unknown payload");
     }
 }
 
