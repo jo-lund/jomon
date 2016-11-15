@@ -320,6 +320,20 @@ char *get_ethernet_type(uint16_t ethertype)
     }
 }
 
+enum eth_802_type get_eth802_type(struct eth_802_llc *llc)
+{
+    /* DSAP and SSAP specify the upper layer protocols above LLC */
+    if (llc->ssap == 0x42 && llc->dsap == 0x42) return ETH_802_STP;
+    if (llc->ssap == 0xaa && llc->dsap == 0xaa) return ETH_802_SNAP;
+
+    return ETH_802_UNKNOWN;
+}
+
+uint32_t get_eth802_oui(struct snap_info *snap)
+{
+    return snap->oui[0] << 16 | snap->oui[1] << 8 | snap->oui[2];
+}
+
 /*
  * IPv4 header
  *

@@ -25,7 +25,7 @@ static struct preferences {
     bool link_selected;
     bool link_arp_selected;
     bool link_llc_selected;
-    bool link_stp_selected;
+    bool link_802_selected;
     bool network_selected;
     bool transport_selected;
     bool tcp_options_selected;
@@ -37,7 +37,7 @@ enum header_type {
     ETHERNET_HDR,
     ARP_HDR,
     LLC_HDR,
-    STP_HDR,
+    LINK_HDR,
     IP_HDR,
     UDP_HDR,
     TCP_HDR,
@@ -584,8 +584,14 @@ void print_protocol_information(struct packet *p, int lineno)
             case LLC_HDR:
                 print_llc_verbose(subwindow.win, p, i + 1);
                 break;
-            case STP_HDR:
-                print_stp_verbose(subwindow.win, p, i + 1);
+            case LINK_HDR:
+                if (get_eth802_type(p->eth.llc) == ETH_802_STP) {
+                    print_stp_verbose(subwindow.win, p, i + 1);
+                } else if (get_eth802_type(p->eth.llc) == ETH_802_SNAP) {
+                    print_snap_verbose(subwindow.win, p, i + 1);
+                } else {
+                    print_payload(subwindow.win, p->eth.llc->payload, p->eth.llc->payload_len, i + 1);
+                }
                 break;
             case IP_HDR:
                 print_ip_verbose(subwindow.win, p->eth.ip, i + 1);
@@ -821,12 +827,28 @@ void create_sublines(struct packet *p, int size)
             set_subwindow_line(i, "+ Logical Link Control (LLC)", false, LLC_HDR);
             i++;
         }
-        if (preferences.link_stp_selected) {
-            set_subwindow_line(i, "- Spanning Tree Protocol (STP)", true, STP_HDR);
-            i += ETH_WINSIZE;
-        } else {
-            set_subwindow_line(i, "+ Spanning Tree Protocol (STP)", false, STP_HDR);
-            i += 2;
+        if (get_eth802_type(p->eth.llc) == ETH_802_STP) {
+            if (preferences.link_802_selected) {
+                set_subwindow_line(i, "- Spanning Tree Protocol (STP)", true, LINK_HDR);
+                i += ETH_WINSIZE;
+            } else {
+                set_subwindow_line(i, "+ Spanning Tree Protocol (STP)", false, LINK_HDR);
+                i += 2;
+            }
+        } else if (get_eth802_type(p->eth.llc) == ETH_802_SNAP) {
+            if (preferences.link_802_selected) {
+                set_subwindow_line(i, "- Subnetwork Access Protocol (SNAP)", true, LINK_HDR);
+                i += ETH_WINSIZE;
+            } else {
+                set_subwindow_line(i, "+ Subnetwork Access Protocol (SNAP)", false, LINK_HDR);
+                i += 2;
+            }
+        } else { /* unknown */
+            if (preferences.application_selected) {
+                set_subwindow_line(i, "- Data", true, UNKNOWN_NETWORK);
+            } else {
+                set_subwindow_line(i, "+ Data", false, UNKNOWN_NETWORK);
+            }
         }
     } else if (p->eth.payload_len) {
         /* unknown network layer payload */
@@ -920,8 +942,8 @@ bool update_subwin_selection()
             case LLC_HDR:
                 preferences.link_llc_selected = subwindow.line[subline].selected;
                 break;
-            case STP_HDR:
-                preferences.link_stp_selected = subwindow.line[subline].selected;
+            case LINK_HDR:
+                preferences.link_802_selected = subwindow.line[subline].selected;
                 break;
             case IP_HDR:
                 preferences.network_selected = subwindow.line[subline].selected;
@@ -1040,9 +1062,21 @@ int calculate_subwin_size(struct packet *p, int screen_line)
             } else {
                 size++;
             }
-            if (p->eth.llc->dsap == 0x42 && p->eth.llc->ssap == 0x42) {
-                if (preferences.link_stp_selected) {
+            if (get_eth802_type(p->eth.llc) == ETH_802_STP) {
+                if (preferences.link_802_selected) {
                     size += 14;
+                } else {
+                    size += 2;
+                }
+            } else if (get_eth802_type(p->eth.llc) == ETH_802_SNAP) {
+                if (preferences.link_802_selected) {
+                    size += 4;
+                } else {
+                    size += 2;
+                }
+            } else {
+                if (preferences.application_selected) {
+                    size += p->eth.llc->payload_len / 16 + 3;
                 } else {
                     size += 2;
                 }

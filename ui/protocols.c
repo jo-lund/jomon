@@ -496,9 +496,16 @@ void print_ethernet_verbose(WINDOW *win, struct packet *p, int y)
 
 void print_llc_verbose(WINDOW *win, struct packet *p, int y)
 {
-    mvwprintw(win, y, 4, "DSAP: 0x%x", p->eth.llc->dsap);
-    mvwprintw(win, ++y, 4, "SSAP: 0x%x", p->eth.llc->ssap);
+    mvwprintw(win, y, 4, "Destination Service Access Point (DSAP): 0x%x", p->eth.llc->dsap);
+    mvwprintw(win, ++y, 4, "Source Service Access Point (SSAP): 0x%x", p->eth.llc->ssap);
     mvwprintw(win, ++y, 4, "Control: 0x%x", p->eth.llc->control);
+}
+
+void print_snap_verbose(WINDOW *win, struct packet *p, int y)
+{
+    mvwprintw(win, y, 4, "IEEE Organizationally Unique Identifier (OUI): 0x%06x\n",
+              get_eth802_oui(p->eth.llc->snap));
+    mvwprintw(win, ++y, 4, "Protocol Id: 0x%04x\n", p->eth.llc->snap->protocol_id);
 }
 
 void print_arp_verbose(WINDOW *win, struct packet *p, int y)

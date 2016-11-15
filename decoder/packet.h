@@ -121,6 +121,12 @@ struct ip_info {
     };
 };
 
+enum eth_802_type {
+    ETH_802_UNKNOWN,
+    ETH_802_STP,
+    ETH_802_SNAP
+};
+
 /* 802.2 SNAP */
 struct snap_info {
     unsigned char oui[3]; /* IEEE Organizationally Unique Identifier */
@@ -195,6 +201,8 @@ struct tcp_options *parse_tcp_options(unsigned char *data, int len);
 /* Frees the tcp_options struct that was allocated by parse_tcp_options */
 void free_tcp_options(struct tcp_options *options);
 
+enum eth_802_type get_eth802_type(struct eth_802_llc *llc);
+uint32_t get_eth802_oui(struct snap_info *snap);
 char *get_ethernet_type(uint16_t ethertype);
 char *get_ip_dscp(uint8_t dscp);
 char *get_ip_transport_protocol(uint8_t protocol);
