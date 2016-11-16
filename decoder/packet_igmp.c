@@ -1,7 +1,8 @@
 #include <linux/igmp.h>
 #include <stddef.h>
 #include <arpa/inet.h>
-#include "packet.h"
+#include "packet_icmp.h"
+#include "packet_ip.h"
 #include "../error.h"
 
 #define IGMP_HDR_LEN 8

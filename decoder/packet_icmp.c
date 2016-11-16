@@ -1,5 +1,6 @@
 #include <netinet/ip_icmp.h>
-#include "packet.h"
+#include "packet_ip.h"
+#include "packet_icmp.h"
 
 #define ICMP_HDR_LEN 8
 

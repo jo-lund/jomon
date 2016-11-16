@@ -2,9 +2,9 @@
 #define UI_LAYOUT_H
 
 #include <ncurses.h>
-#include <packet.h>
 
 extern bool numeric;
+struct packet;
 
 /* initialize ncurses */
 void init_ncurses();

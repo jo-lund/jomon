@@ -1,7 +1,7 @@
 #ifndef UI_PROTOCOLS_H
 #define UI_PROTOCOLS_H
 
-#include <packet.h>
+#include <decoder.h>
 
 #define ADDR_WIDTH 36
 #define PROT_WIDTH 10

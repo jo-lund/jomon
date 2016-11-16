@@ -1,22 +1,11 @@
 #ifndef PACKET_H
 #define PACKET_H
 
-#include <linux/if_ether.h>
-#include <netinet/in.h>
+#include <stdint.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include "../list.h"
-#include "packet_dns.h"
-#include "packet_nbns.h"
-#include "packet_icmp.h"
-#include "packet_igmp.h"
-#include "packet_http.h"
-#include "packet_arp.h"
-#include "packet_stp.h"
-
-#define ETHERNET_HDRLEN 14
-
-#define TCP_PAYLOAD_LEN(p) \
-    p->eth.ip->length - p->eth.ip->ihl * 4 - p->eth.ip->tcp.offset * 4
+#include "packet_ethernet.h"
 
 enum port {
     DNS = 53,   /* Domain Name Service */
@@ -51,120 +40,6 @@ struct application_info {
     };
 };
 
-struct udp_info {
-    uint16_t src_port;
-    uint16_t dst_port;
-    uint16_t len; /* length of UDP header and data */
-    uint16_t checksum;
-    struct application_info data;
-};
-
-struct tcp {
-    uint16_t src_port;
-    uint16_t dst_port;
-    uint32_t seq_num;
-    uint32_t ack_num;
-    unsigned int offset : 4;
-    unsigned int ns  : 1;
-    unsigned int cwr : 1;
-    unsigned int ece : 1;
-    unsigned int urg : 1;
-    unsigned int ack : 1;
-    unsigned int psh : 1;
-    unsigned int rst : 1;
-    unsigned int syn : 1;
-    unsigned int fin : 1;
-    uint16_t window;
-    uint16_t checksum;
-    uint16_t urg_ptr;
-    unsigned char *options;
-    struct application_info data;
-};
-
-struct tcp_options {
-    uint8_t nop; /* count of nop padding bytes */
-    uint16_t mss;
-    uint8_t win_scale;
-    bool sack_permitted; /* may be sent in a SYN by a TCP that has been extended to
-                          * receive the SACK option once the connection has opened */
-    list_t *sack;    /* list of sack blocks */
-    uint32_t ts_val; /* timestamp value */
-    uint32_t ts_ecr; /* timestamp echo reply */
-};
-
-struct tcp_sack_block {
-    uint32_t left_edge;
-    uint32_t right_edge;
-};
-
-// TODO: Improve the structure of this
-struct ip_info {
-    unsigned int version : 4;
-    unsigned int ihl     : 4; /* Internet Header Length */
-    unsigned int dscp    : 6; /* Differentiated Services Code Point (RFC 2474) */
-    unsigned int ecn     : 2; /* Explicit congestion notification (RFC 3168) */
-    uint16_t length; /* The entire packet size in bytes, including header and data */
-    uint16_t id; /* Identification field, used for uniquely identifying group of fragments */
-    uint16_t foffset; /* Fragment offset. The first 3 bits are flags.*/
-    uint8_t ttl;
-    uint8_t protocol;
-    uint16_t checksum;
-    char src[INET_ADDRSTRLEN];
-    char dst[INET_ADDRSTRLEN];
-    uint16_t payload_len; /* length of payload if transport protocol is unknown */
-    union {
-        struct udp_info udp;
-        struct tcp tcp;
-        struct igmp_info igmp;
-        struct icmp_info icmp;
-        unsigned char *payload;
-    };
-};
-
-enum eth_802_type {
-    ETH_802_UNKNOWN,
-    ETH_802_STP,
-    ETH_802_SNAP
-};
-
-/* 802.2 SNAP */
-struct snap_info {
-    unsigned char oui[3]; /* IEEE Organizationally Unique Identifier */
-    uint16_t protocol_id; /* If OUI is 0 the protocol ID is the Ethernet type */
-    uint16_t payload_len; /* length of payload if unknown payload */
-    union {
-        struct arp_info *arp;
-        struct ip_info *ip;
-        unsigned char *payload;
-    };
-};
-
-/* Ethernet 802.2 Logical Link Control */
-struct eth_802_llc {
-    uint8_t dsap; /* destination service access point */
-    uint8_t ssap; /* source service access point */
-    uint8_t control; /* possible to be 2 bytes? */
-    uint16_t payload_len; /* length of payload if unknown payload */
-    union {
-        struct snap_info *snap;
-        struct stp_info *bpdu;
-        unsigned char *payload;
-    };
-};
-
-struct eth_info {
-    unsigned char mac_src[ETH_ALEN];
-    unsigned char mac_dst[ETH_ALEN];
-    uint16_t ethertype;
-    uint16_t payload_len; /* length of payload if ethertype is unknown */
-    union {
-        struct eth_802_llc *llc;
-        struct arp_info *arp;
-        struct ip_info *ip;
-        unsigned char *payload;
-    };
-};
-
 /*
  * Generic packet structure that can be used for every type of packet. For now
  * only support for Ethernet.
@@ -192,19 +67,9 @@ bool decode_packet(unsigned char *buffer, size_t n, struct packet **p);
 /* Free the memory allocated for packet */
 void free_packet(void *packet);
 
-/*
- * Parses and returns the TCP options in the TCP header.
- * This needs to be freed by calling free_tcp_options.
- */
-struct tcp_options *parse_tcp_options(unsigned char *data, int len);
+/* Should be internal to the decoder */
+bool check_port(unsigned char *buffer, struct application_info *info,
+                uint16_t port, uint16_t packet_len, bool *error);
 
-/* Frees the tcp_options struct that was allocated by parse_tcp_options */
-void free_tcp_options(struct tcp_options *options);
-
-enum eth_802_type get_eth802_type(struct eth_802_llc *llc);
-uint32_t get_eth802_oui(struct snap_info *snap);
-char *get_ethernet_type(uint16_t ethertype);
-char *get_ip_dscp(uint8_t dscp);
-char *get_ip_transport_protocol(uint8_t protocol);
 
 #endif

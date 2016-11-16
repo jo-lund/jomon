@@ -10,6 +10,7 @@
 #include "../error.h"
 #include "../util.h"
 #include "../vector.h"
+#include "../decoder/decoder.h"
 
 #define HEADER_HEIGHT 4
 #define STATUS_HEIGHT 1

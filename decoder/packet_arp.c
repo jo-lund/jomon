@@ -2,7 +2,8 @@
 #include <netinet/if_ether.h>
 #include <stdlib.h>
 #include <string.h>
-#include "packet.h"
+#include "packet_arp.h"
+#include "packet_ethernet.h"
 #include "../error.h"
 
 #define ARP_SIZE 28 /* size of an ARP packet (header + payload) */

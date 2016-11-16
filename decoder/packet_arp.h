@@ -2,6 +2,7 @@
 #define PACKET_ARP_H
 
 #include <stdbool.h>
+#include <linux/if_ether.h>
 
 /* hardware address length (format aa:bb:cc:dd:ee:ff) */
 #define HW_ADDRSTRLEN 18

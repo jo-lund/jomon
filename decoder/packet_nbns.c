@@ -2,6 +2,7 @@
 #include <ctype.h>
 #include <string.h>
 #include "packet_nbns.h"
+#include "packet_dns.h"
 #include "packet.h"
 
 static void decode_nbns_name(char *dest, char *src);

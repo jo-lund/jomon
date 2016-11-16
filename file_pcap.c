@@ -6,7 +6,7 @@
 #include "file_pcap.h"
 #include "error.h"
 #include "vector.h"
-#include "decoder/packet.h"
+#include "decoder/decoder.h"
 
 #define BUFSIZE 65535
 #define LINKTYPE_ETHERNET 1

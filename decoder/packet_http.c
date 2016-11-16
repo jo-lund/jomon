@@ -2,6 +2,7 @@
 #include <ctype.h>
 #include <string.h>
 #include "packet.h"
+#include "packet_http.h"
 
 #define MAX_HTTP_LINE 4096
 

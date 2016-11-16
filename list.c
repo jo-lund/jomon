@@ -200,5 +200,4 @@ void list_free(list_t *list)
 {
     list = list_clear(list);
     free(list);
-    list = NULL;
 }

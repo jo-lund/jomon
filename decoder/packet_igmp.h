@@ -2,6 +2,7 @@
 #define PACKET_IGMP_H
 
 #include <stdbool.h>
+#include <netinet/in.h>
 
 struct igmp_info {
     uint8_t type;

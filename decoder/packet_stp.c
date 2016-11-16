@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
-#include "packet.h"
+#include "packet_ethernet.h"
+#include "packet_stp.h"
 
 /*
  * IEEE 802.1 Bridge Spanning Tree Protocol
