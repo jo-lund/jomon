@@ -8,6 +8,7 @@
 #include "layout.h"
 #include "protocols.h"
 #include "../util.h"
+#include "../misc.h"
 
 #define HOSTNAMELEN 255 /* maximum 255 according to rfc1035 */
 
@@ -42,6 +43,7 @@ static void print_ssdp(char *buf, int n, list_t *ssdp);
 static void print_http(char *buf, int n, struct http_info *http);
 static void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t type, bool *soa);
 static void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t type);
+static void print_dns_soa(WINDOW *win, struct dns_info *info, int i, int y, int x);
 
 void print_buffer(char *buf, int size, struct packet *p)
 {
@@ -478,37 +480,42 @@ void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t
     }
 }
 
-void print_ethernet_verbose(WINDOW *win, struct packet *p, int y)
+void print_ethernet_information(list_view *lw, struct packet *p)
 {
+    char line[MAXLINE];
     char src[HW_ADDRSTRLEN];
     char dst[HW_ADDRSTRLEN];
     char *type;
 
     HW_ADDR_NTOP(src, p->eth.mac_src);
     HW_ADDR_NTOP(dst, p->eth.mac_dst);
-    mvwprintw(win, y, 4, "MAC source: %s", src);
-    mvwprintw(win, ++y, 4, "MAC destination: %s", dst);
-    mvwprintw(win, ++y, 4, "Ethertype: 0x%x", p->eth.ethertype);
+    ADD_TEXT_ELEMENT(lw, 0, "MAC source: %s", src);
+    ADD_TEXT_ELEMENT(lw, 0, "MAC destination: %s", src);
+    snprintf(line, MAXLINE, "Ethertype: 0x%x", p->eth.ethertype);
     if ((type = get_ethernet_type(p->eth.ethertype))) {
-        wprintw(win, " (%s)", type);
+        snprintcat(line, MAXLINE, " (%s)", type);
     }
+    ADD_TEXT_ELEMENT(lw, 0, line);
+    ADD_TEXT_ELEMENT(lw, 0, "");
 }
 
-void print_llc_verbose(WINDOW *win, struct packet *p, int y)
+void print_llc_information(list_view *lw, struct packet *p)
 {
-    mvwprintw(win, y, 4, "Destination Service Access Point (DSAP): 0x%x", p->eth.llc->dsap);
-    mvwprintw(win, ++y, 4, "Source Service Access Point (SSAP): 0x%x", p->eth.llc->ssap);
-    mvwprintw(win, ++y, 4, "Control: 0x%x", p->eth.llc->control);
+    ADD_TEXT_ELEMENT(lw, 0, "Destination Service Access Point (DSAP): 0x%x", p->eth.llc->dsap);
+    ADD_TEXT_ELEMENT(lw, 0, "Source Service Access Point (SSAP): 0x%x", p->eth.llc->ssap);
+    ADD_TEXT_ELEMENT(lw, 0, "Control: 0x%x", p->eth.llc->control);
+    ADD_TEXT_ELEMENT(lw, 0, "");
 }
 
-void print_snap_verbose(WINDOW *win, struct packet *p, int y)
+int print_snap_verbose(list_view *lw, struct packet *p)
 {
-    mvwprintw(win, y, 4, "IEEE Organizationally Unique Identifier (OUI): 0x%06x\n",
+    ADD_TEXT_ELEMENT(lw, 0, "IEEE Organizationally Unique Identifier (OUI): 0x%06x\n",
               get_eth802_oui(p->eth.llc->snap));
-    mvwprintw(win, ++y, 4, "Protocol Id: 0x%04x\n", p->eth.llc->snap->protocol_id);
+    ADD_TEXT_ELEMENT(lw, 0, "Protocol Id: 0x%04x\n", p->eth.llc->snap->protocol_id);
+    ADD_TEXT_ELEMENT(lw, 0, "");
 }
 
-void print_arp_verbose(WINDOW *win, struct packet *p, int y)
+void print_arp_information(list_view *lw, struct packet *p)
 {
     char sip[INET_ADDRSTRLEN];
     char tip[INET_ADDRSTRLEN];
@@ -519,21 +526,22 @@ void print_arp_verbose(WINDOW *win, struct packet *p, int y)
     HW_ADDR_NTOP(tha, p->eth.arp->tha);
     inet_ntop(AF_INET, p->eth.arp->sip, sip, INET_ADDRSTRLEN);
     inet_ntop(AF_INET, p->eth.arp->tip, tip, INET_ADDRSTRLEN);
-    mvwprintw(win, y, 4, "Hardware type: %d (%s)", p->eth.arp->ht, get_arp_hardware_type(p->eth.arp->ht));
-    mvwprintw(win, ++y, 4, "Protocol type: 0x%x (%s)", p->eth.arp->pt, get_arp_protocol_type(p->eth.arp->pt));
-    mvwprintw(win, ++y, 4, "Hardware size: %d", p->eth.arp->hs);
-    mvwprintw(win, ++y, 4, "Protocol size: %d", p->eth.arp->ps);
-    mvwprintw(win, ++y, 4, "Opcode: %d (%s)", p->eth.arp->op, get_arp_opcode(p->eth.arp->op));
-    mvwprintw(win, ++y, 0, "");
-    mvwprintw(win, ++y, 4, "Sender IP: %-15s  HW: %s", sip, sha);
-    mvwprintw(win, ++y, 4, "Target IP: %-15s  HW: %s", tip, tha);
+    ADD_TEXT_ELEMENT(lw, 0, "Hardware type: %d (%s)", p->eth.arp->ht, get_arp_hardware_type(p->eth.arp->ht));
+    ADD_TEXT_ELEMENT(lw, 0, "Protocol type: 0x%x (%s)", p->eth.arp->pt, get_arp_protocol_type(p->eth.arp->pt));
+    ADD_TEXT_ELEMENT(lw, 0, "Hardware size: %d", p->eth.arp->hs);
+    ADD_TEXT_ELEMENT(lw, 0, "Protocol size: %d", p->eth.arp->ps);
+    ADD_TEXT_ELEMENT(lw, 0, "Opcode: %d (%s)", p->eth.arp->op, get_arp_opcode(p->eth.arp->op));
+    ADD_TEXT_ELEMENT(lw, 0, "");
+    ADD_TEXT_ELEMENT(lw, 0, "Sender IP: %-15s  HW: %s", sip, sha);
+    ADD_TEXT_ELEMENT(lw, 0, "Target IP: %-15s  HW: %s", tip, tha);
+    ADD_TEXT_ELEMENT(lw, 0, "");
 }
 
-void print_stp_verbose(WINDOW *win, struct packet *p, int y)
+void print_stp_information(list_view *lw, struct packet *p)
 {
-    mvwprintw(win, y, 4, "Protocol Id: %d", p->eth.llc->bpdu->protocol_id);
-    mvwprintw(win, ++y, 4, "Version: %d", p->eth.llc->bpdu->version);
-    mvwprintw(win, ++y, 4, "Type: %d (%s)", p->eth.llc->bpdu->type, get_stp_bpdu_type(p->eth.llc->bpdu->type));
+    ADD_TEXT_ELEMENT(lw, 0, "Protocol Id: %d", p->eth.llc->bpdu->protocol_id);
+    ADD_TEXT_ELEMENT(lw, 0, "Version: %d", p->eth.llc->bpdu->version);
+    ADD_TEXT_ELEMENT(lw, 0, "Type: %d (%s)", p->eth.llc->bpdu->type, get_stp_bpdu_type(p->eth.llc->bpdu->type));
     if (p->eth.llc->bpdu->type == CONFIG || p->eth.llc->bpdu->type == RST) {
         char buf[1024];
 
@@ -550,127 +558,133 @@ void print_stp_verbose(WINDOW *win, struct packet *p, int y)
             if (p->eth.llc->bpdu->port_role == 0x02) snprintcat(buf, 1024, "Root");
             if (p->eth.llc->bpdu->port_role == 0x03) snprintcat(buf, 1024, "Designated");
         }
-        mvwprintw(win, ++y, 4, "%s", buf);
-        mvwprintw(win, ++y, 4, "Root ID: %u/%02x.%02x.%02x.%02x.%02x.%02x", p->eth.llc->bpdu->root_id[0] << 8 |
+        ADD_TEXT_ELEMENT(lw, 0, "%s", buf);
+        ADD_TEXT_ELEMENT(lw, 0, "Root ID: %u/%02x.%02x.%02x.%02x.%02x.%02x", p->eth.llc->bpdu->root_id[0] << 8 |
                   p->eth.llc->bpdu->root_id[1], p->eth.llc->bpdu->root_id[2], p->eth.llc->bpdu->root_id[3],
                   p->eth.llc->bpdu->root_id[4], p->eth.llc->bpdu->root_id[5], p->eth.llc->bpdu->root_id[6],
                   p->eth.llc->bpdu->root_id[7]);
-        mvwprintw(win, ++y, 4, "Root Path Cost: %d", p->eth.llc->bpdu->root_pc);
-        mvwprintw(win, ++y, 4, "Bridge ID: %u/%02x.%02x.%02x.%02x.%02x.%02x", p->eth.llc->bpdu->bridge_id[0] << 8 |
+        ADD_TEXT_ELEMENT(lw, 0, "Root Path Cost: %d", p->eth.llc->bpdu->root_pc);
+        ADD_TEXT_ELEMENT(lw, 0, "Bridge ID: %u/%02x.%02x.%02x.%02x.%02x.%02x", p->eth.llc->bpdu->bridge_id[0] << 8 |
                   p->eth.llc->bpdu->bridge_id[1], p->eth.llc->bpdu->bridge_id[2], p->eth.llc->bpdu->bridge_id[3],
                   p->eth.llc->bpdu->bridge_id[4], p->eth.llc->bpdu->bridge_id[5], p->eth.llc->bpdu->bridge_id[6],
                   p->eth.llc->bpdu->bridge_id[7]);
-        mvwprintw(win, ++y, 4, "Port ID: 0x%x", p->eth.llc->bpdu->port_id);
-        mvwprintw(win, ++y, 4, "Message Age: %u s.", p->eth.llc->bpdu->msg_age / 256);
-        mvwprintw(win, ++y, 4, "Max Age: %u s.", p->eth.llc->bpdu->max_age / 256);
-        mvwprintw(win, ++y, 4, "Hello Time: %u s.", p->eth.llc->bpdu->ht / 256);
-        mvwprintw(win, ++y, 4, "Forward Delay: %u s.", p->eth.llc->bpdu->fd / 256);
+        ADD_TEXT_ELEMENT(lw, 0, "Port ID: 0x%x", p->eth.llc->bpdu->port_id);
+        ADD_TEXT_ELEMENT(lw, 0, "Message Age: %u s.", p->eth.llc->bpdu->msg_age / 256);
+        ADD_TEXT_ELEMENT(lw, 0, "Max Age: %u s.", p->eth.llc->bpdu->max_age / 256);
+        ADD_TEXT_ELEMENT(lw, 0, "Hello Time: %u s.", p->eth.llc->bpdu->ht / 256);
+        ADD_TEXT_ELEMENT(lw, 0, "Forward Delay: %u s.", p->eth.llc->bpdu->fd / 256);
     }
 }
 
-void print_ip_verbose(WINDOW *win, struct ip_info *ip, int y)
+void print_ip_information(list_view *lw, struct ip_info *ip)
 {
     char *protocol;
     char *dscp;
+    char buf[MAXLINE];
 
-    mvwprintw(win, y, 4, "Version: %u", ip->version);
-    mvwprintw(win, ++y, 4, "Internet Header Length (IHL): %u", ip->ihl);
-    mvwprintw(win, ++y, 4, "Differentiated Services Code Point (DSCP): 0x%x", ip->dscp);
+    ADD_TEXT_ELEMENT(lw, 0, "Version: %u", ip->version);
+    ADD_TEXT_ELEMENT(lw, 0, "Internet Header Length (IHL): %u", ip->ihl);
+    snprintf(buf, MAXLINE, "Differentiated Services Code Point (DSCP): 0x%x", ip->dscp);    
     if ((dscp = get_ip_dscp(ip->dscp))) {
-        wprintw(win, " %s", dscp);
+        snprintcat(buf, MAXLINE, " %s", dscp);
     }
-    mvwprintw(win, ++y, 4, "Explicit Congestion Notification (ECN): 0x%x", ip->ecn);
+    ADD_TEXT_ELEMENT(lw, 0, "%s", buf);
+    snprintf(buf, MAXLINE, "Explicit Congestion Notification (ECN): 0x%x", ip->ecn);
     if (ip->ecn & 0x3) {
-        waddstr(win, " CE");
+        snprintcat(buf, MAXLINE, " CE");
     } else if (ip->ecn & 0x1) {
-        waddstr(win, " ECT(1)");
+        snprintcat(buf, MAXLINE, " ECT(1)");
     } else if (ip->ecn & 0x2) {
-        waddstr(win, " ECT(0)");
+        snprintcat(buf, MAXLINE, " ECT(0)");
     } else {
-        waddstr(win, " Not ECN-Capable");
+        snprintcat(buf, MAXLINE, " Not ECN-Capable");
     }
-    mvwprintw(win, ++y, 4, "Total length: %u", ip->length);
-    mvwprintw(win, ++y, 4, "Identification: 0x%x (%u)", ip->id, ip->id);
-    mvwprintw(win, ++y, 4, "Flags: %u%u%u", (ip->foffset & 0x8000) >> 15, (ip->foffset & 0x4000) >> 14,
+    ADD_TEXT_ELEMENT(lw, 0, "Total length: %u", ip->length);
+    ADD_TEXT_ELEMENT(lw, 0, "Identification: 0x%x (%u)", ip->id, ip->id);
+    snprintf(buf, MAXLINE, "Flags: %u%u%u", (ip->foffset & 0x8000) >> 15, (ip->foffset & 0x4000) >> 14,
              (ip->foffset & 0x2000) >> 13);
     if (ip->foffset & 0x4000 || ip->foffset & 0x2000) {
-        waddstr(win, " (");
-        if (ip->foffset & 0x4000) waddstr(win, "Don't Fragment");
-        if (ip->foffset & 0x2000) waddstr(win, "More Fragments");
-        waddstr(win, ")");
+        snprintcat(buf, MAXLINE, " (");
+        if (ip->foffset & 0x4000) snprintcat(buf, MAXLINE, "Don't Fragment");
+        if (ip->foffset & 0x2000) snprintcat(buf, MAXLINE, "More Fragments");
+        snprintcat(buf, MAXLINE, ")");
     }
-    mvwprintw(win, ++y, 4, "Time to live: %u", ip->ttl);
-    mvwprintw(win, ++y, 4, "Protocol: %u", ip->protocol);
+    ADD_TEXT_ELEMENT(lw, 0, "%s", buf);
+    ADD_TEXT_ELEMENT(lw, 0, "Time to live: %u", ip->ttl);
+    snprintf(buf, MAXLINE, "Protocol: %u", ip->protocol);
     if ((protocol = get_ip_transport_protocol(ip->protocol))) {
-        wprintw(win, " (%s)", protocol);
+        snprintcat(buf, MAXLINE, " (%s)", protocol);
     }
-    mvwprintw(win, ++y, 4, "Checksum: %u", ip->checksum);
-    mvwprintw(win, ++y, 4, "Source IP address: %s", ip->src);
-    mvwprintw(win, ++y, 4, "Destination IP address: %s", ip->dst);
+    ADD_TEXT_ELEMENT(lw, 0, "%s", buf);
+    ADD_TEXT_ELEMENT(lw, 0,"Checksum: %u", ip->checksum);
+    ADD_TEXT_ELEMENT(lw, 0,"Source IP address: %s", ip->src);
+    ADD_TEXT_ELEMENT(lw, 0,"Destination IP address: %s", ip->dst);
+    ADD_TEXT_ELEMENT(lw, 0, "");
 }
 
-void print_icmp_verbose(WINDOW *win, struct ip_info *ip, int y)
+void print_icmp_information(list_view *lw, struct ip_info *ip)
 {
-    mvwprintw(win, y, 4, "Type: %d (%s)", ip->icmp.type, get_icmp_type(ip->icmp.type));
+    ADD_TEXT_ELEMENT(lw, 0, "Type: %d (%s)", ip->icmp.type, get_icmp_type(ip->icmp.type));
     switch (ip->icmp.type) {
     case ICMP_ECHOREPLY:
     case ICMP_ECHO:
-        mvwprintw(win, ++y, 4, "Code: %d", ip->icmp.code);
+        ADD_TEXT_ELEMENT(lw, 0, "Code: %d", ip->icmp.code);
         break;
     case ICMP_DEST_UNREACH:
-        mvwprintw(win, ++y, 4, "Code: %d (%s)", ip->icmp.code, get_icmp_dest_unreach_code(ip->icmp.code));
+        ADD_TEXT_ELEMENT(lw, 0, "Code: %d (%s)", ip->icmp.code, get_icmp_dest_unreach_code(ip->icmp.code));
         break;
     default:
         break;
     }
-    mvwprintw(win, ++y, 4, "Checksum: %d", ip->icmp.checksum);
+    ADD_TEXT_ELEMENT(lw, 0, "Checksum: %d", ip->icmp.checksum);
     if (ip->icmp.type == ICMP_ECHOREPLY || ip->icmp.type == ICMP_ECHO) {
-        mvwprintw(win, ++y, 4, "Identifier: 0x%x", ip->icmp.echo.id);
-        mvwprintw(win, ++y, 4, "Sequence number: %d", ip->icmp.echo.seq_num);
+        ADD_TEXT_ELEMENT(lw, 0, "Identifier: 0x%x", ip->icmp.echo.id);
+        ADD_TEXT_ELEMENT(lw, 0, "Sequence number: %d", ip->icmp.echo.seq_num);
     }
 }
 
-void print_igmp_verbose(WINDOW *win, struct ip_info *info, int y)
+void print_igmp_information(list_view *lw, struct ip_info *info)
 {
-    mvwprintw(win, y, 4, "Type: %d (%s) ", info->igmp.type, get_igmp_type(info->icmp.type));
+    ADD_TEXT_ELEMENT(lw, 0, "Type: %d (%s) ", info->igmp.type, get_igmp_type(info->icmp.type));
     if (info->igmp.type == IGMP_HOST_MEMBERSHIP_QUERY) {
         if (!strcmp(info->igmp.group_addr, "0.0.0.0")) {
-            mvwprintw(win, ++y, 4, "General query", info->igmp.type, get_igmp_type(info->icmp.type));
+            ADD_TEXT_ELEMENT(lw, 0, "General query", info->igmp.type, get_igmp_type(info->icmp.type));
         } else {
-            mvwprintw(win, ++y, 4, "Group-specific query", info->igmp.type, get_igmp_type(info->icmp.type));
+            ADD_TEXT_ELEMENT(lw, 0, "Group-specific query", info->igmp.type, get_igmp_type(info->icmp.type));
         }
     }
-    mvwprintw(win, ++y, 4, "Max response time: %d seconds", info->igmp.max_resp_time / 10);
-    mvwprintw(win, ++y, 4, "Checksum: %d", info->igmp.checksum);
-    mvwprintw(win, ++y, 4, "Group address: %s", info->igmp.group_addr);
-    mvwprintw(win, ++y, 0, "");
+    ADD_TEXT_ELEMENT(lw, 0, "Max response time: %d seconds", info->igmp.max_resp_time / 10);
+    ADD_TEXT_ELEMENT(lw, 0, "Checksum: %d", info->igmp.checksum);
+    ADD_TEXT_ELEMENT(lw, 0, "Group address: %s", info->igmp.group_addr);
 }
 
-void print_udp_verbose(WINDOW *win, struct ip_info *ip, int y)
+void print_udp_information(list_view *lw, struct ip_info *ip)
 {
-    mvwprintw(win, y, 4, "Source port: %u", ip->udp.src_port);
-    mvwprintw(win, ++y, 4, "Destination port: %u", ip->udp.dst_port);
-    mvwprintw(win, ++y, 4, "Length: %u", ip->udp.len);
-    mvwprintw(win, ++y, 4, "Checksum: %u", ip->udp.checksum);
+    ADD_TEXT_ELEMENT(lw, 0, "Source port: %u", ip->udp.src_port);
+    ADD_TEXT_ELEMENT(lw, 0, "Destination port: %u", ip->udp.dst_port);
+    ADD_TEXT_ELEMENT(lw, 0, "Length: %u", ip->udp.len);
+    ADD_TEXT_ELEMENT(lw, 0, "Checksum: %u", ip->udp.checksum);
+    ADD_TEXT_ELEMENT(lw, 0, "");
 }
 
-void print_tcp_verbose(WINDOW *win, struct ip_info *ip, int y)
+void print_tcp_information(list_view *lw, struct ip_info *ip)
 {
-    mvwprintw(win, y, 4, "Source port: %u", ip->tcp.src_port);
-    mvwprintw(win, ++y, 4, "Destination port: %u", ip->tcp.dst_port);
-    mvwprintw(win, ++y, 4, "Sequence number: %u", ip->tcp.seq_num);
-    mvwprintw(win, ++y, 4, "Acknowledgment number: %u", ip->tcp.ack_num);
-    mvwprintw(win, ++y, 4, "Data offset: %u", ip->tcp.offset);
-    mvwprintw(win, ++y, 4,
+    ADD_TEXT_ELEMENT(lw, 0, "Source port: %u", ip->tcp.src_port);
+    ADD_TEXT_ELEMENT(lw, 0, "Destination port: %u", ip->tcp.dst_port);
+    ADD_TEXT_ELEMENT(lw, 0, "Sequence number: %u", ip->tcp.seq_num);
+    ADD_TEXT_ELEMENT(lw, 0, "Acknowledgment number: %u", ip->tcp.ack_num);
+    ADD_TEXT_ELEMENT(lw, 0, "Data offset: %u", ip->tcp.offset);
+    ADD_TEXT_ELEMENT(lw, 0,
               "Flags: %u (NS) %u (CWR) %u (ECE) %u (URG) %u (ACK) %u (PSH) %u (RST) %u (SYN) %u (FIN)",
               ip->tcp.ns, ip->tcp.cwr, ip->tcp.ece, ip->tcp.urg, ip->tcp.ack,
               ip->tcp.psh, ip->tcp.rst, ip->tcp.syn, ip->tcp.fin);
-    mvwprintw(win, ++y, 4, "Window size: %u", ip->tcp.window);
-    mvwprintw(win, ++y, 4, "Checksum: %u", ip->tcp.checksum);
-    mvwprintw(win, ++y, 4, "Urgent pointer: %u", ip->tcp.urg_ptr);
+    ADD_TEXT_ELEMENT(lw, 0, "Window size: %u", ip->tcp.window);
+    ADD_TEXT_ELEMENT(lw, 0, "Checksum: %u", ip->tcp.checksum);
+    ADD_TEXT_ELEMENT(lw, 0, "Urgent pointer: %u", ip->tcp.urg_ptr);
+    ADD_TEXT_ELEMENT(lw, 0, "");
 }
 
-void print_tcp_options(WINDOW *win, struct tcp *tcp, int y)
+int print_tcp_options(WINDOW *win, struct tcp *tcp, int y)
 {
     if (tcp->options) {
         struct tcp_options *opt;
@@ -695,9 +709,10 @@ void print_tcp_options(WINDOW *win, struct tcp *tcp, int y)
         if (opt->ts_ecr) mvwprintw(win, ++y, 6, "Timestamp echo reply: %u", opt->ts_ecr);
         free_tcp_options(opt);
     }
+    return y + 1;
 }
 
-void print_dns_verbose(WINDOW *win, struct dns_info *dns, int y, int maxx)
+int print_dns_verbose(WINDOW *win, struct dns_info *dns, int y, int maxx)
 {
     int records = 0;
 
@@ -749,6 +764,7 @@ void print_dns_verbose(WINDOW *win, struct dns_info *dns, int y, int maxx)
             }
         }
     }
+    return y + 1;
 }
 
 void print_dns_soa(WINDOW *win, struct dns_info *info, int i, int y, int x)
@@ -778,7 +794,7 @@ void print_dns_soa(WINDOW *win, struct dns_info *info, int i, int y, int x)
               info->record[i].rdata.soa.minimum, time);
 }
 
-void print_nbns_verbose(WINDOW *win, struct nbns_info *nbns, int y, int maxx)
+int print_nbns_verbose(WINDOW *win, struct nbns_info *nbns, int y, int maxx)
 {
     int records = 0;
 
@@ -814,25 +830,25 @@ void print_nbns_verbose(WINDOW *win, struct nbns_info *nbns, int y, int maxx)
             mvwprintw(win, ++y, 8, "%s", buffer);
         }
     }
+    return y + 1;
 }
 
-void print_ssdp_verbose(WINDOW *win, list_t *ssdp, int y)
+void print_ssdp_information(list_view *lw, list_t *ssdp)
 {
     const node_t *n;
 
     n = list_begin(ssdp);
     while (n) {
-        mvwprintw(win, y++, 4, "%s", (char *) list_data(n));
+        ADD_TEXT_ELEMENT(lw, 0, "%s", (char *) list_data(n));
         n = list_next(n);
     }
 }
 
-void print_http_verbose(WINDOW *win, struct http_info *http, int y)
+void print_http_information(list_view *lw, struct http_info *http)
 {
-
 }
 
-void print_payload(WINDOW *win, unsigned char *payload, uint16_t len, int y)
+void print_payload(list_view *lw, unsigned char *payload, uint16_t len)
 {
     int size = 1024;
     int num = 0;
@@ -862,6 +878,6 @@ void print_payload(WINDOW *win, unsigned char *payload, uint16_t len, int y)
         }
         snprintcat(buf, size, "|");
         num += 16;
-        mvwprintw(win, y++, 4, "%s", buf);
+        ADD_TEXT_ELEMENT(lw, 0, "%s", buf);
     }
 }
