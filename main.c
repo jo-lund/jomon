@@ -47,7 +47,7 @@ int statistics;
 vector_t *vector;
 static volatile sig_atomic_t signal_flag = 0;
 static int sockfd = -1; /* packet socket file descriptor */
-
+static int no_curses;
 static void print_help(char *prg);
 static void init_socket();
 static void init_structures();
@@ -65,7 +65,8 @@ int main(int argc, char **argv)
 
     statistics = 0;
     promiscuous = 0;
-    while ((opt = getopt(argc, argv, "i:f:lhvps")) != -1) {
+    no_curses = 0;
+    while ((opt = getopt(argc, argv, "i:f:lhvpsr")) != -1) {
         switch (opt) {
         case 'i':
             device = strdup(optarg);
@@ -85,6 +86,9 @@ int main(int argc, char **argv)
             break;
         case 'f':
             filename = optarg;
+            break;
+        case 'r':
+            no_curses = 1;
             break;
         case 'h':
         default:
@@ -110,8 +114,10 @@ int main(int argc, char **argv)
     } else {
         init_socket();
     }
-    init_ncurses();
-    create_layout();
+    if (!no_curses) {
+        init_ncurses();
+        create_layout();
+    }
     if (filename) print_file();
     run();
     finish();
@@ -143,7 +149,9 @@ void sig_int(int signo)
 
 void finish()
 {
-    end_ncurses();
+    if (!no_curses) {
+        end_ncurses();
+    }
     vector_clear(vector);
     free(device);
     free(local_addr);
@@ -234,7 +242,9 @@ void run()
             n = read_packet(sockfd, buffer, SNAPLEN, &p);
             if (n) {
                 vector_push_back(vector, p);
-                print_packet(p);
+                if (!no_curses) {
+                    print_packet(p);
+                }
             }
         }
         if (fds[1].revents & POLLIN) {
