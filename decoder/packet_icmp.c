@@ -19,18 +19,18 @@
  *
  * The ICMP header is 8 bytes.
  */
-bool handle_icmp(unsigned char *buffer, int n, struct ip_info *info)
+bool handle_icmp(unsigned char *buffer, int n, struct icmp_info *info)
 {
     if (n < ICMP_HDR_LEN) return false;
 
     struct icmphdr *icmp = (struct icmphdr *) buffer;
 
-    info->icmp.type = icmp->type;
-    info->icmp.code = icmp->code;
-    info->icmp.checksum = htons(info->icmp.checksum);
+    info->type = icmp->type;
+    info->code = icmp->code;
+    info->checksum = htons(info->checksum);
     if (icmp->type == ICMP_ECHOREPLY || icmp->type == ICMP_ECHO) {
-        info->icmp.echo.id = ntohs(icmp->un.echo.id);
-        info->icmp.echo.seq_num = ntohs(icmp->un.echo.sequence);
+        info->echo.id = ntohs(icmp->un.echo.id);
+        info->echo.seq_num = ntohs(icmp->un.echo.sequence);
     }
     return true;
 }

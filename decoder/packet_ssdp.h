@@ -7,6 +7,6 @@
 struct application_info;
 
 /* internal to the decoder */
-bool handle_ssdp(unsigned char *buffer, struct application_info *info, uint16_t len);
+bool handle_ssdp(unsigned char *buffer, int n, struct application_info *info);
 
 #endif

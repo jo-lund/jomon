@@ -31,7 +31,7 @@ static void parse_nbns_record(int i, unsigned char *buffer, unsigned char **ptr,
  * |AA |TC |RD |RA | 0 | 0 | B |
  * +---+---+---+---+---+---+---+
  */
-bool handle_nbns(unsigned char *buffer, struct application_info *info)
+bool handle_nbns(unsigned char *buffer, int n, struct application_info *info)
 {
     unsigned char *ptr = buffer;
 

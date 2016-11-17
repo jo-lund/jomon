@@ -73,7 +73,7 @@
  *            the urgent data. This field is only be interpreted in segments with
  *            the URG control bit set.
  */
-bool handle_tcp(unsigned char *buffer, int n, struct ip_info *info)
+bool handle_tcp(unsigned char *buffer, int n, struct tcp *info)
 {
     struct tcphdr *tcp;
     bool error;
@@ -82,50 +82,50 @@ bool handle_tcp(unsigned char *buffer, int n, struct ip_info *info)
     tcp = (struct tcphdr *) buffer;
     if (n < tcp->doff * 4) return false;
 
-    info->tcp.src_port = ntohs(tcp->source);
-    info->tcp.dst_port = ntohs(tcp->dest);
-    info->tcp.seq_num = ntohl(tcp->seq);
-    info->tcp.ack_num = ntohl(tcp->ack_seq);
-    info->tcp.offset = tcp->doff;
-    info->tcp.urg = tcp->urg;
-    info->tcp.ack = tcp->ack;
-    info->tcp.psh = tcp->psh;
-    info->tcp.rst = tcp->rst;
-    info->tcp.syn = tcp->syn;
-    info->tcp.fin = tcp->fin;
-    info->tcp.window = ntohs(tcp->window);
-    info->tcp.checksum = ntohs(tcp->check);
-    info->tcp.urg_ptr = ntohs(tcp->urg_ptr);
+    info->src_port = ntohs(tcp->source);
+    info->dst_port = ntohs(tcp->dest);
+    info->seq_num = ntohl(tcp->seq);
+    info->ack_num = ntohl(tcp->ack_seq);
+    info->offset = tcp->doff;
+    info->urg = tcp->urg;
+    info->ack = tcp->ack;
+    info->psh = tcp->psh;
+    info->rst = tcp->rst;
+    info->syn = tcp->syn;
+    info->fin = tcp->fin;
+    info->window = ntohs(tcp->window);
+    info->checksum = ntohs(tcp->check);
+    info->urg_ptr = ntohs(tcp->urg_ptr);
+    payload_len = n - info->offset * 4;
 
     /* the minimum header without options is 20 bytes */
-    if (info->tcp.offset > 5) {
+    if (info->offset > 5) {
         uint8_t options_len;
 
-        options_len = (info->tcp.offset - 5) * 4;
-        info->tcp.options = malloc(options_len);
-        memcpy(info->tcp.options, buffer + 20, options_len);
+        options_len = (info->offset - 5) * 4;
+        info->options = malloc(options_len);
+        memcpy(info->options, buffer + 20, options_len);
     } else {
-        info->tcp.options = NULL;
+        info->options = NULL;
     }
-    payload_len = info->length - info->ihl * 4 - info->tcp.offset * 4;
 
     /* only check port if there is a payload */
     if (payload_len > 0) {
         for (int i = 0; i < 2; i++) {
-            info->tcp.data.utype = *((uint16_t *) &info->tcp + i);
-            if (check_port(buffer + info->tcp.offset * 4, &info->tcp.data, info->tcp.data.utype,
-                           info->length - info->ihl * 4, &error)) {
+            info->data.utype = *((uint16_t *) &info + i);
+            if (check_port(buffer + info->offset * 4, payload_len, &info->data,
+                           info->data.utype, &error)) {
                 return true;
             }
         }
     }
-    info->tcp.data.utype = 0;
+    info->data.utype = 0;
 
     /* unknown application payload data */
     if (payload_len > 0) {
-        info->tcp.data.payload = malloc(payload_len);
-        info->tcp.data.payload_len = payload_len;
-        memcpy(info->tcp.data.payload, buffer + info->tcp.offset * 4, payload_len);
+        info->data.payload_len = payload_len;
+        info->data.payload = malloc(payload_len);
+        memcpy(info->data.payload, buffer + info->offset * 4, payload_len);
     }
     return true;
 }

@@ -19,12 +19,12 @@ static void parse_ssdp(char *str, int n, list_t **msg_header);
  * originating address and port number of the multicast request.
  *
  */
-bool handle_ssdp(unsigned char *buffer, struct application_info *info, uint16_t len)
+bool handle_ssdp(unsigned char *buffer, int n, struct application_info *info)
 {
     list_t *ssdp_fields;
 
     ssdp_fields = list_init(NULL);
-    parse_ssdp((char *) buffer, len, &ssdp_fields);
+    parse_ssdp((char *) buffer, n, &ssdp_fields);
     info->ssdp = ssdp_fields;
     return true;
 }

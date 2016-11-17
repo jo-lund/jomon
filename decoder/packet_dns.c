@@ -58,11 +58,11 @@ static char *parse_dns_txt(unsigned char **data);
  * ARCOUNT: an unsigned 16 bit integer specifying the number of
  *          resource records in the additional records section.
  */
-bool handle_dns(unsigned char *buffer, struct application_info *info, uint16_t len)
+bool handle_dns(unsigned char *buffer, int n, struct application_info *info)
 {
     unsigned char *ptr = buffer;
 
-    if (len < DNS_HDRLEN) return false;
+    if (n < DNS_HDRLEN) return false;
 
     // TODO: Handle more than one question
     if ((ptr[4] << 8 | ptr[5]) > 0x1) { /* the QDCOUNT will in practice always be one */

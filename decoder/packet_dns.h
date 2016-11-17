@@ -182,7 +182,7 @@ struct dns_info {
     } *record;
 };
 
-bool handle_dns(unsigned char *buffer, struct application_info *info, uint16_t len);
+bool handle_dns(unsigned char *buffer, int n, struct application_info *info);
 int parse_dns_name(unsigned char *buffer, unsigned char *ptr, char name[]);
 char *get_dns_opcode(uint8_t opcode);
 char *get_dns_rcode(uint8_t rcode);

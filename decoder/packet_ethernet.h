@@ -47,6 +47,7 @@ struct eth_info {
         struct eth_802_llc *llc;
         struct arp_info *arp;
         struct ip_info *ip;
+        struct ipv6_info *ipv6;
         unsigned char *payload;
     };
 };
