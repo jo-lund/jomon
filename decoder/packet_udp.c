@@ -31,7 +31,7 @@ bool handle_udp(unsigned char *buffer, int n, struct udp_info *info)
     info->checksum = ntohs(udp->check);
 
     for (int i = 0; i < 2; i++) {
-        info->data.utype = *((uint16_t *) &info + i);
+        info->data.utype = *((uint16_t *) info + i);
         if (check_port(buffer + UDP_HDR_LEN, n - UDP_HDR_LEN, &info->data,
                        info->data.utype, &error)) {
             return true;
