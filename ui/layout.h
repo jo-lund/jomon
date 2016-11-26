@@ -6,6 +6,14 @@
 extern bool numeric;
 struct packet;
 
+enum layer {
+    LINK,
+    NETWORK,
+    TRANSPORT,
+    APPLICATION,
+    SUBLAYER
+};
+
 /* initialize ncurses */
 void init_ncurses();
 

@@ -7,8 +7,9 @@
 #include "../list.h"
 
 #define ADD_HEADER(o, text, expanded, data) (o)->add_header(o, text, expanded, data)
-#define ADD_SUB_HEADER(o, w, text, expanded) (o)->add_sub_header(o, w, text, expanded)
+#define ADD_SUB_HEADER(o, w, text, expanded, data) (o)->add_sub_header(o, w, text, expanded, data)
 #define ADD_TEXT_ELEMENT(o, x, text, ...) (o)->add_text_element(o, x, text, ## __VA_ARGS__)
+#define ADD_SUB_ELEMENT(o, w, text, ...) (o)->add_sub_element(o, w, text, ## __VA_ARGS__)
 #define SET_EXPANDED(o, i, expanded) (o)->set_expanded(o, i, expanded)
 #define GET_EXPANDED(o, i) (o)->get_expanded(o, i)
 #define GET_DATA(o, i) (o)->get_data(o, i)
@@ -18,7 +19,6 @@
 typedef struct {
     bool expanded;
     int32_t data;
-    list_t *subwidgets;
 } header;
 
 typedef struct {
@@ -26,6 +26,7 @@ typedef struct {
     char *txt;
     uint32_t attr;
     uint16_t type;
+    list_t *subwidgets;
 
     union {
         header hdr;
@@ -44,7 +45,10 @@ typedef struct lw {
     list_view_widget* (*add_header)(struct lw *this, char *text, bool expanded, uint32_t data);
 
     /* Adds a header as a sub element to another header */
-    void (*add_sub_header)(struct lw *this, list_view_widget *widget, char *text, bool expanded);
+    list_view_widget* (*add_sub_header)(struct lw *this, list_view_widget *widget, char *text,
+                                        bool expanded, uint32_t data);
+
+    list_view_widget* (*add_sub_element)(struct lw *this, list_view_widget *widget, char *txt, ...);
 
     /*
      * Adds a text element to the list view. 'x' is the amount of extra indentation.

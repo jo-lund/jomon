@@ -11,10 +11,6 @@
 /* write packet to buffer */
 void print_buffer(char *buf, int size, struct packet *p);
 
-int print_tcp_options(WINDOW *win, struct tcp *tcp, int y);
-int print_dns_verbose(WINDOW *win, struct dns_info *dns, int y, int maxx);
-int print_nbns_verbose(WINDOW *win, struct nbns_info *nbns, int y, int maxx);
-
 void print_ethernet_information(list_view *lw, struct packet *p);
 void print_arp_information(list_view *lw, struct packet *p);
 void print_llc_information(list_view *lw, struct packet *p);
@@ -22,11 +18,13 @@ void print_snap_information(list_view *lw, struct packet *p);
 void print_stp_information(list_view *lw, struct packet *p);
 void print_ip_information(list_view *lw, struct ip_info *ip);
 void print_udp_information(list_view *lw, struct ip_info *ip);
-void print_tcp_information(list_view *lw, struct ip_info *ip);
+void print_tcp_information(list_view *lw, struct ip_info *ip, bool options_selected);
 void print_icmp_information(list_view *lw, struct ip_info *ip);
 void print_igmp_information(list_view *lw, struct ip_info *info);
 void print_ssdp_information(list_view *lw, list_t *ssdp);
 void print_http_information(list_view *lw, struct http_info *http);
+void print_dns_information(list_view *lw, struct dns_info *dns, int maxx);
+void print_nbns_information(list_view *lw, struct nbns_info *nbns, int maxx);
 void print_payload(list_view *lw, unsigned char *payload, uint16_t len);
 
 #endif

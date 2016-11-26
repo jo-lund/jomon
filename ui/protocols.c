@@ -44,6 +44,7 @@ static void print_http(char *buf, int n, struct http_info *http);
 static void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t type, bool *soa);
 static void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t type);
 static void print_dns_soa(WINDOW *win, struct dns_info *info, int i, int y, int x);
+static void print_tcp_options(list_view *lw, list_view_widget *w, struct tcp *tcp);
 
 void print_buffer(char *buf, int size, struct packet *p)
 {
@@ -507,7 +508,7 @@ void print_llc_information(list_view *lw, struct packet *p)
     ADD_TEXT_ELEMENT(lw, 0, "");
 }
 
-int print_snap_verbose(list_view *lw, struct packet *p)
+void print_snap_information(list_view *lw, struct packet *p)
 {
     ADD_TEXT_ELEMENT(lw, 0, "IEEE Organizationally Unique Identifier (OUI): 0x%06x\n",
               get_eth802_oui(p->eth.llc->snap));
@@ -667,8 +668,10 @@ void print_udp_information(list_view *lw, struct ip_info *ip)
     ADD_TEXT_ELEMENT(lw, 0, "");
 }
 
-void print_tcp_information(list_view *lw, struct ip_info *ip)
+void print_tcp_information(list_view *lw, struct ip_info *ip, bool options_selected)
 {
+    list_view_widget *w;
+
     ADD_TEXT_ELEMENT(lw, 0, "Source port: %u", ip->tcp.src_port);
     ADD_TEXT_ELEMENT(lw, 0, "Destination port: %u", ip->tcp.dst_port);
     ADD_TEXT_ELEMENT(lw, 0, "Sequence number: %u", ip->tcp.seq_num);
@@ -680,39 +683,43 @@ void print_tcp_information(list_view *lw, struct ip_info *ip)
               ip->tcp.psh, ip->tcp.rst, ip->tcp.syn, ip->tcp.fin);
     ADD_TEXT_ELEMENT(lw, 0, "Window size: %u", ip->tcp.window);
     ADD_TEXT_ELEMENT(lw, 0, "Checksum: %u", ip->tcp.checksum);
-    ADD_TEXT_ELEMENT(lw, 0, "Urgent pointer: %u", ip->tcp.urg_ptr);
-    ADD_TEXT_ELEMENT(lw, 0, "");
+    w = ADD_TEXT_ELEMENT(lw, 0, "Urgent pointer: %u", ip->tcp.urg_ptr);
+    if (ip->tcp.options) {
+        ADD_SUB_HEADER(lw, w, "Options", options_selected, SUBLAYER);
+        if (options_selected) {
+            print_tcp_options(lw, w, &ip->tcp);
+        }
+    }
 }
 
-int print_tcp_options(WINDOW *win, struct tcp *tcp, int y)
+void print_tcp_options(list_view *lw, list_view_widget *w, struct tcp *tcp)
 {
     if (tcp->options) {
         struct tcp_options *opt;
 
         opt = parse_tcp_options(tcp->options, (tcp->offset - 5) * 4);
-        if (opt->nop) mvwprintw(win, y, 6, "No operation: %u bytes", opt->nop);
-        if (opt->mss) mvwprintw(win, ++y, 6, "Maximum segment size: %u", opt->mss);
-        if (opt->win_scale) mvwprintw(win, ++y, 6, "Window scale: %u", opt->win_scale);
-        if (opt->sack_permitted) mvwprintw(win, ++y, 6, "Selective Acknowledgement permitted");
+        if (opt->nop) ADD_SUB_ELEMENT(lw, w, "No operation: %u bytes", opt->nop);
+        if (opt->mss) ADD_SUB_ELEMENT(lw, w, "Maximum segment size: %u", opt->mss);
+        if (opt->win_scale) ADD_SUB_ELEMENT(lw, w, "Window scale: %u", opt->win_scale);
+        if (opt->sack_permitted) ADD_SUB_ELEMENT(lw, w, "Selective Acknowledgement permitted");
         if (opt->sack) {
             const node_t *n = list_begin(opt->sack);
 
             while (n) {
                 struct tcp_sack_block *block = list_data(n);
 
-                mvwprintw(win, ++y, 6, "Left edge: %u", block->left_edge);
-                mvwprintw(win, ++y, 6, "Right edge: %u", block->right_edge);
+                ADD_SUB_ELEMENT(lw, w, "Left edge: %u", block->left_edge);
+                ADD_SUB_ELEMENT(lw, w, "Right edge: %u", block->right_edge);
                 n = list_next(n);
             }
         }
-        if (opt->ts_val) mvwprintw(win, ++y, 6, "Timestamp value: %u", opt->ts_val);
-        if (opt->ts_ecr) mvwprintw(win, ++y, 6, "Timestamp echo reply: %u", opt->ts_ecr);
+        if (opt->ts_val) ADD_SUB_ELEMENT(lw, w, "Timestamp value: %u", opt->ts_val);
+        if (opt->ts_ecr) ADD_SUB_ELEMENT(lw, w, "Timestamp echo reply: %u", opt->ts_ecr);
         free_tcp_options(opt);
     }
-    return y + 1;
 }
 
-int print_dns_verbose(WINDOW *win, struct dns_info *dns, int y, int maxx)
+void print_dns_information(list_view *lw, struct dns_info *dns, int maxx)
 {
     int records = 0;
 
@@ -720,35 +727,35 @@ int print_dns_verbose(WINDOW *win, struct dns_info *dns, int y, int maxx)
     for (int i = 1; i < 4; i++) {
         records += dns->section_count[i];
     }
-    mvwprintw(win, y, 4, "ID: 0x%x", dns->id);
-    mvwprintw(win, ++y, 4, "QR: %d (%s)", dns->qr, dns->qr ? "DNS Response" : "DNS Query");
-    mvwprintw(win, ++y, 4, "Opcode: %d (%s)", dns->opcode, get_dns_opcode(dns->opcode));
+    ADD_TEXT_ELEMENT(lw, 0, "ID: 0x%x", dns->id);
+    ADD_TEXT_ELEMENT(lw, 0, "QR: %d (%s)", dns->qr, dns->qr ? "DNS Response" : "DNS Query");
+    ADD_TEXT_ELEMENT(lw, 0, "Opcode: %d (%s)", dns->opcode, get_dns_opcode(dns->opcode));
     if (dns->qr) {
-        mvwprintw(win, ++y, 4, "AA: %d (%s)", dns->aa, dns->aa ?
+        ADD_TEXT_ELEMENT(lw, 0, "AA: %d (%s)", dns->aa, dns->aa ?
                   "Authoritative answer" : "Not an authoritative answer");
     }
-    mvwprintw(win, ++y, 4, "TC: %d (%s)", dns->tc, dns->tc ? "Truncation" :
+    ADD_TEXT_ELEMENT(lw, 0, "TC: %d (%s)", dns->tc, dns->tc ? "Truncation" :
               "No truncation");
-    mvwprintw(win, ++y, 4, "RD: %d (%s)", dns->rd, dns->rd ?
+    ADD_TEXT_ELEMENT(lw, 0, "RD: %d (%s)", dns->rd, dns->rd ?
               "Recursion desired" : "No recursion desired");
     if (dns->qr) {
-        mvwprintw(win, ++y, 4, "RA: %d (%s)", dns->ra, dns->ra ?
+        ADD_TEXT_ELEMENT(lw, 0, "RA: %d (%s)", dns->ra, dns->ra ?
                   "Recursion available" : "No recursion available");
-        mvwprintw(win, ++y, 4, "Rcode: %d (%s)", dns->rcode, get_dns_rcode(dns->rcode));
+        ADD_TEXT_ELEMENT(lw, 0, "Rcode: %d (%s)", dns->rcode, get_dns_rcode(dns->rcode));
     }
-    mvwprintw(win, ++y, 4, "Question: %d, Answer: %d, Authority: %d, Additional records: %d",
+    ADD_TEXT_ELEMENT(lw, 0, "Question: %d, Answer: %d, Authority: %d, Additional records: %d",
               dns->section_count[QDCOUNT], dns->section_count[ANCOUNT],
               dns->section_count[NSCOUNT], dns->section_count[ARCOUNT]);
-    mvwprintw(win, ++y, 0, "");
+    ADD_TEXT_ELEMENT(lw, 0, "");
     for (int i = dns->section_count[QDCOUNT]; i > 0; i--) {
-        mvwprintw(win, ++y, 4, "QNAME: %s, QTYPE: %s, QCLASS: %s",
+        ADD_TEXT_ELEMENT(lw, 0, "QNAME: %s, QTYPE: %s, QCLASS: %s",
                   dns->question.qname, get_dns_type_extended(dns->question.qtype),
                   get_dns_class_extended(GET_MDNS_RRCLASS(dns->question.qclass)));
     }
     if (records) {
         int len;
 
-        mvwprintw(win, ++y, 4, "Resource records:");
+        ADD_TEXT_ELEMENT(lw, 0, "Resource records:");
         len = get_max_namelen(dns->record, records);
         for (int i = 0; i < records; i++) {
             char buffer[maxx];
@@ -758,13 +765,12 @@ int print_dns_verbose(WINDOW *win, struct dns_info *dns, int y, int maxx)
             snprintcat(buffer, maxx, "%-6s", get_dns_class(GET_MDNS_RRCLASS(dns->record[i].rrclass)));
             snprintcat(buffer, maxx, "%-8s", get_dns_type(dns->record[i].type));
             print_dns_record(dns, i, buffer, maxx, dns->record[i].type, &soa);
-            mvwprintw(win, ++y, 6, "%s", buffer);
+            ADD_TEXT_ELEMENT(lw, 2, "%s", buffer);
             if (soa) {
-                print_dns_soa(win, dns, i, y + 1, 6);
+                //print_dns_soa(win, dns, i, y + 1, 6);
             }
         }
     }
-    return y + 1;
 }
 
 void print_dns_soa(WINDOW *win, struct dns_info *info, int i, int y, int x)
@@ -794,7 +800,7 @@ void print_dns_soa(WINDOW *win, struct dns_info *info, int i, int y, int x)
               info->record[i].rdata.soa.minimum, time);
 }
 
-int print_nbns_verbose(WINDOW *win, struct nbns_info *nbns, int y, int maxx)
+void print_nbns_information(list_view *lw, struct nbns_info *nbns, int maxx)
 {
     int records = 0;
 
@@ -802,24 +808,24 @@ int print_nbns_verbose(WINDOW *win, struct nbns_info *nbns, int y, int maxx)
     for (int i = 1; i < 4; i++) {
         records += nbns->section_count[i];
     }
-    mvwprintw(win, y, 4, "ID: 0x%x", nbns->id);
-    mvwprintw(win, ++y, 4, "Response flag: %d (%s)", nbns->r, nbns->r ? "Response" : "Request");
-    mvwprintw(win, ++y, 4, "Opcode: %d (%s)", nbns->opcode, get_nbns_opcode(nbns->opcode));
-    mvwprintw(win, ++y, 4, "Flags: %d%d%d%d%d", nbns->aa, nbns->tc, nbns->rd, nbns->ra, nbns->broadcast);
-    mvwprintw(win, ++y, 4, "Rcode: %d (%s)", nbns->rcode, get_nbns_rcode(nbns->rcode));
-    mvwprintw(win, ++y, 4, "Question Entries: %d, Answer RRs: %d, Authority RRs: %d, Additional RRs: %d",
+    ADD_TEXT_ELEMENT(lw, 0, "ID: 0x%x", nbns->id);
+    ADD_TEXT_ELEMENT(lw, 0, "Response flag: %d (%s)", nbns->r, nbns->r ? "Response" : "Request");
+    ADD_TEXT_ELEMENT(lw, 0, "Opcode: %d (%s)", nbns->opcode, get_nbns_opcode(nbns->opcode));
+    ADD_TEXT_ELEMENT(lw, 0, "Flags: %d%d%d%d%d", nbns->aa, nbns->tc, nbns->rd, nbns->ra, nbns->broadcast);
+    ADD_TEXT_ELEMENT(lw, 0, "Rcode: %d (%s)", nbns->rcode, get_nbns_rcode(nbns->rcode));
+    ADD_TEXT_ELEMENT(lw, 0, "Question Entries: %d, Answer RRs: %d, Authority RRs: %d, Additional RRs: %d",
               nbns->section_count[QDCOUNT], nbns->section_count[ANCOUNT],
               nbns->section_count[NSCOUNT], nbns->section_count[ARCOUNT]);
-    mvwprintw(win, ++y, 0, "");
+    ADD_TEXT_ELEMENT(lw, 0, "");
 
     /* question entry */
     if (nbns->section_count[QDCOUNT]) {
-        mvwprintw(win, ++y, 4, "Question name: %s, Question type: %s, Question class: IN (Internet)",
+        ADD_TEXT_ELEMENT(lw, 0, "Question name: %s, Question type: %s, Question class: IN (Internet)",
                   nbns->question.qname, get_nbns_type_extended(nbns->question.qtype));
     }
 
     if (records) {
-        mvwprintw(win, ++y, 4, "Resource records:");
+        ADD_TEXT_ELEMENT(lw, 0, "Resource records:");
         for (int i = 0; i < records; i++) {
             char buffer[maxx];
 
@@ -827,10 +833,9 @@ int print_nbns_verbose(WINDOW *win, struct nbns_info *nbns, int y, int maxx)
             snprintcat(buffer, maxx, "IN\t");
             snprintcat(buffer, maxx, "%s\t", get_nbns_type(nbns->record[i].rrtype));
             print_nbns_record(nbns, i, buffer, maxx, nbns->record[i].rrtype);
-            mvwprintw(win, ++y, 8, "%s", buffer);
+            ADD_TEXT_ELEMENT(lw, 2, "%s", buffer);
         }
     }
-    return y + 1;
 }
 
 void print_ssdp_information(list_view *lw, list_t *ssdp)

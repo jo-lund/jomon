@@ -22,14 +22,8 @@ static struct preferences {
     bool network_selected;
     bool transport_selected;
     bool application_selected;
+    bool sublayer_selected;
 } preferences;
-
-enum layer {
-    LINK,
-    NETWORK,
-    TRANSPORT,
-    APPLICATION
-};
 
 static struct line_info {
     int line_number;
@@ -41,12 +35,6 @@ static struct subwin_info {
     unsigned int top; /* index to the first line in the subwindow relative to the
                          main window */
     unsigned int num_lines;
-    struct subline_info {
-        bool selectable;
-        bool selected;
-        char *text;
-        uint32_t attr;
-    } *line;
 } subwindow;
 
 extern vector_t *vector;
@@ -80,22 +68,13 @@ static void print(char *buf);
 static void print_header();
 static void print_selected_packet();
 static void print_protocol_information(struct packet *p, int lineno);
-static int print_app_protocol(struct application_info *info, int y);
 
 /* Handles subwindow layout */
 static void create_subwindow(int num_lines, int lineno);
 static void delete_subwindow();
 static bool update_subwin_selection();
-static int calculate_subwin_size(struct packet *p);
-static int calculate_applayer_size(struct application_info *info);
-static int calculate_tcp_options_size(struct tcp *tcp);
-static int calculate_dns_size(struct dns_info *dns);
-static void create_app_sublines(struct packet *p, int i);
-
 static void create_elements(struct packet *p);
-static void create_app_elements(struct packet *p);
-static void print_protocol_information2(struct packet *p, int lineno);
-static bool update_subwin_selection2();
+static void create_app_elements(struct application_info *info, struct packet *p);
 
 void init_ncurses()
 {
@@ -501,10 +480,10 @@ void print_selected_packet()
     if (prev_selection >= 0 && subwindow.win) {
         bool inside_subwin;
 
-        inside_subwin = update_subwin_selection2();
+        inside_subwin = update_subwin_selection();
         if (inside_subwin) {
             p = vector_get_data(vector, prev_selection);
-            print_protocol_information2(p, prev_selection);
+            print_protocol_information(p, prev_selection);
             return;
         }
     }
@@ -525,7 +504,7 @@ void print_selected_packet()
     }
     if (main_line.selected) {
         p = vector_get_data(vector, selection_line);
-        print_protocol_information2(p, selection_line);
+        print_protocol_information(p, selection_line);
     } else {
         delete_subwindow();
     }
@@ -545,8 +524,6 @@ void create_elements(struct packet *p)
     if (preferences.link_selected) {
         print_ethernet_information(lw, p);
     }
-
-    // if expanded add each line as a list_view_widget containing just text. Do that for every type of header.
     if (p->eth.ethertype == ETH_P_ARP) {
         ADD_HEADER(lw, "Address Resolution Protocol (ARP)", preferences.network_selected, NETWORK);
         if (preferences.network_selected) {
@@ -560,15 +537,11 @@ void create_elements(struct packet *p)
         switch (p->eth.ip->protocol) {
         case IPPROTO_TCP:
         {
-            list_view_widget *w = ADD_HEADER(lw, "Transmission Control Protocol (TCP)", preferences.transport_selected, TRANSPORT);
-
+            ADD_HEADER(lw, "Transmission Control Protocol (TCP)", preferences.transport_selected, TRANSPORT);
             if (preferences.transport_selected) {
-                print_tcp_information(lw, p->eth.ip);
+                print_tcp_information(lw, p->eth.ip, preferences.sublayer_selected);
             }
-            if (p->eth.ip->tcp.options) {
-                ADD_SUB_HEADER(lw, w, "Options", false); // TODO: Fix sublayer preferences
-            }
-            create_app_elements(p);
+            create_app_elements(&p->eth.ip->tcp.data, p);
             break;
         }
         case IPPROTO_UDP:
@@ -576,7 +549,7 @@ void create_elements(struct packet *p)
             if (preferences.transport_selected) {
                 print_udp_information(lw, p->eth.ip);
             }
-            create_app_elements(p);
+            create_app_elements(&p->eth.ip->udp.data, p);
             break;
         case IPPROTO_ICMP:
             ADD_HEADER(lw, "Internet Control Message Protocol (ICMP)", preferences.transport_selected, TRANSPORT);
@@ -614,7 +587,7 @@ void create_elements(struct packet *p)
         case ETH_802_SNAP:
             ADD_HEADER(lw, "Subnetwork Access Protocol (SNAP)", preferences.transport_selected, TRANSPORT);
             if (preferences.transport_selected) {
-                print_stp_information(lw, p);
+                print_snap_information(lw, p);
             }
             break;
         default:
@@ -628,37 +601,49 @@ void create_elements(struct packet *p)
     }
 }
 
-void create_app_elements(struct packet *p)
+void create_app_elements(struct application_info *info, struct packet *p)
 {
-    switch (p->eth.ip->udp.data.utype) {
+    switch (info->utype) {
     case DNS:
     case MDNS:
         ADD_HEADER(lw, "Domain Name System (DNS)", preferences.application_selected, APPLICATION);
-        // TODO: Traverse resource records and add them as sub elements
+        if (preferences.application_selected) {
+            print_dns_information(lw, info->dns, getmaxx(wmain));
+        }
         break;
     case NBNS:
         ADD_HEADER(lw, "NetBIOS Name Service (NBNS)", preferences.application_selected, APPLICATION);
+        if (preferences.application_selected) {
+            print_nbns_information(lw, info->nbns, getmaxx(wmain));
+        }
         break;
     case HTTP:
         ADD_HEADER(lw, "Hypertext Transfer Protocol (HTTP)", preferences.application_selected, APPLICATION);
+        if (preferences.application_selected) {
+            print_http_information(lw, info->http);
+        }
         break;
     case SSDP:
         ADD_HEADER(lw, "Simple Service Discovery Protocol (SSDP)", preferences.application_selected, APPLICATION);
+        if (preferences.application_selected) {
+            print_ssdp_information(lw, info->ssdp);
+        }
         break;
     default:
         if ((p->eth.ip->protocol == IPPROTO_TCP && TCP_PAYLOAD_LEN(p) > 0) ||
             p->eth.ip->protocol == IPPROTO_UDP) {
             ADD_HEADER(lw, "Data", preferences.application_selected, APPLICATION);
+            if (preferences.application_selected) {
+                print_payload(lw, info->payload, info->payload_len);
+            }
         }
         break;
     }
 }
 
-void print_protocol_information2(struct packet *p, int lineno)
+void print_protocol_information(struct packet *p, int lineno)
 {
-    int size = 40;
-
-    /* Delete old subwindow. TODO: Possible to just resize? */
+    /* Delete old subwindow. TODO: Don't use a subwindow for this */
     if (subwindow.win) {
         delete_subwindow();
         free_list_view(lw);
@@ -677,26 +662,6 @@ void print_protocol_information2(struct packet *p, int lineno)
     }
     touchwin(wmain);
     wrefresh(subwindow.win);
-}
-
-int print_app_protocol(struct application_info *info, int y)
-{
-    switch (info->utype) {
-    case DNS:
-    case MDNS:
-        return print_dns_verbose(subwindow.win, info->dns, y, getmaxx(wmain));
-    case NBNS:
-        return print_nbns_verbose(subwindow.win, info->nbns, y, getmaxx(wmain));
-    case SSDP:
-        print_ssdp_information(lw, info->ssdp);
-        break;
-    case HTTP:
-        print_http_information(lw, info->http);
-        break;
-    default:
-        print_payload(lw, info->payload, info->payload_len);
-        break;
-    }
 }
 
 void create_subwindow(int num_lines, int lineno)
@@ -721,7 +686,6 @@ void create_subwindow(int num_lines, int lineno)
     }
 
     /* make space for protocol specific information */
-    subwindow.line = calloc(num_lines, sizeof(struct subline_info));
     subwindow.win = derwin(wmain, num_lines, mx, start_line + 1, 0);
     subwindow.top = start_line + 1;
     subwindow.num_lines = num_lines;
@@ -744,10 +708,6 @@ void delete_subwindow()
     screen_line = selection_line - top;
     delwin(subwindow.win);
     subwindow.win = NULL;
-    if (subwindow.line) {
-        free(subwindow.line);
-        subwindow.line = NULL;
-    }
     subwindow.num_lines = 0;
     werase(wmain);
 
@@ -773,7 +733,7 @@ void delete_subwindow()
  * Returns true if it's inside the subwindow, else false.
  */
 
-bool update_subwin_selection2()
+bool update_subwin_selection()
 {
     int screen_line;
 
@@ -797,6 +757,9 @@ bool update_subwin_selection2()
         case APPLICATION:
             preferences.application_selected = GET_EXPANDED(lw, subline);
             break;
+        case SUBLAYER:
+            preferences.sublayer_selected = GET_EXPANDED(lw, subline);
+            break;
         default:
             break;
         }
@@ -804,4 +767,3 @@ bool update_subwin_selection2()
     }
     return false;
 }
-
