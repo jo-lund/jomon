@@ -2,9 +2,11 @@
 #define UI_LAYOUT_H
 
 #include <ncurses.h>
+#include "../misc.h"
 
 extern bool numeric;
 struct packet;
+struct context;
 
 enum layer {
     LINK,
@@ -28,7 +30,7 @@ void get_input();
  * containing the header, another the main screen with packet information, and
  * below that a statusbar.
  */
-void create_layout();
+void create_layout(context *c);
 
 /* print the rate of the transmission */
 void print_rate();

@@ -42,17 +42,17 @@
  *
  * TODO: Handle IGMPv3 membership query
  */
-bool handle_igmp(unsigned char *buffer, int n, struct ip_info *info)
+bool handle_igmp(unsigned char *buffer, int n, struct igmp_info *info)
 {
     if (n < IGMP_HDR_LEN) return false;
 
     struct igmphdr *igmp;
 
     igmp = (struct igmphdr *) buffer;
-    info->igmp.type = igmp->type;
-    info->igmp.max_resp_time = igmp->code;
-    info->igmp.checksum = ntohs(igmp->csum);
-    if (inet_ntop(AF_INET, &igmp->group, info->igmp.group_addr,
+    info->type = igmp->type;
+    info->max_resp_time = igmp->code;
+    info->checksum = ntohs(igmp->csum);
+    if (inet_ntop(AF_INET, &igmp->group, info->group_addr,
                   INET_ADDRSTRLEN) == NULL) {
         err_msg("inet_ntop error");
     }

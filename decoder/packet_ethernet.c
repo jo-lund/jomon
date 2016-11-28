@@ -92,12 +92,14 @@ bool handle_ethernet(unsigned char *buffer, int n, struct eth_info *eth)
     } else {
         switch (eth->ethertype) {
         case ETH_P_IP:
-            error = !handle_ip(buffer + ETH_HLEN, n, eth);
+            error = !handle_ipv4(buffer + ETH_HLEN, n - ETH_HLEN, eth);
             break;
         case ETH_P_ARP:
-            error = !handle_arp(buffer + ETH_HLEN, n, eth);
+            error = !handle_arp(buffer + ETH_HLEN, n - ETH_HLEN, eth);
             break;
         case ETH_P_IPV6:
+            error = !handle_ipv6(buffer + ETH_HLEN, n - ETH_HLEN, eth);
+            break;
         case ETH_P_PAE:
         default:
             //printf("Ethernet protocol: 0x%x\n", eth->ethertype);

@@ -33,10 +33,11 @@
 static void print_arp(char *buf, int n, struct arp_info *info, uint32_t num);
 static void print_llc(char *buf, int n, struct eth_info *eth, uint32_t num);
 static void print_ip(char *buf, int n, struct ip_info *info, uint32_t num);
-static void print_udp(char *buf, int n, struct ip_info *info);
-static void print_tcp(char *buf, int n, struct ip_info *info);
-static void print_icmp(char *buf, int n, struct ip_info *info);
-static void print_igmp(char *buf, int n, struct ip_info *info);
+static void print_ipv6(char *buf, int n, struct ipv6_info *info, uint32_t num);
+static void print_udp(char *buf, int n, struct udp_info *info);
+static void print_tcp(char *buf, int n, struct tcp *info);
+static void print_icmp(char *buf, int n, struct icmp_info *info);
+static void print_igmp(char *buf, int n, struct igmp_info *info);
 static void print_dns(char *buf, int n, struct dns_info *dns, uint16_t type);
 static void print_nbns(char *buf, int n, struct nbns_info *nbns);
 static void print_ssdp(char *buf, int n, list_t *ssdp);
@@ -54,6 +55,9 @@ void print_buffer(char *buf, int size, struct packet *p)
         break;
     case ETH_P_IP:
         print_ip(buf, size, p->eth.ip, p->num);
+        break;
+    case ETH_P_IPV6:
+        print_ipv6(buf, size, p->eth.ipv6, p->num);
         break;
     default:
         if (p->eth.ethertype < ETH_P_802_3_MIN) {
@@ -147,50 +151,77 @@ void print_ip(char *buf, int n, struct ip_info *info, uint32_t num)
     }
     switch (info->protocol) {
     case IPPROTO_ICMP:
-        print_icmp(buf, n, info);
+        print_icmp(buf, n, &info->icmp);
         break;
     case IPPROTO_IGMP:
-        print_igmp(buf, n, info);
+        print_igmp(buf, n, &info->igmp);
         break;
     case IPPROTO_TCP:
-        print_tcp(buf, n, info);
+        print_tcp(buf, n, &info->tcp);
         break;
     case IPPROTO_UDP:
-        print_udp(buf, n, info);
+        print_udp(buf, n, &info->udp);
         break;
     default:
-        PRINT_PROTOCOL(buf, n, "IP");
+        PRINT_PROTOCOL(buf, n, "IPv4");
         PRINT_INFO(buf, n, "Unknown payload");
         break;
     }
 }
 
-void print_icmp(char *buf, int n, struct ip_info *info)
+void print_ipv6(char *buf, int n, struct ipv6_info *info, uint32_t num)
 {
-    PRINT_PROTOCOL(buf, n, "ICMP");
-    switch (info->icmp.type) {
-    case ICMP_ECHOREPLY:
-        PRINT_INFO(buf, n, "Echo reply:   id = 0x%x  seq = %d", info->icmp.echo.id, info->icmp.echo.seq_num);
+    char src[INET6_ADDRSTRLEN];
+    char dst[INET6_ADDRSTRLEN];
+
+    PRINT_NUMBER(buf, n, num);
+    inet_ntop(AF_INET6, info->src, src, INET6_ADDRSTRLEN);
+    inet_ntop(AF_INET6, info->dst, dst, INET6_ADDRSTRLEN);
+    PRINT_ADDRESS(buf, n, src, dst);
+
+    switch (info->next_header) {
+    case IPPROTO_IGMP:
+        print_igmp(buf, n, &info->igmp);
         break;
-    case ICMP_ECHO:
-        PRINT_INFO(buf, n, "Echo request: id = 0x%x  seq = %d", info->icmp.echo.id, info->icmp.echo.seq_num);
+    case IPPROTO_TCP:
+        print_tcp(buf, n, &info->tcp);
         break;
-    case ICMP_DEST_UNREACH:
-        PRINT_INFO(buf, n, "%s", get_icmp_dest_unreach_code(info->icmp.code));
+    case IPPROTO_UDP:
+        print_udp(buf, n, &info->udp);
         break;
     default:
-        PRINT_INFO(buf, n, "Type: %d", info->icmp.type);
+        PRINT_PROTOCOL(buf, n, "IPv6");
+        PRINT_INFO(buf, n, "Unknown payload");
         break;
     }
 }
 
-void print_igmp(char *buf, int n, struct ip_info *info)
+void print_icmp(char *buf, int n, struct icmp_info *info)
+{
+    PRINT_PROTOCOL(buf, n, "ICMP");
+    switch (info->type) {
+    case ICMP_ECHOREPLY:
+        PRINT_INFO(buf, n, "Echo reply:   id = 0x%x  seq = %d", info->echo.id, info->echo.seq_num);
+        break;
+    case ICMP_ECHO:
+        PRINT_INFO(buf, n, "Echo request: id = 0x%x  seq = %d", info->echo.id, info->echo.seq_num);
+        break;
+    case ICMP_DEST_UNREACH:
+        PRINT_INFO(buf, n, "%s", get_icmp_dest_unreach_code(info->code));
+        break;
+    default:
+        PRINT_INFO(buf, n, "Type: %d", info->type);
+        break;
+    }
+}
+
+void print_igmp(char *buf, int n, struct igmp_info *info)
 {
     PRINT_PROTOCOL(buf, n, "IGMP");
-    switch (info->igmp.type) {
+    switch (info->type) {
     case IGMP_HOST_MEMBERSHIP_QUERY:
         PRINT_INFO(buf, n, "Membership query  Max response time: %d seconds",
-                        info->igmp.max_resp_time / 10);
+                        info->max_resp_time / 10);
         break;
     case IGMP_HOST_MEMBERSHIP_REPORT:
         PRINT_INFO(buf, n, "Membership report");
@@ -205,69 +236,69 @@ void print_igmp(char *buf, int n, struct ip_info *info)
         PRINT_INFO(buf, n, "IGMP3 Membership report");
         break;
     default:
-        PRINT_INFO(buf, n, "Type 0x%x", info->igmp.type);
+        PRINT_INFO(buf, n, "Type 0x%x", info->type);
         break;
     }
-    PRINT_INFO(buf, n, "  Group address: %s", info->igmp.group_addr);
+    PRINT_INFO(buf, n, "  Group address: %s", info->group_addr);
 }
 
-void print_tcp(char *buf, int n, struct ip_info *info)
+void print_tcp(char *buf, int n, struct tcp *info)
 {
-    switch (info->tcp.data.utype) {
+    switch (info->data.utype) {
     case HTTP:
-        print_http(buf, n, info->tcp.data.http);
+        print_http(buf, n, info->data.http);
         break;
     case DNS:
     case MDNS:
-        print_dns(buf, n, info->tcp.data.dns, info->tcp.data.utype);
+        print_dns(buf, n, info->data.dns, info->data.utype);
         break;
     case NBNS:
-        print_nbns(buf, n, info->tcp.data.nbns);
+        print_nbns(buf, n, info->data.nbns);
         break;
     default:
         PRINT_PROTOCOL(buf, n, "TCP");
-        PRINT_INFO(buf, n, "Source port: %d  Destination port: %d", info->tcp.src_port,
-                   info->tcp.dst_port);
+        PRINT_INFO(buf, n, "Source port: %d  Destination port: %d", info->src_port,
+                   info->dst_port);
         PRINT_INFO(buf, n, "  Flags: ");
-        if (info->tcp.urg) {
+        if (info->urg) {
             PRINT_INFO(buf, n, "URG ");
         }
-        if (info->tcp.ack) {
+        if (info->ack) {
             PRINT_INFO(buf, n, "ACK ");
         }
-        if (info->tcp.psh) {
+        if (info->psh) {
             PRINT_INFO(buf, n, "PSH ");
         }
-        if (info->tcp.rst) {
+        if (info->rst) {
             PRINT_INFO(buf, n, "RST ");
         }
-        if (info->tcp.syn) {
+        if (info->syn) {
             PRINT_INFO(buf, n, "SYN ");
         }
-        if (info->tcp.fin) {
+        if (info->fin) {
             PRINT_INFO(buf, n, "FIN");
         }
         break;
     }
 }
 
-void print_udp(char *buf, int n, struct ip_info *info)
+void print_udp(char *buf, int n, struct udp_info *info)
 {
-    switch (info->udp.data.utype) {
+    switch (info->data.utype) {
     case DNS:
     case MDNS:
-        print_dns(buf, n, info->udp.data.dns, info->udp.data.utype);
+        print_dns(buf, n, info->data.dns, info->data.utype);
         break;
     case NBNS:
-        print_nbns(buf, n, info->udp.data.nbns);
+        print_nbns(buf, n, info->data.nbns);
         break;
     case SSDP:
-        print_ssdp(buf, n, info->udp.data.ssdp);
+        print_ssdp(buf, n, info->data.ssdp);
         break;
     default:
         PRINT_PROTOCOL(buf, n, "UDP");
-        PRINT_INFO(buf, n, "Source port: %d  Destination port: %d", info->udp.src_port,
-                   info->udp.dst_port);
+        PRINT_INFO(buf, n, "Source port: %d  Destination port: %d", info->src_port,
+                   info->dst_port);
         break;
     }
 }

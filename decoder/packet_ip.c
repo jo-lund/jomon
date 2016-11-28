@@ -1,4 +1,5 @@
 #include <netinet/ip.h>
+#include <netinet/ip6.h>
 #include <netinet/in.h>
 #include <stdlib.h>
 #include <arpa/inet.h>
@@ -59,7 +60,7 @@
  * offset of zero.
  * Protocol: Defines the protocol used in the data portion of the packet.
  */
-bool handle_ip(unsigned char *buffer, int n, struct eth_info *eth)
+bool handle_ipv4(unsigned char *buffer, int n, struct eth_info *eth)
 {
     struct iphdr *ip;
     unsigned int header_len;
@@ -92,16 +93,16 @@ bool handle_ip(unsigned char *buffer, int n, struct eth_info *eth)
     header_len = ip->ihl * 4;
     switch (ip->protocol) {
     case IPPROTO_ICMP:
-        error = !handle_icmp(buffer + header_len, n, eth->ip);
+        error = !handle_icmp(buffer + header_len, n - header_len, &eth->ip->icmp);
         break;
     case IPPROTO_IGMP:
-        error = !handle_igmp(buffer + header_len, n, eth->ip);
+        error = !handle_igmp(buffer + header_len, n - header_len, &eth->ip->igmp);
         break;
     case IPPROTO_TCP:
-        error = !handle_tcp(buffer + header_len, n, eth->ip);
+        error = !handle_tcp(buffer + header_len, n - header_len, &eth->ip->tcp);
         break;
     case IPPROTO_UDP:
-        error = !handle_udp(buffer + header_len, n, eth->ip);
+        error = !handle_udp(buffer + header_len, n - header_len, &eth->ip->udp);
         break;
     case IPPROTO_PIM:
     default:
@@ -110,9 +111,90 @@ bool handle_ip(unsigned char *buffer, int n, struct eth_info *eth)
     }
     if (error) {
         eth->ip->payload_len = n - header_len;
-        eth->ip->payload = malloc(n - header_len);
-        memcpy(eth->ip->payload, buffer + header_len, n - header_len);
+        eth->ip->payload = malloc(eth->ip->payload_len);
+        memcpy(eth->ip->payload, buffer + header_len, eth->ip->payload_len);
     }
+    return true;
+}
+
+/*
+ * IPv6 header
+ *
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |Version| Traffic Class |           Flow Label                  |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |         Payload Length        |  Next Header  |   Hop Limit   |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |                                                               |
+ *  +                                                               +
+ *  |                                                               |
+ *  +                         Source Address                        +
+ *  |                                                               |
+ *  +                                                               +
+ *  |                                                               |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |                                                               |
+ *  +                                                               +
+ *  |                                                               |
+ *  +                      Destination Address                      +
+ *  |                                                               |
+ *  +                                                               +
+ *  |                                                               |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Version:             4-bit Internet Protocol version number = 6
+ * Traffic Class:       8-bit traffic class field
+ * Flow Label:          20-bit flow label
+ * Payload Length:      16-bit unsigned integer. Length of the IPv6 payload,
+                        i.e., the rest of the packet following this IPv6 header,
+                        in octets.
+ * Next Header:         8-bit selector. Identifies the type of header
+ *                      immediately following the IPv6 header.
+ * Hop Limit:           8-bit unsigned integer. Decremented by 1 by each node
+                        that forwards the packet. The packet is discarded if Hop
+                        Limit is decremented to zero.
+ * Source Address:      128-bit address of the originator of the packet
+ * Destination Address: 128-bit address of the intended recipient of the packet
+ */
+
+bool handle_ipv6(unsigned char *buffer, int n, struct eth_info *eth)
+{
+    struct ip6_hdr *ip6;
+    bool error = false;
+    unsigned int header_len;
+
+    header_len = sizeof(struct ip6_hdr);
+    if (n < header_len) return false;
+
+    ip6 = (struct ip6_hdr *) buffer;
+    eth->ipv6 = calloc(1, sizeof(struct ipv6_info));
+    eth->ipv6->version = ip6->ip6_ctlun.ip6_un1.ip6_un1_flow >> 28;
+    eth->ipv6->tc = (ip6->ip6_ctlun.ip6_un1.ip6_un1_flow & 0x0fffffff) >> 20;
+    eth->ipv6->flow_label = (ip6->ip6_ctlun.ip6_un1.ip6_un1_flow & 0x000fffff) >> 12;
+    eth->ipv6->payload_len = ntohs(ip6->ip6_ctlun.ip6_un1.ip6_un1_plen);
+    eth->ipv6->next_header = ip6->ip6_ctlun.ip6_un1.ip6_un1_nxt;
+    eth->ipv6->hop_limit = ip6->ip6_ctlun.ip6_un1.ip6_un1_hlim;
+    memcpy(eth->ipv6->src, ip6->ip6_src.s6_addr, 16);
+    memcpy(eth->ipv6->dst, ip6->ip6_dst.s6_addr, 16);
+
+    // TODO: Handle IPv6 extension headers and errors
+    switch (eth->ipv6->next_header) {
+    case IPPROTO_IGMP:
+        error = !handle_igmp(buffer + header_len, n - header_len, &eth->ipv6->igmp);
+        break;
+    case IPPROTO_TCP:
+        error = !handle_tcp(buffer + header_len, n - header_len, &eth->ipv6->tcp);
+        break;
+    case IPPROTO_UDP:
+        error = !handle_udp(buffer + header_len, n - header_len, &eth->ipv6->udp);
+        break;
+    case IPPROTO_PIM:
+    case IPPROTO_ICMPV6:
+    default:
+        error = true;
+        break;
+    }
+
     return true;
 }
 

@@ -17,7 +17,7 @@
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  */
-bool handle_udp(unsigned char *buffer, int n, struct ip_info *info)
+bool handle_udp(unsigned char *buffer, int n, struct udp_info *info)
 {
     if (n < UDP_HDR_LEN) return false;
 
@@ -25,25 +25,25 @@ bool handle_udp(unsigned char *buffer, int n, struct ip_info *info)
     bool error;
 
     udp = (struct udphdr *) buffer;
-    info->udp.src_port = ntohs(udp->source);
-    info->udp.dst_port = ntohs(udp->dest);
-    info->udp.len = ntohs(udp->len);
-    info->udp.checksum = ntohs(udp->check);
+    info->src_port = ntohs(udp->source);
+    info->dst_port = ntohs(udp->dest);
+    info->len = ntohs(udp->len);
+    info->checksum = ntohs(udp->check);
 
     for (int i = 0; i < 2; i++) {
-        info->udp.data.utype = *((uint16_t *) &info->udp + i);
-        if (check_port(buffer + UDP_HDR_LEN, &info->udp.data, info->udp.data.utype,
-                       info->udp.len - UDP_HDR_LEN, &error)) {
+        info->data.utype = *((uint16_t *) info + i);
+        if (check_port(buffer + UDP_HDR_LEN, n - UDP_HDR_LEN, &info->data,
+                       info->data.utype, &error)) {
             return true;
         }
     }
-    info->udp.data.utype = 0;
+    info->data.utype = 0;
 
     /* unknown application payload data */
-    if (info->udp.len - UDP_HDR_LEN > 0) {
-        info->udp.data.payload = malloc(info->udp.len - UDP_HDR_LEN);
-        info->udp.data.payload_len = info->udp.len - UDP_HDR_LEN;
-        memcpy(info->udp.data.payload, buffer + UDP_HDR_LEN, info->udp.data.payload_len);
+    if (info->len - UDP_HDR_LEN > 0) {
+        info->data.payload_len = info->len - UDP_HDR_LEN;
+        info->data.payload = malloc(info->data.payload_len);
+        memcpy(info->data.payload, buffer + UDP_HDR_LEN, info->data.payload_len);
     }
     return true;
 }

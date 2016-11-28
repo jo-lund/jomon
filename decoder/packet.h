@@ -68,8 +68,8 @@ bool decode_packet(unsigned char *buffer, size_t n, struct packet **p);
 void free_packet(void *packet);
 
 /* Should be internal to the decoder */
-bool check_port(unsigned char *buffer, struct application_info *info,
-                uint16_t port, uint16_t packet_len, bool *error);
+bool check_port(unsigned char *buffer, int n, struct application_info *info,
+                uint16_t port, bool *error);
 
 
 #endif

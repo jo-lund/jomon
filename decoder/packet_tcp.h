@@ -44,7 +44,7 @@ struct tcp_sack_block {
     uint32_t right_edge;
 };
 
-bool handle_tcp(unsigned char *buffer, int n, struct ip_info *info);
+bool handle_tcp(unsigned char *buffer, int n, struct tcp *info);
 
 /*
  * Parses and returns the TCP options in the TCP header.

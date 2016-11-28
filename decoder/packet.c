@@ -22,9 +22,6 @@ static uint32_t packet_count = 0;
 
 static void free_protocol_data(struct application_info *info);
 
-/* application layer protocol handlers */
-
-
 size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet **p)
 {
     int n;
@@ -168,17 +165,17 @@ void free_protocol_data(struct application_info *info)
  * Returns false if it's an ephemeral port, the port is not yet supported or in
  * case of errors in decoding the packet.
  */
-bool check_port(unsigned char *buffer, struct application_info *info, uint16_t port,
-                uint16_t packet_len, bool *error)
+bool check_port(unsigned char *buffer, int n, struct application_info *info,
+                uint16_t port, bool *error)
 {
     switch (port) {
     case DNS:
     case MDNS:
-        return handle_dns(buffer, info, packet_len);
+        return handle_dns(buffer, n, info);
     case NBNS:
-        return handle_nbns(buffer, info);
+        return handle_nbns(buffer, n, info);
     case SSDP:
-        return handle_ssdp(buffer, info, packet_len);
+        return handle_ssdp(buffer, n, info);
     /* case HTTP: */
     /*     *error = handle_http(buffer, info, packet_len); */
     /*     return true; */

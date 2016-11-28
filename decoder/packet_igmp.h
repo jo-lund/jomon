@@ -13,7 +13,7 @@ struct igmp_info {
 
 struct ip_info;
 
-bool handle_igmp(unsigned char *buffer, int n, struct ip_info *info);
+bool handle_igmp(unsigned char *buffer, int n, struct igmp_info *info);
 char *get_igmp_type(uint8_t type);
 
 #endif

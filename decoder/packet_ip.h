@@ -30,8 +30,28 @@ struct ip_info {
     };
 };
 
-bool handle_ip(unsigned char *buffer, int n, struct eth_info *info);
+struct ipv6_info {
+    unsigned int version : 4;
+    uint8_t tc;
+    unsigned int flow_label : 20;
+    uint16_t payload_len;
+    uint8_t next_header;
+    uint8_t hop_limit;
+    uint8_t src[16];
+    uint8_t dst[16];
+    union {
+        struct udp_info udp;
+        struct tcp tcp;
+        struct igmp_info igmp;
+        unsigned char *payload;
+    };
+};
+
 char *get_ip_dscp(uint8_t dscp);
 char *get_ip_transport_protocol(uint8_t protocol);
+
+/* internal to the decoder */
+bool handle_ipv4(unsigned char *buffer, int n, struct eth_info *info);
+bool handle_ipv6(unsigned char *buffer, int n, struct eth_info *info);
 
 #endif

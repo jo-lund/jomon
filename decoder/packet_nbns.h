@@ -105,11 +105,13 @@ struct nbns_info {
 
 struct application_info;
 
-bool handle_nbns(unsigned char *buffer, struct application_info *info);
 char *get_nbns_opcode(uint8_t opcode);
 char *get_nbns_rcode(uint8_t rcode);
 char *get_nbns_type(uint16_t qtype);
 char *get_nbns_type_extended(uint16_t qtype);
 char *get_nbns_node_type(uint8_t type);
+
+/* internal to the decoder */
+bool handle_nbns(unsigned char *buffer, int n, struct application_info *info);
 
 #endif

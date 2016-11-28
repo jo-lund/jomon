@@ -12,6 +12,6 @@ struct udp_info {
 };
 
 /* internal to the decoder */
-bool handle_udp(unsigned char *buffer, int n, struct ip_info *info);
+bool handle_udp(unsigned char *buffer, int n, struct udp_info *info);
 
 #endif
