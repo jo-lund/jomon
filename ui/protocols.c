@@ -720,6 +720,7 @@ void print_tcp_information(list_view *lw, struct ip_info *ip, bool options_selec
         if (options_selected) {
             print_tcp_options(lw, w, &ip->tcp);
         }
+        ADD_TEXT_ELEMENT(lw, 0, "");
     }
 }
 

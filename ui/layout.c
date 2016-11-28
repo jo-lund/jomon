@@ -219,7 +219,7 @@ void handle_keyup(int lines, int cols)
 
              mvwchgat(wmain, screen_line, 0, -1, GET_ATTR(lw, subline), 0, NULL);
              mvwchgat(wmain, screen_line - 1, 0, -1, subline == 0 ? A_NORMAL :
-                      GET_ATTR(lw, subline), 1, NULL);
+                      GET_ATTR(lw, subline - 1), 1, NULL);
          } else {
              mvwchgat(wmain, screen_line, 0, -1, A_NORMAL, 0, NULL);
              mvwchgat(wmain, screen_line - 1, 0, -1, A_NORMAL, 1, NULL);
@@ -267,7 +267,7 @@ void handle_keydown(int lines, int cols)
 
             mvwchgat(wmain, screen_line, 0, -1, subline == -1 ? A_NORMAL :
                      GET_ATTR(lw, subline), 0, NULL);
-            mvwchgat(wmain, screen_line + 1, 0, -1, GET_ATTR(lw, subline), 1, NULL);
+            mvwchgat(wmain, screen_line + 1, 0, -1, GET_ATTR(lw, subline + 1), 1, NULL);
         } else {
             mvwchgat(wmain, screen_line, 0, -1, A_NORMAL, 0, NULL);
             mvwchgat(wmain, screen_line + 1, 0, -1, A_NORMAL, 1, NULL);

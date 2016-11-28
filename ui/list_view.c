@@ -22,7 +22,7 @@ static bool get_expanded(list_view *this, int i);
 static void set_expanded(list_view *this, int i, bool expanded);
 static int32_t get_data(list_view *this, int i);
 static uint32_t get_attribute(list_view *this, int i);
-static list_view_widget *traverse(list_t *widgets, int i, int *j);
+static list_view_widget *get_widget(list_t *widgets, int i, int *j);
 
 list_view *create_list_view()
 {
@@ -189,7 +189,7 @@ bool get_expanded(list_view *this, int i)
     int j = 0;
     list_view_widget *w;
 
-    w = traverse(this->widgets, i, &j);
+    w = get_widget(this->widgets, i, &j);
     if (w && w->type == HEADER) {
         return w->hdr.expanded;
     }
@@ -201,7 +201,7 @@ void set_expanded(list_view *this, int i, bool expanded)
     int j = 0;
     list_view_widget *w;
 
-    w = traverse(this->widgets, i, &j);
+    w = get_widget(this->widgets, i, &j);
     if (w && w->type == HEADER) {
         w->hdr.expanded = expanded;
     }
@@ -212,7 +212,7 @@ int32_t get_data(list_view *this, int i)
     int j = 0;
     list_view_widget *w;
 
-    w = traverse(this->widgets, i, &j);
+    w = get_widget(this->widgets, i, &j);
     if (w && w->type == HEADER) {
         return w->hdr.data;
     }
@@ -224,14 +224,14 @@ uint32_t get_attribute(list_view *this, int i)
     int j = 0;
     list_view_widget *w;
     
-    w = traverse(this->widgets, i, &j);
+    w = get_widget(this->widgets, i, &j);
     if (w) {
         return w->attr;
     }
     return 0;
 }
 
-list_view_widget *traverse(list_t *widgets, int i, int *j)
+list_view_widget *get_widget(list_t *widgets, int i, int *j)
 {
     if (i < 0) return NULL;
 
@@ -240,12 +240,12 @@ list_view_widget *traverse(list_t *widgets, int i, int *j)
     while (n) {
         list_view_widget *w = list_data(n);
 
-        if (i == *j) {
-            if (w) return w;
-        }
+        if (i == *j && w) return w;
         if (++*j > i) return NULL;
         if (w->subwidgets) {
-            return traverse(w->subwidgets, i, j);
+            list_view_widget *widget = get_widget(w->subwidgets, i, j);
+
+            if (widget) return widget;
         }
         n = list_next(n);
     }
