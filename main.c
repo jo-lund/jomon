@@ -45,11 +45,14 @@ int verbose;
 int promiscuous;
 int statistics;
 vector_t *vector;
+
 static volatile sig_atomic_t signal_flag = 0;
 static int sockfd = -1; /* packet socket file descriptor */
 static int no_curses;
+static context c;
+
 static void print_help(char *prg);
-static void init_socket();
+static void init_socket(char *device);
 static void init_structures();
 static void run();
 static void sig_alarm(int signo);
@@ -61,7 +64,7 @@ int main(int argc, char **argv)
 {
     char *prg_name = argv[0];
     int opt;
-    char *filename = NULL;
+    context c = { NULL, NULL };
 
     statistics = 0;
     promiscuous = 0;
@@ -69,7 +72,7 @@ int main(int argc, char **argv)
     while ((opt = getopt(argc, argv, "i:f:lhvpsr")) != -1) {
         switch (opt) {
         case 'i':
-            device = strdup(optarg);
+            c.device = strdup(optarg);
             break;
         case 'l':
             list_interfaces();
@@ -85,7 +88,7 @@ int main(int argc, char **argv)
             statistics = 1;
             break;
         case 'f':
-            filename = optarg;
+            c.filename = strdup(optarg);
             break;
         case 'r':
             no_curses = 1;
@@ -99,26 +102,26 @@ int main(int argc, char **argv)
 
 #ifdef linux
     init_structures();
-    if (!device && !(device = get_default_interface())) {
+    if (!c.device && !(c.device = get_default_interface())) {
         err_quit("Cannot find active network device");
     }
     local_addr = malloc(sizeof (struct sockaddr_in));
-    get_local_address(device, (struct sockaddr *) local_addr);
-    if (filename) {
+    get_local_address(c.device, (struct sockaddr *) local_addr);
+    if (c.filename) {
         enum file_error err;
 
-        err = read_file(filename);
+        err = read_file(c.filename);
         if (err != NO_ERROR) {
-            err_quit("Error in file: %s", filename);
+            err_quit("Error in file: %s", c.filename);
         }
     } else {
-        init_socket();
+        init_socket(c.device);
     }
     if (!no_curses) {
         init_ncurses();
-        create_layout();
+        create_layout(&c);
     }
-    if (filename) print_file();
+    if (c.filename) print_file();
     run();
     finish();
 #endif
@@ -153,7 +156,8 @@ void finish()
         end_ncurses();
     }
     vector_clear(vector);
-    free(device);
+    free(c.device);
+    free(c.filename);
     free(local_addr);
     if (sockfd > 0) {
         close(sockfd);
@@ -162,7 +166,7 @@ void finish()
 }
 
 /* Initialize device and prepare for reading */
-void init_socket()
+void init_socket(char *device)
 {
     int flag;
     struct sockaddr_ll ll_addr; /* device independent physical layer address */

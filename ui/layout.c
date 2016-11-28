@@ -3,7 +3,6 @@
 #include <linux/igmp.h>
 #include <arpa/inet.h>
 #include <netinet/ip_icmp.h>
-#include "../misc.h"
 #include "layout.h"
 #include "protocols.h"
 #include "../list.h"
@@ -96,7 +95,7 @@ static void scroll_page(int lines, int cols);
 static void scroll_window();
 static int print_lines(int from, int to, int y, int cols);
 static void print(char *buf);
-static void print_header();
+static void print_header(context *c);
 static void print_selected_packet();
 static void print_protocol_information(struct packet *p, int lineno);
 static void print_app_protocol(struct application_info *info, int y);
@@ -133,7 +132,7 @@ void end_ncurses()
     endwin(); /* end curses mode */
 }
 
-void create_layout()
+void create_layout(context *c)
 {
     int mx, my;
 
@@ -143,7 +142,7 @@ void create_layout()
     wstatus = newwin(STATUS_HEIGHT, mx, my - STATUS_HEIGHT, 0);
     nodelay(wmain, TRUE); /* input functions must be non-blocking */
     keypad(wmain, TRUE);
-    print_header();
+    print_header(c);
     scrollok(wmain, TRUE); /* enable scrolling */
 }
 
@@ -449,12 +448,16 @@ int print_lines(int from, int to, int y, int cols)
     return c;
 }
 
-void print_header()
+void print_header(context *c)
 {
     int y = 0;
     char addr[INET_ADDRSTRLEN];
 
-    mvwprintw(wheader, y, 0, "Listening on device: %s", device);
+    if (c->filename) {
+        mvwprintw(wheader, y, 0, "Filename: %s", c->filename);
+    } else {
+        mvwprintw(wheader, y, 0, "Listening on device: %s", c->device);
+    }
     inet_ntop(AF_INET, &local_addr->sin_addr, addr, sizeof(addr));
     mvwprintw(wheader, ++y, 0, "Local address: %s", addr);
     y += 2;
@@ -491,6 +494,7 @@ void print_file()
     for (int i = 0; i < vector_size(vector) && i < my; i++) {
         print_packet(vector_get_data(vector, i));
     }
+    set_interactive(true, -1, -1);
 }
 
 /* write buffer to standard output */

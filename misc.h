@@ -32,12 +32,16 @@ typedef struct {
     double kbps; /* kilobytes per second */
 } linkdef;
 
+typedef struct {
+    char *device;
+    char *filename;
+} context;
+
 extern struct sockaddr_in *local_addr;
 extern int verbose;
 extern int promiscuous;
 extern int statistics;
 extern linkdef rx; /* data received */
 extern linkdef tx; /* data transmitted */
-extern char *device;
 
 #endif
