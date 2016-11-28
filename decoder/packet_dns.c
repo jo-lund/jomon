@@ -236,6 +236,7 @@ void parse_dns_record(int i, unsigned char *buffer, unsigned char **data, struct
             break;
         case DNS_TYPE_NS:
             ptr += parse_dns_name(buffer, ptr, dns->record[i].rdata.nsdname);
+            break;
         case DNS_TYPE_CNAME:
             ptr += parse_dns_name(buffer, ptr, dns->record[i].rdata.cname);
             break;
