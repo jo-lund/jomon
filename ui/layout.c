@@ -518,86 +518,87 @@ void print_selected_packet()
 void create_elements(struct packet *p)
 {
     lw = create_list_view();
+    list_view_item *header;
 
     /* inspect packet and add packet headers as elements to the list view */
     if (p->eth.ethertype < ETH_P_802_3_MIN) {
-        ADD_HEADER(lw, "Ethernet 802.3", preferences.link_selected, LINK);
+        header = ADD_HEADER(lw, "Ethernet 802.3", preferences.link_selected, LINK);
     } else {
-        ADD_HEADER(lw, "Ethernet II", preferences.link_selected, LINK);
+        header = ADD_HEADER(lw, "Ethernet II", preferences.link_selected, LINK);
     }
     if (preferences.link_selected) {
-        print_ethernet_information(lw, p);
+        print_ethernet_information(lw, header, p);
     }
     if (p->eth.ethertype == ETH_P_ARP) {
-        ADD_HEADER(lw, "Address Resolution Protocol (ARP)", preferences.network_selected, NETWORK);
+        header = ADD_HEADER(lw, "Address Resolution Protocol (ARP)", preferences.network_selected, NETWORK);
         if (preferences.network_selected) {
-            print_arp_information(lw, p);
+            print_arp_information(lw, header, p);
         }
     } else if (p->eth.ethertype == ETH_P_IP) {
-        ADD_HEADER(lw, "Internet Protocol (IP)", preferences.network_selected, NETWORK);
+        header = ADD_HEADER(lw, "Internet Protocol (IP)", preferences.network_selected, NETWORK);
         if (preferences.network_selected) {
-            print_ip_information(lw, p->eth.ip);
+            print_ip_information(lw, header, p->eth.ip);
         }
         switch (p->eth.ip->protocol) {
         case IPPROTO_TCP:
         {
-            ADD_HEADER(lw, "Transmission Control Protocol (TCP)", preferences.transport_selected, TRANSPORT);
+            header = ADD_HEADER(lw, "Transmission Control Protocol (TCP)", preferences.transport_selected, TRANSPORT);
             if (preferences.transport_selected) {
-                print_tcp_information(lw, p->eth.ip, preferences.sublayer_selected);
+                print_tcp_information(lw, header, p->eth.ip, preferences.sublayer_selected);
             }
             create_app_elements(&p->eth.ip->tcp.data, p);
             break;
         }
         case IPPROTO_UDP:
-            ADD_HEADER(lw, "User Datagram Protocol (UDP)", preferences.transport_selected, TRANSPORT);
+            header = ADD_HEADER(lw, "User Datagram Protocol (UDP)", preferences.transport_selected, TRANSPORT);
             if (preferences.transport_selected) {
-                print_udp_information(lw, p->eth.ip);
+                print_udp_information(lw, header, p->eth.ip);
             }
             create_app_elements(&p->eth.ip->udp.data, p);
             break;
         case IPPROTO_ICMP:
-            ADD_HEADER(lw, "Internet Control Message Protocol (ICMP)", preferences.transport_selected, TRANSPORT);
+            header = ADD_HEADER(lw, "Internet Control Message Protocol (ICMP)", preferences.transport_selected, TRANSPORT);
             if (preferences.transport_selected) {
-                print_icmp_information(lw, p->eth.ip);
+                print_icmp_information(lw, header, p->eth.ip);
             }
             break;
         case IPPROTO_IGMP:
-            ADD_HEADER(lw, "Internet Group Management Protocol (IGMP)", preferences.transport_selected, TRANSPORT);
+            header = ADD_HEADER(lw, "Internet Group Management Protocol (IGMP)", preferences.transport_selected, TRANSPORT);
             if (preferences.transport_selected) {
-                print_igmp_information(lw, p->eth.ip);
+                print_igmp_information(lw, header, p->eth.ip);
             }
             break;
         default:
             /* unknown transport layer payload */
             if (p->eth.ip->payload_len) {
-                ADD_HEADER(lw, "Data", preferences.transport_selected, TRANSPORT);
+                header = ADD_HEADER(lw, "Data", preferences.transport_selected, TRANSPORT);
                 if (preferences.transport_selected) {
-                    print_payload(lw, p->eth.ip->payload, p->eth.ip->payload_len);
+                    print_payload(lw, header, p->eth.ip->payload, p->eth.ip->payload_len);
                 }
             }
         }
     } else if (p->eth.ethertype < ETH_P_802_3_MIN) {
-        ADD_HEADER(lw, "Logical Link Control (LLC)", preferences.network_selected, NETWORK);
+        header = ADD_HEADER(lw, "Logical Link Control (LLC)", preferences.network_selected, NETWORK);
         if (preferences.network_selected) {
-            print_llc_information(lw, p);
+            print_llc_information(lw, header, p);
         }
         switch (get_eth802_type(p->eth.llc)) {
         case ETH_802_STP:
-            ADD_HEADER(lw, "Spanning Tree Protocol (STP)", preferences.transport_selected, TRANSPORT);
+            header = ADD_HEADER(lw, "Spanning Tree Protocol (STP)", preferences.transport_selected, TRANSPORT);
             if (preferences.transport_selected) {
-                print_stp_information(lw, p);
+                print_stp_information(lw, header, p);
             }
             break;
         case ETH_802_SNAP:
-            ADD_HEADER(lw, "Subnetwork Access Protocol (SNAP)", preferences.transport_selected, TRANSPORT);
+            header = ADD_HEADER(lw, "Subnetwork Access Protocol (SNAP)", preferences.transport_selected, TRANSPORT);
             if (preferences.transport_selected) {
-                print_snap_information(lw, p);
+                print_snap_information(lw, header, p);
             }
             break;
         default:
-            ADD_HEADER(lw, "Data", preferences.application_selected, APPLICATION);
+            header = ADD_HEADER(lw, "Data", preferences.application_selected, APPLICATION);
             if (preferences.application_selected) {
-                print_payload(lw, p->eth.payload, p->eth.payload_len);
+                print_payload(lw, header, p->eth.payload, p->eth.payload_len);
             }
         }
     } else if (p->eth.payload_len) {
@@ -607,38 +608,40 @@ void create_elements(struct packet *p)
 
 void create_app_elements(struct application_info *info, struct packet *p)
 {
+    list_view_item *header;
+
     switch (info->utype) {
     case DNS:
     case MDNS:
-        ADD_HEADER(lw, "Domain Name System (DNS)", preferences.application_selected, APPLICATION);
+        header = ADD_HEADER(lw, "Domain Name System (DNS)", preferences.application_selected, APPLICATION);
         if (preferences.application_selected) {
-            print_dns_information(lw, info->dns, getmaxx(wmain));
+            print_dns_information(lw, header, info->dns, getmaxx(wmain));
         }
         break;
     case NBNS:
-        ADD_HEADER(lw, "NetBIOS Name Service (NBNS)", preferences.application_selected, APPLICATION);
+        header = ADD_HEADER(lw, "NetBIOS Name Service (NBNS)", preferences.application_selected, APPLICATION);
         if (preferences.application_selected) {
-            print_nbns_information(lw, info->nbns, getmaxx(wmain));
+            print_nbns_information(lw, header, info->nbns, getmaxx(wmain));
         }
         break;
     case HTTP:
-        ADD_HEADER(lw, "Hypertext Transfer Protocol (HTTP)", preferences.application_selected, APPLICATION);
+        header = ADD_HEADER(lw, "Hypertext Transfer Protocol (HTTP)", preferences.application_selected, APPLICATION);
         if (preferences.application_selected) {
-            print_http_information(lw, info->http);
+            print_http_information(lw, header, info->http);
         }
         break;
     case SSDP:
-        ADD_HEADER(lw, "Simple Service Discovery Protocol (SSDP)", preferences.application_selected, APPLICATION);
+        header = ADD_HEADER(lw, "Simple Service Discovery Protocol (SSDP)", preferences.application_selected, APPLICATION);
         if (preferences.application_selected) {
-            print_ssdp_information(lw, info->ssdp);
+            print_ssdp_information(lw, header, info->ssdp);
         }
         break;
     default:
         if ((p->eth.ip->protocol == IPPROTO_TCP && TCP_PAYLOAD_LEN(p) > 0) ||
             p->eth.ip->protocol == IPPROTO_UDP) {
-            ADD_HEADER(lw, "Data", preferences.application_selected, APPLICATION);
+            header = ADD_HEADER(lw, "Data", preferences.application_selected, APPLICATION);
             if (preferences.application_selected) {
-                print_payload(lw, info->payload, info->payload_len);
+                print_payload(lw, header, info->payload, info->payload_len);
             }
         }
         break;

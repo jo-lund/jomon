@@ -44,8 +44,8 @@ static void print_ssdp(char *buf, int n, list_t *ssdp);
 static void print_http(char *buf, int n, struct http_info *http);
 static void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t type, bool *soa);
 static void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t type);
-static void print_dns_soa(WINDOW *win, struct dns_info *info, int i, int y, int x);
-static void print_tcp_options(list_view *lw, list_view_widget *w, struct tcp *tcp);
+static void print_dns_soa(list_view *lw, list_view_item *w, struct dns_info *info, int i);
+static void print_tcp_options(list_view *lw, list_view_item *w, struct tcp *tcp);
 
 void print_buffer(char *buf, int size, struct packet *p)
 {
@@ -74,7 +74,6 @@ void print_buffer(char *buf, int size, struct packet *p)
     }
 }
 
-/* print ARP frame information */
 void print_arp(char *buf, int n, struct arp_info *info, uint32_t num)
 {
     char sip[INET_ADDRSTRLEN];
@@ -99,7 +98,6 @@ void print_arp(char *buf, int n, struct arp_info *info, uint32_t num)
     }
 }
 
-/* print Ethernet 802.3 frame information */
 void print_llc(char *buf, int n, struct eth_info *eth, uint32_t num)
 {
     if (eth->llc->dsap == 0x42 && eth->llc->ssap == 0x42) {
@@ -130,7 +128,6 @@ void print_llc(char *buf, int n, struct eth_info *eth, uint32_t num)
     }
 }
 
-/* print IP packet information */
 void print_ip(char *buf, int n, struct ip_info *info, uint32_t num)
 {
     PRINT_NUMBER(buf, n, num);
@@ -512,7 +509,7 @@ void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t
     }
 }
 
-void print_ethernet_information(list_view *lw, struct packet *p)
+void print_ethernet_information(list_view *lw, list_view_item *header, struct packet *p)
 {
     char line[MAXLINE];
     char src[HW_ADDRSTRLEN];
@@ -521,33 +518,33 @@ void print_ethernet_information(list_view *lw, struct packet *p)
 
     HW_ADDR_NTOP(src, p->eth.mac_src);
     HW_ADDR_NTOP(dst, p->eth.mac_dst);
-    ADD_TEXT_ELEMENT(lw, 0, "MAC source: %s", src);
-    ADD_TEXT_ELEMENT(lw, 0, "MAC destination: %s", src);
+    ADD_TEXT_ELEMENT(lw, header, "MAC source: %s", src);
+    ADD_TEXT_ELEMENT(lw, header, "MAC destination: %s", src);
     snprintf(line, MAXLINE, "Ethertype: 0x%x", p->eth.ethertype);
     if ((type = get_ethernet_type(p->eth.ethertype))) {
         snprintcat(line, MAXLINE, " (%s)", type);
     }
-    ADD_TEXT_ELEMENT(lw, 0, line);
-    ADD_TEXT_ELEMENT(lw, 0, "");
+    ADD_TEXT_ELEMENT(lw, header, line);
+    ADD_TEXT_ELEMENT(lw, header, "");
 }
 
-void print_llc_information(list_view *lw, struct packet *p)
+void print_llc_information(list_view *lw, list_view_item *header, struct packet *p)
 {
-    ADD_TEXT_ELEMENT(lw, 0, "Destination Service Access Point (DSAP): 0x%x", p->eth.llc->dsap);
-    ADD_TEXT_ELEMENT(lw, 0, "Source Service Access Point (SSAP): 0x%x", p->eth.llc->ssap);
-    ADD_TEXT_ELEMENT(lw, 0, "Control: 0x%x", p->eth.llc->control);
-    ADD_TEXT_ELEMENT(lw, 0, "");
+    ADD_TEXT_ELEMENT(lw, header, "Destination Service Access Point (DSAP): 0x%x", p->eth.llc->dsap);
+    ADD_TEXT_ELEMENT(lw, header, "Source Service Access Point (SSAP): 0x%x", p->eth.llc->ssap);
+    ADD_TEXT_ELEMENT(lw, header, "Control: 0x%x", p->eth.llc->control);
+    ADD_TEXT_ELEMENT(lw, header, "");
 }
 
-void print_snap_information(list_view *lw, struct packet *p)
+void print_snap_information(list_view *lw, list_view_item *header, struct packet *p)
 {
-    ADD_TEXT_ELEMENT(lw, 0, "IEEE Organizationally Unique Identifier (OUI): 0x%06x\n",
+    ADD_TEXT_ELEMENT(lw, header, "IEEE Organizationally Unique Identifier (OUI): 0x%06x\n",
               get_eth802_oui(p->eth.llc->snap));
-    ADD_TEXT_ELEMENT(lw, 0, "Protocol Id: 0x%04x\n", p->eth.llc->snap->protocol_id);
-    ADD_TEXT_ELEMENT(lw, 0, "");
+    ADD_TEXT_ELEMENT(lw, header, "Protocol Id: 0x%04x\n", p->eth.llc->snap->protocol_id);
+    ADD_TEXT_ELEMENT(lw, header, "");
 }
 
-void print_arp_information(list_view *lw, struct packet *p)
+void print_arp_information(list_view *lw, list_view_item *header, struct packet *p)
 {
     char sip[INET_ADDRSTRLEN];
     char tip[INET_ADDRSTRLEN];
@@ -558,22 +555,22 @@ void print_arp_information(list_view *lw, struct packet *p)
     HW_ADDR_NTOP(tha, p->eth.arp->tha);
     inet_ntop(AF_INET, p->eth.arp->sip, sip, INET_ADDRSTRLEN);
     inet_ntop(AF_INET, p->eth.arp->tip, tip, INET_ADDRSTRLEN);
-    ADD_TEXT_ELEMENT(lw, 0, "Hardware type: %d (%s)", p->eth.arp->ht, get_arp_hardware_type(p->eth.arp->ht));
-    ADD_TEXT_ELEMENT(lw, 0, "Protocol type: 0x%x (%s)", p->eth.arp->pt, get_arp_protocol_type(p->eth.arp->pt));
-    ADD_TEXT_ELEMENT(lw, 0, "Hardware size: %d", p->eth.arp->hs);
-    ADD_TEXT_ELEMENT(lw, 0, "Protocol size: %d", p->eth.arp->ps);
-    ADD_TEXT_ELEMENT(lw, 0, "Opcode: %d (%s)", p->eth.arp->op, get_arp_opcode(p->eth.arp->op));
-    ADD_TEXT_ELEMENT(lw, 0, "");
-    ADD_TEXT_ELEMENT(lw, 0, "Sender IP: %-15s  HW: %s", sip, sha);
-    ADD_TEXT_ELEMENT(lw, 0, "Target IP: %-15s  HW: %s", tip, tha);
-    ADD_TEXT_ELEMENT(lw, 0, "");
+    ADD_TEXT_ELEMENT(lw, header, "Hardware type: %d (%s)", p->eth.arp->ht, get_arp_hardware_type(p->eth.arp->ht));
+    ADD_TEXT_ELEMENT(lw, header, "Protocol type: 0x%x (%s)", p->eth.arp->pt, get_arp_protocol_type(p->eth.arp->pt));
+    ADD_TEXT_ELEMENT(lw, header, "Hardware size: %d", p->eth.arp->hs);
+    ADD_TEXT_ELEMENT(lw, header, "Protocol size: %d", p->eth.arp->ps);
+    ADD_TEXT_ELEMENT(lw, header, "Opcode: %d (%s)", p->eth.arp->op, get_arp_opcode(p->eth.arp->op));
+    ADD_TEXT_ELEMENT(lw, header, "");
+    ADD_TEXT_ELEMENT(lw, header, "Sender IP: %-15s  HW: %s", sip, sha);
+    ADD_TEXT_ELEMENT(lw, header, "Target IP: %-15s  HW: %s", tip, tha);
+    ADD_TEXT_ELEMENT(lw, header, "");
 }
 
-void print_stp_information(list_view *lw, struct packet *p)
+void print_stp_information(list_view *lw, list_view_item *header, struct packet *p)
 {
-    ADD_TEXT_ELEMENT(lw, 0, "Protocol Id: %d", p->eth.llc->bpdu->protocol_id);
-    ADD_TEXT_ELEMENT(lw, 0, "Version: %d", p->eth.llc->bpdu->version);
-    ADD_TEXT_ELEMENT(lw, 0, "Type: %d (%s)", p->eth.llc->bpdu->type, get_stp_bpdu_type(p->eth.llc->bpdu->type));
+    ADD_TEXT_ELEMENT(lw, header, "Protocol Id: %d", p->eth.llc->bpdu->protocol_id);
+    ADD_TEXT_ELEMENT(lw, header, "Version: %d", p->eth.llc->bpdu->version);
+    ADD_TEXT_ELEMENT(lw, header, "Type: %d (%s)", p->eth.llc->bpdu->type, get_stp_bpdu_type(p->eth.llc->bpdu->type));
     if (p->eth.llc->bpdu->type == CONFIG || p->eth.llc->bpdu->type == RST) {
         char buf[1024];
 
@@ -590,37 +587,37 @@ void print_stp_information(list_view *lw, struct packet *p)
             if (p->eth.llc->bpdu->port_role == 0x02) snprintcat(buf, 1024, "Root");
             if (p->eth.llc->bpdu->port_role == 0x03) snprintcat(buf, 1024, "Designated");
         }
-        ADD_TEXT_ELEMENT(lw, 0, "%s", buf);
-        ADD_TEXT_ELEMENT(lw, 0, "Root ID: %u/%02x.%02x.%02x.%02x.%02x.%02x", p->eth.llc->bpdu->root_id[0] << 8 |
+        ADD_TEXT_ELEMENT(lw, header, "%s", buf);
+        ADD_TEXT_ELEMENT(lw, header, "Root ID: %u/%02x.%02x.%02x.%02x.%02x.%02x", p->eth.llc->bpdu->root_id[0] << 8 |
                   p->eth.llc->bpdu->root_id[1], p->eth.llc->bpdu->root_id[2], p->eth.llc->bpdu->root_id[3],
                   p->eth.llc->bpdu->root_id[4], p->eth.llc->bpdu->root_id[5], p->eth.llc->bpdu->root_id[6],
                   p->eth.llc->bpdu->root_id[7]);
-        ADD_TEXT_ELEMENT(lw, 0, "Root Path Cost: %d", p->eth.llc->bpdu->root_pc);
-        ADD_TEXT_ELEMENT(lw, 0, "Bridge ID: %u/%02x.%02x.%02x.%02x.%02x.%02x", p->eth.llc->bpdu->bridge_id[0] << 8 |
+        ADD_TEXT_ELEMENT(lw, header, "Root Path Cost: %d", p->eth.llc->bpdu->root_pc);
+        ADD_TEXT_ELEMENT(lw, header, "Bridge ID: %u/%02x.%02x.%02x.%02x.%02x.%02x", p->eth.llc->bpdu->bridge_id[0] << 8 |
                   p->eth.llc->bpdu->bridge_id[1], p->eth.llc->bpdu->bridge_id[2], p->eth.llc->bpdu->bridge_id[3],
                   p->eth.llc->bpdu->bridge_id[4], p->eth.llc->bpdu->bridge_id[5], p->eth.llc->bpdu->bridge_id[6],
                   p->eth.llc->bpdu->bridge_id[7]);
-        ADD_TEXT_ELEMENT(lw, 0, "Port ID: 0x%x", p->eth.llc->bpdu->port_id);
-        ADD_TEXT_ELEMENT(lw, 0, "Message Age: %u s.", p->eth.llc->bpdu->msg_age / 256);
-        ADD_TEXT_ELEMENT(lw, 0, "Max Age: %u s.", p->eth.llc->bpdu->max_age / 256);
-        ADD_TEXT_ELEMENT(lw, 0, "Hello Time: %u s.", p->eth.llc->bpdu->ht / 256);
-        ADD_TEXT_ELEMENT(lw, 0, "Forward Delay: %u s.", p->eth.llc->bpdu->fd / 256);
+        ADD_TEXT_ELEMENT(lw, header, "Port ID: 0x%x", p->eth.llc->bpdu->port_id);
+        ADD_TEXT_ELEMENT(lw, header, "Message Age: %u s.", p->eth.llc->bpdu->msg_age / 256);
+        ADD_TEXT_ELEMENT(lw, header, "Max Age: %u s.", p->eth.llc->bpdu->max_age / 256);
+        ADD_TEXT_ELEMENT(lw, header, "Hello Time: %u s.", p->eth.llc->bpdu->ht / 256);
+        ADD_TEXT_ELEMENT(lw, header, "Forward Delay: %u s.", p->eth.llc->bpdu->fd / 256);
     }
 }
 
-void print_ip_information(list_view *lw, struct ip_info *ip)
+void print_ip_information(list_view *lw, list_view_item *header, struct ip_info *ip)
 {
     char *protocol;
     char *dscp;
     char buf[MAXLINE];
 
-    ADD_TEXT_ELEMENT(lw, 0, "Version: %u", ip->version);
-    ADD_TEXT_ELEMENT(lw, 0, "Internet Header Length (IHL): %u", ip->ihl);
+    ADD_TEXT_ELEMENT(lw, header, "Version: %u", ip->version);
+    ADD_TEXT_ELEMENT(lw, header, "Internet Header Length (IHL): %u", ip->ihl);
     snprintf(buf, MAXLINE, "Differentiated Services Code Point (DSCP): 0x%x", ip->dscp);    
     if ((dscp = get_ip_dscp(ip->dscp))) {
         snprintcat(buf, MAXLINE, " %s", dscp);
     }
-    ADD_TEXT_ELEMENT(lw, 0, "%s", buf);
+    ADD_TEXT_ELEMENT(lw, header, "%s", buf);
     snprintf(buf, MAXLINE, "Explicit Congestion Notification (ECN): 0x%x", ip->ecn);
     if (ip->ecn & 0x3) {
         snprintcat(buf, MAXLINE, " CE");
@@ -631,8 +628,8 @@ void print_ip_information(list_view *lw, struct ip_info *ip)
     } else {
         snprintcat(buf, MAXLINE, " Not ECN-Capable");
     }
-    ADD_TEXT_ELEMENT(lw, 0, "Total length: %u", ip->length);
-    ADD_TEXT_ELEMENT(lw, 0, "Identification: 0x%x (%u)", ip->id, ip->id);
+    ADD_TEXT_ELEMENT(lw, header, "Total length: %u", ip->length);
+    ADD_TEXT_ELEMENT(lw, header, "Identification: 0x%x (%u)", ip->id, ip->id);
     snprintf(buf, MAXLINE, "Flags: %u%u%u", (ip->foffset & 0x8000) >> 15, (ip->foffset & 0x4000) >> 14,
              (ip->foffset & 0x2000) >> 13);
     if (ip->foffset & 0x4000 || ip->foffset & 0x2000) {
@@ -641,117 +638,117 @@ void print_ip_information(list_view *lw, struct ip_info *ip)
         if (ip->foffset & 0x2000) snprintcat(buf, MAXLINE, "More Fragments");
         snprintcat(buf, MAXLINE, ")");
     }
-    ADD_TEXT_ELEMENT(lw, 0, "%s", buf);
-    ADD_TEXT_ELEMENT(lw, 0, "Time to live: %u", ip->ttl);
+    ADD_TEXT_ELEMENT(lw, header, "%s", buf);
+    ADD_TEXT_ELEMENT(lw, header, "Time to live: %u", ip->ttl);
     snprintf(buf, MAXLINE, "Protocol: %u", ip->protocol);
     if ((protocol = get_ip_transport_protocol(ip->protocol))) {
         snprintcat(buf, MAXLINE, " (%s)", protocol);
     }
-    ADD_TEXT_ELEMENT(lw, 0, "%s", buf);
-    ADD_TEXT_ELEMENT(lw, 0,"Checksum: %u", ip->checksum);
-    ADD_TEXT_ELEMENT(lw, 0,"Source IP address: %s", ip->src);
-    ADD_TEXT_ELEMENT(lw, 0,"Destination IP address: %s", ip->dst);
-    ADD_TEXT_ELEMENT(lw, 0, "");
+    ADD_TEXT_ELEMENT(lw, header, "%s", buf);
+    ADD_TEXT_ELEMENT(lw, header,"Checksum: %u", ip->checksum);
+    ADD_TEXT_ELEMENT(lw, header,"Source IP address: %s", ip->src);
+    ADD_TEXT_ELEMENT(lw, header,"Destination IP address: %s", ip->dst);
+    ADD_TEXT_ELEMENT(lw, header, "");
 }
 
-void print_icmp_information(list_view *lw, struct ip_info *ip)
+void print_icmp_information(list_view *lw, list_view_item *header, struct ip_info *ip)
 {
-    ADD_TEXT_ELEMENT(lw, 0, "Type: %d (%s)", ip->icmp.type, get_icmp_type(ip->icmp.type));
+    ADD_TEXT_ELEMENT(lw, header, "Type: %d (%s)", ip->icmp.type, get_icmp_type(ip->icmp.type));
     switch (ip->icmp.type) {
     case ICMP_ECHOREPLY:
     case ICMP_ECHO:
-        ADD_TEXT_ELEMENT(lw, 0, "Code: %d", ip->icmp.code);
+        ADD_TEXT_ELEMENT(lw, header, "Code: %d", ip->icmp.code);
         break;
     case ICMP_DEST_UNREACH:
-        ADD_TEXT_ELEMENT(lw, 0, "Code: %d (%s)", ip->icmp.code, get_icmp_dest_unreach_code(ip->icmp.code));
+        ADD_TEXT_ELEMENT(lw, header, "Code: %d (%s)", ip->icmp.code, get_icmp_dest_unreach_code(ip->icmp.code));
         break;
     default:
         break;
     }
-    ADD_TEXT_ELEMENT(lw, 0, "Checksum: %d", ip->icmp.checksum);
+    ADD_TEXT_ELEMENT(lw, header, "Checksum: %d", ip->icmp.checksum);
     if (ip->icmp.type == ICMP_ECHOREPLY || ip->icmp.type == ICMP_ECHO) {
-        ADD_TEXT_ELEMENT(lw, 0, "Identifier: 0x%x", ip->icmp.echo.id);
-        ADD_TEXT_ELEMENT(lw, 0, "Sequence number: %d", ip->icmp.echo.seq_num);
+        ADD_TEXT_ELEMENT(lw, header, "Identifier: 0x%x", ip->icmp.echo.id);
+        ADD_TEXT_ELEMENT(lw, header, "Sequence number: %d", ip->icmp.echo.seq_num);
     }
 }
 
-void print_igmp_information(list_view *lw, struct ip_info *info)
+void print_igmp_information(list_view *lw, list_view_item *header, struct ip_info *info)
 {
-    ADD_TEXT_ELEMENT(lw, 0, "Type: %d (%s) ", info->igmp.type, get_igmp_type(info->icmp.type));
+    ADD_TEXT_ELEMENT(lw, header, "Type: %d (%s) ", info->igmp.type, get_igmp_type(info->icmp.type));
     if (info->igmp.type == IGMP_HOST_MEMBERSHIP_QUERY) {
         if (!strcmp(info->igmp.group_addr, "0.0.0.0")) {
-            ADD_TEXT_ELEMENT(lw, 0, "General query", info->igmp.type, get_igmp_type(info->icmp.type));
+            ADD_TEXT_ELEMENT(lw, header, "General query", info->igmp.type, get_igmp_type(info->icmp.type));
         } else {
-            ADD_TEXT_ELEMENT(lw, 0, "Group-specific query", info->igmp.type, get_igmp_type(info->icmp.type));
+            ADD_TEXT_ELEMENT(lw, header, "Group-specific query", info->igmp.type, get_igmp_type(info->icmp.type));
         }
     }
-    ADD_TEXT_ELEMENT(lw, 0, "Max response time: %d seconds", info->igmp.max_resp_time / 10);
-    ADD_TEXT_ELEMENT(lw, 0, "Checksum: %d", info->igmp.checksum);
-    ADD_TEXT_ELEMENT(lw, 0, "Group address: %s", info->igmp.group_addr);
+    ADD_TEXT_ELEMENT(lw, header, "Max response time: %d seconds", info->igmp.max_resp_time / 10);
+    ADD_TEXT_ELEMENT(lw, header, "Checksum: %d", info->igmp.checksum);
+    ADD_TEXT_ELEMENT(lw, header, "Group address: %s", info->igmp.group_addr);
 }
 
-void print_udp_information(list_view *lw, struct ip_info *ip)
+void print_udp_information(list_view *lw, list_view_item *header, struct ip_info *ip)
 {
-    ADD_TEXT_ELEMENT(lw, 0, "Source port: %u", ip->udp.src_port);
-    ADD_TEXT_ELEMENT(lw, 0, "Destination port: %u", ip->udp.dst_port);
-    ADD_TEXT_ELEMENT(lw, 0, "Length: %u", ip->udp.len);
-    ADD_TEXT_ELEMENT(lw, 0, "Checksum: %u", ip->udp.checksum);
-    ADD_TEXT_ELEMENT(lw, 0, "");
+    ADD_TEXT_ELEMENT(lw, header, "Source port: %u", ip->udp.src_port);
+    ADD_TEXT_ELEMENT(lw, header, "Destination port: %u", ip->udp.dst_port);
+    ADD_TEXT_ELEMENT(lw, header, "Length: %u", ip->udp.len);
+    ADD_TEXT_ELEMENT(lw, header, "Checksum: %u", ip->udp.checksum);
+    ADD_TEXT_ELEMENT(lw, header, "");
 }
 
-void print_tcp_information(list_view *lw, struct ip_info *ip, bool options_selected)
+void print_tcp_information(list_view *lw, list_view_item *header, struct ip_info *ip, bool options_selected)
 {
-    list_view_widget *w;
-
-    ADD_TEXT_ELEMENT(lw, 0, "Source port: %u", ip->tcp.src_port);
-    ADD_TEXT_ELEMENT(lw, 0, "Destination port: %u", ip->tcp.dst_port);
-    ADD_TEXT_ELEMENT(lw, 0, "Sequence number: %u", ip->tcp.seq_num);
-    ADD_TEXT_ELEMENT(lw, 0, "Acknowledgment number: %u", ip->tcp.ack_num);
-    ADD_TEXT_ELEMENT(lw, 0, "Data offset: %u", ip->tcp.offset);
-    ADD_TEXT_ELEMENT(lw, 0,
+    ADD_TEXT_ELEMENT(lw, header, "Source port: %u", ip->tcp.src_port);
+    ADD_TEXT_ELEMENT(lw, header, "Destination port: %u", ip->tcp.dst_port);
+    ADD_TEXT_ELEMENT(lw, header, "Sequence number: %u", ip->tcp.seq_num);
+    ADD_TEXT_ELEMENT(lw, header, "Acknowledgment number: %u", ip->tcp.ack_num);
+    ADD_TEXT_ELEMENT(lw, header, "Data offset: %u", ip->tcp.offset);
+    ADD_TEXT_ELEMENT(lw, header,
               "Flags: %u (NS) %u (CWR) %u (ECE) %u (URG) %u (ACK) %u (PSH) %u (RST) %u (SYN) %u (FIN)",
               ip->tcp.ns, ip->tcp.cwr, ip->tcp.ece, ip->tcp.urg, ip->tcp.ack,
               ip->tcp.psh, ip->tcp.rst, ip->tcp.syn, ip->tcp.fin);
-    ADD_TEXT_ELEMENT(lw, 0, "Window size: %u", ip->tcp.window);
-    ADD_TEXT_ELEMENT(lw, 0, "Checksum: %u", ip->tcp.checksum);
-    w = ADD_TEXT_ELEMENT(lw, 0, "Urgent pointer: %u", ip->tcp.urg_ptr);
+    ADD_TEXT_ELEMENT(lw, header, "Window size: %u", ip->tcp.window);
+    ADD_TEXT_ELEMENT(lw, header, "Checksum: %u", ip->tcp.checksum);
+    ADD_TEXT_ELEMENT(lw, header, "Urgent pointer: %u", ip->tcp.urg_ptr);
     if (ip->tcp.options) {
-        ADD_SUB_HEADER(lw, w, "Options", options_selected, SUBLAYER);
+        list_view_item *w;
+
+        w = ADD_SUB_HEADER(lw, header, options_selected, SUBLAYER, "Options");
         if (options_selected) {
             print_tcp_options(lw, w, &ip->tcp);
         }
-        ADD_TEXT_ELEMENT(lw, 0, "");
+        ADD_TEXT_ELEMENT(lw, header, "");
     }
 }
 
-void print_tcp_options(list_view *lw, list_view_widget *w, struct tcp *tcp)
+void print_tcp_options(list_view *lw, list_view_item *w, struct tcp *tcp)
 {
     if (tcp->options) {
         struct tcp_options *opt;
 
         opt = parse_tcp_options(tcp->options, (tcp->offset - 5) * 4);
-        if (opt->nop) ADD_SUB_ELEMENT(lw, w, "No operation: %u bytes", opt->nop);
-        if (opt->mss) ADD_SUB_ELEMENT(lw, w, "Maximum segment size: %u", opt->mss);
-        if (opt->win_scale) ADD_SUB_ELEMENT(lw, w, "Window scale: %u", opt->win_scale);
-        if (opt->sack_permitted) ADD_SUB_ELEMENT(lw, w, "Selective Acknowledgement permitted");
+        if (opt->nop) ADD_TEXT_ELEMENT(lw, w, "No operation: %u bytes", opt->nop);
+        if (opt->mss) ADD_TEXT_ELEMENT(lw, w, "Maximum segment size: %u", opt->mss);
+        if (opt->win_scale) ADD_TEXT_ELEMENT(lw, w, "Window scale: %u", opt->win_scale);
+        if (opt->sack_permitted) ADD_TEXT_ELEMENT(lw, w, "Selective Acknowledgement permitted");
         if (opt->sack) {
             const node_t *n = list_begin(opt->sack);
 
             while (n) {
                 struct tcp_sack_block *block = list_data(n);
 
-                ADD_SUB_ELEMENT(lw, w, "Left edge: %u", block->left_edge);
-                ADD_SUB_ELEMENT(lw, w, "Right edge: %u", block->right_edge);
+                ADD_TEXT_ELEMENT(lw, w, "Left edge: %u", block->left_edge);
+                ADD_TEXT_ELEMENT(lw, w, "Right edge: %u", block->right_edge);
                 n = list_next(n);
             }
         }
-        if (opt->ts_val) ADD_SUB_ELEMENT(lw, w, "Timestamp value: %u", opt->ts_val);
-        if (opt->ts_ecr) ADD_SUB_ELEMENT(lw, w, "Timestamp echo reply: %u", opt->ts_ecr);
+        if (opt->ts_val) ADD_TEXT_ELEMENT(lw, w, "Timestamp value: %u", opt->ts_val);
+        if (opt->ts_ecr) ADD_TEXT_ELEMENT(lw, w, "Timestamp echo reply: %u", opt->ts_ecr);
         free_tcp_options(opt);
     }
 }
 
-void print_dns_information(list_view *lw, struct dns_info *dns, int maxx)
+void print_dns_information(list_view *lw, list_view_item *header, struct dns_info *dns, int maxx)
 {
     int records = 0;
 
@@ -759,80 +756,81 @@ void print_dns_information(list_view *lw, struct dns_info *dns, int maxx)
     for (int i = 1; i < 4; i++) {
         records += dns->section_count[i];
     }
-    ADD_TEXT_ELEMENT(lw, 0, "ID: 0x%x", dns->id);
-    ADD_TEXT_ELEMENT(lw, 0, "QR: %d (%s)", dns->qr, dns->qr ? "DNS Response" : "DNS Query");
-    ADD_TEXT_ELEMENT(lw, 0, "Opcode: %d (%s)", dns->opcode, get_dns_opcode(dns->opcode));
+    ADD_TEXT_ELEMENT(lw, header, "ID: 0x%x", dns->id);
+    ADD_TEXT_ELEMENT(lw, header, "QR: %d (%s)", dns->qr, dns->qr ? "DNS Response" : "DNS Query");
+    ADD_TEXT_ELEMENT(lw, header, "Opcode: %d (%s)", dns->opcode, get_dns_opcode(dns->opcode));
     if (dns->qr) {
-        ADD_TEXT_ELEMENT(lw, 0, "AA: %d (%s)", dns->aa, dns->aa ?
+        ADD_TEXT_ELEMENT(lw, header, "AA: %d (%s)", dns->aa, dns->aa ?
                   "Authoritative answer" : "Not an authoritative answer");
     }
-    ADD_TEXT_ELEMENT(lw, 0, "TC: %d (%s)", dns->tc, dns->tc ? "Truncation" :
+    ADD_TEXT_ELEMENT(lw, header, "TC: %d (%s)", dns->tc, dns->tc ? "Truncation" :
               "No truncation");
-    ADD_TEXT_ELEMENT(lw, 0, "RD: %d (%s)", dns->rd, dns->rd ?
+    ADD_TEXT_ELEMENT(lw, header, "RD: %d (%s)", dns->rd, dns->rd ?
               "Recursion desired" : "No recursion desired");
     if (dns->qr) {
-        ADD_TEXT_ELEMENT(lw, 0, "RA: %d (%s)", dns->ra, dns->ra ?
+        ADD_TEXT_ELEMENT(lw, header, "RA: %d (%s)", dns->ra, dns->ra ?
                   "Recursion available" : "No recursion available");
-        ADD_TEXT_ELEMENT(lw, 0, "Rcode: %d (%s)", dns->rcode, get_dns_rcode(dns->rcode));
+        ADD_TEXT_ELEMENT(lw, header, "Rcode: %d (%s)", dns->rcode, get_dns_rcode(dns->rcode));
     }
-    ADD_TEXT_ELEMENT(lw, 0, "Question: %d, Answer: %d, Authority: %d, Additional records: %d",
+    ADD_TEXT_ELEMENT(lw, header, "Question: %d, Answer: %d, Authority: %d, Additional records: %d",
               dns->section_count[QDCOUNT], dns->section_count[ANCOUNT],
               dns->section_count[NSCOUNT], dns->section_count[ARCOUNT]);
-    ADD_TEXT_ELEMENT(lw, 0, "");
+    ADD_TEXT_ELEMENT(lw, header, "");
     for (int i = dns->section_count[QDCOUNT]; i > 0; i--) {
-        ADD_TEXT_ELEMENT(lw, 0, "QNAME: %s, QTYPE: %s, QCLASS: %s",
+        ADD_TEXT_ELEMENT(lw, header, "QNAME: %s, QTYPE: %s, QCLASS: %s",
                   dns->question.qname, get_dns_type_extended(dns->question.qtype),
                   get_dns_class_extended(GET_MDNS_RRCLASS(dns->question.qclass)));
     }
     if (records) {
         int len;
 
-        ADD_TEXT_ELEMENT(lw, 0, "Resource records:");
+        ADD_TEXT_ELEMENT(lw, header, "Resource records:");
         len = get_max_namelen(dns->record, records);
         for (int i = 0; i < records; i++) {
             char buffer[maxx];
             bool soa = false;
+            list_view_item *w;
 
             snprintf(buffer, maxx, "%-*s", len + 4, dns->record[i].name);
             snprintcat(buffer, maxx, "%-6s", get_dns_class(GET_MDNS_RRCLASS(dns->record[i].rrclass)));
             snprintcat(buffer, maxx, "%-8s", get_dns_type(dns->record[i].type));
             print_dns_record(dns, i, buffer, maxx, dns->record[i].type, &soa);
-            ADD_TEXT_ELEMENT(lw, 2, "%s", buffer);
+            w = ADD_TEXT_ELEMENT(lw, header, "%s", buffer);
             if (soa) {
-                //print_dns_soa(win, dns, i, y + 1, 6);
+                print_dns_soa(lw, w, dns, i);
             }
         }
     }
 }
 
-void print_dns_soa(WINDOW *win, struct dns_info *info, int i, int y, int x)
+void print_dns_soa(list_view *lw, list_view_item *w, struct dns_info *info, int i)
 {
     char time[512];
     struct tm_t tm;
 
-    mvwprintw(win, y, x, "mname (primary name server): %s", info->record[i].rdata.soa.mname);
-    mvwprintw(win, ++y, x, "rname (mailbox of responsible authority): %s",
+    ADD_TEXT_ELEMENT(lw, w, "mname (primary name server): %s", info->record[i].rdata.soa.mname);
+    ADD_TEXT_ELEMENT(lw, w, "rname (mailbox of responsible authority): %s",
               info->record[i].rdata.soa.rname);
-    mvwprintw(win, ++y, x, "Serial number: %d", info->record[i].rdata.soa.serial);
+    ADD_TEXT_ELEMENT(lw, w, "Serial number: %d", info->record[i].rdata.soa.serial);
     tm = get_time(info->record[i].rdata.soa.refresh);
     time_ntop(&tm, time, 512);
-    mvwprintw(win, ++y, x, "Refresh interval: %d (%s)",
+    ADD_TEXT_ELEMENT(lw, w, "Refresh interval: %d (%s)",
               info->record[i].rdata.soa.refresh, time);
     tm = get_time(info->record[i].rdata.soa.retry);
     time_ntop(&tm, time, 512);
-    mvwprintw(win, ++y, x, "Retry interval: %d (%s)",
+    ADD_TEXT_ELEMENT(lw, w, "Retry interval: %d (%s)",
               info->record[i].rdata.soa.retry, time);
     tm = get_time(info->record[i].rdata.soa.expire);
     time_ntop(&tm, time, 512);
-    mvwprintw(win, ++y, x, "Expire limit: %d (%s)",
+    ADD_TEXT_ELEMENT(lw, w, "Expire limit: %d (%s)",
               info->record[i].rdata.soa.expire, time);
     tm = get_time(info->record[i].rdata.soa.minimum);
     time_ntop(&tm, time, 512);
-    mvwprintw(win, ++y, x, "Minimum TTL: %d (%s)",
+    ADD_TEXT_ELEMENT(lw, w,  "Minimum TTL: %d (%s)",
               info->record[i].rdata.soa.minimum, time);
 }
 
-void print_nbns_information(list_view *lw, struct nbns_info *nbns, int maxx)
+void print_nbns_information(list_view *lw, list_view_item *header, struct nbns_info *nbns, int maxx)
 {
     int records = 0;
 
@@ -840,24 +838,24 @@ void print_nbns_information(list_view *lw, struct nbns_info *nbns, int maxx)
     for (int i = 1; i < 4; i++) {
         records += nbns->section_count[i];
     }
-    ADD_TEXT_ELEMENT(lw, 0, "ID: 0x%x", nbns->id);
-    ADD_TEXT_ELEMENT(lw, 0, "Response flag: %d (%s)", nbns->r, nbns->r ? "Response" : "Request");
-    ADD_TEXT_ELEMENT(lw, 0, "Opcode: %d (%s)", nbns->opcode, get_nbns_opcode(nbns->opcode));
-    ADD_TEXT_ELEMENT(lw, 0, "Flags: %d%d%d%d%d", nbns->aa, nbns->tc, nbns->rd, nbns->ra, nbns->broadcast);
-    ADD_TEXT_ELEMENT(lw, 0, "Rcode: %d (%s)", nbns->rcode, get_nbns_rcode(nbns->rcode));
-    ADD_TEXT_ELEMENT(lw, 0, "Question Entries: %d, Answer RRs: %d, Authority RRs: %d, Additional RRs: %d",
+    ADD_TEXT_ELEMENT(lw, header, "ID: 0x%x", nbns->id);
+    ADD_TEXT_ELEMENT(lw, header, "Response flag: %d (%s)", nbns->r, nbns->r ? "Response" : "Request");
+    ADD_TEXT_ELEMENT(lw, header, "Opcode: %d (%s)", nbns->opcode, get_nbns_opcode(nbns->opcode));
+    ADD_TEXT_ELEMENT(lw, header, "Flags: %d%d%d%d%d", nbns->aa, nbns->tc, nbns->rd, nbns->ra, nbns->broadcast);
+    ADD_TEXT_ELEMENT(lw, header, "Rcode: %d (%s)", nbns->rcode, get_nbns_rcode(nbns->rcode));
+    ADD_TEXT_ELEMENT(lw, header, "Question Entries: %d, Answer RRs: %d, Authority RRs: %d, Additional RRs: %d",
               nbns->section_count[QDCOUNT], nbns->section_count[ANCOUNT],
               nbns->section_count[NSCOUNT], nbns->section_count[ARCOUNT]);
-    ADD_TEXT_ELEMENT(lw, 0, "");
+    ADD_TEXT_ELEMENT(lw, header, "");
 
     /* question entry */
     if (nbns->section_count[QDCOUNT]) {
-        ADD_TEXT_ELEMENT(lw, 0, "Question name: %s, Question type: %s, Question class: IN (Internet)",
+        ADD_TEXT_ELEMENT(lw, header, "Question name: %s, Question type: %s, Question class: IN (Internet)",
                   nbns->question.qname, get_nbns_type_extended(nbns->question.qtype));
     }
 
     if (records) {
-        ADD_TEXT_ELEMENT(lw, 0, "Resource records:");
+        ADD_TEXT_ELEMENT(lw, header, "Resource records:");
         for (int i = 0; i < records; i++) {
             char buffer[maxx];
 
@@ -865,27 +863,27 @@ void print_nbns_information(list_view *lw, struct nbns_info *nbns, int maxx)
             snprintcat(buffer, maxx, "IN\t");
             snprintcat(buffer, maxx, "%s\t", get_nbns_type(nbns->record[i].rrtype));
             print_nbns_record(nbns, i, buffer, maxx, nbns->record[i].rrtype);
-            ADD_TEXT_ELEMENT(lw, 2, "%s", buffer);
+            ADD_TEXT_ELEMENT(lw, header, "%s", buffer);
         }
     }
 }
 
-void print_ssdp_information(list_view *lw, list_t *ssdp)
+void print_ssdp_information(list_view *lw, list_view_item *header, list_t *ssdp)
 {
     const node_t *n;
 
     n = list_begin(ssdp);
     while (n) {
-        ADD_TEXT_ELEMENT(lw, 0, "%s", (char *) list_data(n));
+        ADD_TEXT_ELEMENT(lw, header, "%s", (char *) list_data(n));
         n = list_next(n);
     }
 }
 
-void print_http_information(list_view *lw, struct http_info *http)
+void print_http_information(list_view *lw, list_view_item *header, struct http_info *http)
 {
 }
 
-void print_payload(list_view *lw, unsigned char *payload, uint16_t len)
+void print_payload(list_view *lw, list_view_item *header, unsigned char *payload, uint16_t len)
 {
     int size = 1024;
     int num = 0;
@@ -915,6 +913,6 @@ void print_payload(list_view *lw, unsigned char *payload, uint16_t len)
         }
         snprintcat(buf, size, "|");
         num += 16;
-        ADD_TEXT_ELEMENT(lw, 0, "%s", buf);
+        ADD_TEXT_ELEMENT(lw, header, "%s", buf);
     }
 }
