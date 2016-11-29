@@ -9,11 +9,18 @@ struct packet;
 struct context;
 
 enum layer {
-    LINK,
-    NETWORK,
+    ETHERNET_LAYER,
+    ARP,
+    LLC,
+    SNAP,
+    STP,
+    IP,
+    IGMP,
+    ICMP,
     TRANSPORT,
     APPLICATION,
-    SUBLAYER
+    SUBLAYER,
+    NUM_LAYERS
 };
 
 /* initialize ncurses */

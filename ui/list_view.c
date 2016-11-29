@@ -12,7 +12,8 @@ static list_view_item *add_header(list_view *this, char *text, bool expanded, ui
 static list_view_item *add_sub_header(list_view *this, list_view_item *header, bool expanded,
                                       uint32_t data, char *text, ...);
 static list_view_item *add_text_element(list_view *this, list_view_item *header, char *txt, ...);
-static list_view_item *create_element(enum type t, char *text, bool expanded, int line, uint16_t data);
+static list_view_item *create_element(enum type t, char *text, bool expanded, int line,
+                                      uint16_t data, uint32_t attr);
 static void free_list_view_item(list_t *widgets);
 static void render(list_view *this, WINDOW *win);
 static void print_widgets(list_t *widgets, WINDOW *win, int pad);
@@ -64,7 +65,7 @@ void free_list_view_item(list_t *widgets)
     list_free(widgets);
 }
 
-list_view_item *create_element(enum type t, char *txt, bool expanded, int line, uint16_t data)
+list_view_item *create_element(enum type t, char *txt, bool expanded, int line, uint16_t data, uint32_t attr)
 {
     char *elem;
     int len;
@@ -84,7 +85,7 @@ list_view_item *create_element(enum type t, char *txt, bool expanded, int line, 
         widget->hdr.expanded = expanded;
         widget->hdr.data = data;
         widget->hdr.subwidgets = NULL;
-        widget->attr = A_BOLD; // TODO: Should be configurable
+        widget->attr = attr;
     } else {
         elem = malloc(len + 1);
         strncpy(elem, txt, len + 1);
@@ -98,7 +99,7 @@ list_view_item *create_element(enum type t, char *txt, bool expanded, int line, 
 
 list_view_item *add_header(list_view *this, char *txt, bool expanded, uint32_t data)
 {
-    list_view_item *w = create_element(HEADER, txt, expanded, this->num_elements, data);
+    list_view_item *w = create_element(HEADER, txt, expanded, this->num_elements, data, A_BOLD);
 
     list_push_back(this->widgets, w);
     this->num_elements++;
@@ -117,7 +118,7 @@ list_view_item *add_text_element(list_view *this, list_view_item *header, char *
     vsnprintf(buf, MAXLINE - 1, txt, ap);
     strcat(buf, "\n");
     va_end(ap);
-    w = create_element(TEXT, buf, false, this->num_elements, 0);
+    w = create_element(TEXT, buf, false, this->num_elements, 0, A_NORMAL);
     if (!header->hdr.subwidgets) {
         header->hdr.subwidgets = list_init(NULL);
     }
@@ -137,7 +138,7 @@ list_view_item *add_sub_header(list_view *this, list_view_item *header, bool exp
     vsnprintf(buf, MAXLINE - 1, txt, ap);
     strcat(buf, "\n");
     va_end(ap);
-    h = create_element(HEADER, buf, expanded, this->num_elements, data);
+    h = create_element(HEADER, buf, expanded, this->num_elements, data, A_BOLD);
     if (!header->hdr.subwidgets) {
         header->hdr.subwidgets = list_init(NULL);
     }

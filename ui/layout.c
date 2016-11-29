@@ -16,13 +16,7 @@
 #define STATUS_HEIGHT 1
 #define KEY_ESC 27
 
-static struct preferences {
-    bool link_selected;
-    bool network_selected;
-    bool transport_selected;
-    bool application_selected;
-    bool sublayer_selected;
-} preferences;
+static bool selected[NUM_LAYERS - 1];
 
 static struct line_info {
     int line_number;
@@ -522,87 +516,87 @@ void create_elements(struct packet *p)
 
     /* inspect packet and add packet headers as elements to the list view */
     if (p->eth.ethertype < ETH_P_802_3_MIN) {
-        header = ADD_HEADER(lw, "Ethernet 802.3", preferences.link_selected, LINK);
+        header = ADD_HEADER(lw, "Ethernet 802.3", selected[ETHERNET_LAYER], ETHERNET_LAYER);
     } else {
-        header = ADD_HEADER(lw, "Ethernet II", preferences.link_selected, LINK);
+        header = ADD_HEADER(lw, "Ethernet II", selected[ETHERNET_LAYER], ETHERNET_LAYER);
     }
-    if (preferences.link_selected) {
-        print_ethernet_information(lw, header, p);
+    if (selected[ETHERNET_LAYER]) {
+        add_ethernet_information(lw, header, p);
     }
     if (p->eth.ethertype == ETH_P_ARP) {
-        header = ADD_HEADER(lw, "Address Resolution Protocol (ARP)", preferences.network_selected, NETWORK);
-        if (preferences.network_selected) {
-            print_arp_information(lw, header, p);
+        header = ADD_HEADER(lw, "Address Resolution Protocol (ARP)", selected[IP], IP);
+        if (selected[IP]) {
+            add_arp_information(lw, header, p);
         }
     } else if (p->eth.ethertype == ETH_P_IP) {
-        header = ADD_HEADER(lw, "Internet Protocol (IP)", preferences.network_selected, NETWORK);
-        if (preferences.network_selected) {
-            print_ip_information(lw, header, p->eth.ip);
+        header = ADD_HEADER(lw, "Internet Protocol (IP)", selected[IP], IP);
+        if (selected[IP]) {
+            add_ip_information(lw, header, p->eth.ip);
         }
         switch (p->eth.ip->protocol) {
         case IPPROTO_TCP:
         {
-            header = ADD_HEADER(lw, "Transmission Control Protocol (TCP)", preferences.transport_selected, TRANSPORT);
-            if (preferences.transport_selected) {
-                print_tcp_information(lw, header, p->eth.ip, preferences.sublayer_selected);
+            header = ADD_HEADER(lw, "Transmission Control Protocol (TCP)", selected[TRANSPORT], TRANSPORT);
+            if (selected[TRANSPORT]) {
+                add_tcp_information(lw, header, p->eth.ip, selected[SUBLAYER]);
             }
             create_app_elements(&p->eth.ip->tcp.data, p);
             break;
         }
         case IPPROTO_UDP:
-            header = ADD_HEADER(lw, "User Datagram Protocol (UDP)", preferences.transport_selected, TRANSPORT);
-            if (preferences.transport_selected) {
-                print_udp_information(lw, header, p->eth.ip);
+            header = ADD_HEADER(lw, "User Datagram Protocol (UDP)", selected[TRANSPORT], TRANSPORT);
+            if (selected[TRANSPORT]) {
+                add_udp_information(lw, header, p->eth.ip);
             }
             create_app_elements(&p->eth.ip->udp.data, p);
             break;
         case IPPROTO_ICMP:
-            header = ADD_HEADER(lw, "Internet Control Message Protocol (ICMP)", preferences.transport_selected, TRANSPORT);
-            if (preferences.transport_selected) {
-                print_icmp_information(lw, header, p->eth.ip);
+            header = ADD_HEADER(lw, "Internet Control Message Protocol (ICMP)", selected[ICMP], ICMP);
+            if (selected[ICMP]) {
+                add_icmp_information(lw, header, p->eth.ip);
             }
             break;
         case IPPROTO_IGMP:
-            header = ADD_HEADER(lw, "Internet Group Management Protocol (IGMP)", preferences.transport_selected, TRANSPORT);
-            if (preferences.transport_selected) {
-                print_igmp_information(lw, header, p->eth.ip);
+            header = ADD_HEADER(lw, "Internet Group Management Protocol (IGMP)", selected[IGMP], IGMP);
+            if (selected[IGMP]) {
+                add_igmp_information(lw, header, p->eth.ip);
             }
             break;
         default:
             /* unknown transport layer payload */
             if (p->eth.ip->payload_len) {
-                header = ADD_HEADER(lw, "Data", preferences.transport_selected, TRANSPORT);
-                if (preferences.transport_selected) {
-                    print_payload(lw, header, p->eth.ip->payload, p->eth.ip->payload_len);
+                header = ADD_HEADER(lw, "Data", selected[TRANSPORT], TRANSPORT);
+                if (selected[TRANSPORT]) {
+                    add_payload(lw, header, p->eth.ip->payload, p->eth.ip->payload_len);
                 }
             }
         }
     } else if (p->eth.ethertype < ETH_P_802_3_MIN) {
-        header = ADD_HEADER(lw, "Logical Link Control (LLC)", preferences.network_selected, NETWORK);
-        if (preferences.network_selected) {
-            print_llc_information(lw, header, p);
+        header = ADD_HEADER(lw, "Logical Link Control (LLC)", selected[LLC], LLC);
+        if (selected[LLC]) {
+            add_llc_information(lw, header, p);
         }
         switch (get_eth802_type(p->eth.llc)) {
         case ETH_802_STP:
-            header = ADD_HEADER(lw, "Spanning Tree Protocol (STP)", preferences.transport_selected, TRANSPORT);
-            if (preferences.transport_selected) {
-                print_stp_information(lw, header, p);
+            header = ADD_HEADER(lw, "Spanning Tree Protocol (STP)", selected[STP], STP);
+            if (selected[STP]) {
+                add_stp_information(lw, header, p);
             }
             break;
         case ETH_802_SNAP:
-            header = ADD_HEADER(lw, "Subnetwork Access Protocol (SNAP)", preferences.transport_selected, TRANSPORT);
-            if (preferences.transport_selected) {
-                print_snap_information(lw, header, p);
+            header = ADD_HEADER(lw, "Subnetwork Access Protocol (SNAP)", selected[SNAP], SNAP);
+            if (selected[SNAP]) {
+                add_snap_information(lw, header, p);
             }
             break;
         default:
-            header = ADD_HEADER(lw, "Data", preferences.application_selected, APPLICATION);
-            if (preferences.application_selected) {
-                print_payload(lw, header, p->eth.payload, p->eth.payload_len);
+            header = ADD_HEADER(lw, "Data", selected[APPLICATION], APPLICATION);
+            if (selected[APPLICATION]) {
+                add_payload(lw, header, p->eth.payload, p->eth.payload_len);
             }
         }
     } else if (p->eth.payload_len) {
-        ADD_HEADER(lw, "Data", preferences.application_selected, APPLICATION);
+        ADD_HEADER(lw, "Data", selected[APPLICATION], APPLICATION);
     }
 }
 
@@ -613,35 +607,35 @@ void create_app_elements(struct application_info *info, struct packet *p)
     switch (info->utype) {
     case DNS:
     case MDNS:
-        header = ADD_HEADER(lw, "Domain Name System (DNS)", preferences.application_selected, APPLICATION);
-        if (preferences.application_selected) {
-            print_dns_information(lw, header, info->dns, getmaxx(wmain));
+        header = ADD_HEADER(lw, "Domain Name System (DNS)", selected[APPLICATION], APPLICATION);
+        if (selected[APPLICATION]) {
+            add_dns_information(lw, header, info->dns, selected[SUBLAYER], getmaxx(wmain));
         }
         break;
     case NBNS:
-        header = ADD_HEADER(lw, "NetBIOS Name Service (NBNS)", preferences.application_selected, APPLICATION);
-        if (preferences.application_selected) {
-            print_nbns_information(lw, header, info->nbns, getmaxx(wmain));
+        header = ADD_HEADER(lw, "NetBIOS Name Service (NBNS)", selected[APPLICATION], APPLICATION);
+        if (selected[APPLICATION]) {
+            add_nbns_information(lw, header, info->nbns, getmaxx(wmain));
         }
         break;
     case HTTP:
-        header = ADD_HEADER(lw, "Hypertext Transfer Protocol (HTTP)", preferences.application_selected, APPLICATION);
-        if (preferences.application_selected) {
-            print_http_information(lw, header, info->http);
+        header = ADD_HEADER(lw, "Hypertext Transfer Protocol (HTTP)", selected[APPLICATION], APPLICATION);
+        if (selected[APPLICATION]) {
+            add_http_information(lw, header, info->http);
         }
         break;
     case SSDP:
-        header = ADD_HEADER(lw, "Simple Service Discovery Protocol (SSDP)", preferences.application_selected, APPLICATION);
-        if (preferences.application_selected) {
-            print_ssdp_information(lw, header, info->ssdp);
+        header = ADD_HEADER(lw, "Simple Service Discovery Protocol (SSDP)", selected[APPLICATION], APPLICATION);
+        if (selected[APPLICATION]) {
+            add_ssdp_information(lw, header, info->ssdp);
         }
         break;
     default:
         if ((p->eth.ip->protocol == IPPROTO_TCP && TCP_PAYLOAD_LEN(p) > 0) ||
             p->eth.ip->protocol == IPPROTO_UDP) {
-            header = ADD_HEADER(lw, "Data", preferences.application_selected, APPLICATION);
-            if (preferences.application_selected) {
-                print_payload(lw, header, info->payload, info->payload_len);
+            header = ADD_HEADER(lw, "Data", selected[APPLICATION], APPLICATION);
+            if (selected[APPLICATION]) {
+                add_payload(lw, header, info->payload, info->payload_len);
             }
         }
         break;
@@ -654,7 +648,7 @@ void print_protocol_information(struct packet *p, int lineno)
     if (subwindow.win) {
         delete_subwindow();
         free_list_view(lw);
-    }
+    } 
     create_elements(p);
     
     /* print information in subwindow */
@@ -748,27 +742,13 @@ bool update_subwin_selection()
     if (screen_line >= subwindow.top &&
         screen_line < subwindow.top + subwindow.num_lines) {
         int subline;
+        int32_t data;
 
         subline = screen_line - subwindow.top;
         SET_EXPANDED(lw, subline, !GET_EXPANDED(lw, subline));
-        switch (GET_DATA(lw, subline)) {
-        case LINK:
-            preferences.link_selected = GET_EXPANDED(lw, subline);
-            break;
-        case NETWORK:
-            preferences.network_selected = GET_EXPANDED(lw, subline);
-            break;
-        case TRANSPORT:
-            preferences.transport_selected = GET_EXPANDED(lw, subline);
-            break;
-        case APPLICATION:
-            preferences.application_selected = GET_EXPANDED(lw, subline);
-            break;
-        case SUBLAYER:
-            preferences.sublayer_selected = GET_EXPANDED(lw, subline);
-            break;
-        default:
-            break;
+        data = GET_DATA(lw, subline);
+        if (data >= 0 && data < NUM_LAYERS) {
+            selected[data] = GET_EXPANDED(lw, subline);
         }
         return true;
     }

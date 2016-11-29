@@ -42,10 +42,13 @@ static void print_dns(char *buf, int n, struct dns_info *dns, uint16_t type);
 static void print_nbns(char *buf, int n, struct nbns_info *nbns);
 static void print_ssdp(char *buf, int n, list_t *ssdp);
 static void print_http(char *buf, int n, struct http_info *http);
-static void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t type, bool *soa);
+static void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t type);
 static void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t type);
-static void print_dns_soa(list_view *lw, list_view_item *w, struct dns_info *info, int i);
-static void print_tcp_options(list_view *lw, list_view_item *w, struct tcp *tcp);
+
+static void add_dns_soa(list_view *lw, list_view_item *w, struct dns_info *info, int i);
+static void add_dns_record(list_view *lw, list_view_item *w, struct dns_info *info, int i,
+                           char *buf, int n, uint16_t type);
+static void add_tcp_options(list_view *lw, list_view_item *w, struct tcp *tcp);
 
 void print_buffer(char *buf, int size, struct packet *p)
 {
@@ -349,7 +352,7 @@ void print_dns(char *buf, int n, struct dns_info *dns, uint16_t type)
         PRINT_INFO(buf, n, "%s ", get_dns_class(GET_MDNS_RRCLASS(dns->record[0].rrclass)));
         PRINT_INFO(buf, n, "%s ", get_dns_type(dns->record[0].type));
         for (int i = 0; i < dns->section_count[ANCOUNT]; i++) {
-            print_dns_record(dns, i, buf, n, dns->record[i].type, NULL);
+            print_dns_record(dns, i, buf, n, dns->record[i].type);
             PRINT_INFO(buf, n, " ");
         }
     }
@@ -418,7 +421,7 @@ void print_http(char *buf, int n, struct http_info *http)
     PRINT_INFO(buf, n, "%s", http->start_line);
 }
 
-void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t type, bool *soa)
+void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t type)
 {
     switch (type) {
     case DNS_TYPE_A:
@@ -434,7 +437,6 @@ void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t t
         snprintcat(buf, n, "%s", info->record[i].rdata.nsdname);
         break;
     case DNS_TYPE_SOA:
-        if (soa) *soa = true;
         break;
     case DNS_TYPE_CNAME:
         snprintcat(buf, n, "%s", info->record[i].rdata.cname);
@@ -509,7 +511,7 @@ void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t
     }
 }
 
-void print_ethernet_information(list_view *lw, list_view_item *header, struct packet *p)
+void add_ethernet_information(list_view *lw, list_view_item *header, struct packet *p)
 {
     char line[MAXLINE];
     char src[HW_ADDRSTRLEN];
@@ -528,7 +530,7 @@ void print_ethernet_information(list_view *lw, list_view_item *header, struct pa
     ADD_TEXT_ELEMENT(lw, header, "");
 }
 
-void print_llc_information(list_view *lw, list_view_item *header, struct packet *p)
+void add_llc_information(list_view *lw, list_view_item *header, struct packet *p)
 {
     ADD_TEXT_ELEMENT(lw, header, "Destination Service Access Point (DSAP): 0x%x", p->eth.llc->dsap);
     ADD_TEXT_ELEMENT(lw, header, "Source Service Access Point (SSAP): 0x%x", p->eth.llc->ssap);
@@ -536,7 +538,7 @@ void print_llc_information(list_view *lw, list_view_item *header, struct packet 
     ADD_TEXT_ELEMENT(lw, header, "");
 }
 
-void print_snap_information(list_view *lw, list_view_item *header, struct packet *p)
+void add_snap_information(list_view *lw, list_view_item *header, struct packet *p)
 {
     ADD_TEXT_ELEMENT(lw, header, "IEEE Organizationally Unique Identifier (OUI): 0x%06x\n",
               get_eth802_oui(p->eth.llc->snap));
@@ -544,7 +546,7 @@ void print_snap_information(list_view *lw, list_view_item *header, struct packet
     ADD_TEXT_ELEMENT(lw, header, "");
 }
 
-void print_arp_information(list_view *lw, list_view_item *header, struct packet *p)
+void add_arp_information(list_view *lw, list_view_item *header, struct packet *p)
 {
     char sip[INET_ADDRSTRLEN];
     char tip[INET_ADDRSTRLEN];
@@ -566,7 +568,7 @@ void print_arp_information(list_view *lw, list_view_item *header, struct packet 
     ADD_TEXT_ELEMENT(lw, header, "");
 }
 
-void print_stp_information(list_view *lw, list_view_item *header, struct packet *p)
+void add_stp_information(list_view *lw, list_view_item *header, struct packet *p)
 {
     ADD_TEXT_ELEMENT(lw, header, "Protocol Id: %d", p->eth.llc->bpdu->protocol_id);
     ADD_TEXT_ELEMENT(lw, header, "Version: %d", p->eth.llc->bpdu->version);
@@ -605,7 +607,7 @@ void print_stp_information(list_view *lw, list_view_item *header, struct packet 
     }
 }
 
-void print_ip_information(list_view *lw, list_view_item *header, struct ip_info *ip)
+void add_ip_information(list_view *lw, list_view_item *header, struct ip_info *ip)
 {
     char *protocol;
     char *dscp;
@@ -651,7 +653,7 @@ void print_ip_information(list_view *lw, list_view_item *header, struct ip_info 
     ADD_TEXT_ELEMENT(lw, header, "");
 }
 
-void print_icmp_information(list_view *lw, list_view_item *header, struct ip_info *ip)
+void add_icmp_information(list_view *lw, list_view_item *header, struct ip_info *ip)
 {
     ADD_TEXT_ELEMENT(lw, header, "Type: %d (%s)", ip->icmp.type, get_icmp_type(ip->icmp.type));
     switch (ip->icmp.type) {
@@ -672,7 +674,7 @@ void print_icmp_information(list_view *lw, list_view_item *header, struct ip_inf
     }
 }
 
-void print_igmp_information(list_view *lw, list_view_item *header, struct ip_info *info)
+void add_igmp_information(list_view *lw, list_view_item *header, struct ip_info *info)
 {
     ADD_TEXT_ELEMENT(lw, header, "Type: %d (%s) ", info->igmp.type, get_igmp_type(info->icmp.type));
     if (info->igmp.type == IGMP_HOST_MEMBERSHIP_QUERY) {
@@ -687,7 +689,7 @@ void print_igmp_information(list_view *lw, list_view_item *header, struct ip_inf
     ADD_TEXT_ELEMENT(lw, header, "Group address: %s", info->igmp.group_addr);
 }
 
-void print_udp_information(list_view *lw, list_view_item *header, struct ip_info *ip)
+void add_udp_information(list_view *lw, list_view_item *header, struct ip_info *ip)
 {
     ADD_TEXT_ELEMENT(lw, header, "Source port: %u", ip->udp.src_port);
     ADD_TEXT_ELEMENT(lw, header, "Destination port: %u", ip->udp.dst_port);
@@ -696,7 +698,7 @@ void print_udp_information(list_view *lw, list_view_item *header, struct ip_info
     ADD_TEXT_ELEMENT(lw, header, "");
 }
 
-void print_tcp_information(list_view *lw, list_view_item *header, struct ip_info *ip, bool options_selected)
+void add_tcp_information(list_view *lw, list_view_item *header, struct ip_info *ip, bool options_selected)
 {
     ADD_TEXT_ELEMENT(lw, header, "Source port: %u", ip->tcp.src_port);
     ADD_TEXT_ELEMENT(lw, header, "Destination port: %u", ip->tcp.dst_port);
@@ -715,13 +717,13 @@ void print_tcp_information(list_view *lw, list_view_item *header, struct ip_info
 
         w = ADD_SUB_HEADER(lw, header, options_selected, SUBLAYER, "Options");
         if (options_selected) {
-            print_tcp_options(lw, w, &ip->tcp);
+            add_tcp_options(lw, w, &ip->tcp);
         }
         ADD_TEXT_ELEMENT(lw, header, "");
     }
 }
 
-void print_tcp_options(list_view *lw, list_view_item *w, struct tcp *tcp)
+void add_tcp_options(list_view *lw, list_view_item *w, struct tcp *tcp)
 {
     if (tcp->options) {
         struct tcp_options *opt;
@@ -748,7 +750,7 @@ void print_tcp_options(list_view *lw, list_view_item *w, struct tcp *tcp)
     }
 }
 
-void print_dns_information(list_view *lw, list_view_item *header, struct dns_info *dns, int maxx)
+void add_dns_information(list_view *lw, list_view_item *header, struct dns_info *dns, bool records_selected, int maxx)
 {
     int records = 0;
 
@@ -784,26 +786,46 @@ void print_dns_information(list_view *lw, list_view_item *header, struct dns_inf
     if (records) {
         int len;
 
-        ADD_TEXT_ELEMENT(lw, header, "Resource records:");
         len = get_max_namelen(dns->record, records);
         for (int i = 0; i < records; i++) {
             char buffer[maxx];
-            bool soa = false;
             list_view_item *w;
 
             snprintf(buffer, maxx, "%-*s", len + 4, dns->record[i].name);
             snprintcat(buffer, maxx, "%-6s", get_dns_class(GET_MDNS_RRCLASS(dns->record[i].rrclass)));
             snprintcat(buffer, maxx, "%-8s", get_dns_type(dns->record[i].type));
-            print_dns_record(dns, i, buffer, maxx, dns->record[i].type, &soa);
-            w = ADD_TEXT_ELEMENT(lw, header, "%s", buffer);
-            if (soa) {
-                print_dns_soa(lw, w, dns, i);
+            print_dns_record(dns, i, buffer, maxx, dns->record[i].type);
+            w = ADD_SUB_HEADER(lw, header, records_selected, SUBLAYER, "%s", buffer);
+            if (records_selected) {
+                add_dns_record(lw, w, dns, i, buffer, maxx, dns->record[i].type);
             }
         }
     }
 }
 
-void print_dns_soa(list_view *lw, list_view_item *w, struct dns_info *info, int i)
+void add_dns_record(list_view *lw, list_view_item *w, struct dns_info *dns, int i, char *buf, int n, uint16_t type)
+{
+    char time[512];
+    struct tm_t tm;
+
+    ADD_TEXT_ELEMENT(lw, w, "Name: %s", dns->record[i].name);
+    ADD_TEXT_ELEMENT(lw, w, "Type: %s", get_dns_type_extended(dns->record[i].type));
+    ADD_TEXT_ELEMENT(lw, w, "Class: %s", get_dns_class_extended(GET_MDNS_RRCLASS(dns->record[i].rrclass)));
+    tm = get_time(dns->record[i].ttl);
+    time_ntop(&tm, time, 512);
+    ADD_TEXT_ELEMENT(lw, w, "TTL: %s", time);
+
+    switch (type) {
+    case DNS_TYPE_SOA:
+        add_dns_soa(lw, w, dns, i);
+        break;
+    default:
+        break;
+    }
+    ADD_TEXT_ELEMENT(lw, w, "");
+}
+
+void add_dns_soa(list_view *lw, list_view_item *w, struct dns_info *info, int i)
 {
     char time[512];
     struct tm_t tm;
@@ -830,7 +852,7 @@ void print_dns_soa(list_view *lw, list_view_item *w, struct dns_info *info, int 
               info->record[i].rdata.soa.minimum, time);
 }
 
-void print_nbns_information(list_view *lw, list_view_item *header, struct nbns_info *nbns, int maxx)
+void add_nbns_information(list_view *lw, list_view_item *header, struct nbns_info *nbns, int maxx)
 {
     int records = 0;
 
@@ -868,7 +890,7 @@ void print_nbns_information(list_view *lw, list_view_item *header, struct nbns_i
     }
 }
 
-void print_ssdp_information(list_view *lw, list_view_item *header, list_t *ssdp)
+void add_ssdp_information(list_view *lw, list_view_item *header, list_t *ssdp)
 {
     const node_t *n;
 
@@ -879,11 +901,11 @@ void print_ssdp_information(list_view *lw, list_view_item *header, list_t *ssdp)
     }
 }
 
-void print_http_information(list_view *lw, list_view_item *header, struct http_info *http)
+void add_http_information(list_view *lw, list_view_item *header, struct http_info *http)
 {
 }
 
-void print_payload(list_view *lw, list_view_item *header, unsigned char *payload, uint16_t len)
+void add_payload(list_view *lw, list_view_item *header, unsigned char *payload, uint16_t len)
 {
     int size = 1024;
     int num = 0;
