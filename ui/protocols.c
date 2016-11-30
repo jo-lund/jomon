@@ -716,9 +716,7 @@ void add_tcp_information(list_view *lw, list_view_item *header, struct ip_info *
         list_view_item *w;
 
         w = ADD_SUB_HEADER(lw, header, options_selected, SUBLAYER, "Options");
-        if (options_selected) {
-            add_tcp_options(lw, w, &ip->tcp);
-        }
+        add_tcp_options(lw, w, &ip->tcp);
         ADD_TEXT_ELEMENT(lw, header, "");
     }
 }
@@ -750,7 +748,8 @@ void add_tcp_options(list_view *lw, list_view_item *w, struct tcp *tcp)
     }
 }
 
-void add_dns_information(list_view *lw, list_view_item *header, struct dns_info *dns, bool records_selected, int maxx)
+void add_dns_information(list_view *lw, list_view_item *header, struct dns_info *dns,
+                         bool records_selected)
 {
     int records = 0;
 
@@ -788,17 +787,15 @@ void add_dns_information(list_view *lw, list_view_item *header, struct dns_info 
 
         len = get_max_namelen(dns->record, records);
         for (int i = 0; i < records; i++) {
-            char buffer[maxx];
+            char buffer[MAXLINE];
             list_view_item *w;
 
-            snprintf(buffer, maxx, "%-*s", len + 4, dns->record[i].name);
-            snprintcat(buffer, maxx, "%-6s", get_dns_class(GET_MDNS_RRCLASS(dns->record[i].rrclass)));
-            snprintcat(buffer, maxx, "%-8s", get_dns_type(dns->record[i].type));
-            print_dns_record(dns, i, buffer, maxx, dns->record[i].type);
+            snprintf(buffer, MAXLINE, "%-*s", len + 4, dns->record[i].name);
+            snprintcat(buffer, MAXLINE, "%-6s", get_dns_class(GET_MDNS_RRCLASS(dns->record[i].rrclass)));
+            snprintcat(buffer, MAXLINE, "%-8s", get_dns_type(dns->record[i].type));
+            print_dns_record(dns, i, buffer, MAXLINE, dns->record[i].type);
             w = ADD_SUB_HEADER(lw, header, records_selected, SUBLAYER, "%s", buffer);
-            if (records_selected) {
-                add_dns_record(lw, w, dns, i, buffer, maxx, dns->record[i].type);
-            }
+            add_dns_record(lw, w, dns, i, buffer, MAXLINE, dns->record[i].type);
         }
     }
 }
@@ -852,7 +849,7 @@ void add_dns_soa(list_view *lw, list_view_item *w, struct dns_info *info, int i)
               info->record[i].rdata.soa.minimum, time);
 }
 
-void add_nbns_information(list_view *lw, list_view_item *header, struct nbns_info *nbns, int maxx)
+void add_nbns_information(list_view *lw, list_view_item *header, struct nbns_info *nbns)
 {
     int records = 0;
 
@@ -879,12 +876,12 @@ void add_nbns_information(list_view *lw, list_view_item *header, struct nbns_inf
     if (records) {
         ADD_TEXT_ELEMENT(lw, header, "Resource records:");
         for (int i = 0; i < records; i++) {
-            char buffer[maxx];
+            char buffer[MAXLINE];
 
-            snprintf(buffer, maxx, "%s\t", nbns->record[i].rrname);
-            snprintcat(buffer, maxx, "IN\t");
-            snprintcat(buffer, maxx, "%s\t", get_nbns_type(nbns->record[i].rrtype));
-            print_nbns_record(nbns, i, buffer, maxx, nbns->record[i].rrtype);
+            snprintf(buffer, MAXLINE, "%s\t", nbns->record[i].rrname);
+            snprintcat(buffer, MAXLINE, "IN\t");
+            snprintcat(buffer, MAXLINE, "%s\t", get_nbns_type(nbns->record[i].rrtype));
+            print_nbns_record(nbns, i, buffer, MAXLINE, nbns->record[i].rrtype);
             ADD_TEXT_ELEMENT(lw, header, "%s", buffer);
         }
     }

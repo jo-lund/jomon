@@ -24,7 +24,6 @@ typedef struct {
 } header;
 
 typedef struct {
-    int i; /* line number */
     char *txt;
     uint32_t attr;
     uint16_t type;
@@ -32,7 +31,8 @@ typedef struct {
 } list_view_item;
 
 typedef struct lw {
-    int num_elements;
+    int num_elements; /* number of elements in the list_view */
+    int size; /* number of lines that the list_view will show */
     list_t *widgets;
 
     /*
@@ -57,6 +57,7 @@ typedef struct lw {
     /* Returns the data stored for the header, if applicable. */
     int32_t (*get_data)(struct lw *this, int i);
 
+    /* Returns the attribute assciated with the element */
     uint32_t (*get_attribute)(struct lw *this, int i);
 
     /* Prints the elements of the list view in the window 'win' */

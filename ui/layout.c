@@ -511,8 +511,12 @@ void print_selected_packet()
 
 void create_elements(struct packet *p)
 {
-    lw = create_list_view();
     list_view_item *header;
+
+    if (lw) {
+        free_list_view(lw);
+    }
+    lw = create_list_view();
 
     /* inspect packet and add packet headers as elements to the list view */
     if (p->eth.ethertype < ETH_P_802_3_MIN) {
@@ -520,80 +524,57 @@ void create_elements(struct packet *p)
     } else {
         header = ADD_HEADER(lw, "Ethernet II", selected[ETHERNET_LAYER], ETHERNET_LAYER);
     }
-    if (selected[ETHERNET_LAYER]) {
-        add_ethernet_information(lw, header, p);
-    }
+    add_ethernet_information(lw, header, p);
     if (p->eth.ethertype == ETH_P_ARP) {
         header = ADD_HEADER(lw, "Address Resolution Protocol (ARP)", selected[IP], IP);
-        if (selected[IP]) {
-            add_arp_information(lw, header, p);
-        }
+        add_arp_information(lw, header, p);
     } else if (p->eth.ethertype == ETH_P_IP) {
         header = ADD_HEADER(lw, "Internet Protocol (IP)", selected[IP], IP);
-        if (selected[IP]) {
-            add_ip_information(lw, header, p->eth.ip);
-        }
+        add_ip_information(lw, header, p->eth.ip);
+
         switch (p->eth.ip->protocol) {
         case IPPROTO_TCP:
         {
             header = ADD_HEADER(lw, "Transmission Control Protocol (TCP)", selected[TRANSPORT], TRANSPORT);
-            if (selected[TRANSPORT]) {
-                add_tcp_information(lw, header, p->eth.ip, selected[SUBLAYER]);
-            }
+            add_tcp_information(lw, header, p->eth.ip, selected[SUBLAYER]);
             create_app_elements(&p->eth.ip->tcp.data, p);
             break;
         }
         case IPPROTO_UDP:
             header = ADD_HEADER(lw, "User Datagram Protocol (UDP)", selected[TRANSPORT], TRANSPORT);
-            if (selected[TRANSPORT]) {
-                add_udp_information(lw, header, p->eth.ip);
-            }
+            add_udp_information(lw, header, p->eth.ip);
             create_app_elements(&p->eth.ip->udp.data, p);
             break;
         case IPPROTO_ICMP:
             header = ADD_HEADER(lw, "Internet Control Message Protocol (ICMP)", selected[ICMP], ICMP);
-            if (selected[ICMP]) {
-                add_icmp_information(lw, header, p->eth.ip);
-            }
+            add_icmp_information(lw, header, p->eth.ip);
             break;
         case IPPROTO_IGMP:
             header = ADD_HEADER(lw, "Internet Group Management Protocol (IGMP)", selected[IGMP], IGMP);
-            if (selected[IGMP]) {
-                add_igmp_information(lw, header, p->eth.ip);
-            }
+            add_igmp_information(lw, header, p->eth.ip);
             break;
         default:
             /* unknown transport layer payload */
             if (p->eth.ip->payload_len) {
                 header = ADD_HEADER(lw, "Data", selected[TRANSPORT], TRANSPORT);
-                if (selected[TRANSPORT]) {
-                    add_payload(lw, header, p->eth.ip->payload, p->eth.ip->payload_len);
-                }
+                add_payload(lw, header, p->eth.ip->payload, p->eth.ip->payload_len);
             }
         }
     } else if (p->eth.ethertype < ETH_P_802_3_MIN) {
         header = ADD_HEADER(lw, "Logical Link Control (LLC)", selected[LLC], LLC);
-        if (selected[LLC]) {
-            add_llc_information(lw, header, p);
-        }
+        add_llc_information(lw, header, p);
         switch (get_eth802_type(p->eth.llc)) {
         case ETH_802_STP:
             header = ADD_HEADER(lw, "Spanning Tree Protocol (STP)", selected[STP], STP);
-            if (selected[STP]) {
-                add_stp_information(lw, header, p);
-            }
+            add_stp_information(lw, header, p);
             break;
         case ETH_802_SNAP:
             header = ADD_HEADER(lw, "Subnetwork Access Protocol (SNAP)", selected[SNAP], SNAP);
-            if (selected[SNAP]) {
-                add_snap_information(lw, header, p);
-            }
+            add_snap_information(lw, header, p);
             break;
         default:
             header = ADD_HEADER(lw, "Data", selected[APPLICATION], APPLICATION);
-            if (selected[APPLICATION]) {
-                add_payload(lw, header, p->eth.payload, p->eth.payload_len);
-            }
+            add_payload(lw, header, p->eth.payload, p->eth.payload_len);
         }
     } else if (p->eth.payload_len) {
         ADD_HEADER(lw, "Data", selected[APPLICATION], APPLICATION);
@@ -608,35 +589,25 @@ void create_app_elements(struct application_info *info, struct packet *p)
     case DNS:
     case MDNS:
         header = ADD_HEADER(lw, "Domain Name System (DNS)", selected[APPLICATION], APPLICATION);
-        if (selected[APPLICATION]) {
-            add_dns_information(lw, header, info->dns, selected[SUBLAYER], getmaxx(wmain));
-        }
+        add_dns_information(lw, header, info->dns, selected[SUBLAYER]);
         break;
     case NBNS:
         header = ADD_HEADER(lw, "NetBIOS Name Service (NBNS)", selected[APPLICATION], APPLICATION);
-        if (selected[APPLICATION]) {
-            add_nbns_information(lw, header, info->nbns, getmaxx(wmain));
-        }
+        add_nbns_information(lw, header, info->nbns);
         break;
     case HTTP:
         header = ADD_HEADER(lw, "Hypertext Transfer Protocol (HTTP)", selected[APPLICATION], APPLICATION);
-        if (selected[APPLICATION]) {
-            add_http_information(lw, header, info->http);
-        }
+        add_http_information(lw, header, info->http);
         break;
     case SSDP:
         header = ADD_HEADER(lw, "Simple Service Discovery Protocol (SSDP)", selected[APPLICATION], APPLICATION);
-        if (selected[APPLICATION]) {
-            add_ssdp_information(lw, header, info->ssdp);
-        }
+        add_ssdp_information(lw, header, info->ssdp);
         break;
     default:
         if ((p->eth.ip->protocol == IPPROTO_TCP && TCP_PAYLOAD_LEN(p) > 0) ||
             p->eth.ip->protocol == IPPROTO_UDP) {
             header = ADD_HEADER(lw, "Data", selected[APPLICATION], APPLICATION);
-            if (selected[APPLICATION]) {
-                add_payload(lw, header, info->payload, info->payload_len);
-            }
+            add_payload(lw, header, info->payload, info->payload_len);
         }
         break;
     }
@@ -647,12 +618,12 @@ void print_protocol_information(struct packet *p, int lineno)
     /* Delete old subwindow. TODO: Don't use a subwindow for this */
     if (subwindow.win) {
         delete_subwindow();
-        free_list_view(lw);
-    } 
-    create_elements(p);
+    } else {
+        create_elements(p);
+    }
     
     /* print information in subwindow */
-    create_subwindow(lw->num_elements + 1, lineno);
+    create_subwindow(lw->size + 1, lineno);
     RENDER(lw, subwindow.win);
 
     int subline = selection_line - top - subwindow.top;
@@ -745,8 +716,8 @@ bool update_subwin_selection()
         int32_t data;
 
         subline = screen_line - subwindow.top;
-        SET_EXPANDED(lw, subline, !GET_EXPANDED(lw, subline));
         data = GET_DATA(lw, subline);
+        SET_EXPANDED(lw, subline, !GET_EXPANDED(lw, subline));
         if (data >= 0 && data < NUM_LAYERS) {
             selected[data] = GET_EXPANDED(lw, subline);
         }
