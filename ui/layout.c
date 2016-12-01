@@ -354,6 +354,10 @@ void set_interactive(bool interactive_mode, int lines, int cols)
         mvwchgat(wmain, 0, 0, -1, A_NORMAL, 1, NULL);
         wrefresh(wmain);
     } else {
+        if (subwindow.win) {
+            delete_subwindow();
+            main_line.selected = false;
+        }
         if (outy >= lines && capturing) {
             int c = vector_size(vector) - 1;
 
@@ -502,6 +506,7 @@ void print_selected_packet()
     }
     if (main_line.selected) {
         p = vector_get_data(vector, selection_line);
+        create_elements(p);
         print_protocol_information(p, selection_line);
     } else {
         delete_subwindow();
@@ -526,7 +531,7 @@ void create_elements(struct packet *p)
     }
     add_ethernet_information(lw, header, p);
     if (p->eth.ethertype == ETH_P_ARP) {
-        header = ADD_HEADER(lw, "Address Resolution Protocol (ARP)", selected[IP], IP);
+        header = ADD_HEADER(lw, "Address Resolution Protocol (ARP)", selected[ARP], ARP);
         add_arp_information(lw, header, p);
     } else if (p->eth.ethertype == ETH_P_IP) {
         header = ADD_HEADER(lw, "Internet Protocol (IP)", selected[IP], IP);
@@ -618,8 +623,6 @@ void print_protocol_information(struct packet *p, int lineno)
     /* Delete old subwindow. TODO: Don't use a subwindow for this */
     if (subwindow.win) {
         delete_subwindow();
-    } else {
-        create_elements(p);
     }
     
     /* print information in subwindow */
