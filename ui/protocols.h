@@ -16,12 +16,13 @@ void add_arp_information(list_view *lw, list_view_item *header, struct packet *p
 void add_llc_information(list_view *lw, list_view_item *header, struct packet *p);
 void add_snap_information(list_view *lw, list_view_item *header, struct packet *p);
 void add_stp_information(list_view *lw, list_view_item *header, struct packet *p);
-void add_ip_information(list_view *lw, list_view_item *header, struct ip_info *ip);
-void add_udp_information(list_view *lw, list_view_item *header, struct ip_info *ip);
-void add_tcp_information(list_view *lw, list_view_item *header, struct ip_info *ip,
+void add_ipv4_information(list_view *lw, list_view_item *header, struct ip_info *ip);
+void add_ipv6_information(list_view *lw, list_view_item *header, struct ipv6_info *ip);
+void add_udp_information(list_view *lw, list_view_item *header, struct udp_info *udp);
+void add_tcp_information(list_view *lw, list_view_item *header, struct tcp *tcp,
                          bool options_selected);
-void add_icmp_information(list_view *lw, list_view_item *header, struct ip_info *ip);
-void add_igmp_information(list_view *lw, list_view_item *header, struct ip_info *info);
+void add_icmp_information(list_view *lw, list_view_item *header, struct icmp_info *icmp);
+void add_igmp_information(list_view *lw, list_view_item *header, struct igmp_info *igmp);
 void add_ssdp_information(list_view *lw, list_view_item *header, list_t *ssdp);
 void add_http_information(list_view *lw, list_view_item *header, struct http_info *http);
 void add_dns_information(list_view *lw, list_view_item *header, struct dns_info *dns, 

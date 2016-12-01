@@ -66,8 +66,9 @@ static void print_protocol_information(struct packet *p, int lineno);
 static void create_subwindow(int num_lines, int lineno);
 static void delete_subwindow();
 static bool update_subwin_selection();
-static void create_elements(struct packet *p);
-static void create_app_elements(struct application_info *info, struct packet *p);
+static void add_elements(struct packet *p);
+static void add_transport_elements(struct packet *p);
+static void add_app_elements(struct application_info *info, struct packet *p);
 
 void init_ncurses()
 {
@@ -506,7 +507,7 @@ void print_selected_packet()
     }
     if (main_line.selected) {
         p = vector_get_data(vector, selection_line);
-        create_elements(p);
+        add_elements(p);
         print_protocol_information(p, selection_line);
     } else {
         delete_subwindow();
@@ -514,7 +515,7 @@ void print_selected_packet()
     prev_selection = selection_line + scrollvy;
 }
 
-void create_elements(struct packet *p)
+void add_elements(struct packet *p)
 {
     list_view_item *header;
 
@@ -534,37 +535,13 @@ void create_elements(struct packet *p)
         header = ADD_HEADER(lw, "Address Resolution Protocol (ARP)", selected[ARP], ARP);
         add_arp_information(lw, header, p);
     } else if (p->eth.ethertype == ETH_P_IP) {
-        header = ADD_HEADER(lw, "Internet Protocol (IP)", selected[IP], IP);
-        add_ip_information(lw, header, p->eth.ip);
-
-        switch (p->eth.ip->protocol) {
-        case IPPROTO_TCP:
-        {
-            header = ADD_HEADER(lw, "Transmission Control Protocol (TCP)", selected[TRANSPORT], TRANSPORT);
-            add_tcp_information(lw, header, p->eth.ip, selected[SUBLAYER]);
-            create_app_elements(&p->eth.ip->tcp.data, p);
-            break;
-        }
-        case IPPROTO_UDP:
-            header = ADD_HEADER(lw, "User Datagram Protocol (UDP)", selected[TRANSPORT], TRANSPORT);
-            add_udp_information(lw, header, p->eth.ip);
-            create_app_elements(&p->eth.ip->udp.data, p);
-            break;
-        case IPPROTO_ICMP:
-            header = ADD_HEADER(lw, "Internet Control Message Protocol (ICMP)", selected[ICMP], ICMP);
-            add_icmp_information(lw, header, p->eth.ip);
-            break;
-        case IPPROTO_IGMP:
-            header = ADD_HEADER(lw, "Internet Group Management Protocol (IGMP)", selected[IGMP], IGMP);
-            add_igmp_information(lw, header, p->eth.ip);
-            break;
-        default:
-            /* unknown transport layer payload */
-            if (p->eth.ip->payload_len) {
-                header = ADD_HEADER(lw, "Data", selected[TRANSPORT], TRANSPORT);
-                add_payload(lw, header, p->eth.ip->payload, p->eth.ip->payload_len);
-            }
-        }
+        header = ADD_HEADER(lw, "Internet Protocol (IPv4)", selected[IP], IP);
+        add_ipv4_information(lw, header, p->eth.ip);
+        add_transport_elements(p);
+    } else if (p->eth.ethertype == ETH_P_IPV6) {
+        header = ADD_HEADER(lw, "Internet Protocol (IPv6)", selected[IP], IP);
+        add_ipv6_information(lw, header, p->eth.ipv6);
+        add_transport_elements(p);
     } else if (p->eth.ethertype < ETH_P_802_3_MIN) {
         header = ADD_HEADER(lw, "Logical Link Control (LLC)", selected[LLC], LLC);
         add_llc_information(lw, header, p);
@@ -586,7 +563,56 @@ void create_elements(struct packet *p)
     }
 }
 
-void create_app_elements(struct application_info *info, struct packet *p)
+void add_transport_elements(struct packet *p)
+{
+    list_view_item *header;
+    uint8_t protocol = (p->eth.ethertype == ETH_P_IP) ? p->eth.ip->protocol : p->eth.ipv6->next_header; 
+
+    switch (protocol) {
+    case IPPROTO_TCP:
+        header = ADD_HEADER(lw, "Transmission Control Protocol (TCP)", selected[TRANSPORT], TRANSPORT);
+        if (p->eth.ethertype == ETH_P_IP) {
+            add_tcp_information(lw, header, &p->eth.ip->tcp, selected[SUBLAYER]);
+            add_app_elements(&p->eth.ip->tcp.data, p);
+        } else {
+            add_tcp_information(lw, header, &p->eth.ipv6->tcp, selected[SUBLAYER]);
+            add_app_elements(&p->eth.ipv6->tcp.data, p);
+        }
+        break;
+    case IPPROTO_UDP:
+        header = ADD_HEADER(lw, "User Datagram Protocol (UDP)", selected[TRANSPORT], TRANSPORT);
+        if (p->eth.ethertype == ETH_P_IP) {
+            add_udp_information(lw, header, &p->eth.ip->udp);
+            add_app_elements(&p->eth.ip->udp.data, p);
+        } else {
+            add_udp_information(lw, header, &p->eth.ipv6->udp);
+            add_app_elements(&p->eth.ipv6->udp.data, p);
+        }
+        break;
+    case IPPROTO_ICMP:
+        if (p->eth.ethertype == ETH_P_IP) {
+            header = ADD_HEADER(lw, "Internet Control Message Protocol (ICMP)", selected[ICMP], ICMP);
+            add_icmp_information(lw, header, &p->eth.ip->icmp);
+        }
+        break;
+    case IPPROTO_IGMP:
+        header = ADD_HEADER(lw, "Internet Group Management Protocol (IGMP)", selected[IGMP], IGMP);
+        if (p->eth.ethertype == ETH_P_IP) {
+            add_igmp_information(lw, header, &p->eth.ip->igmp);
+        } else {
+            add_igmp_information(lw, header, &p->eth.ipv6->igmp);
+        }
+        break;
+    default:
+        /* unknown transport layer payload */
+        if (p->eth.ethertype == ETH_P_IP && p->eth.ip->payload_len) {
+            header = ADD_HEADER(lw, "Data", selected[TRANSPORT], TRANSPORT);
+            add_payload(lw, header, p->eth.ip->payload, p->eth.ip->payload_len);
+        }
+    }
+}
+
+void add_app_elements(struct application_info *info, struct packet *p)
 {
     list_view_item *header;
 

@@ -168,12 +168,12 @@ bool handle_ipv6(unsigned char *buffer, int n, struct eth_info *eth)
 
     ip6 = (struct ip6_hdr *) buffer;
     eth->ipv6 = calloc(1, sizeof(struct ipv6_info));
-    eth->ipv6->version = ip6->ip6_ctlun.ip6_un1.ip6_un1_flow >> 28;
-    eth->ipv6->tc = (ip6->ip6_ctlun.ip6_un1.ip6_un1_flow & 0x0fffffff) >> 20;
-    eth->ipv6->flow_label = (ip6->ip6_ctlun.ip6_un1.ip6_un1_flow & 0x000fffff) >> 12;
-    eth->ipv6->payload_len = ntohs(ip6->ip6_ctlun.ip6_un1.ip6_un1_plen);
-    eth->ipv6->next_header = ip6->ip6_ctlun.ip6_un1.ip6_un1_nxt;
-    eth->ipv6->hop_limit = ip6->ip6_ctlun.ip6_un1.ip6_un1_hlim;
+    eth->ipv6->version = ip6->ip6_vfc >> 4;
+    eth->ipv6->tc = ip6->ip6_vfc & 0x0f;
+    eth->ipv6->flow_label = ntohl(ip6->ip6_flow);
+    eth->ipv6->payload_len = ntohs(ip6->ip6_plen);
+    eth->ipv6->next_header = ip6->ip6_nxt;
+    eth->ipv6->hop_limit = ip6->ip6_hlim;
     memcpy(eth->ipv6->src, ip6->ip6_src.s6_addr, 16);
     memcpy(eth->ipv6->dst, ip6->ip6_dst.s6_addr, 16);
 

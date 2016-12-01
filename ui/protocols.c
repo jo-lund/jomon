@@ -607,7 +607,7 @@ void add_stp_information(list_view *lw, list_view_item *header, struct packet *p
     }
 }
 
-void add_ip_information(list_view *lw, list_view_item *header, struct ip_info *ip)
+void add_ipv4_information(list_view *lw, list_view_item *header, struct ip_info *ip)
 {
     char *protocol;
     char *dscp;
@@ -653,70 +653,94 @@ void add_ip_information(list_view *lw, list_view_item *header, struct ip_info *i
     ADD_TEXT_ELEMENT(lw, header, "");
 }
 
-void add_icmp_information(list_view *lw, list_view_item *header, struct ip_info *ip)
+void add_ipv6_information(list_view *lw, list_view_item *header, struct ipv6_info *ip)
 {
-    ADD_TEXT_ELEMENT(lw, header, "Type: %d (%s)", ip->icmp.type, get_icmp_type(ip->icmp.type));
-    switch (ip->icmp.type) {
+    char src[INET6_ADDRSTRLEN];
+    char dst[INET6_ADDRSTRLEN];
+    char *protocol;
+    char buf[MAXLINE];
+
+    inet_ntop(AF_INET6, ip->src, src, INET6_ADDRSTRLEN);
+    inet_ntop(AF_INET6, ip->dst, dst, INET6_ADDRSTRLEN);
+    ADD_TEXT_ELEMENT(lw, header, "Version: %u", ip->version);
+    ADD_TEXT_ELEMENT(lw, header, "Traffic class: 0x%x", ip->tc);
+    ADD_TEXT_ELEMENT(lw, header, "Flow label: 0x%x", ip->flow_label);
+    ADD_TEXT_ELEMENT(lw, header, "Payload length: %u", ip->payload_len);
+    snprintf(buf, MAXLINE, "Next header: %u", ip->next_header);
+    if ((protocol = get_ip_transport_protocol(ip->next_header))) {
+        snprintcat(buf, MAXLINE, " (%s)", protocol);
+    }
+    ADD_TEXT_ELEMENT(lw, header, "%s", buf);
+    ADD_TEXT_ELEMENT(lw, header, "Hop limit: %u", ip->hop_limit);
+    ADD_TEXT_ELEMENT(lw, header, "Source address: %s", src);
+    ADD_TEXT_ELEMENT(lw, header, "Destination address: %s", dst);
+    ADD_TEXT_ELEMENT(lw, header, "");
+}
+
+void add_icmp_information(list_view *lw, list_view_item *header, struct icmp_info *icmp)
+{
+    ADD_TEXT_ELEMENT(lw, header, "Type: %d (%s)", icmp->type, get_icmp_type(icmp->type));
+    switch (icmp->type) {
     case ICMP_ECHOREPLY:
     case ICMP_ECHO:
-        ADD_TEXT_ELEMENT(lw, header, "Code: %d", ip->icmp.code);
+        ADD_TEXT_ELEMENT(lw, header, "Code: %d", icmp->code);
         break;
     case ICMP_DEST_UNREACH:
-        ADD_TEXT_ELEMENT(lw, header, "Code: %d (%s)", ip->icmp.code, get_icmp_dest_unreach_code(ip->icmp.code));
+        ADD_TEXT_ELEMENT(lw, header, "Code: %d (%s)", icmp->code, get_icmp_dest_unreach_code(icmp->code));
         break;
     default:
         break;
     }
-    ADD_TEXT_ELEMENT(lw, header, "Checksum: %d", ip->icmp.checksum);
-    if (ip->icmp.type == ICMP_ECHOREPLY || ip->icmp.type == ICMP_ECHO) {
-        ADD_TEXT_ELEMENT(lw, header, "Identifier: 0x%x", ip->icmp.echo.id);
-        ADD_TEXT_ELEMENT(lw, header, "Sequence number: %d", ip->icmp.echo.seq_num);
+    ADD_TEXT_ELEMENT(lw, header, "Checksum: %d", icmp->checksum);
+    if (icmp->type == ICMP_ECHOREPLY || icmp->type == ICMP_ECHO) {
+        ADD_TEXT_ELEMENT(lw, header, "Identifier: 0x%x", icmp->echo.id);
+        ADD_TEXT_ELEMENT(lw, header, "Sequence number: %d", icmp->echo.seq_num);
     }
 }
 
-void add_igmp_information(list_view *lw, list_view_item *header, struct ip_info *info)
+void add_igmp_information(list_view *lw, list_view_item *header, struct igmp_info *igmp)
 {
-    ADD_TEXT_ELEMENT(lw, header, "Type: %d (%s) ", info->igmp.type, get_igmp_type(info->icmp.type));
-    if (info->igmp.type == IGMP_HOST_MEMBERSHIP_QUERY) {
-        if (!strcmp(info->igmp.group_addr, "0.0.0.0")) {
-            ADD_TEXT_ELEMENT(lw, header, "General query", info->igmp.type, get_igmp_type(info->icmp.type));
+    ADD_TEXT_ELEMENT(lw, header, "Type: %d (%s) ", igmp->type, get_igmp_type(igmp->type));
+    if (igmp->type == IGMP_HOST_MEMBERSHIP_QUERY) {
+        if (!strcmp(igmp->group_addr, "0.0.0.0")) {
+            ADD_TEXT_ELEMENT(lw, header, "General query", igmp->type, get_igmp_type(igmp->type));
         } else {
-            ADD_TEXT_ELEMENT(lw, header, "Group-specific query", info->igmp.type, get_igmp_type(info->icmp.type));
+            ADD_TEXT_ELEMENT(lw, header, "Group-specific query", igmp->type, get_igmp_type(igmp->type));
         }
     }
-    ADD_TEXT_ELEMENT(lw, header, "Max response time: %d seconds", info->igmp.max_resp_time / 10);
-    ADD_TEXT_ELEMENT(lw, header, "Checksum: %d", info->igmp.checksum);
-    ADD_TEXT_ELEMENT(lw, header, "Group address: %s", info->igmp.group_addr);
+    ADD_TEXT_ELEMENT(lw, header, "Max response time: %d seconds", igmp->max_resp_time / 10);
+    ADD_TEXT_ELEMENT(lw, header, "Checksum: %d", igmp->checksum);
+    ADD_TEXT_ELEMENT(lw, header, "Group address: %s", igmp->group_addr);
 }
 
-void add_udp_information(list_view *lw, list_view_item *header, struct ip_info *ip)
+void add_udp_information(list_view *lw, list_view_item *header, struct udp_info *udp)
 {
-    ADD_TEXT_ELEMENT(lw, header, "Source port: %u", ip->udp.src_port);
-    ADD_TEXT_ELEMENT(lw, header, "Destination port: %u", ip->udp.dst_port);
-    ADD_TEXT_ELEMENT(lw, header, "Length: %u", ip->udp.len);
-    ADD_TEXT_ELEMENT(lw, header, "Checksum: %u", ip->udp.checksum);
+    ADD_TEXT_ELEMENT(lw, header, "Source port: %u", udp->src_port);
+    ADD_TEXT_ELEMENT(lw, header, "Destination port: %u", udp->dst_port);
+    ADD_TEXT_ELEMENT(lw, header, "Length: %u", udp->len);
+    ADD_TEXT_ELEMENT(lw, header, "Checksum: %u", udp->checksum);
     ADD_TEXT_ELEMENT(lw, header, "");
 }
 
-void add_tcp_information(list_view *lw, list_view_item *header, struct ip_info *ip, bool options_selected)
+void add_tcp_information(list_view *lw, list_view_item *header, struct tcp *tcp, bool options_selected)
 {
-    ADD_TEXT_ELEMENT(lw, header, "Source port: %u", ip->tcp.src_port);
-    ADD_TEXT_ELEMENT(lw, header, "Destination port: %u", ip->tcp.dst_port);
-    ADD_TEXT_ELEMENT(lw, header, "Sequence number: %u", ip->tcp.seq_num);
-    ADD_TEXT_ELEMENT(lw, header, "Acknowledgment number: %u", ip->tcp.ack_num);
-    ADD_TEXT_ELEMENT(lw, header, "Data offset: %u", ip->tcp.offset);
+    ADD_TEXT_ELEMENT(lw, header, "Source port: %u", tcp->src_port);
+    ADD_TEXT_ELEMENT(lw, header, "Destination port: %u", tcp->dst_port);
+    ADD_TEXT_ELEMENT(lw, header, "Sequence number: %u", tcp->seq_num);
+    ADD_TEXT_ELEMENT(lw, header, "Acknowledgment number: %u", tcp->ack_num);
+    ADD_TEXT_ELEMENT(lw, header, "Data offset: %u", tcp->offset);
     ADD_TEXT_ELEMENT(lw, header,
               "Flags: %u (NS) %u (CWR) %u (ECE) %u (URG) %u (ACK) %u (PSH) %u (RST) %u (SYN) %u (FIN)",
-              ip->tcp.ns, ip->tcp.cwr, ip->tcp.ece, ip->tcp.urg, ip->tcp.ack,
-              ip->tcp.psh, ip->tcp.rst, ip->tcp.syn, ip->tcp.fin);
-    ADD_TEXT_ELEMENT(lw, header, "Window size: %u", ip->tcp.window);
-    ADD_TEXT_ELEMENT(lw, header, "Checksum: %u", ip->tcp.checksum);
-    ADD_TEXT_ELEMENT(lw, header, "Urgent pointer: %u", ip->tcp.urg_ptr);
-    if (ip->tcp.options) {
+              tcp->ns, tcp->cwr, tcp->ece, tcp->urg, tcp->ack,
+              tcp->psh, tcp->rst, tcp->syn, tcp->fin);
+    ADD_TEXT_ELEMENT(lw, header, "Window size: %u", tcp->window);
+    ADD_TEXT_ELEMENT(lw, header, "Checksum: %u", tcp->checksum);
+    ADD_TEXT_ELEMENT(lw, header, "Urgent pointer: %u", tcp->urg_ptr);
+    if (tcp->options) {
         list_view_item *w;
 
         w = ADD_SUB_HEADER(lw, header, options_selected, SUBLAYER, "Options");
-        add_tcp_options(lw, w, &ip->tcp);
+        add_tcp_options(lw, w, tcp);
         ADD_TEXT_ELEMENT(lw, header, "");
     }
 }
