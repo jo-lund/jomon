@@ -283,6 +283,11 @@ void parse_dns_record(int i, unsigned char *buffer, unsigned char **data, struct
             }
             break;
         }
+        case DNS_TYPE_MX:
+            dns->record[i].rdata.mx.preference = ptr[0] << 8 | ptr[1];
+            ptr += 2;
+            ptr += parse_dns_name(buffer, ptr, dns->record[i].rdata.mx.exchange);
+            break;
         default:
             ptr += rdlen;
             break;

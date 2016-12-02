@@ -178,6 +178,16 @@ struct dns_info {
              * followed by that number of bytes.
              */
             list_t *txt;
+
+            struct {
+                /* specifies the preference given to this RR among others at the
+                   same owner */
+                uint16_t preference;
+                /* a domain name that specifies a host willing to act as a mail
+                   exchange for the owner name */
+                char exchange[DNS_NAMELEN];
+            } mx;
+
         } rdata;
     } *record;
 };

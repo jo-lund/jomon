@@ -465,6 +465,10 @@ void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t t
             node = list_next(node);
         }
     }
+    case DNS_TYPE_MX:
+        snprintcat(buf, n, "%u %s", info->record[i].rdata.mx.preference,
+                   info->record[i].rdata.mx.exchange);
+        break;
     default:
         break;
     }
@@ -839,6 +843,10 @@ void add_dns_record(list_view *lw, list_view_item *w, struct dns_info *dns, int 
     switch (type) {
     case DNS_TYPE_SOA:
         add_dns_soa(lw, w, dns, i);
+        break;
+    case DNS_TYPE_MX:
+        ADD_TEXT_ELEMENT(lw, w, "Preference: %u", dns->record[i].rdata.mx.preference);
+        ADD_TEXT_ELEMENT(lw, w, "Mail exchange: %s", dns->record[i].rdata.mx.exchange);
         break;
     default:
         break;
