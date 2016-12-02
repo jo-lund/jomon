@@ -3,6 +3,11 @@
 
 #include "packet.h"
 
+#define UDP_HDR_LEN 8
+
+#define UDP_PAYLOAD_LEN(p) ((p)->eth.ethertype == ETH_P_IP) ?           \
+    ((p)->eth.ip->udp.len - UDP_HDR_LEN) : ((p)->eth.ipv6->udp.len - UDP_HDR_LEN)
+
 struct udp_info {
     uint16_t src_port;
     uint16_t dst_port;

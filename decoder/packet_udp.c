@@ -3,8 +3,6 @@
 #include "packet_udp.h"
 #include "packet_ip.h"
 
-#define UDP_HDR_LEN 8
-
 /*
  * UDP header
  *

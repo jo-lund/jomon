@@ -68,7 +68,7 @@ static void delete_subwindow();
 static bool update_subwin_selection();
 static void add_elements(struct packet *p);
 static void add_transport_elements(struct packet *p);
-static void add_app_elements(struct application_info *info, struct packet *p);
+static void add_app_elements(struct application_info *info, uint8_t protocol);
 
 void init_ncurses()
 {
@@ -574,20 +574,20 @@ void add_transport_elements(struct packet *p)
         header = ADD_HEADER(lw, "Transmission Control Protocol (TCP)", selected[TRANSPORT], TRANSPORT);
         if (p->eth.ethertype == ETH_P_IP) {
             add_tcp_information(lw, header, &p->eth.ip->tcp, selected[SUBLAYER]);
-            add_app_elements(&p->eth.ip->tcp.data, p);
+            add_app_elements(&p->eth.ip->tcp.data, protocol);
         } else {
             add_tcp_information(lw, header, &p->eth.ipv6->tcp, selected[SUBLAYER]);
-            add_app_elements(&p->eth.ipv6->tcp.data, p);
+            add_app_elements(&p->eth.ipv6->tcp.data, protocol);
         }
         break;
     case IPPROTO_UDP:
         header = ADD_HEADER(lw, "User Datagram Protocol (UDP)", selected[TRANSPORT], TRANSPORT);
         if (p->eth.ethertype == ETH_P_IP) {
             add_udp_information(lw, header, &p->eth.ip->udp);
-            add_app_elements(&p->eth.ip->udp.data, p);
+            add_app_elements(&p->eth.ip->udp.data, protocol);
         } else {
             add_udp_information(lw, header, &p->eth.ipv6->udp);
-            add_app_elements(&p->eth.ipv6->udp.data, p);
+            add_app_elements(&p->eth.ipv6->udp.data, protocol);
         }
         break;
     case IPPROTO_ICMP:
@@ -613,7 +613,7 @@ void add_transport_elements(struct packet *p)
     }
 }
 
-void add_app_elements(struct application_info *info, struct packet *p)
+void add_app_elements(struct application_info *info, uint8_t protocol)
 {
     list_view_item *header;
 
@@ -636,8 +636,7 @@ void add_app_elements(struct application_info *info, struct packet *p)
         add_ssdp_information(lw, header, info->ssdp);
         break;
     default:
-        if ((p->eth.ip->protocol == IPPROTO_TCP && TCP_PAYLOAD_LEN(p) > 0) ||
-            p->eth.ip->protocol == IPPROTO_UDP) {
+        if ((protocol == IPPROTO_TCP && info->payload_len > 0) || protocol == IPPROTO_UDP) {
             header = ADD_HEADER(lw, "Data", selected[APPLICATION], APPLICATION);
             add_payload(lw, header, info->payload, info->payload_len);
         }
