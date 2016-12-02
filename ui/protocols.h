@@ -4,7 +4,7 @@
 #include <decoder.h>
 #include "list_view.h"
 
-#define ADDR_WIDTH 39
+#define ADDR_WIDTH 40
 #define PROT_WIDTH 10
 #define NUM_WIDTH 10
 

@@ -38,6 +38,7 @@
 #define DNS_TYPE_MX 15     /* mail exchange */
 #define DNS_TYPE_TXT 16    /* text strings */
 #define DNS_TYPE_AAAA 28   /* a host IPv6 address */
+#define DNS_TYPE_SRV 33    /* generalized service location */
 #define DNS_QTYPE_AXFR 252   /* a request for a transfer of an entire zone */
 #define DNS_QTYPE_MAILB 253  /* a request for mailbox-related records (MB, MG or MR) */
 #define DNS_QTYPE_MAILA 254  /* a request for mail agent RRs (Obsolete - see MX) */
@@ -187,6 +188,15 @@ struct dns_info {
                    exchange for the owner name */
                 char exchange[DNS_NAMELEN];
             } mx;
+
+            struct {
+                uint16_t priority; /* priority of this target host */
+                uint16_t port;
+                uint16_t weight; /* specifies a relative weight for entries with
+                                    the same priority */
+                char target[DNS_NAMELEN]; /* domain name of the target host */
+            } srv;
+
 
         } rdata;
     } *record;

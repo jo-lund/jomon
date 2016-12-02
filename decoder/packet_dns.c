@@ -278,8 +278,12 @@ void parse_dns_record(int i, unsigned char *buffer, unsigned char **data, struct
                 char *txt;
 
                 txt = parse_dns_txt(&ptr);
-                list_push_back(dns->record[i].rdata.txt, txt);
-                j += strlen(txt) + 1;
+                if (txt) {
+                    list_push_back(dns->record[i].rdata.txt, txt);
+                    j += strlen(txt) + 1;
+                } else {
+                    j++;
+                }
             }
             break;
         }
@@ -287,6 +291,13 @@ void parse_dns_record(int i, unsigned char *buffer, unsigned char **data, struct
             dns->record[i].rdata.mx.preference = ptr[0] << 8 | ptr[1];
             ptr += 2;
             ptr += parse_dns_name(buffer, ptr, dns->record[i].rdata.mx.exchange);
+            break;
+        case DNS_TYPE_SRV:
+            dns->record[i].rdata.srv.priority = ptr[0] << 8 | ptr[1];
+            dns->record[i].rdata.srv.weight = ptr[2] << 8 | ptr[3];
+            dns->record[i].rdata.srv.port = ptr[4] << 8 | ptr[5];
+            ptr += 6;
+            ptr += parse_dns_name(buffer, ptr, dns->record[i].rdata.srv.target);
             break;
         default:
             ptr += rdlen;
@@ -307,15 +318,17 @@ void parse_dns_record(int i, unsigned char *buffer, unsigned char **data, struct
  */
 char *parse_dns_txt(unsigned char **data)
 {
-    char *txt;
+    char *txt = NULL;
     uint8_t len;
     unsigned char *ptr = *data;
 
-    len = *ptr;
-    txt = malloc(len + 1);
-    memcpy(txt, ++ptr, len);
-    txt[len] = '\0';
-    ptr += len;
+    len = *ptr++;
+    if (len) {
+        txt = malloc(len + 1);
+        memcpy(txt, ptr, len);
+        txt[len] = '\0';
+        ptr += len;
+    }
     *data = ptr;
     return txt;
 }
@@ -375,6 +388,8 @@ char *get_dns_type(uint16_t type)
         return "HINFO";
     case DNS_TYPE_TXT:
         return "TXT";
+    case DNS_TYPE_SRV:
+        return "SRV";
     default:
         return "";
     }
@@ -401,6 +416,8 @@ char *get_dns_type_extended(uint16_t type)
         return "HINFO (host information)";
     case DNS_TYPE_TXT:
         return "TXT (text strings)";
+    case DNS_TYPE_SRV:
+        return "SRV (service location)";
     default:
         return "";
     }

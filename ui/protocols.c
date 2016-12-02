@@ -464,6 +464,7 @@ void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t t
             snprintcat(buf, n, "%s", (char *) list_data(node));
             node = list_next(node);
         }
+        break;
     }
     case DNS_TYPE_MX:
         snprintcat(buf, n, "%u %s", info->record[i].rdata.mx.preference,
@@ -847,6 +848,12 @@ void add_dns_record(list_view *lw, list_view_item *w, struct dns_info *dns, int 
     case DNS_TYPE_MX:
         ADD_TEXT_ELEMENT(lw, w, "Preference: %u", dns->record[i].rdata.mx.preference);
         ADD_TEXT_ELEMENT(lw, w, "Mail exchange: %s", dns->record[i].rdata.mx.exchange);
+        break;
+    case DNS_TYPE_SRV:
+        ADD_TEXT_ELEMENT(lw, w, "Priority: %u", dns->record[i].rdata.srv.priority);
+        ADD_TEXT_ELEMENT(lw, w, "Weight: %u", dns->record[i].rdata.srv.weight);
+        ADD_TEXT_ELEMENT(lw, w, "Port: %u", dns->record[i].rdata.srv.port);
+        ADD_TEXT_ELEMENT(lw, w, "Target: %s", dns->record[i].rdata.srv.target);
         break;
     default:
         break;
