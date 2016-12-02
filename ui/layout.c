@@ -556,10 +556,11 @@ void add_elements(struct packet *p)
             break;
         default:
             header = ADD_HEADER(lw, "Data", selected[APPLICATION], APPLICATION);
-            add_payload(lw, header, p->eth.payload, p->eth.payload_len);
+            add_payload(lw, header, p->eth.llc->payload, p->eth.llc->payload_len);
         }
     } else if (p->eth.payload_len) {
-        ADD_HEADER(lw, "Data", selected[APPLICATION], APPLICATION);
+        header = ADD_HEADER(lw, "Data", selected[APPLICATION], APPLICATION);
+        add_payload(lw, header, p->eth.payload, p->eth.payload_len);
     }
 }
 
@@ -606,7 +607,7 @@ void add_transport_elements(struct packet *p)
     default:
         /* unknown transport layer payload */
         if (p->eth.ethertype == ETH_P_IP && p->eth.ip->payload_len) {
-            header = ADD_HEADER(lw, "Data", selected[TRANSPORT], TRANSPORT);
+            header = ADD_HEADER(lw, "Data", selected[APPLICATION], APPLICATION);
             add_payload(lw, header, p->eth.ip->payload, p->eth.ip->payload_len);
         }
     }
