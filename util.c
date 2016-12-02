@@ -96,19 +96,6 @@ char *strtolower(char *str)
     return str;
 }
 
-int get_max_namelen(struct dns_resource_record *record, int n)
-{
-    int maxlen = 0;
-
-    for (int i = 0; i < n; i++) {
-        int len = strlen(record[i].name);
-        if (len > maxlen) {
-            maxlen = len;
-        }
-    }
-    return maxlen;
-}
-
 struct tm_t get_time(uint32_t num_secs)
 {
     struct tm_t t;

@@ -432,3 +432,16 @@ char *get_dns_class_extended(uint16_t rrclass)
         return "";
     }
 }
+
+int get_dns_max_namelen(struct dns_resource_record *record, int n)
+{
+    int maxlen = 0;
+
+    for (int i = 0; i < n; i++) {
+        int len = strlen(record[i].name);
+        if (len > maxlen) {
+            maxlen = len;
+        }
+    }
+    return maxlen;
+}

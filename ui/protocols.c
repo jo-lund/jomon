@@ -809,7 +809,7 @@ void add_dns_information(list_view *lw, list_view_item *header, struct dns_info 
     if (records) {
         int len;
 
-        len = get_max_namelen(dns->record, records);
+        len = get_dns_max_namelen(dns->record, records);
         for (int i = 0; i < records; i++) {
             char buffer[MAXLINE];
             list_view_item *w;

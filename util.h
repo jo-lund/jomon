@@ -35,9 +35,6 @@ int snprintcat(char *buf, int size, char *fmt, ...);
 /* Converts str to lower case */
 char *strtolower(char *str);
 
-/* Get the size of the longest domain name in the RRs */
-int get_max_namelen(struct dns_resource_record *record, int n);
-
 /* Converts seconds to number of days, hours, minutes and seconds */
 struct tm_t get_time(uint32_t num_secs);
 
