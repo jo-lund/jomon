@@ -22,7 +22,7 @@ void serialize_arp(unsigned char *buf, struct arp_info *info);
  * Get host name from addr which is in dotted-decimal format. This will send a
  * DNS request over UDP.
  */
-void gethost(char *addr, char *host, int hostlen);
+void gethost(uint32_t addr, char *host, int hostlen);
 
 /*
  * Concatenates fmt string to buf. Will never print passed the size of buf.

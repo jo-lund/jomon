@@ -59,15 +59,13 @@ void serialize_arp(unsigned char *buf, struct arp_info *info)
     memcpy(buf + 24, info->tip, 4);
 }
 
-void gethost(char *addr, char *host, int hostlen)
+void gethost(uint32_t addr, char *host, int hostlen)
 {
     struct sockaddr_in saddr;
-    struct in_addr naddr;
 
-    inet_pton(AF_INET, addr, &naddr);
     memset(&saddr, 0, sizeof(struct sockaddr_in));
     saddr.sin_family = AF_INET;
-    saddr.sin_addr = naddr;
+    saddr.sin_addr.s_addr = addr;
     getnameinfo((struct sockaddr *) &saddr, sizeof(struct sockaddr_in),
                 host, hostlen, NULL, 0, 0);
 }

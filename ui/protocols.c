@@ -32,7 +32,7 @@
 
 static void print_arp(char *buf, int n, struct arp_info *info, uint32_t num);
 static void print_llc(char *buf, int n, struct eth_info *eth, uint32_t num);
-static void print_ip(char *buf, int n, struct ip_info *info, uint32_t num);
+static void print_ip(char *buf, int n, struct ip_info *ip, uint32_t num);
 static void print_ipv6(char *buf, int n, struct ipv6_info *info, uint32_t num);
 static void print_udp(char *buf, int n, struct udp_info *info);
 static void print_tcp(char *buf, int n, struct tcp *info);
@@ -131,36 +131,41 @@ void print_llc(char *buf, int n, struct eth_info *eth, uint32_t num)
     }
 }
 
-void print_ip(char *buf, int n, struct ip_info *info, uint32_t num)
+void print_ip(char *buf, int n, struct ip_info *ip, uint32_t num)
 {
     PRINT_NUMBER(buf, n, num);
-    if (!numeric && (info->protocol != IPPROTO_UDP ||
-                     (info->protocol == IPPROTO_UDP && info->udp.data.dns->qr == -1))) {
+    if (!numeric && (ip->protocol != IPPROTO_UDP ||
+                     (ip->protocol == IPPROTO_UDP && ip->udp.data.dns->qr == -1))) {
         char sname[HOSTNAMELEN];
         char dname[HOSTNAMELEN];
 
         /* get the host name of source and destination */
-        gethost(info->src, sname, HOSTNAMELEN);
-        gethost(info->dst, dname, HOSTNAMELEN);
+        gethost(ip->src, sname, HOSTNAMELEN);
+        gethost(ip->dst, dname, HOSTNAMELEN);
         // TEMP: Fix this!
         sname[35] = '\0';
         dname[35] = '\0';
         PRINT_ADDRESS(buf, n, sname, dname);
     } else {
-        PRINT_ADDRESS(buf, n, info->src, info->dst);
+        char src[INET_ADDRSTRLEN];
+        char dst[INET_ADDRSTRLEN];
+
+        inet_ntop(AF_INET, &ip->src, src, INET_ADDRSTRLEN);
+        inet_ntop(AF_INET, &ip->dst, dst, INET_ADDRSTRLEN);
+        PRINT_ADDRESS(buf, n, src, dst);
     }
-    switch (info->protocol) {
+    switch (ip->protocol) {
     case IPPROTO_ICMP:
-        print_icmp(buf, n, &info->icmp);
+        print_icmp(buf, n, &ip->icmp);
         break;
     case IPPROTO_IGMP:
-        print_igmp(buf, n, &info->igmp);
+        print_igmp(buf, n, &ip->igmp);
         break;
     case IPPROTO_TCP:
-        print_tcp(buf, n, &info->tcp);
+        print_tcp(buf, n, &ip->tcp);
         break;
     case IPPROTO_UDP:
-        print_udp(buf, n, &info->udp);
+        print_udp(buf, n, &ip->udp);
         break;
     default:
         PRINT_PROTOCOL(buf, n, "IPv4");
@@ -617,6 +622,8 @@ void add_ipv4_information(list_view *lw, list_view_item *header, struct ip_info 
     char *protocol;
     char *dscp;
     char buf[MAXLINE];
+    char src[INET_ADDRSTRLEN];
+    char dst[INET_ADDRSTRLEN];
 
     ADD_TEXT_ELEMENT(lw, header, "Version: %u", ip->version);
     ADD_TEXT_ELEMENT(lw, header, "Internet Header Length (IHL): %u", ip->ihl);
@@ -653,8 +660,10 @@ void add_ipv4_information(list_view *lw, list_view_item *header, struct ip_info 
     }
     ADD_TEXT_ELEMENT(lw, header, "%s", buf);
     ADD_TEXT_ELEMENT(lw, header,"Checksum: %u", ip->checksum);
-    ADD_TEXT_ELEMENT(lw, header,"Source IP address: %s", ip->src);
-    ADD_TEXT_ELEMENT(lw, header,"Destination IP address: %s", ip->dst);
+    inet_ntop(AF_INET, &ip->src, src, INET_ADDRSTRLEN);
+    inet_ntop(AF_INET, &ip->dst, dst, INET_ADDRSTRLEN);
+    ADD_TEXT_ELEMENT(lw, header,"Source IP address: %s", src);
+    ADD_TEXT_ELEMENT(lw, header,"Destination IP address: %s", dst);
     ADD_TEXT_ELEMENT(lw, header, "");
 }
 

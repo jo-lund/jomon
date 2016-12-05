@@ -70,12 +70,8 @@ bool handle_ipv4(unsigned char *buffer, int n, struct eth_info *eth)
     if (n < ip->ihl * 4) return false;
     
     eth->ip = calloc(1, sizeof(struct ip_info));
-    if (inet_ntop(AF_INET, &ip->saddr, eth->ip->src, INET_ADDRSTRLEN) == NULL) {
-        err_msg("inet_ntop error");
-    }
-    if (inet_ntop(AF_INET, &ip->daddr, eth->ip->dst, INET_ADDRSTRLEN) == NULL) {
-        err_msg("inet_ntop error");
-    }
+    eth->ip->src = ip->saddr;
+    eth->ip->dst = ip->daddr;
     eth->ip->version = ip->version;
     eth->ip->ihl = ip->ihl;
 
@@ -195,7 +191,7 @@ bool handle_ipv6(unsigned char *buffer, int n, struct eth_info *eth)
     }
     if (error) {
         eth->ipv6->payload = malloc(eth->ipv6->payload_len);
-        memcpy(eth->ip->payload, buffer + header_len, eth->ipv6->payload_len);
+        memcpy(eth->ipv6->payload, buffer + header_len, eth->ipv6->payload_len);
     }
 
     return true;

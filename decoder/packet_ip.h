@@ -22,8 +22,8 @@ struct ip_info {
     uint8_t ttl;
     uint8_t protocol;
     uint16_t checksum;
-    char src[INET_ADDRSTRLEN];
-    char dst[INET_ADDRSTRLEN];
+    uint32_t src;
+    uint32_t dst;
     union {
         struct udp_info udp;
         struct tcp tcp;
