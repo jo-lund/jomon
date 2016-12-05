@@ -68,7 +68,7 @@ static void delete_subwindow();
 static bool update_subwin_selection();
 static void add_elements(struct packet *p);
 static void add_transport_elements(struct packet *p);
-static void add_app_elements(struct application_info *info, uint8_t protocol);
+static void add_app_elements(struct application_info *info, uint16_t len);
 
 void init_ncurses()
 {
@@ -556,9 +556,9 @@ void add_elements(struct packet *p)
             break;
         default:
             header = ADD_HEADER(lw, "Data", selected[APPLICATION], APPLICATION);
-            add_payload(lw, header, p->eth.llc->payload, p->eth.llc->payload_len);
+            add_payload(lw, header, p->eth.llc->payload, LLC_PAYLOAD_LEN(p));
         }
-    } else if (p->eth.payload_len) {
+    } else {
         header = ADD_HEADER(lw, "Data", selected[APPLICATION], APPLICATION);
         add_payload(lw, header, p->eth.payload, p->eth.payload_len);
     }
@@ -567,29 +567,37 @@ void add_elements(struct packet *p)
 void add_transport_elements(struct packet *p)
 {
     list_view_item *header;
-    uint8_t protocol = (p->eth.ethertype == ETH_P_IP) ? p->eth.ip->protocol : p->eth.ipv6->next_header; 
+    uint8_t protocol = (p->eth.ethertype == ETH_P_IP) ? p->eth.ip->protocol : p->eth.ipv6->next_header;
 
     switch (protocol) {
     case IPPROTO_TCP:
+    {
+        uint16_t len = TCP_PAYLOAD_LEN(p);
+
         header = ADD_HEADER(lw, "Transmission Control Protocol (TCP)", selected[TRANSPORT], TRANSPORT);
         if (p->eth.ethertype == ETH_P_IP) {
             add_tcp_information(lw, header, &p->eth.ip->tcp, selected[SUBLAYER]);
-            add_app_elements(&p->eth.ip->tcp.data, protocol);
+            add_app_elements(&p->eth.ip->tcp.data, len);
         } else {
             add_tcp_information(lw, header, &p->eth.ipv6->tcp, selected[SUBLAYER]);
-            add_app_elements(&p->eth.ipv6->tcp.data, protocol);
+            add_app_elements(&p->eth.ipv6->tcp.data, len);
         }
         break;
+    }
     case IPPROTO_UDP:
+    {
+        uint16_t len = UDP_PAYLOAD_LEN(p);
+
         header = ADD_HEADER(lw, "User Datagram Protocol (UDP)", selected[TRANSPORT], TRANSPORT);
         if (p->eth.ethertype == ETH_P_IP) {
             add_udp_information(lw, header, &p->eth.ip->udp);
-            add_app_elements(&p->eth.ip->udp.data, protocol);
+            add_app_elements(&p->eth.ip->udp.data, len);
         } else {
             add_udp_information(lw, header, &p->eth.ipv6->udp);
-            add_app_elements(&p->eth.ipv6->udp.data, protocol);
+            add_app_elements(&p->eth.ipv6->udp.data, len);
         }
         break;
+    }
     case IPPROTO_ICMP:
         if (p->eth.ethertype == ETH_P_IP) {
             header = ADD_HEADER(lw, "Internet Control Message Protocol (ICMP)", selected[ICMP], ICMP);
@@ -606,14 +614,16 @@ void add_transport_elements(struct packet *p)
         break;
     default:
         /* unknown transport layer payload */
-        if (p->eth.ethertype == ETH_P_IP && p->eth.ip->payload_len) {
-            header = ADD_HEADER(lw, "Data", selected[APPLICATION], APPLICATION);
-            add_payload(lw, header, p->eth.ip->payload, p->eth.ip->payload_len);
+        header = ADD_HEADER(lw, "Data", selected[APPLICATION], APPLICATION);
+        if (p->eth.ethertype == ETH_P_IP) {
+            add_payload(lw, header, p->eth.ip->payload, IP_PAYLOAD_LEN(p));
+        } else {
+            add_payload(lw, header, p->eth.ipv6->payload, IP_PAYLOAD_LEN(p));
         }
     }
 }
 
-void add_app_elements(struct application_info *info, uint8_t protocol)
+void add_app_elements(struct application_info *info, uint16_t len)
 {
     list_view_item *header;
 
@@ -636,9 +646,9 @@ void add_app_elements(struct application_info *info, uint8_t protocol)
         add_ssdp_information(lw, header, info->ssdp);
         break;
     default:
-        if ((protocol == IPPROTO_TCP && info->payload_len > 0) || protocol == IPPROTO_UDP) {
+        if (len) {
             header = ADD_HEADER(lw, "Data", selected[APPLICATION], APPLICATION);
-            add_payload(lw, header, info->payload, info->payload_len);
+            add_payload(lw, header, info->payload, len);
         }
         break;
     }

@@ -123,7 +123,6 @@ bool handle_tcp(unsigned char *buffer, int n, struct tcp *info)
 
     /* unknown application payload data */
     if (payload_len > 0) {
-        info->data.payload_len = payload_len;
         info->data.payload = malloc(payload_len);
         memcpy(info->data.payload, buffer + info->offset * 4, payload_len);
     }

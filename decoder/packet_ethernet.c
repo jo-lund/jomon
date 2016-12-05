@@ -4,9 +4,6 @@
 #include "packet_ip.h"
 #include "packet_stp.h"
 
-#define LLC_HDR_LEN 3
-#define SNAP_HDR_LEN 5
-
 /*
  * Ethernet header
  *
@@ -81,15 +78,16 @@ bool handle_ethernet(unsigned char *buffer, int n, struct eth_info *eth)
             /* TODO: If OUI is 0 I need to to handle the internet protocols that
                will be layered on top of SNAP */
             ptr += 2;
-            eth->llc->snap->payload_len = eth->ethertype - LLC_HDR_LEN - SNAP_HDR_LEN;
-            eth->llc->snap->payload = malloc(eth->llc->snap->payload_len);
-            memcpy(eth->llc->snap->payload, ptr, eth->llc->snap->payload_len);
+            eth->llc->snap->payload = malloc(eth->ethertype - LLC_HDR_LEN -
+                                             SNAP_HDR_LEN);
+            memcpy(eth->llc->snap->payload, ptr, eth->ethertype - LLC_HDR_LEN -
+                   SNAP_HDR_LEN);
         } else { /* not handled */
-            eth->llc->payload_len = eth->ethertype - LLC_HDR_LEN;
-            eth->llc->payload = malloc(eth->llc->payload_len);
-            memcpy(eth->llc->payload, ptr, eth->llc->payload_len);
+            eth->llc->payload = malloc(eth->ethertype - LLC_HDR_LEN);
+            memcpy(eth->llc->payload, ptr, eth->ethertype - LLC_HDR_LEN);
         }
     } else {
+        eth->payload_len = n - ETH_HLEN;
         switch (eth->ethertype) {
         case ETH_P_IP:
             error = !handle_ipv4(buffer + ETH_HLEN, n - ETH_HLEN, eth);
@@ -102,13 +100,11 @@ bool handle_ethernet(unsigned char *buffer, int n, struct eth_info *eth)
             break;
         case ETH_P_PAE:
         default:
-            //printf("Ethernet protocol: 0x%x\n", eth->ethertype);
             error = true;
             break;
         }
     }
     if (error) {
-        eth->payload_len = n - ETH_HLEN;
         eth->payload = malloc(n - ETH_HLEN);
         memcpy(eth->payload, buffer + ETH_HLEN, n - ETH_HLEN);
     }
