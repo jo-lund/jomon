@@ -6,6 +6,10 @@
 #include "packet_tcp.h"
 #include "packet_udp.h"
 
+#define IP_PAYLOAD_LEN(p) ((p)->eth.ethertype == ETH_P_IP) ? \
+    ((p)->eth.ip->length - (p)->eth.ip->ihl * 4) :          \
+    ((p)->eth.ipv6->payload_len)
+
 // TODO: Improve the structure of this
 struct ip_info {
     unsigned int version : 4;
@@ -20,7 +24,6 @@ struct ip_info {
     uint16_t checksum;
     char src[INET_ADDRSTRLEN];
     char dst[INET_ADDRSTRLEN];
-    uint16_t payload_len; /* length of payload if transport protocol is unknown */
     union {
         struct udp_info udp;
         struct tcp tcp;

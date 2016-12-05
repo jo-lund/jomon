@@ -6,6 +6,10 @@
 #include <linux/if_ether.h>
 
 #define ETHERNET_HDRLEN 14
+#define LLC_HDR_LEN 3
+#define SNAP_HDR_LEN 5
+
+#define LLC_PAYLOAD_LEN(p) ((p)->eth.ethertype - LLC_HDR_LEN)
 
 enum eth_802_type {
     ETH_802_UNKNOWN,
@@ -17,7 +21,6 @@ enum eth_802_type {
 struct snap_info {
     unsigned char oui[3]; /* IEEE Organizationally Unique Identifier */
     uint16_t protocol_id; /* If OUI is 0 the protocol ID is the Ethernet type */
-    uint16_t payload_len; /* length of payload if unknown payload */
     union {
         struct arp_info *arp;
         struct ip_info *ip;
@@ -30,7 +33,6 @@ struct eth_802_llc {
     uint8_t dsap; /* destination service access point */
     uint8_t ssap; /* source service access point */
     uint8_t control; /* possible to be 2 bytes? */
-    uint16_t payload_len; /* length of payload if unknown payload */
     union {
         struct snap_info *snap;
         struct stp_info *bpdu;
@@ -42,7 +44,7 @@ struct eth_info {
     unsigned char mac_src[ETH_ALEN];
     unsigned char mac_dst[ETH_ALEN];
     uint16_t ethertype;
-    uint16_t payload_len; /* length of payload if ethertype is unknown */
+    uint16_t payload_len; /* for 802.3 frames ethertype contains the payload length */
     union {
         struct eth_802_llc *llc;
         struct arp_info *arp;

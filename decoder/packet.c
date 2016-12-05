@@ -62,7 +62,7 @@ void free_packet(void *data)
             free(p->eth.llc->snap);
         } else if (p->eth.llc->dsap == 0x42 && p->eth.llc->ssap == 0x42) {
             free(p->eth.llc->bpdu);
-        } else if (p->eth.llc->payload_len) {
+        } else if (p->eth.llc->payload) {
             free(p->eth.llc->payload);
         }
         free(p->eth.llc);
@@ -81,7 +81,7 @@ void free_packet(void *data)
             }
             break;
         default:
-            if (p->eth.ip->payload_len) {
+            if (p->eth.ip->payload) {
                 free(p->eth.ip->payload);
             }
             break;
@@ -150,7 +150,7 @@ void free_protocol_data(struct application_info *info)
         }
         break;
     default:
-        if (info->payload_len) {
+        if (info->payload) {
             free(info->payload);
         }
         break;

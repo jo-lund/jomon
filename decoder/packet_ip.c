@@ -110,9 +110,8 @@ bool handle_ipv4(unsigned char *buffer, int n, struct eth_info *eth)
         break;
     }
     if (error) {
-        eth->ip->payload_len = n - header_len;
-        eth->ip->payload = malloc(eth->ip->payload_len);
-        memcpy(eth->ip->payload, buffer + header_len, eth->ip->payload_len);
+        eth->ip->payload = malloc(n - header_len);
+        memcpy(eth->ip->payload, buffer + header_len, n - header_len);
     }
     return true;
 }
@@ -193,6 +192,10 @@ bool handle_ipv6(unsigned char *buffer, int n, struct eth_info *eth)
     default:
         error = true;
         break;
+    }
+    if (error) {
+        eth->ipv6->payload = malloc(eth->ipv6->payload_len);
+        memcpy(eth->ip->payload, buffer + header_len, eth->ipv6->payload_len);
     }
 
     return true;

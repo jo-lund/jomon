@@ -30,7 +30,6 @@ enum packet_type {
 
 struct application_info {
     uint16_t utype; /* specifies the application layer protocol */
-    uint16_t payload_len; /* length of payload if application protocol is unknown */
     union {
         struct dns_info *dns;
         struct nbns_info *nbns;
