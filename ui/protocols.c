@@ -46,6 +46,7 @@ static void print_dns_record(struct dns_info *info, int i, char *buf, int n, uin
 static void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t type);
 
 static void add_dns_soa(list_view *lw, list_view_item *w, struct dns_info *info, int i);
+static void add_dns_txt(list_view *lw, list_view_item *w, struct dns_info *dns, int i);
 static void add_dns_record(list_view *lw, list_view_item *w, struct dns_info *info, int i,
                            char *buf, int n, uint16_t type);
 static void add_tcp_options(list_view *lw, list_view_item *w, struct tcp *tcp);
@@ -441,8 +442,6 @@ void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t t
     case DNS_TYPE_NS:
         snprintcat(buf, n, "%s", info->record[i].rdata.nsdname);
         break;
-    case DNS_TYPE_SOA:
-        break;
     case DNS_TYPE_CNAME:
         snprintcat(buf, n, "%s", info->record[i].rdata.cname);
         break;
@@ -461,16 +460,6 @@ void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t t
         snprintcat(buf, n, "%s ", info->record[i].rdata.hinfo.cpu);
         snprintcat(buf, n, "%s", info->record[i].rdata.hinfo.os);
         break;
-    case DNS_TYPE_TXT:
-    {
-        const node_t *node = list_begin(info->record[i].rdata.txt);
-
-        while (node) {
-            snprintcat(buf, n, "%s", (char *) list_data(node));
-            node = list_next(node);
-        }
-        break;
-    }
     case DNS_TYPE_MX:
         snprintcat(buf, n, "%u %s", info->record[i].rdata.mx.preference,
                    info->record[i].rdata.mx.exchange);
@@ -864,37 +853,53 @@ void add_dns_record(list_view *lw, list_view_item *w, struct dns_info *dns, int 
         ADD_TEXT_ELEMENT(lw, w, "Port: %u", dns->record[i].rdata.srv.port);
         ADD_TEXT_ELEMENT(lw, w, "Target: %s", dns->record[i].rdata.srv.target);
         break;
+    case DNS_TYPE_TXT:
+        add_dns_txt(lw, w, dns, i);
+        break;
     default:
         break;
     }
     ADD_TEXT_ELEMENT(lw, w, "");
 }
 
-void add_dns_soa(list_view *lw, list_view_item *w, struct dns_info *info, int i)
+void add_dns_txt(list_view *lw, list_view_item *w, struct dns_info *dns, int i)
+{
+    const node_t *node = list_begin(dns->record[i].rdata.txt);
+
+    while (node) {
+        struct txt_rr *rr = (struct txt_rr *) list_data(node);
+
+        ADD_TEXT_ELEMENT(lw, w, "TXT: %s", (rr->txt == NULL) ? "" : rr->txt);
+        ADD_TEXT_ELEMENT(lw, w, "TXT length: %d", rr->len);
+        node = list_next(node);
+    }
+}
+
+void add_dns_soa(list_view *lw, list_view_item *w, struct dns_info *dns, int i)
 {
     char time[512];
     struct tm_t tm;
 
-    ADD_TEXT_ELEMENT(lw, w, "mname (primary name server): %s", info->record[i].rdata.soa.mname);
+    ADD_TEXT_ELEMENT(lw, w, "mname (primary name server): %s", dns->record[i].rdata.soa.mname);
     ADD_TEXT_ELEMENT(lw, w, "rname (mailbox of responsible authority): %s",
-              info->record[i].rdata.soa.rname);
-    ADD_TEXT_ELEMENT(lw, w, "Serial number: %d", info->record[i].rdata.soa.serial);
-    tm = get_time(info->record[i].rdata.soa.refresh);
+              dns->record[i].rdata.soa.rname);
+    ADD_TEXT_ELEMENT(lw, w, "Serial number: %d", dns->record[i].rdata.soa.serial);
+    tm = get_time(dns->record[i].rdata.soa.refresh);
     time_ntop(&tm, time, 512);
     ADD_TEXT_ELEMENT(lw, w, "Refresh interval: %d (%s)",
-              info->record[i].rdata.soa.refresh, time);
-    tm = get_time(info->record[i].rdata.soa.retry);
+              dns->record[i].rdata.soa.refresh, time);
+    tm = get_time(dns->record[i].rdata.soa.retry);
     time_ntop(&tm, time, 512);
     ADD_TEXT_ELEMENT(lw, w, "Retry interval: %d (%s)",
-              info->record[i].rdata.soa.retry, time);
-    tm = get_time(info->record[i].rdata.soa.expire);
+              dns->record[i].rdata.soa.retry, time);
+    tm = get_time(dns->record[i].rdata.soa.expire);
     time_ntop(&tm, time, 512);
     ADD_TEXT_ELEMENT(lw, w, "Expire limit: %d (%s)",
-              info->record[i].rdata.soa.expire, time);
-    tm = get_time(info->record[i].rdata.soa.minimum);
+              dns->record[i].rdata.soa.expire, time);
+    tm = get_time(dns->record[i].rdata.soa.minimum);
     time_ntop(&tm, time, 512);
     ADD_TEXT_ELEMENT(lw, w,  "Minimum TTL: %d (%s)",
-              info->record[i].rdata.soa.minimum, time);
+              dns->record[i].rdata.soa.minimum, time);
 }
 
 void add_nbns_information(list_view *lw, list_view_item *header, struct nbns_info *nbns)

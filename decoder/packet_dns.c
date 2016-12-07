@@ -8,6 +8,7 @@
 
 static void parse_dns_record(int i, unsigned char *buffer, unsigned char **data, struct dns_info *dns);
 static char *parse_dns_txt(unsigned char **data);
+static void free_txt_rr(void *data);
 
 /*
  * Handle DNS messages. Will return false if not DNS.
@@ -167,7 +168,7 @@ int parse_dns_name(unsigned char *buffer, unsigned char *ptr, char name[])
         /*
          * The max size of a label is 63 bytes, so a length with the first 2 bits
          * set to 11 indicates that the label is a pointer to a prior occurrence
-         * of the same name. The pointer is an offset from the beginnng of the
+         * of the same name. The pointer is an offset from the beginning of the
          * DNS message, i.e. the ID field of the header.
          *
          * The pointer takes the form of a two octet sequence:
@@ -180,14 +181,13 @@ int parse_dns_name(unsigned char *buffer, unsigned char *ptr, char name[])
             uint16_t offset = (ptr[0] & 0x3f) << 8 | ptr[1];
 
             label_length = buffer[offset];
-            memcpy(name + n, buffer + offset + 1, label_length);
             ptr = buffer + offset; /* ptr will point to start of label */
 
             /*
              * Only update name_ptr_len if this is the first pointer encountered.
              * name_ptr_len must not include the ptrs in the prior occurrence of
              * the same name, i.e. if the name is a pointer to a sequence of
-             * labeles ending in a pointer.
+             * labels ending in a pointer.
              */
             if (!compression) {
                 /*
@@ -199,11 +199,11 @@ int parse_dns_name(unsigned char *buffer, unsigned char *ptr, char name[])
             }
         } else {
             memcpy(name + n, ptr + 1, label_length);
+            n += label_length;
+            name[n++] = '.';
+            ptr += label_length + 1; /* skip length octet + rest of label */
+            label_length = ptr[0];
         }
-        n += label_length;
-        name[n++] = '.';
-        ptr += label_length + 1; /* skip length octet + rest of label */
-        label_length = ptr[0];
     }
     name[n - 1] = '\0';
     n++; /* add null label */
@@ -273,17 +273,19 @@ void parse_dns_record(int i, unsigned char *buffer, unsigned char **data, struct
         {
             int j = 0;
 
-            dns->record[i].rdata.txt = list_init(NULL);
+            dns->record[i].rdata.txt = list_init(free_txt_rr);
             while (j < rdlen) {
-                char *txt;
+                struct txt_rr *rr;
+                int len = 0;
 
-                txt = parse_dns_txt(&ptr);
-                if (txt) {
-                    list_push_back(dns->record[i].rdata.txt, txt);
-                    j += strlen(txt) + 1;
-                } else {
-                    j++;
+                rr = malloc(sizeof(struct txt_rr));
+                rr->txt = parse_dns_txt(&ptr);
+                if (rr->txt) {
+                    len = strlen(rr->txt);
                 }
+                rr->len = len;
+                j += len + 1;
+                list_push_back(dns->record[i].rdata.txt, rr);
             }
             break;
         }
@@ -331,6 +333,16 @@ char *parse_dns_txt(unsigned char **data)
     }
     *data = ptr;
     return txt;
+}
+
+void free_txt_rr(void *data)
+{
+    struct txt_rr *rr = (struct txt_rr *) data;
+
+    if (rr->txt) {
+        free(rr->txt);
+    }
+    free(rr);
 }
 
 char *get_dns_opcode(uint8_t opcode)

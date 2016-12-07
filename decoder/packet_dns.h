@@ -87,6 +87,11 @@ enum dns_section_count {
     ARCOUNT
 };
 
+struct txt_rr {
+    int len;
+    char *txt;
+};
+
 struct dns_info {
     uint16_t id; /* A 16 bit identifier */
     unsigned int qr     : 1; /* 0 DNS query, 1 DNS response */
