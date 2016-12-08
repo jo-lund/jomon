@@ -498,7 +498,7 @@ void print_selected_packet()
 
         /* the index to the selected line needs to be adjusted in case of an
            open subwindow */
-        if (subwindow.win && screen_line > subwindow.top) {
+        if (subwindow.win && screen_line > subwindow.top + scrollvy) {
             main_line.line_number = screen_line - subwindow.num_lines;
             selection_line -= subwindow.num_lines;
         } else {
@@ -506,9 +506,9 @@ void print_selected_packet()
         }
     }
     if (main_line.selected) {
-        p = vector_get_data(vector, selection_line);
+        p = vector_get_data(vector, selection_line + scrollvy);
         add_elements(p);
-        print_protocol_information(p, selection_line);
+        print_protocol_information(p, selection_line + scrollvy);
     } else {
         delete_subwindow();
     }
