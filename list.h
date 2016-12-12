@@ -14,16 +14,16 @@ typedef void (*list_deallocate)(void *);
 list_t *list_init(list_deallocate func);
 
 /* Inserts element at the front */
-list_t *list_push_front(list_t *list, void *data);
+void list_push_front(list_t *list, void *data);
 
 /* Inserts element at the end */
-list_t *list_push_back(list_t *list, void *data);
+void list_push_back(list_t *list, void *data);
 
 /* Removes element from the front and deallocates memory */
-list_t *list_pop_front(list_t *list);
+void list_pop_front(list_t *list);
 
 /* Removes element from the end and deallocates memory */
-list_t *list_pop_back(list_t *list);
+void list_pop_back(list_t *list);
 
 /* Returns data from front of the list */
 void *list_front(list_t *list);

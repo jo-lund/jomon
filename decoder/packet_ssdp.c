@@ -47,7 +47,7 @@ void parse_ssdp(char *str, int n, list_t **msg_header)
         char *field;
 
         field = strdup(token);
-        *msg_header = list_push_back(*msg_header, field);
+        list_push_back(*msg_header, field);
         token = strtok(NULL, "\r\n");
     }
 }

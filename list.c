@@ -35,7 +35,7 @@ list_t *list_init(list_deallocate func)
     return list;
 }
 
-list_t *list_push_front(list_t *list, void *data)
+void list_push_front(list_t *list, void *data)
 {
     if (!list->head) {
         INIT_NODE(list->head);
@@ -49,11 +49,9 @@ list_t *list_push_front(list_t *list, void *data)
         list->head = node;
     }
     list->size++;
-
-    return list;
 }
 
-list_t *list_push_back(list_t *list, void *data)
+void list_push_back(list_t *list, void *data)
 {
     if (!list->head) {
         INIT_NODE(list->head);
@@ -67,11 +65,9 @@ list_t *list_push_back(list_t *list, void *data)
         list->tail = node;
     }
     list->size++;
-
-    return list;
 }
 
-list_t *list_pop_front(list_t *list)
+void list_pop_front(list_t *list)
 {
     if (list->head) {
         node_t *h = list->head;
@@ -86,11 +82,9 @@ list_t *list_pop_front(list_t *list)
         free(h);
         list->size--;
     }
-
-    return list;
 }
 
-list_t *list_pop_back(list_t *list)
+void list_pop_back(list_t *list)
 {
     if (list->tail) {
         node_t *t = list->tail;
@@ -105,8 +99,6 @@ list_t *list_pop_back(list_t *list)
         free(t);
         list->size--;
     }
-
-    return list;
 }
 
 inline void *list_data(const node_t *n)
