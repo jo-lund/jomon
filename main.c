@@ -49,7 +49,7 @@ vector_t *vector;
 static volatile sig_atomic_t signal_flag = 0;
 static int sockfd = -1; /* packet socket file descriptor */
 static int no_curses;
-static context c;
+static context c = { NULL, NULL };
 
 static void print_help(char *prg);
 static void init_socket(char *device);
@@ -57,14 +57,12 @@ static void init_structures();
 static void run();
 static void sig_alarm(int signo);
 static void sig_int(int signo);
-static void finish();
 static void calculate_rate();
 
 int main(int argc, char **argv)
 {
     char *prg_name = argv[0];
     int opt;
-    context c = { NULL, NULL };
 
     statistics = 0;
     promiscuous = 0;

@@ -44,4 +44,6 @@ extern int statistics;
 extern linkdef rx; /* data received */
 extern linkdef tx; /* data transmitted */
 
+void finish();
+
 #endif

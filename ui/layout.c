@@ -16,7 +16,7 @@
 #define STATUS_HEIGHT 1
 #define KEY_ESC 27
 
-static bool selected[NUM_LAYERS - 1];
+static bool selected[NUM_LAYERS];
 
 static struct line_info {
     int line_number;
@@ -126,7 +126,7 @@ void get_input()
         set_interactive(!interactive, my, mx);
         break;
     case 'q':
-        kill(0, SIGINT);
+        finish();
         break;
     case 'n':
         numeric = !numeric;

@@ -6,7 +6,6 @@
 
 extern bool numeric;
 struct packet;
-struct context;
 
 enum layer {
     ETHERNET_LAYER,
