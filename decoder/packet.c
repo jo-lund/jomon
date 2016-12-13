@@ -80,6 +80,9 @@ void free_packet(void *data)
                 free(p->eth.ip->tcp.options);
             }
             break;
+        case IPPROTO_ICMP:
+        case IPPROTO_IGMP:
+            break;
         default:
             if (p->eth.ip->payload) {
                 free(p->eth.ip->payload);
@@ -87,6 +90,28 @@ void free_packet(void *data)
             break;
         }
         free(p->eth.ip);
+        break;
+    case ETH_P_IPV6:
+        switch (p->eth.ipv6->next_header) {
+        case IPPROTO_UDP:
+            free_protocol_data(&p->eth.ipv6->udp.data);
+            break;
+        case IPPROTO_TCP:
+            free_protocol_data(&p->eth.ipv6->tcp.data);
+            if (p->eth.ipv6->tcp.options) {
+                free(p->eth.ipv6->tcp.options);
+            }
+            break;
+        case IPPROTO_ICMP:
+        case IPPROTO_IGMP:
+            break;
+        default:
+            if (p->eth.ipv6->payload) {
+                free(p->eth.ipv6->payload);
+            }
+            break;
+        }
+        free(p->eth.ipv6);
         break;
     case ETH_P_ARP:
         free(p->eth.arp);
