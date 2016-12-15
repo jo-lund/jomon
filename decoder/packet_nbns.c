@@ -6,7 +6,7 @@
 #include "packet.h"
 
 static void decode_nbns_name(char *dest, char *src);
-static void parse_nbns_record(int i, unsigned char *buffer, unsigned char **ptr, struct nbns_info *info);
+static void parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **ptr, struct nbns_info *info);
 
 /*
  * NBNS serves much of the same purpose as DNS, and the NetBIOS Name Service
@@ -70,7 +70,7 @@ bool handle_nbns(unsigned char *buffer, int n, struct application_info *info)
         }
         info->nbns->record = malloc(num_records * sizeof(struct nbns_rr));
         for (int j = 0; j < num_records; j++) {
-            parse_nbns_record(j, buffer, &ptr, info->nbns);
+            parse_nbns_record(j, buffer, n, &ptr, info->nbns);
         }
     } else { /* request */
         if (info->nbns->aa) { /* authoritative answer is only to be set in responses */
@@ -85,7 +85,7 @@ bool handle_nbns(unsigned char *buffer, int n, struct application_info *info)
 
         /* QUESTION section */
         char name[DNS_NAMELEN];
-        ptr += parse_dns_name(buffer, ptr, name);
+        ptr += parse_dns_name(buffer, n, ptr, name);
         decode_nbns_name(info->nbns->question.qname, name);
         info->nbns->question.qtype = ptr[0] << 8 | ptr[1];
         info->nbns->question.qclass = ptr[2] << 8 | ptr[3];
@@ -94,7 +94,7 @@ bool handle_nbns(unsigned char *buffer, int n, struct application_info *info)
         /* Additional records section */
         if (info->nbns->section_count[ARCOUNT]) {
             info->nbns->record = malloc(sizeof(struct nbns_rr));
-            parse_nbns_record(0, buffer, &ptr, info->nbns);
+            parse_nbns_record(0, buffer, n, &ptr, info->nbns);
         }
     }
 
@@ -122,12 +122,12 @@ void decode_nbns_name(char *dest, char *src)
  * Parse a NBNS resource record.
  * int i is the resource record index.
  */
-void parse_nbns_record(int i, unsigned char *buffer, unsigned char **ptr, struct nbns_info *nbns)
+void parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **ptr, struct nbns_info *nbns)
 {
     int rdlen;
     char name[DNS_NAMELEN];
 
-    *ptr += parse_dns_name(buffer, *ptr, name);
+    *ptr += parse_dns_name(buffer, n, *ptr, name);
     decode_nbns_name(nbns->record[i].rrname, name);
     nbns->record[i].rrtype = (*ptr)[0] << 8 | (*ptr)[1];
     nbns->record[i].rrclass = (*ptr)[2] << 8 | (*ptr)[3];
@@ -154,7 +154,7 @@ void parse_nbns_record(int i, unsigned char *buffer, unsigned char **ptr, struct
     {
         char name[DNS_NAMELEN];
 
-        *ptr += parse_dns_name(buffer, *ptr, name);
+        *ptr += parse_dns_name(buffer, n, *ptr, name);
         decode_nbns_name(nbns->record[i].rdata.nsdname, name);
         break;
     }

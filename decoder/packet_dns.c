@@ -6,7 +6,7 @@
 
 #define DNS_PTR_LEN 2
 
-static void parse_dns_record(int i, unsigned char *buffer, unsigned char **data, struct dns_info *dns);
+static void parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data, struct dns_info *dns);
 static char *parse_dns_txt(unsigned char **data);
 static void free_txt_rr(void *data);
 
@@ -88,7 +88,7 @@ bool handle_dns(unsigned char *buffer, int n, struct application_info *info)
 
         /* QUESTION section */
         if (info->dns->section_count[QDCOUNT] > 0) {
-            ptr += parse_dns_name(buffer, ptr, info->dns->question.qname);
+            ptr += parse_dns_name(buffer, n, ptr, info->dns->question.qname);
             info->dns->question.qtype = ptr[0] << 8 | ptr[1];
             info->dns->question.qclass = ptr[2] << 8 | ptr[3];
             ptr += 4; /* skip qtype and qclass */
@@ -102,7 +102,7 @@ bool handle_dns(unsigned char *buffer, int n, struct application_info *info)
         }
         info->dns->record = malloc(num_records * sizeof(struct dns_resource_record));
         for (int i = 0; i < num_records; i++) {
-            parse_dns_record(i, buffer, &ptr, info->dns);
+            parse_dns_record(i, buffer, n, &ptr, info->dns);
         }
     } else { /* DNS query */
         if (info->dns->rcode != 0) { /* RCODE will be zero */
@@ -126,7 +126,7 @@ bool handle_dns(unsigned char *buffer, int n, struct application_info *info)
 
         /* QUESTION section */
         if (info->dns->section_count[QDCOUNT] > 0) {
-            ptr += parse_dns_name(buffer, ptr, info->dns->question.qname);
+            ptr += parse_dns_name(buffer, n, ptr, info->dns->question.qname);
             info->dns->question.qtype = ptr[0] << 8 | ptr[1];
             info->dns->question.qclass = ptr[2] << 8 | ptr[3];
         }
@@ -136,7 +136,7 @@ bool handle_dns(unsigned char *buffer, int n, struct application_info *info)
             info->dns->record = malloc(info->dns->section_count[ARCOUNT] *
                                            sizeof(struct dns_resource_record));
             for (int i = 0; i < info->dns->section_count[ARCOUNT]; i++) {
-                parse_dns_record(i, buffer, &ptr, info->dns);
+                parse_dns_record(i, buffer, n, &ptr, info->dns);
             }
         }
     }
@@ -155,9 +155,9 @@ bool handle_dns(unsigned char *buffer, int n, struct application_info *info)
  * every domain name ends with the null label of the root, a domain name is
  * terminated by a length byte of zero.
  */
-int parse_dns_name(unsigned char *buffer, unsigned char *ptr, char name[])
+int parse_dns_name(unsigned char *buffer, int n, unsigned char *ptr, char name[])
 {
-    unsigned int n = 0; /* total length of name entry */
+    unsigned int len = 0; /* total length of name entry */
     unsigned int label_length = ptr[0];
     bool compression = false;
     unsigned int name_ptr_len = 0;
@@ -180,6 +180,8 @@ int parse_dns_name(unsigned char *buffer, unsigned char *ptr, char name[])
         if (label_length & 0xc0) {
             uint16_t offset = (ptr[0] & 0x3f) << 8 | ptr[1];
 
+            if (offset > n) return len + DNS_PTR_LEN;
+
             label_length = buffer[offset];
             ptr = buffer + offset; /* ptr will point to start of label */
 
@@ -194,32 +196,32 @@ int parse_dns_name(unsigned char *buffer, unsigned char *ptr, char name[])
                  * Total length of the name entry encountered so far + ptr. If name
                  * is just a pointer, n will be 0
                  */
-                name_ptr_len = n + DNS_PTR_LEN;
+                name_ptr_len = len + DNS_PTR_LEN;
                 compression = true;
             }
         } else {
-            memcpy(name + n, ptr + 1, label_length);
-            n += label_length;
-            name[n++] = '.';
+            memcpy(name + len, ptr + 1, label_length);
+            len += label_length;
+            name[len++] = '.';
             ptr += label_length + 1; /* skip length octet + rest of label */
             label_length = ptr[0];
         }
     }
-    name[n - 1] = '\0';
-    n++; /* add null label */
-    return compression ? name_ptr_len : n;
+    name[len - 1] = '\0';
+    len++; /* add null label */
+    return compression ? name_ptr_len : len;
 }
 
 /*
  * Parse a DNS resource record.
  * int i is the recource record index.
  */
-void parse_dns_record(int i, unsigned char *buffer, unsigned char **data, struct dns_info *dns)
+void parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data, struct dns_info *dns)
 {
     uint16_t rdlen;
     unsigned char *ptr = *data;
 
-    ptr += parse_dns_name(buffer, ptr, dns->record[i].name);
+    ptr += parse_dns_name(buffer, n, ptr, dns->record[i].name);
     dns->record[i].type = ptr[0] << 8 | ptr[1];
     dns->record[i].rrclass = ptr[2] << 8 | ptr[3];
     dns->record[i].ttl = ptr[4] << 24 | ptr[5] << 16 | ptr[6] << 8 | ptr[7];
@@ -235,14 +237,14 @@ void parse_dns_record(int i, unsigned char *buffer, unsigned char **data, struct
             ptr += rdlen;
             break;
         case DNS_TYPE_NS:
-            ptr += parse_dns_name(buffer, ptr, dns->record[i].rdata.nsdname);
+            ptr += parse_dns_name(buffer, n, ptr, dns->record[i].rdata.nsdname);
             break;
         case DNS_TYPE_CNAME:
-            ptr += parse_dns_name(buffer, ptr, dns->record[i].rdata.cname);
+            ptr += parse_dns_name(buffer, n, ptr, dns->record[i].rdata.cname);
             break;
         case DNS_TYPE_SOA:
-            ptr += parse_dns_name(buffer, ptr, dns->record[i].rdata.soa.mname);
-            ptr += parse_dns_name(buffer, ptr, dns->record[i].rdata.soa.rname);
+            ptr += parse_dns_name(buffer, n, ptr, dns->record[i].rdata.soa.mname);
+            ptr += parse_dns_name(buffer, n, ptr, dns->record[i].rdata.soa.rname);
             dns->record[i].rdata.soa.serial = ptr[0] << 24 | ptr[1] << 16 | ptr[2] << 8 | ptr[3];
             ptr += 4;
             dns->record[i].rdata.soa.refresh = ptr[0] << 24 | ptr[1] << 16 | ptr[2] << 8 | ptr[3];
@@ -255,7 +257,7 @@ void parse_dns_record(int i, unsigned char *buffer, unsigned char **data, struct
             ptr += 4;
             break;
         case DNS_TYPE_PTR:
-            ptr += parse_dns_name(buffer, ptr, dns->record[i].rdata.ptrdname);
+            ptr += parse_dns_name(buffer, n, ptr, dns->record[i].rdata.ptrdname);
             break;
         case DNS_TYPE_AAAA:
             if (rdlen == 16) {
@@ -292,14 +294,14 @@ void parse_dns_record(int i, unsigned char *buffer, unsigned char **data, struct
         case DNS_TYPE_MX:
             dns->record[i].rdata.mx.preference = ptr[0] << 8 | ptr[1];
             ptr += 2;
-            ptr += parse_dns_name(buffer, ptr, dns->record[i].rdata.mx.exchange);
+            ptr += parse_dns_name(buffer, n, ptr, dns->record[i].rdata.mx.exchange);
             break;
         case DNS_TYPE_SRV:
             dns->record[i].rdata.srv.priority = ptr[0] << 8 | ptr[1];
             dns->record[i].rdata.srv.weight = ptr[2] << 8 | ptr[3];
             dns->record[i].rdata.srv.port = ptr[4] << 8 | ptr[5];
             ptr += 6;
-            ptr += parse_dns_name(buffer, ptr, dns->record[i].rdata.srv.target);
+            ptr += parse_dns_name(buffer, n, ptr, dns->record[i].rdata.srv.target);
             break;
         default:
             ptr += rdlen;
