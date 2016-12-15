@@ -52,10 +52,7 @@ bool handle_igmp(unsigned char *buffer, int n, struct igmp_info *info)
     info->type = igmp->type;
     info->max_resp_time = igmp->code;
     info->checksum = ntohs(igmp->csum);
-    if (inet_ntop(AF_INET, &igmp->group, info->group_addr,
-                  INET_ADDRSTRLEN) == NULL) {
-        err_msg("inet_ntop error");
-    }
+    info->group_addr = igmp->group;
     return true;
 }
 
@@ -73,8 +70,7 @@ char *get_igmp_type(uint8_t type)
     case IGMP_HOST_LEAVE_MESSAGE:
         return "Leave group";
     case IGMP_PIM:
-        return "";
     default:
-        return "";
+        return NULL;
     }
 }

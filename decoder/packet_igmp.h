@@ -8,7 +8,7 @@ struct igmp_info {
     uint8_t type;
     uint8_t max_resp_time;
     uint16_t checksum;
-    char group_addr[INET_ADDRSTRLEN];
+    uint32_t group_addr;
 };
 
 struct ip_info;

@@ -223,6 +223,8 @@ void print_icmp(char *buf, int n, struct icmp_info *info)
 
 void print_igmp(char *buf, int n, struct igmp_info *info)
 {
+    char addr[INET_ADDRSTRLEN];
+
     PRINT_PROTOCOL(buf, n, "IGMP");
     switch (info->type) {
     case IGMP_HOST_MEMBERSHIP_QUERY:
@@ -245,7 +247,8 @@ void print_igmp(char *buf, int n, struct igmp_info *info)
         PRINT_INFO(buf, n, "Type 0x%x", info->type);
         break;
     }
-    PRINT_INFO(buf, n, "  Group address: %s", info->group_addr);
+    inet_ntop(AF_INET, &info->group_addr, addr, INET_ADDRSTRLEN);
+    PRINT_INFO(buf, n, "  Group address: %s", addr);
 }
 
 void print_tcp(char *buf, int n, struct tcp *info)
@@ -703,17 +706,26 @@ void add_icmp_information(list_view *lw, list_view_item *header, struct icmp_inf
 
 void add_igmp_information(list_view *lw, list_view_item *header, struct igmp_info *igmp)
 {
-    ADD_TEXT_ELEMENT(lw, header, "Type: %d (%s) ", igmp->type, get_igmp_type(igmp->type));
+    char addr[INET_ADDRSTRLEN];
+    char buf[MAXLINE];
+    char *type;
+
+    inet_ntop(AF_INET, &igmp->group_addr, addr, INET_ADDRSTRLEN);
+    snprintf(buf, MAXLINE, "Type: %d", igmp->type);
+    if ((type = get_igmp_type(igmp->type))) {
+        snprintcat(buf, MAXLINE, " (%s)", type);
+    }
+    ADD_TEXT_ELEMENT(lw, header, "%s", buf);
     if (igmp->type == IGMP_HOST_MEMBERSHIP_QUERY) {
-        if (!strcmp(igmp->group_addr, "0.0.0.0")) {
-            ADD_TEXT_ELEMENT(lw, header, "General query", igmp->type, get_igmp_type(igmp->type));
+        if (!strcmp(addr, "0.0.0.0")) {
+            ADD_TEXT_ELEMENT(lw, header, "General query");
         } else {
-            ADD_TEXT_ELEMENT(lw, header, "Group-specific query", igmp->type, get_igmp_type(igmp->type));
+            ADD_TEXT_ELEMENT(lw, header, "Group-specific query");
         }
     }
     ADD_TEXT_ELEMENT(lw, header, "Max response time: %d seconds", igmp->max_resp_time / 10);
     ADD_TEXT_ELEMENT(lw, header, "Checksum: %d", igmp->checksum);
-    ADD_TEXT_ELEMENT(lw, header, "Group address: %s", igmp->group_addr);
+    ADD_TEXT_ELEMENT(lw, header, "Group address: %s", addr);
 }
 
 void add_udp_information(list_view *lw, list_view_item *header, struct udp_info *udp)
