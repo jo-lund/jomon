@@ -104,7 +104,7 @@ void print_arp(char *buf, int n, struct arp_info *info, uint32_t num)
 
 void print_llc(char *buf, int n, struct eth_info *eth, uint32_t num)
 {
-    if (eth->llc->dsap == 0x42 && eth->llc->ssap == 0x42) {
+    if (get_eth802_type(eth->llc) == ETH_802_STP) {
         char smac[HW_ADDRSTRLEN];
         char dmac[HW_ADDRSTRLEN];
 
@@ -128,7 +128,8 @@ void print_llc(char *buf, int n, struct eth_info *eth, uint32_t num)
 
         HW_ADDR_NTOP(smac, eth->mac_src);
         HW_ADDR_NTOP(dmac, eth->mac_dst);
-        PRINT_LINE(buf, n, num, smac, dmac, "ETH 802.3", "Unknown payload");
+        PRINT_LINE(buf, n, num, smac, dmac, "LLC", "SSAP: 0x%x  DSAP: 0x%x  Control: 0x%x",
+                   eth->llc->ssap, eth->llc->dsap, eth->llc->control);
     }
 }
 
@@ -169,9 +170,17 @@ void print_ip(char *buf, int n, struct ip_info *ip, uint32_t num)
         print_udp(buf, n, &ip->udp);
         break;
     default:
+    {
+        char *protocol = get_ip_transport_protocol(ip->protocol);
+
         PRINT_PROTOCOL(buf, n, "IPv4");
-        PRINT_INFO(buf, n, "Unknown payload");
+        if (protocol) {
+            PRINT_INFO(buf, n, "Next header: %s", protocol);
+        } else {
+            PRINT_INFO(buf, n, "Next header: %d", ip->protocol);
+        }
         break;
+    }
     }
 }
 
@@ -197,7 +206,7 @@ void print_ipv6(char *buf, int n, struct ipv6_info *info, uint32_t num)
         break;
     default:
         PRINT_PROTOCOL(buf, n, "IPv6");
-        PRINT_INFO(buf, n, "Unknown payload");
+        PRINT_INFO(buf, n, "Next header: %d", info->next_header);
         break;
     }
 }
