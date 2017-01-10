@@ -72,7 +72,7 @@ void print_buffer(char *buf, int size, struct packet *p)
 
             HW_ADDR_NTOP(smac, p->eth.mac_src);
             HW_ADDR_NTOP(dmac, p->eth.mac_dst);
-            PRINT_LINE(buf, size, p->num, smac, dmac, "ETH II", "Unknown payload");
+            PRINT_LINE(buf, size, p->num, smac, dmac, "ETH II", "Ethertype: 0x%x", p->eth.ethertype);
         }
         break;
     }
