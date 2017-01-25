@@ -40,6 +40,10 @@
  * - The Query Interval is the interval between general queries sent by the
  *   querier. Default: 125 seconds.
  *
+ * Group Address is the multicast address being queried when sending a
+ * Group-Specific or Group-and-Source-Specific Query. The field is zeroed when
+ * sending a General Query.
+ *
  * TODO: Handle IGMPv3 membership query
  */
 bool handle_igmp(unsigned char *buffer, int n, struct igmp_info *info)

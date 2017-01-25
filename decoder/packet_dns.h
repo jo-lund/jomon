@@ -65,7 +65,7 @@ struct application_info;
  * ago are declared invalid, and marked to expire from the cache in one second.
  * cf. RFC 6762, section 10.2
  */
-#define GET_MDNS_CACHE_FLUSH(rrclass) (rrclass & 0x8000)
+#define GET_MDNS_CACHE_FLUSH(rrclass) ((rrclass) & 0x8000)
 
 /*
  * Multicast DNS defines the top bit in the class field of a DNS
@@ -75,10 +75,10 @@ struct application_info;
  * multicast responses.
  * cf RFC 6762, section 5.4
 */
-#define GET_MDNS_UNICAST_RESPONSE(qclass) (qclass & 0x8000)
+#define GET_MDNS_UNICAST_RESPONSE(qclass) ((qclass) & 0x8000)
 
 /* Get the rrclass proper from the MDNS rrclass field */
-#define GET_MDNS_RRCLASS(rrclass) (rrclass & 0x7fff)
+#define GET_MDNS_RRCLASS(rrclass) ((rrclass) & 0x7fff)
 
 enum dns_section_count {
     QDCOUNT,
@@ -201,7 +201,6 @@ struct dns_info {
                                     the same priority */
                 char target[DNS_NAMELEN]; /* domain name of the target host */
             } srv;
-
 
         } rdata;
     } *record;
