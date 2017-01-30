@@ -30,7 +30,7 @@ static struct subwin_info {
     unsigned int num_lines;
 } subwindow;
 
-extern vector_t *vector;
+extern vector_t *packets;
 bool numeric = true;
 static WINDOW *wheader;
 static WINDOW *wmain;
@@ -172,7 +172,7 @@ bool check_line(int lines)
     if (subwindow.win) {
         num_lines += subwindow.num_lines - 1;
     }
-    if (selection_line < vector_size(vector) + num_lines - 1) {
+    if (selection_line < vector_size(packets) + num_lines - 1) {
         return true;
     }
     return false;
@@ -186,7 +186,7 @@ void handle_keyup(int lines, int cols)
 
     /* scroll screen if the selection bar is at the top */
     if (top && selection_line == top) {
-        struct packet *p = vector_get_data(vector, --selection_line);
+        struct packet *p = vector_get_data(packets, --selection_line);
 
         top--;
         if (subwindow.win) {
@@ -234,7 +234,7 @@ void handle_keydown(int lines, int cols)
 
     /* scroll screen if the selection bar is at the bottom */
     if (selection_line - top == lines - 1) {
-        struct packet *p = vector_get_data(vector, ++selection_line);
+        struct packet *p = vector_get_data(packets, ++selection_line);
 
         top++;
         if (subwindow.win) {
@@ -278,17 +278,17 @@ void scroll_page(int lines, int cols)
         set_interactive(true, lines, cols);
     }
     if (lines > 0) { /* scroll page down */
-        if (vector_size(vector) <= lines) {
+        if (vector_size(packets) <= lines) {
             mvwchgat(wmain, selection_line - top, 0, -1, A_NORMAL, 0, NULL);
-            selection_line = vector_size(vector) - 1;
+            selection_line = vector_size(packets) - 1;
             mvwchgat(wmain, selection_line - top, 0, -1, A_NORMAL, 1, NULL);
         } else {
             int bottom = top + lines - 1;
 
             mvwchgat(wmain, selection_line - top, 0, -1, A_NORMAL, 0, NULL);
             selection_line += lines;
-            if (bottom + lines > vector_size(vector) - 1) {
-                int scroll = vector_size(vector) - bottom - 1;
+            if (bottom + lines > vector_size(packets) - 1) {
+                int scroll = vector_size(packets) - bottom - 1;
 
                 wscrl(wmain, scroll);
                 top += scroll;
@@ -296,10 +296,10 @@ void scroll_page(int lines, int cols)
                     subwindow.top -= scroll;
                     main_line.line_number -= scroll;
                 }
-                if (selection_line >= vector_size(vector)) {
-                    selection_line = vector_size(vector) - 1;
+                if (selection_line >= vector_size(packets)) {
+                    selection_line = vector_size(packets) - 1;
                 }
-                print_lines(bottom + 1, vector_size(vector), vector_size(vector) - scroll - top, cols);
+                print_lines(bottom + 1, vector_size(packets), vector_size(packets) - scroll - top, cols);
             } else {
                 top += lines;
                 if (subwindow.win) {
@@ -312,7 +312,7 @@ void scroll_page(int lines, int cols)
             mvwchgat(wmain, selection_line - top, 0, -1, A_NORMAL, 1, NULL);
         }
     } else { /* scroll page up */
-        if (vector_size(vector) <= abs(lines)) {
+        if (vector_size(packets) <= abs(lines)) {
             mvwchgat(wmain, selection_line, 0, -1, A_NORMAL, 0, NULL);
             selection_line = 0;
             mvwchgat(wmain, 0, 0, -1, A_NORMAL, 1, NULL);
@@ -343,7 +343,7 @@ void scroll_page(int lines, int cols)
 
 void set_interactive(bool interactive_mode, int lines, int cols)
 {
-    if (!vector_size(vector)) return;
+    if (!vector_size(packets)) return;
 
     if (interactive_mode) {
         interactive = true;
@@ -360,7 +360,7 @@ void set_interactive(bool interactive_mode, int lines, int cols)
             main_line.selected = false;
         }
         if (outy >= lines && capturing) {
-            int c = vector_size(vector) - 1;
+            int c = vector_size(packets) - 1;
 
             werase(wmain);
 
@@ -369,7 +369,7 @@ void set_interactive(bool interactive_mode, int lines, int cols)
                 struct packet *p;
                 char buffer[cols];
 
-                p = vector_get_data(vector, c);
+                p = vector_get_data(packets, c);
                 print_buffer(buffer, cols, p);
                 mvwprintw(wmain, i, 0, "%s", buffer);
             }
@@ -397,7 +397,7 @@ int print_lines(int from, int to, int y, int cols)
         struct packet *p;
         char buffer[cols];
 
-        p = vector_get_data(vector, from);
+        p = vector_get_data(packets, from);
         if (!p) break;
         print_buffer(buffer, cols, p);
         mvwprintw(wmain, y++, 0, "%s", buffer);
@@ -450,8 +450,8 @@ void print_file()
     int my = getmaxy(wmain);
 
     capturing = false;
-    for (int i = 0; i < vector_size(vector) && i < my; i++) {
-        print_packet(vector_get_data(vector, i));
+    for (int i = 0; i < vector_size(packets) && i < my; i++) {
+        print_packet(vector_get_data(packets, i));
     }
     set_interactive(true, -1, -1);
 }
@@ -485,7 +485,7 @@ void print_selected_packet()
 
         inside_subwin = update_subwin_selection();
         if (inside_subwin) {
-            p = vector_get_data(vector, prev_selection);
+            p = vector_get_data(packets, prev_selection);
             print_protocol_information(p, prev_selection);
             return;
         }
@@ -506,7 +506,7 @@ void print_selected_packet()
         }
     }
     if (main_line.selected) {
-        p = vector_get_data(vector, selection_line + scrollvy);
+        p = vector_get_data(packets, selection_line + scrollvy);
         add_elements(p);
         print_protocol_information(p, selection_line + scrollvy);
     } else {

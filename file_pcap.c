@@ -30,7 +30,7 @@ typedef struct pcaprec_hdr_s {
     uint32_t orig_len;       /* actual length of packet */
 } pcaprec_hdr_t;
 
-extern vector_t *vector;
+extern vector_t *packets;
 static bool big_endian = false;
 
 static int read_buf(unsigned char *buf, size_t len);
@@ -113,7 +113,7 @@ int read_buf(unsigned char *buf, size_t len)
         if (!decode_packet(buf, pkt_len, &p)) {
             return -1;
         }
-        vector_push_back(vector, p);
+        vector_push_back(packets, p);
         n -= pkt_len;
         buf += pkt_len;
     }

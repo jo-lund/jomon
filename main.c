@@ -44,7 +44,7 @@ char *device = NULL;
 int verbose;
 int promiscuous;
 int statistics;
-vector_t *vector;
+vector_t *packets;
 
 static volatile sig_atomic_t signal_flag = 0;
 static int sockfd = -1; /* packet socket file descriptor */
@@ -153,7 +153,7 @@ void finish()
     if (!no_curses) {
         end_ncurses();
     }
-    vector_clear(vector);
+    vector_clear(packets);
     free(c.device);
     free(c.filename);
     free(local_addr);
@@ -215,7 +215,7 @@ void init_structures()
     }
 
     /* Initialize table to store packets */
-    vector = vector_init(1000, free_packet);
+    packets = vector_init(1000, free_packet);
 }
 
 /* The main event loop */
@@ -243,7 +243,7 @@ void run()
 
             n = read_packet(sockfd, buffer, SNAPLEN, &p);
             if (n) {
-                vector_push_back(vector, p);
+                vector_push_back(packets, p);
                 if (!no_curses) {
                     print_packet(p);
                 }
