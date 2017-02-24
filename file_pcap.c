@@ -8,7 +8,7 @@
 #include "vector.h"
 #include "decoder/decoder.h"
 
-#define BUFSIZE 65535
+#define BUFSIZE 128 * 1024
 #define LINKTYPE_ETHERNET 1
 
 /* global header that starts the pcap file */
@@ -39,7 +39,7 @@ static enum file_error read_header(unsigned char *buf, size_t len);
 enum file_error read_file(const char *path)
 {
     FILE *fp;
-    unsigned char *buf;
+    unsigned char buf[BUFSIZE];
     enum file_error error = NO_ERROR;
     size_t len;
     int n = 0;
@@ -47,12 +47,10 @@ enum file_error read_file(const char *path)
     if (!(fp = fopen(path, "r"))) {
         err_sys("fopen error");
     }
-    buf = malloc(BUFSIZE);
     len = fread(buf, sizeof(unsigned char), sizeof(pcap_hdr_t), fp);
     error = read_header(buf, len);
     if (error != NO_ERROR) {
         fclose(fp);
-        free(buf);
         return error;
     }
     while ((len = fread(buf + n, sizeof(unsigned char), BUFSIZE - n, fp)) > 0) {
@@ -67,7 +65,6 @@ enum file_error read_file(const char *path)
     }
     if (ferror(fp)) error = FORMAT_ERROR;
     fclose(fp);
-    free(buf);
 
     return error;
 }
