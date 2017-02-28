@@ -109,41 +109,28 @@ struct tm_t get_time(uint32_t num_secs)
 
 void time_ntop(struct tm_t *time, char *result, int len)
 {
-    bool found = false;
+    int n = 0;
 
     memset(result, 0, len);
     if (time->days) {
-        snprintcat(result, len, time->days == 1 ? "%d day" : "%d days",
-                   time->days);
-        found = true;
+        n += snprintcat(result, len, time->days == 1 ? "%d day, " : "%d days, ",
+                       time->days);
     }
     if (time->hours) {
-        if (found) {
-            snprintcat(result, len, time->hours == 1 ? ", %d hour" : ", %d hours",
-                       time->hours);
-        } else {
-            snprintcat(result, len, time->hours == 1 ? "%d hour" : "%d hours",
-                       time->hours);
-            found = true;
-        }
+        n += snprintcat(result, len, time->hours == 1 ? "%d hour, " : "%d hours, ",
+                        time->hours);
     }
     if (time->mins) {
-        if (found) {
-            snprintcat(result, len, time->mins == 1 ? ", %d minute" :
-                       ", %d minutes", time->mins);
-        } else {
-            snprintcat(result, len, time->mins == 1 ? "%d minute" :
-                       "%d minutes", time->mins);
-            found = true;
-        }
+        n += snprintcat(result, len, time->mins == 1 ? "%d minute, " :
+                        "%d minutes, ", time->mins);
     }
     if (time->secs) {
-        if (found) {
-            snprintcat(result, len, time->secs == 1 ? ", %d second" :
-                       ", %d seconds", time->secs);
-        } else {
-            snprintcat(result, len, time->secs == 1 ? "%d second" :
-                       "%d seconds", time->secs);
-        }
+        n += snprintcat(result, len, time->secs == 1 ? "%d second" :
+                        "%d seconds", time->secs);
+    }
+    if (!n) {
+        snprintcat(result, len, "0 seconds");
+    } else if (!time->secs) {
+        result[n-2] = '\0'; /* remove trailing comma */
     }
 }
