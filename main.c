@@ -1,14 +1,7 @@
 /* Network traffic monitor
  *
- * This program will monitor all incoming/outgoing network traffic and 
- * print out the speed of the download/upload. It uses the libpcap library, 
- * if available, to capture packets (http://www.tcpdump.org). On Mac OS X this
- * library will use the BSD packet filter (BPF) to interface with the network
- * device.
- *
- * The speed of the download/upload is based on the network throughput, which
- * means that the bit rate will be measured at a reference point above the 
- * datalink layer, i.e., the reference point will be the IP layer.
+ * This program will monitor all incoming/outgoing network traffic and
+ * give a log of the packets on the network.
  */
 
 #include <stdio.h>
@@ -67,7 +60,7 @@ int main(int argc, char **argv)
     statistics = 0;
     promiscuous = 0;
     no_curses = 0;
-    while ((opt = getopt(argc, argv, "i:f:lhvpsr")) != -1) {
+    while ((opt = getopt(argc, argv, "i:r:lhvpst")) != -1) {
         switch (opt) {
         case 'i':
             c.device = strdup(optarg);
@@ -85,10 +78,10 @@ int main(int argc, char **argv)
         case 's':
             statistics = 1;
             break;
-        case 'f':
+        case 'r':
             c.filename = strdup(optarg);
             break;
-        case 'r':
+        case 't':
             no_curses = 1;
             break;
         case 'h':
@@ -127,14 +120,15 @@ int main(int argc, char **argv)
 
 void print_help(char *prg)
 {
-    printf("Usage: %s [-lvhp] [-i interface] [-f path]\n", prg);
+    printf("Usage: %s [-lvhpst] [-i interface] [-r path]\n", prg);
     printf("Options:\n");
     printf("     -i  Specify network interface\n");
     printf("     -l  List available interfaces\n");
     printf("     -p  Use promiscuous mode\n");
     printf("     -s  Show statistics page\n");
     printf("     -v  Print verbose information\n");
-    printf("     -f  Read file in pcap format\n");
+    printf("     -r  Read file in pcap format\n");
+    printf("     -t  Use normal text output, i.e. don't use ncurses\n");
     printf("     -h  Print this help summary\n");
 }
 
