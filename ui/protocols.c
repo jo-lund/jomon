@@ -33,7 +33,7 @@
 static void print_arp(char *buf, int n, struct arp_info *info, uint32_t num);
 static void print_llc(char *buf, int n, struct eth_info *eth, uint32_t num);
 static void print_ip(char *buf, int n, struct ip_info *ip, uint32_t num);
-static void print_ipv6(char *buf, int n, struct ipv6_info *info, uint32_t num);
+static void print_ipv6(char *buf, int n, struct ipv6_info *ip, uint32_t num);
 static void print_udp(char *buf, int n, struct udp_info *info);
 static void print_tcp(char *buf, int n, struct tcp *info);
 static void print_icmp(char *buf, int n, struct icmp_info *info);
@@ -49,7 +49,8 @@ static void add_dns_soa(list_view *lw, list_view_item *w, struct dns_info *info,
 static void add_dns_txt(list_view *lw, list_view_item *w, struct dns_info *dns, int i);
 static void add_dns_record(list_view *lw, list_view_item *w, struct dns_info *info, int i,
                            char *buf, int n, uint16_t type);
-static void add_tcp_options(list_view *lw, list_view_item *w, struct tcp *tcp);
+static void add_tcp_options(list_view *lw, list_view_item *header, struct tcp *tcp,
+                            bool options_selected);
 
 void print_buffer(char *buf, int size, struct packet *p)
 {
@@ -184,29 +185,29 @@ void print_ip(char *buf, int n, struct ip_info *ip, uint32_t num)
     }
 }
 
-void print_ipv6(char *buf, int n, struct ipv6_info *info, uint32_t num)
+void print_ipv6(char *buf, int n, struct ipv6_info *ip, uint32_t num)
 {
     char src[INET6_ADDRSTRLEN];
     char dst[INET6_ADDRSTRLEN];
 
     PRINT_NUMBER(buf, n, num);
-    inet_ntop(AF_INET6, info->src, src, INET6_ADDRSTRLEN);
-    inet_ntop(AF_INET6, info->dst, dst, INET6_ADDRSTRLEN);
+    inet_ntop(AF_INET6, ip->src, src, INET6_ADDRSTRLEN);
+    inet_ntop(AF_INET6, ip->dst, dst, INET6_ADDRSTRLEN);
     PRINT_ADDRESS(buf, n, src, dst);
 
-    switch (info->next_header) {
+    switch (ip->next_header) {
     case IPPROTO_IGMP:
-        print_igmp(buf, n, &info->igmp);
+        print_igmp(buf, n, &ip->igmp);
         break;
     case IPPROTO_TCP:
-        print_tcp(buf, n, &info->tcp);
+        print_tcp(buf, n, &ip->tcp);
         break;
     case IPPROTO_UDP:
-        print_udp(buf, n, &info->udp);
+        print_udp(buf, n, &ip->udp);
         break;
     default:
         PRINT_PROTOCOL(buf, n, "IPv6");
-        PRINT_INFO(buf, n, "Next header: %d", info->next_header);
+        PRINT_INFO(buf, n, "Next header: %d", ip->next_header);
         break;
     }
 }
@@ -628,7 +629,7 @@ void add_ipv4_information(list_view *lw, list_view_item *header, struct ip_info 
 
     ADD_TEXT_ELEMENT(lw, header, "Version: %u", ip->version);
     ADD_TEXT_ELEMENT(lw, header, "Internet Header Length (IHL): %u", ip->ihl);
-    snprintf(buf, MAXLINE, "Differentiated Services Code Point (DSCP): 0x%x", ip->dscp);    
+    snprintf(buf, MAXLINE, "Differentiated Services Code Point (DSCP): 0x%x", ip->dscp);
     if ((dscp = get_ip_dscp(ip->dscp))) {
         snprintcat(buf, MAXLINE, " %s", dscp);
     }
@@ -761,27 +762,53 @@ void add_tcp_information(list_view *lw, list_view_item *header, struct tcp *tcp,
     ADD_TEXT_ELEMENT(lw, header, "Checksum: %u", tcp->checksum);
     ADD_TEXT_ELEMENT(lw, header, "Urgent pointer: %u", tcp->urg_ptr);
     if (tcp->options) {
-        list_view_item *w;
-
-        w = ADD_SUB_HEADER(lw, header, options_selected, SUBLAYER, "Options");
-        add_tcp_options(lw, w, tcp);
-        ADD_TEXT_ELEMENT(lw, header, "");
+        add_tcp_options(lw, header, tcp, options_selected);
     }
+    ADD_TEXT_ELEMENT(lw, header, "");
 }
 
-void add_tcp_options(list_view *lw, list_view_item *w, struct tcp *tcp)
+void add_tcp_options(list_view *lw, list_view_item *header, struct tcp *tcp, bool options_selected)
 {
-    if (tcp->options) {
-        struct tcp_options *opt;
+    list_t *options;
+    const node_t *n;
+    list_view_item *h;
 
-        opt = parse_tcp_options(tcp->options, (tcp->offset - 5) * 4);
-        if (opt->nop) ADD_TEXT_ELEMENT(lw, w, "No operation: %u bytes", opt->nop);
-        if (opt->mss) ADD_TEXT_ELEMENT(lw, w, "Maximum segment size: %u", opt->mss);
-        if (opt->win_scale) ADD_TEXT_ELEMENT(lw, w, "Window scale: %u", opt->win_scale);
-        if (opt->sack_permitted) ADD_TEXT_ELEMENT(lw, w, "Selective Acknowledgement permitted");
-        if (opt->sack) {
+    options = parse_tcp_options(tcp->options, (tcp->offset - 5) * 4);
+    h = ADD_SUB_HEADER(lw, header, options_selected, SUBLAYER, "Options");
+    n = list_begin(options);
+
+    while (n) {
+        struct tcp_options *opt = list_data(n);
+        list_view_item *w;
+
+        switch (opt->option_kind) {
+        case TCP_OPT_NOP:
+            w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "No operation");
+            ADD_TEXT_ELEMENT(lw, w, "Option kind: %u", opt->option_kind);
+            ADD_TEXT_ELEMENT(lw, w, "Option length: %u", opt->option_length);
+            break;
+        case TCP_OPT_MSS:
+            w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Maximum segment size: %u", opt->mss);
+            ADD_TEXT_ELEMENT(lw, w, "Option kind: %u", opt->option_kind);
+            ADD_TEXT_ELEMENT(lw, w, "Option length: %u", opt->option_length);
+            break;
+        case TCP_OPT_WIN_SCALE:
+            w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Window scale: %u", opt->win_scale);
+            ADD_TEXT_ELEMENT(lw, w, "Option kind: %u", opt->option_kind);
+            ADD_TEXT_ELEMENT(lw, w, "Option length: %u", opt->option_length);
+            break;
+        case TCP_OPT_SAP:
+            w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Selective Acknowledgement permitted");
+            ADD_TEXT_ELEMENT(lw, w, "Option kind: %u", opt->option_kind);
+            ADD_TEXT_ELEMENT(lw, w, "Option length: %u", opt->option_length);
+            break;
+        case TCP_OPT_SACK:
+        {
             const node_t *n = list_begin(opt->sack);
 
+            w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Selective Acknowledgement");
+            ADD_TEXT_ELEMENT(lw, w, "Option kind: %u", opt->option_kind);
+            ADD_TEXT_ELEMENT(lw, w, "Option length: %u", opt->option_length);
             while (n) {
                 struct tcp_sack_block *block = list_data(n);
 
@@ -789,11 +816,22 @@ void add_tcp_options(list_view *lw, list_view_item *w, struct tcp *tcp)
                 ADD_TEXT_ELEMENT(lw, w, "Right edge: %u", block->right_edge);
                 n = list_next(n);
             }
+            break;
         }
-        if (opt->ts_val) ADD_TEXT_ELEMENT(lw, w, "Timestamp value: %u", opt->ts_val);
-        if (opt->ts_ecr) ADD_TEXT_ELEMENT(lw, w, "Timestamp echo reply: %u", opt->ts_ecr);
-        free_tcp_options(opt);
+        case TCP_OPT_TIMESTAMP:
+            w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Timestamp");
+            ADD_TEXT_ELEMENT(lw, w, "Option kind: %u", opt->option_kind);
+            ADD_TEXT_ELEMENT(lw, w, "Option length: %u", opt->option_length);
+            ADD_TEXT_ELEMENT(lw, w, "Timestamp value: %u", opt->ts_val);
+            ADD_TEXT_ELEMENT(lw, w, "Timestamp echo reply: %u", opt->ts_ecr);
+            break;
+        default:
+            break;
+        }
+        n = list_next(n);
+        if (n) ADD_TEXT_ELEMENT(lw, w, "");
     }
+    list_free(options);
 }
 
 void add_dns_information(list_view *lw, list_view_item *header, struct dns_info *dns,
