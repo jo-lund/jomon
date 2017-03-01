@@ -23,11 +23,11 @@
 #define PRINT_INFO(buffer, n, fmt, ...)         \
     snprintcat(buffer, n, fmt, ## __VA_ARGS__)
 #define PRINT_LINE(buffer, n, i, src, dst, prot, fmt, ...)  \
-    do {                                                   \
-        PRINT_NUMBER(buffer, n, i);                        \
-        PRINT_ADDRESS(buffer, n, src, dst);                \
-        PRINT_PROTOCOL(buffer, n, prot);                   \
-        PRINT_INFO(buffer, n, fmt, ## __VA_ARGS__);        \
+    do {                                                    \
+        PRINT_NUMBER(buffer, n, i);                         \
+        PRINT_ADDRESS(buffer, n, src, dst);                 \
+        PRINT_PROTOCOL(buffer, n, prot);                    \
+        PRINT_INFO(buffer, n, fmt, ## __VA_ARGS__);         \
     } while (0)
 
 static void print_arp(char *buf, int n, struct arp_info *info, uint32_t num);
@@ -38,6 +38,7 @@ static void print_udp(char *buf, int n, struct udp_info *info);
 static void print_tcp(char *buf, int n, struct tcp *info);
 static void print_icmp(char *buf, int n, struct icmp_info *info);
 static void print_igmp(char *buf, int n, struct igmp_info *info);
+static void print_pim(char *buf, int n, struct pim_info *pim);
 static void print_dns(char *buf, int n, struct dns_info *dns, uint16_t type);
 static void print_nbns(char *buf, int n, struct nbns_info *nbns);
 static void print_ssdp(char *buf, int n, list_t *ssdp);
@@ -51,6 +52,10 @@ static void add_dns_record(list_view *lw, list_view_item *w, struct dns_info *in
                            char *buf, int n, uint16_t type);
 static void add_tcp_options(list_view *lw, list_view_item *header, struct tcp *tcp,
                             bool options_selected);
+static void add_pim_hello(list_view *lw, list_view_item *header, struct pim_info *pim,
+                          bool msg_selected);
+static void add_pim_assert(list_view *lw, list_view_item *header, struct pim_info *pim,
+                           bool msg_selected);
 
 void print_buffer(char *buf, int size, struct packet *p)
 {
@@ -170,6 +175,9 @@ void print_ip(char *buf, int n, struct ip_info *ip, uint32_t num)
     case IPPROTO_UDP:
         print_udp(buf, n, &ip->udp);
         break;
+    case IPPROTO_PIM:
+        print_pim(buf, n, &ip->pim);
+        break;
     default:
     {
         char *protocol = get_ip_transport_protocol(ip->protocol);
@@ -204,6 +212,9 @@ void print_ipv6(char *buf, int n, struct ipv6_info *ip, uint32_t num)
         break;
     case IPPROTO_UDP:
         print_udp(buf, n, &ip->udp);
+        break;
+    case IPPROTO_PIM:
+        print_pim(buf, n, &ip->pim);
         break;
     default:
         PRINT_PROTOCOL(buf, n, "IPv6");
@@ -259,6 +270,18 @@ void print_igmp(char *buf, int n, struct igmp_info *info)
     }
     inet_ntop(AF_INET, &info->group_addr, addr, INET_ADDRSTRLEN);
     PRINT_INFO(buf, n, "  Group address: %s", addr);
+}
+
+void print_pim(char *buf, int n, struct pim_info *pim)
+{
+    char *type = get_pim_message_type(pim->type);
+
+    PRINT_PROTOCOL(buf, n, "PIM");
+    if (type) {
+        PRINT_INFO(buf, n, "Message type: %s", type);
+    } else {
+        PRINT_INFO(buf, n, "Message type: %d", pim->type);
+    }
 }
 
 void print_tcp(char *buf, int n, struct tcp *info)
@@ -736,6 +759,117 @@ void add_igmp_information(list_view *lw, list_view_item *header, struct igmp_inf
     ADD_TEXT_ELEMENT(lw, header, "Max response time: %d seconds", igmp->max_resp_time / 10);
     ADD_TEXT_ELEMENT(lw, header, "Checksum: %d", igmp->checksum);
     ADD_TEXT_ELEMENT(lw, header, "Group address: %s", addr);
+}
+
+void add_pim_information(list_view *lw, list_view_item *header, struct pim_info *pim, bool msg_selected)
+{
+    char *type = get_pim_message_type(pim->type);
+
+    ADD_TEXT_ELEMENT(lw, header, "Version: %d", pim->version);
+    if (type) {
+        ADD_TEXT_ELEMENT(lw, header, "Type: %d (%s)", pim->type, type);
+    } else {
+        ADD_TEXT_ELEMENT(lw, header, "Type: %d", pim->type);
+    }
+    ADD_TEXT_ELEMENT(lw, header, "Checksum: %u", pim->checksum);
+    switch (pim->type) {
+    case PIM_HELLO:
+        add_pim_hello(lw, header, pim, msg_selected);
+        break;
+    case PIM_ASSERT:
+        add_pim_assert(lw, header, pim, msg_selected);
+        break;
+    default:
+        break;
+    }
+}
+
+void add_pim_hello(list_view *lw, list_view_item *header, struct pim_info *pim, bool msg_selected)
+{
+    list_t *opt;
+    const node_t *n;
+    list_view_item *h;
+
+    opt = parse_hello_options(pim);
+    h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Hello Message (%d options)", list_size(opt));
+    n = list_begin(opt);
+    while (n) {
+        struct pim_hello *hello = list_data(n);
+        list_view_item *w;
+        struct tm_t tm;
+        char time[512];
+
+        switch (hello->option_type) {
+        case PIM_HOLDTIME:
+            tm = get_time(hello->holdtime);
+            time_ntop(&tm, time, 512);
+            w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Holdtime: %s", time);
+            ADD_TEXT_ELEMENT(lw, w, "Option type: %u", hello->option_type);
+            ADD_TEXT_ELEMENT(lw, w, "Option length: %u", hello->option_len);
+            break;
+        case PIM_LAN_PRUNE_DELAY:
+            w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "LAN Prune Delay");
+            ADD_TEXT_ELEMENT(lw, w, "Option type: %u", hello->option_type);
+            ADD_TEXT_ELEMENT(lw, w, "Option length: %u", hello->option_len);
+            ADD_TEXT_ELEMENT(lw, w, "Propagation delay: %u ms", hello->lan_prune_delay.prop_delay);
+            ADD_TEXT_ELEMENT(lw, w, "Override interval: %u ms", hello->lan_prune_delay.override_interval);
+            break;
+        case PIM_DR_PRIORITY:
+            w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "DR Priority: %u", hello->dr_priority);
+            ADD_TEXT_ELEMENT(lw, w, "Option type: %u", hello->option_type);
+            ADD_TEXT_ELEMENT(lw, w, "Option length: %u", hello->option_len);
+            break;
+        case PIM_GENERATION_ID:
+            w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Generation ID: %u", hello->gen_id);
+            ADD_TEXT_ELEMENT(lw, w, "Option type: %u", hello->option_type);
+            ADD_TEXT_ELEMENT(lw, w, "Option length: %u", hello->option_len);
+            break;
+        case PIM_STATE_REFRESH_CAPABLE:
+            memset(&time, 0, 512);
+            tm = get_time(hello->state_refresh.interval);
+            time_ntop(&tm, time, 512);
+            w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "State Refresh Capable");
+            ADD_TEXT_ELEMENT(lw, w, "Option type: %u", hello->option_type);
+            ADD_TEXT_ELEMENT(lw, w, "Option length: %u", hello->option_len);
+            ADD_TEXT_ELEMENT(lw, w, "Version: %u", hello->state_refresh.version);
+            ADD_TEXT_ELEMENT(lw, w, "Interval: %s", time);
+            break;
+        case PIM_ADDRESS_LIST:
+        default:
+            w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Unknown option: %u", hello->option_type);
+            ADD_TEXT_ELEMENT(lw, w, "Option type: %u", hello->option_type);
+            ADD_TEXT_ELEMENT(lw, w, "Option length: %u", hello->option_len);
+            break;
+        }
+        n = list_next(n);
+        if (n) ADD_TEXT_ELEMENT(lw, w, "");
+    }
+    list_free(opt);
+}
+
+void add_pim_assert(list_view *lw, list_view_item *header, struct pim_info *pim, bool msg_selected)
+{
+    list_view_item *h;
+    char *addr;
+
+    h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Assert Message");
+    addr = get_pim_address(pim->assert->gaddr.addr_family, pim->assert->gaddr.addr);
+    if (addr) {
+        if (pim->assert->gaddr.mask_len) {
+            ADD_TEXT_ELEMENT(lw, h, "Group address: %s/%d", addr, pim->assert->gaddr.mask_len);
+        } else {
+            ADD_TEXT_ELEMENT(lw, h, "Group address: %s", addr);
+        }
+        free(addr);
+    }
+    addr = get_pim_address(pim->assert->saddr.addr_family, pim->assert->saddr.addr);
+    if (addr) {
+        ADD_TEXT_ELEMENT(lw, h, "Source address: %s", addr);
+        free(addr);
+    }
+    ADD_TEXT_ELEMENT(lw, h, "RPTbit: %u", GET_RPTBIT(pim->assert->metric_pref));
+    ADD_TEXT_ELEMENT(lw, h, "Metric preference: %u", GET_METRIC_PREFERENCE(pim->assert->metric_pref));
+    ADD_TEXT_ELEMENT(lw, h, "Metric: %u", pim->assert->metric);
 }
 
 void add_udp_information(list_view *lw, list_view_item *header, struct udp_info *udp)

@@ -80,6 +80,9 @@ void free_packet(void *data)
                 free(p->eth.ip->tcp.options);
             }
             break;
+        case IPPROTO_PIM:
+            free_pim_packet(&p->eth.ip->pim);
+            break;
         case IPPROTO_ICMP:
         case IPPROTO_IGMP:
             break;
@@ -101,6 +104,9 @@ void free_packet(void *data)
             if (p->eth.ipv6->tcp.options) {
                 free(p->eth.ipv6->tcp.options);
             }
+            break;
+        case IPPROTO_PIM:
+            free_pim_packet(&p->eth.ipv6->pim);
             break;
         case IPPROTO_ICMP:
         case IPPROTO_IGMP:

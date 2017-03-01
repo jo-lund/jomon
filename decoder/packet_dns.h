@@ -92,6 +92,7 @@ struct txt_rr {
     char *txt;
 };
 
+// TODO: Clean up this structure
 struct dns_info {
     uint16_t id; /* A 16 bit identifier */
     unsigned int qr     : 1; /* 0 DNS query, 1 DNS response */

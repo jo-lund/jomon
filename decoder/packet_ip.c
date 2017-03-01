@@ -68,7 +68,7 @@ bool handle_ipv4(unsigned char *buffer, int n, struct eth_info *eth)
 
     ip = (struct iphdr *) buffer;
     if (n < ip->ihl * 4) return false;
-    
+
     eth->ip = calloc(1, sizeof(struct ip_info));
     eth->ip->src = ip->saddr;
     eth->ip->dst = ip->daddr;
@@ -101,10 +101,15 @@ bool handle_ipv4(unsigned char *buffer, int n, struct eth_info *eth)
         error = !handle_udp(buffer + header_len, n - header_len, &eth->ip->udp);
         break;
     case IPPROTO_PIM:
+        error = !handle_pim(buffer + header_len, n - header_len, &eth->ip->pim);
+        break;
     default:
         error = true;
         break;
     }
+    // TODO: Need to correctly handle errors. We need to know that the packet
+    // had some errors in parsing and that the protocol data should be printed
+    // as plain data and not as the original protocol
     if (error) {
         eth->ip->payload = malloc(n - header_len);
         memcpy(eth->ip->payload, buffer + header_len, n - header_len);
@@ -184,6 +189,8 @@ bool handle_ipv6(unsigned char *buffer, int n, struct eth_info *eth)
         error = !handle_udp(buffer + header_len, n - header_len, &eth->ipv6->udp);
         break;
     case IPPROTO_PIM:
+        error = !handle_pim(buffer + header_len, n - header_len, &eth->ipv6->pim);
+        break;
     case IPPROTO_ICMPV6:
     default:
         error = true;
@@ -236,4 +243,3 @@ char *get_ip_transport_protocol(uint8_t protocol)
         return NULL;
     }
 }
-

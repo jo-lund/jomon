@@ -42,7 +42,7 @@ static bool capturing = true;
 static list_view *lw;
 
 /*
- * Index to top of main window. The main screen will be between top + maximum 
+ * Index to top of main window. The main screen will be between top + maximum
  * number of lines of the main window, i.e. getmaxy(wmain).
  */
 static int top = 0;
@@ -612,6 +612,14 @@ void add_transport_elements(struct packet *p)
             add_igmp_information(lw, header, &p->eth.ipv6->igmp);
         }
         break;
+    case IPPROTO_PIM:
+        header = ADD_HEADER(lw, "Protocol Independent Multicast (PIM)", selected[PIM], PIM);
+        if (p->eth.ethertype == ETH_P_IP) {
+            add_pim_information(lw, header, &p->eth.ip->pim, selected[SUBLAYER]);
+        } else {
+            add_pim_information(lw, header, &p->eth.ipv6->pim, selected[SUBLAYER]);
+        }
+        break;
     default:
         /* unknown transport layer payload */
         header = ADD_HEADER(lw, "Data", selected[APPLICATION], APPLICATION);
@@ -660,7 +668,7 @@ void print_protocol_information(struct packet *p, int lineno)
     if (subwindow.win) {
         delete_subwindow();
     }
-    
+
     /* print information in subwindow */
     create_subwindow(lw->size + 1, lineno);
     RENDER(lw, subwindow.win);
