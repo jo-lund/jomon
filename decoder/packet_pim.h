@@ -108,11 +108,23 @@ struct pim_register {
     unsigned int border : 1; /* the Border bit */
     unsigned int null : 1; /* the Null-Register bit */
     unsigned char *data; /* multicast data packet */
+    unsigned int data_len;
 };
 
+/*
+ * A Register-Stop is unicast from the RP to the sender of the Register
+ * message. The IP source address is the address to which the register
+ * was addressed. The IP destination address is the source address of
+ * the register message.
+ */
 
 struct pim_register_stop {
+    /* the group address from the multicast data packet in the register msg */
+    struct pim_group_addr gaddr;
 
+    /* the host address of the source from the multicast data packet in the
+       register msg */
+    struct pim_unicast_addr saddr;
 };
 
 /*
@@ -193,6 +205,7 @@ struct pim_info {
     union {
         unsigned char *hello;
         struct pim_register *reg;
+        struct pim_register_stop *reg_stop;
         struct pim_assert *assert;
         struct pim_join_prune *jpg;
     };

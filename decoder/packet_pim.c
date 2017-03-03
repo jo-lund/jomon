@@ -9,12 +9,14 @@
 
 static bool parse_pim_message(unsigned char *buffer, int n, struct pim_info *pim);
 static bool parse_register_msg(unsigned char *buffer, int n, struct pim_info *pim);
+static bool parse_register_stop(unsigned char *buffer, int n, struct pim_info *pim);
 static bool parse_assert_msg(unsigned char *buffer, int n, struct pim_info *pim);
 static bool parse_join_prune(unsigned char *buffer, int n, struct pim_info *pim);
 static unsigned char *parse_address(unsigned char **data, uint8_t family,
                                     uint8_t encoding);
 static void parse_src_address(unsigned char **data, struct pim_source_addr *saddr);
 static void parse_grp_address(unsigned char **data, struct pim_group_addr *gaddr);
+static void parse_unicast_address(unsigned char **data, struct pim_unicast_addr *uaddr);
 
 /*
  *
@@ -48,7 +50,7 @@ bool parse_pim_message(unsigned char *buffer, int n, struct pim_info *pim)
     case PIM_REGISTER:
         return parse_register_msg(buffer, n, pim);
     case PIM_REGISTER_STOP:
-        return true;
+        return parse_register_stop(buffer, n, pim);
     case PIM_BOOTSTRAP:
         return true;
     case PIM_ASSERT:
@@ -68,11 +70,7 @@ bool parse_join_prune(unsigned char *buffer, int n, struct pim_info *pim)
 {
     // TODO: Add a check for minimum packet size
     pim->jpg = malloc(sizeof(struct pim_join_prune));
-    pim->jpg->neighbour.addr_family = buffer[0];
-    pim->jpg->neighbour.encoding = buffer[1];
-    buffer += 2;
-    pim->jpg->neighbour.addr = parse_address(&buffer, pim->jpg->neighbour.addr_family,
-                                             pim->jpg->neighbour.encoding);
+    parse_unicast_address(&buffer, &pim->jpg->neighbour);
     buffer++; /* next byte is reserved */
     pim->jpg->num_groups = buffer[0];
     pim->jpg->holdtime = buffer[1] << 8 | buffer[2];
@@ -105,6 +103,29 @@ bool parse_join_prune(unsigned char *buffer, int n, struct pim_info *pim)
 
 bool parse_register_msg(unsigned char *buffer, int n, struct pim_info *pim)
 {
+    // TODO: Add a check for minimum packet size
+    pim->reg = malloc(sizeof(struct pim_register));
+    pim->reg->border = (buffer[0] & 0x80) >> 7; /* Deprecated. Should be zero */
+    pim->reg->null = (buffer[0] & 0x40) >> 6;
+    buffer += 4;
+    if (n - 4 > 0) {
+        pim->reg->data_len = n - 4;
+        pim->reg->data = malloc(pim->reg->data_len);
+        memcpy(pim->reg->data, buffer, pim->reg->data_len);
+    } else {
+        pim->reg->data = NULL;
+        pim->reg->data_len = 0;
+    }
+    return true;
+}
+
+bool parse_register_stop(unsigned char *buffer, int n, struct pim_info *pim)
+{
+    // TODO: Add a check for minimum packet size
+    pim->reg_stop = malloc(sizeof(struct pim_register_stop));
+
+    parse_grp_address(&buffer, &pim->reg_stop->gaddr);
+    parse_unicast_address(&buffer, &pim->reg_stop->saddr);
     return true;
 }
 
@@ -114,11 +135,7 @@ bool parse_assert_msg(unsigned char *buffer, int n, struct pim_info *pim)
 
     pim->assert = malloc(sizeof(struct pim_assert));
     parse_grp_address(&buffer, &pim->assert->gaddr);
-    pim->assert->saddr.addr_family = buffer[0];
-    pim->assert->saddr.encoding = buffer[1];
-    buffer += 2;
-    pim->assert->saddr.addr = parse_address(&buffer, pim->assert->saddr.addr_family,
-                                            pim->assert->saddr.encoding);
+    parse_unicast_address(&buffer, &pim->assert->saddr);
     pim->assert->metric_pref = buffer[0] << 24 | buffer[1] << 16 | buffer[2] << 8 | buffer[0];
     pim->assert->metric= buffer[0] << 24 | buffer[1] << 16 | buffer[2] << 8 | buffer[0];
 
@@ -151,6 +168,17 @@ void parse_grp_address(unsigned char **data, struct pim_group_addr *gaddr)
     gaddr->mask_len = ptr[3];
     ptr += 4;
     gaddr->addr = parse_address(&ptr, gaddr->addr_family, gaddr->encoding);
+    *data = ptr;
+}
+
+void parse_unicast_address(unsigned char **data, struct pim_unicast_addr *uaddr)
+{
+    unsigned char *ptr = *data;
+
+    uaddr->addr_family = ptr[0];
+    uaddr->encoding = ptr[1];
+    ptr += 2;
+    uaddr->addr = parse_address(&ptr, uaddr->addr_family, uaddr->encoding);
     *data = ptr;
 }
 
@@ -279,8 +307,19 @@ void free_pim_packet(struct pim_info *pim)
         free(pim->hello);
         break;
     case PIM_REGISTER:
+        if (pim->reg->data) {
+            free(pim->reg->data);
+        }
+        free(pim->reg);
         break;
     case PIM_REGISTER_STOP:
+        if (pim->reg_stop->gaddr.addr) {
+            free(pim->reg_stop->gaddr.addr);
+        }
+        if (pim->reg_stop->saddr.addr) {
+            free(pim->reg_stop->saddr.addr);
+        }
+        free(pim->reg_stop);
         break;
     case PIM_BOOTSTRAP:
         break;
@@ -323,6 +362,7 @@ void free_pim_packet(struct pim_info *pim)
             }
             free(pim->jpg->groups);
         }
+        free(pim->jpg);
         break;
     case PIM_CANDIDATE_RP_ADVERTISEMENT:
         break;

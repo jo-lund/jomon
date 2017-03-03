@@ -60,6 +60,11 @@ static void add_pim_hello(list_view *lw, list_view_item *header, struct pim_info
                           bool msg_selected);
 static void add_pim_join_prune(list_view *lw, list_view_item *header, struct pim_info *pim,
                                bool msg_selected);
+static void add_pim_register(list_view *lw, list_view_item *header, struct pim_info *pim,
+                             bool msg_selected);
+static void add_pim_register_stop(list_view *lw, list_view_item *header, struct pim_info *pim,
+                                  bool msg_selected);
+
 
 void print_buffer(char *buf, int size, struct packet *p)
 {
@@ -780,6 +785,12 @@ void add_pim_information(list_view *lw, list_view_item *header, struct pim_info 
     case PIM_HELLO:
         add_pim_hello(lw, header, pim, msg_selected);
         break;
+    case PIM_REGISTER:
+        add_pim_register(lw, header, pim, msg_selected);
+        break;
+    case PIM_REGISTER_STOP:
+        add_pim_register_stop(lw, header, pim, msg_selected);
+        break;
     case PIM_ASSERT:
         add_pim_assert(lw, header, pim, msg_selected);
         break;
@@ -855,6 +866,38 @@ void add_pim_hello(list_view *lw, list_view_item *header, struct pim_info *pim, 
     list_free(opt);
 }
 
+void add_pim_register(list_view *lw, list_view_item *header, struct pim_info *pim, bool msg_selected)
+{
+    list_view_item *h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Register Message");
+
+    ADD_TEXT_ELEMENT(lw, h, "Border bit: %d", pim->reg->border);
+    ADD_TEXT_ELEMENT(lw, h, "Null-Register bit: %d", pim->reg->null);
+    if (pim->reg->data) {
+        list_view_item *w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Data");
+
+        add_payload(lw, w, pim->reg->data, pim->reg->data_len);
+    }
+}
+
+void add_pim_register_stop(list_view *lw, list_view_item *header, struct pim_info *pim,
+                           bool msg_selected)
+{
+    list_view_item *h;
+    char *addr;
+
+    h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Register-Stop Message");
+    addr = get_pim_address(pim->assert->gaddr.addr_family, pim->assert->gaddr.addr);
+    if (addr) {
+        ADD_TEXT_ELEMENT(lw, h, "Group address: %s/%d", addr, pim->assert->gaddr.mask_len);
+        free(addr);
+    }
+    addr = get_pim_address(pim->assert->saddr.addr_family, pim->assert->saddr.addr);
+    if (addr) {
+        ADD_TEXT_ELEMENT(lw, h, "Source address: %s", addr);
+        free(addr);
+    }
+}
+
 void add_pim_assert(list_view *lw, list_view_item *header, struct pim_info *pim, bool msg_selected)
 {
     list_view_item *h;
@@ -925,7 +968,7 @@ void add_pim_join_prune(list_view *lw, list_view_item *header, struct pim_info *
             addr = get_pim_address(pim->jpg->groups[i].joined_src[j].addr_family,
                                    pim->jpg->groups[i].joined_src[j].addr);
             if (addr) {
-                ADD_TEXT_ELEMENT(lw, joined, "Joined address%d: %s/%d", j + 1, addr,
+                ADD_TEXT_ELEMENT(lw, joined, "Joined address %d: %s/%d", j + 1, addr,
                                  pim->jpg->groups[i].joined_src[j].mask_len);
                 free(addr);
             }
