@@ -3,15 +3,7 @@
 #include "packet_tcp.h"
 #include "packet_ip.h"
 
-/* TCP Option-Kind */
-#define TCP_OPT_END 0       /* end of options list */
-#define TCP_OPT_NOP 1       /* no operation - this may be used to align option fields on
-                               32-bit boundaries */
-#define TCP_OPT_MSS 2       /* maximum segment size */
-#define TCP_OPT_WIN_SCALE 3 /* window scale */
-#define TCP_OPT_SAP 4       /* selective acknowledgement permitted */
-#define TCP_OPT_SACK 5      /* selective acknowledgement */
-#define TCP_OPT_TIMESTAMP 8 /* timestamp and echo of previous timestamp */
+static void free_tcp_options(void *data);
 
 /*
  * TCP header
@@ -129,36 +121,37 @@ bool handle_tcp(unsigned char *buffer, int n, struct tcp *info)
     return true;
 }
 
-struct tcp_options *parse_tcp_options(unsigned char *data, int len)
+list_t *parse_tcp_options(unsigned char *data, int len)
 {
-    struct tcp_options *opt;
+    list_t *options;
 
-    opt = calloc(1, sizeof(struct tcp_options));
+    options = list_init(free_tcp_options);
 
     /* the data is based on a tag-length-value encoding scheme */
     while (len) {
-        uint8_t option_kind = *data;
-        uint8_t option_length = *++data; /* length of value + 1 byte tag and 1 byte length */
+        struct tcp_options *opt = malloc(sizeof(struct tcp_options));
 
-        switch (option_kind) {
+        opt->option_kind = *data;
+        opt->option_length = *++data; /* length of value + 1 byte tag and 1 byte length */
+        switch (opt->option_kind) {
         case TCP_OPT_END:
-            return opt;
+            free(opt);
+            return options;
         case TCP_OPT_NOP:
-            opt->nop++;
             break;
         case TCP_OPT_MSS:
             data++; /* skip length field */
-            if (option_length == 4) {
+            if (opt->option_length == 4) {
                 opt->mss = data[0] << 8 | data[1];
             }
-            data += option_length - 2;
+            data += opt->option_length - 2;
             break;
         case TCP_OPT_WIN_SCALE:
             data++; /* skip length field */
-            if (option_length == 3) {
+            if (opt->option_length == 3) {
                 opt->win_scale = *data;
             }
-            data += option_length - 2;
+            data += opt->option_length - 2;
             break;
         case TCP_OPT_SAP: /* 2 bytes */
             data++; /* skip length field */
@@ -166,7 +159,7 @@ struct tcp_options *parse_tcp_options(unsigned char *data, int len)
             break;
         case TCP_OPT_SACK:
         {
-            int num_blocks = (option_length - 2) / 8;
+            int num_blocks = (opt->option_length - 2) / 8;
             struct tcp_sack_block *b;
 
             data++; /* skip length field */
@@ -182,20 +175,25 @@ struct tcp_options *parse_tcp_options(unsigned char *data, int len)
         }
         case TCP_OPT_TIMESTAMP:
             data++; /* skip length field */
-            if (option_length == 10) {
+            if (opt->option_length == 10) {
                 opt->ts_val = data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3];
                 opt->ts_ecr = data[4] << 24 | data[5] << 16 | data[6] << 8 | data[7];
             }
-            data += option_length - 2;
+            data += opt->option_length - 2;
             break;
         }
-        len -= option_length;
+        list_push_back(options, opt);
+        len -= opt->option_length;
     }
-    return opt;
+    return options;
 }
 
-void free_tcp_options(struct tcp_options *options)
+void free_tcp_options(void *data)
 {
-    if (options->sack) list_free(options->sack);
-    free(options);
+    struct tcp_options *opt = data;
+
+    if (opt->option_kind == TCP_OPT_SACK) {
+        list_free(opt->sack);
+    }
+    free(opt);
 }

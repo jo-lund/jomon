@@ -104,6 +104,7 @@ bool handle_ethernet(unsigned char *buffer, int n, struct eth_info *eth)
             break;
         }
     }
+    // TODO: Need to handle errors properly
     if (error) {
         eth->payload = malloc(n - ETH_HLEN);
         memcpy(eth->payload, buffer + ETH_HLEN, n - ETH_HLEN);

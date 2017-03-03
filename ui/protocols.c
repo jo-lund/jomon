@@ -23,21 +23,22 @@
 #define PRINT_INFO(buffer, n, fmt, ...)         \
     snprintcat(buffer, n, fmt, ## __VA_ARGS__)
 #define PRINT_LINE(buffer, n, i, src, dst, prot, fmt, ...)  \
-    do {                                                   \
-        PRINT_NUMBER(buffer, n, i);                        \
-        PRINT_ADDRESS(buffer, n, src, dst);                \
-        PRINT_PROTOCOL(buffer, n, prot);                   \
-        PRINT_INFO(buffer, n, fmt, ## __VA_ARGS__);        \
+    do {                                                    \
+        PRINT_NUMBER(buffer, n, i);                         \
+        PRINT_ADDRESS(buffer, n, src, dst);                 \
+        PRINT_PROTOCOL(buffer, n, prot);                    \
+        PRINT_INFO(buffer, n, fmt, ## __VA_ARGS__);         \
     } while (0)
 
 static void print_arp(char *buf, int n, struct arp_info *info, uint32_t num);
 static void print_llc(char *buf, int n, struct eth_info *eth, uint32_t num);
 static void print_ip(char *buf, int n, struct ip_info *ip, uint32_t num);
-static void print_ipv6(char *buf, int n, struct ipv6_info *info, uint32_t num);
+static void print_ipv6(char *buf, int n, struct ipv6_info *ip, uint32_t num);
 static void print_udp(char *buf, int n, struct udp_info *info);
 static void print_tcp(char *buf, int n, struct tcp *info);
 static void print_icmp(char *buf, int n, struct icmp_info *info);
 static void print_igmp(char *buf, int n, struct igmp_info *info);
+static void print_pim(char *buf, int n, struct pim_info *pim);
 static void print_dns(char *buf, int n, struct dns_info *dns, uint16_t type);
 static void print_nbns(char *buf, int n, struct nbns_info *nbns);
 static void print_ssdp(char *buf, int n, list_t *ssdp);
@@ -49,7 +50,21 @@ static void add_dns_soa(list_view *lw, list_view_item *w, struct dns_info *info,
 static void add_dns_txt(list_view *lw, list_view_item *w, struct dns_info *dns, int i);
 static void add_dns_record(list_view *lw, list_view_item *w, struct dns_info *info, int i,
                            char *buf, int n, uint16_t type);
-static void add_tcp_options(list_view *lw, list_view_item *w, struct tcp *tcp);
+static void add_tcp_options(list_view *lw, list_view_item *header, struct tcp *tcp,
+                            bool options_selected);
+static void add_pim_hello(list_view *lw, list_view_item *header, struct pim_info *pim,
+                          bool msg_selected);
+static void add_pim_assert(list_view *lw, list_view_item *header, struct pim_info *pim,
+                           bool msg_selected);
+static void add_pim_hello(list_view *lw, list_view_item *header, struct pim_info *pim,
+                          bool msg_selected);
+static void add_pim_join_prune(list_view *lw, list_view_item *header, struct pim_info *pim,
+                               bool msg_selected);
+static void add_pim_register(list_view *lw, list_view_item *header, struct pim_info *pim,
+                             bool msg_selected);
+static void add_pim_register_stop(list_view *lw, list_view_item *header, struct pim_info *pim,
+                                  bool msg_selected);
+
 
 void print_buffer(char *buf, int size, struct packet *p)
 {
@@ -169,6 +184,9 @@ void print_ip(char *buf, int n, struct ip_info *ip, uint32_t num)
     case IPPROTO_UDP:
         print_udp(buf, n, &ip->udp);
         break;
+    case IPPROTO_PIM:
+        print_pim(buf, n, &ip->pim);
+        break;
     default:
     {
         char *protocol = get_ip_transport_protocol(ip->protocol);
@@ -184,29 +202,32 @@ void print_ip(char *buf, int n, struct ip_info *ip, uint32_t num)
     }
 }
 
-void print_ipv6(char *buf, int n, struct ipv6_info *info, uint32_t num)
+void print_ipv6(char *buf, int n, struct ipv6_info *ip, uint32_t num)
 {
     char src[INET6_ADDRSTRLEN];
     char dst[INET6_ADDRSTRLEN];
 
     PRINT_NUMBER(buf, n, num);
-    inet_ntop(AF_INET6, info->src, src, INET6_ADDRSTRLEN);
-    inet_ntop(AF_INET6, info->dst, dst, INET6_ADDRSTRLEN);
+    inet_ntop(AF_INET6, ip->src, src, INET6_ADDRSTRLEN);
+    inet_ntop(AF_INET6, ip->dst, dst, INET6_ADDRSTRLEN);
     PRINT_ADDRESS(buf, n, src, dst);
 
-    switch (info->next_header) {
+    switch (ip->next_header) {
     case IPPROTO_IGMP:
-        print_igmp(buf, n, &info->igmp);
+        print_igmp(buf, n, &ip->igmp);
         break;
     case IPPROTO_TCP:
-        print_tcp(buf, n, &info->tcp);
+        print_tcp(buf, n, &ip->tcp);
         break;
     case IPPROTO_UDP:
-        print_udp(buf, n, &info->udp);
+        print_udp(buf, n, &ip->udp);
+        break;
+    case IPPROTO_PIM:
+        print_pim(buf, n, &ip->pim);
         break;
     default:
         PRINT_PROTOCOL(buf, n, "IPv6");
-        PRINT_INFO(buf, n, "Next header: %d", info->next_header);
+        PRINT_INFO(buf, n, "Next header: %d", ip->next_header);
         break;
     }
 }
@@ -258,6 +279,18 @@ void print_igmp(char *buf, int n, struct igmp_info *info)
     }
     inet_ntop(AF_INET, &info->group_addr, addr, INET_ADDRSTRLEN);
     PRINT_INFO(buf, n, "  Group address: %s", addr);
+}
+
+void print_pim(char *buf, int n, struct pim_info *pim)
+{
+    char *type = get_pim_message_type(pim->type);
+
+    PRINT_PROTOCOL(buf, n, "PIM");
+    if (type) {
+        PRINT_INFO(buf, n, "Message type: %s", type);
+    } else {
+        PRINT_INFO(buf, n, "Message type: %d", pim->type);
+    }
 }
 
 void print_tcp(char *buf, int n, struct tcp *info)
@@ -628,7 +661,7 @@ void add_ipv4_information(list_view *lw, list_view_item *header, struct ip_info 
 
     ADD_TEXT_ELEMENT(lw, header, "Version: %u", ip->version);
     ADD_TEXT_ELEMENT(lw, header, "Internet Header Length (IHL): %u", ip->ihl);
-    snprintf(buf, MAXLINE, "Differentiated Services Code Point (DSCP): 0x%x", ip->dscp);    
+    snprintf(buf, MAXLINE, "Differentiated Services Code Point (DSCP): 0x%x", ip->dscp);
     if ((dscp = get_ip_dscp(ip->dscp))) {
         snprintcat(buf, MAXLINE, " %s", dscp);
     }
@@ -737,6 +770,225 @@ void add_igmp_information(list_view *lw, list_view_item *header, struct igmp_inf
     ADD_TEXT_ELEMENT(lw, header, "Group address: %s", addr);
 }
 
+void add_pim_information(list_view *lw, list_view_item *header, struct pim_info *pim, bool msg_selected)
+{
+    char *type = get_pim_message_type(pim->type);
+
+    ADD_TEXT_ELEMENT(lw, header, "Version: %d", pim->version);
+    if (type) {
+        ADD_TEXT_ELEMENT(lw, header, "Type: %d (%s)", pim->type, type);
+    } else {
+        ADD_TEXT_ELEMENT(lw, header, "Type: %d", pim->type);
+    }
+    ADD_TEXT_ELEMENT(lw, header, "Checksum: %u", pim->checksum);
+    switch (pim->type) {
+    case PIM_HELLO:
+        add_pim_hello(lw, header, pim, msg_selected);
+        break;
+    case PIM_REGISTER:
+        add_pim_register(lw, header, pim, msg_selected);
+        break;
+    case PIM_REGISTER_STOP:
+        add_pim_register_stop(lw, header, pim, msg_selected);
+        break;
+    case PIM_ASSERT:
+        add_pim_assert(lw, header, pim, msg_selected);
+        break;
+    case PIM_JOIN_PRUNE:
+    case PIM_GRAFT:
+    case PIM_GRAFT_ACK:
+        add_pim_join_prune(lw, header, pim, msg_selected);
+    default:
+        break;
+    }
+}
+
+void add_pim_hello(list_view *lw, list_view_item *header, struct pim_info *pim, bool msg_selected)
+{
+    list_t *opt;
+    const node_t *n;
+    list_view_item *h;
+
+    opt = parse_hello_options(pim);
+    h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Hello Message (%d options)", list_size(opt));
+    n = list_begin(opt);
+    while (n) {
+        struct pim_hello *hello = list_data(n);
+        list_view_item *w;
+        struct tm_t tm;
+        char time[512];
+
+        switch (hello->option_type) {
+        case PIM_HOLDTIME:
+            tm = get_time(hello->holdtime);
+            time_ntop(&tm, time, 512);
+            w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Holdtime: %s", time);
+            ADD_TEXT_ELEMENT(lw, w, "Option type: %u", hello->option_type);
+            ADD_TEXT_ELEMENT(lw, w, "Option length: %u", hello->option_len);
+            break;
+        case PIM_LAN_PRUNE_DELAY:
+            w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "LAN Prune Delay");
+            ADD_TEXT_ELEMENT(lw, w, "Option type: %u", hello->option_type);
+            ADD_TEXT_ELEMENT(lw, w, "Option length: %u", hello->option_len);
+            ADD_TEXT_ELEMENT(lw, w, "Propagation delay: %u ms", hello->lan_prune_delay.prop_delay);
+            ADD_TEXT_ELEMENT(lw, w, "Override interval: %u ms", hello->lan_prune_delay.override_interval);
+            break;
+        case PIM_DR_PRIORITY:
+            w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "DR Priority: %u", hello->dr_priority);
+            ADD_TEXT_ELEMENT(lw, w, "Option type: %u", hello->option_type);
+            ADD_TEXT_ELEMENT(lw, w, "Option length: %u", hello->option_len);
+            break;
+        case PIM_GENERATION_ID:
+            w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Generation ID: %u", hello->gen_id);
+            ADD_TEXT_ELEMENT(lw, w, "Option type: %u", hello->option_type);
+            ADD_TEXT_ELEMENT(lw, w, "Option length: %u", hello->option_len);
+            break;
+        case PIM_STATE_REFRESH_CAPABLE:
+            memset(&time, 0, 512);
+            tm = get_time(hello->state_refresh.interval);
+            time_ntop(&tm, time, 512);
+            w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "State Refresh Capable");
+            ADD_TEXT_ELEMENT(lw, w, "Option type: %u", hello->option_type);
+            ADD_TEXT_ELEMENT(lw, w, "Option length: %u", hello->option_len);
+            ADD_TEXT_ELEMENT(lw, w, "Version: %u", hello->state_refresh.version);
+            ADD_TEXT_ELEMENT(lw, w, "Interval: %s", time);
+            break;
+        case PIM_ADDRESS_LIST:
+        default:
+            w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Unknown option: %u", hello->option_type);
+            ADD_TEXT_ELEMENT(lw, w, "Option type: %u", hello->option_type);
+            ADD_TEXT_ELEMENT(lw, w, "Option length: %u", hello->option_len);
+            break;
+        }
+        n = list_next(n);
+        if (n) ADD_TEXT_ELEMENT(lw, w, "");
+    }
+    list_free(opt);
+}
+
+void add_pim_register(list_view *lw, list_view_item *header, struct pim_info *pim, bool msg_selected)
+{
+    list_view_item *h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Register Message");
+
+    ADD_TEXT_ELEMENT(lw, h, "Border bit: %d", pim->reg->border);
+    ADD_TEXT_ELEMENT(lw, h, "Null-Register bit: %d", pim->reg->null);
+    if (pim->reg->data) {
+        list_view_item *w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Data");
+
+        add_payload(lw, w, pim->reg->data, pim->reg->data_len);
+    }
+}
+
+void add_pim_register_stop(list_view *lw, list_view_item *header, struct pim_info *pim,
+                           bool msg_selected)
+{
+    list_view_item *h;
+    char *addr;
+
+    h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Register-Stop Message");
+    addr = get_pim_address(pim->assert->gaddr.addr_family, pim->assert->gaddr.addr);
+    if (addr) {
+        ADD_TEXT_ELEMENT(lw, h, "Group address: %s/%d", addr, pim->assert->gaddr.mask_len);
+        free(addr);
+    }
+    addr = get_pim_address(pim->assert->saddr.addr_family, pim->assert->saddr.addr);
+    if (addr) {
+        ADD_TEXT_ELEMENT(lw, h, "Source address: %s", addr);
+        free(addr);
+    }
+}
+
+void add_pim_assert(list_view *lw, list_view_item *header, struct pim_info *pim, bool msg_selected)
+{
+    list_view_item *h;
+    char *addr;
+
+    h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Assert Message");
+    addr = get_pim_address(pim->assert->gaddr.addr_family, pim->assert->gaddr.addr);
+    if (addr) {
+        ADD_TEXT_ELEMENT(lw, h, "Group address: %s/%d", addr, pim->assert->gaddr.mask_len);
+        free(addr);
+    }
+    addr = get_pim_address(pim->assert->saddr.addr_family, pim->assert->saddr.addr);
+    if (addr) {
+        ADD_TEXT_ELEMENT(lw, h, "Source address: %s", addr);
+        free(addr);
+    }
+    ADD_TEXT_ELEMENT(lw, h, "RPTbit: %u", GET_RPTBIT(pim->assert->metric_pref));
+    ADD_TEXT_ELEMENT(lw, h, "Metric preference: %u", GET_METRIC_PREFERENCE(pim->assert->metric_pref));
+    ADD_TEXT_ELEMENT(lw, h, "Metric: %u", pim->assert->metric);
+}
+
+void add_pim_join_prune(list_view *lw, list_view_item *header, struct pim_info *pim, bool msg_selected)
+{
+    list_view_item *h;
+    list_view_item *grp;
+    char *addr;
+    struct tm_t tm;
+    char time[512];
+
+    switch (pim->type) {
+    case PIM_JOIN_PRUNE:
+        h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Join/Prune Message");
+        break;
+    case PIM_GRAFT:
+        h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Graft Message");
+        break;
+    case PIM_GRAFT_ACK:
+        h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Graft Ack Message");
+        break;
+    default:
+        return;
+    }
+
+    addr = get_pim_address(pim->jpg->neighbour.addr_family, pim->jpg->neighbour.addr);
+    if (addr) {
+        ADD_TEXT_ELEMENT(lw, h, "Upstream neighbour: %s", addr);
+        free(addr);
+    }
+    tm = get_time(pim->jpg->holdtime);
+    time_ntop(&tm, time, 512);
+    ADD_TEXT_ELEMENT(lw, h, "Holdtime: %s", time);
+
+    grp = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Groups (%d)", pim->jpg->num_groups);
+
+    for (int i = 0; i < pim->jpg->num_groups; i++) {
+        list_view_item *joined;
+        list_view_item *pruned;
+
+        addr = get_pim_address(pim->jpg->groups[i].gaddr.addr_family, pim->jpg->groups[i].gaddr.addr);
+        if (addr) {
+            ADD_TEXT_ELEMENT(lw, grp, "Group address %d: %s/%d", i + 1, addr, pim->jpg->groups[i].gaddr.mask_len);
+            free(addr);
+        }
+
+        joined = ADD_SUB_HEADER(lw, grp, false, SUBLAYER, "Joined sources (%d)",
+                                pim->jpg->groups[i].num_joined_src);
+        for (int j = 0; j < pim->jpg->groups[i].num_joined_src; j++) {
+            addr = get_pim_address(pim->jpg->groups[i].joined_src[j].addr_family,
+                                   pim->jpg->groups[i].joined_src[j].addr);
+            if (addr) {
+                ADD_TEXT_ELEMENT(lw, joined, "Joined address %d: %s/%d", j + 1, addr,
+                                 pim->jpg->groups[i].joined_src[j].mask_len);
+                free(addr);
+            }
+        }
+        ADD_TEXT_ELEMENT(lw, joined, "");
+
+        pruned = ADD_SUB_HEADER(lw, grp, false, SUBLAYER, "Pruned sources (%d)",
+                                pim->jpg->groups[i].num_pruned_src);
+        for (int j = 0; j < pim->jpg->groups[i].num_pruned_src; j++) {
+            addr = get_pim_address(pim->jpg->groups[i].pruned_src[j].addr_family,
+                                   pim->jpg->groups[i].pruned_src[j].addr);
+            if (addr) {
+                ADD_TEXT_ELEMENT(lw, pruned, "Pruned address %d: %s/%d", j + 1, addr,
+                                 pim->jpg->groups[i].pruned_src[j].mask_len);
+                free(addr);
+            }
+        }
+    }
+}
+
 void add_udp_information(list_view *lw, list_view_item *header, struct udp_info *udp)
 {
     ADD_TEXT_ELEMENT(lw, header, "Source port: %u", udp->src_port);
@@ -761,27 +1013,53 @@ void add_tcp_information(list_view *lw, list_view_item *header, struct tcp *tcp,
     ADD_TEXT_ELEMENT(lw, header, "Checksum: %u", tcp->checksum);
     ADD_TEXT_ELEMENT(lw, header, "Urgent pointer: %u", tcp->urg_ptr);
     if (tcp->options) {
-        list_view_item *w;
-
-        w = ADD_SUB_HEADER(lw, header, options_selected, SUBLAYER, "Options");
-        add_tcp_options(lw, w, tcp);
-        ADD_TEXT_ELEMENT(lw, header, "");
+        add_tcp_options(lw, header, tcp, options_selected);
     }
+    ADD_TEXT_ELEMENT(lw, header, "");
 }
 
-void add_tcp_options(list_view *lw, list_view_item *w, struct tcp *tcp)
+void add_tcp_options(list_view *lw, list_view_item *header, struct tcp *tcp, bool options_selected)
 {
-    if (tcp->options) {
-        struct tcp_options *opt;
+    list_t *options;
+    const node_t *n;
+    list_view_item *h;
 
-        opt = parse_tcp_options(tcp->options, (tcp->offset - 5) * 4);
-        if (opt->nop) ADD_TEXT_ELEMENT(lw, w, "No operation: %u bytes", opt->nop);
-        if (opt->mss) ADD_TEXT_ELEMENT(lw, w, "Maximum segment size: %u", opt->mss);
-        if (opt->win_scale) ADD_TEXT_ELEMENT(lw, w, "Window scale: %u", opt->win_scale);
-        if (opt->sack_permitted) ADD_TEXT_ELEMENT(lw, w, "Selective Acknowledgement permitted");
-        if (opt->sack) {
+    options = parse_tcp_options(tcp->options, (tcp->offset - 5) * 4);
+    h = ADD_SUB_HEADER(lw, header, options_selected, SUBLAYER, "Options");
+    n = list_begin(options);
+
+    while (n) {
+        struct tcp_options *opt = list_data(n);
+        list_view_item *w;
+
+        switch (opt->option_kind) {
+        case TCP_OPT_NOP:
+            w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "No operation");
+            ADD_TEXT_ELEMENT(lw, w, "Option kind: %u", opt->option_kind);
+            ADD_TEXT_ELEMENT(lw, w, "Option length: %u", opt->option_length);
+            break;
+        case TCP_OPT_MSS:
+            w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Maximum segment size: %u", opt->mss);
+            ADD_TEXT_ELEMENT(lw, w, "Option kind: %u", opt->option_kind);
+            ADD_TEXT_ELEMENT(lw, w, "Option length: %u", opt->option_length);
+            break;
+        case TCP_OPT_WIN_SCALE:
+            w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Window scale: %u", opt->win_scale);
+            ADD_TEXT_ELEMENT(lw, w, "Option kind: %u", opt->option_kind);
+            ADD_TEXT_ELEMENT(lw, w, "Option length: %u", opt->option_length);
+            break;
+        case TCP_OPT_SAP:
+            w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Selective Acknowledgement permitted");
+            ADD_TEXT_ELEMENT(lw, w, "Option kind: %u", opt->option_kind);
+            ADD_TEXT_ELEMENT(lw, w, "Option length: %u", opt->option_length);
+            break;
+        case TCP_OPT_SACK:
+        {
             const node_t *n = list_begin(opt->sack);
 
+            w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Selective Acknowledgement");
+            ADD_TEXT_ELEMENT(lw, w, "Option kind: %u", opt->option_kind);
+            ADD_TEXT_ELEMENT(lw, w, "Option length: %u", opt->option_length);
             while (n) {
                 struct tcp_sack_block *block = list_data(n);
 
@@ -789,11 +1067,22 @@ void add_tcp_options(list_view *lw, list_view_item *w, struct tcp *tcp)
                 ADD_TEXT_ELEMENT(lw, w, "Right edge: %u", block->right_edge);
                 n = list_next(n);
             }
+            break;
         }
-        if (opt->ts_val) ADD_TEXT_ELEMENT(lw, w, "Timestamp value: %u", opt->ts_val);
-        if (opt->ts_ecr) ADD_TEXT_ELEMENT(lw, w, "Timestamp echo reply: %u", opt->ts_ecr);
-        free_tcp_options(opt);
+        case TCP_OPT_TIMESTAMP:
+            w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Timestamp");
+            ADD_TEXT_ELEMENT(lw, w, "Option kind: %u", opt->option_kind);
+            ADD_TEXT_ELEMENT(lw, w, "Option length: %u", opt->option_length);
+            ADD_TEXT_ELEMENT(lw, w, "Timestamp value: %u", opt->ts_val);
+            ADD_TEXT_ELEMENT(lw, w, "Timestamp echo reply: %u", opt->ts_ecr);
+            break;
+        default:
+            break;
+        }
+        n = list_next(n);
+        if (n) ADD_TEXT_ELEMENT(lw, w, "");
     }
+    list_free(options);
 }
 
 void add_dns_information(list_view *lw, list_view_item *header, struct dns_info *dns,

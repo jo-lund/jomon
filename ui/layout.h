@@ -16,6 +16,7 @@ enum layer {
     IP,
     IGMP,
     ICMP,
+    PIM,
     TRANSPORT,
     APPLICATION,
     SUBLAYER,

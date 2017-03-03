@@ -5,6 +5,7 @@
 #include "packet_igmp.h"
 #include "packet_tcp.h"
 #include "packet_udp.h"
+#include "packet_pim.h"
 
 #define IP_PAYLOAD_LEN(p) ((p)->eth.ethertype == ETH_P_IP) ? \
     ((p)->eth.ip->length - (p)->eth.ip->ihl * 4) :          \
@@ -29,6 +30,7 @@ struct ip_info {
         struct tcp tcp;
         struct igmp_info igmp;
         struct icmp_info icmp;
+        struct pim_info pim;
         unsigned char *payload;
     };
 };
@@ -46,6 +48,7 @@ struct ipv6_info {
         struct udp_info udp;
         struct tcp tcp;
         struct igmp_info igmp;
+        struct pim_info pim;
         unsigned char *payload;
     };
 };
