@@ -13,6 +13,8 @@ static bool parse_assert_msg(unsigned char *buffer, int n, struct pim_info *pim)
 static bool parse_join_prune(unsigned char *buffer, int n, struct pim_info *pim);
 static unsigned char *parse_address(unsigned char **data, uint8_t family,
                                     uint8_t encoding);
+static void parse_src_address(unsigned char **data, struct pim_source_addr *saddr);
+static void parse_grp_address(unsigned char **data, struct pim_group_addr *gaddr);
 
 /*
  *
@@ -46,58 +48,110 @@ bool parse_pim_message(unsigned char *buffer, int n, struct pim_info *pim)
     case PIM_REGISTER:
         return parse_register_msg(buffer, n, pim);
     case PIM_REGISTER_STOP:
-        return false;
-    case PIM_JOIN_PRUNE:
-        return parse_join_prune(buffer, n, pim);
+        return true;
     case PIM_BOOTSTRAP:
-        return false;
+        return true;
     case PIM_ASSERT:
         return parse_assert_msg(buffer, n, pim);
+    case PIM_JOIN_PRUNE:
     case PIM_GRAFT:
     case PIM_GRAFT_ACK:
+        return parse_join_prune(buffer, n, pim);
     case PIM_CANDIDATE_RP_ADVERTISEMENT:
+    case PIM_STATE_REFRESH:
     default:
-        return false;
+        return true;
     }
 }
 
 bool parse_join_prune(unsigned char *buffer, int n, struct pim_info *pim)
 {
-    return false;
+    // TODO: Add a check for minimum packet size
+    pim->jpg = malloc(sizeof(struct pim_join_prune));
+    pim->jpg->neighbour.addr_family = buffer[0];
+    pim->jpg->neighbour.encoding = buffer[1];
+    buffer += 2;
+    pim->jpg->neighbour.addr = parse_address(&buffer, pim->jpg->neighbour.addr_family,
+                                             pim->jpg->neighbour.encoding);
+    buffer++; /* next byte is reserved */
+    pim->jpg->num_groups = buffer[0];
+    pim->jpg->holdtime = buffer[1] << 8 | buffer[2];
+    pim->jpg->groups = calloc(pim->jpg->num_groups, sizeof(*pim->jpg->groups));
+    buffer += 3;
+
+    for (int i = 0; i < pim->jpg->num_groups; i++) {
+        parse_grp_address(&buffer, &pim->jpg->groups[i].gaddr);
+        pim->jpg->groups[i].num_joined_src = buffer[0] << 8 | buffer[1];
+        pim->jpg->groups[i].num_pruned_src = buffer[2] << 8 | buffer[3];
+        if (pim->jpg->groups[i].num_joined_src) {
+            pim->jpg->groups[i].joined_src = calloc(pim->jpg->groups[i].num_joined_src,
+                                              sizeof(struct pim_source_addr));
+        }
+        if (pim->jpg->groups[i].num_pruned_src) {
+            pim->jpg->groups[i].pruned_src = calloc(pim->jpg->groups[i].num_joined_src,
+                                              sizeof(struct pim_source_addr));
+        }
+        buffer += 4;
+        for (int j = 0; j < pim->jpg->groups[i].num_joined_src; j++) {
+            parse_src_address(&buffer, &pim->jpg->groups[i].joined_src[j]);
+        }
+        for (int j = 0; j < pim->jpg->groups[i].num_pruned_src; j++) {
+            parse_src_address(&buffer, &pim->jpg->groups[i].pruned_src[j]);
+        }
+    }
+
+    return true;
 }
 
 bool parse_register_msg(unsigned char *buffer, int n, struct pim_info *pim)
 {
-    return false;
+    return true;
 }
 
 bool parse_assert_msg(unsigned char *buffer, int n, struct pim_info *pim)
 {
     if (n < 18) return false;
 
-    struct pim_group_addr gaddr;
-    struct pim_unicast_addr saddr;
-
     pim->assert = malloc(sizeof(struct pim_assert));
-    gaddr.addr_family = buffer[0];
-    gaddr.encoding = buffer[1];
-    gaddr.bidirectional = (buffer[2] & 0xc0) >> 7;
-    gaddr.zone = buffer[2] & 0x01;
-    gaddr.mask_len = buffer[3];
-    buffer += 4;
-    gaddr.addr = parse_address(&buffer, gaddr.addr_family, gaddr.encoding);
-
-    saddr.addr_family = buffer[0];
-    saddr.encoding = buffer[1];
+    parse_grp_address(&buffer, &pim->assert->gaddr);
+    pim->assert->saddr.addr_family = buffer[0];
+    pim->assert->saddr.encoding = buffer[1];
     buffer += 2;
-    saddr.addr = parse_address(&buffer, saddr.addr_family, saddr.encoding);
-
-    pim->assert->gaddr = gaddr;
-    pim->assert->saddr = saddr;
+    pim->assert->saddr.addr = parse_address(&buffer, pim->assert->saddr.addr_family,
+                                            pim->assert->saddr.encoding);
     pim->assert->metric_pref = buffer[0] << 24 | buffer[1] << 16 | buffer[2] << 8 | buffer[0];
     pim->assert->metric= buffer[0] << 24 | buffer[1] << 16 | buffer[2] << 8 | buffer[0];
 
     return true;
+}
+
+void parse_src_address(unsigned char **data, struct pim_source_addr *saddr)
+{
+    unsigned char *ptr = *data;
+
+    saddr->addr_family = ptr[0];
+    saddr->encoding = ptr[1];
+    saddr->sparse = (ptr[2] & 0x4) >> 2;
+    saddr->wc = (ptr[2] & 0x2) >> 1;
+    saddr->rpt = ptr[2] & 0x1;
+    saddr->mask_len = ptr[3];
+    ptr += 4;
+    saddr->addr = parse_address(&ptr, saddr->addr_family, saddr->encoding);
+    *data = ptr;
+}
+
+void parse_grp_address(unsigned char **data, struct pim_group_addr *gaddr)
+{
+    unsigned char *ptr = *data;
+
+    gaddr->addr_family = ptr[0];
+    gaddr->encoding = ptr[1];
+    gaddr->bidirectional = (ptr[2] & 0xc0) >> 7;
+    gaddr->zone = ptr[2] & 0x01;
+    gaddr->mask_len = ptr[3];
+    ptr += 4;
+    gaddr->addr = parse_address(&ptr, gaddr->addr_family, gaddr->encoding);
+    *data = ptr;
 }
 
 unsigned char *parse_address(unsigned char **data, uint8_t family, uint8_t encoding)
@@ -187,6 +241,8 @@ char *get_pim_message_type(uint8_t type)
         return "Graft-Ack";
     case PIM_CANDIDATE_RP_ADVERTISEMENT:
         return "Candidate-RP-Advertisement";
+    case PIM_STATE_REFRESH:
+        return "State Refresh";
     default:
         return NULL;
     }
@@ -226,8 +282,6 @@ void free_pim_packet(struct pim_info *pim)
         break;
     case PIM_REGISTER_STOP:
         break;
-    case PIM_JOIN_PRUNE:
-        break;
     case PIM_BOOTSTRAP:
         break;
     case PIM_ASSERT:
@@ -239,9 +293,36 @@ void free_pim_packet(struct pim_info *pim)
         }
         free(pim->assert);
         break;
+    case PIM_JOIN_PRUNE:
     case PIM_GRAFT:
-        break;
     case PIM_GRAFT_ACK:
+        if (pim->jpg->neighbour.addr) {
+            free(pim->jpg->neighbour.addr);
+        }
+        if (pim->jpg->groups) {
+            for (int i = 0; i < pim->jpg->num_groups; i++) {
+                if (pim->jpg->groups->gaddr.addr) {
+                    free(pim->jpg->groups->gaddr.addr);
+                }
+                for (int j = 0; j < pim->jpg->groups->num_joined_src; j++) {
+                    if (pim->jpg->groups->joined_src[j].addr) {
+                        free(pim->jpg->groups->joined_src[j].addr);
+                    }
+                }
+                if (pim->jpg->groups->joined_src) {
+                    free(pim->jpg->groups->joined_src);
+                }
+                for (int j = 0; j < pim->jpg->groups->num_pruned_src; j++) {
+                    if (pim->jpg->groups->pruned_src[j].addr) {
+                        free(pim->jpg->groups->pruned_src[j].addr);
+                    }
+                }
+                if (pim->jpg->groups->pruned_src) {
+                    free(pim->jpg->groups->pruned_src);
+                }
+            }
+            free(pim->jpg->groups);
+        }
         break;
     case PIM_CANDIDATE_RP_ADVERTISEMENT:
         break;

@@ -56,6 +56,10 @@ static void add_pim_hello(list_view *lw, list_view_item *header, struct pim_info
                           bool msg_selected);
 static void add_pim_assert(list_view *lw, list_view_item *header, struct pim_info *pim,
                            bool msg_selected);
+static void add_pim_hello(list_view *lw, list_view_item *header, struct pim_info *pim,
+                          bool msg_selected);
+static void add_pim_join_prune(list_view *lw, list_view_item *header, struct pim_info *pim,
+                               bool msg_selected);
 
 void print_buffer(char *buf, int size, struct packet *p)
 {
@@ -779,6 +783,10 @@ void add_pim_information(list_view *lw, list_view_item *header, struct pim_info 
     case PIM_ASSERT:
         add_pim_assert(lw, header, pim, msg_selected);
         break;
+    case PIM_JOIN_PRUNE:
+    case PIM_GRAFT:
+    case PIM_GRAFT_ACK:
+        add_pim_join_prune(lw, header, pim, msg_selected);
     default:
         break;
     }
@@ -855,11 +863,7 @@ void add_pim_assert(list_view *lw, list_view_item *header, struct pim_info *pim,
     h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Assert Message");
     addr = get_pim_address(pim->assert->gaddr.addr_family, pim->assert->gaddr.addr);
     if (addr) {
-        if (pim->assert->gaddr.mask_len) {
-            ADD_TEXT_ELEMENT(lw, h, "Group address: %s/%d", addr, pim->assert->gaddr.mask_len);
-        } else {
-            ADD_TEXT_ELEMENT(lw, h, "Group address: %s", addr);
-        }
+        ADD_TEXT_ELEMENT(lw, h, "Group address: %s/%d", addr, pim->assert->gaddr.mask_len);
         free(addr);
     }
     addr = get_pim_address(pim->assert->saddr.addr_family, pim->assert->saddr.addr);
@@ -870,6 +874,76 @@ void add_pim_assert(list_view *lw, list_view_item *header, struct pim_info *pim,
     ADD_TEXT_ELEMENT(lw, h, "RPTbit: %u", GET_RPTBIT(pim->assert->metric_pref));
     ADD_TEXT_ELEMENT(lw, h, "Metric preference: %u", GET_METRIC_PREFERENCE(pim->assert->metric_pref));
     ADD_TEXT_ELEMENT(lw, h, "Metric: %u", pim->assert->metric);
+}
+
+void add_pim_join_prune(list_view *lw, list_view_item *header, struct pim_info *pim, bool msg_selected)
+{
+    list_view_item *h;
+    list_view_item *grp;
+    char *addr;
+    struct tm_t tm;
+    char time[512];
+
+    switch (pim->type) {
+    case PIM_JOIN_PRUNE:
+        h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Join/Prune Message");
+        break;
+    case PIM_GRAFT:
+        h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Graft Message");
+        break;
+    case PIM_GRAFT_ACK:
+        h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Graft Ack Message");
+        break;
+    default:
+        return;
+    }
+
+    addr = get_pim_address(pim->jpg->neighbour.addr_family, pim->jpg->neighbour.addr);
+    if (addr) {
+        ADD_TEXT_ELEMENT(lw, h, "Upstream neighbour: %s", addr);
+        free(addr);
+    }
+    tm = get_time(pim->jpg->holdtime);
+    time_ntop(&tm, time, 512);
+    ADD_TEXT_ELEMENT(lw, h, "Holdtime: %s", time);
+
+    grp = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Groups (%d)", pim->jpg->num_groups);
+
+    for (int i = 0; i < pim->jpg->num_groups; i++) {
+        list_view_item *joined;
+        list_view_item *pruned;
+
+        addr = get_pim_address(pim->jpg->groups[i].gaddr.addr_family, pim->jpg->groups[i].gaddr.addr);
+        if (addr) {
+            ADD_TEXT_ELEMENT(lw, grp, "Group address %d: %s/%d", i + 1, addr, pim->jpg->groups[i].gaddr.mask_len);
+            free(addr);
+        }
+
+        joined = ADD_SUB_HEADER(lw, grp, false, SUBLAYER, "Joined sources (%d)",
+                                pim->jpg->groups[i].num_joined_src);
+        for (int j = 0; j < pim->jpg->groups[i].num_joined_src; j++) {
+            addr = get_pim_address(pim->jpg->groups[i].joined_src[j].addr_family,
+                                   pim->jpg->groups[i].joined_src[j].addr);
+            if (addr) {
+                ADD_TEXT_ELEMENT(lw, joined, "Joined address%d: %s/%d", j + 1, addr,
+                                 pim->jpg->groups[i].joined_src[j].mask_len);
+                free(addr);
+            }
+        }
+        ADD_TEXT_ELEMENT(lw, joined, "");
+
+        pruned = ADD_SUB_HEADER(lw, grp, false, SUBLAYER, "Pruned sources (%d)",
+                                pim->jpg->groups[i].num_pruned_src);
+        for (int j = 0; j < pim->jpg->groups[i].num_pruned_src; j++) {
+            addr = get_pim_address(pim->jpg->groups[i].pruned_src[j].addr_family,
+                                   pim->jpg->groups[i].pruned_src[j].addr);
+            if (addr) {
+                ADD_TEXT_ELEMENT(lw, pruned, "Pruned address %d: %s/%d", j + 1, addr,
+                                 pim->jpg->groups[i].pruned_src[j].mask_len);
+                free(addr);
+            }
+        }
+    }
 }
 
 void add_udp_information(list_view *lw, list_view_item *header, struct udp_info *udp)

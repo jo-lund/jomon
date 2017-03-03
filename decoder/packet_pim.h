@@ -10,11 +10,12 @@
 #define PIM_REGISTER 1       /* used in PIM-SM only */
 #define PIM_REGISTER_STOP 2  /* used in PIM-SM only */
 #define PIM_JOIN_PRUNE 3
-#define PIM_BOOTSTRAP 4
+#define PIM_BOOTSTRAP 4 /* used in PIM-SM only */
 #define PIM_ASSERT 5
 #define PIM_GRAFT 6     /* used in PIM-DM only */
 #define PIM_GRAFT_ACK 7 /* used in PIM-DM only */
 #define PIM_CANDIDATE_RP_ADVERTISEMENT 8
+#define PIM_STATE_REFRESH 9
 
 /* Hello message options */
 #define PIM_HOLDTIME 1
@@ -30,8 +31,8 @@
 #define AF_IP6 2
 #define AF_802 6
 
-#define GET_RPTBIT(mp) (mp >> 31)
-#define GET_METRIC_PREFERENCE(mp) (mp & 0x7fffffff)
+#define GET_RPTBIT(mp) ((mp) >> 31)
+#define GET_METRIC_PREFERENCE(mp) ((mp) & 0x7fffffff)
 
 struct pim_unicast_addr {
     uint8_t addr_family;
@@ -149,7 +150,7 @@ struct pim_assert {
  */
 struct pim_join_prune {
     /* primary address of the upstream neighbour that is the target of the message */
-    struct pim_unicast_addr up_neighbour_addr;
+    struct pim_unicast_addr neighbour;
 
     uint8_t num_groups; /* number of multicast group sets contained in the message */
     uint16_t holdtime; /* the amount of time a receiver MUST keep the Join/Prune
@@ -170,7 +171,7 @@ struct pim_join_prune {
          * received on the interface on which the Join/Prune message
          * is sent.
          */
-        struct pim_source_addr *joined_srcs;
+        struct pim_source_addr *joined_src;
 
         /*
          * This list contains the sources for a given group that the
@@ -178,7 +179,7 @@ struct pim_join_prune {
          * from when received on the interface on which the Join/Prune
          * message is sent.
          */
-        struct pim_source_addr *pruned_srcs;
+        struct pim_source_addr *pruned_src;
     } *groups;
 };
 
