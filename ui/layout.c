@@ -3,6 +3,7 @@
 #include <linux/igmp.h>
 #include <arpa/inet.h>
 #include <netinet/ip_icmp.h>
+#include <ctype.h>
 #include "layout.h"
 #include "protocols.h"
 #include "../list.h"
@@ -36,10 +37,11 @@ static WINDOW *wheader;
 static WINDOW *wmain;
 static WINDOW *wstatus;
 static int outy = 0;
-static bool interactive = false;
 static int selection_line = 0; /* index to the selection bar */
-static bool capturing = true;
 static list_view *lw;
+static bool capturing = true;
+static bool interactive = false;
+static bool input_mode = false;
 
 /*
  * Index to top of main window. The main screen will be between top + maximum
@@ -59,8 +61,10 @@ static void scroll_window();
 static int print_lines(int from, int to, int y, int cols);
 static void print(char *buf);
 static void print_header(context *c);
+static void print_status();
 static void print_selected_packet();
 static void print_protocol_information(struct packet *p, int lineno);
+static void goto_line(int c);
 
 /* Handles subwindow layout */
 static void create_subwindow(int num_lines, int lineno);
@@ -79,6 +83,7 @@ void init_ncurses()
     use_default_colors();
     start_color();
     init_pair(1, COLOR_WHITE, COLOR_CYAN);
+    init_pair(2, COLOR_BLACK, COLOR_CYAN);
     set_escdelay(25); /* set escdelay to 25 ms */
 }
 
@@ -98,6 +103,7 @@ void create_layout(context *c)
     nodelay(wmain, TRUE); /* input functions must be non-blocking */
     keypad(wmain, TRUE);
     print_header(c);
+    print_status();
     scrollok(wmain, TRUE); /* enable scrolling */
 }
 
@@ -139,12 +145,19 @@ void get_input()
         break;
     case KEY_ENTER:
     case '\n':
-        if (interactive) {
+        if (input_mode) {
+            goto_line(c);
+        } else if (interactive) {
             print_selected_packet();
         }
         break;
     case KEY_ESC:
-        if (interactive) {
+        if (input_mode) {
+            curs_set(0);
+            werase(wstatus);
+            print_status();
+            input_mode = false;
+        } else if (interactive) {
             set_interactive(false, my, mx);
         }
         break;
@@ -156,9 +169,78 @@ void get_input()
     case KEY_PPAGE:
         scroll_page(-my, mx);
         break;
+    case 'g':
+        input_mode = !input_mode;
+        if (input_mode) {
+            werase(wstatus);
+            mvwprintw(wstatus, 0, 0, "Go to line: ");
+            curs_set(1);
+        } else {
+            curs_set(0);
+            werase(wstatus);
+            print_status();
+        }
+        wrefresh(wstatus);
+        break;
     default:
+        if (input_mode) {
+            goto_line(c);
+        }
         break;
     }
+}
+
+void goto_line(int c)
+{
+    static uint32_t num = 0;
+
+    if (isdigit(c)) {
+        waddch(wstatus, c);
+        num = num * 10 + c - '0';
+    } else if (c == KEY_BACKSPACE) {
+        int x, y;
+
+        getyx(wstatus, y, x);
+        if (x >= 13) {
+            mvwdelch(wstatus, y, x - 1);
+            num /= 10;
+        }
+    } else if (num && (c == '\n' || c == KEY_ENTER)) {
+        int my, mx;
+
+        getmaxyx(wmain, my, mx);
+        if (num >= top && num < top + my) {
+            mvwchgat(wmain, selection_line, 0, -1, A_NORMAL, 0, NULL);
+            selection_line = num - 1;
+            mvwchgat(wmain, selection_line, 0, -1, A_NORMAL, 1, NULL);
+            wrefresh(wmain);
+            curs_set(0);
+            werase(wstatus);
+            input_mode = false;
+            num = 0;
+            print_status();
+        } else if (num < vector_size(packets)) {
+            werase(wmain);
+            mvwchgat(wmain, selection_line, 0, -1, A_NORMAL, 0, NULL);
+            if (num + my - 1 > vector_size(packets)) {
+                print_lines(vector_size(packets) - my, vector_size(packets), 0, mx);
+                top = vector_size(packets) - my;
+                selection_line = num - 1;
+                mvwchgat(wmain, num - 1 - top, 0, -1, A_NORMAL, 1, NULL);
+            } else {
+                print_lines(num - 1, num + my - 1, 0, mx);
+                selection_line = top = num - 1;
+                mvwchgat(wmain, 0, 0, -1, A_NORMAL, 1, NULL);
+            }
+            wrefresh(wmain);
+            curs_set(0);
+            werase(wstatus);
+            input_mode = false;
+            num = 0;
+            print_status();
+        }
+    }
+    wrefresh(wstatus);
 }
 
 /*
@@ -347,8 +429,6 @@ void set_interactive(bool interactive_mode, int lines, int cols)
 
     if (interactive_mode) {
         interactive = true;
-        mvwprintw(wstatus, 0, 0, "(interactive)");
-        wrefresh(wstatus);
         selection_line = top;
 
         /* print selection bar */
@@ -380,8 +460,6 @@ void set_interactive(bool interactive_mode, int lines, int cols)
         }
         interactive = false;
         wrefresh(wmain);
-        werase(wstatus);
-        wrefresh(wstatus);
     }
 }
 
@@ -434,6 +512,35 @@ void print_header(context *c)
         mvwchgat(wheader, y, 0, -1, A_STANDOUT, 0, NULL);
     }
     wrefresh(wheader);
+}
+
+void print_status()
+{
+    mvwprintw(wstatus, 0, 0, "F1");
+    wattron(wstatus, COLOR_PAIR(2));
+    wprintw(wstatus, "%-6s", "Help");
+    wattroff(wstatus, COLOR_PAIR(2));
+    wprintw(wstatus, "F2");
+    wattron(wstatus, COLOR_PAIR(2));
+    wprintw(wstatus, "%-6s", "Start");
+    wattroff(wstatus, COLOR_PAIR(2));
+    wprintw(wstatus, "F3");
+    wattron(wstatus, COLOR_PAIR(2));
+    wprintw(wstatus, "%-6s", "Stop");
+    wattroff(wstatus, COLOR_PAIR(2));
+    wprintw(wstatus, "F4");
+    wattron(wstatus, COLOR_PAIR(2));
+    wprintw(wstatus, "%-6s", "Load");
+    wattroff(wstatus, COLOR_PAIR(2));
+    wprintw(wstatus, "F5");
+    wattron(wstatus, COLOR_PAIR(2));
+    wprintw(wstatus, "%-6s", "Save");
+    wattroff(wstatus, COLOR_PAIR(2));
+    wprintw(wstatus, "F6");
+    wattron(wstatus, COLOR_PAIR(2));
+    wprintw(wstatus, "%-6s", "Views");
+    wattroff(wstatus, COLOR_PAIR(2));
+    wrefresh(wstatus);
 }
 
 void print_packet(struct packet *p)

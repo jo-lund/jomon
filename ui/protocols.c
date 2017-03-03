@@ -609,7 +609,6 @@ void add_arp_information(list_view *lw, list_view_item *header, struct packet *p
     ADD_TEXT_ELEMENT(lw, header, "");
     ADD_TEXT_ELEMENT(lw, header, "Sender IP: %-15s  HW: %s", sip, sha);
     ADD_TEXT_ELEMENT(lw, header, "Target IP: %-15s  HW: %s", tip, tha);
-    ADD_TEXT_ELEMENT(lw, header, "");
 }
 
 void add_stp_information(list_view *lw, list_view_item *header, struct packet *p)
