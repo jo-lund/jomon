@@ -481,3 +481,24 @@ int get_dns_max_namelen(struct dns_resource_record *record, int n)
     }
     return maxlen;
 }
+
+void free_dns_packet(struct dns_info *dns)
+{
+    if (dns) {
+        if (dns->record) {
+            switch (dns->record->type) {
+            case DNS_TYPE_HINFO:
+                free(dns->record->rdata.hinfo.cpu);
+                free(dns->record->rdata.hinfo.os);
+                break;
+            case DNS_TYPE_TXT:
+                list_free(dns->record->rdata.txt);
+                break;
+            default:
+                break;
+            }
+            free(dns->record);
+        }
+        free(dns);
+    }
+}

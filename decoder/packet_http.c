@@ -152,3 +152,19 @@ bool parse_http_header(char **str, unsigned int *len, list_t **header)
     *len = i;
     return false;
 }
+
+void free_http_packet(struct http_info *http)
+{
+    if (http) {
+        if (http->start_line) {
+            free(http->start_line);
+        }
+        if (http->header) {
+            list_free(http->header);
+        }
+        if (http->data) {
+            free(http->data);
+        }
+        free(http);
+    }
+}

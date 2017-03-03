@@ -135,23 +135,7 @@ void free_protocol_data(struct application_info *info)
 {
     switch (info->utype) {
     case DNS:
-        if (info->dns) {
-            if (info->dns->record) {
-                switch (info->dns->record->type) {
-                case DNS_TYPE_HINFO:
-                    free(info->dns->record->rdata.hinfo.cpu);
-                    free(info->dns->record->rdata.hinfo.os);
-                    break;
-                case DNS_TYPE_TXT:
-                    list_free(info->dns->record->rdata.txt);
-                    break;
-                default:
-                    break;
-                }
-                free(info->dns->record);
-            }
-            free(info->dns);
-        }
+        free_dns_packet(info->dns);
         break;
     case NBNS:
         if (info->nbns) {
@@ -167,18 +151,7 @@ void free_protocol_data(struct application_info *info)
         }
         break;
     case HTTP:
-        if (info->http) {
-            if (info->http->start_line) {
-                free(info->http->start_line);
-            }
-            if (info->http->header) {
-                list_free(info->http->header);
-            }
-            if (info->http->data) {
-                free(info->http->data);
-            }
-            free(info->http);
-        }
+        free_http_packet(info->http);
         break;
     default:
         if (info->payload) {

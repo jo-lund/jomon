@@ -12,6 +12,8 @@ struct http_info {
 
 struct application_info;
 
+/* internal to the decoder */
 bool handle_http(unsigned char *buffer, struct application_info *info, uint16_t len);
+void free_http_packet(struct http_info *http);
 
 #endif

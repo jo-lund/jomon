@@ -223,5 +223,6 @@ int get_dns_max_namelen(struct dns_resource_record *record, int n);
 /* internal to the decoder */
 bool handle_dns(unsigned char *buffer, int n, struct application_info *info);
 int parse_dns_name(unsigned char *buffer, int n, unsigned char *ptr, char name[]);
+void free_dns_packet(struct dns_info *dns);
 
 #endif
