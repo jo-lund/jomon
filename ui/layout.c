@@ -72,6 +72,7 @@ static void print_status();
 static void print_selected_packet();
 static void print_protocol_information(struct packet *p, int lineno);
 static void goto_line(int c);
+static void printnlw(WINDOW *win, char *str, int len, int y, int x);
 
 /* Handles subwindow layout */
 static void create_subwindow(int num_lines, int lineno);
@@ -172,6 +173,22 @@ void get_input()
         break;
     case KEY_DOWN:
         handle_keydown(my);
+        break;
+    case KEY_LEFT:
+        if (wmain->scrollx) {
+            werase(wmain->win);
+            wmain->scrollx -= 4;
+            print_lines(wmain->top, wmain->top + my, 0);
+            mvwchgat(wmain->win, wmain->selection_line - wmain->top, 0, -1, A_NORMAL, 1, NULL);
+            wrefresh(wmain->win);
+        }
+        break;
+    case KEY_RIGHT:
+        werase(wmain->win);
+        wmain->scrollx += 4;
+        print_lines(wmain->top, wmain->top + my, 0);
+        mvwchgat(wmain->win, wmain->selection_line - wmain->top, 0, -1, A_NORMAL, 1, NULL);
+        wrefresh(wmain->win);
         break;
     case KEY_ENTER:
     case '\n':
@@ -310,7 +327,7 @@ void handle_keyup(int num_lines)
 
             wscrl(wmain->win, -1);
             print_buffer(line, MAXLINE, p);
-            mvwprintw(wmain->win, 0, 0, "%s", line);
+            printnlw(wmain->win, line, strlen(line), 0, 0);
 
             /* deselect previous line and highlight next at top */
             mvwchgat(wmain->win, 1, 0, -1, A_NORMAL, 0, NULL);
@@ -358,7 +375,7 @@ void handle_keydown(int num_lines)
 
             wscrl(wmain->win, 1);
             print_buffer(line, MAXLINE, p);
-            mvwprintw(wmain->win, num_lines - 1, 0, "%s", line);
+            printnlw(wmain->win, line, strlen(line), num_lines - 1, 0);
 
             /* deselect previous line and highlight next line at bottom */
             mvwchgat(wmain->win, num_lines - 2, 0, -1, A_NORMAL, 0, NULL);
@@ -481,7 +498,7 @@ void set_interactive(bool interactive_mode, int num_lines)
 
                 p = vector_get_data(packets, c);
                 print_buffer(buffer, MAXLINE, p);
-                mvwprintw(wmain->win, i, 0, "%s", buffer);
+                printnlw(wmain->win, buffer, strlen(buffer), i, 0);
             }
             wmain->top = c + 1;
         } else {
@@ -508,7 +525,17 @@ int print_lines(int from, int to, int y)
         p = vector_get_data(packets, from);
         if (!p) break;
         print_buffer(buffer, MAXLINE, p);
-        mvwprintw(wmain->win, y++, 0, "%s", buffer);
+        if (wmain->scrollx) {
+            int n = strlen(buffer);
+
+            if (wmain->scrollx < n) {
+                printnlw(wmain->win, buffer, n, y++, 0);
+            } else {
+                y++;
+            }
+        } else {
+            printnlw(wmain->win, buffer, strlen(buffer), y++, 0);
+        }
         from++;
         c++;
     }
@@ -575,10 +602,9 @@ void print_status()
 
 void print_packet(struct packet *p)
 {
-    int mx = getmaxx(wmain->win);
-    char buf[mx];
+    char buf[MAXLINE];
 
-    print_buffer(buf, mx, p);
+    print_buffer(buf, MAXLINE, p);
     print(buf);
 }
 
@@ -601,7 +627,7 @@ void print(char *buf)
     my = getmaxy(wmain->win);
     if (!interactive || (interactive && wmain->outy < my)) {
         scroll_window();
-        mvwprintw(wmain->win, wmain->outy, 0, "%s", buf);
+        printnlw(wmain->win, buf, strlen(buf), wmain->outy, 0);
         wmain->outy++;
         wrefresh(wmain->win);
     }
@@ -888,7 +914,6 @@ void delete_subwindow()
  *
  * Returns true if it's inside the subwindow, else false.
  */
-
 bool update_subwin_selection()
 {
     int screen_line;
@@ -908,4 +933,18 @@ bool update_subwin_selection()
         return true;
     }
     return false;
+}
+
+/*
+ * When the scrollok option is enabled ncurses will wrap long lines at the
+ * bottom of the screen. This function will print without line wrapping.
+ */
+void printnlw(WINDOW *win, char *str, int len, int y, int x)
+{
+    int mx = getmaxx(win);
+
+    if (mx + wmain->scrollx - 1 < len) {
+        str[mx + wmain->scrollx - 1] = '\0';
+    }
+    mvwprintw(win, y, x, "%s", str + wmain->scrollx);
 }
