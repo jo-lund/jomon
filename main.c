@@ -111,7 +111,19 @@ int main(int argc, char **argv)
         init_ncurses();
         create_layout(&c);
     }
-    if (c.filename) print_file();
+    if (c.filename) {
+        if (use_ncurses) {
+            print_file();
+        } else {
+            for (int i = 0; i < vector_size(packets); i++) {
+                char buf[MAXLINE];
+
+                print_buffer(buf, MAXLINE, vector_get_data(packets, i));
+                printf("%s\n", buf);
+            }
+            finish();
+        }
+    }
     run();
     finish();
 #endif
@@ -208,7 +220,7 @@ void init_structures()
     }
 
     /* Initialize table to store packets */
-    if (use_ncurses) {
+    if (use_ncurses || c.filename) {
         packets = vector_init(1000, free_packet);
     }
 }
