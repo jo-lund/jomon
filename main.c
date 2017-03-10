@@ -30,18 +30,20 @@
 #include "vector.h"
 #include "file_pcap.h"
 
+#include "ui/protocols.h"
+
 linkdef rx; /* data received */
 linkdef tx; /* data transmitted */
 struct sockaddr_in *local_addr;
 char *device = NULL;
-int verbose;
-int promiscuous;
-int statistics;
+bool statistics = false;
 vector_t *packets;
 
 static volatile sig_atomic_t signal_flag = 0;
 static int sockfd = -1; /* packet socket file descriptor */
-static int no_curses;
+static bool use_ncurses = true;
+static bool promiscuous = false;
+static bool verbose = false;
 static context c = { NULL, NULL };
 
 static void print_help(char *prg);
@@ -57,9 +59,6 @@ int main(int argc, char **argv)
     char *prg_name = argv[0];
     int opt;
 
-    statistics = 0;
-    promiscuous = 0;
-    no_curses = 0;
     while ((opt = getopt(argc, argv, "i:r:lhvpst")) != -1) {
         switch (opt) {
         case 'i':
@@ -70,19 +69,19 @@ int main(int argc, char **argv)
             exit(0);
             break;
         case 'p':
-            promiscuous = 1;
+            promiscuous = true;
             break;
         case 'v':
-            verbose = 1;
+            verbose = true;
             break;
         case 's':
-            statistics = 1;
+            statistics = true;
             break;
         case 'r':
             c.filename = strdup(optarg);
             break;
         case 't':
-            no_curses = 1;
+            use_ncurses = false;
             break;
         case 'h':
         default:
@@ -108,7 +107,7 @@ int main(int argc, char **argv)
     } else {
         init_socket(c.device);
     }
-    if (!no_curses) {
+    if (use_ncurses) {
         init_ncurses();
         create_layout(&c);
     }
@@ -144,7 +143,7 @@ void sig_int(int signo)
 
 void finish()
 {
-    if (!no_curses) {
+    if (use_ncurses) {
         end_ncurses();
     }
     vector_clear(packets);
@@ -209,7 +208,9 @@ void init_structures()
     }
 
     /* Initialize table to store packets */
-    packets = vector_init(1000, free_packet);
+    if (use_ncurses) {
+        packets = vector_init(1000, free_packet);
+    }
 }
 
 /* The main event loop */
@@ -237,9 +238,14 @@ void run()
 
             n = read_packet(sockfd, buffer, SNAPLEN, &p);
             if (n) {
-                vector_push_back(packets, p);
-                if (!no_curses) {
+                if (use_ncurses) {
+                    vector_push_back(packets, p);
                     print_packet(p);
+                } else {
+                    char buf[MAXLINE];
+
+                    print_buffer(buf, MAXLINE, p);
+                    printf("%s\n", buf);
                 }
             }
         }

@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include <net/ethernet.h>
 #include <netinet/ip.h>
+#include <stdbool.h>
 
 /*
  * Only a portion of each packet is passed by the kernel to the application, this
@@ -38,9 +39,7 @@ typedef struct {
 } context;
 
 extern struct sockaddr_in *local_addr;
-extern int verbose;
-extern int promiscuous;
-extern int statistics;
+extern bool statistics;
 extern linkdef rx; /* data received */
 extern linkdef tx; /* data transmitted */
 
