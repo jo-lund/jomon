@@ -166,14 +166,14 @@ void print_widgets(list_t *widgets, WINDOW *win, int pad, int *line)
         list_view_item *w = list_data(n);
         
         if (w->type == HEADER) {
-            mvwprintw(win, *line, pad, w->txt);
+            mvwprintw(win, *line, pad, "%s", w->txt);
             mvwchgat(win, *line, 0, -1, w->attr, 0, NULL);
             (*line)++;
             if (w->hdr.expanded && w->hdr.subwidgets) {
                 print_widgets(w->hdr.subwidgets, win, pad + 2, line);
             }
         } else {
-            mvwprintw(win, *line, pad, w->txt);
+            mvwprintw(win, *line, pad, "%s", w->txt);
             (*line)++;
         }
         n = list_next(n);

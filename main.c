@@ -44,7 +44,7 @@ static int sockfd = -1; /* packet socket file descriptor */
 static bool use_ncurses = true;
 static bool promiscuous = false;
 static bool verbose = false;
-static context c = { NULL, NULL };
+static main_context ctx = { NULL, NULL };
 
 static void print_help(char *prg);
 static void init_socket(char *device);
@@ -62,7 +62,7 @@ int main(int argc, char **argv)
     while ((opt = getopt(argc, argv, "i:r:lhvpst")) != -1) {
         switch (opt) {
         case 'i':
-            c.device = strdup(optarg);
+            ctx.device = strdup(optarg);
             break;
         case 'l':
             list_interfaces();
@@ -78,7 +78,7 @@ int main(int argc, char **argv)
             statistics = true;
             break;
         case 'r':
-            c.filename = strdup(optarg);
+            ctx.filename = strdup(optarg);
             break;
         case 't':
             use_ncurses = false;
@@ -92,26 +92,26 @@ int main(int argc, char **argv)
 
 #ifdef linux
     init_structures();
-    if (!c.device && !(c.device = get_default_interface())) {
+    if (!ctx.device && !(ctx.device = get_default_interface())) {
         err_quit("Cannot find active network device");
     }
     local_addr = malloc(sizeof (struct sockaddr_in));
-    get_local_address(c.device, (struct sockaddr *) local_addr);
-    if (c.filename) {
+    get_local_address(ctx.device, (struct sockaddr *) local_addr);
+    if (ctx.filename) {
         enum file_error err;
 
-        err = read_file(c.filename);
+        err = read_file(ctx.filename);
         if (err != NO_ERROR) {
-            err_quit("Error in file: %s", c.filename);
+            err_quit("Error in file: %s", ctx.filename);
         }
     } else {
-        init_socket(c.device);
+        init_socket(ctx.device);
     }
     if (use_ncurses) {
         init_ncurses();
-        create_layout(&c);
+        create_layout(&ctx);
     }
-    if (c.filename) {
+    if (ctx.filename) {
         if (use_ncurses) {
             print_file();
         } else {
@@ -159,8 +159,8 @@ void finish()
         end_ncurses();
     }
     vector_clear(packets);
-    free(c.device);
-    free(c.filename);
+    free(ctx.device);
+    free(ctx.filename);
     free(local_addr);
     if (sockfd > 0) {
         close(sockfd);
@@ -220,7 +220,7 @@ void init_structures()
     }
 
     /* Initialize table to store packets */
-    if (use_ncurses || c.filename) {
+    if (use_ncurses || ctx.filename) {
         packets = vector_init(1000, free_packet);
     }
 }

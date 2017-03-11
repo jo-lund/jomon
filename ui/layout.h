@@ -37,10 +37,7 @@ void get_input();
  * containing the header, another the main screen with packet information, and
  * below that a statusbar.
  */
-void create_layout(context *c);
-
-/* print the rate of the transmission */
-void print_rate();
+void create_layout(main_context *c);
 
 void print_packet(struct packet *p);
 

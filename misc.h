@@ -36,7 +36,7 @@ typedef struct {
 typedef struct {
     char *device;
     char *filename;
-} context;
+} main_context;
 
 extern struct sockaddr_in *local_addr;
 extern bool statistics;

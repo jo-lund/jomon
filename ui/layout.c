@@ -11,11 +11,18 @@
 #include "../util.h"
 #include "../vector.h"
 #include "../decoder/decoder.h"
+#include "../stack.h"
 #include "list_view.h"
 
 #define HEADER_HEIGHT 4
 #define STATUS_HEIGHT 1
 #define KEY_ESC 27
+#define NUM_VIEWS 2
+
+enum {
+    HELP_VIEW,
+    STAT_VIEW
+};
 
 typedef struct {
     struct line_info {
@@ -31,8 +38,10 @@ typedef struct {
     } subwindow;
 
     WINDOW *win;
-    int outy;
     int selection_line; /* index to the selection bar */
+
+    /* next available line, i.e. outy - 1 is the last line printed on the screen */
+    int outy;
 
     /*
      * Index to top of main window. The main screen will be between top + maximum
@@ -40,10 +49,13 @@ typedef struct {
      */
     int top;
 
-    /* the number of lines to be scrolled in order to print packet information */
+    /*
+     * the number of lines that need to be scrolled to show all the information
+     * when inspecting a packet
+     */
     int scrolly;
 
-    int scrollx;
+    int scrollx; /* the amount scrolled on the x-axis */
 } main_window;
 
 extern vector_t *packets;
@@ -56,6 +68,9 @@ static list_view *lw;
 static bool capturing = true;
 static bool interactive = false;
 static bool input_mode = false;
+static main_context *ctx;
+static WINDOW *views[NUM_VIEWS] = { NULL };
+static _stack_t *stack;
 
 static main_window *create_main_window(int nlines, int ncols, int beg_y, int beg_x);
 static void free_main_window(main_window *mw);
@@ -67,12 +82,16 @@ static void scroll_page(int num_lines);
 static void scroll_window();
 static int print_lines(int from, int to, int y);
 static void print(char *buf);
-static void print_header(context *c);
+static void print_header();
 static void print_status();
 static void print_selected_packet();
 static void print_protocol_information(struct packet *p, int lineno);
 static void goto_line(int c);
 static void printnlw(WINDOW *win, char *str, int len, int y, int x);
+static void printat(WINDOW *win, int y, int x, int attrs, const char *fmt, ...);
+static void print_help();
+static void show_help();
+static void change_view();
 
 /* Handles subwindow layout */
 static void create_subwindow(int num_lines, int lineno);
@@ -92,6 +111,8 @@ void init_ncurses()
     start_color();
     init_pair(1, COLOR_WHITE, COLOR_CYAN);
     init_pair(2, COLOR_BLACK, COLOR_CYAN);
+    init_pair(3, COLOR_CYAN, -1);
+    init_pair(4, COLOR_GREEN, -1);
     set_escdelay(25); /* set escdelay to 25 ms */
 }
 
@@ -101,10 +122,11 @@ void end_ncurses()
     endwin(); /* end curses mode */
 }
 
-void create_layout(context *c)
+void create_layout(main_context *c)
 {
     int mx, my;
 
+    ctx = c;
     getmaxyx(stdscr, my, mx);
     wheader = newwin(HEADER_HEIGHT, mx, 0, 0);
     wstatus = newwin(STATUS_HEIGHT, mx, my - STATUS_HEIGHT, 0);
@@ -114,6 +136,7 @@ void create_layout(context *c)
     print_header(c);
     print_status();
     scrollok(wmain->win, TRUE); /* enable scrolling */
+    stack = stack_init(NUM_VIEWS);
 }
 
 main_window *create_main_window(int nlines, int ncols, int beg_y, int beg_x)
@@ -158,10 +181,16 @@ void get_input()
 
     my = getmaxy(wmain->win);
     c = wgetch(wmain->win);
+    if (stack_top(stack)) {
+        change_view();
+        return;
+    }
+
     switch (c) {
     case 'i':
         set_interactive(!interactive, my);
         break;
+    case KEY_F(10):
     case 'q':
         finish();
         break;
@@ -216,6 +245,9 @@ void get_input()
     case KEY_PPAGE:
         scroll_page(-my);
         break;
+    case KEY_F(1):
+        show_help();
+        break;
     case 'g':
         input_mode = !input_mode;
         if (input_mode) {
@@ -235,6 +267,99 @@ void get_input()
         }
         break;
     }
+}
+
+void print_header()
+{
+    int y = 0;
+    char addr[INET_ADDRSTRLEN];
+
+    if (ctx->filename) {
+        printat(wheader, y, 0, COLOR_PAIR(3) | A_BOLD, "Filename");
+        wprintw(wheader, ": %s", ctx->filename);
+    } else {
+        printat(wheader, y, 0, COLOR_PAIR(3) | A_BOLD, "Listening on device");
+        wprintw(wheader, ": %s", ctx->device);
+    }
+    inet_ntop(AF_INET, &local_addr->sin_addr, addr, sizeof(addr));
+    printat(wheader, ++y, 0, COLOR_PAIR(3) | A_BOLD, "Local address");
+    wprintw(wheader, ": %s", addr);
+    y += 2;
+    mvwprintw(wheader, y, 0, "Number");
+    mvwprintw(wheader, y, NUM_WIDTH, "Source");
+    mvwprintw(wheader, y, ADDR_WIDTH + NUM_WIDTH, "Destination");
+    mvwprintw(wheader, y, 2 * ADDR_WIDTH + NUM_WIDTH, "Protocol");
+    mvwprintw(wheader, y, 2 * ADDR_WIDTH + PROT_WIDTH + NUM_WIDTH, "Info");
+    mvwchgat(wheader, y, 0, -1, A_STANDOUT, 0, NULL);
+    wrefresh(wheader);
+}
+
+void print_status()
+{
+    mvwprintw(wstatus, 0, 0, "F1");
+    printat(wstatus, -1, -1, COLOR_PAIR(2), "%-8s", "Help");
+    wprintw(wstatus, "F2");
+    printat(wstatus, -1, -1, COLOR_PAIR(2), "%-8s", "Start");
+    wprintw(wstatus, "F3");
+    printat(wstatus, -1, -1, COLOR_PAIR(2), "%-8s", "Stop");
+    wprintw(wstatus, "F4");
+    printat(wstatus, -1, -1, COLOR_PAIR(2), "%-8s", "Load");
+    wprintw(wstatus, "F5");
+    printat(wstatus, -1, -1, COLOR_PAIR(2), "%-8s", "Save");
+    wprintw(wstatus, "F6");
+    printat(wstatus, -1, -1, COLOR_PAIR(2), "%-8s", "Views");
+    wprintw(wstatus, "F10");
+    printat(wstatus, -1, -1, COLOR_PAIR(2), "%-8s", "Quit");
+    wrefresh(wstatus);
+}
+
+void print_help()
+{
+    int y = 0;
+    WINDOW *win = views[HELP_VIEW];
+
+    wprintw(win, "Monitor 0.0.1 (c) 2017 John Olav Lund");
+    mvwprintw(win, ++y, 0, "");
+    mvwprintw(win, ++y, 0, "When a packet scan is active you can enter interactive mode " \
+              "by pressing \'i\'. In interactive mode the packet scan will continue in the " \
+              "background.");
+    mvwprintw(win, ++y, 0, "");
+    printat(win, ++y, 0, COLOR_PAIR(4) | A_BOLD, "General keyboard shortcuts");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "i");
+    wprintw(win, ": Enter interactive mode");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "s");
+    wprintw(win, ": Show statistics screen");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F1");
+    wprintw(win, ": Show help");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F2");
+    wprintw(win, ": Start packet scan");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F3");
+    wprintw(win, ": Stop packet scan");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F4");
+    wprintw(win, ": Load file in pcap format");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F5");
+    wprintw(win, ": Save file in pcap format");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F6");
+    wprintw(win, ": Change view");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F10 q");
+    wprintw(win, ": Quit");
+    mvwprintw(win, ++y, 0, "");
+
+    printat(win, ++y, 0, COLOR_PAIR(4) | A_BOLD, "Keyboard shortcuts in interactive mode");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "Arrows");
+    wprintw(win, ": Scroll the packet list");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "Space pgdown");
+    wprintw(win, ": Scroll page down");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "b pgup");
+    wprintw(win, ": Scroll page up");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "Home End");
+    wprintw(win, ": Go to first/last page");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "g");
+    wprintw(win, ": Go to line number");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "Enter");
+    wprintw(win, ": Inspect packet");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "Esc i");
+    wprintw(win, ": Quit interactive mode");
 }
 
 void goto_line(int c)
@@ -334,20 +459,20 @@ void handle_keyup(int num_lines)
             mvwchgat(wmain->win, 0, 0, -1, A_NORMAL, 1, NULL);
         }
     } else if (wmain->selection_line > 0) {
-         int screen_line = wmain->selection_line - wmain->top;
+        int screen_line = wmain->selection_line - wmain->top;
 
-         /* deselect previous line and highlight next */
-         if (wmain->subwindow.win && screen_line >= wmain->subwindow.top &&
-             screen_line < wmain->subwindow.top + wmain->subwindow.num_lines) {
-             int subline = screen_line - wmain->subwindow.top;
+        /* deselect previous line and highlight next */
+        if (wmain->subwindow.win && screen_line >= wmain->subwindow.top &&
+            screen_line < wmain->subwindow.top + wmain->subwindow.num_lines) {
+            int subline = screen_line - wmain->subwindow.top;
 
-             mvwchgat(wmain->win, screen_line, 0, -1, GET_ATTR(lw, subline), 0, NULL);
-             mvwchgat(wmain->win, screen_line - 1, 0, -1, subline == 0 ? A_NORMAL :
-                      GET_ATTR(lw, subline - 1), 1, NULL);
-         } else {
-             mvwchgat(wmain->win, screen_line, 0, -1, A_NORMAL, 0, NULL);
-             mvwchgat(wmain->win, screen_line - 1, 0, -1, A_NORMAL, 1, NULL);
-         }
+            mvwchgat(wmain->win, screen_line, 0, -1, GET_ATTR(lw, subline), 0, NULL);
+            mvwchgat(wmain->win, screen_line - 1, 0, -1, subline == 0 ? A_NORMAL :
+                     GET_ATTR(lw, subline - 1), 1, NULL);
+        } else {
+            mvwchgat(wmain->win, screen_line, 0, -1, A_NORMAL, 0, NULL);
+            mvwchgat(wmain->win, screen_line - 1, 0, -1, A_NORMAL, 1, NULL);
+        }
         wmain->selection_line--;
     }
     wrefresh(wmain->win);
@@ -542,64 +667,6 @@ int print_lines(int from, int to, int y)
     return c;
 }
 
-void print_header(context *c)
-{
-    int y = 0;
-    char addr[INET_ADDRSTRLEN];
-
-    if (c->filename) {
-        mvwprintw(wheader, y, 0, "Filename: %s", c->filename);
-    } else {
-        mvwprintw(wheader, y, 0, "Listening on device: %s", c->device);
-    }
-    inet_ntop(AF_INET, &local_addr->sin_addr, addr, sizeof(addr));
-    mvwprintw(wheader, ++y, 0, "Local address: %s", addr);
-    y += 2;
-    if (statistics) {
-        attron(A_BOLD);
-        mvwprintw(wheader, y, 0, "RX:");
-        mvwprintw(wheader, ++y, 0, "TX:");
-        attroff(A_BOLD);
-    } else {
-        mvwprintw(wheader, y, 0, "Number");
-        mvwprintw(wheader, y, NUM_WIDTH, "Source");
-        mvwprintw(wheader, y, ADDR_WIDTH + NUM_WIDTH, "Destination");
-        mvwprintw(wheader, y, 2 * ADDR_WIDTH + NUM_WIDTH, "Protocol");
-        mvwprintw(wheader, y, 2 * ADDR_WIDTH + PROT_WIDTH + NUM_WIDTH, "Info");
-        mvwchgat(wheader, y, 0, -1, A_STANDOUT, 0, NULL);
-    }
-    wrefresh(wheader);
-}
-
-void print_status()
-{
-    mvwprintw(wstatus, 0, 0, "F1");
-    wattron(wstatus, COLOR_PAIR(2));
-    wprintw(wstatus, "%-6s", "Help");
-    wattroff(wstatus, COLOR_PAIR(2));
-    wprintw(wstatus, "F2");
-    wattron(wstatus, COLOR_PAIR(2));
-    wprintw(wstatus, "%-6s", "Start");
-    wattroff(wstatus, COLOR_PAIR(2));
-    wprintw(wstatus, "F3");
-    wattron(wstatus, COLOR_PAIR(2));
-    wprintw(wstatus, "%-6s", "Stop");
-    wattroff(wstatus, COLOR_PAIR(2));
-    wprintw(wstatus, "F4");
-    wattron(wstatus, COLOR_PAIR(2));
-    wprintw(wstatus, "%-6s", "Load");
-    wattroff(wstatus, COLOR_PAIR(2));
-    wprintw(wstatus, "F5");
-    wattron(wstatus, COLOR_PAIR(2));
-    wprintw(wstatus, "%-6s", "Save");
-    wattroff(wstatus, COLOR_PAIR(2));
-    wprintw(wstatus, "F6");
-    wattron(wstatus, COLOR_PAIR(2));
-    wprintw(wstatus, "%-6s", "Views");
-    wattroff(wstatus, COLOR_PAIR(2));
-    wrefresh(wstatus);
-}
-
 void print_packet(struct packet *p)
 {
     char buf[MAXLINE];
@@ -629,7 +696,9 @@ void print(char *buf)
         scroll_window();
         printnlw(wmain->win, buf, strlen(buf), wmain->outy, 0);
         wmain->outy++;
-        wrefresh(wmain->win);
+        if (stack_empty(stack)) {
+            wrefresh(wmain->win);
+        }
     }
 }
 
@@ -858,7 +927,7 @@ void create_subwindow(int num_lines, int lineno)
     if (num_lines >= my) num_lines = my - 1;
 
     /* if there is not enough space for the information to be printed, the
-        screen needs to be scrolled to make room for all the lines */
+       screen needs to be scrolled to make room for all the lines */
     if (my - (start_line + 1) < num_lines) {
         wmain->scrolly = num_lines - (my - (start_line + 1));
         wscrl(wmain->win, wmain->scrolly);
@@ -947,4 +1016,63 @@ void printnlw(WINDOW *win, char *str, int len, int y, int x)
         str[mx + wmain->scrollx - 1] = '\0';
     }
     mvwprintw(win, y, x, "%s", str + wmain->scrollx);
+}
+
+/*
+ * Print text in window with the given attributes. If 'y' and 'x' are -1, it will
+ * start to print at the current cursor location.
+ */
+void printat(WINDOW *win, int y, int x, int attrs, const char *fmt, ...)
+{
+    char buf[MAXLINE];
+    va_list ap;
+
+    va_start(ap, fmt);
+    vsnprintf(buf, MAXLINE - 1, fmt, ap);
+    va_end(ap);
+    wattron(win, attrs);
+    if (y == -1 && x == -1) {
+        waddstr(win, buf);
+    } else {
+        mvwprintw(win, y, x, "%s", buf);
+    }
+    wattroff(win, attrs);
+}
+
+void change_view()
+{
+    stack_pop(stack);
+    if (stack_empty(stack)) {
+        touchwin(wmain->win);
+        touchwin(wstatus);
+        touchwin(wheader);
+        wnoutrefresh(wmain->win);
+        wnoutrefresh(wheader);
+        wnoutrefresh(wstatus);
+        doupdate();
+    } else {
+        WINDOW *win = stack_top(stack);
+
+        touchwin(win);
+        wrefresh(win);
+    }
+}
+
+void show_help()
+{
+    if (views[HELP_VIEW]) {
+        stack_push(stack, views[HELP_VIEW]);
+        touchwin(views[HELP_VIEW]);
+        wrefresh(views[HELP_VIEW]);
+    } else {
+        int mx, my;
+        WINDOW *win;
+
+        getmaxyx(stdscr, my, mx);
+        win = newwin(my, mx, 0, 0);
+        views[HELP_VIEW] = win;
+        stack_push(stack, win);
+        print_help();
+        wrefresh(win);
+    }
 }
