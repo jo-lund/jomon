@@ -29,22 +29,19 @@
 #include "decoder/packet.h"
 #include "vector.h"
 #include "file_pcap.h"
-
 #include "ui/protocols.h"
+#include "ui/stat_screen.h"
 
-linkdef rx; /* data received */
-linkdef tx; /* data transmitted */
 struct sockaddr_in *local_addr;
-char *device = NULL;
 bool statistics = false;
 vector_t *packets;
+main_context ctx = { NULL, NULL };
 
 static volatile sig_atomic_t signal_flag = 0;
 static int sockfd = -1; /* packet socket file descriptor */
 static bool use_ncurses = true;
 static bool promiscuous = false;
 static bool verbose = false;
-static main_context ctx = { NULL, NULL };
 
 static void print_help(char *prg);
 static void init_socket(char *device);
@@ -52,7 +49,6 @@ static void init_structures();
 static void run();
 static void sig_alarm(int signo);
 static void sig_int(int signo);
-static void calculate_rate();
 
 int main(int argc, char **argv)
 {
@@ -109,7 +105,7 @@ int main(int argc, char **argv)
     }
     if (use_ncurses) {
         init_ncurses();
-        create_layout(&ctx);
+        create_layout();
     }
     if (ctx.filename) {
         if (use_ncurses) {
@@ -188,8 +184,6 @@ void init_socket(char *device)
     }
 
     setuid(getuid()); /* no need for root access anymore */
-    memset(&rx, 0, sizeof(linkdef));
-    memset(&tx, 0, sizeof(linkdef));
     memset(&ll_addr, 0, sizeof(ll_addr));
     ll_addr.sll_family = PF_PACKET;
     ll_addr.sll_protocol = htons(ETH_P_ALL);
@@ -237,6 +231,7 @@ void run()
     while (1) {
         if (signal_flag) {
             signal_flag = 0;
+            ss_print();
             alarm(1);
         }
         if (poll(fds, 2, -1) == -1) {
@@ -265,13 +260,4 @@ void run()
             get_input();
         }
     }
-}
-
-// TODO: Move this
-void calculate_rate()
-{
-    rx.kbps = (rx.tot_bytes - rx.prev_bytes) / 1024;
-    tx.kbps = (tx.tot_bytes - tx.prev_bytes) / 1024;
-    rx.prev_bytes = rx.tot_bytes;
-    tx.prev_bytes = tx.tot_bytes;
 }

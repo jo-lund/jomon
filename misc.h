@@ -24,15 +24,6 @@
 
 #define MAXLINE 1000
 
-/* RX/TX variables */
-typedef struct {
-    unsigned long tot_bytes;
-    unsigned long prev_bytes;
-    unsigned int num_packets;
-    unsigned int bad_packets;
-    double kbps; /* kilobytes per second */
-} linkdef;
-
 typedef struct {
     char *device;
     char *filename;
@@ -40,8 +31,6 @@ typedef struct {
 
 extern struct sockaddr_in *local_addr;
 extern bool statistics;
-extern linkdef rx; /* data received */
-extern linkdef tx; /* data transmitted */
 
 void finish();
 

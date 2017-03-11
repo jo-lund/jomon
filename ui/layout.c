@@ -13,16 +13,11 @@
 #include "../decoder/decoder.h"
 #include "../stack.h"
 #include "list_view.h"
+#include "layout_int.h"
+#include "stat_screen.h"
 
 #define HEADER_HEIGHT 4
 #define STATUS_HEIGHT 1
-#define KEY_ESC 27
-#define NUM_VIEWS 2
-
-enum {
-    HELP_VIEW,
-    STAT_VIEW
-};
 
 typedef struct {
     struct line_info {
@@ -37,8 +32,11 @@ typedef struct {
         unsigned int num_lines;
     } subwindow;
 
-    WINDOW *win;
+    WINDOW *header;
+    WINDOW *status;
+    WINDOW *pktlist;
     int selection_line; /* index to the selection bar */
+    list_view *lvw;
 
     /* next available line, i.e. outy - 1 is the last line printed on the screen */
     int outy;
@@ -56,24 +54,20 @@ typedef struct {
     int scrolly;
 
     int scrollx; /* the amount scrolled on the x-axis */
-} main_window;
+} main_screen;
 
 extern vector_t *packets;
+extern main_context ctx;
 bool numeric = true;
 static bool selected[NUM_LAYERS];
-static WINDOW *wheader;
-static WINDOW *wstatus;
-static main_window *wmain;
-static list_view *lw;
+static main_screen *wmain;
 static bool capturing = true;
 static bool interactive = false;
 static bool input_mode = false;
-static main_context *ctx;
-static WINDOW *views[NUM_VIEWS] = { NULL };
-static _stack_t *stack;
+static _stack_t *screen_stack;
 
-static main_window *create_main_window(int nlines, int ncols, int beg_y, int beg_x);
-static void free_main_window(main_window *mw);
+static main_screen *create_main_screen(int nlines, int ncols);
+static void free_main_screen(main_screen *mw);
 static void set_interactive(bool interactive_mode, int num_lines);
 static bool check_line();
 static void handle_keydown(int num_lines);
@@ -87,11 +81,7 @@ static void print_status();
 static void print_selected_packet();
 static void print_protocol_information(struct packet *p, int lineno);
 static void goto_line(int c);
-static void printnlw(WINDOW *win, char *str, int len, int y, int x);
-static void printat(WINDOW *win, int y, int x, int attrs, const char *fmt, ...);
 static void print_help();
-static void show_help();
-static void change_view();
 
 /* Handles subwindow layout */
 static void create_subwindow(int num_lines, int lineno);
@@ -118,46 +108,54 @@ void init_ncurses()
 
 void end_ncurses()
 {
-    free_main_window(wmain);
+    free_main_screen(wmain);
+    for (int i = 0; i < NUM_SCREENS; i++) {
+        if (screens[i]) {
+            free(screens[i]);
+        }
+    }
     endwin(); /* end curses mode */
 }
 
-void create_layout(main_context *c)
+void create_layout()
 {
     int mx, my;
 
-    ctx = c;
     getmaxyx(stdscr, my, mx);
-    wheader = newwin(HEADER_HEIGHT, mx, 0, 0);
-    wstatus = newwin(STATUS_HEIGHT, mx, my - STATUS_HEIGHT, 0);
-    wmain = create_main_window(my - HEADER_HEIGHT - STATUS_HEIGHT, mx, HEADER_HEIGHT, 0);
-    nodelay(wmain->win, TRUE); /* input functions must be non-blocking */
-    keypad(wmain->win, TRUE);
-    print_header(c);
+    wmain = create_main_screen(my, mx);
+    nodelay(wmain->pktlist, TRUE); /* input functions must be non-blocking */
+    keypad(wmain->pktlist, TRUE);
+    print_header();
     print_status();
-    scrollok(wmain->win, TRUE); /* enable scrolling */
-    stack = stack_init(NUM_VIEWS);
+    scrollok(wmain->pktlist, TRUE); /* enable scrolling */
+    screen_stack = stack_init(NUM_SCREENS);
+    memset(screens, 0, NUM_SCREENS * sizeof(screens));
 }
 
-main_window *create_main_window(int nlines, int ncols, int beg_y, int beg_x)
+main_screen *create_main_screen(int nlines, int ncols)
 {
-    main_window *wm = malloc(sizeof(main_window));
+    main_screen *wm = malloc(sizeof(main_screen));
 
     wm->outy = 0;
     wm->selection_line = 0;
     wm->top = 0;
     wm->scrolly = 0;
     wm->scrollx = 0;
-    wm->win = newwin(nlines, ncols, beg_y, beg_x);
+    wm->lvw = NULL;
+    wm->header = newwin(HEADER_HEIGHT, ncols, 0, 0);
+    wm->pktlist = newwin(nlines - HEADER_HEIGHT - STATUS_HEIGHT, ncols, HEADER_HEIGHT, 0);
+    wm->status = newwin(STATUS_HEIGHT, ncols, nlines - STATUS_HEIGHT, 0);
     return wm;
 }
 
-void free_main_window(main_window *mw)
+void free_main_screen(main_screen *mw)
 {
     if (mw->subwindow.win) {
         delwin(mw->subwindow.win);
     }
-    delwin(mw->win);
+    delwin(mw->header);
+    delwin(mw->pktlist);
+    delwin(mw->status);
     free(mw);
 }
 
@@ -166,10 +164,10 @@ void scroll_window()
 {
     int my;
 
-    my = getmaxy(wmain->win);
+    my = getmaxy(wmain->pktlist);
     if (wmain->outy >= my) {
         wmain->outy = my - 1;
-        scroll(wmain->win);
+        scroll(wmain->pktlist);
         wmain->top++;
     }
 }
@@ -178,11 +176,16 @@ void get_input()
 {
     int c = 0;
     int my;
+    screen *s = (screen *) stack_top(screen_stack);
 
-    my = getmaxy(wmain->win);
-    c = wgetch(wmain->win);
-    if (stack_top(stack)) {
-        change_view();
+    my = getmaxy(wmain->pktlist);
+    c = wgetch(wmain->pktlist);
+    if (s) {
+        if (s->type == STAT_SCREEN) {
+            ss_handle_input(c);
+        } else {
+            pop_screen();
+        }
         return;
     }
 
@@ -205,19 +208,19 @@ void get_input()
         break;
     case KEY_LEFT:
         if (wmain->scrollx) {
-            werase(wmain->win);
+            werase(wmain->pktlist);
             wmain->scrollx -= 4;
             print_lines(wmain->top, wmain->top + my, 0);
-            mvwchgat(wmain->win, wmain->selection_line - wmain->top, 0, -1, A_NORMAL, 1, NULL);
-            wrefresh(wmain->win);
+            mvwchgat(wmain->pktlist, wmain->selection_line - wmain->top, 0, -1, A_NORMAL, 1, NULL);
+            wrefresh(wmain->pktlist);
         }
         break;
     case KEY_RIGHT:
-        werase(wmain->win);
+        werase(wmain->pktlist);
         wmain->scrollx += 4;
         print_lines(wmain->top, wmain->top + my, 0);
-        mvwchgat(wmain->win, wmain->selection_line - wmain->top, 0, -1, A_NORMAL, 1, NULL);
-        wrefresh(wmain->win);
+        mvwchgat(wmain->pktlist, wmain->selection_line - wmain->top, 0, -1, A_NORMAL, 1, NULL);
+        wrefresh(wmain->pktlist);
         break;
     case KEY_ENTER:
     case '\n':
@@ -230,7 +233,7 @@ void get_input()
     case KEY_ESC:
         if (input_mode) {
             curs_set(0);
-            werase(wstatus);
+            werase(wmain->status);
             print_status();
             input_mode = false;
         } else if (interactive) {
@@ -246,20 +249,24 @@ void get_input()
         scroll_page(-my);
         break;
     case KEY_F(1):
-        show_help();
+        push_screen(HELP_SCREEN);
         break;
     case 'g':
+        if (!interactive) return;
         input_mode = !input_mode;
         if (input_mode) {
-            werase(wstatus);
-            mvwprintw(wstatus, 0, 0, "Go to line: ");
+            werase(wmain->status);
+            mvwprintw(wmain->status, 0, 0, "Go to line: ");
             curs_set(1);
         } else {
             curs_set(0);
-            werase(wstatus);
+            werase(wmain->status);
             print_status();
         }
-        wrefresh(wstatus);
+        wrefresh(wmain->status);
+        break;
+    case 's':
+        push_screen(STAT_SCREEN);
         break;
     default:
         if (input_mode) {
@@ -274,49 +281,49 @@ void print_header()
     int y = 0;
     char addr[INET_ADDRSTRLEN];
 
-    if (ctx->filename) {
-        printat(wheader, y, 0, COLOR_PAIR(3) | A_BOLD, "Filename");
-        wprintw(wheader, ": %s", ctx->filename);
+    if (ctx.filename) {
+        printat(wmain->header, y, 0, COLOR_PAIR(3) | A_BOLD, "Filename");
+        wprintw(wmain->header, ": %s", ctx.filename);
     } else {
-        printat(wheader, y, 0, COLOR_PAIR(3) | A_BOLD, "Listening on device");
-        wprintw(wheader, ": %s", ctx->device);
+        printat(wmain->header, y, 0, COLOR_PAIR(3) | A_BOLD, "Listening on device");
+        wprintw(wmain->header, ": %s", ctx.device);
     }
     inet_ntop(AF_INET, &local_addr->sin_addr, addr, sizeof(addr));
-    printat(wheader, ++y, 0, COLOR_PAIR(3) | A_BOLD, "Local address");
-    wprintw(wheader, ": %s", addr);
+    printat(wmain->header, ++y, 0, COLOR_PAIR(3) | A_BOLD, "Local address");
+    wprintw(wmain->header, ": %s", addr);
     y += 2;
-    mvwprintw(wheader, y, 0, "Number");
-    mvwprintw(wheader, y, NUM_WIDTH, "Source");
-    mvwprintw(wheader, y, ADDR_WIDTH + NUM_WIDTH, "Destination");
-    mvwprintw(wheader, y, 2 * ADDR_WIDTH + NUM_WIDTH, "Protocol");
-    mvwprintw(wheader, y, 2 * ADDR_WIDTH + PROT_WIDTH + NUM_WIDTH, "Info");
-    mvwchgat(wheader, y, 0, -1, A_STANDOUT, 0, NULL);
-    wrefresh(wheader);
+    mvwprintw(wmain->header, y, 0, "Number");
+    mvwprintw(wmain->header, y, NUM_WIDTH, "Source");
+    mvwprintw(wmain->header, y, ADDR_WIDTH + NUM_WIDTH, "Destination");
+    mvwprintw(wmain->header, y, 2 * ADDR_WIDTH + NUM_WIDTH, "Protocol");
+    mvwprintw(wmain->header, y, 2 * ADDR_WIDTH + PROT_WIDTH + NUM_WIDTH, "Info");
+    mvwchgat(wmain->header, y, 0, -1, A_STANDOUT, 0, NULL);
+    wrefresh(wmain->header);
 }
 
 void print_status()
 {
-    mvwprintw(wstatus, 0, 0, "F1");
-    printat(wstatus, -1, -1, COLOR_PAIR(2), "%-8s", "Help");
-    wprintw(wstatus, "F2");
-    printat(wstatus, -1, -1, COLOR_PAIR(2), "%-8s", "Start");
-    wprintw(wstatus, "F3");
-    printat(wstatus, -1, -1, COLOR_PAIR(2), "%-8s", "Stop");
-    wprintw(wstatus, "F4");
-    printat(wstatus, -1, -1, COLOR_PAIR(2), "%-8s", "Load");
-    wprintw(wstatus, "F5");
-    printat(wstatus, -1, -1, COLOR_PAIR(2), "%-8s", "Save");
-    wprintw(wstatus, "F6");
-    printat(wstatus, -1, -1, COLOR_PAIR(2), "%-8s", "Views");
-    wprintw(wstatus, "F10");
-    printat(wstatus, -1, -1, COLOR_PAIR(2), "%-8s", "Quit");
-    wrefresh(wstatus);
+    mvwprintw(wmain->status, 0, 0, "F1");
+    printat(wmain->status, -1, -1, COLOR_PAIR(2), "%-8s", "Help");
+    wprintw(wmain->status, "F2");
+    printat(wmain->status, -1, -1, COLOR_PAIR(2), "%-8s", "Start");
+    wprintw(wmain->status, "F3");
+    printat(wmain->status, -1, -1, COLOR_PAIR(2), "%-8s", "Stop");
+    wprintw(wmain->status, "F4");
+    printat(wmain->status, -1, -1, COLOR_PAIR(2), "%-8s", "Load");
+    wprintw(wmain->status, "F5");
+    printat(wmain->status, -1, -1, COLOR_PAIR(2), "%-8s", "Save");
+    wprintw(wmain->status, "F6");
+    printat(wmain->status, -1, -1, COLOR_PAIR(2), "%-8s", "Views");
+    wprintw(wmain->status, "F10");
+    printat(wmain->status, -1, -1, COLOR_PAIR(2), "%-8s", "Quit");
+    wrefresh(wmain->status);
 }
 
 void print_help()
 {
     int y = 0;
-    WINDOW *win = views[HELP_VIEW];
+    WINDOW *win = screens[HELP_SCREEN]->win;
 
     wprintw(win, "Monitor 0.0.1 (c) 2017 John Olav Lund");
     mvwprintw(win, ++y, 0, "");
@@ -344,7 +351,6 @@ void print_help()
     printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F10 q");
     wprintw(win, ": Quit");
     mvwprintw(win, ++y, 0, "");
-
     printat(win, ++y, 0, COLOR_PAIR(4) | A_BOLD, "Keyboard shortcuts in interactive mode");
     printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "Arrows");
     wprintw(win, ": Scroll the packet list");
@@ -367,52 +373,49 @@ void goto_line(int c)
     static uint32_t num = 0;
 
     if (isdigit(c)) {
-        waddch(wstatus, c);
+        waddch(wmain->status, c);
         num = num * 10 + c - '0';
     } else if (c == KEY_BACKSPACE) {
         int x, y;
 
-        getyx(wstatus, y, x);
+        getyx(wmain->status, y, x);
         if (x >= 13) {
-            mvwdelch(wstatus, y, x - 1);
+            mvwdelch(wmain->status, y, x - 1);
             num /= 10;
         }
     } else if (num && (c == '\n' || c == KEY_ENTER)) {
+        if (num > vector_size(packets)) return;
+
         int my;
 
-        my = getmaxy(wmain->win);
+        my = getmaxy(wmain->pktlist);
         if (num >= wmain->top && num < wmain->top + my) {
-            mvwchgat(wmain->win, wmain->selection_line, 0, -1, A_NORMAL, 0, NULL);
+            mvwchgat(wmain->pktlist, wmain->selection_line, 0, -1, A_NORMAL, 0, NULL);
             wmain->selection_line = num - 1;
-            mvwchgat(wmain->win, wmain->selection_line, 0, -1, A_NORMAL, 1, NULL);
-            wrefresh(wmain->win);
-            curs_set(0);
-            werase(wstatus);
-            input_mode = false;
-            num = 0;
-            print_status();
-        } else if (num < vector_size(packets)) {
-            werase(wmain->win);
-            mvwchgat(wmain->win, wmain->selection_line, 0, -1, A_NORMAL, 0, NULL);
+            mvwchgat(wmain->pktlist, wmain->selection_line, 0, -1, A_NORMAL, 1, NULL);
+        } else {
+            werase(wmain->pktlist);
+            mvwchgat(wmain->pktlist, wmain->selection_line, 0, -1, A_NORMAL, 0, NULL);
             if (num + my - 1 > vector_size(packets)) {
                 print_lines(vector_size(packets) - my, vector_size(packets), 0);
                 wmain->top = vector_size(packets) - my;
                 wmain->selection_line = num - 1;
-                mvwchgat(wmain->win, num - 1 - wmain->top, 0, -1, A_NORMAL, 1, NULL);
+                mvwchgat(wmain->pktlist, num - 1 - wmain->top, 0, -1, A_NORMAL, 1, NULL);
             } else {
                 print_lines(num - 1, num + my - 1, 0);
                 wmain->selection_line = wmain->top = num - 1;
-                mvwchgat(wmain->win, 0, 0, -1, A_NORMAL, 1, NULL);
+                mvwchgat(wmain->pktlist, 0, 0, -1, A_NORMAL, 1, NULL);
             }
-            wrefresh(wmain->win);
-            curs_set(0);
-            werase(wstatus);
-            input_mode = false;
-            num = 0;
-            print_status();
         }
+        wrefresh(wmain->pktlist);
+        curs_set(0);
+        werase(wmain->status);
+        input_mode = false;
+        num = 0;
+        print_status();
+
     }
-    wrefresh(wstatus);
+    wrefresh(wmain->status);
 }
 
 /*
@@ -450,13 +453,13 @@ void handle_keyup(int num_lines)
         if (p) {
             char line[MAXLINE];
 
-            wscrl(wmain->win, -1);
+            wscrl(wmain->pktlist, -1);
             print_buffer(line, MAXLINE, p);
-            printnlw(wmain->win, line, strlen(line), 0, 0);
+            printnlw(wmain->pktlist, line, strlen(line), 0, 0, wmain->scrollx);
 
             /* deselect previous line and highlight next at top */
-            mvwchgat(wmain->win, 1, 0, -1, A_NORMAL, 0, NULL);
-            mvwchgat(wmain->win, 0, 0, -1, A_NORMAL, 1, NULL);
+            mvwchgat(wmain->pktlist, 1, 0, -1, A_NORMAL, 0, NULL);
+            mvwchgat(wmain->pktlist, 0, 0, -1, A_NORMAL, 1, NULL);
         }
     } else if (wmain->selection_line > 0) {
         int screen_line = wmain->selection_line - wmain->top;
@@ -466,16 +469,16 @@ void handle_keyup(int num_lines)
             screen_line < wmain->subwindow.top + wmain->subwindow.num_lines) {
             int subline = screen_line - wmain->subwindow.top;
 
-            mvwchgat(wmain->win, screen_line, 0, -1, GET_ATTR(lw, subline), 0, NULL);
-            mvwchgat(wmain->win, screen_line - 1, 0, -1, subline == 0 ? A_NORMAL :
-                     GET_ATTR(lw, subline - 1), 1, NULL);
+            mvwchgat(wmain->pktlist, screen_line, 0, -1, GET_ATTR(wmain->lvw, subline), 0, NULL);
+            mvwchgat(wmain->pktlist, screen_line - 1, 0, -1, subline == 0 ? A_NORMAL :
+                     GET_ATTR(wmain->lvw, subline - 1), 1, NULL);
         } else {
-            mvwchgat(wmain->win, screen_line, 0, -1, A_NORMAL, 0, NULL);
-            mvwchgat(wmain->win, screen_line - 1, 0, -1, A_NORMAL, 1, NULL);
+            mvwchgat(wmain->pktlist, screen_line, 0, -1, A_NORMAL, 0, NULL);
+            mvwchgat(wmain->pktlist, screen_line - 1, 0, -1, A_NORMAL, 1, NULL);
         }
         wmain->selection_line--;
     }
-    wrefresh(wmain->win);
+    wrefresh(wmain->pktlist);
 }
 
 void handle_keydown(int num_lines)
@@ -498,13 +501,13 @@ void handle_keydown(int num_lines)
         if (p) {
             char line[MAXLINE];
 
-            wscrl(wmain->win, 1);
+            wscrl(wmain->pktlist, 1);
             print_buffer(line, MAXLINE, p);
-            printnlw(wmain->win, line, strlen(line), num_lines - 1, 0);
+            printnlw(wmain->pktlist, line, strlen(line), num_lines - 1, 0, wmain->scrollx);
 
             /* deselect previous line and highlight next line at bottom */
-            mvwchgat(wmain->win, num_lines - 2, 0, -1, A_NORMAL, 0, NULL);
-            mvwchgat(wmain->win, num_lines - 1, 0, -1, A_NORMAL, 1, NULL);
+            mvwchgat(wmain->pktlist, num_lines - 2, 0, -1, A_NORMAL, 0, NULL);
+            mvwchgat(wmain->pktlist, num_lines - 1, 0, -1, A_NORMAL, 1, NULL);
         }
     } else {
         int screen_line = wmain->selection_line - wmain->top;
@@ -514,16 +517,16 @@ void handle_keydown(int num_lines)
             screen_line + 1 < wmain->subwindow.top + wmain->subwindow.num_lines) {
             int subline = screen_line - wmain->subwindow.top;
 
-            mvwchgat(wmain->win, screen_line, 0, -1, subline == -1 ? A_NORMAL :
-                     GET_ATTR(lw, subline), 0, NULL);
-            mvwchgat(wmain->win, screen_line + 1, 0, -1, GET_ATTR(lw, subline + 1), 1, NULL);
+            mvwchgat(wmain->pktlist, screen_line, 0, -1, subline == -1 ? A_NORMAL :
+                     GET_ATTR(wmain->lvw, subline), 0, NULL);
+            mvwchgat(wmain->pktlist, screen_line + 1, 0, -1, GET_ATTR(wmain->lvw, subline + 1), 1, NULL);
         } else {
-            mvwchgat(wmain->win, screen_line, 0, -1, A_NORMAL, 0, NULL);
-            mvwchgat(wmain->win, screen_line + 1, 0, -1, A_NORMAL, 1, NULL);
+            mvwchgat(wmain->pktlist, screen_line, 0, -1, A_NORMAL, 0, NULL);
+            mvwchgat(wmain->pktlist, screen_line + 1, 0, -1, A_NORMAL, 1, NULL);
         }
         wmain->selection_line++;
     }
-    wrefresh(wmain->win);
+    wrefresh(wmain->pktlist);
 }
 
 void scroll_page(int num_lines)
@@ -533,18 +536,18 @@ void scroll_page(int num_lines)
     }
     if (num_lines > 0) { /* scroll page down */
         if (vector_size(packets) <= num_lines) {
-            mvwchgat(wmain->win, wmain->selection_line - wmain->top, 0, -1, A_NORMAL, 0, NULL);
+            mvwchgat(wmain->pktlist, wmain->selection_line - wmain->top, 0, -1, A_NORMAL, 0, NULL);
             wmain->selection_line = vector_size(packets) - 1;
-            mvwchgat(wmain->win, wmain->selection_line - wmain->top, 0, -1, A_NORMAL, 1, NULL);
+            mvwchgat(wmain->pktlist, wmain->selection_line - wmain->top, 0, -1, A_NORMAL, 1, NULL);
         } else {
             int bottom = wmain->top + num_lines - 1;
 
-            mvwchgat(wmain->win, wmain->selection_line - wmain->top, 0, -1, A_NORMAL, 0, NULL);
+            mvwchgat(wmain->pktlist, wmain->selection_line - wmain->top, 0, -1, A_NORMAL, 0, NULL);
             wmain->selection_line += num_lines;
             if (bottom + num_lines > vector_size(packets) - 1) {
                 int scroll = vector_size(packets) - bottom - 1;
 
-                wscrl(wmain->win, scroll);
+                wscrl(wmain->pktlist, scroll);
                 wmain->top += scroll;
                 if (wmain->subwindow.win) {
                     wmain->subwindow.top -= scroll;
@@ -560,28 +563,28 @@ void scroll_page(int num_lines)
                     wmain->subwindow.top -= num_lines;
                     wmain->main_line.line_number -= num_lines;
                 }
-                wscrl(wmain->win, num_lines);
+                wscrl(wmain->pktlist, num_lines);
                 print_lines(wmain->top, wmain->top + num_lines, 0);
             }
-            mvwchgat(wmain->win, wmain->selection_line - wmain->top, 0, -1, A_NORMAL, 1, NULL);
+            mvwchgat(wmain->pktlist, wmain->selection_line - wmain->top, 0, -1, A_NORMAL, 1, NULL);
         }
     } else { /* scroll page up */
         if (vector_size(packets) <= abs(num_lines)) {
-            mvwchgat(wmain->win, wmain->selection_line, 0, -1, A_NORMAL, 0, NULL);
+            mvwchgat(wmain->pktlist, wmain->selection_line, 0, -1, A_NORMAL, 0, NULL);
             wmain->selection_line = 0;
-            mvwchgat(wmain->win, 0, 0, -1, A_NORMAL, 1, NULL);
+            mvwchgat(wmain->pktlist, 0, 0, -1, A_NORMAL, 1, NULL);
         } else {
-            mvwchgat(wmain->win, wmain->selection_line - wmain->top, 0, -1, A_NORMAL, 0, NULL);
+            mvwchgat(wmain->pktlist, wmain->selection_line - wmain->top, 0, -1, A_NORMAL, 0, NULL);
             wmain->selection_line += num_lines;
             if (wmain->top + num_lines < 0) {
-                wscrl(wmain->win, -wmain->top);
+                wscrl(wmain->pktlist, -wmain->top);
                 wmain->top = 0;
                 if (wmain->selection_line < 0) {
                     wmain->selection_line = 0;
                 }
                 print_lines(wmain->top, wmain->top - num_lines, 0);
             } else {
-                wscrl(wmain->win, num_lines);
+                wscrl(wmain->pktlist, num_lines);
                 wmain->top += num_lines;
                 if (wmain->subwindow.win) {
                     wmain->subwindow.top -= num_lines;
@@ -589,10 +592,10 @@ void scroll_page(int num_lines)
                 }
                 print_lines(wmain->top, wmain->top - num_lines, 0);
             }
-            mvwchgat(wmain->win, wmain->selection_line - wmain->top, 0, -1, A_NORMAL, 1, NULL);
+            mvwchgat(wmain->pktlist, wmain->selection_line - wmain->top, 0, -1, A_NORMAL, 1, NULL);
         }
     }
-    wrefresh(wmain->win);
+    wrefresh(wmain->pktlist);
 }
 
 void set_interactive(bool interactive_mode, int num_lines)
@@ -604,8 +607,8 @@ void set_interactive(bool interactive_mode, int num_lines)
         wmain->selection_line = wmain->top;
 
         /* print selection bar */
-        mvwchgat(wmain->win, 0, 0, -1, A_NORMAL, 1, NULL);
-        wrefresh(wmain->win);
+        mvwchgat(wmain->pktlist, 0, 0, -1, A_NORMAL, 1, NULL);
+        wrefresh(wmain->pktlist);
     } else {
         if (wmain->subwindow.win) {
             delete_subwindow();
@@ -614,7 +617,7 @@ void set_interactive(bool interactive_mode, int num_lines)
         if (wmain->outy >= num_lines && capturing) {
             int c = vector_size(packets) - 1;
 
-            werase(wmain->win);
+            werase(wmain->pktlist);
 
             /* print the new lines stored in vector from bottom to top of screen */
             for (int i = num_lines - 1; i >= 0; i--, c--) {
@@ -623,15 +626,15 @@ void set_interactive(bool interactive_mode, int num_lines)
 
                 p = vector_get_data(packets, c);
                 print_buffer(buffer, MAXLINE, p);
-                printnlw(wmain->win, buffer, strlen(buffer), i, 0);
+                printnlw(wmain->pktlist, buffer, strlen(buffer), i, 0, wmain->scrollx);
             }
             wmain->top = c + 1;
         } else {
             /* remove selection bar */
-            mvwchgat(wmain->win, wmain->selection_line - wmain->top, 0, -1, A_NORMAL, 0, NULL);
+            mvwchgat(wmain->pktlist, wmain->selection_line - wmain->top, 0, -1, A_NORMAL, 0, NULL);
         }
         interactive = false;
-        wrefresh(wmain->win);
+        wrefresh(wmain->pktlist);
     }
 }
 
@@ -654,12 +657,12 @@ int print_lines(int from, int to, int y)
             int n = strlen(buffer);
 
             if (wmain->scrollx < n) {
-                printnlw(wmain->win, buffer, n, y++, 0);
+                printnlw(wmain->pktlist, buffer, n, y++, 0, wmain->scrollx);
             } else {
                 y++;
             }
         } else {
-            printnlw(wmain->win, buffer, strlen(buffer), y++, 0);
+            printnlw(wmain->pktlist, buffer, strlen(buffer), y++, 0, wmain->scrollx);
         }
         from++;
         c++;
@@ -677,7 +680,7 @@ void print_packet(struct packet *p)
 
 void print_file()
 {
-    int my = getmaxy(wmain->win);
+    int my = getmaxy(wmain->pktlist);
 
     capturing = false;
     for (int i = 0; i < vector_size(packets) && i < my; i++) {
@@ -691,13 +694,13 @@ void print(char *buf)
 {
     int my;
 
-    my = getmaxy(wmain->win);
+    my = getmaxy(wmain->pktlist);
     if (!interactive || (interactive && wmain->outy < my)) {
         scroll_window();
-        printnlw(wmain->win, buf, strlen(buf), wmain->outy, 0);
+        printnlw(wmain->pktlist, buf, strlen(buf), wmain->outy, 0, wmain->scrollx);
         wmain->outy++;
-        if (stack_empty(stack)) {
-            wrefresh(wmain->win);
+        if (stack_empty(screen_stack)) {
+            wrefresh(wmain->pktlist);
         }
     }
 }
@@ -751,48 +754,48 @@ void add_elements(struct packet *p)
 {
     list_view_item *header;
 
-    if (lw) {
-        free_list_view(lw);
+    if (wmain->lvw) {
+        free_list_view(wmain->lvw);
     }
-    lw = create_list_view();
+    wmain->lvw = create_list_view();
 
     /* inspect packet and add packet headers as elements to the list view */
     if (p->eth.ethertype < ETH_P_802_3_MIN) {
-        header = ADD_HEADER(lw, "Ethernet 802.3", selected[ETHERNET_LAYER], ETHERNET_LAYER);
+        header = ADD_HEADER(wmain->lvw, "Ethernet 802.3", selected[ETHERNET_LAYER], ETHERNET_LAYER);
     } else {
-        header = ADD_HEADER(lw, "Ethernet II", selected[ETHERNET_LAYER], ETHERNET_LAYER);
+        header = ADD_HEADER(wmain->lvw, "Ethernet II", selected[ETHERNET_LAYER], ETHERNET_LAYER);
     }
-    add_ethernet_information(lw, header, p);
+    add_ethernet_information(wmain->lvw, header, p);
     if (p->eth.ethertype == ETH_P_ARP) {
-        header = ADD_HEADER(lw, "Address Resolution Protocol (ARP)", selected[ARP], ARP);
-        add_arp_information(lw, header, p);
+        header = ADD_HEADER(wmain->lvw, "Address Resolution Protocol (ARP)", selected[ARP], ARP);
+        add_arp_information(wmain->lvw, header, p);
     } else if (p->eth.ethertype == ETH_P_IP) {
-        header = ADD_HEADER(lw, "Internet Protocol (IPv4)", selected[IP], IP);
-        add_ipv4_information(lw, header, p->eth.ip);
+        header = ADD_HEADER(wmain->lvw, "Internet Protocol (IPv4)", selected[IP], IP);
+        add_ipv4_information(wmain->lvw, header, p->eth.ip);
         add_transport_elements(p);
     } else if (p->eth.ethertype == ETH_P_IPV6) {
-        header = ADD_HEADER(lw, "Internet Protocol (IPv6)", selected[IP], IP);
-        add_ipv6_information(lw, header, p->eth.ipv6);
+        header = ADD_HEADER(wmain->lvw, "Internet Protocol (IPv6)", selected[IP], IP);
+        add_ipv6_information(wmain->lvw, header, p->eth.ipv6);
         add_transport_elements(p);
     } else if (p->eth.ethertype < ETH_P_802_3_MIN) {
-        header = ADD_HEADER(lw, "Logical Link Control (LLC)", selected[LLC], LLC);
-        add_llc_information(lw, header, p);
+        header = ADD_HEADER(wmain->lvw, "Logical Link Control (LLC)", selected[LLC], LLC);
+        add_llc_information(wmain->lvw, header, p);
         switch (get_eth802_type(p->eth.llc)) {
         case ETH_802_STP:
-            header = ADD_HEADER(lw, "Spanning Tree Protocol (STP)", selected[STP], STP);
-            add_stp_information(lw, header, p);
+            header = ADD_HEADER(wmain->lvw, "Spanning Tree Protocol (STP)", selected[STP], STP);
+            add_stp_information(wmain->lvw, header, p);
             break;
         case ETH_802_SNAP:
-            header = ADD_HEADER(lw, "Subnetwork Access Protocol (SNAP)", selected[SNAP], SNAP);
-            add_snap_information(lw, header, p);
+            header = ADD_HEADER(wmain->lvw, "Subnetwork Access Protocol (SNAP)", selected[SNAP], SNAP);
+            add_snap_information(wmain->lvw, header, p);
             break;
         default:
-            header = ADD_HEADER(lw, "Data", selected[APPLICATION], APPLICATION);
-            add_payload(lw, header, p->eth.llc->payload, LLC_PAYLOAD_LEN(p));
+            header = ADD_HEADER(wmain->lvw, "Data", selected[APPLICATION], APPLICATION);
+            add_payload(wmain->lvw, header, p->eth.llc->payload, LLC_PAYLOAD_LEN(p));
         }
     } else {
-        header = ADD_HEADER(lw, "Data", selected[APPLICATION], APPLICATION);
-        add_payload(lw, header, p->eth.payload, p->eth.payload_len);
+        header = ADD_HEADER(wmain->lvw, "Data", selected[APPLICATION], APPLICATION);
+        add_payload(wmain->lvw, header, p->eth.payload, p->eth.payload_len);
     }
 }
 
@@ -806,12 +809,12 @@ void add_transport_elements(struct packet *p)
     {
         uint16_t len = TCP_PAYLOAD_LEN(p);
 
-        header = ADD_HEADER(lw, "Transmission Control Protocol (TCP)", selected[TRANSPORT], TRANSPORT);
+        header = ADD_HEADER(wmain->lvw, "Transmission Control Protocol (TCP)", selected[TRANSPORT], TRANSPORT);
         if (p->eth.ethertype == ETH_P_IP) {
-            add_tcp_information(lw, header, &p->eth.ip->tcp, selected[SUBLAYER]);
+            add_tcp_information(wmain->lvw, header, &p->eth.ip->tcp, selected[SUBLAYER]);
             add_app_elements(&p->eth.ip->tcp.data, len);
         } else {
-            add_tcp_information(lw, header, &p->eth.ipv6->tcp, selected[SUBLAYER]);
+            add_tcp_information(wmain->lvw, header, &p->eth.ipv6->tcp, selected[SUBLAYER]);
             add_app_elements(&p->eth.ipv6->tcp.data, len);
         }
         break;
@@ -820,45 +823,45 @@ void add_transport_elements(struct packet *p)
     {
         uint16_t len = UDP_PAYLOAD_LEN(p);
 
-        header = ADD_HEADER(lw, "User Datagram Protocol (UDP)", selected[TRANSPORT], TRANSPORT);
+        header = ADD_HEADER(wmain->lvw, "User Datagram Protocol (UDP)", selected[TRANSPORT], TRANSPORT);
         if (p->eth.ethertype == ETH_P_IP) {
-            add_udp_information(lw, header, &p->eth.ip->udp);
+            add_udp_information(wmain->lvw, header, &p->eth.ip->udp);
             add_app_elements(&p->eth.ip->udp.data, len);
         } else {
-            add_udp_information(lw, header, &p->eth.ipv6->udp);
+            add_udp_information(wmain->lvw, header, &p->eth.ipv6->udp);
             add_app_elements(&p->eth.ipv6->udp.data, len);
         }
         break;
     }
     case IPPROTO_ICMP:
         if (p->eth.ethertype == ETH_P_IP) {
-            header = ADD_HEADER(lw, "Internet Control Message Protocol (ICMP)", selected[ICMP], ICMP);
-            add_icmp_information(lw, header, &p->eth.ip->icmp);
+            header = ADD_HEADER(wmain->lvw, "Internet Control Message Protocol (ICMP)", selected[ICMP], ICMP);
+            add_icmp_information(wmain->lvw, header, &p->eth.ip->icmp);
         }
         break;
     case IPPROTO_IGMP:
-        header = ADD_HEADER(lw, "Internet Group Management Protocol (IGMP)", selected[IGMP], IGMP);
+        header = ADD_HEADER(wmain->lvw, "Internet Group Management Protocol (IGMP)", selected[IGMP], IGMP);
         if (p->eth.ethertype == ETH_P_IP) {
-            add_igmp_information(lw, header, &p->eth.ip->igmp);
+            add_igmp_information(wmain->lvw, header, &p->eth.ip->igmp);
         } else {
-            add_igmp_information(lw, header, &p->eth.ipv6->igmp);
+            add_igmp_information(wmain->lvw, header, &p->eth.ipv6->igmp);
         }
         break;
     case IPPROTO_PIM:
-        header = ADD_HEADER(lw, "Protocol Independent Multicast (PIM)", selected[PIM], PIM);
+        header = ADD_HEADER(wmain->lvw, "Protocol Independent Multicast (PIM)", selected[PIM], PIM);
         if (p->eth.ethertype == ETH_P_IP) {
-            add_pim_information(lw, header, &p->eth.ip->pim, selected[SUBLAYER]);
+            add_pim_information(wmain->lvw, header, &p->eth.ip->pim, selected[SUBLAYER]);
         } else {
-            add_pim_information(lw, header, &p->eth.ipv6->pim, selected[SUBLAYER]);
+            add_pim_information(wmain->lvw, header, &p->eth.ipv6->pim, selected[SUBLAYER]);
         }
         break;
     default:
         /* unknown transport layer payload */
-        header = ADD_HEADER(lw, "Data", selected[APPLICATION], APPLICATION);
+        header = ADD_HEADER(wmain->lvw, "Data", selected[APPLICATION], APPLICATION);
         if (p->eth.ethertype == ETH_P_IP) {
-            add_payload(lw, header, p->eth.ip->payload, IP_PAYLOAD_LEN(p));
+            add_payload(wmain->lvw, header, p->eth.ip->payload, IP_PAYLOAD_LEN(p));
         } else {
-            add_payload(lw, header, p->eth.ipv6->payload, IP_PAYLOAD_LEN(p));
+            add_payload(wmain->lvw, header, p->eth.ipv6->payload, IP_PAYLOAD_LEN(p));
         }
     }
 }
@@ -870,25 +873,25 @@ void add_app_elements(struct application_info *info, uint16_t len)
     switch (info->utype) {
     case DNS:
     case MDNS:
-        header = ADD_HEADER(lw, "Domain Name System (DNS)", selected[APPLICATION], APPLICATION);
-        add_dns_information(lw, header, info->dns, selected[SUBLAYER]);
+        header = ADD_HEADER(wmain->lvw, "Domain Name System (DNS)", selected[APPLICATION], APPLICATION);
+        add_dns_information(wmain->lvw, header, info->dns, selected[SUBLAYER]);
         break;
     case NBNS:
-        header = ADD_HEADER(lw, "NetBIOS Name Service (NBNS)", selected[APPLICATION], APPLICATION);
-        add_nbns_information(lw, header, info->nbns);
+        header = ADD_HEADER(wmain->lvw, "NetBIOS Name Service (NBNS)", selected[APPLICATION], APPLICATION);
+        add_nbns_information(wmain->lvw, header, info->nbns);
         break;
     case HTTP:
-        header = ADD_HEADER(lw, "Hypertext Transfer Protocol (HTTP)", selected[APPLICATION], APPLICATION);
-        add_http_information(lw, header, info->http);
+        header = ADD_HEADER(wmain->lvw, "Hypertext Transfer Protocol (HTTP)", selected[APPLICATION], APPLICATION);
+        add_http_information(wmain->lvw, header, info->http);
         break;
     case SSDP:
-        header = ADD_HEADER(lw, "Simple Service Discovery Protocol (SSDP)", selected[APPLICATION], APPLICATION);
-        add_ssdp_information(lw, header, info->ssdp);
+        header = ADD_HEADER(wmain->lvw, "Simple Service Discovery Protocol (SSDP)", selected[APPLICATION], APPLICATION);
+        add_ssdp_information(wmain->lvw, header, info->ssdp);
         break;
     default:
         if (len) {
-            header = ADD_HEADER(lw, "Data", selected[APPLICATION], APPLICATION);
-            add_payload(lw, header, info->payload, len);
+            header = ADD_HEADER(wmain->lvw, "Data", selected[APPLICATION], APPLICATION);
+            add_payload(wmain->lvw, header, info->payload, len);
         }
         break;
     }
@@ -902,16 +905,16 @@ void print_protocol_information(struct packet *p, int lineno)
     }
 
     /* print information in subwindow */
-    create_subwindow(lw->size + 1, lineno);
-    RENDER(lw, wmain->subwindow.win);
+    create_subwindow(wmain->lvw->size + 1, lineno);
+    RENDER(wmain->lvw, wmain->subwindow.win);
 
     int subline = wmain->selection_line - wmain->top - wmain->subwindow.top;
     if (subline >= 0) {
-        mvwchgat(wmain->win, wmain->selection_line - wmain->top, 0, -1, GET_ATTR(lw, subline), 1, NULL);
+        mvwchgat(wmain->pktlist, wmain->selection_line - wmain->top, 0, -1, GET_ATTR(wmain->lvw, subline), 1, NULL);
     } else {
-        mvwchgat(wmain->win, wmain->selection_line - wmain->top, 0, -1, A_NORMAL, 1, NULL);
+        mvwchgat(wmain->pktlist, wmain->selection_line - wmain->top, 0, -1, A_NORMAL, 1, NULL);
     }
-    touchwin(wmain->win);
+    touchwin(wmain->pktlist);
     wrefresh(wmain->subwindow.win);
 }
 
@@ -921,7 +924,7 @@ void create_subwindow(int num_lines, int lineno)
     int start_line;
     int c;
 
-    getmaxyx(wmain->win, my, mx);
+    getmaxyx(wmain->pktlist, my, mx);
     start_line = lineno - wmain->top;
     c = lineno + 1;
     if (num_lines >= my) num_lines = my - 1;
@@ -930,24 +933,24 @@ void create_subwindow(int num_lines, int lineno)
        screen needs to be scrolled to make room for all the lines */
     if (my - (start_line + 1) < num_lines) {
         wmain->scrolly = num_lines - (my - (start_line + 1));
-        wscrl(wmain->win, wmain->scrolly);
+        wscrl(wmain->pktlist, wmain->scrolly);
         start_line -= wmain->scrolly;
         wmain->selection_line -= wmain->scrolly;
-        wrefresh(wmain->win);
+        wrefresh(wmain->pktlist);
     }
 
     /* make space for protocol specific information */
-    wmain->subwindow.win = derwin(wmain->win, num_lines, mx, start_line + 1, 0);
+    wmain->subwindow.win = derwin(wmain->pktlist, num_lines, mx, start_line + 1, 0);
     wmain->subwindow.top = start_line + 1;
     wmain->subwindow.num_lines = num_lines;
-    wmove(wmain->win, start_line + 1, 0);
-    wclrtobot(wmain->win); /* clear everything below selection bar */
+    wmove(wmain->pktlist, start_line + 1, 0);
+    wclrtobot(wmain->pktlist); /* clear everything below selection bar */
     wmain->outy = start_line + num_lines + 1;
 
     if (!wmain->scrolly) {
         wmain->outy += print_lines(c, wmain->top + my, wmain->outy);
     }
-    wrefresh(wmain->win);
+    wrefresh(wmain->pktlist);
 }
 
 void delete_subwindow()
@@ -955,12 +958,12 @@ void delete_subwindow()
     int my;
     int screen_line;
 
-    my = getmaxy(wmain->win);
+    my = getmaxy(wmain->pktlist);
     screen_line = wmain->selection_line - wmain->top;
     delwin(wmain->subwindow.win);
     wmain->subwindow.win = NULL;
     wmain->subwindow.num_lines = 0;
-    werase(wmain->win);
+    werase(wmain->pktlist);
 
     /*
      * Print the entire screen. This can be optimized to just print the lines
@@ -973,8 +976,8 @@ void delete_subwindow()
         wmain->selection_line += wmain->scrolly;
         wmain->scrolly = 0;
     }
-    mvwchgat(wmain->win, screen_line, 0, -1, A_NORMAL, 1, NULL);
-    wrefresh(wmain->win);
+    mvwchgat(wmain->pktlist, screen_line, 0, -1, A_NORMAL, 1, NULL);
+    wrefresh(wmain->pktlist);
 }
 
 /*
@@ -994,34 +997,70 @@ bool update_subwin_selection()
         int32_t data;
 
         subline = screen_line - wmain->subwindow.top;
-        data = GET_DATA(lw, subline);
-        SET_EXPANDED(lw, subline, !GET_EXPANDED(lw, subline));
+        data = GET_DATA(wmain->lvw, subline);
+        SET_EXPANDED(wmain->lvw, subline, !GET_EXPANDED(wmain->lvw, subline));
         if (data >= 0 && data < NUM_LAYERS) {
-            selected[data] = GET_EXPANDED(lw, subline);
+            selected[data] = GET_EXPANDED(wmain->lvw, subline);
         }
         return true;
     }
     return false;
 }
 
-/*
- * When the scrollok option is enabled ncurses will wrap long lines at the
- * bottom of the screen. This function will print without line wrapping.
- */
-void printnlw(WINDOW *win, char *str, int len, int y, int x)
-{
-    int mx = getmaxx(win);
 
-    if (mx + wmain->scrollx - 1 < len) {
-        str[mx + wmain->scrollx - 1] = '\0';
+void pop_screen()
+{
+    stack_pop(screen_stack);
+    if (stack_empty(screen_stack)) {
+        touchwin(wmain->pktlist);
+        touchwin(wmain->status);
+        touchwin(wmain->header);
+        wnoutrefresh(wmain->pktlist);
+        wnoutrefresh(wmain->header);
+        wnoutrefresh(wmain->status);
+        doupdate();
+    } else {
+        screen *s = (screen *) stack_top(screen_stack);
+
+        touchwin(s->win);
+        wrefresh(s->win);
     }
-    mvwprintw(win, y, x, "%s", str + wmain->scrollx);
 }
 
-/*
- * Print text in window with the given attributes. If 'y' and 'x' are -1, it will
- * start to print at the current cursor location.
- */
+void push_screen(int scr)
+{
+    if (screens[scr]) {
+        stack_push(screen_stack, screens[scr]);
+        if (scr == STAT_SCREEN) {
+            ss_init();
+        }
+        touchwin(screens[scr]->win);
+        wrefresh(screens[scr]->win);
+    } else {
+        int mx, my;
+        WINDOW *win;
+
+        screens[scr] = malloc(sizeof(screen));
+        getmaxyx(stdscr, my, mx);
+        win = newwin(my, mx, 0, 0);
+        screens[scr]->win = win;
+        screens[scr]->type = scr;
+        stack_push(screen_stack, screens[scr]);
+        switch (scr) {
+        case HELP_SCREEN:
+            print_help();
+            break;
+        case STAT_SCREEN:
+            ss_init();
+            ss_print();
+            break;
+        default:
+            break;
+        }
+        wrefresh(win);
+    }
+}
+
 void printat(WINDOW *win, int y, int x, int attrs, const char *fmt, ...)
 {
     char buf[MAXLINE];
@@ -1039,40 +1078,12 @@ void printat(WINDOW *win, int y, int x, int attrs, const char *fmt, ...)
     wattroff(win, attrs);
 }
 
-void change_view()
+void printnlw(WINDOW *win, char *str, int len, int y, int x, int scrollx)
 {
-    stack_pop(stack);
-    if (stack_empty(stack)) {
-        touchwin(wmain->win);
-        touchwin(wstatus);
-        touchwin(wheader);
-        wnoutrefresh(wmain->win);
-        wnoutrefresh(wheader);
-        wnoutrefresh(wstatus);
-        doupdate();
-    } else {
-        WINDOW *win = stack_top(stack);
+    int mx = getmaxx(win);
 
-        touchwin(win);
-        wrefresh(win);
+    if (mx + scrollx - 1 < len) {
+        str[mx + scrollx - 1] = '\0';
     }
-}
-
-void show_help()
-{
-    if (views[HELP_VIEW]) {
-        stack_push(stack, views[HELP_VIEW]);
-        touchwin(views[HELP_VIEW]);
-        wrefresh(views[HELP_VIEW]);
-    } else {
-        int mx, my;
-        WINDOW *win;
-
-        getmaxyx(stdscr, my, mx);
-        win = newwin(my, mx, 0, 0);
-        views[HELP_VIEW] = win;
-        stack_push(stack, win);
-        print_help();
-        wrefresh(win);
-    }
+    mvwprintw(win, y, x, "%s", str + scrollx);
 }

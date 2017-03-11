@@ -7,22 +7,6 @@
 extern bool numeric;
 struct packet;
 
-enum layer {
-    ETHERNET_LAYER,
-    ARP,
-    LLC,
-    SNAP,
-    STP,
-    IP,
-    IGMP,
-    ICMP,
-    PIM,
-    TRANSPORT,
-    APPLICATION,
-    SUBLAYER,
-    NUM_LAYERS
-};
-
 /* initialize ncurses */
 void init_ncurses();
 
@@ -37,7 +21,7 @@ void get_input();
  * containing the header, another the main screen with packet information, and
  * below that a statusbar.
  */
-void create_layout(main_context *c);
+void create_layout();
 
 void print_packet(struct packet *p);
 

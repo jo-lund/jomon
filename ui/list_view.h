@@ -21,13 +21,13 @@ typedef struct {
     bool expanded;
     int32_t data;
     list_t *subwidgets;
-} header;
+} list_view_header;
 
 typedef struct {
+    list_view_header hdr;
     char *txt;
     uint32_t attr;
     uint16_t type;
-    header hdr;
 } list_view_item;
 
 typedef struct lw {

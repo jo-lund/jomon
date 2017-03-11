@@ -6,6 +6,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include "layout.h"
+#include "layout_int.h"
 #include "protocols.h"
 #include "../util.h"
 #include "../misc.h"
@@ -398,6 +399,7 @@ void print_dns(char *buf, int n, struct dns_info *dns, uint16_t type)
             PRINT_INFO(buf, n, "Response: ");
             break;
         }
+
         // TODO: Need to print the proper name for all values.
         PRINT_INFO(buf, n, "%s ", dns->record[0].name);
         PRINT_INFO(buf, n, "%s ", get_dns_class(GET_MDNS_RRCLASS(dns->record[0].rrclass)));
