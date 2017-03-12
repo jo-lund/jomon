@@ -3,7 +3,7 @@
 #include <net/if_dl.h>
 #include <net/if_types.h>
 #endif
-#ifdef linux
+#ifdef __linux__
 #include <net/if_arp.h>
 #include <netpacket/packet.h>
 #include <linux/if.h>
@@ -126,7 +126,7 @@ void list_interfaces()
             printf("IEEE1394 High Performance SerialBus\n");
             break;
 #endif
-#ifdef linux
+#ifdef __linux__
         case ARPHRD_ETHER:
             printf("Ethernet\n");
             break;

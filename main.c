@@ -16,7 +16,7 @@
 #include <net/if_dl.h>
 #include <net/if_types.h>
 #endif
-#ifdef linux
+#ifdef __linux__
 #include <netpacket/packet.h>
 #endif
 #include <poll.h>
@@ -86,7 +86,7 @@ int main(int argc, char **argv)
         }
     }
 
-#ifdef linux
+#ifdef __linux__
     init_structures();
     if (!ctx.device && !(ctx.device = get_default_interface())) {
         err_quit("Cannot find active network device");
