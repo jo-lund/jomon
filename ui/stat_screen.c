@@ -79,28 +79,29 @@ void ss_print()
     int y = 0;
     WINDOW *win = screens[STAT_SCREEN]->win;
     struct iw_statistics iwstat;
+    struct iw_range iwrange;
 
-    werase(win); // TODO: No need to erase the entire screen
+    werase(win);
     read_stats();
     calculate_rate();
     printat(win, y, 0, COLOR_PAIR(4) | A_BOLD, "Network statistics for %s", ctx.device);
     mvwprintw(win, ++y, 0, "");
     printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "Upload rate");
-    wprintw(win, ": %8.2f kb/s", tx.kbps);
+    wprintw(win, ": %8.2f kB/s", tx.kbps);
     wprintw(win, "\t%4d packets/s", tx.pps);
     printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "Download rate");
-    wprintw(win, ": %8.2f kb/s", rx.kbps);
+    wprintw(win, ": %8.2f kB/s", rx.kbps);
     wprintw(win, "\t%4d packets/s", rx.pps);
 
-    if (get_iw_stats(ctx.device, &iwstat)) {
+    if (get_iw_stats(ctx.device, &iwstat) && get_iw_range(ctx.device, &iwrange)) {
         mvwprintw(win, ++y, 0, "");
         printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "Link quality");
-        wprintw(win, ": %u", iwstat.qual.qual);
+        wprintw(win, ": %3u/%u", iwstat.qual.qual, iwrange.max_qual.qual);
         printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "Level");
         wprintw(win, ": %3u dBm", iwstat.qual.level);
         printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "Noise");
         wprintw(win, ": %3u dBm", iwstat.qual.noise);
-}
+    }
     wrefresh(win);
 }
 
@@ -152,5 +153,3 @@ void calculate_rate()
     rx.prev_packets = rx.num_packets;
     tx.prev_packets = tx.num_packets;
 }
-
-

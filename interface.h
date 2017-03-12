@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 struct iw_statistics;
+struct iw_range;
 
 /* Print all interfaces */
 void list_interfaces();
@@ -19,5 +20,7 @@ void get_local_address(char *dev, struct sockaddr *addr);
 
 /* get wireless statistics */
 bool get_iw_stats(char *dev, struct iw_statistics *iwstat);
+
+bool get_iw_range(char *dev, struct iw_range *iwrange);
 
 #endif

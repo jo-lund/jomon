@@ -393,12 +393,16 @@ void print_help()
     wprintw(win, ": Quit interactive mode");
     mvwprintw(win, ++y, 0, "");
     printat(win, ++y, 0, COLOR_PAIR(4) | A_BOLD, "Statistics screen keyboard shortcuts");
-    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "Esc x");
-    wprintw(win, ": Exit statistics screen");
     printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "b B");
     wprintw(win, ": Use kilobits/kilobytes as measurement");
     printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "m M");
     wprintw(win, ": Use megabits/megabytes as measurement");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "p");
+    wprintw(win, ": Show/hide packet statistics");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "c");
+    wprintw(win, ": Clear statistics");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "Esc x");
+    wprintw(win, ": Exit statistics screen");
 }
 
 void goto_line(int c)
@@ -1125,4 +1129,9 @@ void printnlw(WINDOW *win, char *str, int len, int y, int x, int scrollx)
         str[mx + scrollx - 1] = '\0';
     }
     mvwprintw(win, y, x, "%s", str + scrollx);
+}
+
+bool is_capturing()
+{
+    return capturing;
 }

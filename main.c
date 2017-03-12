@@ -227,7 +227,6 @@ void run()
         { STDIN_FILENO, POLLIN }
     };
 
-    if (statistics) alarm(1);
     while (1) {
         if (signal_flag) {
             signal_flag = 0;

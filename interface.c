@@ -302,3 +302,25 @@ bool get_iw_stats(char *dev, struct iw_statistics *iwstat)
     close(sockfd);
     return true;
 }
+
+bool get_iw_range(char *dev, struct iw_range *iwrange)
+{
+    int sockfd;
+    struct iwreq iw;
+
+    strncpy(iw.ifr_ifrn.ifrn_name, dev, IFNAMSIZ);
+    iw.u.data.pointer = iwrange;
+    iw.u.data.length = sizeof(struct iw_range);
+    iw.u.data.flags = 0;
+
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
+        close(sockfd);
+        return false;
+    }
+    if ((ioctl(sockfd, SIOCGIWRANGE, &iw)) == -1) {
+        close(sockfd);
+        return false;
+    }
+    close(sockfd);
+    return true;
+}
