@@ -6,15 +6,18 @@
 #ifdef linux
 #include <net/if_arp.h>
 #include <netpacket/packet.h>
+#include <linux/if.h>
+#include <linux/wireless.h>
 #endif
 #include <string.h>
 #include <stdio.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/ioctl.h>
-#include <net/if.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <unistd.h>
+#include "interface.h"
 #include "error.h"
 
 #define MAX_NUM_INTERFACES 16
@@ -210,6 +213,7 @@ char *get_default_interface()
         free(buffer);
     }
     free(buffer);
+    close(sockfd);
     return device;
 }
 
@@ -256,6 +260,7 @@ int get_interface_index(char *dev)
     if (ioctl(sockfd, SIOCGIFINDEX, &ifr) == -1) {
         err_sys("ioctl error");
     }
+    close(sockfd);
     return ifr.ifr_ifindex;
 }
 
@@ -273,4 +278,27 @@ void get_local_address(char *dev, struct sockaddr *addr)
         err_sys("ioctl error");
     }
     memcpy(addr, &ifr.ifr_addr, sizeof(*addr));
+    close(sockfd);
+}
+
+bool get_iw_stats(char *dev, struct iw_statistics *iwstat)
+{
+    int sockfd;
+    struct iwreq iw;
+
+    strncpy(iw.ifr_ifrn.ifrn_name, dev, IFNAMSIZ);
+    iw.u.data.pointer = iwstat;
+    iw.u.data.length = sizeof(struct iw_statistics);
+    iw.u.data.flags = 0; // TODO: What are the possible values of flags?
+
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
+        close(sockfd);
+        return false;
+    }
+    if ((ioctl(sockfd, SIOCGIWSTATS, &iw)) == -1) {
+        close(sockfd);
+        return false;
+    }
+    close(sockfd);
+    return true;
 }

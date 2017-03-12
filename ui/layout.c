@@ -332,12 +332,16 @@ void print_help()
               "background.");
     mvwprintw(win, ++y, 0, "");
     printat(win, ++y, 0, COLOR_PAIR(4) | A_BOLD, "General keyboard shortcuts");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F1");
+    wprintw(win, ": Show help");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F10 q");
+    wprintw(win, ": Quit");
+    mvwprintw(win, ++y, 0, "");
+    printat(win, ++y, 0, COLOR_PAIR(4) | A_BOLD, "Main screen keyboard shortcuts");
     printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "i");
     wprintw(win, ": Enter interactive mode");
     printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "s");
     wprintw(win, ": Show statistics screen");
-    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F1");
-    wprintw(win, ": Show help");
     printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F2");
     wprintw(win, ": Start packet scan");
     printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F3");
@@ -348,8 +352,6 @@ void print_help()
     wprintw(win, ": Save file in pcap format");
     printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F6");
     wprintw(win, ": Change view");
-    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F10 q");
-    wprintw(win, ": Quit");
     mvwprintw(win, ++y, 0, "");
     printat(win, ++y, 0, COLOR_PAIR(4) | A_BOLD, "Keyboard shortcuts in interactive mode");
     printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "Arrows");
@@ -366,6 +368,14 @@ void print_help()
     wprintw(win, ": Inspect packet");
     printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "Esc i");
     wprintw(win, ": Quit interactive mode");
+    mvwprintw(win, ++y, 0, "");
+    printat(win, ++y, 0, COLOR_PAIR(4) | A_BOLD, "Statistics screen keyboard shortcuts");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "Esc x");
+    wprintw(win, ": Exit statistics screen");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "b B");
+    wprintw(win, ": Use kilobits/kilobytes as measurement");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "m M");
+    wprintw(win, ": Use megabits/megabytes as measurement");
 }
 
 void goto_line(int c)
