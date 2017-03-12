@@ -19,6 +19,9 @@
 #define HEADER_HEIGHT 4
 #define STATUS_HEIGHT 1
 
+#define SHOW_SELECTIONBAR(l, a) (mvwchgat(wmain->pktlist, l, 0, -1, a, 1, NULL))
+#define REMOVE_SELECTIONBAR(l, a) (mvwchgat(wmain->pktlist, l, 0, -1, a, 0, NULL))
+
 typedef struct {
     struct line_info {
         int line_number;
@@ -81,6 +84,7 @@ static void print_status();
 static void print_selected_packet();
 static void print_protocol_information(struct packet *p, int lineno);
 static void goto_line(int c);
+static void goto_end();
 static void print_help();
 
 /* Handles subwindow layout */
@@ -211,7 +215,7 @@ void get_input()
             werase(wmain->pktlist);
             wmain->scrollx -= 4;
             print_lines(wmain->top, wmain->top + my, 0);
-            mvwchgat(wmain->pktlist, wmain->selection_line - wmain->top, 0, -1, A_NORMAL, 1, NULL);
+            SHOW_SELECTIONBAR(wmain->selection_line - wmain->top, A_NORMAL);
             wrefresh(wmain->pktlist);
         }
         break;
@@ -219,7 +223,7 @@ void get_input()
         werase(wmain->pktlist);
         wmain->scrollx += 4;
         print_lines(wmain->top, wmain->top + my, 0);
-        mvwchgat(wmain->pktlist, wmain->selection_line - wmain->top, 0, -1, A_NORMAL, 1, NULL);
+        SHOW_SELECTIONBAR(wmain->selection_line - wmain->top, A_NORMAL);
         wrefresh(wmain->pktlist);
         break;
     case KEY_ENTER:
@@ -247,6 +251,25 @@ void get_input()
     case 'b':
     case KEY_PPAGE:
         scroll_page(-my);
+        break;
+    case KEY_HOME:
+        if (interactive) {
+            int my = getmaxy(wmain->pktlist);
+
+            print_lines(0, my, 0);
+            wmain->selection_line = 0;
+            wmain->top = 0;
+            SHOW_SELECTIONBAR(0, A_NORMAL);
+            wrefresh(wmain->pktlist);
+        }
+        break;
+    case KEY_END:
+        if (interactive) {
+            goto_end();
+            wmain->selection_line = wmain->top;
+            SHOW_SELECTIONBAR(0, A_NORMAL);
+            wrefresh(wmain->pktlist);
+        }
         break;
     case KEY_F(1):
         push_screen(HELP_SCREEN);
@@ -426,6 +449,25 @@ void goto_line(int c)
 
     }
     wrefresh(wmain->status);
+}
+
+void goto_end()
+{
+    int c = vector_size(packets) - 1;
+    int my = getmaxy(wmain->pktlist);
+
+    werase(wmain->pktlist);
+
+    /* print the new lines stored in vector from bottom to top of screen */
+    for (int i = my - 1; i >= 0; i--, c--) {
+        struct packet *p;
+        char buffer[MAXLINE];
+
+        p = vector_get_data(packets, c);
+        print_buffer(buffer, MAXLINE, p);
+        printnlw(wmain->pktlist, buffer, strlen(buffer), i, 0, wmain->scrollx);
+    }
+    wmain->top = c + 1;
 }
 
 /*
@@ -625,20 +667,7 @@ void set_interactive(bool interactive_mode, int num_lines)
             wmain->main_line.selected = false;
         }
         if (wmain->outy >= num_lines && capturing) {
-            int c = vector_size(packets) - 1;
-
-            werase(wmain->pktlist);
-
-            /* print the new lines stored in vector from bottom to top of screen */
-            for (int i = num_lines - 1; i >= 0; i--, c--) {
-                struct packet *p;
-                char buffer[MAXLINE];
-
-                p = vector_get_data(packets, c);
-                print_buffer(buffer, MAXLINE, p);
-                printnlw(wmain->pktlist, buffer, strlen(buffer), i, 0, wmain->scrollx);
-            }
-            wmain->top = c + 1;
+            goto_end();
         } else {
             /* remove selection bar */
             mvwchgat(wmain->pktlist, wmain->selection_line - wmain->top, 0, -1, A_NORMAL, 0, NULL);
