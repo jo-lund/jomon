@@ -32,11 +32,13 @@ typedef struct {
     WINDOW *win;
 } screen;
 
-screen *screens[NUM_SCREENS];
+extern screen *screens[NUM_SCREENS];
 
-void pop_screen();
-
+/* push the screen with type 'scr' on the screen stack */
 void push_screen(int scr);
+
+/* pop the screen from the screen stack */
+void pop_screen();
 
 /*
  * When the scrollok option is enabled ncurses will wrap long lines at the

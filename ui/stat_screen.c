@@ -53,8 +53,11 @@ void ss_init()
     alarm(1);
 }
 
-void ss_handle_input(int c)
+void ss_handle_input()
 {
+    WINDOW *win = screens[STAT_SCREEN]->win;
+    int c = wgetch(win);
+
     switch (c) {
     case 'x':
     case KEY_ESC:

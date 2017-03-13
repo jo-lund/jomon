@@ -61,8 +61,9 @@ typedef struct {
 
 extern vector_t *packets;
 extern main_context ctx;
+screen *screens[NUM_SCREENS];
 bool numeric = true;
-static bool selected[NUM_LAYERS];
+static bool selected[NUM_LAYERS]; // TODO: need to handle this differently
 static main_screen *wmain;
 static bool capturing = true;
 static bool interactive = false;
@@ -183,16 +184,19 @@ void get_input()
     screen *s = (screen *) stack_top(screen_stack);
 
     my = getmaxy(wmain->pktlist);
-    c = wgetch(wmain->pktlist);
     if (s) {
         if (s->type == STAT_SCREEN) {
-            ss_handle_input(c);
+            ss_handle_input();
         } else {
             pop_screen();
+
+            /* need to remove the character from the input queue */
+            wgetch(wmain->pktlist);
         }
         return;
     }
 
+    c = wgetch(wmain->pktlist);
     switch (c) {
     case 'i':
         set_interactive(!interactive, my);
@@ -256,6 +260,7 @@ void get_input()
         if (interactive) {
             int my = getmaxy(wmain->pktlist);
 
+            werase(wmain->pktlist);
             print_lines(0, my, 0);
             wmain->selection_line = 0;
             wmain->top = 0;
@@ -266,8 +271,8 @@ void get_input()
     case KEY_END:
         if (interactive) {
             goto_end();
-            wmain->selection_line = wmain->top;
-            SHOW_SELECTIONBAR(0, A_NORMAL);
+            wmain->selection_line = vector_size(packets) - 1;
+            SHOW_SELECTIONBAR(wmain->selection_line - wmain->top, A_NORMAL);
             wrefresh(wmain->pktlist);
         }
         break;
@@ -386,7 +391,7 @@ void print_help()
     printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "Home End");
     wprintw(win, ": Go to first/last page");
     printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "g");
-    wprintw(win, ": Go to line number");
+    wprintw(win, ": Go to line");
     printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "Enter");
     wprintw(win, ": Inspect packet");
     printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "Esc i");
@@ -394,9 +399,9 @@ void print_help()
     mvwprintw(win, ++y, 0, "");
     printat(win, ++y, 0, COLOR_PAIR(4) | A_BOLD, "Statistics screen keyboard shortcuts");
     printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "b B");
-    wprintw(win, ": Use kilobits/kilobytes as measurement");
+    wprintw(win, ": Use kilobits/kilobytes");
     printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "m M");
-    wprintw(win, ": Use megabits/megabytes as measurement");
+    wprintw(win, ": Use megabits/megabytes");
     printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "p");
     wprintw(win, ": Show/hide packet statistics");
     printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "c");
