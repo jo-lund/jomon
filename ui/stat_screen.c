@@ -99,11 +99,11 @@ void ss_print()
     if (get_iw_stats(ctx.device, &iwstat) && get_iw_range(ctx.device, &iwrange)) {
         mvwprintw(win, ++y, 0, "");
         printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "Link quality");
-        wprintw(win, ": %3u/%u", iwstat.qual.qual, iwrange.max_qual.qual);
+        wprintw(win, ": %8u/%u", iwstat.qual.qual, iwrange.max_qual.qual);
         printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "Level");
-        wprintw(win, ": %3u dBm", iwstat.qual.level);
+        wprintw(win, ": %8u dBm", iwstat.qual.level);
         printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "Noise");
-        wprintw(win, ": %3u dBm", iwstat.qual.noise);
+        wprintw(win, ": %8u dBm", iwstat.qual.noise);
     }
     wrefresh(win);
 }
