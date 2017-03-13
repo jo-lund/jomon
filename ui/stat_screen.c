@@ -144,8 +144,8 @@ void calculate_rate()
         tx.prev_packets = tx.num_packets;
         return;
     }
-    rx.kbps = (rx.tot_bytes - rx.prev_bytes) / 1024;
-    tx.kbps = (tx.tot_bytes - tx.prev_bytes) / 1024;
+    rx.kbps = (double) (rx.tot_bytes - rx.prev_bytes) / 1024;
+    tx.kbps = (double) (tx.tot_bytes - tx.prev_bytes) / 1024;
     rx.pps = rx.num_packets - rx.prev_packets;
     tx.pps = tx.num_packets - tx.prev_packets;
     rx.prev_bytes = rx.tot_bytes;

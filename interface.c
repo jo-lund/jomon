@@ -292,7 +292,6 @@ bool get_iw_stats(char *dev, struct iw_statistics *iwstat)
     iw.u.data.flags = 0; // TODO: What are the possible values of flags?
 
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
-        close(sockfd);
         return false;
     }
     if ((ioctl(sockfd, SIOCGIWSTATS, &iw)) == -1) {
@@ -314,7 +313,6 @@ bool get_iw_range(char *dev, struct iw_range *iwrange)
     iw.u.data.flags = 0;
 
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
-        close(sockfd);
         return false;
     }
     if ((ioctl(sockfd, SIOCGIWRANGE, &iw)) == -1) {
