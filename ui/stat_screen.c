@@ -7,31 +7,22 @@
 #ifdef __linux__
 #include <linux/wireless.h>
 #endif
+#include <ctype.h>
 
-static const char *netpath = "/sys/class/net";
-static const char *var_path[4] = {
-    "statistics/rx_bytes",
-    "statistics/rx_packets",
-    "statistics/tx_bytes",
-    "statistics/tx_packets"
-};
+static const char *devpath = "/proc/net/dev";
 
-static char path[4][64];
-
-enum {
-    RX_BYTES,
-    RX_PACKETS,
-    TX_BYTES,
-    TX_PACKETS
-};
-
-/* RX/TX variables read from /sys/class/net */
+/* RX/TX variables read from /proc/net/dev */
 typedef struct {
-    unsigned long long tot_bytes;
-    unsigned long long prev_bytes;
-    unsigned long long num_packets;
-    unsigned long long prev_packets;
-    unsigned int bad_packets;
+    unsigned long tot_bytes;
+    unsigned long prev_bytes;
+    unsigned long num_packets;
+    unsigned long prev_packets;
+    unsigned long errs;
+    unsigned long drop;
+    unsigned long fifo;
+    unsigned long frame_cols;
+    unsigned long compressed;
+    unsigned long mc_carrier;
     double kbps; /* kilobytes per second */
     unsigned int pps; /* packets per second */
 } linkdef;
@@ -47,9 +38,6 @@ void ss_init()
 {
     memset(&rx, 0, sizeof(linkdef));
     memset(&tx, 0, sizeof(linkdef));
-    for (int i = 0; i < 4; i++) {
-        snprintf(path[i], 64, "%s/%s/%s", netpath, ctx.device, var_path[i]);
-    }
     alarm(1);
 }
 
@@ -108,33 +96,34 @@ void ss_print()
     wrefresh(win);
 }
 
-// TODO: The reading of files needs to be improved. Should read from /proc/net/dev instead
 bool read_stats()
 {
     FILE *fp;
+    char buf[MAXLINE];
+    int n;
 
-    if (!(fp = fopen(path[RX_BYTES], "r"))) {
+    if (!(fp = fopen(devpath, "r"))) {
         return false;
     }
-    fscanf(fp, "%llu", &rx.tot_bytes);
-    fclose(fp);
-    if (!(fp = fopen(path[RX_PACKETS], "r"))) {
-        return false;
-    }
-    fscanf(fp, "%llu", &rx.num_packets);
-    fclose(fp);
+    n = strlen(ctx.device);
+    while (fgets(buf, MAXLINE, fp)) {
+        int i = 0;
 
-    if (!(fp = fopen(path[TX_BYTES], "r"))) {
-        return false;
+        /* remove leading spaces */
+        while (isspace(buf[i])) {
+            i++;
+        }
+        if (strncmp(buf + i, ctx.device, n) == 0) {
+            sscanf(buf + i + n + 1,
+                   "%lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu",
+                   &rx.tot_bytes, &rx.num_packets, &rx.errs, &rx.drop, &rx.fifo,
+                   &rx.frame_cols,&rx.compressed, &rx.mc_carrier, &tx.tot_bytes,
+                   &tx.num_packets, &tx.errs, &tx.drop, &tx.fifo, &tx.frame_cols,
+                   &tx.mc_carrier, &tx.compressed);
+            break;
+        }
     }
-    fscanf(fp, "%llu", &tx.tot_bytes);
     fclose(fp);
-    if (!(fp = fopen(path[TX_PACKETS], "r"))) {
-        return false;
-    }
-    fscanf(fp, "%llu", &tx.num_packets);
-    fclose(fp);
-
     return true;
 }
 

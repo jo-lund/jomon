@@ -183,19 +183,16 @@ void get_input()
     int my;
     screen *s = (screen *) stack_top(screen_stack);
 
-    my = getmaxy(wmain->pktlist);
     if (s) {
         if (s->type == STAT_SCREEN) {
             ss_handle_input();
         } else {
             pop_screen();
-
-            /* need to remove the character from the input queue */
-            wgetch(wmain->pktlist);
         }
         return;
     }
 
+    my = getmaxy(wmain->pktlist);
     c = wgetch(wmain->pktlist);
     switch (c) {
     case 'i':
@@ -1060,6 +1057,7 @@ void pop_screen()
 {
     stack_pop(screen_stack);
     if (stack_empty(screen_stack)) {
+        wgetch(wmain->pktlist); /* remove character from input queue */
         touchwin(wmain->pktlist);
         touchwin(wmain->status);
         touchwin(wmain->header);
@@ -1070,6 +1068,11 @@ void pop_screen()
     } else {
         screen *s = (screen *) stack_top(screen_stack);
 
+        // TODO: Handle this in another way
+        if (s->type == STAT_SCREEN) {
+            ss_init();
+        }
+        wgetch(s->win); /* remove character from input queue */
         touchwin(s->win);
         wrefresh(s->win);
     }
@@ -1099,6 +1102,8 @@ void push_screen(int scr)
             print_help();
             break;
         case STAT_SCREEN:
+            nodelay(win, TRUE);
+            keypad(win, TRUE);
             ss_init();
             ss_print();
             break;
