@@ -29,6 +29,7 @@ enum layer {
 
 typedef struct {
     int type;
+    bool focus;
     WINDOW *win;
 } screen;
 

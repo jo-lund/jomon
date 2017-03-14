@@ -15,6 +15,7 @@
 #include "list_view.h"
 #include "layout_int.h"
 #include "stat_screen.h"
+#include "../signal.h"
 
 #define HEADER_HEIGHT 4
 #define STATUS_HEIGHT 1
@@ -109,6 +110,7 @@ void init_ncurses()
     init_pair(3, COLOR_CYAN, -1);
     init_pair(4, COLOR_GREEN, -1);
     set_escdelay(25); /* set escdelay to 25 ms */
+    init_publisher();
 }
 
 void end_ncurses()
@@ -1055,7 +1057,9 @@ bool update_subwin_selection()
 
 void pop_screen()
 {
-    stack_pop(screen_stack);
+    screen *scr = stack_pop(screen_stack);
+
+    scr->focus = false;
     if (stack_empty(screen_stack)) {
         wgetch(wmain->pktlist); /* remove character from input queue */
         touchwin(wmain->pktlist);
@@ -1066,12 +1070,10 @@ void pop_screen()
         wnoutrefresh(wmain->status);
         doupdate();
     } else {
-        screen *s = (screen *) stack_top(screen_stack);
+        screen *s = stack_top(screen_stack);
 
-        // TODO: Handle this in another way
-        if (s->type == STAT_SCREEN) {
-            ss_init();
-        }
+        s->focus = true;
+        publish();
         wgetch(s->win); /* remove character from input queue */
         touchwin(s->win);
         wrefresh(s->win);
@@ -1081,10 +1083,12 @@ void pop_screen()
 void push_screen(int scr)
 {
     if (screens[scr]) {
+        screen *s = stack_top(screen_stack);
+
+        if (s) s->focus = false;
         stack_push(screen_stack, screens[scr]);
-        if (scr == STAT_SCREEN) {
-            ss_init();
-        }
+        screens[scr]->focus = true;
+        publish();
         touchwin(screens[scr]->win);
         wrefresh(screens[scr]->win);
     } else {
@@ -1097,6 +1101,7 @@ void push_screen(int scr)
         screens[scr]->win = win;
         screens[scr]->type = scr;
         stack_push(screen_stack, screens[scr]);
+        screens[scr]->focus = true;
         switch (scr) {
         case HELP_SCREEN:
             print_help();
@@ -1106,6 +1111,7 @@ void push_screen(int scr)
             keypad(win, TRUE);
             ss_init();
             ss_print();
+            add_subscription(ss_changed);
             break;
         default:
             break;

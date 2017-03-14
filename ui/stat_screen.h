@@ -4,5 +4,6 @@
 void ss_init();
 void ss_print();
 void ss_handle_input();
+void ss_changed();
 
 #endif

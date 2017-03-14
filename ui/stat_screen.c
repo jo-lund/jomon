@@ -41,6 +41,15 @@ void ss_init()
     alarm(1);
 }
 
+void ss_changed()
+{
+    screen *s = screens[STAT_SCREEN];
+
+    if (s->focus) {
+        alarm(1);
+    }
+}
+
 void ss_handle_input()
 {
     WINDOW *win = screens[STAT_SCREEN]->win;
