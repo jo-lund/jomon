@@ -183,7 +183,7 @@ void get_input()
 {
     int c = 0;
     int my;
-    screen *s = (screen *) stack_top(screen_stack);
+    screen *s = stack_top(screen_stack);
 
     if (s) {
         if (s->type == STAT_SCREEN) {
@@ -269,7 +269,10 @@ void get_input()
         break;
     case KEY_END:
         if (interactive) {
-            goto_end();
+            if (wmain->outy >= my) {
+                goto_end();
+            }
+            REMOVE_SELECTIONBAR(wmain->selection_line - wmain->top, A_NORMAL);
             wmain->selection_line = vector_size(packets) - 1;
             SHOW_SELECTIONBAR(wmain->selection_line - wmain->top, A_NORMAL);
             wrefresh(wmain->pktlist);
