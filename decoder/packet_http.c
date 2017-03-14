@@ -59,7 +59,7 @@ bool parse_http(char *buffer, uint16_t len, struct http_info *http)
     /* parse header fields */
     unsigned int header_len;
 
-    http->header = list_init(NULL);
+    http->header = list_init();
     n -= i;
     header_len = n;
     is_http = parse_http_header(&ptr, &header_len, &http->header);
@@ -160,7 +160,7 @@ void free_http_packet(struct http_info *http)
             free(http->start_line);
         }
         if (http->header) {
-            list_free(http->header);
+            list_free(http->header, free);
         }
         if (http->data) {
             free(http->data);

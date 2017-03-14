@@ -10,7 +10,6 @@ typedef struct node {
 typedef struct list {
     node_t *head;
     node_t *tail;
-    list_deallocate func;
     int size;
 } list_t;
 
@@ -22,14 +21,13 @@ typedef struct list {
         n->prev = NULL;                          \
     } while (0);
 
-list_t *list_init(list_deallocate func)
+list_t *list_init()
 {
     list_t *list;
 
     list = malloc(sizeof(list_t));
     list->head = NULL;
     list->tail = NULL;
-    list->func = func;
     list->size = 0;
 
     return list;
@@ -67,37 +65,61 @@ void list_push_back(list_t *list, void *data)
     list->size++;
 }
 
-void list_pop_front(list_t *list)
+void list_pop_front(list_t *list, list_deallocate func)
 {
     if (list->head) {
         node_t *h = list->head;
 
         list->head = h->next;
-        list->head->prev = NULL;
-        if (list->func) {
-            list->func(h->data);
-        } else {
-            free(h->data);
+        if (list->head) {
+            list->head->prev = NULL;
+        }
+        if (func) {
+            func(h->data);
         }
         free(h);
         list->size--;
     }
 }
 
-void list_pop_back(list_t *list)
+void list_pop_back(list_t *list, list_deallocate func)
 {
     if (list->tail) {
         node_t *t = list->tail;
 
         list->tail = t->prev;
-        list->tail->next = NULL;
-        if (list->func) {
-            list->func(t->data);
-        } else {
-            free(t->data);
+        if (list->tail) {
+            list->tail->next = NULL;
+        }
+        if (func) {
+            func(t->data);
         }
         free(t);
         list->size--;
+    }
+}
+
+void list_remove(list_t *list, void *data, list_deallocate func)
+{
+    node_t *n = list->head;
+
+    while (n) {
+        if (n->data == data) {
+            if (n == list->head) {
+                list_pop_front(list, func);
+            } else if (n == list->tail) {
+                list_pop_back(list, func);
+            } else {
+                n->prev->next = n->next;
+                n->next->prev = n->prev;
+                if (func) {
+                    func(n->data);
+                }
+                free(n);
+                list->size--;
+            }
+        }
+        n = n->next;
     }
 }
 
@@ -166,7 +188,7 @@ inline int list_size(list_t *list)
     return list->size;
 }
 
-list_t *list_clear(list_t *list)
+list_t *list_clear(list_t *list, list_deallocate func)
 {
     node_t *n = list->head;
 
@@ -174,12 +196,10 @@ list_t *list_clear(list_t *list)
         node_t *tmp = n;
 
         n = n->next;
-        if (list->func) {
-            list->func(tmp->data);
-        } else {
-            free(tmp->data);
+        if (func) {
+            func(tmp->data);
+            free(tmp);
         }
-        free(tmp);
     }
     list->head = NULL;
     list->tail = NULL;
@@ -188,8 +208,8 @@ list_t *list_clear(list_t *list)
     return list;
 }
 
-void list_free(list_t *list)
+void list_free(list_t *list, list_deallocate func)
 {
-    list = list_clear(list);
+    list = list_clear(list, func);
     free(list);
 }

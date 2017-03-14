@@ -275,7 +275,7 @@ void parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
         {
             int j = 0;
 
-            dns->record[i].rdata.txt = list_init(free_txt_rr);
+            dns->record[i].rdata.txt = list_init();
             while (j < rdlen) {
                 struct txt_rr *rr;
                 int len = 0;
@@ -492,7 +492,7 @@ void free_dns_packet(struct dns_info *dns)
                 free(dns->record->rdata.hinfo.os);
                 break;
             case DNS_TYPE_TXT:
-                list_free(dns->record->rdata.txt);
+                list_free(dns->record->rdata.txt, free_txt_rr);
                 break;
             default:
                 break;

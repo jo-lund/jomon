@@ -147,7 +147,7 @@ void free_protocol_data(struct application_info *info)
         break;
     case SSDP:
         if (info->ssdp) {
-            list_free(info->ssdp);
+            list_free(info->ssdp, free);
         }
         break;
     case HTTP:

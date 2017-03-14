@@ -61,9 +61,11 @@ struct tcp_sack_block {
 
 /*
  * Parses and returns the TCP options in the TCP header.
- * The list needs to be freed after use.
+ * The list needs to be freed with 'free_tcp_options' after use.
  */
 list_t *parse_tcp_options(unsigned char *data, int len);
+
+void free_tcp_options(list_t *options);
 
 /* should be internal to the decoder */
 bool handle_tcp(unsigned char *buffer, int n, struct tcp *info);

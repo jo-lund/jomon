@@ -35,7 +35,7 @@ list_view *create_list_view()
     widget->get_expanded = get_expanded;
     widget->get_data = get_data;
     widget->get_attribute = get_attribute;
-    widget->widgets = list_init(NULL);
+    widget->widgets = list_init();
     widget->num_elements = 0;
 
     return widget;
@@ -62,7 +62,7 @@ void free_list_view_item(list_t *widgets)
         free(w->txt);
         n = list_next(n);
     }
-    list_free(widgets);
+    list_free(widgets, free);
 }
 
 list_view_item *create_element(enum type t, char *txt, bool expanded, uint16_t data, uint32_t attr)
@@ -119,7 +119,7 @@ list_view_item *add_text_element(list_view *this, list_view_item *header, char *
     va_end(ap);
     w = create_element(TEXT, buf, false, 0, A_NORMAL);
     if (!header->hdr.subwidgets) {
-        header->hdr.subwidgets = list_init(NULL);
+        header->hdr.subwidgets = list_init();
     }
     list_push_back(header->hdr.subwidgets, w);
     this->num_elements++;
@@ -142,7 +142,7 @@ list_view_item *add_sub_header(list_view *this, list_view_item *header, bool exp
     va_end(ap);
     h = create_element(HEADER, buf, expanded, data, A_BOLD);
     if (!header->hdr.subwidgets) {
-        header->hdr.subwidgets = list_init(NULL);
+        header->hdr.subwidgets = list_init();
     }
     list_push_back(header->hdr.subwidgets, h);
     this->num_elements++;

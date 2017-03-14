@@ -11,7 +11,7 @@ typedef void (*list_deallocate)(void *);
  *
  * Allocates resources for list that needs to be freed with list_free
  */
-list_t *list_init(list_deallocate func);
+list_t *list_init();
 
 /* Inserts element at the front */
 void list_push_front(list_t *list, void *data);
@@ -19,11 +19,14 @@ void list_push_front(list_t *list, void *data);
 /* Inserts element at the end */
 void list_push_back(list_t *list, void *data);
 
-/* Removes element from the front and deallocates memory */
-void list_pop_front(list_t *list);
+/* Removes element from the front and deallocates memory if func is specified */
+void list_pop_front(list_t *list, list_deallocate func);
 
-/* Removes element from the end and deallocates memory */
-void list_pop_back(list_t *list);
+/* Removes element from the end and deallocates memory if func is specified */
+void list_pop_back(list_t *list, list_deallocate func);
+
+/* Removes element from the list */
+void list_remove(list_t *list, void *data, list_deallocate func);
 
 /* Returns data from front of the list */
 void *list_front(list_t *list);
@@ -55,12 +58,12 @@ int list_size(list_t *list);
 /*
  * Clears the list
  *
- * Will deallocate memory for the nodes and data but not the list_t structure.
- * To free all memory associated with list use list_free.
+ * If func is specified memory for the nodes and data are deallocated but not 
+ * the list_t structure. To free all memory associated with list use list_free.
  */
-list_t *list_clear(list_t *list);
+list_t *list_clear(list_t *list, list_deallocate func);
 
 /* Frees all memory used by list */
-void list_free(list_t *list);
+void list_free(list_t *list, list_deallocate func);
 
 #endif

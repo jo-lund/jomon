@@ -3,7 +3,7 @@
 #include "packet_tcp.h"
 #include "packet_ip.h"
 
-static void free_tcp_options(void *data);
+static void free_options(void *data);
 
 /*
  * TCP header
@@ -125,7 +125,7 @@ list_t *parse_tcp_options(unsigned char *data, int len)
 {
     list_t *options;
 
-    options = list_init(free_tcp_options);
+    options = list_init();
 
     /* the data is based on a tag-length-value encoding scheme */
     while (len) {
@@ -163,7 +163,7 @@ list_t *parse_tcp_options(unsigned char *data, int len)
             struct tcp_sack_block *b;
 
             data++; /* skip length field */
-            opt->sack = list_init(NULL);
+            opt->sack = list_init();
             while (num_blocks--) {
                 b = malloc(sizeof(struct tcp_sack_block));
                 b->left_edge = data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3];
@@ -188,12 +188,17 @@ list_t *parse_tcp_options(unsigned char *data, int len)
     return options;
 }
 
-void free_tcp_options(void *data)
+void free_tcp_options(list_t *list)
+{
+    list_free(list, free_options);
+}
+
+void free_options(void *data)
 {
     struct tcp_options *opt = data;
 
     if (opt->option_kind == TCP_OPT_SACK) {
-        list_free(opt->sack);
+        list_free(opt->sack, free);
     }
     free(opt);
 }

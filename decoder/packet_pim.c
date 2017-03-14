@@ -212,7 +212,7 @@ list_t *parse_hello_options(struct pim_info *pim)
     struct pim_hello *opt;
     list_t *hello_list; /* list of struct pim_hello */
 
-    hello_list = list_init(NULL);
+    hello_list = list_init();
     while (len >= 4) {
         opt = malloc(sizeof(struct pim_hello));
         opt->option_type = ptr[0] << 8 | ptr[1];

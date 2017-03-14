@@ -864,7 +864,7 @@ void add_pim_hello(list_view *lw, list_view_item *header, struct pim_info *pim, 
         n = list_next(n);
         if (n) ADD_TEXT_ELEMENT(lw, w, "");
     }
-    list_free(opt);
+    list_free(opt, free);
 }
 
 void add_pim_register(list_view *lw, list_view_item *header, struct pim_info *pim, bool msg_selected)
@@ -1083,7 +1083,7 @@ void add_tcp_options(list_view *lw, list_view_item *header, struct tcp *tcp, boo
         n = list_next(n);
         if (n) ADD_TEXT_ELEMENT(lw, w, "");
     }
-    list_free(options);
+    free_tcp_options(options);
 }
 
 void add_dns_information(list_view *lw, list_view_item *header, struct dns_info *dns,

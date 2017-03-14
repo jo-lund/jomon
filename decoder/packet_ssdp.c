@@ -23,7 +23,7 @@ bool handle_ssdp(unsigned char *buffer, int n, struct application_info *info)
 {
     list_t *ssdp_fields;
 
-    ssdp_fields = list_init(NULL);
+    ssdp_fields = list_init();
     parse_ssdp((char *) buffer, n, &ssdp_fields);
     info->ssdp = ssdp_fields;
     return true;
