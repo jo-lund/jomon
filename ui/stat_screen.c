@@ -98,9 +98,9 @@ void ss_print()
         printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "Link quality");
         wprintw(win, ": %8u/%u", iwstat.qual.qual, iwrange.max_qual.qual);
         printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "Level");
-        wprintw(win, ": %8u dBm", iwstat.qual.level);
+        wprintw(win, ": %8d dBm", (int8_t) iwstat.qual.level);
         printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "Noise");
-        wprintw(win, ": %8u dBm", iwstat.qual.noise);
+        wprintw(win, ": %8d dBm", (int8_t) iwstat.qual.noise);
     }
     wrefresh(win);
 }
