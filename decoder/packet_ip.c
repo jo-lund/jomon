@@ -69,6 +69,8 @@ bool handle_ipv4(unsigned char *buffer, int n, struct eth_info *eth)
     ip = (struct iphdr *) buffer;
     if (n < ip->ihl * 4) return false;
 
+    pstat.num_ip++;
+    pstat.bytes_ip += n;
     eth->ip = calloc(1, sizeof(struct ip_info));
     eth->ip->src = ip->saddr;
     eth->ip->dst = ip->daddr;
@@ -166,6 +168,8 @@ bool handle_ipv6(unsigned char *buffer, int n, struct eth_info *eth)
     header_len = sizeof(struct ip6_hdr);
     if (n < header_len) return false;
 
+    pstat.num_ip6++;
+    pstat.bytes_ip6 += n;
     ip6 = (struct ip6_hdr *) buffer;
     eth->ipv6 = calloc(1, sizeof(struct ipv6_info));
     eth->ipv6->version = ip6->ip6_vfc >> 4;

@@ -25,6 +25,8 @@ bool handle_icmp(unsigned char *buffer, int n, struct icmp_info *info)
 
     struct icmphdr *icmp = (struct icmphdr *) buffer;
 
+    pstat.num_icmp++;
+    pstat.bytes_icmp += n;
     info->type = icmp->type;
     info->code = icmp->code;
     info->checksum = htons(info->checksum);

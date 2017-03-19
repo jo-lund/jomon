@@ -2,6 +2,7 @@
 #include <string.h>
 #include "packet_ethernet.h"
 #include "packet_stp.h"
+#include "packet.h"
 
 /*
  * IEEE 802.1 Bridge Spanning Tree Protocol
@@ -12,6 +13,9 @@ bool handle_stp(unsigned char *buffer, uint16_t n, struct eth_802_llc *llc)
     if (n < 4) return false;
 
     uint16_t protocol_id = buffer[0] << 8 | buffer[1];
+
+    pstat.num_stp++;
+    pstat.bytes_stp += n;
 
     /* protocol id 0x00 identifies the (Rapid) Spanning Tree Protocol */
     if (!protocol_id == 0x0) return false;

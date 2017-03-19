@@ -140,6 +140,8 @@ bool handle_dns(unsigned char *buffer, int n, struct application_info *info)
             }
         }
     }
+    pstat.num_dns++;
+    pstat.bytes_dns += n;
     return true;
 }
 

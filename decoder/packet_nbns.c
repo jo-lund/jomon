@@ -97,7 +97,8 @@ bool handle_nbns(unsigned char *buffer, int n, struct application_info *info)
             parse_nbns_record(0, buffer, n, &ptr, info->nbns);
         }
     }
-
+    pstat.num_nbns++;
+    pstat.bytes_nbns += n;
     return true;
 }
 

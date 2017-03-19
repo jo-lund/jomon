@@ -1,4 +1,5 @@
 #include "packet_pim.h"
+#include "packet.h"
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,6 +34,8 @@ bool handle_pim(unsigned char *buffer, int n, struct pim_info *pim)
 {
     if (n < PIM_HEADER_LEN) return false;
 
+    pstat.num_pim++;
+    pstat.bytes_pim += n;
     pim->version = (buffer[0] >> 4) & 0xf;
     pim->type = buffer[0] & 0xf;
     pim->checksum = buffer[1] << 8 | buffer[2];

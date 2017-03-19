@@ -18,7 +18,7 @@
 
 #define MULTICAST_ADDR_MASK 0xe
 
-static uint32_t packet_count = 0;
+struct packet_statistics pstat = { 0 };
 
 static void free_protocol_data(struct application_info *info);
 
@@ -35,7 +35,8 @@ size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet 
         free_packet(*p);
         return 0;
     }
-    (*p)->num = ++packet_count;
+    (*p)->num = ++pstat.num_packets;
+    pstat.tot_bytes += n;
     return n;
 }
 
@@ -46,7 +47,7 @@ bool decode_packet(unsigned char *buffer, size_t len, struct packet **p)
         free_packet(p);
         return false;
     }
-    (*p)->num = ++packet_count;
+    (*p)->num = ++pstat.num_packets;
     return true;
 }
 
