@@ -37,6 +37,7 @@ list_view *create_list_view()
     widget->get_attribute = get_attribute;
     widget->widgets = list_init();
     widget->num_elements = 0;
+    widget->size = 0;
 
     return widget;
 }
@@ -77,7 +78,7 @@ list_view_item *create_element(enum type t, char *txt, bool expanded, uint16_t d
     if (t == HEADER) {
         elem = malloc(len + 3);
         if (expanded) {
-            strncpy(elem, "- ", 2); 
+            strncpy(elem, "- ", 2);
         } else {
             strncpy(elem, "+ ", 2);
         }
@@ -164,7 +165,7 @@ void print_widgets(list_t *widgets, WINDOW *win, int pad, int *line)
 
     while (n) {
         list_view_item *w = list_data(n);
-        
+
         if (w->type == HEADER) {
             mvwprintw(win, *line, pad, "%s", w->txt);
             mvwchgat(win, *line, 0, -1, w->attr, 0, NULL);
@@ -226,7 +227,7 @@ uint32_t get_attribute(list_view *this, int i)
 {
     int j = 0;
     list_view_item *w;
-    
+
     w = get_widget(this->widgets, i, &j);
     if (w) {
         return w->attr;
