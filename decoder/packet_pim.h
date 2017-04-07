@@ -215,6 +215,15 @@ struct pim_bootstrap {
     } *groups;
 };
 
+struct pim_candidate_rp_advertisement {
+    uint8_t prefix_count; /* the number of encoded group addresses */
+    uint8_t priority;
+    uint16_t holdtime;
+    struct pim_unicast_addr rp_addr; /* the address of the interface to advertise as a
+                                        Candidate-RP */
+    struct pim_group_addr *gaddrs; /* The group ranges for which the C-RP is advertising */
+};
+
 struct pim_info {
     /* PIM header */
     unsigned int version : 4;
@@ -229,6 +238,7 @@ struct pim_info {
         struct pim_assert *assert;
         struct pim_join_prune *jpg;
         struct pim_bootstrap *bootstrap;
+        struct pim_candidate_rp_advertisement *candidate;
     };
 };
 

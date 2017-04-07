@@ -67,7 +67,8 @@ static void add_pim_register_stop(list_view *lw, list_view_item *header, struct 
                                   bool msg_selected);
 static void add_pim_bootstrap(list_view *lw, list_view_item *header, struct pim_info *pim,
                               bool msg_selected);
-
+static void add_pim_candidate(list_view *lw, list_view_item *header, struct pim_info *pim,
+                              bool msg_selected);
 
 void print_buffer(char *buf, int size, struct packet *p)
 {
@@ -805,6 +806,9 @@ void add_pim_information(list_view *lw, list_view_item *header, struct pim_info 
     case PIM_BOOTSTRAP:
         add_pim_bootstrap(lw, header, pim, msg_selected);
         break;
+    case PIM_CANDIDATE_RP_ADVERTISEMENT:
+        add_pim_candidate(lw, header, pim, msg_selected);
+        break;
     default:
         break;
     }
@@ -1013,7 +1017,7 @@ void add_pim_bootstrap(list_view *lw, list_view_item *header, struct pim_info *p
     }
     addr = get_pim_address(pim->bootstrap->groups->gaddr.addr_family, pim->bootstrap->groups->gaddr.addr);
     if (addr) {
-        grp = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Group %s", addr);
+        grp = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Group %s/%d", addr, pim->bootstrap->groups->gaddr.mask_len);
         free(addr);
     }
     ADD_TEXT_ELEMENT(lw, grp, "RP count: %u", pim->bootstrap->groups->rp_count);
@@ -1027,6 +1031,29 @@ void add_pim_bootstrap(list_view *lw, list_view_item *header, struct pim_info *p
         }
         ADD_TEXT_ELEMENT(lw, grp, "Holdtime: %u", pim->bootstrap->groups->rps[i].holdtime);
         ADD_TEXT_ELEMENT(lw, grp, "Priority: %u", pim->bootstrap->groups->rps[i].priority);
+    }
+}
+
+void add_pim_candidate(list_view *lw, list_view_item *header, struct pim_info *pim, bool msg_selected)
+{
+    list_view_item *h;
+    char *addr;
+
+    h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Candidate-RP-Advertisement Message");
+    ADD_TEXT_ELEMENT(lw, h, "Prefix count: %u", pim->candidate->prefix_count);
+    ADD_TEXT_ELEMENT(lw, h, "Priority: %u", pim->candidate->priority);
+    ADD_TEXT_ELEMENT(lw, h, "Holdtime: %u", pim->candidate->holdtime);
+    addr = get_pim_address(pim->candidate->rp_addr.addr_family, pim->candidate->rp_addr.addr);
+    if (addr) {
+        ADD_TEXT_ELEMENT(lw, h, "RP address: %s", addr);
+        free(addr);
+    }
+    for (int i = 0; i < pim->candidate->prefix_count; i++) {
+        addr = get_pim_address(pim->candidate->gaddrs[i].addr_family, pim->candidate->gaddrs[i].addr);
+        if (addr) {
+            ADD_TEXT_ELEMENT(lw, h, "Group address %d: %s/%d", i, addr, pim->candidate->gaddrs[i].mask_len);
+            free(addr);
+        }
     }
 }
 

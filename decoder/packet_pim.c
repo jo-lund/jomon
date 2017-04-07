@@ -14,6 +14,7 @@ static bool parse_register_stop(unsigned char *buffer, int n, struct pim_info *p
 static bool parse_assert_msg(unsigned char *buffer, int n, struct pim_info *pim);
 static bool parse_join_prune(unsigned char *buffer, int n, struct pim_info *pim);
 static bool parse_bootstrap(unsigned char *buffer, int n, struct pim_info *pim);
+static bool parse_candidate_rp(unsigned char *buffer, int n, struct pim_info *pim);
 
 /* the caller needs to free the address stored in the respective structs */
 static unsigned char *parse_address(unsigned char **data, uint8_t family,
@@ -66,6 +67,7 @@ bool parse_pim_message(unsigned char *buffer, int n, struct pim_info *pim)
     case PIM_GRAFT_ACK:
         return parse_join_prune(buffer, n, pim);
     case PIM_CANDIDATE_RP_ADVERTISEMENT:
+        return parse_candidate_rp(buffer, n, pim);
     case PIM_STATE_REFRESH:
     default:
         return true;
@@ -175,6 +177,23 @@ bool parse_bootstrap(unsigned char *buffer, int n, struct pim_info *pim)
         pim->bootstrap->groups->rps->holdtime = buffer[0] << 8 | buffer[1];
         pim->bootstrap->groups->rps->priority = buffer[2];
         buffer += 3;
+    }
+    return true;
+}
+
+bool parse_candidate_rp(unsigned char *buffer, int n, struct pim_info *pim)
+{
+    // TODO: Add a check for minimum packet size
+    pim->candidate = malloc(sizeof(struct pim_candidate_rp_advertisement));
+    pim->candidate->prefix_count = buffer[0];
+    pim->candidate->priority = buffer[1];
+    pim->candidate->holdtime = buffer[2] << 8 | buffer[3];
+    buffer += 4;
+    parse_unicast_address(&buffer, &pim->candidate->rp_addr);
+    pim->candidate->gaddrs = calloc(pim->candidate->prefix_count,
+                                    sizeof(struct pim_group_addr));
+    for (int i = 0; i < pim->candidate->prefix_count; i++) {
+        parse_grp_address(&buffer, &pim->candidate->gaddrs[i]);
     }
     return true;
 }
@@ -374,6 +393,7 @@ void free_pim_packet(struct pim_info *pim)
             free(pim->bootstrap->groups->rps);
         }
         free(pim->bootstrap->groups);
+        free(pim->bootstrap);
         break;
     case PIM_ASSERT:
         if (pim->assert->gaddr.addr) {
@@ -417,6 +437,16 @@ void free_pim_packet(struct pim_info *pim)
         free(pim->jpg);
         break;
     case PIM_CANDIDATE_RP_ADVERTISEMENT:
+        if (pim->candidate->rp_addr.addr) {
+            free(pim->candidate->rp_addr.addr);
+        }
+        for (int i = 0; i < pim->candidate->prefix_count; i++) {
+            if (pim->candidate->gaddrs[i].addr) {
+                free(pim->candidate->gaddrs[i].addr);
+            }
+        }
+        free(pim->candidate->gaddrs);
+        free(pim->candidate);
         break;
     default:
         break;
