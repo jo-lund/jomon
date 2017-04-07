@@ -13,6 +13,9 @@ static bool parse_register_msg(unsigned char *buffer, int n, struct pim_info *pi
 static bool parse_register_stop(unsigned char *buffer, int n, struct pim_info *pim);
 static bool parse_assert_msg(unsigned char *buffer, int n, struct pim_info *pim);
 static bool parse_join_prune(unsigned char *buffer, int n, struct pim_info *pim);
+static bool parse_bootstrap(unsigned char *buffer, int n, struct pim_info *pim);
+
+/* the caller needs to free the address stored in the respective structs */
 static unsigned char *parse_address(unsigned char **data, uint8_t family,
                                     uint8_t encoding);
 static void parse_src_address(unsigned char **data, struct pim_source_addr *saddr);
@@ -55,7 +58,7 @@ bool parse_pim_message(unsigned char *buffer, int n, struct pim_info *pim)
     case PIM_REGISTER_STOP:
         return parse_register_stop(buffer, n, pim);
     case PIM_BOOTSTRAP:
-        return true;
+        return parse_bootstrap(buffer, n, pim);
     case PIM_ASSERT:
         return parse_assert_msg(buffer, n, pim);
     case PIM_JOIN_PRUNE:
@@ -142,6 +145,37 @@ bool parse_assert_msg(unsigned char *buffer, int n, struct pim_info *pim)
     pim->assert->metric_pref = buffer[0] << 24 | buffer[1] << 16 | buffer[2] << 8 | buffer[0];
     pim->assert->metric= buffer[0] << 24 | buffer[1] << 16 | buffer[2] << 8 | buffer[0];
 
+    return true;
+}
+
+bool parse_bootstrap(unsigned char *buffer, int n, struct pim_info *pim)
+{
+    // TODO: Add a check for minimum packet size
+    pim->bootstrap = malloc(sizeof(struct pim_bootstrap));
+    pim->bootstrap->tag = buffer[0] << 8 | buffer[1];
+    pim->bootstrap->hash_len = buffer[2];
+    pim->bootstrap->priority = buffer[3];
+    buffer += 4;
+    parse_unicast_address(&buffer, &pim->bootstrap->bsr_addr);
+
+    /*
+     * Seems to be no way to know the number of group addresses without actually
+     * calculating it based on the message length and the number of RPs in each
+     * group. For now we only support 1 group
+     */
+    pim->bootstrap->groups = calloc(1, sizeof(*pim->bootstrap->groups));
+    parse_grp_address(&buffer, &pim->bootstrap->groups->gaddr);
+    pim->bootstrap->groups->rp_count = buffer[0];
+    pim->bootstrap->groups->frag_rp_count = buffer[1];
+    buffer += 2;
+    pim->bootstrap->groups->rps =
+        calloc(pim->bootstrap->groups->frag_rp_count, sizeof(*pim->bootstrap->groups->rps));
+    for (int i = 0; i < pim->bootstrap->groups->frag_rp_count; i++) {
+        parse_unicast_address(&buffer, &pim->bootstrap->groups->rps->rp_addr);
+        pim->bootstrap->groups->rps->holdtime = buffer[0] << 8 | buffer[1];
+        pim->bootstrap->groups->rps->priority = buffer[2];
+        buffer += 3;
+    }
     return true;
 }
 
@@ -325,6 +359,21 @@ void free_pim_packet(struct pim_info *pim)
         free(pim->reg_stop);
         break;
     case PIM_BOOTSTRAP:
+        if (pim->bootstrap->bsr_addr.addr) {
+            free(pim->bootstrap->bsr_addr.addr);
+        }
+        if (pim->bootstrap->groups->gaddr.addr) {
+            free(pim->jpg->groups->gaddr.addr);
+        }
+        for (int i = 0; i < pim->bootstrap->groups->frag_rp_count; i++) {
+            if (pim->bootstrap->groups->rps->rp_addr.addr) {
+                free(pim->bootstrap->groups->rps->rp_addr.addr);
+            }
+        }
+        if (pim->bootstrap->groups->rps) {
+            free(pim->bootstrap->groups->rps);
+        }
+        free(pim->bootstrap->groups);
         break;
     case PIM_ASSERT:
         if (pim->assert->gaddr.addr) {

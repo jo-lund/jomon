@@ -65,6 +65,8 @@ static void add_pim_register(list_view *lw, list_view_item *header, struct pim_i
                              bool msg_selected);
 static void add_pim_register_stop(list_view *lw, list_view_item *header, struct pim_info *pim,
                                   bool msg_selected);
+static void add_pim_bootstrap(list_view *lw, list_view_item *header, struct pim_info *pim,
+                              bool msg_selected);
 
 
 void print_buffer(char *buf, int size, struct packet *p)
@@ -799,6 +801,10 @@ void add_pim_information(list_view *lw, list_view_item *header, struct pim_info 
     case PIM_GRAFT:
     case PIM_GRAFT_ACK:
         add_pim_join_prune(lw, header, pim, msg_selected);
+        break;
+    case PIM_BOOTSTRAP:
+        add_pim_bootstrap(lw, header, pim, msg_selected);
+        break;
     default:
         break;
     }
@@ -987,6 +993,40 @@ void add_pim_join_prune(list_view *lw, list_view_item *header, struct pim_info *
                 free(addr);
             }
         }
+    }
+}
+
+void add_pim_bootstrap(list_view *lw, list_view_item *header, struct pim_info *pim, bool msg_selected)
+{
+    list_view_item *h;
+    list_view_item *grp;
+    char *addr;
+
+    h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Bootstrap Message");
+    ADD_TEXT_ELEMENT(lw, h, "Fragment tag: 0x%x", pim->bootstrap->tag);
+    ADD_TEXT_ELEMENT(lw, h, "Hash mask length: %d", pim->bootstrap->hash_len);
+    ADD_TEXT_ELEMENT(lw, h, "BSR priority: %d", pim->bootstrap->priority);
+    addr = get_pim_address(pim->bootstrap->bsr_addr.addr_family, pim->bootstrap->bsr_addr.addr);
+    if (addr) {
+        ADD_TEXT_ELEMENT(lw, h, "BSR address: %s", addr);
+        free(addr);
+    }
+    addr = get_pim_address(pim->bootstrap->groups->gaddr.addr_family, pim->bootstrap->groups->gaddr.addr);
+    if (addr) {
+        grp = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Group %s", addr);
+        free(addr);
+    }
+    ADD_TEXT_ELEMENT(lw, grp, "RP count: %u", pim->bootstrap->groups->rp_count);
+    ADD_TEXT_ELEMENT(lw, grp, "Frag RP count: %u", pim->bootstrap->groups->frag_rp_count);
+    for (int i = 0; i < pim->bootstrap->groups->frag_rp_count; i++) {
+        addr = get_pim_address(pim->bootstrap->groups->rps[i].rp_addr.addr_family,
+                               pim->bootstrap->groups->rps[i].rp_addr.addr);
+        if (addr) {
+            ADD_TEXT_ELEMENT(lw, grp, "RP address %d: %s", i, addr);
+            free(addr);
+        }
+        ADD_TEXT_ELEMENT(lw, grp, "Holdtime: %u", pim->bootstrap->groups->rps[i].holdtime);
+        ADD_TEXT_ELEMENT(lw, grp, "Priority: %u", pim->bootstrap->groups->rps[i].priority);
     }
 }
 
