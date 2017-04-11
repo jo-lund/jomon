@@ -3,7 +3,7 @@
 #include "packet.h"
 #include "../list.h"
 
-static void parse_ssdp(char *str, int n, list_t **msg_header);
+static void parse_ssdp(char *str, int n, list_t *msg_header);
 
 /*
  * The Simple Service Discovery Protocol (SSDP) is a network protocol based on
@@ -25,7 +25,7 @@ bool handle_ssdp(unsigned char *buffer, int n, struct application_info *info)
     pstat.num_ssdp++;
     pstat.bytes_ssdp += n;
     ssdp_fields = list_init();
-    parse_ssdp((char *) buffer, n, &ssdp_fields);
+    parse_ssdp((char *) buffer, n, ssdp_fields);
     info->ssdp = ssdp_fields;
     return true;
 }
@@ -37,7 +37,7 @@ bool handle_ssdp(unsigned char *buffer, int n, struct application_info *info)
  * Copies the lines delimited by CRLF, i.e. the start line and the SSDP message
  * header fields, to msg_header list.
  */
-void parse_ssdp(char *str, int n, list_t **msg_header)
+void parse_ssdp(char *str, int n, list_t *msg_header)
 {
     char *token;
     char cstr[n + 1];
@@ -49,7 +49,7 @@ void parse_ssdp(char *str, int n, list_t **msg_header)
         char *field;
 
         field = strdup(token);
-        list_push_back(*msg_header, field);
+        list_push_back(msg_header, field);
         token = strtok(NULL, "\r\n");
     }
 }
