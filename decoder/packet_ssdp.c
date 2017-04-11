@@ -17,12 +17,10 @@ static void parse_ssdp(char *str, int n, list_t **msg_header);
  * to discover available services on a network uses the M-SEARCH method.
  * Responses to such search requests are sent via unicast addressing to the
  * originating address and port number of the multicast request.
- *
  */
 bool handle_ssdp(unsigned char *buffer, int n, struct application_info *info)
 {
     list_t *ssdp_fields;
-
 
     pstat.num_ssdp++;
     pstat.bytes_ssdp += n;
@@ -42,9 +40,10 @@ bool handle_ssdp(unsigned char *buffer, int n, struct application_info *info)
 void parse_ssdp(char *str, int n, list_t **msg_header)
 {
     char *token;
-    char cstr[n];
+    char cstr[n + 1];
 
     strncpy(cstr, str, n);
+    cstr[n] = '\0';
     token = strtok(cstr, "\r\n");
     while (token) {
         char *field;
