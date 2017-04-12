@@ -24,7 +24,6 @@ struct snap_info {
     union {
         struct arp_info *arp;
         struct ip_info *ip;
-        unsigned char *payload;
     };
 };
 
@@ -36,7 +35,6 @@ struct eth_802_llc {
     union {
         struct snap_info *snap;
         struct stp_info *bpdu;
-        unsigned char *payload;
     };
 };
 
@@ -45,12 +43,12 @@ struct eth_info {
     unsigned char mac_dst[ETH_ALEN];
     uint16_t ethertype;
     uint16_t payload_len; /* for 802.3 frames ethertype contains the payload length */
+    unsigned char *data; /* contains the frame as seen on the wire */
     union {
         struct eth_802_llc *llc;
         struct arp_info *arp;
         struct ip_info *ip;
         struct ipv6_info *ipv6;
-        unsigned char *payload;
     };
 };
 
@@ -60,6 +58,6 @@ char *get_ethernet_type(uint16_t ethertype);
 
 /* Should be internal to the decoder */
 bool handle_ethernet(unsigned char *buffer, int n, struct eth_info *eth);
+void free_ethernet802_3_frame(struct eth_info *eth);
 
 #endif
-

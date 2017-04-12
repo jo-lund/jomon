@@ -112,10 +112,6 @@ bool handle_ipv4(unsigned char *buffer, int n, struct eth_info *eth)
     // TODO: Need to correctly handle errors. We need to know that the packet
     // had some errors in parsing and that the protocol data should be printed
     // as plain data and not as the original protocol
-    if (error) {
-        eth->ip->payload = malloc(n - header_len);
-        memcpy(eth->ip->payload, buffer + header_len, n - header_len);
-    }
     return true;
 }
 
@@ -200,11 +196,6 @@ bool handle_ipv6(unsigned char *buffer, int n, struct eth_info *eth)
         error = true;
         break;
     }
-    if (error) {
-        eth->ipv6->payload = malloc(eth->ipv6->payload_len);
-        memcpy(eth->ipv6->payload, buffer + header_len, eth->ipv6->payload_len);
-    }
-
     return true;
 }
 
@@ -246,4 +237,15 @@ char *get_ip_transport_protocol(uint8_t protocol)
     default:
         return NULL;
     }
+}
+
+unsigned char *get_ip_payload(struct packet *p)
+{
+    if (p->eth.ethertype == ETH_P_IP) {
+        return p->eth.data + ETH_HLEN + p->eth.ip->ihl * 4;
+    }
+    if (p->eth.ethertype == ETH_P_IPV6) {
+        return p->eth.data + ETH_HLEN + sizeof(struct ip6_hdr);
+    }
+    return NULL;
 }

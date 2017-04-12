@@ -41,8 +41,7 @@ bool handle_udp(unsigned char *buffer, int n, struct udp_info *info)
 
     /* unknown application payload data */
     if (info->len - UDP_HDR_LEN > 0) {
-        info->data.payload = malloc(info->len - UDP_HDR_LEN);
-        memcpy(info->data.payload, buffer + UDP_HDR_LEN, info->len - UDP_HDR_LEN);
+
     }
     return true;
 }
