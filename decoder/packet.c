@@ -16,8 +16,6 @@
 #include "packet_ip.h"
 #include "packet_ssdp.h"
 
-#define MULTICAST_ADDR_MASK 0xe
-
 struct packet_statistics pstat = { 0 };
 
 static void free_protocol_data(struct application_info *info);
@@ -48,6 +46,7 @@ bool decode_packet(unsigned char *buffer, size_t len, struct packet **p)
         return false;
     }
     (*p)->num = ++pstat.num_packets;
+    pstat.tot_bytes += len;
     return true;
 }
 
@@ -56,17 +55,7 @@ void free_packet(void *data)
     struct packet *p = (struct packet *) data;
 
     if (p->eth.ethertype < ETH_P_802_3_MIN) {
-        if (p->eth.llc->dsap == 0xaa && p->eth.llc->ssap == 0xaa) {
-            if (p->eth.llc->snap->payload) {
-                free(p->eth.llc->snap->payload);
-            }
-            free(p->eth.llc->snap);
-        } else if (p->eth.llc->dsap == 0x42 && p->eth.llc->ssap == 0x42) {
-            free(p->eth.llc->bpdu);
-        } else if (p->eth.llc->payload) {
-            free(p->eth.llc->payload);
-        }
-        free(p->eth.llc);
+        free_ethernet802_3_frame(&p->eth);
         return;
     }
     switch (p->eth.ethertype) {
@@ -88,9 +77,6 @@ void free_packet(void *data)
         case IPPROTO_IGMP:
             break;
         default:
-            if (p->eth.ip->payload) {
-                free(p->eth.ip->payload);
-            }
             break;
         }
         free(p->eth.ip);
@@ -113,9 +99,6 @@ void free_packet(void *data)
         case IPPROTO_IGMP:
             break;
         default:
-            if (p->eth.ipv6->payload) {
-                free(p->eth.ipv6->payload);
-            }
             break;
         }
         free(p->eth.ipv6);
@@ -124,11 +107,9 @@ void free_packet(void *data)
         free(p->eth.arp);
         break;
     default:
-        if (p->eth.payload_len) {
-            free(p->eth.payload);
-        }
         break;
     }
+    free(p->eth.data);
     free(p);
 }
 
@@ -155,9 +136,6 @@ void free_protocol_data(struct application_info *info)
         free_http_packet(info->http);
         break;
     default:
-        if (info->payload) {
-            free(info->payload);
-        }
         break;
     }
 }
@@ -187,4 +165,19 @@ bool check_port(unsigned char *buffer, int n, struct application_info *info,
     default:
         return false;
     }
+}
+
+unsigned char *get_adu_payload(struct packet *p)
+{
+    uint8_t protocol;
+
+    protocol = (p->eth.ethertype == ETH_P_IP) ?
+        p->eth.ip->protocol : p->eth.ipv6->next_header;
+    if (protocol == IPPROTO_TCP) {
+        return get_ip_payload(p) + p->eth.ip->tcp.offset * 4;
+    }
+    if (protocol == IPPROTO_UDP) {
+        return get_ip_payload(p) + UDP_HDR_LEN;
+    }
+    return NULL;
 }

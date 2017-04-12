@@ -31,7 +31,6 @@ struct ip_info {
         struct igmp_info igmp;
         struct icmp_info icmp;
         struct pim_info pim;
-        unsigned char *payload;
     };
 };
 
@@ -49,12 +48,14 @@ struct ipv6_info {
         struct tcp tcp;
         struct igmp_info igmp;
         struct pim_info pim;
-        unsigned char *payload;
     };
 };
 
 char *get_ip_dscp(uint8_t dscp);
 char *get_ip_transport_protocol(uint8_t protocol);
+
+/* Return a pointer the IPv4/IPv6 payload */
+unsigned char *get_ip_payload(struct packet *p);
 
 /* internal to the decoder */
 bool handle_ipv4(unsigned char *buffer, int n, struct eth_info *info);

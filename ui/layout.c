@@ -95,7 +95,7 @@ static void delete_subwindow();
 static bool update_subwin_selection();
 static void add_elements(struct packet *p);
 static void add_transport_elements(struct packet *p);
-static void add_app_elements(struct application_info *info, uint16_t len);
+static void add_app_elements(struct packet *p, struct application_info *info, uint16_t len);
 
 void init_ncurses()
 {
@@ -841,12 +841,12 @@ void add_elements(struct packet *p)
             add_snap_information(wmain->lvw, header, p);
             break;
         default:
-            header = ADD_HEADER(wmain->lvw, "Data", selected[APPLICATION], APPLICATION);
-            add_payload(wmain->lvw, header, p->eth.llc->payload, LLC_PAYLOAD_LEN(p));
+            header = ADD_HEADER(wmain->lvw, "Unknown payload", selected[APPLICATION], APPLICATION);
+            add_payload(wmain->lvw, header, p->eth.data + ETH_HLEN + LLC_HDR_LEN, LLC_PAYLOAD_LEN(p));
         }
     } else {
-        header = ADD_HEADER(wmain->lvw, "Data", selected[APPLICATION], APPLICATION);
-        add_payload(wmain->lvw, header, p->eth.payload, p->eth.payload_len);
+        header = ADD_HEADER(wmain->lvw, "Unknown payload", selected[APPLICATION], APPLICATION);
+        add_payload(wmain->lvw, header, p->eth.data + ETH_HLEN, p->eth.payload_len);
     }
 }
 
@@ -863,10 +863,10 @@ void add_transport_elements(struct packet *p)
         header = ADD_HEADER(wmain->lvw, "Transmission Control Protocol (TCP)", selected[TRANSPORT], TRANSPORT);
         if (p->eth.ethertype == ETH_P_IP) {
             add_tcp_information(wmain->lvw, header, &p->eth.ip->tcp, selected[SUBLAYER]);
-            add_app_elements(&p->eth.ip->tcp.data, len);
+            add_app_elements(p, &p->eth.ip->tcp.data, len);
         } else {
             add_tcp_information(wmain->lvw, header, &p->eth.ipv6->tcp, selected[SUBLAYER]);
-            add_app_elements(&p->eth.ipv6->tcp.data, len);
+            add_app_elements(p, &p->eth.ipv6->tcp.data, len);
         }
         break;
     }
@@ -877,10 +877,10 @@ void add_transport_elements(struct packet *p)
         header = ADD_HEADER(wmain->lvw, "User Datagram Protocol (UDP)", selected[TRANSPORT], TRANSPORT);
         if (p->eth.ethertype == ETH_P_IP) {
             add_udp_information(wmain->lvw, header, &p->eth.ip->udp);
-            add_app_elements(&p->eth.ip->udp.data, len);
+            add_app_elements(p, &p->eth.ip->udp.data, len);
         } else {
             add_udp_information(wmain->lvw, header, &p->eth.ipv6->udp);
-            add_app_elements(&p->eth.ipv6->udp.data, len);
+            add_app_elements(p, &p->eth.ipv6->udp.data, len);
         }
         break;
     }
@@ -908,16 +908,12 @@ void add_transport_elements(struct packet *p)
         break;
     default:
         /* unknown transport layer payload */
-        header = ADD_HEADER(wmain->lvw, "Data", selected[APPLICATION], APPLICATION);
-        if (p->eth.ethertype == ETH_P_IP) {
-            add_payload(wmain->lvw, header, p->eth.ip->payload, IP_PAYLOAD_LEN(p));
-        } else {
-            add_payload(wmain->lvw, header, p->eth.ipv6->payload, IP_PAYLOAD_LEN(p));
-        }
+        header = ADD_HEADER(wmain->lvw, "Unknown payload", selected[APPLICATION], APPLICATION);
+        add_payload(wmain->lvw, header, get_ip_payload(p), IP_PAYLOAD_LEN(p));
     }
 }
 
-void add_app_elements(struct application_info *info, uint16_t len)
+void add_app_elements(struct packet *p, struct application_info *info, uint16_t len)
 {
     list_view_item *header;
 
@@ -941,8 +937,8 @@ void add_app_elements(struct application_info *info, uint16_t len)
         break;
     default:
         if (len) {
-            header = ADD_HEADER(wmain->lvw, "Data", selected[APPLICATION], APPLICATION);
-            add_payload(wmain->lvw, header, info->payload, len);
+            header = ADD_HEADER(wmain->lvw, "Unknown payload", selected[APPLICATION], APPLICATION);
+            add_payload(wmain->lvw, header, get_adu_payload(p), len);
         }
         break;
     }

@@ -54,6 +54,10 @@ bool handle_ethernet(unsigned char *buffer, int n, struct eth_info *eth)
     memcpy(eth->mac_dst, eth_header->h_dest, ETH_ALEN);
     eth->ethertype = ntohs(eth_header->h_proto);
 
+    /* store the original frame in data */
+    eth->data = malloc(n);
+    memcpy(eth->data, buffer, n);
+
     /* Ethernet 802.3 frame */
     if (eth->ethertype < ETH_P_802_3_MIN) {
         unsigned char *ptr;
@@ -77,16 +81,9 @@ bool handle_ethernet(unsigned char *buffer, int n, struct eth_info *eth)
 
             /* TODO: If OUI is 0 I need to to handle the internet protocols that
                will be layered on top of SNAP */
-            ptr += 2;
-            eth->llc->snap->payload = malloc(eth->ethertype - LLC_HDR_LEN -
-                                             SNAP_HDR_LEN);
-            memcpy(eth->llc->snap->payload, ptr, eth->ethertype - LLC_HDR_LEN -
-                   SNAP_HDR_LEN);
-        } else { /* not handled */
-            eth->llc->payload = malloc(eth->ethertype - LLC_HDR_LEN);
-            memcpy(eth->llc->payload, ptr, eth->ethertype - LLC_HDR_LEN);
         }
     } else {
+        // TODO: Need to handle errors properly
         eth->payload_len = n - ETH_HLEN;
         switch (eth->ethertype) {
         case ETH_P_IP:
@@ -103,11 +100,6 @@ bool handle_ethernet(unsigned char *buffer, int n, struct eth_info *eth)
             error = true;
             break;
         }
-    }
-    // TODO: Need to handle errors properly
-    if (error) {
-        eth->payload = malloc(n - ETH_HLEN);
-        memcpy(eth->payload, buffer + ETH_HLEN, n - ETH_HLEN);
     }
     return true;
 }
@@ -140,4 +132,14 @@ enum eth_802_type get_eth802_type(struct eth_802_llc *llc)
 uint32_t get_eth802_oui(struct snap_info *snap)
 {
     return snap->oui[0] << 16 | snap->oui[1] << 8 | snap->oui[2];
+}
+
+void free_ethernet802_3_frame(struct eth_info *eth)
+{
+    if (eth->llc->dsap == 0xaa && eth->llc->ssap == 0xaa) {
+        free(eth->llc->snap);
+    } else if (eth->llc->dsap == 0x42 && eth->llc->ssap == 0x42) {
+        free(eth->llc->bpdu);
+    }
+    free(eth->llc);
 }

@@ -70,7 +70,6 @@ struct application_info {
         struct nbns_info *nbns;
         struct http_info *http;
         list_t *ssdp;
-        unsigned char *payload;
     };
 };
 
@@ -100,6 +99,9 @@ bool decode_packet(unsigned char *buffer, size_t n, struct packet **p);
 
 /* Free the memory allocated for packet */
 void free_packet(void *packet);
+
+/* Return a pointer to the application payload */
+unsigned char *get_adu_payload(struct packet *p);
 
 /* Should be internal to the decoder */
 bool check_port(unsigned char *buffer, int n, struct application_info *info,
