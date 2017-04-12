@@ -53,6 +53,4 @@ void printnlw(WINDOW *win, char *str, int len, int y, int x, int scrollx);
  */
 void printat(WINDOW *win, int y, int x, int attrs, const char *fmt, ...);
 
-bool is_capturing();
-
 #endif

@@ -6,6 +6,10 @@
 #include <ncurses.h>
 #include "../list.h"
 
+/*
+ * Convenience macros that will call the functions defined in list_view.
+ * The first argument, 'o', is a pointer to the list_view.
+ */
 #define ADD_HEADER(o, text, expanded, data) (o)->add_header(o, text, expanded, data)
 #define ADD_SUB_HEADER(o, w, expanded, data, text, ...)             \
     (o)->add_sub_header(o, w, expanded, data, text, ## __VA_ARGS__)
@@ -15,7 +19,7 @@
 #define GET_EXPANDED(o, i) (o)->get_expanded(o, i)
 #define GET_DATA(o, i) (o)->get_data(o, i)
 #define GET_ATTR(o, i) (o)->get_attribute(o, i)
-#define RENDER(o, win) (o)->render(o, win)
+#define RENDER(o, win, s) (o)->render(o, win, s)
 
 typedef struct {
     bool expanded;
@@ -60,8 +64,11 @@ typedef struct lw {
     /* Returns the attribute assciated with the element */
     uint32_t (*get_attribute)(struct lw *this, int i);
 
-    /* Prints the elements of the list view in the window 'win' */
-    void (*render)(struct lw *this, WINDOW *win);
+    /*
+     * Prints the elements of the list view in the window 'win'.
+     * 'scrollx' is the amount scrolled on the x-axis in 'win'.
+     */
+    void (*render)(struct lw *this, WINDOW *win, int scrollx);
 } list_view;
 
 list_view *create_list_view();

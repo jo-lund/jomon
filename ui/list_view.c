@@ -13,12 +13,12 @@ static list_view_item *add_sub_header(list_view *this, list_view_item *header, b
                                       uint32_t data, char *text, ...);
 static list_view_item *add_text_element(list_view *this, list_view_item *header, char *txt, ...);
 static void free_list_view_item(list_t *widgets);
-static void render(list_view *this, WINDOW *win);
+static void render(list_view *this, WINDOW *win, int scrollx);
 static bool get_expanded(list_view *this, int i);
 static void set_expanded(list_view *this, int i, bool expanded);
 static int32_t get_data(list_view *this, int i);
 static uint32_t get_attribute(list_view *this, int i);
-static void print_widgets(list_t *widgets, WINDOW *win, int pad, int *line);
+static void print_elements(list_t *widgets, WINDOW *win, int pad, int *line, int scrollx);
 static list_view_item *create_element(enum type t, char *text, bool expanded, uint16_t data, uint32_t attr);
 static list_view_item *get_widget(list_t *widgets, int i, int *j);
 static int get_size(list_t *widgets);
@@ -153,29 +153,31 @@ list_view_item *add_sub_header(list_view *this, list_view_item *header, bool exp
     return h;
 }
 
-void render(list_view *this, WINDOW *win)
+void render(list_view *this, WINDOW *win, int scrollx)
 {
     int line = 0;
-    print_widgets(this->widgets, win, 2, &line);
+
+    print_elements(this->widgets, win, 2, &line, scrollx);
 }
 
-void print_widgets(list_t *widgets, WINDOW *win, int pad, int *line)
+void print_elements(list_t *widgets, WINDOW *win, int pad, int *line, int scrollx)
 {
     const node_t *n = list_begin(widgets);
 
     while (n) {
         list_view_item *w = list_data(n);
 
-        if (w->type == HEADER) {
-            mvwprintw(win, *line, pad, "%s", w->txt);
-            mvwchgat(win, *line, 0, -1, w->attr, 0, NULL);
-            (*line)++;
-            if (w->hdr.expanded && w->hdr.subwidgets) {
-                print_widgets(w->hdr.subwidgets, win, pad + 2, line);
+        if (scrollx < strlen(w->txt)) {
+            if (scrollx > pad) {
+                mvwprintw(win, *line, 0, "%s", w->txt + scrollx - pad);
+            } else {
+                mvwprintw(win, *line, pad - scrollx, "%s", w->txt);
             }
-        } else {
-            mvwprintw(win, *line, pad, "%s", w->txt);
-            (*line)++;
+            mvwchgat(win, *line, 0, -1, w->attr, 0, NULL);
+        }
+        (*line)++;
+        if (w->type == HEADER && w->hdr.expanded && w->hdr.subwidgets) {
+            print_elements(w->hdr.subwidgets, win, pad + 2, line, scrollx);
         }
         n = list_next(n);
     }

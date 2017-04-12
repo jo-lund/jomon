@@ -19,6 +19,7 @@
 
 #define HEADER_HEIGHT 4
 #define STATUS_HEIGHT 1
+#define NUM_COLS_SCROLL 4
 
 #define SHOW_SELECTIONBAR(l, a) (mvwchgat(wmain->pktlist, l, 0, -1, a, 1, NULL))
 #define REMOVE_SELECTIONBAR(l, a) (mvwchgat(wmain->pktlist, l, 0, -1, a, 0, NULL))
@@ -78,6 +79,7 @@ static bool check_line();
 static void handle_keydown(int num_lines);
 static void handle_keyup(int num_lines);
 static void scroll_page(int num_lines);
+static void scroll_column(int scrollx, int num_lines);
 static void scroll_window();
 static int print_lines(int from, int to, int y);
 static void print(char *buf);
@@ -93,9 +95,11 @@ static void print_help();
 static void create_subwindow(int num_lines, int lineno);
 static void delete_subwindow();
 static bool update_subwin_selection();
+static bool inside_subwindow();
 static void add_elements(struct packet *p);
 static void add_transport_elements(struct packet *p);
 static void add_app_elements(struct packet *p, struct application_info *info, uint16_t len);
+static void print_subwindow();
 
 void init_ncurses()
 {
@@ -215,20 +219,10 @@ void get_input()
         handle_keydown(my);
         break;
     case KEY_LEFT:
-        if (wmain->scrollx) {
-            werase(wmain->pktlist);
-            wmain->scrollx -= 4;
-            print_lines(wmain->top, wmain->top + my, 0);
-            SHOW_SELECTIONBAR(wmain->selection_line - wmain->top, A_NORMAL);
-            wrefresh(wmain->pktlist);
-        }
+        scroll_column(-NUM_COLS_SCROLL, my);
         break;
     case KEY_RIGHT:
-        werase(wmain->pktlist);
-        wmain->scrollx += 4;
-        print_lines(wmain->top, wmain->top + my, 0);
-        SHOW_SELECTIONBAR(wmain->selection_line - wmain->top, A_NORMAL);
-        wrefresh(wmain->pktlist);
+        scroll_column(NUM_COLS_SCROLL, my);
         break;
     case KEY_ENTER:
     case '\n':
@@ -497,6 +491,30 @@ bool check_line()
         return true;
     }
     return false;
+}
+
+void scroll_column(int scrollx, int num_lines)
+{
+    if ((scrollx < 0 && wmain->scrollx) || scrollx > 0) {
+        werase(wmain->pktlist);
+        wmain->scrollx += scrollx;
+        if (wmain->subwindow.win) {
+            wmain->outy = print_lines(wmain->top + wmain->scrolly,
+                                      wmain->top + wmain->scrolly + wmain->subwindow.top, 0);
+            print_subwindow();
+            wmain->outy += wmain->lvw->size + 1;
+            if (!wmain->scrolly) {
+                wmain->outy += print_lines(wmain->main_line.line_number + 1, wmain->top + num_lines, wmain->outy);
+            }
+            if (!inside_subwindow()) {
+                SHOW_SELECTIONBAR(wmain->selection_line - wmain->top, A_NORMAL);
+            }
+        } else {
+            wmain->outy = print_lines(wmain->top, wmain->top + num_lines, 0);
+            SHOW_SELECTIONBAR(wmain->selection_line - wmain->top, A_NORMAL);
+        }
+        wrefresh(wmain->pktlist);
+    }
 }
 
 void handle_keyup(int num_lines)
@@ -783,7 +801,7 @@ void print_selected_packet()
         wmain->main_line.selected = true;
 
         /* the index to the selected line needs to be adjusted in case of an
-           open wmain->subwindow */
+           open subwindow */
         if (wmain->subwindow.win && screen_line > wmain->subwindow.top + wmain->scrolly) {
             wmain->main_line.line_number = screen_line - wmain->subwindow.num_lines;
             wmain->selection_line -= wmain->subwindow.num_lines;
@@ -953,13 +971,17 @@ void print_protocol_information(struct packet *p, int lineno)
 
     /* print information in subwindow */
     create_subwindow(wmain->lvw->size + 1, lineno);
-    RENDER(wmain->lvw, wmain->subwindow.win);
+    print_subwindow();
+}
 
-    int subline = wmain->selection_line - wmain->top - wmain->subwindow.top;
-    if (subline >= 0) {
-        mvwchgat(wmain->pktlist, wmain->selection_line - wmain->top, 0, -1, GET_ATTR(wmain->lvw, subline), 1, NULL);
-    } else {
-        mvwchgat(wmain->pktlist, wmain->selection_line - wmain->top, 0, -1, A_NORMAL, 1, NULL);
+void print_subwindow()
+{
+    int subline;
+
+    RENDER(wmain->lvw, wmain->subwindow.win, wmain->scrollx);
+    subline = wmain->selection_line - wmain->top - wmain->subwindow.top;
+    if (inside_subwindow()) {
+        SHOW_SELECTIONBAR(wmain->selection_line - wmain->top, GET_ATTR(wmain->lvw, subline));
     }
     touchwin(wmain->pktlist);
     wrefresh(wmain->subwindow.win);
@@ -1054,6 +1076,13 @@ bool update_subwin_selection()
     return false;
 }
 
+/* Returns whether the selection line is inside the subwindow or not */
+bool inside_subwindow()
+{
+    int subline = wmain->selection_line - wmain->top - wmain->subwindow.top;
+
+    return subline >= 0 && subline < wmain->lvw->size;
+}
 
 void pop_screen()
 {
@@ -1144,10 +1173,7 @@ void printnlw(WINDOW *win, char *str, int len, int y, int x, int scrollx)
     if (mx + scrollx - 1 < len) {
         str[mx + scrollx - 1] = '\0';
     }
-    mvwprintw(win, y, x, "%s", str + scrollx);
-}
-
-bool is_capturing()
-{
-    return capturing;
+    if (scrollx < len) {
+        mvwprintw(win, y, x, "%s", str + scrollx);
+    }
 }
