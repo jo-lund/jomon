@@ -103,6 +103,8 @@ void free_packet(void *packet);
 /* Return a pointer to the application payload */
 unsigned char *get_adu_payload(struct packet *p);
 
+void clear_statistics();
+
 /* Should be internal to the decoder */
 bool check_port(unsigned char *buffer, int n, struct application_info *info,
                 uint16_t port, bool *error);

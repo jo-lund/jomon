@@ -22,7 +22,15 @@ void *vector_get_data(vector_t *vector, int i);
 /* Get the number of elements stored in the vector */
 int vector_size(vector_t *vector);
 
-/* clear the vector and deallocate all memory */
+/*
+ * Clears the vector
+ *
+ * Memory for the data is deallocated but not the vector. To free all memory
+ * associated with vector use vector_free.
+ */
 void vector_clear(vector_t *vector);
+
+/* Free all memory used by vector */
+void vector_free(vector_t *vector);
 
 #endif

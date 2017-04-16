@@ -8,7 +8,7 @@ extern bool numeric;
 struct packet;
 
 /* initialize ncurses */
-void init_ncurses();
+void init_ncurses(bool is_capturing);
 
 /* end ncurses mode */
 void end_ncurses();

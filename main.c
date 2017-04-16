@@ -104,7 +104,7 @@ int main(int argc, char **argv)
         init_socket(ctx.device);
     }
     if (use_ncurses) {
-        init_ncurses();
+        init_ncurses(!ctx.filename);
         create_layout();
     }
     if (ctx.filename) {
@@ -154,7 +154,7 @@ void finish()
     if (use_ncurses) {
         end_ncurses();
     }
-    vector_clear(packets);
+    vector_free(packets);
     free(ctx.device);
     free(ctx.filename);
     free(local_addr);
@@ -183,7 +183,6 @@ void init_socket(char *device)
         err_sys("fcntl error");
     }
 
-    setuid(getuid()); /* no need for root access anymore */
     memset(&ll_addr, 0, sizeof(ll_addr));
     ll_addr.sll_family = PF_PACKET;
     ll_addr.sll_protocol = htons(ETH_P_ALL);
@@ -259,4 +258,17 @@ void run()
             get_input();
         }
     }
+}
+
+void stop_scan()
+{
+    close(sockfd);
+}
+
+void start_scan()
+{
+    clear_statistics();
+    vector_clear(packets);
+    init_socket(ctx.device);
+    run();
 }

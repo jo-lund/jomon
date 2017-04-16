@@ -181,3 +181,8 @@ unsigned char *get_adu_payload(struct packet *p)
     }
     return NULL;
 }
+
+void clear_statistics()
+{
+    memset(&pstat, 0, sizeof(struct packet_statistics));
+}

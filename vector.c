@@ -83,7 +83,13 @@ void vector_clear(vector_t *vector)
             free(vector->buf[i].data);
         }
     }
-    free(vector->buf);
-    vector->size = 0;
     vector->c = 0;
+}
+
+void vector_free(vector_t *vector)
+{
+    vector_clear(vector);
+    vector->size = 0;
+    free(vector->buf);
+    free(vector);
 }

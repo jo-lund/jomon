@@ -4,6 +4,7 @@
 #include <arpa/inet.h>
 #include <netinet/ip_icmp.h>
 #include <ctype.h>
+#include <unistd.h>
 #include "layout.h"
 #include "protocols.h"
 #include "../list.h"
@@ -101,8 +102,9 @@ static void add_transport_elements(struct packet *p);
 static void add_app_elements(struct packet *p, struct application_info *info, uint16_t len);
 static void print_subwindow();
 
-void init_ncurses()
+void init_ncurses(bool is_capturing)
 {
+    capturing = is_capturing;
     initscr(); /* initialize curses mode */
     cbreak(); /* disable line buffering */
     noecho();
@@ -276,6 +278,33 @@ void get_input()
     case KEY_F(1):
         push_screen(HELP_SCREEN);
         break;
+    case KEY_F(2):
+    {
+        uid_t euid = geteuid();
+
+        if (!capturing && euid == 0) {
+            if (interactive) {
+                set_interactive(false, my);
+            }
+            werase(wmain->pktlist);
+            wrefresh(wmain->pktlist);
+            wmain->outy = 0;
+            capturing = true;
+            print_status();
+            start_scan();
+        }
+        break;
+    }
+    case KEY_F(3):
+        if (capturing) {
+            if (!interactive) {
+                set_interactive(true, my);
+            }
+            stop_scan();
+            capturing = false;
+            print_status();
+        }
+        break;
     case 'g':
         if (!interactive) return;
         input_mode = !input_mode;
@@ -328,11 +357,21 @@ void print_header()
 
 void print_status()
 {
+    uid_t euid = geteuid();
+
     mvwprintw(wmain->status, 0, 0, "F1");
     printat(wmain->status, -1, -1, COLOR_PAIR(2), "%-8s", "Help");
-    wprintw(wmain->status, "F2");
+    if (capturing || euid != 0) {
+        printat(wmain->status, -1, -1, A_DIM, "F2");
+    } else {
+        wprintw(wmain->status, "F2");
+    }
     printat(wmain->status, -1, -1, COLOR_PAIR(2), "%-8s", "Start");
-    wprintw(wmain->status, "F3");
+    if (capturing) {
+        wprintw(wmain->status, "F3");
+    } else {
+        printat(wmain->status, -1, -1, A_DIM, "F3");
+    }
     printat(wmain->status, -1, -1, COLOR_PAIR(2), "%-8s", "Stop");
     wprintw(wmain->status, "F4");
     printat(wmain->status, -1, -1, COLOR_PAIR(2), "%-8s", "Load");
@@ -751,7 +790,6 @@ void print_file()
 {
     int my = getmaxy(wmain->pktlist);
 
-    capturing = false;
     for (int i = 0; i < vector_size(packets) && i < my; i++) {
         print_packet(vector_get_data(packets, i));
     }

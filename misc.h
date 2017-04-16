@@ -33,5 +33,7 @@ extern struct sockaddr_in *local_addr;
 extern bool statistics;
 
 void finish();
+void stop_scan();
+void start_scan();
 
 #endif
