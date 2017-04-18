@@ -100,15 +100,8 @@ int main(int argc, char **argv)
         if (err != NO_ERROR) {
             err_quit("Error in file: %s", ctx.filename);
         }
-    } else {
-        init_socket(ctx.device);
-    }
-    if (use_ncurses) {
-        init_ncurses(!ctx.filename);
-        create_layout();
-    }
-    if (ctx.filename) {
         if (use_ncurses) {
+            init_ncurses(false);
             print_file();
         } else {
             for (int i = 0; i < vector_size(packets); i++) {
@@ -118,6 +111,11 @@ int main(int argc, char **argv)
                 printf("%s\n", buf);
             }
             finish();
+        }
+    } else {
+        init_socket(ctx.device);
+        if (use_ncurses) {
+            init_ncurses(true);
         }
     }
     run();

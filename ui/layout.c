@@ -73,6 +73,7 @@ static bool interactive = false;
 static bool input_mode = false;
 static _stack_t *screen_stack;
 
+static void create_layout();
 static main_screen *create_main_screen(int nlines, int ncols);
 static void free_main_screen(main_screen *mw);
 static void set_interactive(bool interactive_mode, int num_lines);
@@ -117,6 +118,7 @@ void init_ncurses(bool is_capturing)
     init_pair(4, COLOR_GREEN, -1);
     set_escdelay(25); /* set escdelay to 25 ms */
     init_publisher();
+    create_layout();
 }
 
 void end_ncurses()
@@ -130,6 +132,11 @@ void end_ncurses()
     endwin(); /* end curses mode */
 }
 
+/*
+ * Create the default layout of the screen. It will make three windows. One
+ * containing the header, another the main screen with packet information, and
+ * below that a statusbar.
+ */
 void create_layout()
 {
     int mx, my;
