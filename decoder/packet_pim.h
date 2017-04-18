@@ -26,7 +26,7 @@
 #define PIM_ADDRESS_LIST 24
 
 // TODO: Move this
-/* Address Family numbers, cf www.iana.org */
+/* Address Family numbers, cf. www.iana.org */
 #define AF_IP 1
 #define AF_IP6 2
 #define AF_802 6
@@ -117,7 +117,6 @@ struct pim_register {
  * was addressed. The IP destination address is the source address of
  * the register message.
  */
-
 struct pim_register_stop {
     /* the group address from the multicast data packet in the register msg */
     struct pim_group_addr gaddr;
@@ -156,8 +155,8 @@ struct pim_assert {
 
 /*
  * A Join/Prune message is sent by routers towards upstream sources and
- * RPs.  Joins are sent to build shared trees (RP trees) or source trees
- * (SPT).  Prunes are sent to prune source trees when members leave
+ * RPs. Joins are sent to build shared trees (RP trees) or source trees
+ * (SPT). Prunes are sent to prune source trees when members leave
  * groups as well as sources that do not use the shared tree.
  */
 struct pim_join_prune {
@@ -195,6 +194,36 @@ struct pim_join_prune {
     } *groups;
 };
 
+struct pim_bootstrap {
+    uint16_t tag; /* fragment tag -- acts to distinguish the fragments belonging
+                     to different Bootstrap messages */
+    uint8_t hash_len; /* the length (in bits) of the mask to use in the hash function */
+    uint8_t priority; /* Bootstrap router (BSR) priority */
+    struct pim_unicast_addr bsr_addr; /* address of the bootstrap router for the domain */
+
+    struct {
+        struct pim_group_addr gaddr;
+        uint8_t rp_count; /* number of Candidate-RP addresses included in the whole
+                             Bootstrap message for the corresponding group range */
+        uint8_t frag_rp_count; /* number of Candidate-RP addresses included in this fragment
+                                  of the Bootstrap message, for the corresponding group range */
+        struct {
+            struct pim_unicast_addr rp_addr;
+            uint16_t holdtime; /* the holdtime (in seconds) for the corresponding RP */
+            uint8_t priority;
+        } *rps;
+    } *groups;
+};
+
+struct pim_candidate_rp_advertisement {
+    uint8_t prefix_count; /* the number of encoded group addresses */
+    uint8_t priority;
+    uint16_t holdtime;
+    struct pim_unicast_addr rp_addr; /* the address of the interface to advertise as a
+                                        Candidate-RP */
+    struct pim_group_addr *gaddrs; /* The group ranges for which the C-RP is advertising */
+};
+
 struct pim_info {
     /* PIM header */
     unsigned int version : 4;
@@ -208,13 +237,19 @@ struct pim_info {
         struct pim_register_stop *reg_stop;
         struct pim_assert *assert;
         struct pim_join_prune *jpg;
+        struct pim_bootstrap *bootstrap;
+        struct pim_candidate_rp_advertisement *candidate;
     };
 };
 
 char *get_pim_message_type(uint8_t type);
 list_t *parse_hello_options(struct pim_info *pim);
 
-/* Get the address in string format. This needs to be freed by the caller */
+/*
+ * Get the address in string format. This needs to be freed by the caller.
+ * 'family' is the address family.
+ * 'addr' is the address in byte format.
+ */
 char *get_pim_address(uint8_t family, unsigned char *addr);
 
 /* internal to the decoder */

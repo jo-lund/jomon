@@ -159,6 +159,7 @@ main_screen *create_main_screen(int nlines, int ncols)
     wm->header = newwin(HEADER_HEIGHT, ncols, 0, 0);
     wm->pktlist = newwin(nlines - HEADER_HEIGHT - STATUS_HEIGHT, ncols, HEADER_HEIGHT, 0);
     wm->status = newwin(STATUS_HEIGHT, ncols, nlines - STATUS_HEIGHT, 0);
+    memset(&wm->subwindow, 0, sizeof(wm->subwindow));
     return wm;
 }
 
