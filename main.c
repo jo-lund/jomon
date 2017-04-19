@@ -49,6 +49,7 @@ static void init_structures();
 static void run();
 static void sig_alarm(int signo);
 static void sig_int(int signo);
+static bool on_packet(unsigned char *buffer, uint32_t n);
 
 int main(int argc, char **argv)
 {
@@ -96,7 +97,7 @@ int main(int argc, char **argv)
     if (ctx.filename) {
         enum file_error err;
 
-        err = read_file(ctx.filename);
+        err = read_file(ctx.filename, on_packet);
         if (err != NO_ERROR) {
             err_quit("Error in file: %s", ctx.filename);
         }
@@ -269,4 +270,15 @@ void start_scan()
     vector_clear(packets);
     init_socket(ctx.device);
     run();
+}
+
+bool on_packet(unsigned char *buffer, uint32_t n)
+{
+    struct packet *p;
+
+    if (!decode_packet(buffer, n, &p)) {
+        return false;
+    }
+    vector_push_back(packets, p);
+    return true;
 }
