@@ -30,13 +30,13 @@ typedef struct pcaprec_hdr_s {
     uint32_t orig_len;       /* actual length of packet */
 } pcaprec_hdr_t;
 
-extern vector_t *packets;
 static bool big_endian = false;
+static packet_handler pkt_handler;
 
 static int read_buf(unsigned char *buf, size_t len);
 static enum file_error read_header(unsigned char *buf, size_t len);
 
-enum file_error read_file(const char *path)
+enum file_error read_file(const char *path, packet_handler f)
 {
     FILE *fp;
     unsigned char buf[BUFSIZE];
@@ -47,6 +47,7 @@ enum file_error read_file(const char *path)
     if (!(fp = fopen(path, "r"))) {
         err_sys("fopen error");
     }
+    pkt_handler = f;
     len = fread(buf, sizeof(unsigned char), sizeof(pcap_hdr_t), fp);
     error = read_header(buf, len);
     if (error != NO_ERROR) {
@@ -93,7 +94,6 @@ int read_buf(unsigned char *buf, size_t len)
     int n = len;
 
     while (n > 0) {
-        struct packet *p;
         uint32_t pkt_len;
         pcaprec_hdr_t *pkt_hdr;
 
@@ -107,10 +107,9 @@ int read_buf(unsigned char *buf, size_t len)
         }
         buf += sizeof(pcaprec_hdr_t);
         n -= sizeof(pcaprec_hdr_t);
-        if (!decode_packet(buf, pkt_len, &p)) {
+        if (!pkt_handler(buf, pkt_len)) {
             return -1;
         }
-        vector_push_back(packets, p);
         n -= pkt_len;
         buf += pkt_len;
     }
