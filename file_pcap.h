@@ -1,7 +1,7 @@
 #ifndef FILE_PCAP_H
 #define FILE_PCAP_H
 
-typedef bool (*packet_handler)(unsigned char *buffer, uint32_t n);
+typedef bool (*packet_handler)(unsigned char *buffer, uint32_t n, struct timeval *t);
 
 enum file_error {
     NO_ERROR,

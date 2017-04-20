@@ -96,6 +96,7 @@ int read_buf(unsigned char *buf, size_t len)
     while (n > 0) {
         uint32_t pkt_len;
         pcaprec_hdr_t *pkt_hdr;
+        struct timeval t;
 
         if (n < sizeof(pcaprec_hdr_t)) {
             return n;
@@ -107,7 +108,9 @@ int read_buf(unsigned char *buf, size_t len)
         }
         buf += sizeof(pcaprec_hdr_t);
         n -= sizeof(pcaprec_hdr_t);
-        if (!pkt_handler(buf, pkt_len)) {
+        t.tv_sec = pkt_hdr->ts_sec;
+        t.tv_usec = pkt_hdr->ts_usec;
+        if (!pkt_handler(buf, pkt_len, &t)) {
             return -1;
         }
         n -= pkt_len;

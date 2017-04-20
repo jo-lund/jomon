@@ -10,6 +10,7 @@
 #include <ctype.h>
 #include <netinet/ip_icmp.h>
 #include <linux/igmp.h>
+#include <time.h>
 #include "util.h"
 #include "vector.h"
 #include "error.h"
@@ -92,6 +93,16 @@ char *strtolower(char *str)
         ptr++;
     }
     return str;
+}
+
+char *format_time(struct timeval *t, char *buf, int n)
+{
+    struct tm *time;
+
+    time = localtime(&t->tv_sec);
+    strftime(buf, n, "%T", time);
+    snprintcat(buf, n, ".%ld", t->tv_usec);
+    return buf;
 }
 
 struct tm_t get_time(uint32_t num_secs)

@@ -49,7 +49,7 @@ static void init_structures();
 static void run();
 static void sig_alarm(int signo);
 static void sig_int(int signo);
-static bool on_packet(unsigned char *buffer, uint32_t n);
+static bool on_packet(unsigned char *buffer, uint32_t n, struct timeval *t);
 
 int main(int argc, char **argv)
 {
@@ -152,10 +152,12 @@ void finish()
 {
     if (use_ncurses) {
         end_ncurses();
+        vector_free(packets);
     }
-    vector_free(packets);
+    if (ctx.filename) {
+        free(ctx.filename);
+    }
     free(ctx.device);
-    free(ctx.filename);
     free(local_addr);
     if (sockfd > 0) {
         close(sockfd);
@@ -167,6 +169,7 @@ void finish()
 void init_socket(char *device)
 {
     int flag;
+    int n = 1;
     struct sockaddr_ll ll_addr; /* device independent physical layer address */
 
     /* SOCK_RAW packet sockets include the link level header */
@@ -180,6 +183,11 @@ void init_socket(char *device)
     }
     if (fcntl(sockfd, F_SETFL, flag | O_NONBLOCK) == -1) {
         err_sys("fcntl error");
+    }
+
+    /* get timestamps */
+    if (setsockopt(sockfd, SOL_SOCKET, SO_TIMESTAMP, &n, sizeof(n)) == -1) {
+        err_sys("setsockopt error");
     }
 
     memset(&ll_addr, 0, sizeof(ll_addr));
@@ -272,13 +280,15 @@ void start_scan()
     run();
 }
 
-bool on_packet(unsigned char *buffer, uint32_t n)
+bool on_packet(unsigned char *buffer, uint32_t n, struct timeval *t)
 {
     struct packet *p;
 
     if (!decode_packet(buffer, n, &p)) {
         return false;
     }
+    p->time.tv_sec = t->tv_sec;
+    p->time.tv_usec = t->tv_usec;
     vector_push_back(packets, p);
     return true;
 }

@@ -12,29 +12,33 @@
 #include "../misc.h"
 
 #define HOSTNAMELEN 255 /* maximum 255 according to rfc1035 */
+#define TBUFLEN 16
 
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
-#define PRINT_NUMBER(buffer, n, i)                      \
+#define PRINT_NUMBER(buffer, n, i)                  \
     snprintf(buffer, n, "%-" STR(NUM_WIDTH) "u", i)
+#define PRINT_TIME(buffer, n, t)                    \
+    snprintcat(buffer, n, "%-" STR(TIME_WIDTH) "s", t)
 #define PRINT_ADDRESS(buffer, n, src, dst)                              \
     snprintcat(buffer, n, "%-" STR(ADDR_WIDTH) "s" "%-" STR(ADDR_WIDTH) "s", src, dst)
 #define PRINT_PROTOCOL(buffer, n, prot)                     \
     snprintcat(buffer, n, "%-" STR(PROT_WIDTH) "s", prot)
 #define PRINT_INFO(buffer, n, fmt, ...)         \
     snprintcat(buffer, n, fmt, ## __VA_ARGS__)
-#define PRINT_LINE(buffer, n, i, src, dst, prot, fmt, ...)  \
-    do {                                                    \
-        PRINT_NUMBER(buffer, n, i);                         \
-        PRINT_ADDRESS(buffer, n, src, dst);                 \
-        PRINT_PROTOCOL(buffer, n, prot);                    \
-        PRINT_INFO(buffer, n, fmt, ## __VA_ARGS__);         \
+#define PRINT_LINE(buffer, n, i, t, src, dst, prot, fmt, ...)   \
+    do {                                                        \
+        PRINT_NUMBER(buffer, n, i);                             \
+        PRINT_TIME(buffer, n, t);                               \
+        PRINT_ADDRESS(buffer, n, src, dst);                     \
+        PRINT_PROTOCOL(buffer, n, prot);                        \
+        PRINT_INFO(buffer, n, fmt, ## __VA_ARGS__);             \
     } while (0)
 
-static void print_arp(char *buf, int n, struct arp_info *info, uint32_t num);
-static void print_llc(char *buf, int n, struct eth_info *eth, uint32_t num);
-static void print_ip(char *buf, int n, struct ip_info *ip, uint32_t num);
-static void print_ipv6(char *buf, int n, struct ipv6_info *ip, uint32_t num);
+static void print_arp(char *buf, int n, struct arp_info *info, uint32_t num, struct timeval *t);
+static void print_llc(char *buf, int n, struct eth_info *eth, uint32_t num, struct timeval *t);
+static void print_ip(char *buf, int n, struct ip_info *ip, uint32_t num, struct timeval *t);
+static void print_ipv6(char *buf, int n, struct ipv6_info *ip, uint32_t num, struct timeval *t);
 static void print_udp(char *buf, int n, struct udp_info *info);
 static void print_tcp(char *buf, int n, struct tcp *info);
 static void print_icmp(char *buf, int n, struct icmp_info *info);
@@ -46,7 +50,6 @@ static void print_ssdp(char *buf, int n, list_t *ssdp);
 static void print_http(char *buf, int n, struct http_info *http);
 static void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t type);
 static void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t type);
-
 static void add_dns_soa(list_view *lw, list_view_item *w, struct dns_info *info, int i);
 static void add_dns_txt(list_view *lw, list_view_item *w, struct dns_info *dns, int i);
 static void add_dns_record(list_view *lw, list_view_item *w, struct dns_info *info, int i,
@@ -74,55 +77,62 @@ void print_buffer(char *buf, int size, struct packet *p)
 {
     switch (p->eth.ethertype) {
     case ETH_P_ARP:
-        print_arp(buf, size, p->eth.arp, p->num);
+        print_arp(buf, size, p->eth.arp, p->num, &p->time);
         break;
     case ETH_P_IP:
-        print_ip(buf, size, p->eth.ip, p->num);
+        print_ip(buf, size, p->eth.ip, p->num, &p->time);
         break;
     case ETH_P_IPV6:
-        print_ipv6(buf, size, p->eth.ipv6, p->num);
+        print_ipv6(buf, size, p->eth.ipv6, p->num, &p->time);
         break;
     default:
         if (p->eth.ethertype < ETH_P_802_3_MIN) {
-            print_llc(buf, size, &p->eth, p->num);
+            print_llc(buf, size, &p->eth, p->num, &p->time);
         } else if (p->eth.payload_len) {
             char smac[HW_ADDRSTRLEN];
             char dmac[HW_ADDRSTRLEN];
+            char time[TBUFLEN];
 
             HW_ADDR_NTOP(smac, p->eth.mac_src);
             HW_ADDR_NTOP(dmac, p->eth.mac_dst);
-            PRINT_LINE(buf, size, p->num, smac, dmac, "ETH II", "Ethertype: 0x%x", p->eth.ethertype);
+            format_time(&p->time, time, TBUFLEN);
+            PRINT_LINE(buf, size, p->num, time, smac, dmac, "ETH II", "Ethertype: 0x%x", p->eth.ethertype);
         }
         break;
     }
 }
 
-void print_arp(char *buf, int n, struct arp_info *info, uint32_t num)
+void print_arp(char *buf, int n, struct arp_info *info, uint32_t num, struct timeval *t)
 {
     char sip[INET_ADDRSTRLEN];
     char tip[INET_ADDRSTRLEN];
     char sha[HW_ADDRSTRLEN];
+    char time[TBUFLEN];
 
     inet_ntop(AF_INET, info->sip, sip, INET_ADDRSTRLEN);
     inet_ntop(AF_INET, info->tip, tip, INET_ADDRSTRLEN);
+    format_time(t, time, TBUFLEN);
     switch (info->op) {
     case ARPOP_REQUEST:
-        PRINT_LINE(buf, n, num, sip, tip, "ARP",
+        PRINT_LINE(buf, n, num, time, sip, tip, "ARP",
                    "Request: Looking for hardware address of %s", tip);
         break;
     case ARPOP_REPLY:
         HW_ADDR_NTOP(sha, info->sha);
-        PRINT_LINE(buf, n, num, sip, tip, "ARP",
+        PRINT_LINE(buf, n, num, time, sip, tip, "ARP",
                    "Reply: %s has hardware address %s", sip, sha);
         break;
     default:
-        PRINT_LINE(buf, n, num, info->sip, info->tip, "ARP", "Opcode %d", info->op);
+        PRINT_LINE(buf, n, num, time, info->sip, info->tip, "ARP", "Opcode %d", info->op);
         break;
     }
 }
 
-void print_llc(char *buf, int n, struct eth_info *eth, uint32_t num)
+void print_llc(char *buf, int n, struct eth_info *eth, uint32_t num, struct timeval *t)
 {
+    char time[TBUFLEN];
+
+    format_time(t, time, TBUFLEN);
     if (get_eth802_type(eth->llc) == ETH_802_STP) {
         char smac[HW_ADDRSTRLEN];
         char dmac[HW_ADDRSTRLEN];
@@ -131,14 +141,14 @@ void print_llc(char *buf, int n, struct eth_info *eth, uint32_t num)
         HW_ADDR_NTOP(dmac, eth->mac_dst);
         switch (eth->llc->bpdu->type) {
         case CONFIG:
-            PRINT_LINE(buf, n, num, smac, dmac, "STP", "Configuration BPDU");
+            PRINT_LINE(buf, n, num, time, smac, dmac, "STP", "Configuration BPDU");
             break;
         case RST:
-            PRINT_LINE(buf, n, num, smac, dmac, "STP", "Rapid Spanning Tree BPDU. Root Path Cost: %u  Port ID: 0x%x",
+            PRINT_LINE(buf, n, num, time, smac, dmac, "STP", "Rapid Spanning Tree BPDU. Root Path Cost: %u  Port ID: 0x%x",
                        eth->llc->bpdu->root_pc, eth->llc->bpdu->port_id);
             break;
         case TCN:
-            PRINT_LINE(buf, n, num, smac, dmac, "STP", "Topology Change Notification BPDU");
+            PRINT_LINE(buf, n, num, time, smac, dmac, "STP", "Topology Change Notification BPDU");
             break;
         }
     } else {
@@ -147,14 +157,18 @@ void print_llc(char *buf, int n, struct eth_info *eth, uint32_t num)
 
         HW_ADDR_NTOP(smac, eth->mac_src);
         HW_ADDR_NTOP(dmac, eth->mac_dst);
-        PRINT_LINE(buf, n, num, smac, dmac, "LLC", "SSAP: 0x%x  DSAP: 0x%x  Control: 0x%x",
+        PRINT_LINE(buf, n, num, time, smac, dmac, "LLC", "SSAP: 0x%x  DSAP: 0x%x  Control: 0x%x",
                    eth->llc->ssap, eth->llc->dsap, eth->llc->control);
     }
 }
 
-void print_ip(char *buf, int n, struct ip_info *ip, uint32_t num)
+void print_ip(char *buf, int n, struct ip_info *ip, uint32_t num, struct timeval *t)
 {
+    char time[TBUFLEN];
+
+    format_time(t, time, TBUFLEN);
     PRINT_NUMBER(buf, n, num);
+    PRINT_TIME(buf, n, time);
     if (!numeric && (ip->protocol != IPPROTO_UDP ||
                      (ip->protocol == IPPROTO_UDP && ip->udp.data.dns->qr == -1))) {
         char sname[HOSTNAMELEN];
@@ -206,12 +220,15 @@ void print_ip(char *buf, int n, struct ip_info *ip, uint32_t num)
     }
 }
 
-void print_ipv6(char *buf, int n, struct ipv6_info *ip, uint32_t num)
+void print_ipv6(char *buf, int n, struct ipv6_info *ip, uint32_t num, struct timeval *t)
 {
     char src[INET6_ADDRSTRLEN];
     char dst[INET6_ADDRSTRLEN];
+    char time[TBUFLEN];
 
+    format_time(t, time, TBUFLEN);
     PRINT_NUMBER(buf, n, num);
+    PRINT_TIME(buf, n, time);
     inet_ntop(AF_INET6, ip->src, src, INET6_ADDRSTRLEN);
     inet_ntop(AF_INET6, ip->dst, dst, INET6_ADDRSTRLEN);
     PRINT_ADDRESS(buf, n, src, dst);

@@ -80,6 +80,7 @@ struct application_info {
 struct packet {
     enum packet_type ptype;
     uint32_t num;
+    struct timeval time;
     struct eth_info eth;
 };
 
@@ -87,7 +88,7 @@ struct packet {
  * Get a packet from the network interface card. Will allocate enough memory
  * for packet, which needs to be freed with free_packet.
  */
-size_t read_packet(int sockfd, unsigned char *buffer, size_t n, struct packet **p);
+size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet **p);
 
 /*
  * Decodes the data in buffer and stores a pointer to the decoded packet, which

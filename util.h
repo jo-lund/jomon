@@ -38,6 +38,8 @@ char *strtolower(char *str);
 /* Converts seconds to number of days, hours, minutes and seconds */
 struct tm_t get_time(uint32_t num_secs);
 
+char *format_time(struct timeval *t, char *buf, int n);
+
 /*
  * Converts the tm_t struct to a string of the form:
  * "x days, x hours, x minutes, x seconds"

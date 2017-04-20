@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+#include <sys/uio.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -5,6 +7,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <ctype.h>
+#include <sys/types.h>
 #include "../misc.h"
 #include "../error.h"
 #include "packet.h"
@@ -22,20 +25,40 @@ static void free_protocol_data(struct application_info *info);
 
 size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet **p)
 {
-    int n;
+    struct mmsghdr msg;
+    struct iovec iov;
+    unsigned char data[64];
+    struct cmsghdr *cmsg;
+    struct timeval *val;
 
     *p = calloc(1, sizeof(struct packet));
-    if ((n = read(sockfd, buffer, len)) == -1) {
-        free_packet(*p);
-        err_sys("read error");
+    iov.iov_base = buffer;
+    iov.iov_len = len;
+    memset(&msg, 0, sizeof(struct mmsghdr));
+    msg.msg_hdr.msg_iov = &iov;
+    msg.msg_hdr.msg_iovlen = 1;
+    msg.msg_hdr.msg_control = data;
+    msg.msg_hdr.msg_controllen = 64;
+
+    if (recvmmsg(sockfd, &msg, 1, 0, NULL) == -1) {
+        free(*p);
+        err_sys("recvmmsg error");
     }
-    if (!handle_ethernet(buffer, n, &(*p)->eth)) {
+    if (!handle_ethernet(buffer, msg.msg_len, &(*p)->eth)) {
         free_packet(*p);
         return 0;
     }
+    for (cmsg = CMSG_FIRSTHDR(&msg.msg_hdr); cmsg != NULL;
+         cmsg = CMSG_NXTHDR(&msg.msg_hdr, cmsg)) {
+        if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SO_TIMESTAMP) {
+            val = (struct timeval *) CMSG_DATA(cmsg);
+            (*p)->time = *val;
+            break;
+        }
+    }
     (*p)->num = ++pstat.num_packets;
-    pstat.tot_bytes += n;
-    return n;
+    pstat.tot_bytes += msg.msg_len;
+    return msg.msg_len;
 }
 
 bool decode_packet(unsigned char *buffer, size_t len, struct packet **p)

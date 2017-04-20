@@ -354,10 +354,11 @@ void print_header()
     wprintw(wmain->header, ": %s", addr);
     y += 2;
     mvwprintw(wmain->header, y, 0, "Number");
-    mvwprintw(wmain->header, y, NUM_WIDTH, "Source");
-    mvwprintw(wmain->header, y, ADDR_WIDTH + NUM_WIDTH, "Destination");
-    mvwprintw(wmain->header, y, 2 * ADDR_WIDTH + NUM_WIDTH, "Protocol");
-    mvwprintw(wmain->header, y, 2 * ADDR_WIDTH + PROT_WIDTH + NUM_WIDTH, "Info");
+    mvwprintw(wmain->header, y, NUM_WIDTH, "Time");
+    mvwprintw(wmain->header, y, NUM_WIDTH + TIME_WIDTH, "Source");
+    mvwprintw(wmain->header, y, ADDR_WIDTH + NUM_WIDTH + TIME_WIDTH, "Destination");
+    mvwprintw(wmain->header, y, 2 * ADDR_WIDTH + NUM_WIDTH + TIME_WIDTH, "Protocol");
+    mvwprintw(wmain->header, y, 2 * ADDR_WIDTH + NUM_WIDTH + TIME_WIDTH + PROT_WIDTH, "Info");
     mvwchgat(wmain->header, y, 0, -1, A_STANDOUT, 0, NULL);
     wrefresh(wmain->header);
 }
