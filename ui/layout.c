@@ -64,6 +64,7 @@ typedef struct {
 
 extern vector_t *packets;
 extern main_context ctx;
+publisher_t *screen_changed_publisher;
 bool numeric = true;
 static screen *screen_cache[NUM_SCREENS];
 static bool selected[NUM_LAYERS]; // TODO: need to handle this differently
@@ -117,7 +118,7 @@ void init_ncurses(bool is_capturing)
     init_pair(3, COLOR_CYAN, -1);
     init_pair(4, COLOR_GREEN, -1);
     set_escdelay(25); /* set escdelay to 25 ms */
-    init_publisher();
+    screen_changed_publisher = publisher_init();
     create_layout();
 }
 
@@ -129,6 +130,7 @@ void end_ncurses()
             free_screen(screen_cache[i]);
         }
     }
+    publisher_free(screen_changed_publisher);
     endwin(); /* end curses mode */
 }
 
@@ -286,7 +288,7 @@ void pop_screen()
         screen *s = stack_top(screen_stack);
 
         s->focus = true;
-        publish();
+        publish(screen_changed_publisher);
         wgetch(s->win); /* remove character from input queue */
         touchwin(s->win);
         wrefresh(s->win);
@@ -300,7 +302,7 @@ void push_screen(screen *scr)
     if (s) s->focus = false;
     scr->focus = true;
     stack_push(screen_stack, scr);
-    publish();
+    publish(screen_changed_publisher);
     touchwin(scr->win);
     wrefresh(scr->win);
 }

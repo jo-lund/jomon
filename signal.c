@@ -2,26 +2,37 @@
 #include "signal.h"
 #include "list.h"
 
-static list_t *subscriptions;
+struct publisher {
+    list_t *subscriptions;
+};
 
-void init_publisher()
+publisher_t *publisher_init()
 {
-    subscriptions = list_init();
+    publisher_t *p = malloc(sizeof(publisher_t));
+
+    p->subscriptions = list_init();
+    return p;
 }
 
-void add_subscription(function f)
+void publisher_free(publisher_t *p)
 {
-    list_push_back(subscriptions, f);
+    list_free(p->subscriptions, NULL);
+    free(p);
 }
 
-void remove_subscription(function f)
+void add_subscription(publisher_t *p, function f)
 {
-    list_remove(subscriptions, f, NULL);
+    list_push_back(p->subscriptions, f);
 }
 
-void publish()
+void remove_subscription(publisher_t *p, function f)
 {
-    const node_t *n = list_begin(subscriptions);
+    list_remove(p->subscriptions, f, NULL);
+}
+
+void publish(publisher_t *p)
+{
+    const node_t *n = list_begin(p->subscriptions);
 
     while (n) {
         function func = list_data(n);

@@ -3,7 +3,6 @@
 #include "../misc.h"
 #include "../interface.h"
 #include "../decoder/decoder.h"
-#include "../signal.h"
 #include <string.h>
 #include <unistd.h>
 #ifdef __linux__
@@ -45,7 +44,7 @@ screen *stat_screen_create()
     stat_screen = create_screen(STAT_SCREEN);
     nodelay(stat_screen->win, TRUE);
     keypad(stat_screen->win, TRUE);
-    add_subscription(stat_screen_changed);
+    add_subscription(screen_changed_publisher, stat_screen_changed);
     stat_screen_print();
     alarm(1);
     return stat_screen;

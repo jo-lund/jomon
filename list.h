@@ -25,7 +25,10 @@ void list_pop_front(list_t *list, list_deallocate func);
 /* Removes element from the end and deallocates memory if func is specified */
 void list_pop_back(list_t *list, list_deallocate func);
 
-/* Removes element from the list */
+/*
+ * Removes element from the list. If 'func' is specified it will deallocate
+ * memory for data.
+ */
 void list_remove(list_t *list, void *data, list_deallocate func);
 
 /* Returns data from front of the list */
@@ -58,7 +61,7 @@ int list_size(list_t *list);
 /*
  * Clears the list
  *
- * If func is specified memory for the nodes and data are deallocated but not 
+ * If func is specified memory for the nodes and data are deallocated but not
  * the list_t structure. To free all memory associated with list use list_free.
  */
 list_t *list_clear(list_t *list, list_deallocate func);
