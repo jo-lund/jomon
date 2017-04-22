@@ -45,7 +45,7 @@ void ss_init()
 
 void ss_changed()
 {
-    screen *s = screens[STAT_SCREEN];
+    screen *s = screen_cache[STAT_SCREEN];
 
     if (s->focus) {
         alarm(1);
@@ -54,7 +54,7 @@ void ss_changed()
 
 void ss_handle_input()
 {
-    WINDOW *win = screens[STAT_SCREEN]->win;
+    WINDOW *win = screen_cache[STAT_SCREEN]->win;
     int c = wgetch(win);
 
     switch (c) {
@@ -83,7 +83,7 @@ void ss_handle_input()
 void ss_print()
 {
     int y = 0;
-    WINDOW *win = screens[STAT_SCREEN]->win;
+    WINDOW *win = screen_cache[STAT_SCREEN]->win;
     struct iw_statistics iwstat;
     struct iw_range iwrange;
 

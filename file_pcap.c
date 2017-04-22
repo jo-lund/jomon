@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 #include "file_pcap.h"
 #include "error.h"
 #include "vector.h"
@@ -103,6 +104,9 @@ int read_buf(unsigned char *buf, size_t len)
         }
         pkt_hdr = (pcaprec_hdr_t *) buf;
         pkt_len = big_endian ? ntohl(pkt_hdr->incl_len) : pkt_hdr->incl_len;
+        if (pkt_len > USHRT_MAX) {
+            return -1;
+        }
         if (pkt_len > n - sizeof(pcaprec_hdr_t)) {
             return n;
         }

@@ -33,7 +33,7 @@ typedef struct {
     WINDOW *win;
 } screen;
 
-extern screen *screens[NUM_SCREENS];
+extern screen *screen_cache[NUM_SCREENS];
 
 /* push the screen with type 'scr' on the screen stack */
 void push_screen(int scr);

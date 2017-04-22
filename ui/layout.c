@@ -64,7 +64,7 @@ typedef struct {
 
 extern vector_t *packets;
 extern main_context ctx;
-screen *screens[NUM_SCREENS];
+screen *screen_cache[NUM_SCREENS];
 bool numeric = true;
 static bool selected[NUM_LAYERS]; // TODO: need to handle this differently
 static main_screen *wmain;
@@ -125,8 +125,8 @@ void end_ncurses()
 {
     free_main_screen(wmain);
     for (int i = 0; i < NUM_SCREENS; i++) {
-        if (screens[i]) {
-            free(screens[i]);
+        if (screen_cache[i]) {
+            free(screen_cache[i]);
         }
     }
     endwin(); /* end curses mode */
@@ -149,7 +149,7 @@ void create_layout()
     print_status();
     scrollok(wmain->pktlist, TRUE); /* enable scrolling */
     screen_stack = stack_init(NUM_SCREENS);
-    memset(screens, 0, NUM_SCREENS * sizeof(screens));
+    memset(screen_cache, 0, NUM_SCREENS * sizeof(screen*));
 }
 
 main_screen *create_main_screen(int nlines, int ncols)
@@ -395,7 +395,7 @@ void print_status()
 void print_help()
 {
     int y = 0;
-    WINDOW *win = screens[HELP_SCREEN]->win;
+    WINDOW *win = screen_cache[HELP_SCREEN]->win;
 
     wprintw(win, "Monitor 0.0.1 (c) 2017 John Olav Lund");
     mvwprintw(win, ++y, 0, "");
@@ -1157,26 +1157,26 @@ void pop_screen()
 
 void push_screen(int scr)
 {
-    if (screens[scr]) {
+    if (screen_cache[scr]) {
         screen *s = stack_top(screen_stack);
 
         if (s) s->focus = false;
-        stack_push(screen_stack, screens[scr]);
-        screens[scr]->focus = true;
+        stack_push(screen_stack, screen_cache[scr]);
+        screen_cache[scr]->focus = true;
         publish();
-        touchwin(screens[scr]->win);
-        wrefresh(screens[scr]->win);
+        touchwin(screen_cache[scr]->win);
+        wrefresh(screen_cache[scr]->win);
     } else {
         int mx, my;
         WINDOW *win;
 
-        screens[scr] = malloc(sizeof(screen));
+        screen_cache[scr] = malloc(sizeof(screen));
         getmaxyx(stdscr, my, mx);
         win = newwin(my, mx, 0, 0);
-        screens[scr]->win = win;
-        screens[scr]->type = scr;
-        stack_push(screen_stack, screens[scr]);
-        screens[scr]->focus = true;
+        screen_cache[scr]->win = win;
+        screen_cache[scr]->type = scr;
+        stack_push(screen_stack, screen_cache[scr]);
+        screen_cache[scr]->focus = true;
         switch (scr) {
         case HELP_SCREEN:
             print_help();
