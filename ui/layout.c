@@ -64,8 +64,8 @@ typedef struct {
 
 extern vector_t *packets;
 extern main_context ctx;
-screen *screen_cache[NUM_SCREENS];
 bool numeric = true;
+static screen *screen_cache[NUM_SCREENS];
 static bool selected[NUM_LAYERS]; // TODO: need to handle this differently
 static main_screen *wmain;
 static bool capturing = true;
@@ -74,8 +74,9 @@ static bool input_mode = false;
 static _stack_t *screen_stack;
 
 static void create_layout();
-static main_screen *create_main_screen(int nlines, int ncols);
-static void free_main_screen(main_screen *mw);
+static main_screen *main_screen_create(int nlines, int ncols);
+static void main_screen_free(main_screen *mw);
+static void print_help();
 static void set_interactive(bool interactive_mode, int num_lines);
 static bool check_line();
 static void handle_keydown(int num_lines);
@@ -91,7 +92,6 @@ static void print_selected_packet();
 static void print_protocol_information(struct packet *p, int lineno);
 static void goto_line(int c);
 static void goto_end();
-static void print_help();
 
 /* Handles subwindow layout */
 static void create_subwindow(int num_lines, int lineno);
@@ -123,53 +123,240 @@ void init_ncurses(bool is_capturing)
 
 void end_ncurses()
 {
-    free_main_screen(wmain);
+    main_screen_free(wmain);
     for (int i = 0; i < NUM_SCREENS; i++) {
         if (screen_cache[i]) {
-            free(screen_cache[i]);
+            free_screen(screen_cache[i]);
         }
     }
     endwin(); /* end curses mode */
 }
 
-/*
- * Create the default layout of the screen. It will make three windows. One
- * containing the header, another the main screen with packet information, and
- * below that a statusbar.
- */
 void create_layout()
 {
     int mx, my;
 
     getmaxyx(stdscr, my, mx);
-    wmain = create_main_screen(my, mx);
-    nodelay(wmain->pktlist, TRUE); /* input functions must be non-blocking */
-    keypad(wmain->pktlist, TRUE);
-    print_header();
-    print_status();
-    scrollok(wmain->pktlist, TRUE); /* enable scrolling */
+    wmain = main_screen_create(my, mx);
     screen_stack = stack_init(NUM_SCREENS);
     memset(screen_cache, 0, NUM_SCREENS * sizeof(screen*));
 }
 
-main_screen *create_main_screen(int nlines, int ncols)
+screen *create_screen(enum screen_type type)
 {
-    main_screen *wm = malloc(sizeof(main_screen));
+    int mx, my;
+    WINDOW *win;
 
-    wm->outy = 0;
-    wm->selection_line = 0;
-    wm->top = 0;
-    wm->scrolly = 0;
-    wm->scrollx = 0;
-    wm->lvw = NULL;
-    wm->header = newwin(HEADER_HEIGHT, ncols, 0, 0);
-    wm->pktlist = newwin(nlines - HEADER_HEIGHT - STATUS_HEIGHT, ncols, HEADER_HEIGHT, 0);
-    wm->status = newwin(STATUS_HEIGHT, ncols, nlines - STATUS_HEIGHT, 0);
-    memset(&wm->subwindow, 0, sizeof(wm->subwindow));
-    return wm;
+    screen_cache[type] = malloc(sizeof(screen));
+    getmaxyx(stdscr, my, mx);
+    win = newwin(my, mx, 0, 0);
+    screen_cache[type]->win = win;
+    screen_cache[type]->type = type;
+    screen_cache[type]->focus = false;
+    return screen_cache[type];
 }
 
-void free_main_screen(main_screen *mw)
+screen *get_screen(enum screen_type type)
+{
+    if (screen_cache[type]) {
+        return screen_cache[type];
+    }
+    return create_screen(type);
+}
+
+void free_screen(screen *scr)
+{
+    if (scr) {
+        delwin(scr->win);
+        free(scr);
+    }
+}
+
+void print_packet(struct packet *p)
+{
+    char buf[MAXLINE];
+
+    print_buffer(buf, MAXLINE, p);
+    print(buf);
+}
+
+void print_file()
+{
+    int my = getmaxy(wmain->pktlist);
+
+    for (int i = 0; i < vector_size(packets) && i < my; i++) {
+        print_packet(vector_get_data(packets, i));
+    }
+    set_interactive(true, -1);
+}
+
+/* write buffer to standard output */
+void print(char *buf)
+{
+    int my;
+
+    my = getmaxy(wmain->pktlist);
+    if (!interactive || (interactive && wmain->outy < my)) {
+        scroll_window();
+        printnlw(wmain->pktlist, buf, strlen(buf), wmain->outy, 0, wmain->scrollx);
+        wmain->outy++;
+        if (stack_empty(screen_stack)) {
+            wrefresh(wmain->pktlist);
+        }
+    }
+}
+
+void print_help()
+{
+    int y = 0;
+    WINDOW *win = screen_cache[HELP_SCREEN]->win;
+
+    wprintw(win, "Monitor 0.0.1 (c) 2017 John Olav Lund");
+    mvwprintw(win, ++y, 0, "");
+    mvwprintw(win, ++y, 0, "When a packet scan is active you can enter interactive mode " \
+              "by pressing \'i\'. In interactive mode the packet scan will continue in the " \
+              "background.");
+    mvwprintw(win, ++y, 0, "");
+    printat(win, ++y, 0, COLOR_PAIR(4) | A_BOLD, "General keyboard shortcuts");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F1");
+    wprintw(win, ": Show help");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F10 q");
+    wprintw(win, ": Quit");
+    mvwprintw(win, ++y, 0, "");
+    printat(win, ++y, 0, COLOR_PAIR(4) | A_BOLD, "Main screen keyboard shortcuts");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "i");
+    wprintw(win, ": Enter interactive mode");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "s");
+    wprintw(win, ": Show statistics screen");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F2");
+    wprintw(win, ": Start packet scan");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F3");
+    wprintw(win, ": Stop packet scan");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F4");
+    wprintw(win, ": Load file in pcap format");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F5");
+    wprintw(win, ": Save file in pcap format");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F6");
+    wprintw(win, ": Change view");
+    mvwprintw(win, ++y, 0, "");
+    printat(win, ++y, 0, COLOR_PAIR(4) | A_BOLD, "Keyboard shortcuts in interactive mode");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "Arrows");
+    wprintw(win, ": Scroll the packet list");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "Space pgdown");
+    wprintw(win, ": Scroll page down");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "b pgup");
+    wprintw(win, ": Scroll page up");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "Home End");
+    wprintw(win, ": Go to first/last page");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "g");
+    wprintw(win, ": Go to line");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "Enter");
+    wprintw(win, ": Inspect packet");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "Esc i");
+    wprintw(win, ": Quit interactive mode");
+    mvwprintw(win, ++y, 0, "");
+    printat(win, ++y, 0, COLOR_PAIR(4) | A_BOLD, "Statistics screen keyboard shortcuts");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "b B");
+    wprintw(win, ": Use kilobits/kilobytes");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "m M");
+    wprintw(win, ": Use megabits/megabytes");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "p");
+    wprintw(win, ": Show/hide packet statistics");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "c");
+    wprintw(win, ": Clear statistics");
+    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "Esc x");
+    wprintw(win, ": Exit statistics screen");
+}
+
+void pop_screen()
+{
+    screen *scr = stack_pop(screen_stack);
+
+    scr->focus = false;
+    if (stack_empty(screen_stack)) {
+        wgetch(wmain->pktlist); /* remove character from input queue */
+        touchwin(wmain->pktlist);
+        touchwin(wmain->status);
+        touchwin(wmain->header);
+        wnoutrefresh(wmain->pktlist);
+        wnoutrefresh(wmain->header);
+        wnoutrefresh(wmain->status);
+        doupdate();
+    } else {
+        screen *s = stack_top(screen_stack);
+
+        s->focus = true;
+        publish();
+        wgetch(s->win); /* remove character from input queue */
+        touchwin(s->win);
+        wrefresh(s->win);
+    }
+}
+
+void push_screen(screen *scr)
+{
+    screen *s = stack_top(screen_stack);
+
+    if (s) s->focus = false;
+    scr->focus = true;
+    stack_push(screen_stack, scr);
+    publish();
+    touchwin(scr->win);
+    wrefresh(scr->win);
+}
+
+void printat(WINDOW *win, int y, int x, int attrs, const char *fmt, ...)
+{
+    char buf[MAXLINE];
+    va_list ap;
+
+    va_start(ap, fmt);
+    vsnprintf(buf, MAXLINE - 1, fmt, ap);
+    va_end(ap);
+    wattron(win, attrs);
+    if (y == -1 && x == -1) {
+        waddstr(win, buf);
+    } else {
+        mvwprintw(win, y, x, "%s", buf);
+    }
+    wattroff(win, attrs);
+}
+
+void printnlw(WINDOW *win, char *str, int len, int y, int x, int scrollx)
+{
+    int mx = getmaxx(win);
+
+    if (mx + scrollx - 1 < len) {
+        str[mx + scrollx - 1] = '\0';
+    }
+    if (scrollx < len) {
+        mvwprintw(win, y, x, "%s", str + scrollx);
+    }
+}
+
+main_screen *main_screen_create(int nlines, int ncols)
+{
+    wmain = malloc(sizeof(main_screen));
+
+    wmain->outy = 0;
+    wmain->selection_line = 0;
+    wmain->top = 0;
+    wmain->scrolly = 0;
+    wmain->scrollx = 0;
+    wmain->lvw = NULL;
+    wmain->header = newwin(HEADER_HEIGHT, ncols, 0, 0);
+    wmain->pktlist = newwin(nlines - HEADER_HEIGHT - STATUS_HEIGHT, ncols, HEADER_HEIGHT, 0);
+    wmain->status = newwin(STATUS_HEIGHT, ncols, nlines - STATUS_HEIGHT, 0);
+    memset(&wmain->subwindow, 0, sizeof(wmain->subwindow));
+    nodelay(wmain->pktlist, TRUE); /* input functions must be non-blocking */
+    keypad(wmain->pktlist, TRUE);
+    scrollok(wmain->pktlist, TRUE); /* enable scrolling */
+    print_header();
+    print_status();
+    return wmain;
+}
+
+void main_screen_free(main_screen *mw)
 {
     if (mw->subwindow.win) {
         delwin(mw->subwindow.win);
@@ -177,8 +364,10 @@ void free_main_screen(main_screen *mw)
     delwin(mw->header);
     delwin(mw->pktlist);
     delwin(mw->status);
+    wmain = NULL;
     free(mw);
 }
+
 
 /* scroll the window if necessary */
 void scroll_window()
@@ -201,8 +390,8 @@ void get_input()
 
     if (s) {
         if (s->type == STAT_SCREEN) {
-            ss_handle_input();
-        } else {
+            stat_screen_handle_input();
+        } else if (s->type == HELP_SCREEN) {
             pop_screen();
         }
         return;
@@ -283,7 +472,15 @@ void get_input()
         }
         break;
     case KEY_F(1):
-        push_screen(HELP_SCREEN);
+        if (screen_cache[HELP_SCREEN]) {
+            push_screen(screen_cache[HELP_SCREEN]);
+        } else {
+            screen *scr;
+
+            scr = create_screen(HELP_SCREEN);
+            print_help();
+            push_screen(scr);
+        }
         break;
     case KEY_F(2):
     {
@@ -327,7 +524,14 @@ void get_input()
         wrefresh(wmain->status);
         break;
     case 's':
-        push_screen(STAT_SCREEN);
+        if (screen_cache[STAT_SCREEN]) {
+            push_screen(screen_cache[STAT_SCREEN]);
+        } else {
+            screen *scr;
+
+            scr = stat_screen_create();
+            push_screen(scr);
+        }
         break;
     default:
         if (input_mode) {
@@ -392,67 +596,6 @@ void print_status()
     wrefresh(wmain->status);
 }
 
-void print_help()
-{
-    int y = 0;
-    WINDOW *win = screen_cache[HELP_SCREEN]->win;
-
-    wprintw(win, "Monitor 0.0.1 (c) 2017 John Olav Lund");
-    mvwprintw(win, ++y, 0, "");
-    mvwprintw(win, ++y, 0, "When a packet scan is active you can enter interactive mode " \
-              "by pressing \'i\'. In interactive mode the packet scan will continue in the " \
-              "background.");
-    mvwprintw(win, ++y, 0, "");
-    printat(win, ++y, 0, COLOR_PAIR(4) | A_BOLD, "General keyboard shortcuts");
-    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F1");
-    wprintw(win, ": Show help");
-    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F10 q");
-    wprintw(win, ": Quit");
-    mvwprintw(win, ++y, 0, "");
-    printat(win, ++y, 0, COLOR_PAIR(4) | A_BOLD, "Main screen keyboard shortcuts");
-    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "i");
-    wprintw(win, ": Enter interactive mode");
-    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "s");
-    wprintw(win, ": Show statistics screen");
-    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F2");
-    wprintw(win, ": Start packet scan");
-    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F3");
-    wprintw(win, ": Stop packet scan");
-    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F4");
-    wprintw(win, ": Load file in pcap format");
-    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F5");
-    wprintw(win, ": Save file in pcap format");
-    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F6");
-    wprintw(win, ": Change view");
-    mvwprintw(win, ++y, 0, "");
-    printat(win, ++y, 0, COLOR_PAIR(4) | A_BOLD, "Keyboard shortcuts in interactive mode");
-    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "Arrows");
-    wprintw(win, ": Scroll the packet list");
-    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "Space pgdown");
-    wprintw(win, ": Scroll page down");
-    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "b pgup");
-    wprintw(win, ": Scroll page up");
-    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "Home End");
-    wprintw(win, ": Go to first/last page");
-    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "g");
-    wprintw(win, ": Go to line");
-    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "Enter");
-    wprintw(win, ": Inspect packet");
-    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "Esc i");
-    wprintw(win, ": Quit interactive mode");
-    mvwprintw(win, ++y, 0, "");
-    printat(win, ++y, 0, COLOR_PAIR(4) | A_BOLD, "Statistics screen keyboard shortcuts");
-    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "b B");
-    wprintw(win, ": Use kilobits/kilobytes");
-    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "m M");
-    wprintw(win, ": Use megabits/megabytes");
-    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "p");
-    wprintw(win, ": Show/hide packet statistics");
-    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "c");
-    wprintw(win, ": Clear statistics");
-    printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "Esc x");
-    wprintw(win, ": Exit statistics screen");
-}
 
 void goto_line(int c)
 {
@@ -786,39 +929,6 @@ int print_lines(int from, int to, int y)
     return c;
 }
 
-void print_packet(struct packet *p)
-{
-    char buf[MAXLINE];
-
-    print_buffer(buf, MAXLINE, p);
-    print(buf);
-}
-
-void print_file()
-{
-    int my = getmaxy(wmain->pktlist);
-
-    for (int i = 0; i < vector_size(packets) && i < my; i++) {
-        print_packet(vector_get_data(packets, i));
-    }
-    set_interactive(true, -1);
-}
-
-/* write buffer to standard output */
-void print(char *buf)
-{
-    int my;
-
-    my = getmaxy(wmain->pktlist);
-    if (!interactive || (interactive && wmain->outy < my)) {
-        scroll_window();
-        printnlw(wmain->pktlist, buf, strlen(buf), wmain->outy, 0, wmain->scrollx);
-        wmain->outy++;
-        if (stack_empty(screen_stack)) {
-            wrefresh(wmain->pktlist);
-        }
-    }
-}
 
 /*
  * Print more information about a packet when selected. This will print more
@@ -1128,98 +1238,4 @@ bool inside_subwindow()
     int subline = wmain->selection_line - wmain->top - wmain->subwindow.top;
 
     return subline >= 0 && subline < wmain->lvw->size;
-}
-
-void pop_screen()
-{
-    screen *scr = stack_pop(screen_stack);
-
-    scr->focus = false;
-    if (stack_empty(screen_stack)) {
-        wgetch(wmain->pktlist); /* remove character from input queue */
-        touchwin(wmain->pktlist);
-        touchwin(wmain->status);
-        touchwin(wmain->header);
-        wnoutrefresh(wmain->pktlist);
-        wnoutrefresh(wmain->header);
-        wnoutrefresh(wmain->status);
-        doupdate();
-    } else {
-        screen *s = stack_top(screen_stack);
-
-        s->focus = true;
-        publish();
-        wgetch(s->win); /* remove character from input queue */
-        touchwin(s->win);
-        wrefresh(s->win);
-    }
-}
-
-void push_screen(int scr)
-{
-    if (screen_cache[scr]) {
-        screen *s = stack_top(screen_stack);
-
-        if (s) s->focus = false;
-        stack_push(screen_stack, screen_cache[scr]);
-        screen_cache[scr]->focus = true;
-        publish();
-        touchwin(screen_cache[scr]->win);
-        wrefresh(screen_cache[scr]->win);
-    } else {
-        int mx, my;
-        WINDOW *win;
-
-        screen_cache[scr] = malloc(sizeof(screen));
-        getmaxyx(stdscr, my, mx);
-        win = newwin(my, mx, 0, 0);
-        screen_cache[scr]->win = win;
-        screen_cache[scr]->type = scr;
-        stack_push(screen_stack, screen_cache[scr]);
-        screen_cache[scr]->focus = true;
-        switch (scr) {
-        case HELP_SCREEN:
-            print_help();
-            break;
-        case STAT_SCREEN:
-            nodelay(win, TRUE);
-            keypad(win, TRUE);
-            ss_init();
-            ss_print();
-            add_subscription(ss_changed);
-            break;
-        default:
-            break;
-        }
-        wrefresh(win);
-    }
-}
-
-void printat(WINDOW *win, int y, int x, int attrs, const char *fmt, ...)
-{
-    char buf[MAXLINE];
-    va_list ap;
-
-    va_start(ap, fmt);
-    vsnprintf(buf, MAXLINE - 1, fmt, ap);
-    va_end(ap);
-    wattron(win, attrs);
-    if (y == -1 && x == -1) {
-        waddstr(win, buf);
-    } else {
-        mvwprintw(win, y, x, "%s", buf);
-    }
-    wattroff(win, attrs);
-}
-
-void printnlw(WINDOW *win, char *str, int len, int y, int x, int scrollx)
-{
-    int mx = getmaxx(win);
-
-    if (mx + scrollx - 1 < len) {
-        str[mx + scrollx - 1] = '\0';
-    }
-    if (scrollx < len) {
-        mvwprintw(win, y, x, "%s", str + scrollx);
-    }
 }

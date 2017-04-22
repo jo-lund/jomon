@@ -236,7 +236,7 @@ void run()
     while (1) {
         if (signal_flag) {
             signal_flag = 0;
-            ss_print();
+            stat_screen_print();
             alarm(1);
         }
         if (poll(fds, 2, -1) == -1) {

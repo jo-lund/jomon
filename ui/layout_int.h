@@ -6,7 +6,7 @@
 #define KEY_ESC 27
 #define NUM_SCREENS 2
 
-enum {
+enum screen_type {
     HELP_SCREEN,
     STAT_SCREEN
 };
@@ -28,15 +28,28 @@ enum layer {
 };
 
 typedef struct {
-    int type;
+    enum screen_type type;
     bool focus;
     WINDOW *win;
 } screen;
 
-extern screen *screen_cache[NUM_SCREENS];
+/*
+ * Allocates space for the specified screen type and returns a pointer to it.
+ * Needs to be freed with free_screen().
+ */
+screen *create_screen(enum screen_type type);
 
-/* push the screen with type 'scr' on the screen stack */
-void push_screen(int scr);
+/* free the memory allocated for screen */
+void free_screen(screen *scr);
+
+/*
+ * Return the screen with the specified type. If the screen doesn't exit, it will
+ * be created by calling create_screen.
+ */
+screen *get_screen(enum screen_type type);
+
+/* push the screen on the screen stack */
+void push_screen(screen *scr);
 
 /* pop the screen from the screen stack */
 void pop_screen();
