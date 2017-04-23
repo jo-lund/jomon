@@ -30,7 +30,8 @@
 #include "vector.h"
 #include "file_pcap.h"
 #include "ui/protocols.h"
-#include "ui/stat_screen.h"
+
+extern void stat_screen_print();
 
 struct sockaddr_in *local_addr;
 bool statistics = false;
@@ -43,13 +44,13 @@ static bool use_ncurses = true;
 static bool promiscuous = false;
 static bool verbose = false;
 
+bool on_packet(unsigned char *buffer, uint32_t n, struct timeval *t);
 static void print_help(char *prg);
 static void init_socket(char *device);
 static void init_structures();
 static void run();
 static void sig_alarm(int signo);
 static void sig_int(int signo);
-static bool on_packet(unsigned char *buffer, uint32_t n, struct timeval *t);
 
 int main(int argc, char **argv)
 {

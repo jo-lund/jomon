@@ -9,7 +9,8 @@
 
 enum screen_type {
     HELP_SCREEN,
-    STAT_SCREEN
+    STAT_SCREEN,
+    DIALOGUE
 };
 
 enum layer {
@@ -34,6 +35,11 @@ typedef struct {
     WINDOW *win;
 } screen;
 
+typedef struct {
+    bool focus;
+    WINDOW *win;
+} container;
+
 extern publisher_t *screen_changed_publisher;
 
 /*
@@ -44,6 +50,9 @@ screen *create_screen(enum screen_type type);
 
 /* free the memory allocated for screen */
 void free_screen(screen *scr);
+
+container *create_container();
+void free_container(container *c);
 
 /*
  * Return the screen with the specified type. If the screen doesn't exit, it will

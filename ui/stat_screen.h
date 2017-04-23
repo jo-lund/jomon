@@ -5,7 +5,7 @@
 
 screen *stat_screen_create();
 void stat_screen_print();
-void stat_screen_handle_input();
+void stat_screen_get_input();
 void stat_screen_changed();
 
 #endif

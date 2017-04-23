@@ -57,7 +57,7 @@ void stat_screen_changed()
     }
 }
 
-void stat_screen_handle_input()
+void stat_screen_get_input()
 {
     int c = wgetch(stat_screen->win);
 

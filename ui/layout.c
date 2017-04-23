@@ -13,10 +13,12 @@
 #include "../vector.h"
 #include "../decoder/decoder.h"
 #include "../stack.h"
+#include "../file_pcap.h"
 #include "list_view.h"
 #include "layout_int.h"
 #include "stat_screen.h"
 #include "../signal.h"
+#include "dialogue.h"
 
 #define HEADER_HEIGHT 4
 #define STATUS_HEIGHT 1
@@ -73,7 +75,9 @@ static bool capturing = true;
 static bool interactive = false;
 static bool input_mode = false;
 static _stack_t *screen_stack;
+static input_dialogue *id;
 
+extern bool on_packet(unsigned char *buffer, uint32_t n, struct timeval *t);
 static void create_layout();
 static main_screen *main_screen_create(int nlines, int ncols);
 static void main_screen_free(main_screen *mw);
@@ -93,6 +97,9 @@ static void print_selected_packet();
 static void print_protocol_information(struct packet *p, int lineno);
 static void goto_line(int c);
 static void goto_end();
+static void create_load_dialogue();
+static void load_handle_ok(void *file);
+static void load_handle_cancel(void *);
 
 /* Handles subwindow layout */
 static void create_subwindow(int num_lines, int lineno);
@@ -117,6 +124,7 @@ void init_ncurses(bool is_capturing)
     init_pair(2, COLOR_BLACK, COLOR_CYAN);
     init_pair(3, COLOR_CYAN, -1);
     init_pair(4, COLOR_GREEN, -1);
+    init_pair(5, COLOR_WHITE, COLOR_BLUE);
     set_escdelay(25); /* set escdelay to 25 ms */
     screen_changed_publisher = publisher_init();
     create_layout();
@@ -174,6 +182,22 @@ void free_screen(screen *scr)
     }
 }
 
+container *create_container()
+{
+    container *c = malloc(sizeof(container));
+
+    c->focus = false;
+    c->win = NULL;
+    return c;
+}
+
+void free_container(container *c)
+{
+    if (c) {
+        if (c->win) delwin(c->win);
+        free(c);
+    }
+}
 void print_packet(struct packet *p)
 {
     char buf[MAXLINE];
@@ -336,10 +360,36 @@ void printnlw(WINDOW *win, char *str, int len, int y, int x, int scrollx)
     }
 }
 
+void create_load_dialogue()
+{
+    id = input_dialogue_create("Enter capture file to load", "File path", load_handle_ok,
+                               load_handle_cancel);
+    INPUT_DIALOGUE_RENDER(id);
+    push_screen((screen *) id->d);
+}
+
+void load_handle_ok(void *file)
+{
+    enum file_error err;
+
+    err = read_file((char *) file, on_packet);
+    if (err == NO_ERROR) {
+        werase(wmain->pktlist);
+        wmain->selection_line = 0;
+        wmain->top = 0;
+        print_file();
+    }
+    pop_screen();
+}
+
+void load_handle_cancel(void *d)
+{
+    pop_screen();
+}
+
 main_screen *main_screen_create(int nlines, int ncols)
 {
     wmain = malloc(sizeof(main_screen));
-
     wmain->outy = 0;
     wmain->selection_line = 0;
     wmain->top = 0;
@@ -391,10 +441,18 @@ void get_input()
     screen *s = stack_top(screen_stack);
 
     if (s) {
-        if (s->type == STAT_SCREEN) {
-            stat_screen_handle_input();
-        } else if (s->type == HELP_SCREEN) {
+        switch (s->type) {
+        case STAT_SCREEN:
+            stat_screen_get_input();
+            break;
+        case HELP_SCREEN:
             pop_screen();
+            break;
+        case DIALOGUE:
+            INPUT_DIALOGUE_GET_INPUT(id);
+            break;
+        default:
+            break;
         }
         return;
     }
@@ -511,6 +569,9 @@ void get_input()
             print_status();
         }
         break;
+    case KEY_F(4):
+        create_load_dialogue();
+        break;
     case 'g':
         if (!interactive) return;
         input_mode = !input_mode;
@@ -597,7 +658,6 @@ void print_status()
     printat(wmain->status, -1, -1, COLOR_PAIR(2), "%-8s", "Quit");
     wrefresh(wmain->status);
 }
-
 
 void goto_line(int c)
 {
