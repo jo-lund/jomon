@@ -10,7 +10,8 @@
 enum screen_type {
     HELP_SCREEN,
     STAT_SCREEN,
-    DIALOGUE
+    FILE_INPUT_DIALOGUE,
+    LABEL_DIALOGUE
 };
 
 enum layer {

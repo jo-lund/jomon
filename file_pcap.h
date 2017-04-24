@@ -6,7 +6,10 @@ typedef bool (*packet_handler)(unsigned char *buffer, uint32_t n, struct timeval
 enum file_error {
     NO_ERROR,
     FORMAT_ERROR,
-    DECODE_ERROR
+    DECODE_ERROR,
+    ACCESS_ERROR,
+    NOT_FOUND_ERROR,
+    FOPEN_ERROR
 };
 
 /*
@@ -17,5 +20,7 @@ enum file_error {
  * returns false, read_file will return with a DECODE_ERROR.
  */
 enum file_error read_file(const char *path, packet_handler f);
+
+char *get_file_error(enum file_error err);
 
 #endif

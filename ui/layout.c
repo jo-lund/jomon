@@ -75,12 +75,14 @@ static bool capturing = true;
 static bool interactive = false;
 static bool input_mode = false;
 static _stack_t *screen_stack;
-static input_dialogue *id;
+static file_input_dialogue *id = NULL;
+static label_dialogue *ld = NULL;
 
 extern bool on_packet(unsigned char *buffer, uint32_t n, struct timeval *t);
 static void create_layout();
 static main_screen *main_screen_create(int nlines, int ncols);
 static void main_screen_free(main_screen *mw);
+static void main_screen_clear();
 static void print_help();
 static void set_interactive(bool interactive_mode, int num_lines);
 static bool check_line();
@@ -100,6 +102,7 @@ static void goto_end();
 static void create_load_dialogue();
 static void load_handle_ok(void *file);
 static void load_handle_cancel(void *);
+static void handle_file_error();
 
 /* Handles subwindow layout */
 static void create_subwindow(int num_lines, int lineno);
@@ -360,33 +363,6 @@ void printnlw(WINDOW *win, char *str, int len, int y, int x, int scrollx)
     }
 }
 
-void create_load_dialogue()
-{
-    id = input_dialogue_create("Enter capture file to load", "File path", load_handle_ok,
-                               load_handle_cancel);
-    INPUT_DIALOGUE_RENDER(id);
-    push_screen((screen *) id->d);
-}
-
-void load_handle_ok(void *file)
-{
-    enum file_error err;
-
-    err = read_file((char *) file, on_packet);
-    if (err == NO_ERROR) {
-        werase(wmain->pktlist);
-        wmain->selection_line = 0;
-        wmain->top = 0;
-        print_file();
-    }
-    pop_screen();
-}
-
-void load_handle_cancel(void *d)
-{
-    pop_screen();
-}
-
 main_screen *main_screen_create(int nlines, int ncols)
 {
     wmain = malloc(sizeof(main_screen));
@@ -420,6 +396,62 @@ void main_screen_free(main_screen *mw)
     free(mw);
 }
 
+void main_screen_clear()
+{
+    set_interactive(false, -1);
+    werase(wmain->header);
+    werase(wmain->pktlist);
+    wmain->selection_line = 0;
+    wmain->top = 0;
+    wmain->outy = 0;
+    vector_clear(packets);
+    clear_statistics();
+}
+
+void create_load_dialogue()
+{
+    if (!id) {
+        id = file_input_dialogue_create("Enter capture file to load", "File path",
+                                        load_handle_ok, load_handle_cancel);
+        push_screen((screen *) id);
+    }
+}
+
+void load_handle_ok(void *file)
+{
+    enum file_error err;
+
+    main_screen_clear();
+    err = read_file((char *) file, on_packet);
+    file_input_dialogue_free(id);
+    id = NULL;
+    if (err == NO_ERROR) {
+        if (ctx.filename) {
+            free(ctx.filename);
+            ctx.filename = strdup(file);
+        }
+    } else {
+        char *error = get_file_error(err);
+
+        ld = label_dialogue_create("File Error", error, handle_file_error);
+        push_screen((screen *) ld);
+    }
+    print_header();
+    print_file();
+}
+
+void load_handle_cancel(void *d)
+{
+    file_input_dialogue_free(id);
+    id = NULL;
+}
+
+void handle_file_error()
+{
+    label_dialogue_free(ld);
+    ld = NULL;
+    create_load_dialogue();
+}
 
 /* scroll the window if necessary */
 void scroll_window()
@@ -440,6 +472,7 @@ void get_input()
     int my;
     screen *s = stack_top(screen_stack);
 
+    // TODO: fix the handling of this
     if (s) {
         switch (s->type) {
         case STAT_SCREEN:
@@ -448,8 +481,11 @@ void get_input()
         case HELP_SCREEN:
             pop_screen();
             break;
-        case DIALOGUE:
-            INPUT_DIALOGUE_GET_INPUT(id);
+        case FILE_INPUT_DIALOGUE:
+            FILE_INPUT_DIALOGUE_GET_INPUT(id);
+            break;
+        case LABEL_DIALOGUE:
+            LABEL_DIALOGUE_GET_INPUT(ld);
             break;
         default:
             break;

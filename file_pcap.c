@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
+#include <errno.h>
 #include "file_pcap.h"
 #include "error.h"
 #include "vector.h"
@@ -36,6 +37,7 @@ static packet_handler pkt_handler;
 
 static int read_buf(unsigned char *buf, size_t len);
 static enum file_error read_header(unsigned char *buf, size_t len);
+static enum file_error errno_file_error(int err);
 
 enum file_error read_file(const char *path, packet_handler f)
 {
@@ -46,7 +48,7 @@ enum file_error read_file(const char *path, packet_handler f)
     int n = 0;
 
     if (!(fp = fopen(path, "r"))) {
-        err_sys("fopen error");
+        return errno_file_error(errno);
     }
     pkt_handler = f;
     len = fread(buf, sizeof(unsigned char), sizeof(pcap_hdr_t), fp);
@@ -122,4 +124,35 @@ int read_buf(unsigned char *buf, size_t len)
     }
 
     return 0;
+}
+
+
+enum file_error errno_file_error(int err)
+{
+    switch (err) {
+    case EACCES:
+        return ACCESS_ERROR;
+    case ENOENT:
+        return NOT_FOUND_ERROR;
+    default:
+        return FOPEN_ERROR;
+    }
+}
+
+char *get_file_error(enum file_error err)
+{
+    switch (err) {
+    case FORMAT_ERROR:
+        return "File format not recognized.";
+    case DECODE_ERROR:
+        return "Error decoding packets.";
+    case ACCESS_ERROR:
+        return "Operation is not permitted.";
+    case NOT_FOUND_ERROR:
+        return "File does not exist.";
+    case FOPEN_ERROR:
+        return "Error opening file.";
+    default:
+        return "";
+    }
 }

@@ -6,13 +6,14 @@
 
 #define DIALOGUE_SET_TITLE(o, d, t) ((o)->dialogue_set_title(d, t))
 #define DIALOGUE_RENDER(o) ((o)->dialogue_render(o))
-#define INPUT_DIALOGUE_GET_INPUT(o) ((o)->input_dialogue_get_input(o))
-#define INPUT_DIALOGUE_SET_BUTTON_ACTION(o, a1, a2) \
-    ((o)->input_dialogue_set_button_action(o, a1, a2))
-#define INPUT_DIALOGUE_RENDER(o) ((o)->input_dialogue_render(o))
+#define FILE_INPUT_DIALOGUE_GET_INPUT(o) ((o)->file_input_dialogue_get_input(o))
+#define FILE_INPUT_DIALOGUE_SET_BUTTON_ACTION(o, a1, a2) \
+    ((o)->file_input_dialogue_set_button_action(o, a1, a2))
+#define FILE_INPUT_DIALOGUE_RENDER(o) ((o)->file_input_dialogue_render(o))
+#define LABEL_DIALOGUE_GET_INPUT(o) ((o)->label_dialogue_get_input(o))
 
 typedef struct dialogue {
-    screen scr;
+    screen screen_base;
     char *title;
     int height;
     int width;
@@ -24,8 +25,8 @@ typedef struct dialogue {
     void (*dialogue_render)(struct dialogue *d);
 } dialogue;
 
-typedef struct input_dialogue {
-    char d[sizeof(dialogue)]; /* base class */
+typedef struct file_input_dialogue {
+    char dialogue_base[sizeof(dialogue)];
     container input;
     button *ok;
     button *cancel;
@@ -33,27 +34,43 @@ typedef struct input_dialogue {
     char *input_txt;
 
     /* handle input */
-    void (*input_dialogue_get_input)(struct input_dialogue *id);
+    void (*file_input_dialogue_get_input)(struct file_input_dialogue *id);
 
     /* set handlers for the 'ok' and 'cancel' buttons */
-    void (*input_dialogue_set_button_action)(struct input_dialogue *id, button_action ok,
-                                             button_action cancel);
+    void (*file_input_dialogue_set_button_action)(struct file_input_dialogue *id,
+                                                  button_action ok,
+                                                  button_action cancel);
 
-    /* display the input dialogue */
-    void (*input_dialogue_render)(struct input_dialogue *id);
-} input_dialogue;
+    /* display the file_input dialogue */
+    void (*file_input_dialogue_render)(struct file_input_dialogue *id);
+} file_input_dialogue;
 
-/* create a new dialogue */
+typedef struct label_dialogue {
+    char dialogue_base[sizeof(dialogue)];
+    char *label;
+    button *ok;
+
+    void (*label_dialogue_get_input)(struct label_dialogue *ld);
+
+} label_dialogue;
+
+/* Create a new dialogue. It needs to be freed by calling 'dialogue_free' */
 dialogue *dialogue_create(char *title);
 
 /* free the memory associated with dialogue */
 void dialogue_free(dialogue *d);
 
-/* create a new input dialogue */
-input_dialogue *input_dialogue_create(char *title, char *input, button_action ok,
-                                      button_action cancel);
+/* Create a new file_input dialogue. It needs to be freed with 'file_input_dialogue_free' */
+file_input_dialogue *file_input_dialogue_create(char *title, char *input, button_action ok,
+                                                button_action cancel);
 
-/* free the memory associated with input dialogue */
-void input_dialogue_free(input_dialogue *id);
+/* free the memory associated with file_input dialogue */
+void file_input_dialogue_free(file_input_dialogue *id);
+
+/* Create a new label dialogue. It needs to be freed with 'label_dialogue_free' */
+label_dialogue *label_dialogue_create(char *title, char *label, button_action act);
+
+/* free the memory associated with label dialogue */
+void label_dialogue_free(label_dialogue *ld);
 
 #endif
