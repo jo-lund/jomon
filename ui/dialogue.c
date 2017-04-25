@@ -2,15 +2,17 @@
 #include <string.h>
 #include <ncurses.h>
 #include <ctype.h>
+#include <unistd.h>
 #include "dialogue.h"
 #include "../misc.h"
 
-static char file[MAXLINE];
+static char file[MAXPATH + 1];
 static int num_chars;
 
 static void dialogue_set_title(dialogue *d, char *title);
 static void dialogue_render(dialogue *d);
 static void file_input_dialogue_get_input(file_input_dialogue *id);
+static void file_input_dialogue_set_input(file_input_dialogue *id, char *input);
 static void file_input_dialogue_render(file_input_dialogue *id);
 static void file_input_dialogue_set_button_action(file_input_dialogue *id, button_action ok,
                                              button_action cancel);
@@ -25,9 +27,8 @@ dialogue *dialogue_create(char *title)
 
     getmaxyx(stdscr, my, mx);
     d->height  = my / 5;
-    d->width = mx / 5;
+    d->width = mx / 5 + 10;
     d->screen_base.focus = false;
-    //d->screen_base.type = DIALOGUE;
     d->screen_base.win = newwin(d->height, d->width, (my - d->height) / 2, (mx - d->width) / 2);
     d->title = title;
     d->dialogue_set_title = dialogue_set_title;
@@ -68,7 +69,7 @@ void dialogue_render(dialogue *d)
     wrefresh(win);
 }
 
-file_input_dialogue *file_input_dialogue_create(char *title, char *input_txt, button_action ok, button_action cancel)
+file_input_dialogue *file_input_dialogue_create(char *title, button_action ok, button_action cancel)
 {
     file_input_dialogue *id;
     int my, mx;
@@ -85,13 +86,15 @@ file_input_dialogue *file_input_dialogue_create(char *title, char *input_txt, bu
     id->input.win = derwin(((screen *) id)->win, 1, mx - 8, 6, 4);
     id->input.focus = false;
     id->has_focus = 0;
-    id->input_txt = input_txt;
     id->file_input_dialogue_set_button_action = file_input_dialogue_set_button_action;
     id->file_input_dialogue_get_input = file_input_dialogue_get_input;
+    id->file_input_dialogue_set_input = file_input_dialogue_set_input;
     id->file_input_dialogue_render = file_input_dialogue_render;
     nodelay(id->input.win, TRUE);
     keypad(id->input.win, TRUE);
-    num_chars = 0;
+    getcwd(file, MAXPATH); // TODO: Use file path of loaded file if available
+    waddstr(id->input.win, file);
+    num_chars = strlen(file);
     file_input_dialogue_render(id);
     return id;
 }
@@ -110,7 +113,11 @@ void file_input_dialogue_free(file_input_dialogue *id)
 void file_input_dialogue_set_input(file_input_dialogue *id, char *input)
 {
     if (id) {
-        id->input_txt = input;
+        strncpy(file, input, MAXPATH);
+        werase(id->input.win);
+        waddstr(id->input.win, file);
+        num_chars = strlen(file);
+        file_input_dialogue_render(id);
     }
 }
 
@@ -167,12 +174,12 @@ void file_input_dialogue_render(file_input_dialogue *id)
     werase(((container *) id->ok)->win);
     werase(((container *) id->cancel)->win);
     DIALOGUE_RENDER((dialogue *) id);
-    mvwprintw(((screen *) id)->win, 5, 4, "%s: ", id->input_txt);
+    mvwprintw(((screen *) id)->win, 5, 4, "File path: ");
     wbkgd(id->input.win, COLOR_PAIR(1));
 
     switch (id->has_focus) {
     case 0:
-        wmove(((screen *) id)->win, 6, 4);
+        wmove(((screen *) id)->win, 6, num_chars + 4);
         curs_set(1);
         BUTTON_SET_FOCUS(id->ok, false);
         BUTTON_SET_FOCUS(id->cancel, false);

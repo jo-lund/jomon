@@ -39,22 +39,28 @@ static int read_buf(unsigned char *buf, size_t len);
 static enum file_error read_header(unsigned char *buf, size_t len);
 static enum file_error errno_file_error(int err);
 
-enum file_error read_file(const char *path, packet_handler f)
+FILE *open_file(const char *path, const char *mode, enum file_error *err)
 {
     FILE *fp;
+
+    *err = NO_ERROR;
+    if (!(fp = fopen(path, mode))) {
+        *err = errno_file_error(errno);
+    }
+    return fp;
+}
+
+enum file_error read_file(FILE *fp, packet_handler f)
+{
     unsigned char buf[BUFSIZE];
     enum file_error error = NO_ERROR;
     size_t len;
     int n = 0;
 
-    if (!(fp = fopen(path, "r"))) {
-        return errno_file_error(errno);
-    }
     pkt_handler = f;
     len = fread(buf, sizeof(unsigned char), sizeof(pcap_hdr_t), fp);
     error = read_header(buf, len);
     if (error != NO_ERROR) {
-        fclose(fp);
         return error;
     }
     while ((len = fread(buf + n, sizeof(unsigned char), BUFSIZE - n, fp)) > 0) {
@@ -68,7 +74,6 @@ enum file_error read_file(const char *path, packet_handler f)
         }
     }
     if (ferror(fp)) error = FORMAT_ERROR;
-    fclose(fp);
 
     return error;
 }
@@ -125,7 +130,6 @@ int read_buf(unsigned char *buf, size_t len)
 
     return 0;
 }
-
 
 enum file_error errno_file_error(int err)
 {

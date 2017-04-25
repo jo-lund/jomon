@@ -38,12 +38,21 @@ char *strtolower(char *str);
 /* Converts seconds to number of days, hours, minutes and seconds */
 struct tm_t get_time(uint32_t num_secs);
 
-char *format_time(struct timeval *t, char *buf, int n);
-
 /*
  * Converts the tm_t struct to a string of the form:
  * "x days, x hours, x minutes, x seconds"
  */
 void time_ntop(struct tm_t *time, char *result, int len);
+
+char *format_time(struct timeval *t, char *buf, int n);
+
+/* Find index of the first character 'c' in string. Return -1 if not found */
+int str_find_first(const char *str, char c);
+
+/* Find index of the last character 'c' in string. Return -1 if not found */
+int str_find_last(const char *str, char c);
+
+/* Given a file with full path name, return the directory part */
+void get_directory_part(char *fullpath);
 
 #endif

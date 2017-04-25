@@ -95,6 +95,30 @@ char *strtolower(char *str)
     return str;
 }
 
+int str_find_first(const char *str, char c)
+{
+    int len = strlen(str);
+
+    for (int i = 0; i < len; i++) {
+        if (str[i] == c) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int str_find_last(const char *str, char c)
+{
+    int len = strlen(str);
+
+    for (int i = len; i >= 0; i--) {
+        if (str[i] == c) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 char *format_time(struct timeval *t, char *buf, int n)
 {
     struct tm *time;
@@ -144,4 +168,12 @@ void time_ntop(struct tm_t *time, char *result, int len)
     } else if (!time->secs) {
         result[n-2] = '\0'; /* remove trailing comma */
     }
+}
+
+void get_directory_part(char *fullpath)
+{
+    int i;
+
+    i = str_find_last(fullpath, '/');
+    fullpath[i] = '\0';
 }

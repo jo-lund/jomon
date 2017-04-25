@@ -7,7 +7,8 @@
 #define DIALOGUE_SET_TITLE(o, d, t) ((o)->dialogue_set_title(d, t))
 #define DIALOGUE_RENDER(o) ((o)->dialogue_render(o))
 #define FILE_INPUT_DIALOGUE_GET_INPUT(o) ((o)->file_input_dialogue_get_input(o))
-#define FILE_INPUT_DIALOGUE_SET_BUTTON_ACTION(o, a1, a2) \
+#define FILE_INPUT_DIALOGUE_SET_INPUT(o, i) ((o)->file_input_dialogue_set_input(o, i))
+#define FILE_INPUT_DIALOGUE_SET_BUTTON_ACTION(o, a1, a2)    \
     ((o)->file_input_dialogue_set_button_action(o, a1, a2))
 #define FILE_INPUT_DIALOGUE_RENDER(o) ((o)->file_input_dialogue_render(o))
 #define LABEL_DIALOGUE_GET_INPUT(o) ((o)->label_dialogue_get_input(o))
@@ -31,10 +32,12 @@ typedef struct file_input_dialogue {
     button *ok;
     button *cancel;
     int has_focus;
-    char *input_txt;
 
     /* handle input */
     void (*file_input_dialogue_get_input)(struct file_input_dialogue *id);
+
+    /* set the default input */
+    void (*file_input_dialogue_set_input)(struct file_input_dialogue *id, char *input);
 
     /* set handlers for the 'ok' and 'cancel' buttons */
     void (*file_input_dialogue_set_button_action)(struct file_input_dialogue *id,
@@ -61,7 +64,7 @@ dialogue *dialogue_create(char *title);
 void dialogue_free(dialogue *d);
 
 /* Create a new file_input dialogue. It needs to be freed with 'file_input_dialogue_free' */
-file_input_dialogue *file_input_dialogue_create(char *title, char *input, button_action ok,
+file_input_dialogue *file_input_dialogue_create(char *title, button_action ok,
                                                 button_action cancel);
 
 /* free the memory associated with file_input dialogue */

@@ -36,13 +36,14 @@ extern void stat_screen_print();
 struct sockaddr_in *local_addr;
 bool statistics = false;
 vector_t *packets;
-main_context ctx = { NULL, NULL };
+main_context ctx = { NULL, { 0 } };
 
 static volatile sig_atomic_t signal_flag = 0;
 static int sockfd = -1; /* packet socket file descriptor */
 static bool use_ncurses = true;
 static bool promiscuous = false;
 static bool verbose = false;
+static bool load_file = false;
 
 bool on_packet(unsigned char *buffer, uint32_t n, struct timeval *t);
 static void print_help(char *prg);
@@ -76,7 +77,8 @@ int main(int argc, char **argv)
             statistics = true;
             break;
         case 'r':
-            ctx.filename = strdup(optarg);
+            strcpy(ctx.filename, optarg);
+            load_file = true;
             break;
         case 't':
             use_ncurses = false;
@@ -95,13 +97,18 @@ int main(int argc, char **argv)
     }
     local_addr = malloc(sizeof (struct sockaddr_in));
     get_local_address(ctx.device, (struct sockaddr *) local_addr);
-    if (ctx.filename) {
+    if (load_file) {
         enum file_error err;
+        FILE *fp;
 
-        err = read_file(ctx.filename, on_packet);
-        if (err != NO_ERROR) {
-            err_quit("Error in file: %s", ctx.filename);
+        if ((fp = open_file(ctx.filename, "r", &err)) == NULL) {
+            err_sys("Error in %s", ctx.filename);
         }
+        if ((err = read_file(fp, on_packet)) != NO_ERROR) {
+            fclose(fp);
+            err_quit("Error in %s: %s", ctx.filename, get_file_error(err));
+        }
+        fclose(fp);
         if (use_ncurses) {
             init_ncurses(false);
             print_file();
@@ -154,9 +161,6 @@ void finish()
     if (use_ncurses) {
         end_ncurses();
         vector_free(packets);
-    }
-    if (ctx.filename) {
-        free(ctx.filename);
     }
     free(ctx.device);
     free(local_addr);
@@ -221,7 +225,7 @@ void init_structures()
     }
 
     /* Initialize table to store packets */
-    if (use_ncurses || ctx.filename) {
+    if (use_ncurses || load_file) {
         packets = vector_init(1000, free_packet);
     }
 }

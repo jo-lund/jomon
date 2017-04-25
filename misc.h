@@ -8,6 +8,10 @@
 #include <net/ethernet.h>
 #include <netinet/ip.h>
 #include <stdbool.h>
+#include <limits.h>
+#ifdef __linux__
+#include <linux/limits.h>
+#endif
 
 /*
  * Only a portion of each packet is passed by the kernel to the application, this
@@ -24,9 +28,15 @@
 
 #define MAXLINE 1000
 
+#ifdef PATH_MAX
+#define MAXPATH PATH_MAX
+#else
+#define MAXPATH 1024
+#endif
+
 typedef struct {
     char *device;
-    char *filename;
+    char filename[MAXPATH + 1];
 } main_context;
 
 extern struct sockaddr_in *local_addr;

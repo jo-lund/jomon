@@ -77,6 +77,8 @@ static bool input_mode = false;
 static _stack_t *screen_stack;
 static file_input_dialogue *id = NULL;
 static label_dialogue *ld = NULL;
+static char load_filepath[MAXPATH + 1] = { 0 };
+static bool decode_error = false;
 
 extern bool on_packet(unsigned char *buffer, uint32_t n, struct timeval *t);
 static void create_layout();
@@ -100,6 +102,7 @@ static void print_protocol_information(struct packet *p, int lineno);
 static void goto_line(int c);
 static void goto_end();
 static void create_load_dialogue();
+static void create_file_error_dialogue(enum file_error err);
 static void load_handle_ok(void *file);
 static void load_handle_cancel(void *);
 static void handle_file_error();
@@ -404,46 +407,72 @@ void main_screen_clear()
     wmain->selection_line = 0;
     wmain->top = 0;
     wmain->outy = 0;
-    vector_clear(packets);
-    clear_statistics();
 }
 
 void create_load_dialogue()
 {
     if (!id) {
-        id = file_input_dialogue_create("Enter capture file to load", "File path",
-                                        load_handle_ok, load_handle_cancel);
+        id = file_input_dialogue_create("Enter capture file to load", load_handle_ok,
+                                        load_handle_cancel);
+        if (load_filepath[0] != 0) {
+            FILE_INPUT_DIALOGUE_SET_INPUT(id, load_filepath);
+        }
         push_screen((screen *) id);
     }
+}
+
+void create_file_error_dialogue(enum file_error err)
+{
+    char *error = get_file_error(err);
+
+    ld = label_dialogue_create("File Error", error, handle_file_error);
+    push_screen((screen *) ld);
 }
 
 void load_handle_ok(void *file)
 {
     enum file_error err;
+    FILE *fp;
 
-    main_screen_clear();
-    err = read_file((char *) file, on_packet);
+    if ((fp = open_file((const char *) file, "r", &err)) == NULL) {
+        create_file_error_dialogue(err);
+    } else {
+        vector_clear(packets);
+        clear_statistics();
+        err = read_file(fp, on_packet);
+        if (err == NO_ERROR) {
+            int i;
+
+            main_screen_clear();
+            strcpy(ctx.filename, (const char *) file);
+            i = str_find_last(ctx.filename, '/');
+            if (i > 0 && i < MAXPATH) {
+                strncpy(load_filepath, ctx.filename, i);
+                load_filepath[i + 1] = '\0';
+            }
+            print_header();
+            print_file();
+        } else {
+            memset(ctx.filename, 0, MAXPATH);
+            decode_error = true;
+            create_file_error_dialogue(err);
+        }
+        fclose(fp);
+    }
     file_input_dialogue_free(id);
     id = NULL;
-    if (err == NO_ERROR) {
-        if (ctx.filename) {
-            free(ctx.filename);
-            ctx.filename = strdup(file);
-        }
-    } else {
-        char *error = get_file_error(err);
-
-        ld = label_dialogue_create("File Error", error, handle_file_error);
-        push_screen((screen *) ld);
-    }
-    print_header();
-    print_file();
 }
 
 void load_handle_cancel(void *d)
 {
     file_input_dialogue_free(id);
     id = NULL;
+    if (decode_error) {
+        main_screen_clear();
+        print_header();
+        wrefresh(wmain->pktlist);
+        decode_error = false;
+    }
 }
 
 void handle_file_error()
@@ -645,7 +674,7 @@ void print_header()
     int y = 0;
     char addr[INET_ADDRSTRLEN];
 
-    if (ctx.filename) {
+    if (ctx.filename[0]) {
         printat(wmain->header, y, 0, COLOR_PAIR(3) | A_BOLD, "Filename");
         wprintw(wmain->header, ": %s", ctx.filename);
     } else {
