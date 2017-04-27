@@ -44,7 +44,7 @@
  */
 bool handle_ethernet(unsigned char *buffer, int n, struct eth_info *eth)
 {
-    if (n < ETHERNET_HDRLEN) return false;
+    if (n < ETH_HLEN) return false;
 
     struct ethhdr *eth_header;
     bool error = false;
@@ -63,6 +63,7 @@ bool handle_ethernet(unsigned char *buffer, int n, struct eth_info *eth)
         unsigned char *ptr;
 
         ptr = buffer + ETH_HLEN;
+        eth->payload_len = eth->ethertype;
         eth->llc = calloc(1, sizeof(struct eth_802_llc));
         eth->llc->dsap = ptr[0];
         eth->llc->ssap = ptr[1];

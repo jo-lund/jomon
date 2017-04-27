@@ -76,6 +76,7 @@ static bool interactive = false;
 static bool input_mode = false;
 static _stack_t *screen_stack;
 static file_input_dialogue *id = NULL;
+static file_input_dialogue *sd = NULL;
 static label_dialogue *ld = NULL;
 static char load_filepath[MAXPATH + 1] = { 0 };
 static bool decode_error = false;
@@ -85,6 +86,7 @@ static void create_layout();
 static main_screen *main_screen_create(int nlines, int ncols);
 static void main_screen_free(main_screen *mw);
 static void main_screen_clear();
+static void main_screen_get_input();
 static void print_help();
 static void set_interactive(bool interactive_mode, int num_lines);
 static bool check_line();
@@ -102,9 +104,12 @@ static void print_protocol_information(struct packet *p, int lineno);
 static void goto_line(int c);
 static void goto_end();
 static void create_load_dialogue();
+static void create_save_dialogue();
 static void create_file_error_dialogue(enum file_error err);
 static void load_handle_ok(void *file);
 static void load_handle_cancel(void *);
+static void save_handle_ok(void *file);
+static void save_handle_cancel(void *);
 static void handle_file_error();
 
 /* Handles subwindow layout */
@@ -409,6 +414,7 @@ void main_screen_clear()
     wmain->outy = 0;
 }
 
+// TODO: Maybe the create_xxx_dialogues should return a pointer to dialogue
 void create_load_dialogue()
 {
     if (!id) {
@@ -418,6 +424,14 @@ void create_load_dialogue()
             FILE_INPUT_DIALOGUE_SET_INPUT(id, load_filepath);
         }
         push_screen((screen *) id);
+    }
+}
+
+void create_save_dialogue()
+{
+    if (!sd) {
+        sd = file_input_dialogue_create("Save file", save_handle_ok, save_handle_cancel);
+        push_screen((screen *) sd);
     }
 }
 
@@ -475,6 +489,27 @@ void load_handle_cancel(void *d)
     }
 }
 
+void save_handle_ok(void *file)
+{
+    enum file_error err;
+    FILE *fp;
+
+    if ((fp = open_file((const char *) file, "w", &err)) == NULL) {
+        create_file_error_dialogue(err);
+    } else {
+        write_file(fp, packets);
+        fclose(fp);
+    }
+    file_input_dialogue_free(sd);
+    sd = NULL;
+}
+
+void save_handle_cancel(void *d)
+{
+    file_input_dialogue_free(sd);
+    sd = NULL;
+}
+
 void handle_file_error()
 {
     label_dialogue_free(ld);
@@ -495,13 +530,10 @@ void scroll_window()
     }
 }
 
-void get_input()
+void handle_input()
 {
-    int c = 0;
-    int my;
     screen *s = stack_top(screen_stack);
 
-    // TODO: fix the handling of this
     if (s) {
         switch (s->type) {
         case STAT_SCREEN:
@@ -511,16 +543,23 @@ void get_input()
             pop_screen();
             break;
         case FILE_INPUT_DIALOGUE:
-            FILE_INPUT_DIALOGUE_GET_INPUT(id);
+            FILE_INPUT_DIALOGUE_GET_INPUT((file_input_dialogue *) s);
             break;
         case LABEL_DIALOGUE:
-            LABEL_DIALOGUE_GET_INPUT(ld);
+            LABEL_DIALOGUE_GET_INPUT((label_dialogue *) s);
             break;
         default:
             break;
         }
-        return;
+    } else { /* main screen is not part of the screen stack */
+        main_screen_get_input();
     }
+}
+
+void main_screen_get_input()
+{
+    int c = 0;
+    int my;
 
     my = getmaxy(wmain->pktlist);
     c = wgetch(wmain->pktlist);
@@ -635,7 +674,14 @@ void get_input()
         }
         break;
     case KEY_F(4):
-        create_load_dialogue();
+        if (!capturing) {
+            create_load_dialogue();
+        }
+        break;
+    case KEY_F(5):
+        if (!capturing) {
+            create_save_dialogue();
+        }
         break;
     case 'g':
         if (!interactive) return;

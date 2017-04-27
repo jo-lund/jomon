@@ -13,11 +13,8 @@ void init_ncurses(bool is_capturing);
 /* end ncurses mode */
 void end_ncurses();
 
-/* get input from user */
-void get_input();
-
+void handle_input();
 void print_packet(struct packet *p);
-
 void print_file();
 
 #endif

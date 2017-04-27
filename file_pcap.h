@@ -1,6 +1,8 @@
 #ifndef FILE_PCAP_H
 #define FILE_PCAP_H
 
+#include "vector.h"
+
 typedef bool (*packet_handler)(unsigned char *buffer, uint32_t n, struct timeval *t);
 
 enum file_error {
@@ -17,7 +19,7 @@ enum file_error {
  * returns a pointer to FILE that needs to be closed by the caller. Otherwise
  * 'err' will be set indicating the error and NULL is returned.
  */
-FILE *open_file(const char *path, const char *mode,  enum file_error *err);
+FILE *open_file(const char *path, const char *mode, enum file_error *err);
 
 /*
  * Read file in pcap format. 'packet_handler' is a callback function that will
@@ -28,6 +30,8 @@ FILE *open_file(const char *path, const char *mode,  enum file_error *err);
  * with a DECODE_ERROR.
  */
 enum file_error read_file(FILE *fp, packet_handler f);
+
+void write_file(FILE *fp, vector_t *packets);
 
 /* Get a string representing the error */
 char *get_file_error(enum file_error err);

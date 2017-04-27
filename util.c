@@ -20,7 +20,7 @@
  * Transform a hex string in the format aa:bb:cc:dd:ee:ff to its integer
  * representation stored in a char array of size 6.
  */
-static bool hextoint(unsigned char dest[], char *src)
+bool hextoint(unsigned char dest[], char *src)
 {
     if (strlen(src) != HW_ADDRSTRLEN) return false;
 

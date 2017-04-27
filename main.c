@@ -267,7 +267,7 @@ void run()
             }
         }
         if (fds[1].revents & POLLIN) {
-            get_input();
+            handle_input();
         }
     }
 }

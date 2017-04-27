@@ -6,12 +6,16 @@
 #include <limits.h>
 #include <errno.h>
 #include "file_pcap.h"
-#include "error.h"
-#include "vector.h"
-#include "decoder/decoder.h"
+#include "misc.h"
+#include "decoder/packet.h"
 
 #define BUFSIZE 128 * 1024
 #define LINKTYPE_ETHERNET 1
+#define MAGIC_NUMBER 0xa1b2c3d4
+#define MAJOR_VERSION 2
+#define MINOR_VERSION 4
+#define TZ 0
+#define SIGFIGS 0
 
 /* global header that starts the pcap file */
 typedef struct pcap_hdr_s {
@@ -32,12 +36,14 @@ typedef struct pcaprec_hdr_s {
     uint32_t orig_len;       /* actual length of packet */
 } pcaprec_hdr_t;
 
-static bool big_endian = false;
+static bool swap_bytes = false;
 static packet_handler pkt_handler;
 
 static int read_buf(unsigned char *buf, size_t len);
 static enum file_error read_header(unsigned char *buf, size_t len);
 static enum file_error errno_file_error(int err);
+static void write_header(unsigned char *buf);
+static int write_data(unsigned char *buf, int len, struct packet *p);
 
 FILE *open_file(const char *path, const char *mode, enum file_error *err)
 {
@@ -87,9 +93,9 @@ enum file_error read_header(unsigned char *buf, size_t len)
 
     file_header = (pcap_hdr_t *) buf;
     if (file_header->magic_number == 0xa1b2c3d4) {
-        big_endian = false;
+        swap_bytes = false;
     } else if (file_header->magic_number == 0xd4c3b2a1) {
-        big_endian = true;
+        swap_bytes = true;
     } else {
         return FORMAT_ERROR;
     }
@@ -110,7 +116,7 @@ int read_buf(unsigned char *buf, size_t len)
             return n;
         }
         pkt_hdr = (pcaprec_hdr_t *) buf;
-        pkt_len = big_endian ? ntohl(pkt_hdr->incl_len) : pkt_hdr->incl_len;
+        pkt_len = swap_bytes ? ntohl(pkt_hdr->incl_len) : pkt_hdr->incl_len;
         if (pkt_len > USHRT_MAX) {
             return -1;
         }
@@ -129,6 +135,70 @@ int read_buf(unsigned char *buf, size_t len)
     }
 
     return 0;
+}
+
+void write_file(FILE *fp, vector_t *packets)
+{
+    int bufidx = 0;
+    unsigned char buf[BUFSIZE];
+    bool flush = false;
+
+    write_header(buf);
+    bufidx += sizeof(pcap_hdr_t);
+    for (int i = 0; i < vector_size(packets); i++) {
+        int n = write_data(buf + bufidx, BUFSIZE - bufidx,
+                           (struct packet *) vector_get_data(packets, i));
+        if (!n) { /* write buf to file */
+            fwrite(buf, sizeof(unsigned char), bufidx, fp);
+            bufidx = 0;
+            flush = false;
+        } else {
+            bufidx += n;
+            flush = true;
+        }
+    }
+    if (flush) {
+        fwrite(buf, sizeof(unsigned char), bufidx, fp);
+    }
+}
+
+/*
+ * Write global pcap header to buffer. We assume buffer is big enough to contain
+ * the data.
+ */
+void write_header(unsigned char *buf)
+{
+    static pcap_hdr_t header;
+
+    header.magic_number = MAGIC_NUMBER;
+    header.version_major = MAJOR_VERSION;
+    header.version_minor = MINOR_VERSION;
+    header.thiszone = 0;
+    header.sigfigs = SIGFIGS;
+    header.snaplen = SNAPLEN;
+    header.network = LINKTYPE_ETHERNET;
+    memcpy(buf, &header, sizeof(pcap_hdr_t));
+}
+
+int write_data(unsigned char *buf, int len, struct packet *p)
+{
+    if (p->eth.payload_len + ETH_HLEN > len) {
+        return 0;
+    }
+
+    pcaprec_hdr_t pcap_hdr;
+
+    /* write pcap header */
+    pcap_hdr.ts_sec = p->time.tv_sec;
+    pcap_hdr.ts_usec = p->time.tv_usec;
+    pcap_hdr.incl_len = p->eth.payload_len + ETH_HLEN;
+    pcap_hdr.orig_len = p->eth.payload_len + ETH_HLEN;
+    memcpy(buf, &pcap_hdr, sizeof(pcaprec_hdr_t));
+
+    /* write packet */
+    memcpy(buf + sizeof(pcaprec_hdr_t), p->eth.data, p->eth.payload_len + ETH_HLEN);
+
+    return p->eth.payload_len + ETH_HLEN + sizeof(pcaprec_hdr_t);
 }
 
 enum file_error errno_file_error(int err)

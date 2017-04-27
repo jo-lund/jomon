@@ -3,9 +3,8 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <linux/if_ether.h>
+#include <netinet/if_ether.h>
 
-#define ETHERNET_HDRLEN 14
 #define LLC_HDR_LEN 3
 #define SNAP_HDR_LEN 5
 
@@ -43,7 +42,7 @@ struct eth_info {
     unsigned char mac_dst[ETH_ALEN];
     uint16_t ethertype;
     uint16_t payload_len; /* for 802.3 frames ethertype contains the payload length */
-    unsigned char *data; /* contains the frame as seen on the wire */
+    unsigned char *data; /* contains the frame as seen on the network */
     union {
         struct eth_802_llc *llc;
         struct arp_info *arp;
