@@ -22,17 +22,17 @@
 #define RENDER(o, win, s) (o)->render(o, win, s)
 
 typedef struct {
-    bool expanded;
-    int32_t data;
-    list_t *subwidgets;
-} list_view_header;
-
-typedef struct {
-    list_view_header hdr;
     char *txt;
     uint32_t attr;
     uint16_t type;
 } list_view_item;
+
+typedef struct {
+    list_view_item base;
+    bool expanded;
+    int32_t data;
+    list_t *subwidgets;
+} list_view_header;
 
 typedef struct lw {
     int num_elements; /* number of elements in the list_view */
@@ -43,14 +43,14 @@ typedef struct lw {
      * Adds a header element to the list view. The header will be prefixed by '+'
      * or '-' depending on whether it is expanded or not.
      */
-    list_view_item* (*add_header)(struct lw *this, char *text, bool expanded, uint32_t data);
+    list_view_header* (*add_header)(struct lw *this, char *text, bool expanded, uint32_t data);
 
     /* Adds a header as a sub element to another header */
-    list_view_item* (*add_sub_header)(struct lw *this, list_view_item *header, bool expanded,
+    list_view_header* (*add_sub_header)(struct lw *this, list_view_header *header, bool expanded,
                                       uint32_t data, char *txt, ...);
 
     /* Adds a text element to the list view. */
-    list_view_item* (*add_text_element)(struct lw *this, list_view_item *header, char *txt, ...);
+    list_view_item* (*add_text_element)(struct lw *this, list_view_header *header, char *txt, ...);
 
     /* Sets the header on line 'i' to expanded */
     void (*set_expanded)(struct lw *this, int i, bool expanded);

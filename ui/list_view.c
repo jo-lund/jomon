@@ -8,10 +8,10 @@ enum type {
     TEXT
 };
 
-static list_view_item *add_header(list_view *this, char *text, bool expanded, uint32_t data);
-static list_view_item *add_sub_header(list_view *this, list_view_item *header, bool expanded,
+static list_view_header *add_header(list_view *this, char *text, bool expanded, uint32_t data);
+static list_view_header *add_sub_header(list_view *this, list_view_header *header, bool expanded,
                                       uint32_t data, char *text, ...);
-static list_view_item *add_text_element(list_view *this, list_view_item *header, char *txt, ...);
+static list_view_item *add_text_element(list_view *this, list_view_header *header, char *txt, ...);
 static void free_list_view_item(list_t *widgets);
 static void render(list_view *this, WINDOW *win, int scrollx);
 static bool get_expanded(list_view *this, int i);
@@ -19,7 +19,9 @@ static void set_expanded(list_view *this, int i, bool expanded);
 static int32_t get_data(list_view *this, int i);
 static uint32_t get_attribute(list_view *this, int i);
 static void print_elements(list_t *widgets, WINDOW *win, int pad, int *line, int scrollx);
-static list_view_item *create_element(enum type t, char *text, bool expanded, uint16_t data, uint32_t attr);
+static list_view_item *create_item(char *txt, uint32_t attr, uint16_t type);
+static list_view_header *create_header(char *txt, bool expanded, uint16_t data, uint32_t attr);
+static void list_view_item_init(list_view_item *item, char *txt, uint32_t attr, uint16_t type);
 static list_view_item *get_widget(list_t *widgets, int i, int *j);
 static int get_size(list_t *widgets);
 
@@ -57,8 +59,8 @@ void free_list_view_item(list_t *widgets)
     while (n) {
         list_view_item *w = (list_view_item *) list_data(n);
 
-        if (w->type == HEADER && w->hdr.subwidgets) {
-            free_list_view_item(w->hdr.subwidgets);
+        if (w->type == HEADER && ((list_view_header *) w)->subwidgets) {
+            free_list_view_item(((list_view_header *) w)->subwidgets);
         }
         free(w->txt);
         n = list_next(n);
@@ -66,39 +68,52 @@ void free_list_view_item(list_t *widgets)
     list_free(widgets, free);
 }
 
-list_view_item *create_element(enum type t, char *txt, bool expanded, uint16_t data, uint32_t attr)
+list_view_item *create_item(char *txt, uint32_t attr, uint16_t type)
 {
     char *elem;
     int len;
     list_view_item *widget;
 
     widget = malloc(sizeof(list_view_item));
-    widget->type = t;
     len = strlen(txt);
-    if (t == HEADER) {
-        elem = malloc(len + 3);
-        if (expanded) {
-            strncpy(elem, "- ", 2);
-        } else {
-            strncpy(elem, "+ ", 2);
-        }
-        strncpy(elem + 2, txt, len + 1);
-        widget->hdr.expanded = expanded;
-        widget->hdr.data = data;
-        widget->hdr.subwidgets = NULL;
-        widget->attr = attr;
-    } else {
-        elem = malloc(len + 1);
-        strncpy(elem, txt, len + 1);
-        widget->attr = A_NORMAL;
-    }
-    widget->txt = elem;
+    elem = malloc(len + 1);
+    strncpy(elem, txt, len + 1);
+    list_view_item_init(widget, elem, attr, type);
     return widget;
 }
 
-list_view_item *add_header(list_view *this, char *txt, bool expanded, uint32_t data)
+void list_view_item_init(list_view_item *item, char *txt, uint32_t attr, uint16_t type)
 {
-    list_view_item *w = create_element(HEADER, txt, expanded, data, A_BOLD);
+    item->type = type;
+    item->attr = attr;
+    item->txt = txt;
+}
+
+list_view_header *create_header(char *txt, bool expanded, uint16_t data, uint32_t attr)
+{
+    char *elem;
+    int len;
+    list_view_header *widget;
+
+    widget = malloc(sizeof(list_view_header));
+    len = strlen(txt);
+    elem = malloc(len + 3);
+    if (expanded) {
+        strncpy(elem, "- ", 2);
+    } else {
+        strncpy(elem, "+ ", 2);
+    }
+    strncpy(elem + 2, txt, len + 1);
+    list_view_item_init((list_view_item *) widget, elem, attr, HEADER);
+    widget->expanded = expanded;
+    widget->data = data;
+    widget->subwidgets = NULL;
+    return widget;
+}
+
+list_view_header *add_header(list_view *this, char *txt, bool expanded, uint32_t data)
+{
+    list_view_header *w = create_header(txt, expanded, data, A_BOLD);
 
     list_push_back(this->widgets, w);
     this->num_elements++;
@@ -106,10 +121,8 @@ list_view_item *add_header(list_view *this, char *txt, bool expanded, uint32_t d
     return w;
 }
 
-list_view_item *add_text_element(list_view *this, list_view_item *header, char *txt, ...)
+list_view_item *add_text_element(list_view *this, list_view_header *header, char *txt, ...)
 {
-    if (header->type != HEADER) return NULL;
-
     va_list ap;
     char buf[MAXLINE];
     list_view_item *w;
@@ -118,36 +131,36 @@ list_view_item *add_text_element(list_view *this, list_view_item *header, char *
     vsnprintf(buf, MAXLINE - 1, txt, ap);
     strcat(buf, "\n");
     va_end(ap);
-    w = create_element(TEXT, buf, false, 0, A_NORMAL);
-    if (!header->hdr.subwidgets) {
-        header->hdr.subwidgets = list_init();
+    w = create_item(buf, A_NORMAL, TEXT);
+    if (!header->subwidgets) {
+        header->subwidgets = list_init();
     }
-    list_push_back(header->hdr.subwidgets, w);
+    list_push_back(header->subwidgets, w);
     this->num_elements++;
-    if (header->hdr.expanded) {
+    if (header->expanded) {
         this->size++;
     }
     return w;
 }
 
-list_view_item *add_sub_header(list_view *this, list_view_item *header, bool expanded,
+list_view_header *add_sub_header(list_view *this, list_view_header *header, bool expanded,
                                uint32_t data, char *txt, ...)
 {
     va_list ap;
     char buf[MAXLINE];
-    list_view_item *h;
+    list_view_header *h;
 
     va_start(ap, txt);
     vsnprintf(buf, MAXLINE - 1, txt, ap);
     strcat(buf, "\n");
     va_end(ap);
-    h = create_element(HEADER, buf, expanded, data, A_BOLD);
-    if (!header->hdr.subwidgets) {
-        header->hdr.subwidgets = list_init();
+    h = create_header(buf, expanded, data, A_BOLD);
+    if (!header->subwidgets) {
+        header->subwidgets = list_init();
     }
-    list_push_back(header->hdr.subwidgets, h);
+    list_push_back(header->subwidgets, h);
     this->num_elements++;
-    if (header->hdr.expanded) {
+    if (header->expanded) {
         this->size++;
     }
     return h;
@@ -176,8 +189,9 @@ void print_elements(list_t *widgets, WINDOW *win, int pad, int *line, int scroll
             mvwchgat(win, *line, 0, -1, w->attr, 0, NULL);
         }
         (*line)++;
-        if (w->type == HEADER && w->hdr.expanded && w->hdr.subwidgets) {
-            print_elements(w->hdr.subwidgets, win, pad + 2, line, scrollx);
+        if (w->type == HEADER && ((list_view_header *) w)->expanded &&
+            ((list_view_header *) w)->subwidgets) {
+            print_elements(((list_view_header *) w)->subwidgets, win, pad + 2, line, scrollx);
         }
         n = list_next(n);
     }
@@ -190,7 +204,7 @@ bool get_expanded(list_view *this, int i)
 
     w = get_widget(this->widgets, i, &j);
     if (w && w->type == HEADER) {
-        return w->hdr.expanded;
+        return ((list_view_header *) w)->expanded;
     }
     return false;
 }
@@ -202,12 +216,14 @@ void set_expanded(list_view *this, int i, bool expanded)
 
     w = get_widget(this->widgets, i, &j);
     if (w && w->type == HEADER) {
-        w->hdr.expanded = expanded;
-        if (expanded && w->hdr.subwidgets) {
-            this->size += get_size(w->hdr.subwidgets);
+        list_view_header *h = (list_view_header *) w;
+
+        h->expanded = expanded;
+        if (expanded && h->subwidgets) {
+            this->size += get_size(h->subwidgets);
             *w->txt = '-';
-        } else if (w->hdr.subwidgets) {
-            this->size -= get_size(w->hdr.subwidgets);
+        } else if (h->subwidgets) {
+            this->size -= get_size(h->subwidgets);
             *w->txt = '+';
         }
     }
@@ -220,7 +236,7 @@ int32_t get_data(list_view *this, int i)
 
     w = get_widget(this->widgets, i, &j);
     if (w && w->type == HEADER) {
-        return w->hdr.data;
+        return ((list_view_header *) w)->data;
     }
     return -1;
 }
@@ -248,8 +264,9 @@ list_view_item *get_widget(list_t *widgets, int i, int *j)
 
         if (i == *j && w) return w;
         if (++*j > i) return NULL;
-        if (w->type == HEADER && w->hdr.subwidgets && w->hdr.expanded) {
-            list_view_item *widget = get_widget(w->hdr.subwidgets, i, j);
+        if (w->type == HEADER && ((list_view_header *) w)->subwidgets &&
+            ((list_view_header *) w)->expanded) {
+            list_view_item *widget = get_widget(((list_view_header *) w)->subwidgets, i, j);
 
             if (widget) return widget;
         }
@@ -266,8 +283,9 @@ int get_size(list_t *widgets)
     while (n) {
         list_view_item *w = list_data(n);
 
-        if (w->type == HEADER && w->hdr.expanded && w->hdr.subwidgets) {
-            size += get_size(w->hdr.subwidgets);
+        if (w->type == HEADER && ((list_view_header *) w)->expanded &&
+            ((list_view_header *) w)->subwidgets) {
+            size += get_size(((list_view_header *) w)->subwidgets);
         }
         n = list_next(n);
     }

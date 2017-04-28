@@ -1150,7 +1150,7 @@ void print_selected_packet()
 
 void add_elements(struct packet *p)
 {
-    list_view_item *header;
+    list_view_header *header;
 
     if (wmain->lvw) {
         free_list_view(wmain->lvw);
@@ -1199,7 +1199,7 @@ void add_elements(struct packet *p)
 
 void add_transport_elements(struct packet *p)
 {
-    list_view_item *header;
+    list_view_header *header;
     uint8_t protocol = (p->eth.ethertype == ETH_P_IP) ? p->eth.ip->protocol : p->eth.ipv6->next_header;
 
     switch (protocol) {
@@ -1262,7 +1262,7 @@ void add_transport_elements(struct packet *p)
 
 void add_app_elements(struct packet *p, struct application_info *info, uint16_t len)
 {
-    list_view_item *header;
+    list_view_header *header;
 
     switch (info->utype) {
     case DNS:

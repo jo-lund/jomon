@@ -50,27 +50,27 @@ static void print_ssdp(char *buf, int n, list_t *ssdp);
 static void print_http(char *buf, int n, struct http_info *http);
 static void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t type);
 static void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t type);
-static void add_dns_soa(list_view *lw, list_view_item *w, struct dns_info *info, int i);
-static void add_dns_txt(list_view *lw, list_view_item *w, struct dns_info *dns, int i);
-static void add_dns_record(list_view *lw, list_view_item *w, struct dns_info *info, int i,
+static void add_dns_soa(list_view *lw, list_view_header *w, struct dns_info *info, int i);
+static void add_dns_txt(list_view *lw, list_view_header *w, struct dns_info *dns, int i);
+static void add_dns_record(list_view *lw, list_view_header *w, struct dns_info *info, int i,
                            char *buf, int n, uint16_t type);
-static void add_tcp_options(list_view *lw, list_view_item *header, struct tcp *tcp,
+static void add_tcp_options(list_view *lw, list_view_header *header, struct tcp *tcp,
                             bool options_selected);
-static void add_pim_hello(list_view *lw, list_view_item *header, struct pim_info *pim,
+static void add_pim_hello(list_view *lw, list_view_header *header, struct pim_info *pim,
                           bool msg_selected);
-static void add_pim_assert(list_view *lw, list_view_item *header, struct pim_info *pim,
+static void add_pim_assert(list_view *lw, list_view_header *header, struct pim_info *pim,
                            bool msg_selected);
-static void add_pim_hello(list_view *lw, list_view_item *header, struct pim_info *pim,
+static void add_pim_hello(list_view *lw, list_view_header *header, struct pim_info *pim,
                           bool msg_selected);
-static void add_pim_join_prune(list_view *lw, list_view_item *header, struct pim_info *pim,
+static void add_pim_join_prune(list_view *lw, list_view_header *header, struct pim_info *pim,
                                bool msg_selected);
-static void add_pim_register(list_view *lw, list_view_item *header, struct pim_info *pim,
+static void add_pim_register(list_view *lw, list_view_header *header, struct pim_info *pim,
                              bool msg_selected);
-static void add_pim_register_stop(list_view *lw, list_view_item *header, struct pim_info *pim,
+static void add_pim_register_stop(list_view *lw, list_view_header *header, struct pim_info *pim,
                                   bool msg_selected);
-static void add_pim_bootstrap(list_view *lw, list_view_item *header, struct pim_info *pim,
+static void add_pim_bootstrap(list_view *lw, list_view_header *header, struct pim_info *pim,
                               bool msg_selected);
-static void add_pim_candidate(list_view *lw, list_view_item *header, struct pim_info *pim,
+static void add_pim_candidate(list_view *lw, list_view_header *header, struct pim_info *pim,
                               bool msg_selected);
 
 void print_buffer(char *buf, int size, struct packet *p)
@@ -577,7 +577,7 @@ void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t
     }
 }
 
-void add_ethernet_information(list_view *lw, list_view_item *header, struct packet *p)
+void add_ethernet_information(list_view *lw, list_view_header *header, struct packet *p)
 {
     char line[MAXLINE];
     char src[HW_ADDRSTRLEN];
@@ -596,7 +596,7 @@ void add_ethernet_information(list_view *lw, list_view_item *header, struct pack
     ADD_TEXT_ELEMENT(lw, header, "");
 }
 
-void add_llc_information(list_view *lw, list_view_item *header, struct packet *p)
+void add_llc_information(list_view *lw, list_view_header *header, struct packet *p)
 {
     ADD_TEXT_ELEMENT(lw, header, "Destination Service Access Point (DSAP): 0x%x", p->eth.llc->dsap);
     ADD_TEXT_ELEMENT(lw, header, "Source Service Access Point (SSAP): 0x%x", p->eth.llc->ssap);
@@ -604,7 +604,7 @@ void add_llc_information(list_view *lw, list_view_item *header, struct packet *p
     ADD_TEXT_ELEMENT(lw, header, "");
 }
 
-void add_snap_information(list_view *lw, list_view_item *header, struct packet *p)
+void add_snap_information(list_view *lw, list_view_header *header, struct packet *p)
 {
     ADD_TEXT_ELEMENT(lw, header, "IEEE Organizationally Unique Identifier (OUI): 0x%06x\n",
               get_eth802_oui(p->eth.llc->snap));
@@ -612,7 +612,7 @@ void add_snap_information(list_view *lw, list_view_item *header, struct packet *
     ADD_TEXT_ELEMENT(lw, header, "");
 }
 
-void add_arp_information(list_view *lw, list_view_item *header, struct packet *p)
+void add_arp_information(list_view *lw, list_view_header *header, struct packet *p)
 {
     char sip[INET_ADDRSTRLEN];
     char tip[INET_ADDRSTRLEN];
@@ -633,7 +633,7 @@ void add_arp_information(list_view *lw, list_view_item *header, struct packet *p
     ADD_TEXT_ELEMENT(lw, header, "Target IP: %-15s  HW: %s", tip, tha);
 }
 
-void add_stp_information(list_view *lw, list_view_item *header, struct packet *p)
+void add_stp_information(list_view *lw, list_view_header *header, struct packet *p)
 {
     ADD_TEXT_ELEMENT(lw, header, "Protocol Id: %d", p->eth.llc->bpdu->protocol_id);
     ADD_TEXT_ELEMENT(lw, header, "Version: %d", p->eth.llc->bpdu->version);
@@ -672,7 +672,7 @@ void add_stp_information(list_view *lw, list_view_item *header, struct packet *p
     }
 }
 
-void add_ipv4_information(list_view *lw, list_view_item *header, struct ip_info *ip)
+void add_ipv4_information(list_view *lw, list_view_header *header, struct ip_info *ip)
 {
     char *protocol;
     char *dscp;
@@ -722,7 +722,7 @@ void add_ipv4_information(list_view *lw, list_view_item *header, struct ip_info 
     ADD_TEXT_ELEMENT(lw, header, "");
 }
 
-void add_ipv6_information(list_view *lw, list_view_item *header, struct ipv6_info *ip)
+void add_ipv6_information(list_view *lw, list_view_header *header, struct ipv6_info *ip)
 {
     char src[INET6_ADDRSTRLEN];
     char dst[INET6_ADDRSTRLEN];
@@ -746,7 +746,7 @@ void add_ipv6_information(list_view *lw, list_view_item *header, struct ipv6_inf
     ADD_TEXT_ELEMENT(lw, header, "");
 }
 
-void add_icmp_information(list_view *lw, list_view_item *header, struct icmp_info *icmp)
+void add_icmp_information(list_view *lw, list_view_header *header, struct icmp_info *icmp)
 {
     ADD_TEXT_ELEMENT(lw, header, "Type: %d (%s)", icmp->type, get_icmp_type(icmp->type));
     switch (icmp->type) {
@@ -767,7 +767,7 @@ void add_icmp_information(list_view *lw, list_view_item *header, struct icmp_inf
     }
 }
 
-void add_igmp_information(list_view *lw, list_view_item *header, struct igmp_info *igmp)
+void add_igmp_information(list_view *lw, list_view_header *header, struct igmp_info *igmp)
 {
     char addr[INET_ADDRSTRLEN];
     char buf[MAXLINE];
@@ -791,7 +791,7 @@ void add_igmp_information(list_view *lw, list_view_item *header, struct igmp_inf
     ADD_TEXT_ELEMENT(lw, header, "Group address: %s", addr);
 }
 
-void add_pim_information(list_view *lw, list_view_item *header, struct pim_info *pim, bool msg_selected)
+void add_pim_information(list_view *lw, list_view_header *header, struct pim_info *pim, bool msg_selected)
 {
     char *type = get_pim_message_type(pim->type);
 
@@ -831,18 +831,18 @@ void add_pim_information(list_view *lw, list_view_item *header, struct pim_info 
     }
 }
 
-void add_pim_hello(list_view *lw, list_view_item *header, struct pim_info *pim, bool msg_selected)
+void add_pim_hello(list_view *lw, list_view_header *header, struct pim_info *pim, bool msg_selected)
 {
     list_t *opt;
     const node_t *n;
-    list_view_item *h;
+    list_view_header *h;
 
     opt = parse_hello_options(pim);
     h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Hello Message (%d options)", list_size(opt));
     n = list_begin(opt);
     while (n) {
         struct pim_hello *hello = list_data(n);
-        list_view_item *w;
+        list_view_header *w;
         struct tm_t tm;
         char time[512];
 
@@ -894,23 +894,23 @@ void add_pim_hello(list_view *lw, list_view_item *header, struct pim_info *pim, 
     list_free(opt, free);
 }
 
-void add_pim_register(list_view *lw, list_view_item *header, struct pim_info *pim, bool msg_selected)
+void add_pim_register(list_view *lw, list_view_header *header, struct pim_info *pim, bool msg_selected)
 {
-    list_view_item *h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Register Message");
+    list_view_header *h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Register Message");
 
     ADD_TEXT_ELEMENT(lw, h, "Border bit: %d", pim->reg->border);
     ADD_TEXT_ELEMENT(lw, h, "Null-Register bit: %d", pim->reg->null);
     if (pim->reg->data) {
-        list_view_item *w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Data");
+        list_view_header *w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Data");
 
         add_payload(lw, w, pim->reg->data, pim->reg->data_len);
     }
 }
 
-void add_pim_register_stop(list_view *lw, list_view_item *header, struct pim_info *pim,
+void add_pim_register_stop(list_view *lw, list_view_header *header, struct pim_info *pim,
                            bool msg_selected)
 {
-    list_view_item *h;
+    list_view_header *h;
     char *addr;
 
     h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Register-Stop Message");
@@ -926,9 +926,9 @@ void add_pim_register_stop(list_view *lw, list_view_item *header, struct pim_inf
     }
 }
 
-void add_pim_assert(list_view *lw, list_view_item *header, struct pim_info *pim, bool msg_selected)
+void add_pim_assert(list_view *lw, list_view_header *header, struct pim_info *pim, bool msg_selected)
 {
-    list_view_item *h;
+    list_view_header *h;
     char *addr;
 
     h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Assert Message");
@@ -947,10 +947,10 @@ void add_pim_assert(list_view *lw, list_view_item *header, struct pim_info *pim,
     ADD_TEXT_ELEMENT(lw, h, "Metric: %u", pim->assert->metric);
 }
 
-void add_pim_join_prune(list_view *lw, list_view_item *header, struct pim_info *pim, bool msg_selected)
+void add_pim_join_prune(list_view *lw, list_view_header *header, struct pim_info *pim, bool msg_selected)
 {
-    list_view_item *h;
-    list_view_item *grp;
+    list_view_header *h;
+    list_view_header *grp;
     char *addr;
     struct tm_t tm;
     char time[512];
@@ -981,8 +981,8 @@ void add_pim_join_prune(list_view *lw, list_view_item *header, struct pim_info *
     grp = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Groups (%d)", pim->jpg->num_groups);
 
     for (int i = 0; i < pim->jpg->num_groups; i++) {
-        list_view_item *joined;
-        list_view_item *pruned;
+        list_view_header *joined;
+        list_view_header *pruned;
 
         addr = get_pim_address(pim->jpg->groups[i].gaddr.addr_family, pim->jpg->groups[i].gaddr.addr);
         if (addr) {
@@ -1017,10 +1017,10 @@ void add_pim_join_prune(list_view *lw, list_view_item *header, struct pim_info *
     }
 }
 
-void add_pim_bootstrap(list_view *lw, list_view_item *header, struct pim_info *pim, bool msg_selected)
+void add_pim_bootstrap(list_view *lw, list_view_header *header, struct pim_info *pim, bool msg_selected)
 {
-    list_view_item *h;
-    list_view_item *grp;
+    list_view_header *h;
+    list_view_header *grp;
     char *addr;
 
     h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Bootstrap Message");
@@ -1051,9 +1051,9 @@ void add_pim_bootstrap(list_view *lw, list_view_item *header, struct pim_info *p
     }
 }
 
-void add_pim_candidate(list_view *lw, list_view_item *header, struct pim_info *pim, bool msg_selected)
+void add_pim_candidate(list_view *lw, list_view_header *header, struct pim_info *pim, bool msg_selected)
 {
-    list_view_item *h;
+    list_view_header *h;
     char *addr;
 
     h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Candidate-RP-Advertisement Message");
@@ -1074,7 +1074,7 @@ void add_pim_candidate(list_view *lw, list_view_item *header, struct pim_info *p
     }
 }
 
-void add_udp_information(list_view *lw, list_view_item *header, struct udp_info *udp)
+void add_udp_information(list_view *lw, list_view_header *header, struct udp_info *udp)
 {
     ADD_TEXT_ELEMENT(lw, header, "Source port: %u", udp->src_port);
     ADD_TEXT_ELEMENT(lw, header, "Destination port: %u", udp->dst_port);
@@ -1083,7 +1083,7 @@ void add_udp_information(list_view *lw, list_view_item *header, struct udp_info 
     ADD_TEXT_ELEMENT(lw, header, "");
 }
 
-void add_tcp_information(list_view *lw, list_view_item *header, struct tcp *tcp, bool options_selected)
+void add_tcp_information(list_view *lw, list_view_header *header, struct tcp *tcp, bool options_selected)
 {
     ADD_TEXT_ELEMENT(lw, header, "Source port: %u", tcp->src_port);
     ADD_TEXT_ELEMENT(lw, header, "Destination port: %u", tcp->dst_port);
@@ -1103,11 +1103,11 @@ void add_tcp_information(list_view *lw, list_view_item *header, struct tcp *tcp,
     ADD_TEXT_ELEMENT(lw, header, "");
 }
 
-void add_tcp_options(list_view *lw, list_view_item *header, struct tcp *tcp, bool options_selected)
+void add_tcp_options(list_view *lw, list_view_header *header, struct tcp *tcp, bool options_selected)
 {
     list_t *options;
     const node_t *n;
-    list_view_item *h;
+    list_view_header *h;
 
     options = parse_tcp_options(tcp->options, (tcp->offset - 5) * 4);
     h = ADD_SUB_HEADER(lw, header, options_selected, SUBLAYER, "Options");
@@ -1115,7 +1115,7 @@ void add_tcp_options(list_view *lw, list_view_item *header, struct tcp *tcp, boo
 
     while (n) {
         struct tcp_options *opt = list_data(n);
-        list_view_item *w;
+        list_view_header *w;
 
         switch (opt->option_kind) {
         case TCP_OPT_NOP:
@@ -1170,7 +1170,7 @@ void add_tcp_options(list_view *lw, list_view_item *header, struct tcp *tcp, boo
     free_tcp_options(options);
 }
 
-void add_dns_information(list_view *lw, list_view_item *header, struct dns_info *dns,
+void add_dns_information(list_view *lw, list_view_header *header, struct dns_info *dns,
                          bool records_selected)
 {
     int records = 0;
@@ -1210,7 +1210,7 @@ void add_dns_information(list_view *lw, list_view_item *header, struct dns_info 
         len = get_dns_max_namelen(dns->record, records);
         for (int i = 0; i < records; i++) {
             char buffer[MAXLINE];
-            list_view_item *w;
+            list_view_header *w;
 
             snprintf(buffer, MAXLINE, "%-*s", len + 4, dns->record[i].name);
             snprintcat(buffer, MAXLINE, "%-6s", get_dns_class(GET_MDNS_RRCLASS(dns->record[i].rrclass)));
@@ -1222,7 +1222,7 @@ void add_dns_information(list_view *lw, list_view_item *header, struct dns_info 
     }
 }
 
-void add_dns_record(list_view *lw, list_view_item *w, struct dns_info *dns, int i, char *buf, int n, uint16_t type)
+void add_dns_record(list_view *lw, list_view_header *w, struct dns_info *dns, int i, char *buf, int n, uint16_t type)
 {
     char time[512];
     struct tm_t tm;
@@ -1257,7 +1257,7 @@ void add_dns_record(list_view *lw, list_view_item *w, struct dns_info *dns, int 
     ADD_TEXT_ELEMENT(lw, w, "");
 }
 
-void add_dns_txt(list_view *lw, list_view_item *w, struct dns_info *dns, int i)
+void add_dns_txt(list_view *lw, list_view_header *w, struct dns_info *dns, int i)
 {
     const node_t *node = list_begin(dns->record[i].rdata.txt);
 
@@ -1270,7 +1270,7 @@ void add_dns_txt(list_view *lw, list_view_item *w, struct dns_info *dns, int i)
     }
 }
 
-void add_dns_soa(list_view *lw, list_view_item *w, struct dns_info *dns, int i)
+void add_dns_soa(list_view *lw, list_view_header *w, struct dns_info *dns, int i)
 {
     char time[512];
     struct tm_t tm;
@@ -1297,7 +1297,7 @@ void add_dns_soa(list_view *lw, list_view_item *w, struct dns_info *dns, int i)
               dns->record[i].rdata.soa.minimum, time);
 }
 
-void add_nbns_information(list_view *lw, list_view_item *header, struct nbns_info *nbns)
+void add_nbns_information(list_view *lw, list_view_header *header, struct nbns_info *nbns)
 {
     int records = 0;
 
@@ -1335,7 +1335,7 @@ void add_nbns_information(list_view *lw, list_view_item *header, struct nbns_inf
     }
 }
 
-void add_ssdp_information(list_view *lw, list_view_item *header, list_t *ssdp)
+void add_ssdp_information(list_view *lw, list_view_header *header, list_t *ssdp)
 {
     const node_t *n;
 
@@ -1346,11 +1346,11 @@ void add_ssdp_information(list_view *lw, list_view_item *header, list_t *ssdp)
     }
 }
 
-void add_http_information(list_view *lw, list_view_item *header, struct http_info *http)
+void add_http_information(list_view *lw, list_view_header *header, struct http_info *http)
 {
 }
 
-void add_payload(list_view *lw, list_view_item *header, unsigned char *payload, uint16_t len)
+void add_payload(list_view *lw, list_view_header *header, unsigned char *payload, uint16_t len)
 {
     int size = 1024;
     int num = 0;
