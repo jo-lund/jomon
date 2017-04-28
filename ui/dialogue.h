@@ -20,27 +20,27 @@ typedef struct dialogue {
     int width;
 
     /* set title of the dialogue */
-    void (*dialogue_set_title)(struct dialogue *d, char *title);
+    void (*dialogue_set_title)(struct dialogue *this, char *title);
 
     /* display the dialogue */
-    void (*dialogue_render)(struct dialogue *d);
+    void (*dialogue_render)(struct dialogue *this);
 } dialogue;
 
 typedef struct file_input_dialogue {
-    char dialogue_base[sizeof(dialogue)];
+    dialogue dialogue_base;
     container input;
     button *ok;
     button *cancel;
     int has_focus;
 
     /* handle input */
-    void (*file_input_dialogue_get_input)(struct file_input_dialogue *id);
+    void (*file_input_dialogue_get_input)(struct file_input_dialogue *this);
 
     /* set the default input */
-    void (*file_input_dialogue_set_input)(struct file_input_dialogue *id, char *input);
+    void (*file_input_dialogue_set_input)(struct file_input_dialogue *this, char *input);
 
     /* set handlers for the 'ok' and 'cancel' buttons */
-    void (*file_input_dialogue_set_button_action)(struct file_input_dialogue *id,
+    void (*file_input_dialogue_set_button_action)(struct file_input_dialogue *this,
                                                   button_action ok,
                                                   button_action cancel);
 
@@ -49,7 +49,7 @@ typedef struct file_input_dialogue {
 } file_input_dialogue;
 
 typedef struct label_dialogue {
-    char dialogue_base[sizeof(dialogue)];
+    dialogue dialogue_base;
     char *label;
     button *ok;
 
