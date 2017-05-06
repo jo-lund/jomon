@@ -25,14 +25,13 @@
 #define STATUS_HEIGHT 1
 #define NUM_COLS_SCROLL 4
 
-#define SHOW_SELECTIONBAR(l, a) (mvwchgat(wmain->pktlist, l, 0, -1, a, 1, NULL))
-#define REMOVE_SELECTIONBAR(l, a) (mvwchgat(wmain->pktlist, l, 0, -1, a, 0, NULL))
+#define SHOW_SELECTIONBAR(l, a) (mvwchgat(mscr->pktlist, l, 0, -1, a, 1, NULL))
+#define REMOVE_SELECTIONBAR(l, a) (mvwchgat(mscr->pktlist, l, 0, -1, a, 0, NULL))
 
 extern vector_t *packets;
 extern main_context ctx;
 bool numeric = true;
 static bool selected[NUM_LAYERS]; // TODO: need to handle this differently
-static main_screen *wmain;
 static bool capturing = true;
 static bool interactive = false;
 static bool input_mode = false;
@@ -561,6 +560,7 @@ void scroll_column(main_screen *ms, int scrollx, int num_lines)
         werase(ms->pktlist);
         ms->scrollx += scrollx;
         if (ms->subwindow.win) {
+            /* print lines above subwindow */
             ms->outy = print_lines(ms, ms->top + ms->scrolly,
                                    ms->top + ms->scrolly + ms->subwindow.top, 0);
             print_subwindow(ms);
@@ -593,6 +593,7 @@ void handle_keyup(main_screen *ms, int num_lines)
         if (ms->subwindow.win) {
             ms->subwindow.top++;
             ms->main_line.line_number++;
+            mvderwin(ms->subwindow.win, ms->subwindow.top, 0);
         }
         if (p) {
             char line[MAXLINE];
@@ -641,6 +642,7 @@ void handle_keydown(main_screen *ms, int num_lines)
         if (ms->subwindow.win) {
             ms->subwindow.top--;
             ms->main_line.line_number--;
+            mvderwin(ms->subwindow.win, ms->subwindow.top, 0);
         }
         if (p) {
             char line[MAXLINE];
