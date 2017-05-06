@@ -68,9 +68,16 @@ void stat_screen_get_input()
         pop_screen();
         break;
     case KEY_F(1):
+    {
+        screen *scr;
+
         alarm(0);
-        push_screen(get_screen(HELP_SCREEN));
+        if (!(scr = get_screen(HELP_SCREEN))) {
+            scr = help_screen_create();
+        }
+        push_screen(scr);
         break;
+    }
     case 'p':
         show_packet_stats = !show_packet_stats;
         stat_screen_print();

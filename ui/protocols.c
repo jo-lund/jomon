@@ -73,7 +73,7 @@ static void add_pim_bootstrap(list_view *lw, list_view_header *header, struct pi
 static void add_pim_candidate(list_view *lw, list_view_header *header, struct pim_info *pim,
                               bool msg_selected);
 
-void print_buffer(char *buf, int size, struct packet *p)
+void write_to_buf(char *buf, int size, struct packet *p)
 {
     switch (p->eth.ethertype) {
     case ETH_P_ARP:

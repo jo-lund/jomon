@@ -10,7 +10,7 @@
 #define TIME_WIDTH 20
 
 /* write packet to buffer */
-void print_buffer(char *buf, int size, struct packet *p);
+void write_to_buf(char *buf, int size, struct packet *p);
 
 void add_ethernet_information(list_view *lw, list_view_header *header, struct packet *p);
 void add_arp_information(list_view *lw, list_view_header *header, struct packet *p);

@@ -116,7 +116,7 @@ int main(int argc, char **argv)
             for (int i = 0; i < vector_size(packets); i++) {
                 char buf[MAXLINE];
 
-                print_buffer(buf, MAXLINE, vector_get_data(packets, i));
+                write_to_buf(buf, MAXLINE, vector_get_data(packets, i));
                 printf("%s\n", buf);
             }
             finish();
@@ -261,7 +261,7 @@ void run()
                 } else {
                     char buf[MAXLINE];
 
-                    print_buffer(buf, MAXLINE, p);
+                    write_to_buf(buf, MAXLINE, p);
                     printf("%s\n", buf);
                 }
             }
