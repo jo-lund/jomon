@@ -3,11 +3,11 @@
 #include <ncurses.h>
 #include "button.h"
 
-static void button_set_action(button *b, button_action act);
+static void button_set_action(button *b, button_action act, void *arg);
 static void button_render(button *b);
 static void button_set_focus(button *b, bool has_focus);
 
-button *button_create(screen *scr, button_action act, char *txt, int y, int x)
+button *button_create(screen *scr, button_action act, void *arg, char *txt, int y, int x)
 {
     button *b = malloc(sizeof(button));
 
@@ -15,6 +15,7 @@ button *button_create(screen *scr, button_action act, char *txt, int y, int x)
     b->c.focus = false;
     b->txt = txt;
     b->action = act;
+    b->argument = arg;
     b->button_render = button_render;
     b->button_set_action = button_set_action;
     b->button_set_focus = button_set_focus;
@@ -27,9 +28,10 @@ void button_free(button *b)
     free(b);
 }
 
-void button_set_action(button *b, button_action act)
+void button_set_action(button *b, button_action act, void *arg)
 {
     b->action = act;
+    b->argument = arg;
 }
 
 void button_render(button *b)

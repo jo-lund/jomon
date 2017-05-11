@@ -58,12 +58,12 @@ static void goto_line(main_screen *ms, int c);
 static void goto_end(main_screen *ms);
 static void create_load_dialogue();
 static void create_save_dialogue();
-static void create_file_error_dialogue(enum file_error err);
+static void create_file_error_dialogue(enum file_error err, void (*callback)());
 static void load_handle_ok(void *file);
 static void load_handle_cancel(void *);
 static void save_handle_ok(void *file);
 static void save_handle_cancel(void *);
-static void handle_file_error();
+static void handle_file_error(void *callback);
 
 /* Handles subwindow layout */
 static void create_subwindow(main_screen *ms, int num_lines, int lineno);
@@ -158,11 +158,11 @@ void create_save_dialogue()
     }
 }
 
-void create_file_error_dialogue(enum file_error err)
+void create_file_error_dialogue(enum file_error err, void (*callback)())
 {
     char *error = get_file_error(err);
 
-    ld = label_dialogue_create("File Error", error, handle_file_error);
+    ld = label_dialogue_create("File Error", error, handle_file_error, callback);
     push_screen((screen *) ld);
 }
 
@@ -172,7 +172,7 @@ void load_handle_ok(void *file)
     FILE *fp;
 
     if ((fp = open_file((const char *) file, "r", &err)) == NULL) {
-        create_file_error_dialogue(err);
+        create_file_error_dialogue(err, create_load_dialogue);
     } else {
         vector_clear(packets);
         clear_statistics();
@@ -192,7 +192,7 @@ void load_handle_ok(void *file)
         } else {
             memset(ctx.filename, 0, MAXPATH);
             decode_error = true;
-            create_file_error_dialogue(err);
+            create_file_error_dialogue(err, create_load_dialogue);
         }
         fclose(fp);
     }
@@ -218,7 +218,7 @@ void save_handle_ok(void *file)
     FILE *fp;
 
     if ((fp = open_file((const char *) file, "w", &err)) == NULL) {
-        create_file_error_dialogue(err);
+        create_file_error_dialogue(err, create_save_dialogue);
     } else {
         write_file(fp, packets);
         fclose(fp);
@@ -233,11 +233,11 @@ void save_handle_cancel(void *d)
     sd = NULL;
 }
 
-void handle_file_error()
+void handle_file_error(void *callback)
 {
     label_dialogue_free(ld);
     ld = NULL;
-    create_load_dialogue();
+    (* ((void (*)()) callback))();
 }
 
 /* scroll the window if necessary */

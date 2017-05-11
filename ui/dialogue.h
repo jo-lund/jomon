@@ -8,8 +8,8 @@
 #define DIALOGUE_RENDER(o) ((o)->dialogue_render(o))
 #define FILE_INPUT_DIALOGUE_GET_INPUT(o) ((o)->file_input_dialogue_get_input(o))
 #define FILE_INPUT_DIALOGUE_SET_INPUT(o, i) ((o)->file_input_dialogue_set_input(o, i))
-#define FILE_INPUT_DIALOGUE_SET_BUTTON_ACTION(o, a1, a2)    \
-    ((o)->file_input_dialogue_set_button_action(o, a1, a2))
+#define FILE_INPUT_DIALOGUE_SET_BUTTON_ACTION(o, act1, arg1, act2, arg2) \
+    ((o)->file_input_dialogue_set_button_action(o, act1, arg1, act2, arg2))
 #define FILE_INPUT_DIALOGUE_RENDER(o) ((o)->file_input_dialogue_render(o))
 #define LABEL_DIALOGUE_GET_INPUT(o) ((o)->label_dialogue_get_input(o))
 
@@ -42,7 +42,9 @@ typedef struct file_input_dialogue {
     /* set handlers for the 'ok' and 'cancel' buttons */
     void (*file_input_dialogue_set_button_action)(struct file_input_dialogue *this,
                                                   button_action ok,
-                                                  button_action cancel);
+                                                  void *arg1,
+                                                  button_action cancel,
+                                                  void *arg2);
 
     /* display the file_input dialogue */
     void (*file_input_dialogue_render)(struct file_input_dialogue *id);
@@ -71,7 +73,7 @@ file_input_dialogue *file_input_dialogue_create(char *title, button_action ok,
 void file_input_dialogue_free(file_input_dialogue *id);
 
 /* Create a new label dialogue. It needs to be freed with 'label_dialogue_free' */
-label_dialogue *label_dialogue_create(char *title, char *label, button_action act);
+label_dialogue *label_dialogue_create(char *title, char *label, button_action act, void *arg);
 
 /* free the memory associated with label dialogue */
 void label_dialogue_free(label_dialogue *ld);
