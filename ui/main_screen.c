@@ -591,18 +591,9 @@ void handle_keyup(main_screen *ms, int num_lines)
 
         ms->top--;
         if (ms->subwindow.win) {
-            int my = getmaxy(ms->pktlist);
-
             ms->subwindow.top++;
-            if (ms->subwindow.top + ms->subwindow.num_lines > my) {
-                ms->scrolly = 0;
-                delete_subwindow(ms);
-                ms->main_line.selected = false;
-                return;
-            } else {
-                ms->main_line.line_number++;
-                mvderwin(ms->subwindow.win, ms->subwindow.top, 0);
-            }
+            ms->main_line.line_number++;
+            mvderwin(ms->subwindow.win, ms->subwindow.top, 0);
         }
         if (p) {
             char line[MAXLINE];
@@ -650,15 +641,8 @@ void handle_keydown(main_screen *ms, int num_lines)
         ms->top++;
         if (ms->subwindow.win) {
             ms->subwindow.top--;
-            if (ms->subwindow.top == 0) {
-                ms->scrolly = 0;
-                delete_subwindow(ms);
-                ms->main_line.selected = false;
-                return;
-            } else {
-                ms->main_line.line_number--;
-                mvderwin(ms->subwindow.win, ms->subwindow.top, 0);
-            }
+            ms->main_line.line_number--;
+            mvderwin(ms->subwindow.win, ms->subwindow.top, 0);
         }
         if (p) {
             char line[MAXLINE];
@@ -1081,7 +1065,6 @@ void delete_subwindow(main_screen *ms)
     delwin(ms->subwindow.win);
     ms->subwindow.win = NULL;
     ms->subwindow.num_lines = 0;
-    ms->subwindow.top = 0;
     werase(ms->pktlist);
 
     /*
