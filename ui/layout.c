@@ -121,13 +121,7 @@ void pop_screen()
     scr->focus = false;
     if (stack_empty(screen_stack)) {
         wgetch(ms->pktlist); /* remove character from input queue */
-        touchwin(ms->pktlist);
-        touchwin(ms->status);
-        touchwin(ms->header);
-        wnoutrefresh(ms->pktlist);
-        wnoutrefresh(ms->header);
-        wnoutrefresh(ms->status);
-        doupdate();
+        main_screen_refresh(ms);
     } else {
         screen *s = stack_top(screen_stack);
 

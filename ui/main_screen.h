@@ -9,9 +9,9 @@ typedef struct {
 
     struct subwin_info {
         WINDOW *win;
-        unsigned int top; /* index to the first line in the subwindow relative to the
-                             main window */
-        unsigned int num_lines;
+        int top; /* index to the first line in the subwindow relative to the
+                    main window */
+        int num_lines;
     } subwindow;
 
     WINDOW *header;
@@ -43,6 +43,7 @@ void main_screen_free(main_screen *ms);
 void main_screen_clear(main_screen *ms);
 void main_screen_get_input(main_screen *ms);
 void main_screen_set_interactive(main_screen *ms, bool interactive_mode);
+void main_screen_refresh(main_screen *ms);
 
 /* print the buffer to main screen */
 void main_screen_render(main_screen *ms, char *buf);
