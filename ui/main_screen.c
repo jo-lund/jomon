@@ -79,6 +79,7 @@ static void add_transport_elements(main_screen *ms, struct packet *p);
 static void add_app_elements(main_screen *ms, struct packet *p, struct application_info *info, uint16_t len);
 static void print_subwindow(main_screen *ms);
 static void handle_selectionbar(main_screen *ms, int c);
+static void refresh_pad(main_screen *ms, int scrolly, int minx);
 
 void main_screen_render(main_screen *ms, char *buf)
 {
@@ -583,10 +584,9 @@ void scroll_column(main_screen *ms, int scrollx, int num_lines)
         werase(ms->pktlist);
         ms->scrollx += scrollx;
         if (ms->subwindow.win) {
-            /* print lines above subwindow */
+            /* print lines above and below the pad */
             ms->outy = print_lines(ms, ms->top + ms->scrolly,
                                    ms->top + ms->scrolly + ms->subwindow.top, 0);
-            print_subwindow(ms);
             ms->outy += ms->lvw->size + 1;
             if (!ms->scrolly) {
                 ms->outy += print_lines(ms, ms->main_line.line_number + 1, ms->top + num_lines, ms->outy);
@@ -594,11 +594,13 @@ void scroll_column(main_screen *ms, int scrollx, int num_lines)
             if (!inside_subwindow(ms)) {
                 SHOW_SELECTIONBAR(ms->pktlist, ms->selection_line - ms->top, A_NORMAL);
             }
+            wrefresh(ms->pktlist);
+            refresh_pad(ms, 0, ms->scrollx);
         } else {
             ms->outy = print_lines(ms, ms->top, ms->top + num_lines, 0);
             SHOW_SELECTIONBAR(ms->pktlist, ms->selection_line - ms->top, A_NORMAL);
+            wrefresh(ms->pktlist);
         }
-        wrefresh(ms->pktlist);
     }
 }
 
@@ -630,32 +632,16 @@ void handle_keyup(main_screen *ms, int num_lines)
             wrefresh(ms->pktlist);
         }
         if (ms->subwindow.win) {
-            int my, mx;
-
-            getmaxyx(ms->pktlist, my, mx);
             handle_selectionbar(ms, KEY_UP);
-            ms->subwindow.top++;
-            ms->main_line.line_number++;
-            if (ms->subwindow.top < 0) {
-                prefresh(ms->subwindow.win, abs(ms->subwindow.top), 0, GET_SCRY(0), 0, GET_SCRY(my) - 1, mx);
-            } else {
-                prefresh(ms->subwindow.win, 0, 0, GET_SCRY(ms->subwindow.top), 0, GET_SCRY(my) - 1, mx);
-            }
+            refresh_pad(ms, 1, 0);
         }
     } else if (ms->selection_line > 0) {
         int screen_line = ms->selection_line - ms->top;
 
         if (ms->subwindow.win && screen_line >= ms->subwindow.top &&
             screen_line <= ms->subwindow.top + ms->subwindow.num_lines) {
-            int my, mx;
-
-            getmaxyx(ms->pktlist, my, mx);
             handle_selectionbar(ms, KEY_UP);
-            if (ms->subwindow.top < 0) {
-                prefresh(ms->subwindow.win, abs(ms->subwindow.top), 0, GET_SCRY(0), 0, GET_SCRY(my) - 1, mx);
-            } else {
-                prefresh(ms->subwindow.win, 0, 0, GET_SCRY(ms->subwindow.top), 0, GET_SCRY(my) - 1, mx);
-            }
+            refresh_pad(ms, 0, 0);
         } else {
             REMOVE_SELECTIONBAR(ms->pktlist, screen_line, A_NORMAL);
             SHOW_SELECTIONBAR(ms->pktlist, screen_line - 1, A_NORMAL);
@@ -695,32 +681,16 @@ void handle_keydown(main_screen *ms, int num_lines)
             wrefresh(ms->pktlist);
         }
         if (ms->subwindow.win) {
-            int my, mx;
-
             handle_selectionbar(ms, KEY_DOWN);
-            getmaxyx(ms->pktlist, my, mx);
-            ms->subwindow.top--;
-            ms->main_line.line_number--;
-            if (ms->subwindow.top <= 0) {
-                prefresh(ms->subwindow.win, abs(ms->subwindow.top), 0, GET_SCRY(0), 0, GET_SCRY(my) - 1, mx);
-            } else {
-                prefresh(ms->subwindow.win, 0, 0, GET_SCRY(ms->subwindow.top), 0, GET_SCRY(my) - 1, mx);
-            }
+            refresh_pad(ms, -1, 0);
         }
     } else {
         int screen_line = ms->selection_line - ms->top;
 
         if (ms->subwindow.win && screen_line + 1 >= ms->subwindow.top &&
             screen_line + 1 <= ms->subwindow.top + ms->subwindow.num_lines) {
-            int my, mx;
-
-            getmaxyx(ms->pktlist, my, mx);
             handle_selectionbar(ms, KEY_DOWN);
-            if (ms->subwindow.top <= 0) {
-                prefresh(ms->subwindow.win, abs(ms->subwindow.top), 0, GET_SCRY(0), 0, GET_SCRY(my) - 1, mx);
-            } else {
-                prefresh(ms->subwindow.win, 0, 0, GET_SCRY(ms->subwindow.top), 0, GET_SCRY(my) - 1, mx);
-            }
+            refresh_pad(ms, 0, 0);
         } else {
             REMOVE_SELECTIONBAR(ms->pktlist, screen_line, A_NORMAL);
             SHOW_SELECTIONBAR(ms->pktlist, screen_line + 1, A_NORMAL);
@@ -737,66 +707,81 @@ void scroll_page(main_screen *ms, int num_lines)
     }
     if (num_lines > 0) { /* scroll page down */
         if (vector_size(packets) <= num_lines) {
-            mvwchgat(ms->pktlist, ms->selection_line - ms->top, 0, -1, A_NORMAL, 0, NULL);
+            REMOVE_SELECTIONBAR(ms->pktlist, ms->selection_line - ms->top, A_NORMAL);
             ms->selection_line = vector_size(packets) - 1;
-            mvwchgat(ms->pktlist, ms->selection_line - ms->top, 0, -1, A_NORMAL, 1, NULL);
+            SHOW_SELECTIONBAR(ms->pktlist, ms->selection_line - ms->top, A_NORMAL);
+            wrefresh(ms->pktlist);
+            if (ms->subwindow.win) {
+                refresh_pad(ms, 0, 0);
+            }
         } else {
             int bottom = ms->top + num_lines - 1;
 
-            mvwchgat(ms->pktlist, ms->selection_line - ms->top, 0, -1, A_NORMAL, 0, NULL);
+            REMOVE_SELECTIONBAR(ms->pktlist, ms->selection_line - ms->top, A_NORMAL);
             ms->selection_line += num_lines;
             if (bottom + num_lines > vector_size(packets) - 1) {
                 int scroll = vector_size(packets) - bottom - 1;
 
                 wscrl(ms->pktlist, scroll);
                 ms->top += scroll;
-                if (ms->subwindow.win) {
-                    ms->subwindow.top -= scroll;
-                    ms->main_line.line_number -= scroll;
-                }
                 if (ms->selection_line >= vector_size(packets)) {
                     ms->selection_line = vector_size(packets) - 1;
                 }
                 print_lines(ms, bottom + 1, vector_size(packets), vector_size(packets) - scroll - ms->top);
+                SHOW_SELECTIONBAR(ms->pktlist, ms->selection_line - ms->top, A_NORMAL);
+                wrefresh(ms->pktlist);
+                if (ms->subwindow.win) {
+                    refresh_pad(ms, -scroll, 0);
+                }
             } else {
                 ms->top += num_lines;
-                if (ms->subwindow.win) {
-                    ms->subwindow.top -= num_lines;
-                    ms->main_line.line_number -= num_lines;
-                }
                 wscrl(ms->pktlist, num_lines);
                 print_lines(ms, ms->top, ms->top + num_lines, 0);
+                SHOW_SELECTIONBAR(ms->pktlist, ms->selection_line - ms->top, A_NORMAL);
+                wrefresh(ms->pktlist);
+                if (ms->subwindow.win) {
+                    refresh_pad(ms, -num_lines, 0);
+                }
             }
-            mvwchgat(ms->pktlist, ms->selection_line - ms->top, 0, -1, A_NORMAL, 1, NULL);
+
         }
     } else { /* scroll page up */
-        if (vector_size(packets) <= abs(num_lines)) {
-            mvwchgat(ms->pktlist, ms->selection_line, 0, -1, A_NORMAL, 0, NULL);
+        if (vector_size(packets) <= abs(num_lines) || ms->top == 0) {
+
+            REMOVE_SELECTIONBAR(ms->pktlist, ms->selection_line, A_NORMAL);
             ms->selection_line = 0;
-            mvwchgat(ms->pktlist, 0, 0, -1, A_NORMAL, 1, NULL);
+            SHOW_SELECTIONBAR(ms->pktlist, 0, A_NORMAL);
+            wrefresh(ms->pktlist);
+            if (ms->subwindow.win) {
+                refresh_pad(ms, 0, 0);
+            }
         } else {
-            mvwchgat(ms->pktlist, ms->selection_line - ms->top, 0, -1, A_NORMAL, 0, NULL);
+            REMOVE_SELECTIONBAR(ms->pktlist, ms->selection_line - ms->top, A_NORMAL);
             ms->selection_line += num_lines;
             if (ms->top + num_lines < 0) {
                 wscrl(ms->pktlist, -ms->top);
-                ms->top = 0;
                 if (ms->selection_line < 0) {
                     ms->selection_line = 0;
                 }
-                print_lines(ms, ms->top, ms->top - num_lines, 0);
+                print_lines(ms, 0, -num_lines, 0);
+                SHOW_SELECTIONBAR(ms->pktlist, ms->selection_line - ms->top, A_NORMAL);
+                wrefresh(ms->pktlist);
+                if (ms->subwindow.win) {
+                    refresh_pad(ms, ms->top, 0);
+                }
+                ms->top = 0;
             } else {
                 wscrl(ms->pktlist, num_lines);
                 ms->top += num_lines;
-                if (ms->subwindow.win) {
-                    ms->subwindow.top -= num_lines;
-                    ms->main_line.line_number -= num_lines;
-                }
                 print_lines(ms, ms->top, ms->top - num_lines, 0);
+                SHOW_SELECTIONBAR(ms->pktlist, ms->selection_line - ms->top, A_NORMAL);
+                wrefresh(ms->pktlist);
+                if (ms->subwindow.win) {
+                    refresh_pad(ms, -num_lines, 0);
+                }
             }
-            mvwchgat(ms->pktlist, ms->selection_line - ms->top, 0, -1, A_NORMAL, 1, NULL);
         }
     }
-    wrefresh(ms->pktlist);
 }
 
 void main_screen_set_interactive(main_screen *ms, bool interactive_mode)
@@ -1074,7 +1059,6 @@ void print_subwindow(main_screen *ms)
         SHOW_SELECTIONBAR(ms->subwindow.win, subline, GET_ATTR(ms->lvw, subline));
     }
     prefresh(ms->subwindow.win, 0, 0, GET_SCRY(ms->subwindow.top), 0, GET_SCRY(my) - 1, mx);
-
 }
 
 void create_subwindow(main_screen *ms, int num_lines, int lineno)
@@ -1171,6 +1155,28 @@ bool inside_subwindow(main_screen *ms)
     int subline = ms->selection_line - ms->top - ms->subwindow.top;
 
     return ms->subwindow.win && subline >= 0 && subline <= ms->subwindow.num_lines;
+}
+
+/*
+ * Refresh the pad.
+ *
+ * 'scrolly' is the amount to scroll the pad vertically inside the main window.
+ * 'minx' is the x-coordinate that decides where to start showing information within
+ * the pad. In effect, this is the amount to scroll the information horizontally
+ * inside the pad itself.
+ */
+void refresh_pad(main_screen *ms, int scrolly, int minx)
+{
+    int my, mx;
+
+    getmaxyx(ms->pktlist, my, mx);
+    ms->subwindow.top += scrolly;
+    ms->main_line.line_number += scrolly;
+    if (ms->subwindow.top <= 0) {
+        prefresh(ms->subwindow.win, abs(ms->subwindow.top), minx, GET_SCRY(0), 0, GET_SCRY(my) - 1, mx);
+    } else {
+        prefresh(ms->subwindow.win, 0, minx, GET_SCRY(ms->subwindow.top), 0, GET_SCRY(my) - 1, mx);
+    }
 }
 
 void handle_selectionbar(main_screen *ms, int c)
