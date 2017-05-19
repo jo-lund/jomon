@@ -181,12 +181,13 @@ void print_elements(list_t *widgets, WINDOW *win, int pad, int *line, int scroll
         list_view_item *w = list_data(n);
 
         if (scrollx < strlen(w->txt)) {
+            wattron(win, w->attr);
             if (scrollx > pad) {
                 mvwprintw(win, *line, 0, "%s", w->txt + scrollx - pad);
             } else {
                 mvwprintw(win, *line, pad - scrollx, "%s", w->txt);
             }
-            mvwchgat(win, *line, 0, -1, w->attr, 0, NULL);
+            wattroff(win, w->attr);
         }
         (*line)++;
         if (w->type == HEADER && ((list_view_header *) w)->expanded &&

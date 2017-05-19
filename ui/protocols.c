@@ -35,6 +35,24 @@
         PRINT_INFO(buffer, n, fmt, ## __VA_ARGS__);             \
     } while (0)
 
+#define HD_LIST_VIEW 0
+#define HD_WINDOW 1
+
+typedef struct {
+    int type;
+    union {
+        struct {
+            list_view *lvw;
+            list_view_header *header;
+        };
+        struct {
+            WINDOW *win;
+            int y;
+            int x;
+        };
+    } h_arg;
+} hd_args;
+
 static void print_arp(char *buf, int n, struct arp_info *info, uint32_t num, struct timeval *t);
 static void print_llc(char *buf, int n, struct eth_info *eth, uint32_t num, struct timeval *t);
 static void print_ip(char *buf, int n, struct ip_info *ip, uint32_t num, struct timeval *t);
@@ -72,6 +90,7 @@ static void add_pim_bootstrap(list_view *lw, list_view_header *header, struct pi
                               bool msg_selected);
 static void add_pim_candidate(list_view *lw, list_view_header *header, struct pim_info *pim,
                               bool msg_selected);
+static void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_args *arg);
 
 void write_to_buf(char *buf, int size, struct packet *p)
 {
@@ -903,7 +922,7 @@ void add_pim_register(list_view *lw, list_view_header *header, struct pim_info *
     if (pim->reg->data) {
         list_view_header *w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Data");
 
-        add_payload(lw, w, pim->reg->data, pim->reg->data_len);
+        add_hexdump(lw, w, NORMAL, pim->reg->data, pim->reg->data_len);
     }
 }
 
@@ -1350,24 +1369,57 @@ void add_http_information(list_view *lw, list_view_header *header, struct http_i
 {
 }
 
-void add_payload(list_view *lw, list_view_header *header, unsigned char *payload, uint16_t len)
+void add_hexdump(list_view *lw, list_view_header *header, enum hexmode mode, unsigned char *payload, uint16_t len)
+{
+    hd_args args;
+
+    args.type = HD_LIST_VIEW;
+    args.h_arg.lvw = lw;
+    args.h_arg.header = header;
+    print_hexdump(mode, payload, len, &args);
+}
+
+void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_args *arg)
 {
     int size = 1024;
     int num = 0;
     char buf[size];
+    int hexoffset;
+    char *hex = "0123456789abcdef";
+    char *offset = " offset ";
+
+    if (mode == WIDE) {
+        hexoffset = 64;
+        snprintf(buf, size, "%-11s%s%s%s%s", offset, hex, hex, hex, hex);
+    } else {
+        hexoffset = 16;
+        snprintf(buf, size, "%-11s0  1  2  3  4  5  6  7", offset);
+        snprintcat(buf, size, "   8  9  a  b  c  d  e  f");
+        snprintcat(buf, size, "  %s", hex);
+    }
+    if (arg->type == HD_LIST_VIEW) {
+        list_view_item *item;
+
+        item = ADD_TEXT_ELEMENT(arg->h_arg.lvw, arg->h_arg.header, "%s", buf);
+        item->attr = A_BOLD;
+    } else {
+        printat(arg->h_arg.win, arg->h_arg.y, arg->h_arg.x, A_BOLD, "%s", buf);
+    }
 
     while (num < len) {
         snprintf(buf, size, "%08x  ", num);
-        for (int i = num; i < num + 16; i++) {
-            if (i < len) {
-                snprintcat(buf, size, "%02x ", payload[i]);
-            } else {
-                snprintcat(buf, size, "   ");
+        if (mode == NORMAL) {
+            for (int i = num; i < num + hexoffset; i++) {
+                if (i < len) {
+                    snprintcat(buf, size, "%02x ", payload[i]);
+                } else {
+                    snprintcat(buf, size, "   ");
+                }
+                if (i % hexoffset - 7 == 0) snprintcat(buf, size, " ");
             }
-            if (i % 16 - 7 == 0) snprintcat(buf, size, " ");
         }
         snprintcat(buf, size, "|");
-        for (int i = num; i < num + 16; i++) {
+        for (int i = num; i < num + hexoffset; i++) {
             if (i < len) {
                 if (isprint(payload[i])) {
                     snprintcat(buf, size, "%c", payload[i]);
@@ -1379,7 +1431,11 @@ void add_payload(list_view *lw, list_view_header *header, unsigned char *payload
             }
         }
         snprintcat(buf, size, "|");
-        num += 16;
-        ADD_TEXT_ELEMENT(lw, header, "%s", buf);
+        num += hexoffset;
+        if (arg->type == HD_LIST_VIEW) {
+            ADD_TEXT_ELEMENT(arg->h_arg.lvw, arg->h_arg.header, "%s", buf);
+        } else {
+            printat(arg->h_arg.win, arg->h_arg.y++, arg->h_arg.x, A_BOLD, "%s", buf);
+        }
     }
 }

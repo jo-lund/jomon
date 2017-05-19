@@ -25,8 +25,8 @@
 #define STATUS_HEIGHT 1
 #define NUM_COLS_SCROLL 4
 
-#define SHOW_SELECTIONBAR(w, l, a) (mvwchgat(w, l, 0, -1, a, 1, NULL))
-#define REMOVE_SELECTIONBAR(w, l, a) (mvwchgat(w, l, 0, -1, a, 0, NULL))
+#define SHOW_SELECTIONBAR(w, l, a) (mvwchgat(w, l, 0, -1, a, 2, NULL))
+#define REMOVE_SELECTIONBAR(w, l, a) mvwchgat(w, l, 0, -1, a, PAIR_NUMBER(a), NULL);
 
 /* Get the y and x screen coordinates. The argument is the main_screen coordinate */
 #define GET_SCRY(y) ((y) + HEADER_HEIGHT)
@@ -39,6 +39,7 @@ static bool selected[NUM_LAYERS]; // TODO: need to handle this differently
 static bool capturing = true;
 static bool interactive = false;
 static bool input_mode = false;
+static enum hexmode hexmode = NORMAL;
 static file_input_dialogue *id = NULL;
 static file_input_dialogue *sd = NULL;
 static label_dialogue *ld = NULL;
@@ -429,6 +430,20 @@ void main_screen_get_input(main_screen *ms)
         }
         break;
     }
+    case 'h':
+        if (hexmode == NORMAL) {
+            hexmode = WIDE;
+        } else {
+            hexmode = NORMAL;
+        }
+        if (ms->subwindow.win) {
+            struct packet *p;
+
+            p = vector_get_data(packets, ms->main_line.line_number);
+            add_elements(ms, p);
+            print_protocol_information(ms, p, ms->main_line.line_number);
+        }
+        break;
     default:
         if (input_mode) {
             goto_line(ms, c);
@@ -443,14 +458,14 @@ void print_header(main_screen *ms)
     char addr[INET_ADDRSTRLEN];
 
     if (ctx.filename[0]) {
-        printat(ms->header, y, 0, COLOR_PAIR(3) | A_BOLD, "Filename");
+        printat(ms->header, y, 0, COLOR_PAIR(4) | A_BOLD, "Filename");
         wprintw(ms->header, ": %s", ctx.filename);
     } else {
-        printat(ms->header, y, 0, COLOR_PAIR(3) | A_BOLD, "Listening on device");
+        printat(ms->header, y, 0, COLOR_PAIR(4) | A_BOLD, "Listening on device");
         wprintw(ms->header, ": %s", ctx.device);
     }
     inet_ntop(AF_INET, &local_addr->sin_addr, addr, sizeof(addr));
-    printat(ms->header, ++y, 0, COLOR_PAIR(3) | A_BOLD, "Local address");
+    printat(ms->header, ++y, 0, COLOR_PAIR(4) | A_BOLD, "Local address");
     wprintw(ms->header, ": %s", addr);
     y += 2;
     mvwprintw(ms->header, y, 0, "Number");
@@ -514,21 +529,21 @@ void goto_line(main_screen *ms, int c)
 
         my = getmaxy(ms->pktlist);
         if (num >= ms->top && num < ms->top + my) {
-            mvwchgat(ms->pktlist, ms->selection_line, 0, -1, A_NORMAL, 0, NULL);
+            REMOVE_SELECTIONBAR(ms->pktlist, ms->selection_line, A_NORMAL);
             ms->selection_line = num - 1;
-            mvwchgat(ms->pktlist, ms->selection_line, 0, -1, A_NORMAL, 1, NULL);
+            SHOW_SELECTIONBAR(ms->pktlist, ms->selection_line, A_NORMAL);
         } else {
             werase(ms->pktlist);
-            mvwchgat(ms->pktlist, ms->selection_line, 0, -1, A_NORMAL, 0, NULL);
+            REMOVE_SELECTIONBAR(ms->pktlist, ms->selection_line, A_NORMAL);
             if (num + my - 1 > vector_size(packets)) {
                 print_lines(ms, vector_size(packets) - my, vector_size(packets), 0);
                 ms->top = vector_size(packets) - my;
                 ms->selection_line = num - 1;
-                mvwchgat(ms->pktlist, num - 1 - ms->top, 0, -1, A_NORMAL, 1, NULL);
+                SHOW_SELECTIONBAR(ms->pktlist, ms->selection_line, A_NORMAL);
             } else {
                 print_lines(ms, num - 1, num + my - 1, 0);
                 ms->selection_line = ms->top = num - 1;
-                mvwchgat(ms->pktlist, 0, 0, -1, A_NORMAL, 1, NULL);
+                SHOW_SELECTIONBAR(ms->pktlist, ms->selection_line, A_NORMAL);
             }
         }
         wrefresh(ms->pktlist);
@@ -791,9 +806,7 @@ void main_screen_set_interactive(main_screen *ms, bool interactive_mode)
     if (interactive_mode) {
         interactive = true;
         ms->selection_line = ms->top;
-
-        /* print selection bar */
-        mvwchgat(ms->pktlist, 0, 0, -1, A_NORMAL, 1, NULL);
+        SHOW_SELECTIONBAR(ms->pktlist, 0, A_NORMAL);
         wrefresh(ms->pktlist);
     } else {
         int my;
@@ -806,8 +819,7 @@ void main_screen_set_interactive(main_screen *ms, bool interactive_mode)
         if (ms->outy >= my && capturing) {
             goto_end(ms);
         } else {
-            /* remove selection bar */
-            mvwchgat(ms->pktlist, ms->selection_line - ms->top, 0, -1, A_NORMAL, 0, NULL);
+            REMOVE_SELECTIONBAR(ms->pktlist, ms->selection_line - ms->top, A_NORMAL);
         }
         interactive = false;
         wrefresh(ms->pktlist);
@@ -933,11 +945,11 @@ void add_elements(main_screen *ms, struct packet *p)
             break;
         default:
             header = ADD_HEADER(ms->lvw, "Unknown payload", selected[APPLICATION], APPLICATION);
-            add_payload(ms->lvw, header, p->eth.data + ETH_HLEN + LLC_HDR_LEN, LLC_PAYLOAD_LEN(p));
+            add_hexdump(ms->lvw, header, hexmode, p->eth.data + ETH_HLEN + LLC_HDR_LEN, LLC_PAYLOAD_LEN(p));
         }
     } else {
         header = ADD_HEADER(ms->lvw, "Unknown payload", selected[APPLICATION], APPLICATION);
-        add_payload(ms->lvw, header, p->eth.data + ETH_HLEN, p->eth.payload_len);
+        add_hexdump(ms->lvw, header, hexmode, p->eth.data + ETH_HLEN, p->eth.payload_len);
     }
 }
 
@@ -1000,7 +1012,7 @@ void add_transport_elements(main_screen *ms, struct packet *p)
     default:
         /* unknown transport layer payload */
         header = ADD_HEADER(ms->lvw, "Unknown payload", selected[APPLICATION], APPLICATION);
-        add_payload(ms->lvw, header, get_ip_payload(p), IP_PAYLOAD_LEN(p));
+        add_hexdump(ms->lvw, header, hexmode, get_ip_payload(p), IP_PAYLOAD_LEN(p));
     }
 }
 
@@ -1029,7 +1041,7 @@ void add_app_elements(main_screen *ms, struct packet *p, struct application_info
     default:
         if (len) {
             header = ADD_HEADER(ms->lvw, "Unknown payload", selected[APPLICATION], APPLICATION);
-            add_payload(ms->lvw, header, get_adu_payload(p), len);
+            add_hexdump(ms->lvw, header, hexmode, get_adu_payload(p), len);
         }
         break;
     }
@@ -1118,7 +1130,7 @@ void delete_subwindow(main_screen *ms)
         ms->selection_line += ms->scrolly;
         ms->scrolly = 0;
     }
-    mvwchgat(ms->pktlist, screen_line, 0, -1, A_NORMAL, 1, NULL);
+    SHOW_SELECTIONBAR(ms->pktlist, screen_line, A_NORMAL);
     wrefresh(ms->pktlist);
 }
 

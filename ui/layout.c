@@ -28,7 +28,7 @@ void init_ncurses(bool capturing)
     init_pair(2, COLOR_BLACK, COLOR_CYAN);
     init_pair(3, COLOR_CYAN, -1);
     init_pair(4, COLOR_GREEN, -1);
-    init_pair(5, COLOR_WHITE, COLOR_BLUE);
+    init_pair(5, COLOR_BLUE, -1);
     set_escdelay(25); /* set escdelay to 25 ms */
     screen_changed_publisher = publisher_init();
     screen_stack = stack_init(NUM_SCREENS);
