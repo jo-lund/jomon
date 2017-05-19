@@ -32,6 +32,13 @@
 #define GET_SCRY(y) ((y) + HEADER_HEIGHT)
 #define GET_SCRX(x) (x)
 
+enum views {
+    DECODED_VIEW,
+    HEXDUMP_VIEW,
+};
+
+#define NUM_VIEWS 2
+
 extern vector_t *packets;
 extern main_context ctx;
 bool numeric = true;
@@ -39,7 +46,8 @@ static bool selected[NUM_LAYERS]; // TODO: need to handle this differently
 static bool capturing = true;
 static bool interactive = false;
 static bool input_mode = false;
-static enum hexmode hexmode = NORMAL;
+static int hexmode = NORMAL;
+static int view_mode = DECODED_VIEW;
 static file_input_dialogue *id = NULL;
 static file_input_dialogue *sd = NULL;
 static label_dialogue *ld = NULL;
@@ -78,7 +86,6 @@ static bool inside_subwindow(main_screen *ms);
 static void add_elements(main_screen *ms, struct packet *p);
 static void add_transport_elements(main_screen *ms, struct packet *p);
 static void add_app_elements(main_screen *ms, struct packet *p, struct application_info *info, uint16_t len);
-static void print_subwindow(main_screen *ms);
 static void handle_selectionbar(main_screen *ms, int c);
 static void refresh_pad(main_screen *ms, int scrolly, int minx);
 
@@ -405,6 +412,15 @@ void main_screen_get_input(main_screen *ms)
             create_save_dialogue();
         }
         break;
+    case KEY_F(6):
+        view_mode = (view_mode + 1) % NUM_VIEWS;
+        if (ms->subwindow.win) {
+            struct packet *p;
+
+            p = vector_get_data(packets, ms->main_line.line_number + ms->top);
+            print_protocol_information(ms, p, ms->main_line.line_number + ms->top);
+        }
+        break;
     case 'g':
         if (!interactive) return;
         input_mode = !input_mode;
@@ -431,17 +447,12 @@ void main_screen_get_input(main_screen *ms)
         break;
     }
     case 'h':
-        if (hexmode == NORMAL) {
-            hexmode = WIDE;
-        } else {
-            hexmode = NORMAL;
-        }
+        hexmode = (hexmode + 1) % HEXMODES;
         if (ms->subwindow.win) {
             struct packet *p;
 
-            p = vector_get_data(packets, ms->main_line.line_number);
-            add_elements(ms, p);
-            print_protocol_information(ms, p, ms->main_line.line_number);
+            p = vector_get_data(packets, ms->main_line.line_number + ms->top);
+            print_protocol_information(ms, p, ms->main_line.line_number + ms->top);
         }
         break;
     default:
@@ -896,7 +907,6 @@ void print_selected_packet(main_screen *ms)
     }
     if (ms->main_line.selected) {
         p = vector_get_data(packets, ms->selection_line + ms->scrolly);
-        add_elements(ms, p);
         print_protocol_information(ms, p, ms->selection_line + ms->scrolly);
     } else {
         delete_subwindow(ms);
@@ -1049,28 +1059,45 @@ void add_app_elements(main_screen *ms, struct packet *p, struct application_info
 
 void print_protocol_information(main_screen *ms, struct packet *p, int lineno)
 {
+    int my, mx;
+
+    getmaxyx(ms->pktlist, my, mx);
+
     /* delete old subwindow */
     if (ms->subwindow.win) {
         delete_subwindow(ms);
     }
 
-    /* print information in subwindow */
-    create_subwindow(ms, ms->lvw->size + 1, lineno);
-    print_subwindow(ms);
-}
+    if (view_mode == DECODED_VIEW) {
+        int subline;
 
-void print_subwindow(main_screen *ms)
-{
-    int subline;
-    int my, mx;
+        add_elements(ms, p);
+        create_subwindow(ms, ms->lvw->size + 1, lineno);
+        RENDER(ms->lvw, ms->subwindow.win, ms->scrollx);
+        subline = ms->selection_line - ms->top - ms->subwindow.top;
+        if (inside_subwindow(ms)) {
+            SHOW_SELECTIONBAR(ms->subwindow.win, subline, GET_ATTR(ms->lvw, subline));
+        } else {
+            SHOW_SELECTIONBAR(ms->pktlist, ms->selection_line, A_NORMAL);
+            wrefresh(ms->pktlist);
+        }
+        prefresh(ms->subwindow.win, 0, 0, GET_SCRY(ms->subwindow.top), 0, GET_SCRY(my) - 1, mx);
+    } else if (HEXDUMP_VIEW) {
+        int num_lines = (hexmode == NORMAL) ? (p->eth.payload_len + ETH_HLEN) / 16 + 3 :
+            (p->eth.payload_len + ETH_HLEN) / 64 + 3;
+        int subline;
 
-    getmaxyx(ms->pktlist, my, mx);
-    RENDER(ms->lvw, ms->subwindow.win, ms->scrollx);
-    subline = ms->selection_line - ms->top - ms->subwindow.top;
-    if (inside_subwindow(ms)) {
-        SHOW_SELECTIONBAR(ms->subwindow.win, subline, GET_ATTR(ms->lvw, subline));
+        create_subwindow(ms, num_lines, lineno);
+        add_winhexdump(ms->subwindow.win, 0, 2, hexmode, p->eth.data, p->eth.payload_len + ETH_HLEN);
+        subline = ms->selection_line - ms->top - ms->subwindow.top;
+        if (inside_subwindow(ms)) {
+            SHOW_SELECTIONBAR(ms->subwindow.win, subline, A_NORMAL);
+        } else {
+            SHOW_SELECTIONBAR(ms->pktlist, ms->selection_line, A_NORMAL);
+            wrefresh(ms->pktlist);
+        }
+        prefresh(ms->subwindow.win, 0, 0, GET_SCRY(ms->subwindow.top), 0, GET_SCRY(my) - 1, mx);
     }
-    prefresh(ms->subwindow.win, 0, 0, GET_SCRY(ms->subwindow.top), 0, GET_SCRY(my) - 1, mx);
 }
 
 void create_subwindow(main_screen *ms, int num_lines, int lineno)
@@ -1200,23 +1227,23 @@ void handle_selectionbar(main_screen *ms, int c)
          if (screen_line == ms->subwindow.top + ms->subwindow.num_lines) {
              REMOVE_SELECTIONBAR(ms->pktlist, screen_line, A_NORMAL);
          } else {
-             REMOVE_SELECTIONBAR(ms->subwindow.win, subline, GET_ATTR(ms->lvw, subline));
+             REMOVE_SELECTIONBAR(ms->subwindow.win, subline, ms->lvw ? GET_ATTR(ms->lvw, subline) : A_NORMAL);
          }
          if (subline == 0) {
              SHOW_SELECTIONBAR(ms->pktlist, screen_line - 1, A_NORMAL);
          } else {
-             SHOW_SELECTIONBAR(ms->subwindow.win, subline - 1, GET_ATTR(ms->lvw, subline - 1));
+             SHOW_SELECTIONBAR(ms->subwindow.win, subline - 1, ms->lvw ? GET_ATTR(ms->lvw, subline - 1) : A_NORMAL);
          }
      } else if (c == KEY_DOWN) {
          if (subline == -1) {
              REMOVE_SELECTIONBAR(ms->pktlist, screen_line, A_NORMAL);
          } else {
-             REMOVE_SELECTIONBAR(ms->subwindow.win, subline, GET_ATTR(ms->lvw, subline));
+             REMOVE_SELECTIONBAR(ms->subwindow.win, subline, ms->lvw ? GET_ATTR(ms->lvw, subline) : A_NORMAL);
          }
          if (screen_line + 1 == ms->subwindow.top + ms->subwindow.num_lines) {
              SHOW_SELECTIONBAR(ms->pktlist, screen_line + 1, A_NORMAL);
          } else {
-             SHOW_SELECTIONBAR(ms->subwindow.win, subline + 1, GET_ATTR(ms->lvw, subline + 1));
+             SHOW_SELECTIONBAR(ms->subwindow.win, subline + 1, ms->lvw ? GET_ATTR(ms->lvw, subline + 1) : A_NORMAL);
          }
      }
 }

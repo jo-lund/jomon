@@ -1379,6 +1379,18 @@ void add_hexdump(list_view *lw, list_view_header *header, enum hexmode mode, uns
     print_hexdump(mode, payload, len, &args);
 }
 
+void add_winhexdump(WINDOW *win, int y, int x, enum hexmode mode, unsigned char *payload, uint16_t len)
+{
+    hd_args args;
+
+    args.type = HD_WINDOW;
+    args.h_arg.win = win;
+    args.h_arg.y = y;
+    args.h_arg.x = x;
+    print_hexdump(mode, payload, len, &args);
+}
+
+
 void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_args *arg)
 {
     int size = 1024;
@@ -1435,7 +1447,7 @@ void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_a
         if (arg->type == HD_LIST_VIEW) {
             ADD_TEXT_ELEMENT(arg->h_arg.lvw, arg->h_arg.header, "%s", buf);
         } else {
-            printat(arg->h_arg.win, arg->h_arg.y++, arg->h_arg.x, A_BOLD, "%s", buf);
+            printat(arg->h_arg.win, ++arg->h_arg.y, arg->h_arg.x, A_NORMAL, "%s", buf);
         }
     }
 }
