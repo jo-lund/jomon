@@ -10,6 +10,7 @@
 #include "protocols.h"
 #include "../util.h"
 #include "../misc.h"
+#include "hexdump.h"
 
 #define HOSTNAMELEN 255 /* maximum 255 according to rfc1035 */
 #define TBUFLEN 16
@@ -34,24 +35,6 @@
         PRINT_PROTOCOL(buffer, n, prot);                        \
         PRINT_INFO(buffer, n, fmt, ## __VA_ARGS__);             \
     } while (0)
-
-#define HD_LIST_VIEW 0
-#define HD_WINDOW 1
-
-typedef struct {
-    int type;
-    union {
-        struct {
-            list_view *lvw;
-            list_view_header *header;
-        };
-        struct {
-            WINDOW *win;
-            int y;
-            int x;
-        };
-    } h_arg;
-} hd_args;
 
 static void print_arp(char *buf, int n, struct arp_info *info, uint32_t num, struct timeval *t);
 static void print_llc(char *buf, int n, struct eth_info *eth, uint32_t num, struct timeval *t);
@@ -90,7 +73,6 @@ static void add_pim_bootstrap(list_view *lw, list_view_header *header, struct pi
                               bool msg_selected);
 static void add_pim_candidate(list_view *lw, list_view_header *header, struct pim_info *pim,
                               bool msg_selected);
-static void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_args *arg);
 
 void write_to_buf(char *buf, int size, struct packet *p)
 {
@@ -606,7 +588,7 @@ void add_ethernet_information(list_view *lw, list_view_header *header, struct pa
     HW_ADDR_NTOP(src, p->eth.mac_src);
     HW_ADDR_NTOP(dst, p->eth.mac_dst);
     ADD_TEXT_ELEMENT(lw, header, "MAC source: %s", src);
-    ADD_TEXT_ELEMENT(lw, header, "MAC destination: %s", src);
+    ADD_TEXT_ELEMENT(lw, header, "MAC destination: %s", dst);
     snprintf(line, MAXLINE, "Ethertype: 0x%x", p->eth.ethertype);
     if ((type = get_ethernet_type(p->eth.ethertype))) {
         snprintcat(line, MAXLINE, " (%s)", type);
@@ -1367,87 +1349,4 @@ void add_ssdp_information(list_view *lw, list_view_header *header, list_t *ssdp)
 
 void add_http_information(list_view *lw, list_view_header *header, struct http_info *http)
 {
-}
-
-void add_hexdump(list_view *lw, list_view_header *header, enum hexmode mode, unsigned char *payload, uint16_t len)
-{
-    hd_args args;
-
-    args.type = HD_LIST_VIEW;
-    args.h_arg.lvw = lw;
-    args.h_arg.header = header;
-    print_hexdump(mode, payload, len, &args);
-}
-
-void add_winhexdump(WINDOW *win, int y, int x, enum hexmode mode, unsigned char *payload, uint16_t len)
-{
-    hd_args args;
-
-    args.type = HD_WINDOW;
-    args.h_arg.win = win;
-    args.h_arg.y = y;
-    args.h_arg.x = x;
-    print_hexdump(mode, payload, len, &args);
-}
-
-
-void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_args *arg)
-{
-    int size = 1024;
-    int num = 0;
-    char buf[size];
-    int hexoffset;
-    char *hex = "0123456789abcdef";
-    char *offset = " offset ";
-
-    if (mode == WIDE) {
-        hexoffset = 64;
-        snprintf(buf, size, "%-11s%s%s%s%s", offset, hex, hex, hex, hex);
-    } else {
-        hexoffset = 16;
-        snprintf(buf, size, "%-11s0  1  2  3  4  5  6  7", offset);
-        snprintcat(buf, size, "   8  9  a  b  c  d  e  f");
-        snprintcat(buf, size, "  %s", hex);
-    }
-    if (arg->type == HD_LIST_VIEW) {
-        list_view_item *item;
-
-        item = ADD_TEXT_ELEMENT(arg->h_arg.lvw, arg->h_arg.header, "%s", buf);
-        item->attr = A_BOLD;
-    } else {
-        printat(arg->h_arg.win, arg->h_arg.y, arg->h_arg.x, A_BOLD, "%s", buf);
-    }
-
-    while (num < len) {
-        snprintf(buf, size, "%08x  ", num);
-        if (mode == NORMAL) {
-            for (int i = num; i < num + hexoffset; i++) {
-                if (i < len) {
-                    snprintcat(buf, size, "%02x ", payload[i]);
-                } else {
-                    snprintcat(buf, size, "   ");
-                }
-                if (i % hexoffset - 7 == 0) snprintcat(buf, size, " ");
-            }
-        }
-        snprintcat(buf, size, "|");
-        for (int i = num; i < num + hexoffset; i++) {
-            if (i < len) {
-                if (isprint(payload[i])) {
-                    snprintcat(buf, size, "%c", payload[i]);
-                } else {
-                    snprintcat(buf, size, ".");
-                }
-            } else {
-                snprintcat(buf, size, " ");
-            }
-        }
-        snprintcat(buf, size, "|");
-        num += hexoffset;
-        if (arg->type == HD_LIST_VIEW) {
-            ADD_TEXT_ELEMENT(arg->h_arg.lvw, arg->h_arg.header, "%s", buf);
-        } else {
-            printat(arg->h_arg.win, ++arg->h_arg.y, arg->h_arg.x, A_NORMAL, "%s", buf);
-        }
-    }
 }

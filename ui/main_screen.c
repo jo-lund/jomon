@@ -20,6 +20,7 @@
 #include "../signal.h"
 #include "dialogue.h"
 #include "main_screen.h"
+#include "hexdump.h"
 
 #define HEADER_HEIGHT 4
 #define STATUS_HEIGHT 1
@@ -420,6 +421,7 @@ void main_screen_get_input(main_screen *ms)
             p = vector_get_data(packets, ms->main_line.line_number + ms->top);
             print_protocol_information(ms, p, ms->main_line.line_number + ms->top);
         }
+        print_status(ms);
         break;
     case 'g':
         if (!interactive) return;
@@ -494,27 +496,31 @@ void print_status(main_screen *ms)
     uid_t euid = geteuid();
 
     mvwprintw(ms->status, 0, 0, "F1");
-    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-8s", "Help");
+    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-10s", "Help");
     if (capturing || euid != 0) {
         printat(ms->status, -1, -1, A_DIM, "F2");
     } else {
         wprintw(ms->status, "F2");
     }
-    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-8s", "Start");
+    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-10s", "Start");
     if (capturing) {
         wprintw(ms->status, "F3");
     } else {
         printat(ms->status, -1, -1, A_DIM, "F3");
     }
-    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-8s", "Stop");
+    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-10s", "Stop");
     wprintw(ms->status, "F4");
-    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-8s", "Load");
+    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-10s", "Load");
     wprintw(ms->status, "F5");
-    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-8s", "Save");
+    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-10s", "Save");
     wprintw(ms->status, "F6");
-    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-8s", "Views");
+    if (view_mode == DECODED_VIEW) {
+        printat(ms->status, -1, -1, COLOR_PAIR(2), "%-10s", "View (dec)");
+    } else {
+        printat(ms->status, -1, -1, COLOR_PAIR(2), "%-10s", "View (hex)");
+    }
     wprintw(ms->status, "F10");
-    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-8s", "Quit");
+    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-10s", "Quit");
     wrefresh(ms->status);
 }
 
@@ -1071,7 +1077,7 @@ void print_protocol_information(main_screen *ms, struct packet *p, int lineno)
     if (view_mode == DECODED_VIEW) {
         int subline;
 
-        add_elements(ms, p);
+        add_elements(ms, p); // BUG: Calling this with sublayers is not working!
         create_subwindow(ms, ms->lvw->size + 1, lineno);
         RENDER(ms->lvw, ms->subwindow.win, ms->scrollx);
         subline = ms->selection_line - ms->top - ms->subwindow.top;
@@ -1083,12 +1089,16 @@ void print_protocol_information(main_screen *ms, struct packet *p, int lineno)
         }
         prefresh(ms->subwindow.win, 0, 0, GET_SCRY(ms->subwindow.top), 0, GET_SCRY(my) - 1, mx);
     } else if (HEXDUMP_VIEW) {
+        int subline;
         int num_lines = (hexmode == NORMAL) ? (p->eth.payload_len + ETH_HLEN) / 16 + 3 :
             (p->eth.payload_len + ETH_HLEN) / 64 + 3;
-        int subline;
 
+        if (ms->lvw) {
+            free_list_view(ms->lvw);
+            ms->lvw = NULL;
+        }
         create_subwindow(ms, num_lines, lineno);
-        add_winhexdump(ms->subwindow.win, 0, 2, hexmode, p->eth.data, p->eth.payload_len + ETH_HLEN);
+        add_winhexdump(ms->subwindow.win, 0, 2, hexmode, p);
         subline = ms->selection_line - ms->top - ms->subwindow.top;
         if (inside_subwindow(ms)) {
             SHOW_SELECTIONBAR(ms->subwindow.win, subline, A_NORMAL);

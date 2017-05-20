@@ -11,6 +11,8 @@
     ((p)->eth.ip->length - (p)->eth.ip->ihl * 4) :          \
     ((p)->eth.ipv6->payload_len)
 
+#define IPV6_FIXED_HEADER_LEN 40
+
 // TODO: Improve the structure of this
 struct ip_info {
     unsigned int version : 4;

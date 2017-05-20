@@ -9,13 +9,6 @@
 #define NUM_WIDTH 10
 #define TIME_WIDTH 20
 
-enum hexmode {
-    NORMAL,
-    WIDE
-};
-
-#define HEXMODES 2
-
 /* write packet to buffer */
 void write_to_buf(char *buf, int size, struct packet *p);
 
@@ -39,8 +32,5 @@ void add_http_information(list_view *lw, list_view_header *header, struct http_i
 void add_dns_information(list_view *lw, list_view_header *header, struct dns_info *dns,
                          bool records_selected);
 void add_nbns_information(list_view *lw, list_view_header *header, struct nbns_info *nbns);
-void add_hexdump(list_view *lw, list_view_header *header, enum hexmode mode,
-                 unsigned char *payload, uint16_t len);
-void add_winhexdump(WINDOW *win, int y, int x, enum hexmode mode, unsigned char *payload,
-                    uint16_t len);
+
 #endif

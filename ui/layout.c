@@ -29,6 +29,9 @@ void init_ncurses(bool capturing)
     init_pair(3, COLOR_CYAN, -1);
     init_pair(4, COLOR_GREEN, -1);
     init_pair(5, COLOR_BLUE, -1);
+    init_pair(6, COLOR_YELLOW, -1);
+    init_pair(7, COLOR_MAGENTA, -1);
+    init_pair(8, COLOR_RED, -1);
     set_escdelay(25); /* set escdelay to 25 ms */
     screen_changed_publisher = publisher_init();
     screen_stack = stack_init(NUM_SCREENS);
@@ -245,7 +248,7 @@ void help_screen_render()
     printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F5");
     wprintw(win, ": Save file in pcap format");
     printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "F6");
-    wprintw(win, ": Change view");
+    wprintw(win, ": Change between a decoded view or hexdump");
     mvwprintw(win, ++y, 0, "");
     printat(win, ++y, 0, COLOR_PAIR(4) | A_BOLD, "Keyboard shortcuts in interactive mode");
     printat(win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%12s", "Arrows");
