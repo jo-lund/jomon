@@ -298,7 +298,7 @@ check_state:
     case HD_ICMP:
     case HD_IGMP:
     case HD_PIM:
-        waddch(win, buf[i]);
+        waddch(win, buf[i] | GREEN | A_BOLD);
         break;
     case HD_DNS:
     case HD_SSDP:
@@ -412,10 +412,12 @@ void print_state(WINDOW *win, char *buf, enum hex_state state)
         break;
     case HD_UDP:
     case HD_TCP:
+        wprintw(win, "  %s", buf);
+        break;
     case HD_ICMP:
     case HD_IGMP:
     case HD_PIM:
-        printat(win, -1, -1, A_NORMAL, "  %s", buf);
+        printat(win, -1, -1, GREEN | A_BOLD, "  %s", buf);
         break;
     case HD_DNS:
     case HD_SSDP:

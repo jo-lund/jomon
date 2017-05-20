@@ -26,8 +26,29 @@
 #define STATUS_HEIGHT 1
 #define NUM_COLS_SCROLL 4
 
-#define SHOW_SELECTIONBAR(w, l, a) (mvwchgat(w, l, 0, -1, a, 2, NULL))
-#define REMOVE_SELECTIONBAR(w, l, a) mvwchgat(w, l, 0, -1, a, PAIR_NUMBER(a), NULL);
+
+/* #define SHOW_SELECTIONBAR(w, l, a) (mvwchgat(w, l, 0, -1, a, 2, NULL)) */
+/* #define REMOVE_SELECTIONBAR(w, l, a) mvwchgat(w, l, 0, -1, a, PAIR_NUMBER(a), NULL); */
+
+#define SHOW_SELECTIONBAR(w, l, a) \
+    do { \
+        mvwinchstr(w, l, 0, chstr);             \
+        mvwchgat(w, l, 0, -1, a, 2, NULL);      \
+    } while (0)
+
+#define REMOVE_SELECTIONBAR(w, l, a) \
+    do {                                             \
+        if (inside_subwindow(mscr) && !mscr->lvw) {  \
+            int i = 0;                               \
+                                                     \
+            while (chstr[i] != 0) {                  \
+                mvwaddch(w, l, i, chstr[i++]);       \
+            }                                           \
+        } else {                                        \
+            mvwchgat(w, l, 0, -1, a, PAIR_NUMBER(a), NULL); \
+        }                                                   \
+    } while (0)
+
 
 /* Get the y and x screen coordinates. The argument is the main_screen coordinate */
 #define GET_SCRY(y) ((y) + HEADER_HEIGHT)
@@ -55,6 +76,7 @@ static label_dialogue *ld = NULL;
 static char load_filepath[MAXPATH + 1] = { 0 };
 static bool decode_error = false;
 static main_screen *mscr;
+static chtype chstr[MAXLINE];
 
 extern bool on_packet(unsigned char *buffer, uint32_t n, struct timeval *t);
 static bool check_line(main_screen *ms);
@@ -1211,8 +1233,7 @@ bool inside_subwindow(main_screen *ms)
  *
  * 'scrolly' is the amount to scroll the pad vertically inside the main window.
  * 'minx' is the x-coordinate that decides where to start showing information within
- * the pad. In effect, this is the amount to scroll the information horizontally
- * inside the pad itself.
+ * the pad.
  */
 void refresh_pad(main_screen *ms, int scrolly, int minx)
 {
