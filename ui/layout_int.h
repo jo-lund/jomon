@@ -7,6 +7,17 @@
 #define KEY_ESC 27
 #define NUM_SCREENS 2
 
+/* colours on default background  */
+#define CYAN COLOR_PAIR(3)
+#define GREEN COLOR_PAIR(4)
+#define BLUE COLOR_PAIR(5)
+#define BROWN COLOR_PAIR(6)
+#define MAGENTA COLOR_PAIR(7)
+#define RED COLOR_PAIR(8)
+#define YELLOW (COLOR_PAIR(6) | A_BOLD)
+#define LIGHT_BLUE (BLUE | A_BOLD)
+#define PURPLE (MAGENTA | A_BOLD)
+
 enum screen_type {
     HELP_SCREEN,
     STAT_SCREEN,

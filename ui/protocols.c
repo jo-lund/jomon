@@ -904,7 +904,7 @@ void add_pim_register(list_view *lw, list_view_header *header, struct pim_info *
     if (pim->reg->data) {
         list_view_header *w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Data");
 
-        add_hexdump(lw, w, NORMAL, pim->reg->data, pim->reg->data_len);
+        add_hexdump(lw, w, HEXMODE_NORMAL, pim->reg->data, pim->reg->data_len);
     }
 }
 

@@ -47,7 +47,7 @@ static bool selected[NUM_LAYERS]; // TODO: need to handle this differently
 static bool capturing = true;
 static bool interactive = false;
 static bool input_mode = false;
-static int hexmode = NORMAL;
+static int hexmode = HEXMODE_NORMAL;
 static int view_mode = DECODED_VIEW;
 static file_input_dialogue *id = NULL;
 static file_input_dialogue *sd = NULL;
@@ -1090,7 +1090,7 @@ void print_protocol_information(main_screen *ms, struct packet *p, int lineno)
         prefresh(ms->subwindow.win, 0, 0, GET_SCRY(ms->subwindow.top), 0, GET_SCRY(my) - 1, mx);
     } else if (HEXDUMP_VIEW) {
         int subline;
-        int num_lines = (hexmode == NORMAL) ? (p->eth.payload_len + ETH_HLEN) / 16 + 3 :
+        int num_lines = (hexmode == HEXMODE_NORMAL) ? (p->eth.payload_len + ETH_HLEN) / 16 + 3 :
             (p->eth.payload_len + ETH_HLEN) / 64 + 3;
 
         if (ms->lvw) {

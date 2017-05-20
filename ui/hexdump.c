@@ -116,14 +116,17 @@ void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_a
     protocols = list_init();
     list_push_back(protocols, enum2str(state));
 
-    if (mode == WIDE) {
+    if (mode == HEXMODE_WIDE) {
         hexoffset = 64;
         snprintf(buf, size, "%-11s%s%s%s%s", offset, hex, hex, hex, hex);
     } else {
         hexoffset = 16;
         snprintf(buf, size, "%-11s0  1  2  3  4  5  6  7", offset);
-        snprintcat(buf, size, "   8  9  a  b  c  d  e  f");
-        snprintcat(buf, size, "  %s", hex);
+        if (HD_LIST_VIEW) {
+            snprintcat(buf, size, "   8  9  a  b  c  d  e  f  %s", hex);
+        } else {
+            snprintcat(buf, size, "   8  9  a  b  c  d  e  f   %s", hex);
+        }
     }
     if (arg->type == HD_LIST_VIEW) {
         list_view_item *item;
@@ -136,7 +139,7 @@ void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_a
 
     while (num < len) {
         snprintf(buf, size, "%08x  ", num);
-        if (mode == NORMAL) {
+        if (mode == HEXMODE_NORMAL) {
             for (int i = num; i < num + hexoffset; i++) {
                 if (i < len) {
                     snprintcat(buf, size, "%02x ", payload[i]);
@@ -170,27 +173,44 @@ void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_a
             while (i < 8) {
                 mvwaddch(arg->h_arg.win, arg->h_arg.y, x++, buf[i++]);
             }
+            if (mode == HEXMODE_NORMAL) {
+                int k = 0;
 
-            int k = 0;
-            while (i < HD_ASCII_IDX) {
-                if (isspace(buf[i])) {
-                    waddch(arg->h_arg.win, buf[i]);
-                } else {
-                    print_char(arg->h_arg.win, buf, &state, arg->h_arg.p, i, j, true);
-                    if (k % 2) j++;
-                    k++;
+                while (i < HD_ASCII_IDX) {
+                    if (isspace(buf[i])) {
+                        waddch(arg->h_arg.win, buf[i]);
+                    } else {
+                        print_char(arg->h_arg.win, buf, &state, arg->h_arg.p, i, j, true);
+                        if (k % 2) j++;
+                        k++;
+                    }
+                    i++;
                 }
-                i++;
-            }
+                j = num;
 
-            j = num;
-            while (i < HD_NORMAL_LEN) {
-                if (isspace(buf[i])) {
-                    waddch(arg->h_arg.win, buf[i]);
-                } else {
-                    print_char(arg->h_arg.win, buf, &prev_state, arg->h_arg.p, i, j++, false);
+                while (isspace(buf[i])) {
+                    waddch(arg->h_arg.win, buf[i++]);
                 }
-                i++;
+                waddch(arg->h_arg.win, ACS_VLINE);
+                while (i < HD_NORMAL_LEN) {
+                    if (isspace(buf[i])) {
+                        waddch(arg->h_arg.win, buf[i]);
+                    } else {
+                        print_char(arg->h_arg.win, buf, &prev_state, arg->h_arg.p, i, j++, false);
+                    }
+                    i++;
+                }
+                waddch(arg->h_arg.win, ACS_VLINE);
+            } else {
+                j = num;
+                while (i < HD_WIDE_LEN) {
+                    if (isspace(buf[i])) {
+                        waddch(arg->h_arg.win, buf[i]);
+                    } else {
+                        print_char(arg->h_arg.win, buf, &prev_state, arg->h_arg.p, i, j++, true);
+                    }
+                    i++;
+                }
             }
 
             const node_t *n = list_begin(protocols);
@@ -220,10 +240,10 @@ check_state:
             }
             goto check_state;
         }
-        waddch(win, buf[i] | COLOR_PAIR(4));
+        waddch(win, buf[i] | PURPLE);
         break;
     case HD_ARP:
-        waddch(win, buf[i] | COLOR_PAIR(3));
+        waddch(win, buf[i] | GREEN | A_BOLD);
         break;
     case HD_IP:
         if (j > ETH_HLEN + p->eth.ip->ihl * 4) {
@@ -233,7 +253,7 @@ check_state:
             }
             goto check_state;
         }
-        waddch(win, buf[i] | COLOR_PAIR(3));
+        waddch(win, buf[i] | LIGHT_BLUE);
         break;
     case HD_UDP:
         if (p->eth.ethertype == ETH_P_IP) {
@@ -253,7 +273,7 @@ check_state:
                 goto check_state;
             }
         }
-        waddch(win, buf[i] | COLOR_PAIR(6));
+        waddch(win, buf[i]);
         break;
     case HD_TCP:
         if (p->eth.ethertype == ETH_P_IP) {
@@ -273,21 +293,19 @@ check_state:
                 goto check_state;
             }
         }
-        waddch(win, buf[i] | COLOR_PAIR(6));
+        waddch(win, buf[i]);
         break;
     case HD_ICMP:
     case HD_IGMP:
     case HD_PIM:
-        waddch(win, buf[i] | COLOR_PAIR(6));
+        waddch(win, buf[i]);
         break;
     case HD_DNS:
     case HD_SSDP:
     case HD_NBNS:
     case HD_HTTP:
-        waddch(win, buf[i] | COLOR_PAIR(5));
-        break;
     default:
-        waddch(win, buf[i]);
+        waddch(win, buf[i] | GREEN | A_BOLD);
         break;
     }
 }
@@ -368,6 +386,7 @@ enum hex_state get_next_state(enum hex_state cur_state, struct packet *p)
             next_state = HD_SSDP;
             break;
         default:
+            next_state = HD_UNKNOWN;
             break;
         }
     }
@@ -381,26 +400,29 @@ void print_state(WINDOW *win, char *buf, enum hex_state state)
 {
     switch (state) {
     case HD_ETHERNET:
-        printat(win, -1, -1, COLOR_PAIR(4), "  %s", buf);
+        printat(win, -1, -1, PURPLE, "  %s", buf);
         break;
     case HD_ARP:
+        printat(win, -1, -1, GREEN | A_BOLD, "  %s", buf);
+        break;
     case HD_LLC:
     case HD_IP:
     case HD_IP6:
-        printat(win, -1, -1, COLOR_PAIR(3), "  %s", buf);
+        printat(win, -1, -1, LIGHT_BLUE, "  %s", buf);
         break;
     case HD_UDP:
     case HD_TCP:
     case HD_ICMP:
     case HD_IGMP:
     case HD_PIM:
-        printat(win, -1, -1, COLOR_PAIR(6), "  %s", buf);
+        printat(win, -1, -1, A_NORMAL, "  %s", buf);
         break;
     case HD_DNS:
     case HD_SSDP:
     case HD_NBNS:
     case HD_HTTP:
-        printat(win, -1, -1, COLOR_PAIR(5), "  %s", buf);
+    case HD_UNKNOWN:
+        printat(win, -1, -1, GREEN | A_BOLD, "  %s", buf);
         break;
     default:
         break;

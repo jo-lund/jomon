@@ -4,8 +4,8 @@
 #include "list_view.h"
 
 enum hexmode {
-    NORMAL,
-    WIDE
+    HEXMODE_NORMAL,
+    HEXMODE_WIDE
 };
 
 #define HEXMODES 2
