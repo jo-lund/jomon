@@ -13,11 +13,14 @@
 #define TCP_OPT_SACK 5      /* selective acknowledgement */
 #define TCP_OPT_TIMESTAMP 8 /* timestamp and echo of previous timestamp */
 
-#define TCP_PAYLOAD_LEN(p) ((p)->eth.ethertype == ETH_P_IP) ?           \
-    ((p)->eth.ip->length - (p)->eth.ip->ihl * 4 - (p)->eth.ip->tcp.offset * 4) : \
-    ((p)->eth.ipv6->payload_len - (p)->eth.ipv6->tcp.offset * 4)
+#define TCP_PAYLOAD_LEN(p)                                              \
+    (((p)->eth.ethertype == ETH_P_IP) ?                                 \
+     ((p)->eth.ip->length - (p)->eth.ip->ihl * 4 - (p)->eth.ip->tcp.offset * 4) : \
+     ((p)->eth.ipv6->payload_len - (p)->eth.ipv6->tcp.offset * 4))
 
-#define TCP_HDR_LEN(p) ((p)->eth.ip->tcp.offset * 4)
+#define TCP_HDR_LEN(p)                                                  \
+    (((p)->eth.ethertype == ETH_P_IP) ?                                 \
+     ((p)->eth.ip->tcp.offset * 4) : ((p)->eth.ipv6->tcp.offset * 4))
 
 struct tcp {
     uint16_t src_port;

@@ -292,7 +292,7 @@ check_state:
                 goto check_state;
             }
         } else { /* TODO: need to check for IPV6 extension headers */
-            if (j >= ETH_HLEN + p->eth.ip->ihl * 4 + UDP_HDR_LEN + IPV6_FIXED_HEADER_LEN) {
+            if (j >= ETH_HLEN + IPV6_FIXED_HEADER_LEN + UDP_HDR_LEN) {
                 *state = get_next_state(*state, p);
                 if (update) {
                     list_push_back(protocols, enum2str(*state));
@@ -312,7 +312,7 @@ check_state:
                 goto check_state;
             }
         } else { /* TODO: need to check for IPV6 extension headers */
-            if (j >= ETH_HLEN + p->eth.ip->ihl * 4 + TCP_HDR_LEN(p) + IPV6_FIXED_HEADER_LEN) {
+            if (j >= ETH_HLEN + IPV6_FIXED_HEADER_LEN + TCP_HDR_LEN(p)) {
                 *state = get_next_state(*state, p);
                 if (update) {
                     list_push_back(protocols, enum2str(*state));
@@ -371,8 +371,13 @@ enum hex_state get_next_state(enum hex_state cur_state, struct packet *p)
     case HD_IP:
     case HD_IP6:
     {
-        uint8_t protocol = (p->eth.ethertype == ETH_P_IP) ? p->eth.ip->protocol :
-            p->eth.ipv6->next_header;
+        uint8_t protocol;
+
+        if (p->eth.ethertype == ETH_P_IP) {
+            protocol = p->eth.ip->protocol;
+        } else {
+            protocol = p->eth.ipv6->next_header;
+        }
 
         switch (protocol) {
         case IPPROTO_UDP:
@@ -398,10 +403,19 @@ enum hex_state get_next_state(enum hex_state cur_state, struct packet *p)
     case HD_UDP:
     case HD_TCP:
     {
-        uint8_t protocol = (p->eth.ethertype == ETH_P_IP) ? p->eth.ip->protocol :
-            p->eth.ipv6->next_header;
-        struct application_info *adu = (protocol == IPPROTO_UDP) ? &p->eth.ip->udp.data :
-            &p->eth.ip->tcp.data;
+        uint8_t protocol;
+        struct application_info *adu;
+
+        if (p->eth.ethertype == ETH_P_IP) {
+            protocol = p->eth.ip->protocol;
+        } else {
+            protocol = p->eth.ipv6->next_header;
+        }
+        if (protocol == IPPROTO_UDP) {
+            adu = &p->eth.ip->udp.data;
+        } else {
+            adu = &p->eth.ip->tcp.data;
+        }
 
         switch (adu->utype) {
         case DNS:
