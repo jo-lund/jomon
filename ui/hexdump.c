@@ -10,8 +10,6 @@
 #define HD_WINDOW 1
 #define HD_NORMAL_LEN 76
 #define HD_WIDE_LEN 75
-#define HD_HEX_IDX 10
-#define HD_SPC_IDX 33
 #define HD_ASCII_IDX 58
 
 typedef struct {
@@ -181,6 +179,7 @@ void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_a
             if (mode == HEXMODE_NORMAL) {
                 int k = 0;
 
+                /* print hex values */
                 while (i < HD_ASCII_IDX) {
                     if (isspace(buf[i])) {
                         waddch(arg->h_arg.win, buf[i]);
@@ -192,10 +191,11 @@ void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_a
                     i++;
                 }
                 j = num;
-
                 while (isspace(buf[i])) {
                     waddch(arg->h_arg.win, buf[i++]);
                 }
+
+                /* print ascii */
                 waddch(arg->h_arg.win, ACS_VLINE);
                 while (i < HD_NORMAL_LEN) {
                     if (isspace(buf[i])) {
@@ -206,7 +206,7 @@ void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_a
                     i++;
                 }
                 waddch(arg->h_arg.win, ACS_VLINE);
-            } else {
+            } else { /* wide hex mode -- only print ascii */
                 j = num;
                 while (i < HD_WIDE_LEN) {
                     if (isspace(buf[i])) {
