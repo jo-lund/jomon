@@ -4,13 +4,12 @@ testdir := unittests
 BUILDDIR := build
 TARGETDIR := bin
 
-MACHINE := $(shell uname -smo | sed 's/ /-/g')
 CC := gcc
 CXX := g++
 CFLAGS += -g -std=gnu99
 CXXFLAGS += -Wno-write-strings
 CPPFLAGS += -Wall $(addprefix -I,$(incdir))
-LIBS += -lncurses
+LIBS += -lmenu -lncurses
 TESTS = util_test
 
 sources = $(wildcard *.c decoder/*.c ui/*.c)

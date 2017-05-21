@@ -5,6 +5,7 @@
 #include <netinet/ip_icmp.h>
 #include <ctype.h>
 #include <unistd.h>
+#include <menu.h>
 #include "layout.h"
 #include "protocols.h"
 #include "../list.h"
@@ -395,6 +396,8 @@ void main_screen_get_input(main_screen *ms)
         break;
     }
     case KEY_F(2):
+        break;
+    case KEY_F(3):
     {
         uid_t euid = geteuid();
 
@@ -411,7 +414,7 @@ void main_screen_get_input(main_screen *ms)
         }
         break;
     }
-    case KEY_F(3):
+    case KEY_F(4):
         if (capturing) {
             if (!interactive) {
                 main_screen_set_interactive(ms, true);
@@ -421,17 +424,17 @@ void main_screen_get_input(main_screen *ms)
             print_status(ms);
         }
         break;
-    case KEY_F(4):
-        if (!capturing) {
-            create_load_dialogue();
-        }
-        break;
     case KEY_F(5):
         if (!capturing) {
             create_save_dialogue();
         }
         break;
     case KEY_F(6):
+        if (!capturing) {
+            create_load_dialogue();
+        }
+        break;
+    case KEY_F(7):
         view_mode = (view_mode + 1) % NUM_VIEWS;
         if (ms->subwindow.win) {
             struct packet *p;
@@ -515,23 +518,26 @@ void print_status(main_screen *ms)
 
     mvwprintw(ms->status, 0, 0, "F1");
     printat(ms->status, -1, -1, COLOR_PAIR(2), "%-10s", "Help");
+    wprintw(ms->status, "F2");
+    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-10s", "Menu");
     if (capturing || euid != 0) {
-        printat(ms->status, -1, -1, A_DIM, "F2");
+        printat(ms->status, -1, -1, A_DIM, "F3");
     } else {
-        wprintw(ms->status, "F2");
+        wprintw(ms->status, "F3");
     }
     printat(ms->status, -1, -1, COLOR_PAIR(2), "%-10s", "Start");
     if (capturing) {
-        wprintw(ms->status, "F3");
+        wprintw(ms->status, "F4");
     } else {
-        printat(ms->status, -1, -1, A_DIM, "F3");
+        printat(ms->status, -1, -1, A_DIM, "F4");
     }
     printat(ms->status, -1, -1, COLOR_PAIR(2), "%-10s", "Stop");
-    wprintw(ms->status, "F4");
-    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-10s", "Load");
+
     wprintw(ms->status, "F5");
     printat(ms->status, -1, -1, COLOR_PAIR(2), "%-10s", "Save");
     wprintw(ms->status, "F6");
+    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-10s", "Load");
+    wprintw(ms->status, "F7");
     if (view_mode == DECODED_VIEW) {
         printat(ms->status, -1, -1, COLOR_PAIR(2), "%-10s", "View (dec)");
     } else {
