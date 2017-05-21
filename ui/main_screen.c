@@ -104,7 +104,6 @@ static void handle_file_error(void *callback);
 /* Handles subwindow layout */
 static void create_subwindow(main_screen *ms, int num_lines, int lineno);
 static void delete_subwindow(main_screen *ms);
-static bool update_subwin_selection(main_screen *ms);
 static bool inside_subwindow(main_screen *ms);
 static void add_elements(main_screen *ms, struct packet *p);
 static void add_transport_elements(main_screen *ms, struct packet *p);
@@ -909,10 +908,21 @@ void print_selected_packet(main_screen *ms)
     static int prev_selection = -1;
 
     if (prev_selection >= 0 && ms->subwindow.win) {
-        bool inside_subwin;
+        if (inside_subwindow(ms)) {
+            int subline;
+            int32_t data;
 
-        inside_subwin = update_subwin_selection(ms);
-        if (inside_subwin) {
+            /* the window contains no selectable elements */
+            if (!ms->lvw) return;
+
+            /* update the selection status of the selectable subwindow line */
+            screen_line = ms->selection_line - ms->top;
+            subline = screen_line - ms->subwindow.top;
+            data = GET_DATA(ms->lvw, subline);
+            SET_EXPANDED(ms->lvw, subline, !GET_EXPANDED(ms->lvw, subline));
+            if (data >= 0 && data < NUM_LAYERS) {
+                selected[data] = GET_EXPANDED(ms->lvw, subline);
+            }
             p = vector_get_data(packets, prev_selection);
             print_protocol_information(ms, p, prev_selection);
             return;
@@ -1193,39 +1203,12 @@ void delete_subwindow(main_screen *ms)
     wrefresh(ms->pktlist);
 }
 
-/*
- * Checks if ms->selection_line is inside the subwindow, and if that's the case, updates the
- * selection status of the selectable subwindow line.
- *
- * Returns true if it's inside the subwindow, else false.
- */
-bool update_subwin_selection(main_screen *ms)
-{
-    int screen_line;
-
-    screen_line = ms->selection_line - ms->top;
-    if (screen_line >= ms->subwindow.top &&
-        screen_line < ms->subwindow.top + ms->subwindow.num_lines) {
-        int subline;
-        int32_t data;
-
-        subline = screen_line - ms->subwindow.top;
-        data = GET_DATA(ms->lvw, subline);
-        SET_EXPANDED(ms->lvw, subline, !GET_EXPANDED(ms->lvw, subline));
-        if (data >= 0 && data < NUM_LAYERS) {
-            selected[data] = GET_EXPANDED(ms->lvw, subline);
-        }
-        return true;
-    }
-    return false;
-}
-
 /* Returns whether the selection line is inside the subwindow or not */
 bool inside_subwindow(main_screen *ms)
 {
     int subline = ms->selection_line - ms->top - ms->subwindow.top;
 
-    return ms->subwindow.win && subline >= 0 && subline <= ms->subwindow.num_lines;
+    return ms->subwindow.win && subline >= 0 && subline < ms->subwindow.num_lines;
 }
 
 /*

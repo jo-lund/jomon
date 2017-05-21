@@ -45,6 +45,8 @@ enum hex_state {
     HD_SSDP,
     HD_NBNS,
     HD_HTTP,
+    HD_SNAP,
+    HD_STP,
     HD_UNKNOWN
 };
 
@@ -68,6 +70,8 @@ static hex_conversion hex_state_val[] = {
     { HD_SSDP, "SSDP" },
     { HD_NBNS, "NBNS" },
     { HD_HTTP, "HTTP" },
+    { HD_SNAP, "SNAP" },
+    { HD_STP, "STP" },
     { HD_UNKNOWN, "Unknown" }
 };
 
@@ -122,7 +126,7 @@ void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_a
     } else {
         hexoffset = 16;
         snprintf(buf, size, "%-11s0  1  2  3  4  5  6  7", offset);
-        if (HD_LIST_VIEW) {
+        if (arg->type == HD_LIST_VIEW) {
             snprintcat(buf, size, "   8  9  a  b  c  d  e  f  %s", hex);
         } else {
             snprintcat(buf, size, "   8  9  a  b  c  d  e  f   %s", hex);
@@ -173,6 +177,7 @@ void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_a
             while (i < 8) {
                 mvwaddch(arg->h_arg.win, arg->h_arg.y, x++, buf[i++]);
             }
+
             if (mode == HEXMODE_NORMAL) {
                 int k = 0;
 
@@ -228,12 +233,13 @@ void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_a
     list_free(protocols, NULL);
 }
 
+// TODO: This needs to be cleaned up
 void print_char(WINDOW *win, char *buf, enum hex_state *state, struct packet *p, int i, int j, bool update)
 {
 check_state:
     switch (*state) {
     case HD_ETHERNET:
-        if (j > ETH_HLEN) {
+        if (j >= ETH_HLEN) {
             *state = get_next_state(*state, p);
             if (update) {
                 list_push_back(protocols, enum2str(*state));
@@ -245,8 +251,29 @@ check_state:
     case HD_ARP:
         waddch(win, buf[i] | GREEN | A_BOLD);
         break;
+    case HD_LLC:
+        if (j >= ETH_HLEN + LLC_HDR_LEN) {
+            *state = get_next_state(*state, p);
+            if (update) {
+                list_push_back(protocols, enum2str(*state));
+            }
+            goto check_state;
+        }
+        waddch(win, buf[i] | LIGHT_BLUE);
+        break;
     case HD_IP:
-        if (j > ETH_HLEN + p->eth.ip->ihl * 4) {
+        if (j >= ETH_HLEN + p->eth.ip->ihl * 4) {
+            *state = get_next_state(*state, p);
+            if (update) {
+                list_push_back(protocols, enum2str(*state));
+            }
+            goto check_state;
+        }
+        waddch(win, buf[i] | LIGHT_BLUE);
+        break;
+    case HD_IP6:
+        /* TDOO: should include extension headers */
+        if (j >= ETH_HLEN + IPV6_FIXED_HEADER_LEN) {
             *state = get_next_state(*state, p);
             if (update) {
                 list_push_back(protocols, enum2str(*state));
@@ -257,7 +284,7 @@ check_state:
         break;
     case HD_UDP:
         if (p->eth.ethertype == ETH_P_IP) {
-            if (j > ETH_HLEN + p->eth.ip->ihl * 4 + UDP_HDR_LEN) {
+            if (j >= ETH_HLEN + p->eth.ip->ihl * 4 + UDP_HDR_LEN) {
                 *state = get_next_state(*state, p);
                 if (update) {
                     list_push_back(protocols, enum2str(*state));
@@ -265,7 +292,7 @@ check_state:
                 goto check_state;
             }
         } else { /* TODO: need to check for IPV6 extension headers */
-            if (j > ETH_HLEN + p->eth.ip->ihl * 4 + UDP_HDR_LEN + IPV6_FIXED_HEADER_LEN) {
+            if (j >= ETH_HLEN + p->eth.ip->ihl * 4 + UDP_HDR_LEN + IPV6_FIXED_HEADER_LEN) {
                 *state = get_next_state(*state, p);
                 if (update) {
                     list_push_back(protocols, enum2str(*state));
@@ -277,7 +304,7 @@ check_state:
         break;
     case HD_TCP:
         if (p->eth.ethertype == ETH_P_IP) {
-            if (j > ETH_HLEN + p->eth.ip->ihl * 4 + TCP_HDR_LEN(p)) {
+            if (j >= ETH_HLEN + p->eth.ip->ihl * 4 + TCP_HDR_LEN(p)) {
                 *state = get_next_state(*state, p);
                 if (update) {
                     list_push_back(protocols, enum2str(*state));
@@ -285,7 +312,7 @@ check_state:
                 goto check_state;
             }
         } else { /* TODO: need to check for IPV6 extension headers */
-            if (j > ETH_HLEN + p->eth.ip->ihl * 4 + TCP_HDR_LEN(p) + IPV6_FIXED_HEADER_LEN) {
+            if (j >= ETH_HLEN + p->eth.ip->ihl * 4 + TCP_HDR_LEN(p) + IPV6_FIXED_HEADER_LEN) {
                 *state = get_next_state(*state, p);
                 if (update) {
                     list_push_back(protocols, enum2str(*state));
@@ -295,15 +322,6 @@ check_state:
         }
         waddch(win, buf[i]);
         break;
-    case HD_ICMP:
-    case HD_IGMP:
-    case HD_PIM:
-        waddch(win, buf[i] | GREEN | A_BOLD);
-        break;
-    case HD_DNS:
-    case HD_SSDP:
-    case HD_NBNS:
-    case HD_HTTP:
     default:
         waddch(win, buf[i] | GREEN | A_BOLD);
         break;
@@ -335,7 +353,21 @@ enum hex_state get_next_state(enum hex_state cur_state, struct packet *p)
         }
         break;
     case HD_LLC:
+    {
+        enum eth_802_type type = get_eth802_type(p->eth.llc);
+
+        switch (type) {
+        case ETH_802_STP:
+            next_state = HD_STP;
+            break;
+        case ETH_802_SNAP:
+            next_state = HD_SNAP;
+            break;
+        default:
+            break;
+        }
         break;
+    }
     case HD_IP:
     case HD_IP6:
     {
@@ -402,9 +434,6 @@ void print_state(WINDOW *win, char *buf, enum hex_state state)
     case HD_ETHERNET:
         printat(win, -1, -1, PURPLE, "  %s", buf);
         break;
-    case HD_ARP:
-        printat(win, -1, -1, GREEN | A_BOLD, "  %s", buf);
-        break;
     case HD_LLC:
     case HD_IP:
     case HD_IP6:
@@ -414,19 +443,8 @@ void print_state(WINDOW *win, char *buf, enum hex_state state)
     case HD_TCP:
         wprintw(win, "  %s", buf);
         break;
-    case HD_ICMP:
-    case HD_IGMP:
-    case HD_PIM:
-        printat(win, -1, -1, GREEN | A_BOLD, "  %s", buf);
-        break;
-    case HD_DNS:
-    case HD_SSDP:
-    case HD_NBNS:
-    case HD_HTTP:
-    case HD_UNKNOWN:
-        printat(win, -1, -1, GREEN | A_BOLD, "  %s", buf);
-        break;
     default:
+        printat(win, -1, -1, GREEN | A_BOLD, "  %s", buf);
         break;
     }
 }
