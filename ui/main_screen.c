@@ -643,7 +643,7 @@ void scroll_column(main_screen *ms, int scrollx, int num_lines)
             /* print lines above and below the pad */
             ms->outy = print_lines(ms, ms->top + ms->scrolly,
                                    ms->top + ms->scrolly + ms->subwindow.top, 0);
-            ms->outy += ms->lvw->size + 1;
+            ms->outy += ms->subwindow.num_lines;
             if (!ms->scrolly) {
                 ms->outy += print_lines(ms, ms->main_line.line_number + 1, ms->top + num_lines, ms->outy);
             }
