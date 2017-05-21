@@ -1086,15 +1086,36 @@ void add_udp_information(list_view *lw, list_view_header *header, struct udp_inf
 
 void add_tcp_information(list_view *lw, list_view_header *header, struct tcp *tcp, bool options_selected)
 {
+    int n = 32;
+    char buf[n];
+
+    memset(buf, 0, n);
+    if (tcp->urg) {
+        snprintcat(buf, n, "URG ");
+    }
+    if (tcp->ack) {
+        snprintcat(buf, n, "ACK ");
+    }
+    if (tcp->psh) {
+        snprintcat(buf, n, "PSH ");
+    }
+    if (tcp->rst) {
+        snprintcat(buf, n, "RST ");
+    }
+    if (tcp->syn) {
+        snprintcat(buf, n, "SYN ");
+    }
+    if (tcp->fin) {
+        snprintcat(buf, n, "FIN ");
+    }
     ADD_TEXT_ELEMENT(lw, header, "Source port: %u", tcp->src_port);
     ADD_TEXT_ELEMENT(lw, header, "Destination port: %u", tcp->dst_port);
     ADD_TEXT_ELEMENT(lw, header, "Sequence number: %u", tcp->seq_num);
     ADD_TEXT_ELEMENT(lw, header, "Acknowledgment number: %u", tcp->ack_num);
     ADD_TEXT_ELEMENT(lw, header, "Data offset: %u", tcp->offset);
-    ADD_TEXT_ELEMENT(lw, header,
-              "Flags: %u (NS) %u (CWR) %u (ECE) %u (URG) %u (ACK) %u (PSH) %u (RST) %u (SYN) %u (FIN)",
-              tcp->ns, tcp->cwr, tcp->ece, tcp->urg, tcp->ack,
-              tcp->psh, tcp->rst, tcp->syn, tcp->fin);
+    ADD_TEXT_ELEMENT(lw, header, "Flags: %s(0x%x)", buf, (uint16_t)
+                     (tcp->ns << 8 | tcp->cwr << 7 | tcp->ece << 6 | tcp->urg << 5 | tcp->ack << 4 |
+                      tcp->psh << 3 | tcp->rst << 2 | tcp->syn << 1 | tcp->fin));
     ADD_TEXT_ELEMENT(lw, header, "Window size: %u", tcp->window);
     ADD_TEXT_ELEMENT(lw, header, "Checksum: %u", tcp->checksum);
     ADD_TEXT_ELEMENT(lw, header, "Urgent pointer: %u", tcp->urg_ptr);
