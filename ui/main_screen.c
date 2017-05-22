@@ -440,6 +440,9 @@ void main_screen_get_input(main_screen *ms)
             struct packet *p;
 
             p = vector_get_data(packets, ms->main_line.line_number + ms->top);
+            if (view_mode == DECODED_VIEW) {
+                add_elements(ms, p);
+            }
             print_protocol_information(ms, p, ms->main_line.line_number + ms->top);
         }
         print_status(ms);
@@ -678,6 +681,7 @@ void handle_keyup(main_screen *ms, int num_lines)
         }
         ms->top--;
         wscrl(ms->pktlist, -1);
+
         if (p && !inside_subwindow(ms)) {
             char line[MAXLINE];
 
@@ -688,6 +692,9 @@ void handle_keyup(main_screen *ms, int num_lines)
             wrefresh(ms->pktlist);
         }
         if (ms->subwindow.win) {
+            if (inside_subwindow(ms)) {
+                wrefresh(ms->pktlist);
+            }
             handle_selectionbar(ms, KEY_UP);
             refresh_pad(ms, 1, 0);
         }
@@ -737,6 +744,9 @@ void handle_keydown(main_screen *ms, int num_lines)
             wrefresh(ms->pktlist);
         }
         if (ms->subwindow.win) {
+            if (inside_subwindow(ms)) {
+                wrefresh(ms->pktlist);
+            }
             handle_selectionbar(ms, KEY_DOWN);
             refresh_pad(ms, -1, 0);
         }
@@ -948,6 +958,9 @@ void print_selected_packet(main_screen *ms)
     }
     if (ms->main_line.selected) {
         p = vector_get_data(packets, ms->selection_line + ms->scrolly);
+        if (view_mode == DECODED_VIEW) {
+            add_elements(ms, p);
+        }
         print_protocol_information(ms, p, ms->selection_line + ms->scrolly);
     } else {
         delete_subwindow(ms);
@@ -1112,7 +1125,6 @@ void print_protocol_information(main_screen *ms, struct packet *p, int lineno)
     if (view_mode == DECODED_VIEW) {
         int subline;
 
-        add_elements(ms, p); // BUG: Calling this with sublayers is not working!
         create_subwindow(ms, ms->lvw->size + 1, lineno);
         RENDER(ms->lvw, ms->subwindow.win, ms->scrollx);
         subline = ms->selection_line - ms->top - ms->subwindow.top;
