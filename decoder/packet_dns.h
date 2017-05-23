@@ -39,6 +39,7 @@
 #define DNS_TYPE_TXT 16    /* text strings */
 #define DNS_TYPE_AAAA 28   /* a host IPv6 address */
 #define DNS_TYPE_SRV 33    /* generalized service location */
+#define DNS_TYPE_OPT 41    /* a pseudo record type needed to support EDNS */
 #define DNS_QTYPE_AXFR 252   /* a request for a transfer of an entire zone */
 #define DNS_QTYPE_MAILB 253  /* a request for mailbox-related records (MB, MG or MR) */
 #define DNS_QTYPE_MAILA 254  /* a request for mail agent RRs (Obsolete - see MX) */
@@ -80,6 +81,20 @@ struct application_info;
 /* Get the rrclass proper from the MDNS rrclass field */
 #define GET_MDNS_RRCLASS(rrclass) ((rrclass) & 0x7fff)
 
+/*
+ * OPT Record TTL Field Use:
+ *
+ * Forms the upper 8 bits of extended 12-bit RCODE. Note that EXTENDED-RCODE
+ * value 0 indicates that an unextended RCODE is in use (values 0 through 15).
+ */
+#define GET_DNS_OPT_EXTENDED_RCODE(ttl) ((ttl) & 0xff000000)
+
+/* indicates the implementation level of the setter */
+#define GET_DNS_OPT_VERSION(ttl) ((ttl) & 0x00ff0000)
+
+/* DNSSEC OK bit as defined by RFC3225 */
+#define GET_DNS_OPT_D0(ttl) ((ttl) & 0x00008000)
+
 enum dns_section_count {
     QDCOUNT,
     ANCOUNT,
@@ -87,9 +102,15 @@ enum dns_section_count {
     ARCOUNT
 };
 
-struct txt_rr {
+struct dns_txt_rr {
     int len;
     char *txt;
+};
+
+struct dns_opt_rr {
+    uint16_t option_code;
+    uint16_t option_length;
+    unsigned char *data;
 };
 
 // TODO: Clean up this structure
@@ -113,7 +134,7 @@ struct dns_info {
         uint16_t qclass; /* QCLASS values are a superset of CLASS values */
     } question;
 
-    /* answer section */
+    /* answer/authority/additional section */
     struct dns_resource_record {
         /* a domain name to which the resource record pertains */
         char name[DNS_NAMELEN];
@@ -203,6 +224,11 @@ struct dns_info {
                 char target[DNS_NAMELEN]; /* domain name of the target host */
             } srv;
 
+            struct {
+                uint16_t rdlen;
+                unsigned char *data;
+            } opt;
+
         } rdata;
     } *record;
 };
@@ -219,6 +245,13 @@ char *get_dns_class_extended(uint16_t rrclass);
  * 'n' is the number of records
  */
 int get_dns_max_namelen(struct dns_resource_record *record, int n);
+
+/*
+ * Parse the DNS pseudo opt resource record. The list needs to be freed with
+ * free_dns_option
+ */
+list_t *parse_dns_options(struct dns_resource_record *rr);
+void free_dns_options(list_t *opt);
 
 /* internal to the decoder */
 bool handle_dns(unsigned char *buffer, int n, struct application_info *info);

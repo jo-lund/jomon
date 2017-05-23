@@ -9,6 +9,7 @@
 static void parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data, struct dns_info *dns);
 static char *parse_dns_txt(unsigned char **data);
 static void free_txt_rr(void *data);
+static void free_opt_rr(void *data);
 
 /*
  * Handle DNS messages. Will return false if not DNS.
@@ -282,10 +283,10 @@ void parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
 
             dns->record[i].rdata.txt = list_init();
             while (j < rdlen) {
-                struct txt_rr *rr;
+                struct dns_txt_rr *rr;
                 int len = 0;
 
-                rr = malloc(sizeof(struct txt_rr));
+                rr = malloc(sizeof(struct dns_txt_rr));
                 rr->txt = parse_dns_txt(&ptr);
                 if (rr->txt) {
                     len = strlen(rr->txt);
@@ -307,6 +308,10 @@ void parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
             dns->record[i].rdata.srv.port = ptr[4] << 8 | ptr[5];
             ptr += 6;
             ptr += parse_dns_name(buffer, n, ptr, dns->record[i].rdata.srv.target);
+            break;
+        case DNS_TYPE_OPT:
+            dns->record[i].rdata.opt.rdlen = rdlen;
+            dns->record[i].rdata.opt.data = malloc(rdlen);
             break;
         default:
             ptr += rdlen;
@@ -344,11 +349,47 @@ char *parse_dns_txt(unsigned char **data)
 
 void free_txt_rr(void *data)
 {
-    struct txt_rr *rr = (struct txt_rr *) data;
+    struct dns_txt_rr *rr = (struct dns_txt_rr *) data;
 
     if (rr->txt) {
         free(rr->txt);
     }
+    free(rr);
+}
+
+list_t *parse_dns_options(struct dns_resource_record *rr)
+{
+    list_t *opt;
+    uint16_t length;
+
+    opt = list_init();
+    length = rr->rdata.opt.rdlen;
+    while (length > 0) {
+        struct dns_opt_rr *opt_rr;
+
+        opt_rr = malloc(sizeof(struct dns_opt_rr));
+        opt_rr->option_code = rr->rdata.opt.data[0] << 8 | rr->rdata.opt.data[1];
+        opt_rr->option_length = rr->rdata.opt.data[2] << 8 | rr->rdata.opt.data[3];
+        rr->rdata.opt.data += 4;
+        opt_rr->data = malloc(opt_rr->option_length);
+        memcpy(opt_rr->data, rr->rdata.opt.data, opt_rr->option_length);
+        length -= opt_rr->option_length;
+        rr->rdata.opt.data += opt_rr->option_length;
+        list_push_back(opt, opt_rr);
+    }
+    return opt;
+}
+
+void free_dns_options(list_t *opt)
+{
+    list_free(opt, free_opt_rr);
+}
+
+void free_opt_rr(void *data)
+{
+    struct dns_opt_rr *rr = (struct dns_opt_rr *) data;
+
+    free(rr->data);
     free(rr);
 }
 
@@ -409,6 +450,8 @@ char *get_dns_type(uint16_t type)
         return "TXT";
     case DNS_TYPE_SRV:
         return "SRV";
+    case DNS_TYPE_OPT:
+        return "OPT";
     case DNS_QTYPE_STAR:
         return "*";
     default:
@@ -439,6 +482,8 @@ char *get_dns_type_extended(uint16_t type)
         return "TXT (text strings)";
     case DNS_TYPE_SRV:
         return "SRV (service location)";
+    case DNS_TYPE_OPT:
+        return "OPT (Option pseudo record)";
     case DNS_QTYPE_STAR:
         return "* (all records)";
     default:
@@ -502,6 +547,9 @@ void free_dns_packet(struct dns_info *dns)
                 break;
             case DNS_TYPE_TXT:
                 list_free(dns->record->rdata.txt, free_txt_rr);
+                break;
+            case DNS_TYPE_OPT:
+                free(dns->record->rdata.opt.data);
                 break;
             default:
                 break;

@@ -51,8 +51,9 @@ static void print_ssdp(char *buf, int n, list_t *ssdp);
 static void print_http(char *buf, int n, struct http_info *http);
 static void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t type);
 static void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t type);
-static void add_dns_soa(list_view *lw, list_view_header *w, struct dns_info *info, int i);
+static void add_dns_soa(list_view *lw, list_view_header *w, struct dns_info *dns, int i);
 static void add_dns_txt(list_view *lw, list_view_header *w, struct dns_info *dns, int i);
+static void add_dns_opt(list_view *lw, list_view_header *w, struct dns_info *dns, int i);
 static void add_dns_record_hdr(list_view *lw, list_view_header *header, struct dns_info *dns,
                                int idx, int max_record_name);
 static void add_dns_record(list_view *lw, list_view_header *w, struct dns_info *info, int i,
@@ -1240,10 +1241,10 @@ void add_dns_information(list_view *lw, list_view_header *header, struct dns_inf
     if (records) {
         int len;
 
-        len = get_dns_max_namelen(dns->record, records);
         if (answers) {
             list_view_header *hdr;
 
+            len = get_dns_max_namelen(dns->record, answers);
             hdr = ADD_SUB_HEADER(lw, header, records_selected, SUBLAYER, "Answers");
             for (int i = 0; i < answers; i++) {
                 add_dns_record_hdr(lw, hdr, dns, i, len);
@@ -1253,6 +1254,7 @@ void add_dns_information(list_view *lw, list_view_header *header, struct dns_inf
         if (authority) {
             list_view_header *hdr;
 
+            len = get_dns_max_namelen(dns->record + answers, authority);
             hdr = ADD_SUB_HEADER(lw, header, records_selected, SUBLAYER, "Authoritative nameservers");
             for (int i = 0; i < authority; i++) {
                 add_dns_record_hdr(lw, hdr, dns, i + answers, len);
@@ -1262,6 +1264,7 @@ void add_dns_information(list_view *lw, list_view_header *header, struct dns_inf
         if (additional) {
             list_view_header *hdr;
 
+            len = get_dns_max_namelen(dns->record + answers + authority, additional);
             hdr = ADD_SUB_HEADER(lw, header, records_selected, SUBLAYER, "Additional records");
             for (int i = 0; i < additional; i++) {
                 add_dns_record_hdr(lw, hdr, dns, i + answers + authority, len);
@@ -1276,8 +1279,25 @@ void add_dns_record_hdr(list_view *lw, list_view_header *header, struct dns_info
     char buffer[MAXLINE];
     list_view_header *w;
 
-    snprintf(buffer, MAXLINE, "%-*s", max_record_name + 4, dns->record[idx].name);
-    snprintcat(buffer, MAXLINE, "%-6s", get_dns_class(GET_MDNS_RRCLASS(dns->record[idx].rrclass)));
+    /* the OPT resource record has special handling of the fixed parts of the record */
+    if (dns->record[idx].type == DNS_TYPE_OPT) {
+        if (!dns->record[idx].name[0]) { /* the name must be 0 (root domain) */
+            char *name = "<root domain>";
+
+            if (max_record_name == 0) {
+                snprintf(buffer, MAXLINE, "%-*s", (int ) strlen(name) + 4, name);
+            } else {
+                snprintf(buffer, MAXLINE, "%-*s", max_record_name + 4, name);
+            }
+        } else {
+            snprintf(buffer, MAXLINE, "%-*s", max_record_name + 4, dns->record[idx].name);
+        }
+        /* class is the requestor's UDP payload size*/
+        snprintcat(buffer, MAXLINE, "%-6d", GET_MDNS_RRCLASS(dns->record[idx].rrclass));
+    } else {
+        snprintf(buffer, MAXLINE, "%-*s", max_record_name + 4, dns->record[idx].name);
+        snprintcat(buffer, MAXLINE, "%-6s", get_dns_class(GET_MDNS_RRCLASS(dns->record[idx].rrclass)));
+    }
     snprintcat(buffer, MAXLINE, "%-8s", get_dns_type(dns->record[idx].type));
     print_dns_record(dns, idx, buffer, MAXLINE, dns->record[idx].type);
     w = ADD_SUB_HEADER(lw, header, false, SUBLAYER, "%s", buffer);
@@ -1289,12 +1309,14 @@ void add_dns_record(list_view *lw, list_view_header *w, struct dns_info *dns, in
     char time[512];
     struct tm_t tm;
 
-    ADD_TEXT_ELEMENT(lw, w, "Name: %s", dns->record[i].name);
-    ADD_TEXT_ELEMENT(lw, w, "Type: %s", get_dns_type_extended(dns->record[i].type));
-    ADD_TEXT_ELEMENT(lw, w, "Class: %s", get_dns_class_extended(GET_MDNS_RRCLASS(dns->record[i].rrclass)));
-    tm = get_time(dns->record[i].ttl);
-    time_ntop(&tm, time, 512);
-    ADD_TEXT_ELEMENT(lw, w, "TTL: %s", time);
+    if (dns->record[i].type != DNS_TYPE_OPT) {
+        ADD_TEXT_ELEMENT(lw, w, "Name: %s", dns->record[i].name);
+        ADD_TEXT_ELEMENT(lw, w, "Type: %s", get_dns_type_extended(dns->record[i].type));
+        ADD_TEXT_ELEMENT(lw, w, "Class: %s", get_dns_class_extended(GET_MDNS_RRCLASS(dns->record[i].rrclass)));
+        tm = get_time(dns->record[i].ttl);
+        time_ntop(&tm, time, 512);
+        ADD_TEXT_ELEMENT(lw, w, "TTL: %s", time);
+    }
 
     switch (type) {
     case DNS_TYPE_SOA:
@@ -1313,6 +1335,9 @@ void add_dns_record(list_view *lw, list_view_header *w, struct dns_info *dns, in
     case DNS_TYPE_TXT:
         add_dns_txt(lw, w, dns, i);
         break;
+    case DNS_TYPE_OPT:
+        add_dns_opt(lw, w, dns, i);
+        break;
     default:
         break;
     }
@@ -1324,7 +1349,7 @@ void add_dns_txt(list_view *lw, list_view_header *w, struct dns_info *dns, int i
     const node_t *node = list_begin(dns->record[i].rdata.txt);
 
     while (node) {
-        struct txt_rr *rr = (struct txt_rr *) list_data(node);
+        struct dns_txt_rr *rr = (struct dns_txt_rr *) list_data(node);
 
         ADD_TEXT_ELEMENT(lw, w, "TXT: %s", (rr->txt == NULL) ? "" : rr->txt);
         ADD_TEXT_ELEMENT(lw, w, "TXT length: %d", rr->len);
@@ -1357,6 +1382,37 @@ void add_dns_soa(list_view *lw, list_view_header *w, struct dns_info *dns, int i
     time_ntop(&tm, time, 512);
     ADD_TEXT_ELEMENT(lw, w,  "Minimum TTL: %d (%s)",
               dns->record[i].rdata.soa.minimum, time);
+}
+
+void add_dns_opt(list_view *lw, list_view_header *w, struct dns_info *dns, int i)
+{
+    list_t *opt;
+    const node_t *n;
+
+    if (!dns->record[i].name[0]) {
+        ADD_TEXT_ELEMENT(lw, w, "Name: <root domain>");
+    } else {
+        ADD_TEXT_ELEMENT(lw, w, "Name: %s", dns->record[i].name);
+    }
+    ADD_TEXT_ELEMENT(lw, w, "Type: %s", get_dns_type_extended(dns->record[i].type));
+    ADD_TEXT_ELEMENT(lw, w, "UDP payload size: %u", GET_MDNS_RRCLASS(dns->record[i].rrclass));
+    ADD_TEXT_ELEMENT(lw, w, "Extended RCODE (upper 8 bits): 0x%x",
+                     GET_DNS_OPT_EXTENDED_RCODE(dns->record[i].ttl));
+    ADD_TEXT_ELEMENT(lw, w, "Version: 0x%x", GET_DNS_OPT_VERSION(dns->record[i].ttl));
+    ADD_TEXT_ELEMENT(lw, w, "D0 (DNSSEC OK bit): %u", GET_DNS_OPT_D0(dns->record[i].ttl));
+    opt = parse_dns_options(&dns->record[i]);
+    n = list_begin(opt);
+    while (n) {
+        struct dns_opt_rr *opt_rr = (struct dns_opt_rr *) list_data(n);
+        char buf[opt_rr->option_length + 1];
+
+        memcpy(buf, opt_rr->data, opt_rr->option_length);
+        buf[opt_rr->option_length] = '\0';
+        ADD_TEXT_ELEMENT(lw, w, "Option code: %u", opt_rr->option_code);
+        ADD_TEXT_ELEMENT(lw, w, "Option length: %u", opt_rr->option_length);
+        ADD_TEXT_ELEMENT(lw, w, "data: %s", buf);
+    }
+    free_dns_options(opt);
 }
 
 void add_nbns_information(list_view *lw, list_view_header *header, struct nbns_info *nbns)
