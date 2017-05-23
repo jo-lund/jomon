@@ -53,6 +53,8 @@ static void print_dns_record(struct dns_info *info, int i, char *buf, int n, uin
 static void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t type);
 static void add_dns_soa(list_view *lw, list_view_header *w, struct dns_info *info, int i);
 static void add_dns_txt(list_view *lw, list_view_header *w, struct dns_info *dns, int i);
+static void add_dns_record_hdr(list_view *lw, list_view_header *header, struct dns_info *dns,
+                               int idx, int max_record_name);
 static void add_dns_record(list_view *lw, list_view_header *w, struct dns_info *info, int i,
                            char *buf, int n, uint16_t type);
 static void add_tcp_options(list_view *lw, list_view_header *header, struct tcp *tcp,
@@ -1196,6 +1198,9 @@ void add_dns_information(list_view *lw, list_view_header *header, struct dns_inf
                          bool records_selected)
 {
     int records = 0;
+    int answers = dns->section_count[ANCOUNT];
+    int authority = dns->section_count[NSCOUNT];
+    int additional = dns->section_count[ARCOUNT];
 
     /* number of resource records */
     for (int i = 1; i < 4; i++) {
@@ -1218,30 +1223,65 @@ void add_dns_information(list_view *lw, list_view_header *header, struct dns_inf
         ADD_TEXT_ELEMENT(lw, header, "Rcode: %d (%s)", dns->rcode, get_dns_rcode(dns->rcode));
     }
     ADD_TEXT_ELEMENT(lw, header, "Question: %d, Answer: %d, Authority: %d, Additional records: %d",
-              dns->section_count[QDCOUNT], dns->section_count[ANCOUNT],
-              dns->section_count[NSCOUNT], dns->section_count[ARCOUNT]);
-    ADD_TEXT_ELEMENT(lw, header, "");
-    for (int i = dns->section_count[QDCOUNT]; i > 0; i--) {
-        ADD_TEXT_ELEMENT(lw, header, "QNAME: %s, QTYPE: %s, QCLASS: %s",
-                  dns->question.qname, get_dns_type_extended(dns->question.qtype),
-                  get_dns_class_extended(GET_MDNS_RRCLASS(dns->question.qclass)));
+                     dns->section_count[QDCOUNT], answers, authority, additional);
+    if (dns->section_count[QDCOUNT]) {
+        list_view_header *hdr;
+
+        hdr = ADD_SUB_HEADER(lw, header, records_selected, SUBLAYER, "Questions");
+        for (int i = dns->section_count[QDCOUNT]; i > 0; i--) {
+            ADD_TEXT_ELEMENT(lw, hdr, "QNAME: %s, QTYPE: %s, QCLASS: %s",
+                             dns->question.qname, get_dns_type_extended(dns->question.qtype),
+                             get_dns_class_extended(GET_MDNS_RRCLASS(dns->question.qclass)));
+            if (records) {
+                ADD_TEXT_ELEMENT(lw, hdr, "");
+            }
+        }
     }
     if (records) {
         int len;
 
         len = get_dns_max_namelen(dns->record, records);
-        for (int i = 0; i < records; i++) {
-            char buffer[MAXLINE];
-            list_view_header *w;
+        if (answers) {
+            list_view_header *hdr;
 
-            snprintf(buffer, MAXLINE, "%-*s", len + 4, dns->record[i].name);
-            snprintcat(buffer, MAXLINE, "%-6s", get_dns_class(GET_MDNS_RRCLASS(dns->record[i].rrclass)));
-            snprintcat(buffer, MAXLINE, "%-8s", get_dns_type(dns->record[i].type));
-            print_dns_record(dns, i, buffer, MAXLINE, dns->record[i].type);
-            w = ADD_SUB_HEADER(lw, header, records_selected, SUBLAYER, "%s", buffer);
-            add_dns_record(lw, w, dns, i, buffer, MAXLINE, dns->record[i].type);
+            hdr = ADD_SUB_HEADER(lw, header, records_selected, SUBLAYER, "Answers");
+            for (int i = 0; i < answers; i++) {
+                add_dns_record_hdr(lw, hdr, dns, i, len);
+            }
+            ADD_TEXT_ELEMENT(lw, hdr, "");
+        }
+        if (authority) {
+            list_view_header *hdr;
+
+            hdr = ADD_SUB_HEADER(lw, header, records_selected, SUBLAYER, "Authoritative nameservers");
+            for (int i = 0; i < authority; i++) {
+                add_dns_record_hdr(lw, hdr, dns, i + answers, len);
+            }
+            ADD_TEXT_ELEMENT(lw, hdr, "");
+        }
+        if (additional) {
+            list_view_header *hdr;
+
+            hdr = ADD_SUB_HEADER(lw, header, records_selected, SUBLAYER, "Additional records");
+            for (int i = 0; i < additional; i++) {
+                add_dns_record_hdr(lw, hdr, dns, i + answers + authority, len);
+            }
         }
     }
+}
+
+void add_dns_record_hdr(list_view *lw, list_view_header *header, struct dns_info *dns,
+                        int idx, int max_record_name)
+{
+    char buffer[MAXLINE];
+    list_view_header *w;
+
+    snprintf(buffer, MAXLINE, "%-*s", max_record_name + 4, dns->record[idx].name);
+    snprintcat(buffer, MAXLINE, "%-6s", get_dns_class(GET_MDNS_RRCLASS(dns->record[idx].rrclass)));
+    snprintcat(buffer, MAXLINE, "%-8s", get_dns_type(dns->record[idx].type));
+    print_dns_record(dns, idx, buffer, MAXLINE, dns->record[idx].type);
+    w = ADD_SUB_HEADER(lw, header, false, SUBLAYER, "%s", buffer);
+    add_dns_record(lw, w, dns, idx, buffer, MAXLINE, dns->record[idx].type);
 }
 
 void add_dns_record(list_view *lw, list_view_header *w, struct dns_info *dns, int i, char *buf, int n, uint16_t type)
