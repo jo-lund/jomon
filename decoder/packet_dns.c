@@ -91,7 +91,7 @@ bool handle_dns(unsigned char *buffer, int n, struct application_info *info)
             ptr += parse_dns_name(buffer, n, ptr, info->dns->question.qname);
             info->dns->question.qtype = ptr[0] << 8 | ptr[1];
             info->dns->question.qclass = ptr[2] << 8 | ptr[3];
-            ptr += 4; /* skip qtype and qclass */
+            ptr += 4;
         }
 
         /* Answer/Authority/Additional records sections */
@@ -109,8 +109,8 @@ bool handle_dns(unsigned char *buffer, int n, struct application_info *info)
             free(info->dns);
             return false;
         }
-        /* ANCOUNT and NSCOUNT values are zero */
-        if (info->dns->section_count[ANCOUNT] != 0 && info->dns->section_count[NSCOUNT] != 0) {
+        /* ANCOUNT should be zero */
+        if (info->dns->section_count[ANCOUNT] != 0) {
             free(info->dns);
             return false;
         }
@@ -129,15 +129,18 @@ bool handle_dns(unsigned char *buffer, int n, struct application_info *info)
             ptr += parse_dns_name(buffer, n, ptr, info->dns->question.qname);
             info->dns->question.qtype = ptr[0] << 8 | ptr[1];
             info->dns->question.qclass = ptr[2] << 8 | ptr[3];
+            ptr += 4;
         }
 
-        /* Additional records */
-        if (info->dns->section_count[ARCOUNT]) {
-            info->dns->record = malloc(info->dns->section_count[ARCOUNT] *
-                                           sizeof(struct dns_resource_record));
-            for (int i = 0; i < info->dns->section_count[ARCOUNT]; i++) {
-                parse_dns_record(i, buffer, n, &ptr, info->dns);
-            }
+        /* authority and additional records */
+        int num_records = 0;
+
+        for (int i = NSCOUNT; i < 4; i++) {
+            num_records += info->dns->section_count[i];
+        }
+        info->dns->record = malloc(num_records * sizeof(struct dns_resource_record));
+        for (int i = 0; i < num_records; i++) {
+            parse_dns_record(i, buffer, n, &ptr, info->dns);
         }
     }
     pstat.num_dns++;
@@ -406,6 +409,8 @@ char *get_dns_type(uint16_t type)
         return "TXT";
     case DNS_TYPE_SRV:
         return "SRV";
+    case DNS_QTYPE_STAR:
+        return "*";
     default:
         return "";
     }
@@ -434,6 +439,8 @@ char *get_dns_type_extended(uint16_t type)
         return "TXT (text strings)";
     case DNS_TYPE_SRV:
         return "SRV (service location)";
+    case DNS_QTYPE_STAR:
+        return "* (all records)";
     default:
         return "";
     }
