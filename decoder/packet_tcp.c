@@ -114,11 +114,6 @@ bool handle_tcp(unsigned char *buffer, int n, struct tcp *info)
         }
     }
     info->data.utype = 0;
-
-    /* unknown application payload data */
-    if (payload_len > 0) {
-
-    }
     return true;
 }
 

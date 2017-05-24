@@ -498,7 +498,7 @@ void print_header(main_screen *ms)
         printat(ms->header, y, 0, COLOR_PAIR(4) | A_BOLD, "Filename");
         wprintw(ms->header, ": %s", ctx.filename);
     } else {
-        printat(ms->header, y, 0, COLOR_PAIR(4) | A_BOLD, "Listening on device");
+        printat(ms->header, y, 0, COLOR_PAIR(4) | A_BOLD, "Device");
         wprintw(ms->header, ": %s", ctx.device);
     }
     inet_ntop(AF_INET, &local_addr->sin_addr, addr, sizeof(addr));

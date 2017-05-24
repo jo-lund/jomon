@@ -234,91 +234,91 @@ void parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
     rdlen = ptr[8] << 8 | ptr[9];
     ptr += 10; /* skip to rdata field */
 
-    if (GET_MDNS_RRCLASS(dns->record[i].rrclass) == DNS_CLASS_IN) {
-        switch (dns->record[i].type) {
-        case DNS_TYPE_A:
-            if (rdlen == 4) {
-                dns->record[i].rdata.address = ptr[0] << 24 | ptr[1] << 16 | ptr[2] << 8 | ptr[3];
-            }
-            ptr += rdlen;
-            break;
-        case DNS_TYPE_NS:
-            ptr += parse_dns_name(buffer, n, ptr, dns->record[i].rdata.nsdname);
-            break;
-        case DNS_TYPE_CNAME:
-            ptr += parse_dns_name(buffer, n, ptr, dns->record[i].rdata.cname);
-            break;
-        case DNS_TYPE_SOA:
-            ptr += parse_dns_name(buffer, n, ptr, dns->record[i].rdata.soa.mname);
-            ptr += parse_dns_name(buffer, n, ptr, dns->record[i].rdata.soa.rname);
-            dns->record[i].rdata.soa.serial = ptr[0] << 24 | ptr[1] << 16 | ptr[2] << 8 | ptr[3];
-            ptr += 4;
-            dns->record[i].rdata.soa.refresh = ptr[0] << 24 | ptr[1] << 16 | ptr[2] << 8 | ptr[3];
-            ptr += 4;
-            dns->record[i].rdata.soa.retry = ptr[0] << 24 | ptr[1] << 16 | ptr[2] << 8 | ptr[3];
-            ptr += 4;
-            dns->record[i].rdata.soa.expire = ptr[0] << 24 | ptr[1] << 16 | ptr[2] << 8 | ptr[3];
-            ptr += 4;
-            dns->record[i].rdata.soa.minimum = ptr[0] << 24 | ptr[1] << 16 | ptr[2] << 8 | ptr[3];
-            ptr += 4;
-            break;
-        case DNS_TYPE_PTR:
-            ptr += parse_dns_name(buffer, n, ptr, dns->record[i].rdata.ptrdname);
-            break;
-        case DNS_TYPE_AAAA:
-            if (rdlen == 16) {
-                for (int j = 0; j < rdlen; j++) {
-                    dns->record[i].rdata.ipv6addr[j] = ptr[j];
-                }
-            }
-            ptr += rdlen;
-            break;
-        case DNS_TYPE_HINFO:
-            dns->record[i].rdata.hinfo.cpu = parse_dns_txt(&ptr);
-            dns->record[i].rdata.hinfo.os = parse_dns_txt(&ptr);
-            break;
-        case DNS_TYPE_TXT:
-        {
-            int j = 0;
-
-            dns->record[i].rdata.txt = list_init();
-            while (j < rdlen) {
-                struct dns_txt_rr *rr;
-                int len = 0;
-
-                rr = malloc(sizeof(struct dns_txt_rr));
-                rr->txt = parse_dns_txt(&ptr);
-                if (rr->txt) {
-                    len = strlen(rr->txt);
-                }
-                rr->len = len;
-                j += len + 1;
-                list_push_back(dns->record[i].rdata.txt, rr);
-            }
-            break;
+    switch (dns->record[i].type) {
+    case DNS_TYPE_A:
+        if (rdlen == 4) {
+            dns->record[i].rdata.address = ptr[0] << 24 | ptr[1] << 16 | ptr[2] << 8 | ptr[3];
         }
-        case DNS_TYPE_MX:
-            dns->record[i].rdata.mx.preference = ptr[0] << 8 | ptr[1];
-            ptr += 2;
-            ptr += parse_dns_name(buffer, n, ptr, dns->record[i].rdata.mx.exchange);
-            break;
-        case DNS_TYPE_SRV:
-            dns->record[i].rdata.srv.priority = ptr[0] << 8 | ptr[1];
-            dns->record[i].rdata.srv.weight = ptr[2] << 8 | ptr[3];
-            dns->record[i].rdata.srv.port = ptr[4] << 8 | ptr[5];
-            ptr += 6;
-            ptr += parse_dns_name(buffer, n, ptr, dns->record[i].rdata.srv.target);
-            break;
-        case DNS_TYPE_OPT:
-            dns->record[i].rdata.opt.rdlen = rdlen;
-            dns->record[i].rdata.opt.data = malloc(rdlen);
-            break;
-        default:
-            ptr += rdlen;
-            break;
-        }
-    } else {
         ptr += rdlen;
+        break;
+    case DNS_TYPE_NS:
+        ptr += parse_dns_name(buffer, n, ptr, dns->record[i].rdata.nsdname);
+        break;
+    case DNS_TYPE_CNAME:
+        ptr += parse_dns_name(buffer, n, ptr, dns->record[i].rdata.cname);
+        break;
+    case DNS_TYPE_SOA:
+        ptr += parse_dns_name(buffer, n, ptr, dns->record[i].rdata.soa.mname);
+        ptr += parse_dns_name(buffer, n, ptr, dns->record[i].rdata.soa.rname);
+        dns->record[i].rdata.soa.serial = ptr[0] << 24 | ptr[1] << 16 | ptr[2] << 8 | ptr[3];
+        ptr += 4;
+        dns->record[i].rdata.soa.refresh = ptr[0] << 24 | ptr[1] << 16 | ptr[2] << 8 | ptr[3];
+        ptr += 4;
+        dns->record[i].rdata.soa.retry = ptr[0] << 24 | ptr[1] << 16 | ptr[2] << 8 | ptr[3];
+        ptr += 4;
+        dns->record[i].rdata.soa.expire = ptr[0] << 24 | ptr[1] << 16 | ptr[2] << 8 | ptr[3];
+        ptr += 4;
+        dns->record[i].rdata.soa.minimum = ptr[0] << 24 | ptr[1] << 16 | ptr[2] << 8 | ptr[3];
+        ptr += 4;
+        break;
+    case DNS_TYPE_PTR:
+        ptr += parse_dns_name(buffer, n, ptr, dns->record[i].rdata.ptrdname);
+        break;
+    case DNS_TYPE_AAAA:
+        if (rdlen == 16) {
+            for (int j = 0; j < rdlen; j++) {
+                dns->record[i].rdata.ipv6addr[j] = ptr[j];
+            }
+        }
+        ptr += rdlen;
+        break;
+    case DNS_TYPE_HINFO:
+        dns->record[i].rdata.hinfo.cpu = parse_dns_txt(&ptr);
+        dns->record[i].rdata.hinfo.os = parse_dns_txt(&ptr);
+        break;
+    case DNS_TYPE_TXT:
+    {
+        int j = 0;
+
+        dns->record[i].rdata.txt = list_init();
+        while (j < rdlen) {
+            struct dns_txt_rr *rr;
+            int len = 0;
+
+            rr = malloc(sizeof(struct dns_txt_rr));
+            rr->txt = parse_dns_txt(&ptr);
+            if (rr->txt) {
+                len = strlen(rr->txt);
+            }
+            rr->len = len;
+            j += len + 1;
+            list_push_back(dns->record[i].rdata.txt, rr);
+        }
+        break;
+    }
+    case DNS_TYPE_MX:
+        dns->record[i].rdata.mx.preference = ptr[0] << 8 | ptr[1];
+        ptr += 2;
+        ptr += parse_dns_name(buffer, n, ptr, dns->record[i].rdata.mx.exchange);
+        break;
+    case DNS_TYPE_SRV:
+        dns->record[i].rdata.srv.priority = ptr[0] << 8 | ptr[1];
+        dns->record[i].rdata.srv.weight = ptr[2] << 8 | ptr[3];
+        dns->record[i].rdata.srv.port = ptr[4] << 8 | ptr[5];
+        ptr += 6;
+        ptr += parse_dns_name(buffer, n, ptr, dns->record[i].rdata.srv.target);
+        break;
+    case DNS_TYPE_OPT:
+        dns->record[i].rdata.opt.rdlen = rdlen;
+        if (rdlen) {
+            dns->record[i].rdata.opt.data = malloc(rdlen);
+            memcpy(dns->record[i].rdata.opt.data, ptr, rdlen);
+            ptr += rdlen;
+        }
+        break;
+    default:
+        ptr += rdlen;
+        break;
     }
     *data = ptr; /* skip parsed dns record */
 }
@@ -360,21 +360,24 @@ void free_txt_rr(void *data)
 list_t *parse_dns_options(struct dns_resource_record *rr)
 {
     list_t *opt;
-    uint16_t length;
+    int length;
+    unsigned char *ptr;
 
     opt = list_init();
     length = rr->rdata.opt.rdlen;
+    ptr = rr->rdata.opt.data;
     while (length > 0) {
         struct dns_opt_rr *opt_rr;
 
         opt_rr = malloc(sizeof(struct dns_opt_rr));
-        opt_rr->option_code = rr->rdata.opt.data[0] << 8 | rr->rdata.opt.data[1];
-        opt_rr->option_length = rr->rdata.opt.data[2] << 8 | rr->rdata.opt.data[3];
-        rr->rdata.opt.data += 4;
+        opt_rr->option_code = ptr[0] << 8 | ptr[1];
+        opt_rr->option_length = ptr[2] << 8 | ptr[3];
+        ptr += 4;
+        length -= 4;
         opt_rr->data = malloc(opt_rr->option_length);
-        memcpy(opt_rr->data, rr->rdata.opt.data, opt_rr->option_length);
+        memcpy(opt_rr->data, ptr, opt_rr->option_length);
         length -= opt_rr->option_length;
-        rr->rdata.opt.data += opt_rr->option_length;
+        ptr += opt_rr->option_length;
         list_push_back(opt, opt_rr);
     }
     return opt;

@@ -38,10 +38,5 @@ bool handle_udp(unsigned char *buffer, int n, struct udp_info *info)
         }
     }
     info->data.utype = 0;
-
-    /* unknown application payload data */
-    if (info->len - UDP_HDR_LEN > 0) {
-
-    }
     return true;
 }

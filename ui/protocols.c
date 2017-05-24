@@ -1403,14 +1403,17 @@ void add_dns_opt(list_view *lw, list_view_header *w, struct dns_info *dns, int i
     opt = parse_dns_options(&dns->record[i]);
     n = list_begin(opt);
     while (n) {
-        struct dns_opt_rr *opt_rr = (struct dns_opt_rr *) list_data(n);
-        char buf[opt_rr->option_length + 1];
+        char buf[1024];
+        struct dns_opt_rr *opt_rr;
 
-        memcpy(buf, opt_rr->data, opt_rr->option_length);
-        buf[opt_rr->option_length] = '\0';
+        opt_rr = (struct dns_opt_rr *) list_data(n);
+        for (int j = 0; j < opt_rr->option_length; j++) {
+            snprintf(buf + 2 * j, 1024 - 2 * j, "%02x", opt_rr->data[j]);
+        }
         ADD_TEXT_ELEMENT(lw, w, "Option code: %u", opt_rr->option_code);
         ADD_TEXT_ELEMENT(lw, w, "Option length: %u", opt_rr->option_length);
-        ADD_TEXT_ELEMENT(lw, w, "data: %s", buf);
+        ADD_TEXT_ELEMENT(lw, w, "Data: %s", buf);
+        n = list_next(n);
     }
     free_dns_options(opt);
 }
