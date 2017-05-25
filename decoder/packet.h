@@ -104,6 +104,7 @@ void free_packet(void *packet);
 /* Return a pointer to the application payload */
 unsigned char *get_adu_payload(struct packet *p);
 
+/* Clear packet statistics */
 void clear_statistics();
 
 /* Should be internal to the decoder */

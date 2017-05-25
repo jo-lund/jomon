@@ -58,6 +58,9 @@ static void add_dns_record_hdr(list_view *lw, list_view_header *header, struct d
                                int idx, int max_record_name);
 static void add_dns_record(list_view *lw, list_view_header *w, struct dns_info *info, int i,
                            char *buf, int n, uint16_t type);
+static void add_nbns_record_hdr(list_view *lw, list_view_header *header, struct nbns_info *nbns, int i);
+static void add_nbns_record(list_view *lw, list_view_header *w, struct nbns_info *nbnsn, int i,
+                            char *buf, int n, uint16_t type);
 static void add_tcp_options(list_view *lw, list_view_header *header, struct tcp *tcp);
 static void add_pim_hello(list_view *lw, list_view_header *header, struct pim_info *pim);
 static void add_pim_assert(list_view *lw, list_view_header *header, struct pim_info *pim);
@@ -1405,6 +1408,9 @@ void add_dns_opt(list_view *lw, list_view_header *w, struct dns_info *dns, int i
 void add_nbns_information(list_view *lw, list_view_header *header, struct nbns_info *nbns)
 {
     int records = 0;
+    int answers = nbns->section_count[ANCOUNT];
+    int authority = nbns->section_count[NSCOUNT];
+    int additional = nbns->section_count[ARCOUNT];
 
     /* number of resource records */
     for (int i = 1; i < 4; i++) {
@@ -1416,27 +1422,84 @@ void add_nbns_information(list_view *lw, list_view_header *header, struct nbns_i
     ADD_TEXT_ELEMENT(lw, header, "Flags: %d%d%d%d%d", nbns->aa, nbns->tc, nbns->rd, nbns->ra, nbns->broadcast);
     ADD_TEXT_ELEMENT(lw, header, "Rcode: %d (%s)", nbns->rcode, get_nbns_rcode(nbns->rcode));
     ADD_TEXT_ELEMENT(lw, header, "Question Entries: %d, Answer RRs: %d, Authority RRs: %d, Additional RRs: %d",
-              nbns->section_count[QDCOUNT], nbns->section_count[ANCOUNT],
-              nbns->section_count[NSCOUNT], nbns->section_count[ARCOUNT]);
-    ADD_TEXT_ELEMENT(lw, header, "");
+                     nbns->section_count[QDCOUNT], answers, authority, additional);
 
     /* question entry */
     if (nbns->section_count[QDCOUNT]) {
-        ADD_TEXT_ELEMENT(lw, header, "Question name: %s, Question type: %s, Question class: IN (Internet)",
-                  nbns->question.qname, get_nbns_type_extended(nbns->question.qtype));
+        list_view_header *hdr;
+
+        hdr = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Questions");
+        ADD_TEXT_ELEMENT(lw, hdr, "Question name: %s, Question type: %s, Question class: IN (Internet)",
+                         nbns->question.qname, get_nbns_type_extended(nbns->question.qtype));
+        if (records) ADD_TEXT_ELEMENT(lw, hdr, "");
     }
-
     if (records) {
-        ADD_TEXT_ELEMENT(lw, header, "Resource records:");
-        for (int i = 0; i < records; i++) {
-            char buffer[MAXLINE];
+        list_view_header *hdr = NULL;
 
-            snprintf(buffer, MAXLINE, "%s\t", nbns->record[i].rrname);
-            snprintcat(buffer, MAXLINE, "IN\t");
-            snprintcat(buffer, MAXLINE, "%s\t", get_nbns_type(nbns->record[i].rrtype));
-            print_nbns_record(nbns, i, buffer, MAXLINE, nbns->record[i].rrtype);
-            ADD_TEXT_ELEMENT(lw, header, "%s", buffer);
+        if (answers) {
+            hdr = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Answers");
+            for (int i = 0; i < answers; i++) {
+                add_nbns_record_hdr(lw, hdr, nbns, i);
+            }
         }
+        if (authority) {
+            if (hdr) ADD_TEXT_ELEMENT(lw, hdr, "");
+            hdr = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Authoritative nameservers");
+            for (int i = 0; i < authority; i++) {
+                add_nbns_record_hdr(lw, hdr, nbns, i + answers);
+            }
+        }
+        if (additional) {
+            if (hdr) ADD_TEXT_ELEMENT(lw, hdr, "");
+            hdr = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Additional records");
+            for (int i = 0; i < additional; i++) {
+                add_nbns_record_hdr(lw, hdr, nbns, i + answers + authority);
+            }
+        }
+    }
+}
+
+void add_nbns_record_hdr(list_view *lw, list_view_header *header, struct nbns_info *nbns, int i)
+{
+    char buffer[MAXLINE];
+    list_view_header *hdr;
+
+    snprintf(buffer, MAXLINE, "%s\t", nbns->record[i].rrname);
+    snprintcat(buffer, MAXLINE, "IN\t");
+    snprintcat(buffer, MAXLINE, "%s\t", get_nbns_type(nbns->record[i].rrtype));
+    print_nbns_record(nbns, i, buffer, MAXLINE, nbns->record[i].rrtype);
+    hdr = ADD_SUB_HEADER(lw, header, false, SUBLAYER, "%s", buffer);
+    add_nbns_record(lw, hdr, nbns, i, buffer, MAXLINE, nbns->record[i].rrtype);
+}
+
+void add_nbns_record(list_view *lw, list_view_header *w, struct nbns_info *nbns, int i,
+                     char *buf, int n, uint16_t type)
+{
+    char time[512];
+    struct tm_t tm;
+
+    ADD_TEXT_ELEMENT(lw, w, "Name: %s", nbns->record[i].rrname);
+    ADD_TEXT_ELEMENT(lw, w, "Type: %s", get_nbns_type_extended(nbns->record[i].rrtype));
+    if (nbns->record[i].rrclass == NBNS_IN) {
+        ADD_TEXT_ELEMENT(lw, w, "Class: IN (Internet class)");
+    } else {
+        ADD_TEXT_ELEMENT(lw, w, "Class: %d", nbns->record[i].rrclass);
+    }
+    tm = get_time(nbns->record[i].ttl);
+    time_ntop(&tm, time, 512);
+    ADD_TEXT_ELEMENT(lw, w, "TTL: %s", time);
+
+    switch (type) {
+    case NBNS_NB:
+        break;
+    case NBNS_NS:
+        break;
+    case NBNS_A:
+        break;
+    case NBNS_NBSTAT:
+        break;
+    default:
+        break;
     }
 }
 

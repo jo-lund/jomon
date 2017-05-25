@@ -19,7 +19,7 @@
 #define NBNS_NO_ERROR 0
 #define NBNS_FMT_ERR 0x1 /* Format Error. Request was invalidly formatted */
 #define NBNS_SRV_ERR 0x2 /* Server failure. Problem with NBNS, cannot process name */
-#define NBNS_IMP_ERR 0x4 /* Unsupported request error. Allowable only for challenging 
+#define NBNS_IMP_ERR 0x4 /* Unsupported request error. Allowable only for challenging
                             NBNS when gets an Update type registration request */
 #define NBNS_RFS_ERR 0x5 /* Refused error. For policy reasons server will not
                             register this name from this host */
@@ -28,10 +28,10 @@
                             than one node */
 
 /* NBNS types */
-#define NBNS_A 0X0001 /* IP address Resource Record */
-#define NBNS_NS 0x0002 /* Name Server Resource Record */
+#define NBNS_A 0X0001    /* IP address Resource Record */
+#define NBNS_NS 0x0002   /* Name Server Resource Record */
 #define NBNS_NULL 0x000A /* NULL Resource Record */
-#define NBNS_NB 0x0020 /* NetBIOS general Name Service Resource Record */
+#define NBNS_NB 0x0020   /* NetBIOS general Name Service Resource Record */
 #define NBNS_NBSTAT 0x0021 /* NetBIOS NODE STATUS Resource Record */
 
 /* NBNS class */
