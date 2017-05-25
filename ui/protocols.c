@@ -70,6 +70,8 @@ static void add_pim_register(list_view *lw, list_view_header *header, struct pim
 static void add_pim_register_stop(list_view *lw, list_view_header *header, struct pim_info *pim);
 static void add_pim_bootstrap(list_view *lw, list_view_header *header, struct pim_info *pim);
 static void add_pim_candidate(list_view *lw, list_view_header *header, struct pim_info *pim);
+//static void add_flags(list_view *lw, list_view_header *header, uint16_t flags, char *flag_str[], int num_flags);
+static void add_flags(list_view *lw, list_view_header *header, uint16_t flags, struct packet_flags *pf, int num_flags);
 
 void write_to_buf(char *buf, int size, struct packet *p)
 {
@@ -568,7 +570,6 @@ void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t
         break;
     }
     case NBNS_NBSTAT:
-        snprintcat(buf, n, "NBSTAT");
         break;
     default:
         break;
@@ -633,40 +634,49 @@ void add_arp_information(list_view *lw, list_view_header *header, struct packet 
 
 void add_stp_information(list_view *lw, list_view_header *header, struct packet *p)
 {
-    ADD_TEXT_ELEMENT(lw, header, "Protocol Id: %d", p->eth.llc->bpdu->protocol_id);
-    ADD_TEXT_ELEMENT(lw, header, "Version: %d", p->eth.llc->bpdu->version);
-    ADD_TEXT_ELEMENT(lw, header, "Type: %d (%s)", p->eth.llc->bpdu->type, get_stp_bpdu_type(p->eth.llc->bpdu->type));
-    if (p->eth.llc->bpdu->type == CONFIG || p->eth.llc->bpdu->type == RST) {
+    uint16_t flags;
+    struct stp_info *stp;
+    list_view_header *hdr;
+
+    stp = p->eth.llc->bpdu;
+    flags = stp->tcack << 7 | stp->agreement << 6 | stp->forwarding << 5 | stp->forwarding << 4 |
+        stp->port_role << 2 | stp->proposal << 1 | stp->tc;
+    ADD_TEXT_ELEMENT(lw, header, "Protocol Id: %d", stp->protocol_id);
+    ADD_TEXT_ELEMENT(lw, header, "Version: %d", stp->version);
+    ADD_TEXT_ELEMENT(lw, header, "Type: %d (%s)", stp->type, get_stp_bpdu_type(stp->type));
+    if (stp->type == CONFIG || stp->type == RST) {
         char buf[1024];
 
         memset(buf, 0, 1024);
         snprintcat(buf, 1024, "Flags: ");
-        if (p->eth.llc->bpdu->tcack) snprintcat(buf, 1024, "Topology Change Ack, ");
-        if (p->eth.llc->bpdu->agreement) snprintcat(buf, 1024, "Agreement, ");
-        if (p->eth.llc->bpdu->forwarding) snprintcat(buf, 1024, "Forwarding, ");
-        if (p->eth.llc->bpdu->learning) snprintcat(buf, 1024, "Learning, ");
-        if (p->eth.llc->bpdu->proposal) snprintcat(buf, 1024, "Topology Change, ");
-        if (p->eth.llc->bpdu->port_role) {
+        if (stp->tcack) snprintcat(buf, 1024, "Topology Change Ack, ");
+        if (stp->agreement) snprintcat(buf, 1024, "Agreement, ");
+        if (stp->forwarding) snprintcat(buf, 1024, "Forwarding, ");
+        if (stp->learning) snprintcat(buf, 1024, "Learning, ");
+        if (stp->proposal) snprintcat(buf, 1024, "Proposal, ");
+        if (stp->tc) snprintcat(buf, 1024, "Topology Change, ");
+        if (stp->port_role) {
             snprintcat(buf, 1024, "Port Role: ");
-            if (p->eth.llc->bpdu->port_role == 0x01) snprintcat(buf, 1024, "Backup");
-            if (p->eth.llc->bpdu->port_role == 0x02) snprintcat(buf, 1024, "Root");
-            if (p->eth.llc->bpdu->port_role == 0x03) snprintcat(buf, 1024, "Designated");
+            if (stp->port_role == 0x01) snprintcat(buf, 1024, "Backup");
+            if (stp->port_role == 0x02) snprintcat(buf, 1024, "Root");
+            if (stp->port_role == 0x03) snprintcat(buf, 1024, "Designated");
         }
-        ADD_TEXT_ELEMENT(lw, header, "%s", buf);
-        ADD_TEXT_ELEMENT(lw, header, "Root ID: %u/%02x.%02x.%02x.%02x.%02x.%02x", p->eth.llc->bpdu->root_id[0] << 8 |
-                  p->eth.llc->bpdu->root_id[1], p->eth.llc->bpdu->root_id[2], p->eth.llc->bpdu->root_id[3],
-                  p->eth.llc->bpdu->root_id[4], p->eth.llc->bpdu->root_id[5], p->eth.llc->bpdu->root_id[6],
-                  p->eth.llc->bpdu->root_id[7]);
-        ADD_TEXT_ELEMENT(lw, header, "Root Path Cost: %d", p->eth.llc->bpdu->root_pc);
-        ADD_TEXT_ELEMENT(lw, header, "Bridge ID: %u/%02x.%02x.%02x.%02x.%02x.%02x", p->eth.llc->bpdu->bridge_id[0] << 8 |
-                  p->eth.llc->bpdu->bridge_id[1], p->eth.llc->bpdu->bridge_id[2], p->eth.llc->bpdu->bridge_id[3],
-                  p->eth.llc->bpdu->bridge_id[4], p->eth.llc->bpdu->bridge_id[5], p->eth.llc->bpdu->bridge_id[6],
-                  p->eth.llc->bpdu->bridge_id[7]);
-        ADD_TEXT_ELEMENT(lw, header, "Port ID: 0x%x", p->eth.llc->bpdu->port_id);
-        ADD_TEXT_ELEMENT(lw, header, "Message Age: %u s.", p->eth.llc->bpdu->msg_age / 256);
-        ADD_TEXT_ELEMENT(lw, header, "Max Age: %u s.", p->eth.llc->bpdu->max_age / 256);
-        ADD_TEXT_ELEMENT(lw, header, "Hello Time: %u s.", p->eth.llc->bpdu->ht / 256);
-        ADD_TEXT_ELEMENT(lw, header, "Forward Delay: %u s.", p->eth.llc->bpdu->fd / 256);
+        hdr = ADD_SUB_HEADER(lw, header, selected[FLAGS], FLAGS, "%s (0x%x)", buf, flags);
+        add_flags(lw, hdr, flags, get_stp_flags(), 7);
+        ADD_TEXT_ELEMENT(lw, header, "Root ID: %u/%02x.%02x.%02x.%02x.%02x.%02x", stp->root_id[0] << 8 |
+                  stp->root_id[1], stp->root_id[2], stp->root_id[3],
+                  stp->root_id[4], stp->root_id[5], stp->root_id[6],
+                  stp->root_id[7]);
+        ADD_TEXT_ELEMENT(lw, header, "Root Path Cost: %d", stp->root_pc);
+        ADD_TEXT_ELEMENT(lw, header, "Bridge ID: %u/%02x.%02x.%02x.%02x.%02x.%02x", stp->bridge_id[0] << 8 |
+                  stp->bridge_id[1], stp->bridge_id[2], stp->bridge_id[3],
+                  stp->bridge_id[4], stp->bridge_id[5], stp->bridge_id[6],
+                  stp->bridge_id[7]);
+        ADD_TEXT_ELEMENT(lw, header, "Port ID: 0x%x", stp->port_id);
+        ADD_TEXT_ELEMENT(lw, header, "Message Age: %u s.", stp->msg_age / 256);
+        ADD_TEXT_ELEMENT(lw, header, "Max Age: %u s.", stp->max_age / 256);
+        ADD_TEXT_ELEMENT(lw, header, "Hello Time: %u s.", stp->ht / 256);
+        ADD_TEXT_ELEMENT(lw, header, "Forward Delay: %u s.", stp->fd / 256);
     }
 }
 
@@ -677,7 +687,11 @@ void add_ipv4_information(list_view *lw, list_view_header *header, struct ip_inf
     char buf[MAXLINE];
     char src[INET_ADDRSTRLEN];
     char dst[INET_ADDRSTRLEN];
+    list_view_header *hdr;
+    uint8_t flags;
 
+    flags = (ip->foffset & 0x8000) >> 13 | (ip->foffset & 0x4000) >> 13 |
+        (ip->foffset & 0x2000) >> 13;
     ADD_TEXT_ELEMENT(lw, header, "Version: %u", ip->version);
     ADD_TEXT_ELEMENT(lw, header, "Internet Header Length (IHL): %u", ip->ihl);
     snprintf(buf, MAXLINE, "Differentiated Services Code Point (DSCP): 0x%x", ip->dscp);
@@ -697,15 +711,15 @@ void add_ipv4_information(list_view *lw, list_view_header *header, struct ip_inf
     }
     ADD_TEXT_ELEMENT(lw, header, "Total length: %u", ip->length);
     ADD_TEXT_ELEMENT(lw, header, "Identification: 0x%x (%u)", ip->id, ip->id);
-    snprintf(buf, MAXLINE, "Flags: %u%u%u", (ip->foffset & 0x8000) >> 15, (ip->foffset & 0x4000) >> 14,
-             (ip->foffset & 0x2000) >> 13);
+    snprintf(buf, MAXLINE, "Flags 0x%x ", flags);
     if (ip->foffset & 0x4000 || ip->foffset & 0x2000) {
-        snprintcat(buf, MAXLINE, " (");
+        snprintcat(buf, MAXLINE, "(");
         if (ip->foffset & 0x4000) snprintcat(buf, MAXLINE, "Don't Fragment");
         if (ip->foffset & 0x2000) snprintcat(buf, MAXLINE, "More Fragments");
         snprintcat(buf, MAXLINE, ")");
     }
-    ADD_TEXT_ELEMENT(lw, header, "%s", buf);
+    hdr = ADD_SUB_HEADER(lw, header, selected[FLAGS], FLAGS, "%s", buf, flags);
+    add_flags(lw, hdr, flags, get_ipv4_flags(), 3);
     ADD_TEXT_ELEMENT(lw, header, "Time to live: %u", ip->ttl);
     snprintf(buf, MAXLINE, "Protocol: %u", ip->protocol);
     if ((protocol = get_ip_transport_protocol(ip->protocol))) {
@@ -1084,7 +1098,12 @@ void add_tcp_information(list_view *lw, list_view_header *header, struct tcp *tc
 {
     int n = 32;
     char buf[n];
+    list_view_header *hdr;
+    uint16_t flags;
 
+    flags = (uint16_t) (tcp->ns << 8 | tcp->cwr << 7 | tcp->ece << 6 | tcp->urg << 5 |
+                        tcp->ack << 4 | tcp->psh << 3 | tcp->rst << 2 | tcp->syn << 1 |
+                        tcp->fin);
     memset(buf, 0, n);
     if (tcp->urg) {
         snprintcat(buf, n, "URG ");
@@ -1109,9 +1128,8 @@ void add_tcp_information(list_view *lw, list_view_header *header, struct tcp *tc
     ADD_TEXT_ELEMENT(lw, header, "Sequence number: %u", tcp->seq_num);
     ADD_TEXT_ELEMENT(lw, header, "Acknowledgment number: %u", tcp->ack_num);
     ADD_TEXT_ELEMENT(lw, header, "Data offset: %u", tcp->offset);
-    ADD_TEXT_ELEMENT(lw, header, "Flags: %s(0x%x)", buf, (uint16_t)
-                     (tcp->ns << 8 | tcp->cwr << 7 | tcp->ece << 6 | tcp->urg << 5 | tcp->ack << 4 |
-                      tcp->psh << 3 | tcp->rst << 2 | tcp->syn << 1 | tcp->fin));
+    hdr = ADD_SUB_HEADER(lw, header, selected[FLAGS], FLAGS, "Flags: %s(0x%x)", buf, flags);
+    add_flags(lw, hdr, flags, get_tcp_flags(), 9);
     ADD_TEXT_ELEMENT(lw, header, "Window size: %u", tcp->window);
     ADD_TEXT_ELEMENT(lw, header, "Checksum: %u", tcp->checksum);
     ADD_TEXT_ELEMENT(lw, header, "Urgent pointer: %u", tcp->urg_ptr);
@@ -1411,6 +1429,10 @@ void add_nbns_information(list_view *lw, list_view_header *header, struct nbns_i
     int answers = nbns->section_count[ANCOUNT];
     int authority = nbns->section_count[NSCOUNT];
     int additional = nbns->section_count[ARCOUNT];
+    list_view_header *hdr;
+    uint8_t flags;
+
+    flags = nbns->aa << 6 | nbns->tc << 5 | nbns->rd << 4 | nbns->ra << 3 | nbns->broadcast;
 
     /* number of resource records */
     for (int i = 1; i < 4; i++) {
@@ -1419,7 +1441,8 @@ void add_nbns_information(list_view *lw, list_view_header *header, struct nbns_i
     ADD_TEXT_ELEMENT(lw, header, "ID: 0x%x", nbns->id);
     ADD_TEXT_ELEMENT(lw, header, "Response flag: %d (%s)", nbns->r, nbns->r ? "Response" : "Request");
     ADD_TEXT_ELEMENT(lw, header, "Opcode: %d (%s)", nbns->opcode, get_nbns_opcode(nbns->opcode));
-    ADD_TEXT_ELEMENT(lw, header, "Flags: %d%d%d%d%d", nbns->aa, nbns->tc, nbns->rd, nbns->ra, nbns->broadcast);
+    hdr = ADD_SUB_HEADER(lw, header, selected[FLAGS], FLAGS, "Flags 0x%x", flags);
+    add_flags(lw, hdr, flags, get_nbns_flags(), 6);
     ADD_TEXT_ELEMENT(lw, header, "Rcode: %d (%s)", nbns->rcode, get_nbns_rcode(nbns->rcode));
     ADD_TEXT_ELEMENT(lw, header, "Question Entries: %d, Answer RRs: %d, Authority RRs: %d, Additional RRs: %d",
                      nbns->section_count[QDCOUNT], answers, authority, additional);
@@ -1516,4 +1539,30 @@ void add_ssdp_information(list_view *lw, list_view_header *header, list_t *ssdp)
 
 void add_http_information(list_view *lw, list_view_header *header, struct http_info *http)
 {
+}
+
+void add_flags(list_view *lw, list_view_header *header, uint16_t flags, struct packet_flags *pf, int num_flags)
+{
+    char buf[MAXLINE];
+    int fields = 0;
+
+    for (int i = 0; i < num_flags; i++) {
+        fields += pf[i].width;
+    }
+    for (int i = 0; i < fields; i++) {
+        snprintf(buf + i, MAXLINE - i, ".");
+    }
+
+    for (int i = 0, k = 0; k < fields; i++) {
+        for (int j = 0; j < pf[i].width; j++) {
+            buf[k + j] = ((flags >> (fields - (k + j) - 1)) & 0x01) + '0';
+        }
+        snprintf(buf + fields, MAXLINE - fields, "  %s", pf[i].str);
+        ADD_TEXT_ELEMENT(lw, header, "%s", buf);
+        for (int j = 0; j < pf[i].width; j++) {
+            buf[k + j] = '.';
+        }
+        k += pf[i].width;
+    }
+    ADD_TEXT_ELEMENT(lw, header, "");
 }

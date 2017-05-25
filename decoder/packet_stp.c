@@ -4,6 +4,22 @@
 #include "packet_stp.h"
 #include "packet.h"
 
+static struct packet_flags stp_flags[7] = {
+    { "Topology Change Acknowlegment", 1 },
+    { "Agreement", 1 },
+    { "Forwarding", 1 },
+    { "Learning", 1 },
+    { "Port Role", 2 },
+    { "Proposal", 1 },
+    { "Topology Change", 1 }
+};
+
+static struct packet_flags port_role[3] = {
+    { "Alternate/Backup", 1 },
+    { "Root", 1 },
+    { "Designated", 1 }
+};
+
 /*
  * IEEE 802.1 Bridge Spanning Tree Protocol
  */
@@ -59,4 +75,9 @@ char *get_stp_bpdu_type(uint8_t type)
     default:
         return "";
     }
+}
+
+struct packet_flags *get_stp_flags()
+{
+    return stp_flags;
 }

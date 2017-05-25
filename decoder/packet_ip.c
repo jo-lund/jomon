@@ -30,6 +30,12 @@
 #define CS6 0X30
 #define CS7 0X38
 
+static struct packet_flags ipv4_flags[3] = {
+    { "Reserved", 1 },
+    { "Don't Fragment", 1 },
+    { "More Fragments", 1 }
+};
+
 /*
  * IPv4 header
  *
@@ -248,4 +254,9 @@ unsigned char *get_ip_payload(struct packet *p)
         return p->eth.data + ETH_HLEN + sizeof(struct ip6_hdr);
     }
     return NULL;
+}
+
+struct packet_flags *get_ipv4_flags()
+{
+    return ipv4_flags;
 }

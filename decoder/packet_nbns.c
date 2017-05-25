@@ -5,6 +5,15 @@
 #include "packet_dns.h"
 #include "packet.h"
 
+static struct packet_flags nbns_flags[6] = {
+    { "Authoritative answer", 1 },
+    { "Truncation", 1 },
+    { "Recursion desired", 1 },
+    { "Recursion available", 1 },
+    { "", 2 },
+    { "Broadcast/Multicast", 1 }
+};
+
 static void decode_nbns_name(char *dest, char *src);
 static void parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **ptr, struct nbns_info *info);
 
@@ -277,4 +286,9 @@ char *get_nbns_node_type(uint8_t type)
     default:
         return "";
     }
+}
+
+struct packet_flags *get_nbns_flags()
+{
+    return nbns_flags;
 }

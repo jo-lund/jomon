@@ -7,6 +7,11 @@
 #include "../list.h"
 #include "packet_ethernet.h"
 
+struct packet_flags {
+    char *str;
+    int width;
+};
+
 struct packet_statistics {
     uint32_t num_packets;
     uint32_t num_arp;

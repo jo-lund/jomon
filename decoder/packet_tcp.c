@@ -3,6 +3,18 @@
 #include "packet_tcp.h"
 #include "packet_ip.h"
 
+static struct packet_flags tcp_flags[9] = {
+    { "NS: ECN nonce concealment protection", 1 },
+    { "CWR: Congestion Window Reduced", 1 },
+    { "ECE: ECN echo", 1 },
+    { "URG: Urgent pointer", 1 },
+    { "ACK: Acknowledgment", 1 },
+    { "PSH: Push function", 1 },
+    { "RST: Reset the connection", 1 },
+    { "SYN: Synchronize sequence numbers", 1 },
+    { "FIN: No more data", 1}
+};
+
 static void free_options(void *data);
 
 /*
@@ -197,4 +209,9 @@ void free_options(void *data)
         list_free(opt->sack, free);
     }
     free(opt);
+}
+
+struct packet_flags *get_tcp_flags()
+{
+    return tcp_flags;
 }
