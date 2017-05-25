@@ -21,16 +21,13 @@ void add_stp_information(list_view *lw, list_view_header *header, struct packet 
 void add_ipv4_information(list_view *lw, list_view_header *header, struct ip_info *ip);
 void add_ipv6_information(list_view *lw, list_view_header *header, struct ipv6_info *ip);
 void add_udp_information(list_view *lw, list_view_header *header, struct udp_info *udp);
-void add_tcp_information(list_view *lw, list_view_header *header, struct tcp *tcp,
-                         bool options_selected);
+void add_tcp_information(list_view *lw, list_view_header *header, struct tcp *tcp);
 void add_icmp_information(list_view *lw, list_view_header *header, struct icmp_info *icmp);
 void add_igmp_information(list_view *lw, list_view_header *header, struct igmp_info *igmp);
-void add_pim_information(list_view *lw, list_view_header *header, struct pim_info *pim,
-                         bool msg_selected);
+void add_pim_information(list_view *lw, list_view_header *header, struct pim_info *pim);
 void add_ssdp_information(list_view *lw, list_view_header *header, list_t *ssdp);
 void add_http_information(list_view *lw, list_view_header *header, struct http_info *http);
-void add_dns_information(list_view *lw, list_view_header *header, struct dns_info *dns,
-                         bool records_selected);
+void add_dns_information(list_view *lw, list_view_header *header, struct dns_info *dns);
 void add_nbns_information(list_view *lw, list_view_header *header, struct nbns_info *nbns);
 
 #endif

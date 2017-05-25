@@ -37,6 +37,7 @@ enum layer {
     PIM,
     TRANSPORT,
     APPLICATION,
+    FLAGS,
     SUBLAYER,
     NUM_LAYERS
 };
@@ -53,6 +54,7 @@ typedef struct {
 } container;
 
 extern publisher_t *screen_changed_publisher;
+extern bool selected[NUM_LAYERS];
 
 /*
  * Allocates space for the specified screen type and returns a pointer to it.

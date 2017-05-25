@@ -58,24 +58,15 @@ static void add_dns_record_hdr(list_view *lw, list_view_header *header, struct d
                                int idx, int max_record_name);
 static void add_dns_record(list_view *lw, list_view_header *w, struct dns_info *info, int i,
                            char *buf, int n, uint16_t type);
-static void add_tcp_options(list_view *lw, list_view_header *header, struct tcp *tcp,
-                            bool options_selected);
-static void add_pim_hello(list_view *lw, list_view_header *header, struct pim_info *pim,
-                          bool msg_selected);
-static void add_pim_assert(list_view *lw, list_view_header *header, struct pim_info *pim,
-                           bool msg_selected);
-static void add_pim_hello(list_view *lw, list_view_header *header, struct pim_info *pim,
-                          bool msg_selected);
-static void add_pim_join_prune(list_view *lw, list_view_header *header, struct pim_info *pim,
-                               bool msg_selected);
-static void add_pim_register(list_view *lw, list_view_header *header, struct pim_info *pim,
-                             bool msg_selected);
-static void add_pim_register_stop(list_view *lw, list_view_header *header, struct pim_info *pim,
-                                  bool msg_selected);
-static void add_pim_bootstrap(list_view *lw, list_view_header *header, struct pim_info *pim,
-                              bool msg_selected);
-static void add_pim_candidate(list_view *lw, list_view_header *header, struct pim_info *pim,
-                              bool msg_selected);
+static void add_tcp_options(list_view *lw, list_view_header *header, struct tcp *tcp);
+static void add_pim_hello(list_view *lw, list_view_header *header, struct pim_info *pim);
+static void add_pim_assert(list_view *lw, list_view_header *header, struct pim_info *pim);
+static void add_pim_hello(list_view *lw, list_view_header *header, struct pim_info *pim);
+static void add_pim_join_prune(list_view *lw, list_view_header *header, struct pim_info *pim);
+static void add_pim_register(list_view *lw, list_view_header *header, struct pim_info *pim);
+static void add_pim_register_stop(list_view *lw, list_view_header *header, struct pim_info *pim);
+static void add_pim_bootstrap(list_view *lw, list_view_header *header, struct pim_info *pim);
+static void add_pim_candidate(list_view *lw, list_view_header *header, struct pim_info *pim);
 
 void write_to_buf(char *buf, int size, struct packet *p)
 {
@@ -795,7 +786,7 @@ void add_igmp_information(list_view *lw, list_view_header *header, struct igmp_i
     ADD_TEXT_ELEMENT(lw, header, "Group address: %s", addr);
 }
 
-void add_pim_information(list_view *lw, list_view_header *header, struct pim_info *pim, bool msg_selected)
+void add_pim_information(list_view *lw, list_view_header *header, struct pim_info *pim)
 {
     char *type = get_pim_message_type(pim->type);
 
@@ -808,41 +799,41 @@ void add_pim_information(list_view *lw, list_view_header *header, struct pim_inf
     ADD_TEXT_ELEMENT(lw, header, "Checksum: %u", pim->checksum);
     switch (pim->type) {
     case PIM_HELLO:
-        add_pim_hello(lw, header, pim, msg_selected);
+        add_pim_hello(lw, header, pim);
         break;
     case PIM_REGISTER:
-        add_pim_register(lw, header, pim, msg_selected);
+        add_pim_register(lw, header, pim);
         break;
     case PIM_REGISTER_STOP:
-        add_pim_register_stop(lw, header, pim, msg_selected);
+        add_pim_register_stop(lw, header, pim);
         break;
     case PIM_ASSERT:
-        add_pim_assert(lw, header, pim, msg_selected);
+        add_pim_assert(lw, header, pim);
         break;
     case PIM_JOIN_PRUNE:
     case PIM_GRAFT:
     case PIM_GRAFT_ACK:
-        add_pim_join_prune(lw, header, pim, msg_selected);
+        add_pim_join_prune(lw, header, pim);
         break;
     case PIM_BOOTSTRAP:
-        add_pim_bootstrap(lw, header, pim, msg_selected);
+        add_pim_bootstrap(lw, header, pim);
         break;
     case PIM_CANDIDATE_RP_ADVERTISEMENT:
-        add_pim_candidate(lw, header, pim, msg_selected);
+        add_pim_candidate(lw, header, pim);
         break;
     default:
         break;
     }
 }
 
-void add_pim_hello(list_view *lw, list_view_header *header, struct pim_info *pim, bool msg_selected)
+void add_pim_hello(list_view *lw, list_view_header *header, struct pim_info *pim)
 {
     list_t *opt;
     const node_t *n;
     list_view_header *h;
 
     opt = parse_hello_options(pim);
-    h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Hello Message (%d options)", list_size(opt));
+    h = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Hello Message (%d options)", list_size(opt));
     n = list_begin(opt);
     while (n) {
         struct pim_hello *hello = list_data(n);
@@ -898,9 +889,9 @@ void add_pim_hello(list_view *lw, list_view_header *header, struct pim_info *pim
     list_free(opt, free);
 }
 
-void add_pim_register(list_view *lw, list_view_header *header, struct pim_info *pim, bool msg_selected)
+void add_pim_register(list_view *lw, list_view_header *header, struct pim_info *pim)
 {
-    list_view_header *h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Register Message");
+    list_view_header *h = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Register Message");
 
     ADD_TEXT_ELEMENT(lw, h, "Border bit: %d", pim->reg->border);
     ADD_TEXT_ELEMENT(lw, h, "Null-Register bit: %d", pim->reg->null);
@@ -911,13 +902,12 @@ void add_pim_register(list_view *lw, list_view_header *header, struct pim_info *
     }
 }
 
-void add_pim_register_stop(list_view *lw, list_view_header *header, struct pim_info *pim,
-                           bool msg_selected)
+void add_pim_register_stop(list_view *lw, list_view_header *header, struct pim_info *pim)
 {
     list_view_header *h;
     char *addr;
 
-    h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Register-Stop Message");
+    h = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Register-Stop Message");
     addr = get_pim_address(pim->assert->gaddr.addr_family, pim->assert->gaddr.addr);
     if (addr) {
         ADD_TEXT_ELEMENT(lw, h, "Group address: %s/%d", addr, pim->assert->gaddr.mask_len);
@@ -930,12 +920,12 @@ void add_pim_register_stop(list_view *lw, list_view_header *header, struct pim_i
     }
 }
 
-void add_pim_assert(list_view *lw, list_view_header *header, struct pim_info *pim, bool msg_selected)
+void add_pim_assert(list_view *lw, list_view_header *header, struct pim_info *pim)
 {
     list_view_header *h;
     char *addr;
 
-    h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Assert Message");
+    h = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Assert Message");
     addr = get_pim_address(pim->assert->gaddr.addr_family, pim->assert->gaddr.addr);
     if (addr) {
         ADD_TEXT_ELEMENT(lw, h, "Group address: %s/%d", addr, pim->assert->gaddr.mask_len);
@@ -951,7 +941,7 @@ void add_pim_assert(list_view *lw, list_view_header *header, struct pim_info *pi
     ADD_TEXT_ELEMENT(lw, h, "Metric: %u", pim->assert->metric);
 }
 
-void add_pim_join_prune(list_view *lw, list_view_header *header, struct pim_info *pim, bool msg_selected)
+void add_pim_join_prune(list_view *lw, list_view_header *header, struct pim_info *pim)
 {
     list_view_header *h;
     list_view_header *grp;
@@ -961,13 +951,13 @@ void add_pim_join_prune(list_view *lw, list_view_header *header, struct pim_info
 
     switch (pim->type) {
     case PIM_JOIN_PRUNE:
-        h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Join/Prune Message");
+        h = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Join/Prune Message");
         break;
     case PIM_GRAFT:
-        h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Graft Message");
+        h = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Graft Message");
         break;
     case PIM_GRAFT_ACK:
-        h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Graft Ack Message");
+        h = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Graft Ack Message");
         break;
     default:
         return;
@@ -1021,13 +1011,13 @@ void add_pim_join_prune(list_view *lw, list_view_header *header, struct pim_info
     }
 }
 
-void add_pim_bootstrap(list_view *lw, list_view_header *header, struct pim_info *pim, bool msg_selected)
+void add_pim_bootstrap(list_view *lw, list_view_header *header, struct pim_info *pim)
 {
     list_view_header *h;
     list_view_header *grp;
     char *addr;
 
-    h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Bootstrap Message");
+    h = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Bootstrap Message");
     ADD_TEXT_ELEMENT(lw, h, "Fragment tag: 0x%x", pim->bootstrap->tag);
     ADD_TEXT_ELEMENT(lw, h, "Hash mask length: %d", pim->bootstrap->hash_len);
     ADD_TEXT_ELEMENT(lw, h, "BSR priority: %d", pim->bootstrap->priority);
@@ -1055,12 +1045,12 @@ void add_pim_bootstrap(list_view *lw, list_view_header *header, struct pim_info 
     }
 }
 
-void add_pim_candidate(list_view *lw, list_view_header *header, struct pim_info *pim, bool msg_selected)
+void add_pim_candidate(list_view *lw, list_view_header *header, struct pim_info *pim)
 {
     list_view_header *h;
     char *addr;
 
-    h = ADD_SUB_HEADER(lw, header, msg_selected, SUBLAYER, "Candidate-RP-Advertisement Message");
+    h = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Candidate-RP-Advertisement Message");
     ADD_TEXT_ELEMENT(lw, h, "Prefix count: %u", pim->candidate->prefix_count);
     ADD_TEXT_ELEMENT(lw, h, "Priority: %u", pim->candidate->priority);
     ADD_TEXT_ELEMENT(lw, h, "Holdtime: %u", pim->candidate->holdtime);
@@ -1087,7 +1077,7 @@ void add_udp_information(list_view *lw, list_view_header *header, struct udp_inf
     ADD_TEXT_ELEMENT(lw, header, "");
 }
 
-void add_tcp_information(list_view *lw, list_view_header *header, struct tcp *tcp, bool options_selected)
+void add_tcp_information(list_view *lw, list_view_header *header, struct tcp *tcp)
 {
     int n = 32;
     char buf[n];
@@ -1123,19 +1113,19 @@ void add_tcp_information(list_view *lw, list_view_header *header, struct tcp *tc
     ADD_TEXT_ELEMENT(lw, header, "Checksum: %u", tcp->checksum);
     ADD_TEXT_ELEMENT(lw, header, "Urgent pointer: %u", tcp->urg_ptr);
     if (tcp->options) {
-        add_tcp_options(lw, header, tcp, options_selected);
+        add_tcp_options(lw, header, tcp);
     }
     ADD_TEXT_ELEMENT(lw, header, "");
 }
 
-void add_tcp_options(list_view *lw, list_view_header *header, struct tcp *tcp, bool options_selected)
+void add_tcp_options(list_view *lw, list_view_header *header, struct tcp *tcp)
 {
     list_t *options;
     const node_t *n;
     list_view_header *h;
 
     options = parse_tcp_options(tcp->options, (tcp->offset - 5) * 4);
-    h = ADD_SUB_HEADER(lw, header, options_selected, SUBLAYER, "Options");
+    h = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Options");
     n = list_begin(options);
 
     while (n) {
@@ -1195,8 +1185,7 @@ void add_tcp_options(list_view *lw, list_view_header *header, struct tcp *tcp, b
     free_tcp_options(options);
 }
 
-void add_dns_information(list_view *lw, list_view_header *header, struct dns_info *dns,
-                         bool records_selected)
+void add_dns_information(list_view *lw, list_view_header *header, struct dns_info *dns)
 {
     int records = 0;
     int answers = dns->section_count[ANCOUNT];
@@ -1228,7 +1217,7 @@ void add_dns_information(list_view *lw, list_view_header *header, struct dns_inf
     if (dns->section_count[QDCOUNT]) {
         list_view_header *hdr;
 
-        hdr = ADD_SUB_HEADER(lw, header, records_selected, SUBLAYER, "Questions");
+        hdr = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Questions");
         for (int i = dns->section_count[QDCOUNT]; i > 0; i--) {
             ADD_TEXT_ELEMENT(lw, hdr, "QNAME: %s, QTYPE: %s, QCLASS: %s",
                              dns->question.qname, get_dns_type_extended(dns->question.qtype),
@@ -1244,7 +1233,7 @@ void add_dns_information(list_view *lw, list_view_header *header, struct dns_inf
 
         if (answers) {
             len = get_dns_max_namelen(dns->record, answers);
-            hdr = ADD_SUB_HEADER(lw, header, records_selected, SUBLAYER, "Answers");
+            hdr = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Answers");
             for (int i = 0; i < answers; i++) {
                 add_dns_record_hdr(lw, hdr, dns, i, len);
             }
@@ -1252,7 +1241,7 @@ void add_dns_information(list_view *lw, list_view_header *header, struct dns_inf
         if (authority) {
             if (hdr) ADD_TEXT_ELEMENT(lw, hdr, "");
             len = get_dns_max_namelen(dns->record + answers, authority);
-            hdr = ADD_SUB_HEADER(lw, header, records_selected, SUBLAYER, "Authoritative nameservers");
+            hdr = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Authoritative nameservers");
             for (int i = 0; i < authority; i++) {
                 add_dns_record_hdr(lw, hdr, dns, i + answers, len);
             }
@@ -1260,7 +1249,7 @@ void add_dns_information(list_view *lw, list_view_header *header, struct dns_inf
         if (additional) {
             if (hdr) ADD_TEXT_ELEMENT(lw, hdr, "");
             len = get_dns_max_namelen(dns->record + answers + authority, additional);
-            hdr = ADD_SUB_HEADER(lw, header, records_selected, SUBLAYER, "Additional records");
+            hdr = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Additional records");
             for (int i = 0; i < additional; i++) {
                 add_dns_record_hdr(lw, hdr, dns, i + answers + authority, len);
             }

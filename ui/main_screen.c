@@ -40,8 +40,9 @@ enum views {
 
 extern vector_t *packets;
 extern main_context ctx;
+bool selected[NUM_LAYERS]; // TODO: need to handle this differently
 bool numeric = true;
-static bool selected[NUM_LAYERS]; // TODO: need to handle this differently
+
 static bool capturing = true;
 static bool interactive = false;
 static bool input_mode = false;
@@ -1029,10 +1030,10 @@ void add_transport_elements(main_screen *ms, struct packet *p)
 
         header = ADD_HEADER(ms->lvw, "Transmission Control Protocol (TCP)", selected[TRANSPORT], TRANSPORT);
         if (p->eth.ethertype == ETH_P_IP) {
-            add_tcp_information(ms->lvw, header, &p->eth.ip->tcp, selected[SUBLAYER]);
+            add_tcp_information(ms->lvw, header, &p->eth.ip->tcp);
             add_app_elements(ms, p, &p->eth.ip->tcp.data, len);
         } else {
-            add_tcp_information(ms->lvw, header, &p->eth.ipv6->tcp, selected[SUBLAYER]);
+            add_tcp_information(ms->lvw, header, &p->eth.ipv6->tcp);
             add_app_elements(ms, p, &p->eth.ipv6->tcp.data, len);
         }
         break;
@@ -1068,9 +1069,9 @@ void add_transport_elements(main_screen *ms, struct packet *p)
     case IPPROTO_PIM:
         header = ADD_HEADER(ms->lvw, "Protocol Independent Multicast (PIM)", selected[PIM], PIM);
         if (p->eth.ethertype == ETH_P_IP) {
-            add_pim_information(ms->lvw, header, &p->eth.ip->pim, selected[SUBLAYER]);
+            add_pim_information(ms->lvw, header, &p->eth.ip->pim);
         } else {
-            add_pim_information(ms->lvw, header, &p->eth.ipv6->pim, selected[SUBLAYER]);
+            add_pim_information(ms->lvw, header, &p->eth.ipv6->pim);
         }
         break;
     default:
@@ -1088,7 +1089,7 @@ void add_app_elements(main_screen *ms, struct packet *p, struct application_info
     case DNS:
     case MDNS:
         header = ADD_HEADER(ms->lvw, "Domain Name System (DNS)", selected[APPLICATION], APPLICATION);
-        add_dns_information(ms->lvw, header, info->dns, selected[SUBLAYER]);
+        add_dns_information(ms->lvw, header, info->dns);
         break;
     case NBNS:
         header = ADD_HEADER(ms->lvw, "NetBIOS Name Service (NBNS)", selected[APPLICATION], APPLICATION);
