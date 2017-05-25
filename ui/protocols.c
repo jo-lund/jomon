@@ -1240,30 +1240,25 @@ void add_dns_information(list_view *lw, list_view_header *header, struct dns_inf
     }
     if (records) {
         int len;
+        list_view_header *hdr = NULL;
 
         if (answers) {
-            list_view_header *hdr;
-
             len = get_dns_max_namelen(dns->record, answers);
             hdr = ADD_SUB_HEADER(lw, header, records_selected, SUBLAYER, "Answers");
             for (int i = 0; i < answers; i++) {
                 add_dns_record_hdr(lw, hdr, dns, i, len);
             }
-            ADD_TEXT_ELEMENT(lw, hdr, "");
         }
         if (authority) {
-            list_view_header *hdr;
-
+            if (hdr) ADD_TEXT_ELEMENT(lw, hdr, "");
             len = get_dns_max_namelen(dns->record + answers, authority);
             hdr = ADD_SUB_HEADER(lw, header, records_selected, SUBLAYER, "Authoritative nameservers");
             for (int i = 0; i < authority; i++) {
                 add_dns_record_hdr(lw, hdr, dns, i + answers, len);
             }
-            ADD_TEXT_ELEMENT(lw, hdr, "");
         }
         if (additional) {
-            list_view_header *hdr;
-
+            if (hdr) ADD_TEXT_ELEMENT(lw, hdr, "");
             len = get_dns_max_namelen(dns->record + answers + authority, additional);
             hdr = ADD_SUB_HEADER(lw, header, records_selected, SUBLAYER, "Additional records");
             for (int i = 0; i < additional; i++) {
