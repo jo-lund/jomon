@@ -1510,10 +1510,16 @@ void add_nbns_record(list_view *lw, list_view_header *w, struct nbns_info *nbns,
 
     switch (type) {
     case NBNS_NB:
+    {
+        list_view_header *hdr;
+        uint16_t flags;
+
+        flags = nbns->record[i].rdata.nb.g << 2 | nbns->record[i].rdata.nb.ont;
+        hdr = ADD_SUB_HEADER(lw, w, selected[NBNS_FLAGS], NBNS_FLAGS, "NB flags (0x%x)", flags);
+        add_flags(lw, hdr, flags, get_nbns_nb_flags(), 2);
         break;
+    }
     case NBNS_NS:
-        break;
-    case NBNS_A:
         break;
     case NBNS_NBSTAT:
         break;

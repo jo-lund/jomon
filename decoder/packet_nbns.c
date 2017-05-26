@@ -14,6 +14,14 @@ static struct packet_flags nbns_flags[] = {
     { "Broadcast/Multicast", 1, NULL }
 };
 
+static char *nb_name[] = { "Unique NetBIOS name", "Group NetBIOS name" };
+static char *nb_ont[] = { "B node", "P node", "M node", "Reserved" };
+
+static struct packet_flags nbns_nb_flags[] = {
+    { "Name Flag:", 1, nb_name },
+    { "Owner Node Type:", 2, nb_ont }
+};
+
 static void decode_nbns_name(char *dest, char *src);
 static void parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **ptr, struct nbns_info *info);
 
@@ -291,4 +299,9 @@ char *get_nbns_node_type(uint8_t type)
 struct packet_flags *get_nbns_flags()
 {
     return nbns_flags;
+}
+
+struct packet_flags *get_nbns_nb_flags()
+{
+    return nbns_nb_flags;
 }
