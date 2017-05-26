@@ -6,6 +6,15 @@
 
 #define DNS_PTR_LEN 2
 
+// TODO: add support for rfc2535
+static struct packet_flags dns_flags[] = {
+    { "Authoritative answer", 1, NULL },
+    { "Truncation", 1, NULL },
+    { "Recursion desired", 1, NULL },
+    { "Recursion available", 1, NULL },
+    { "Reserved", 3, NULL }
+};
+
 static void parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data, struct dns_info *dns);
 static char *parse_dns_txt(unsigned char **data);
 static void free_txt_rr(void *data);
@@ -537,6 +546,11 @@ int get_dns_max_namelen(struct dns_resource_record *record, int n)
         }
     }
     return maxlen;
+}
+
+struct packet_flags *get_dns_flags()
+{
+    return dns_flags;
 }
 
 void free_dns_packet(struct dns_info *dns)

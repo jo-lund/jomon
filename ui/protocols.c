@@ -1211,6 +1211,10 @@ void add_dns_information(list_view *lw, list_view_header *header, struct dns_inf
     int answers = dns->section_count[ANCOUNT];
     int authority = dns->section_count[NSCOUNT];
     int additional = dns->section_count[ARCOUNT];
+    list_view_header *hdr;
+    uint16_t flags;
+
+    flags = dns->aa << 6 | dns->tc << 5 | dns->rd << 4 | dns->ra << 3;
 
     /* number of resource records */
     for (int i = 1; i < 4; i++) {
@@ -1219,17 +1223,10 @@ void add_dns_information(list_view *lw, list_view_header *header, struct dns_inf
     ADD_TEXT_ELEMENT(lw, header, "ID: 0x%x", dns->id);
     ADD_TEXT_ELEMENT(lw, header, "QR: %d (%s)", dns->qr, dns->qr ? "DNS Response" : "DNS Query");
     ADD_TEXT_ELEMENT(lw, header, "Opcode: %d (%s)", dns->opcode, get_dns_opcode(dns->opcode));
+
+    hdr = ADD_SUB_HEADER(lw, header, selected[FLAGS], FLAGS, "Flags 0x%x", flags);
+    add_flags(lw, hdr, flags, get_dns_flags(), 5);
     if (dns->qr) {
-        ADD_TEXT_ELEMENT(lw, header, "AA: %d (%s)", dns->aa, dns->aa ?
-                  "Authoritative answer" : "Not an authoritative answer");
-    }
-    ADD_TEXT_ELEMENT(lw, header, "TC: %d (%s)", dns->tc, dns->tc ? "Truncation" :
-              "No truncation");
-    ADD_TEXT_ELEMENT(lw, header, "RD: %d (%s)", dns->rd, dns->rd ?
-              "Recursion desired" : "No recursion desired");
-    if (dns->qr) {
-        ADD_TEXT_ELEMENT(lw, header, "RA: %d (%s)", dns->ra, dns->ra ?
-                  "Recursion available" : "No recursion available");
         ADD_TEXT_ELEMENT(lw, header, "Rcode: %d (%s)", dns->rcode, get_dns_rcode(dns->rcode));
     }
     ADD_TEXT_ELEMENT(lw, header, "Question: %d, Answer: %d, Authority: %d, Additional records: %d",

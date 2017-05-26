@@ -246,6 +246,8 @@ char *get_dns_class_extended(uint16_t rrclass);
  */
 int get_dns_max_namelen(struct dns_resource_record *record, int n);
 
+struct packet_flags *get_dns_flags();
+
 /*
  * Parse the DNS pseudo opt resource record. The list needs to be freed with
  * free_dns_option
