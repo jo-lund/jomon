@@ -479,6 +479,9 @@ void main_screen_get_input(main_screen *ms)
             struct packet *p;
 
             p = vector_get_data(packets, ms->main_line.line_number + ms->top);
+            if (view_mode == DECODED_VIEW) {
+                add_elements(ms, p);
+            }
             print_protocol_information(ms, p, ms->main_line.line_number + ms->top);
         }
         break;
