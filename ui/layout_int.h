@@ -37,7 +37,11 @@ enum layer {
     PIM,
     TRANSPORT,
     APPLICATION,
-    FLAGS,
+    IPV4_FLAGS,
+    STP_FLAGS,
+    TCP_FLAGS,
+    DNS_FLAGS,
+    NBNS_FLAGS,
     SUBLAYER,
     NUM_LAYERS
 };

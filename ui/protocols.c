@@ -660,7 +660,7 @@ void add_stp_information(list_view *lw, list_view_header *header, struct packet 
             if (stp->port_role == 0x02) snprintcat(buf, 1024, "Root");
             if (stp->port_role == 0x03) snprintcat(buf, 1024, "Designated");
         }
-        hdr = ADD_SUB_HEADER(lw, header, selected[FLAGS], FLAGS, "%s (0x%x)", buf, flags);
+        hdr = ADD_SUB_HEADER(lw, header, selected[STP_FLAGS], STP_FLAGS, "%s (0x%x)", buf, flags);
         add_flags(lw, hdr, flags, get_stp_flags(), 7);
         ADD_TEXT_ELEMENT(lw, header, "Root ID: %u/%02x.%02x.%02x.%02x.%02x.%02x", stp->root_id[0] << 8 |
                   stp->root_id[1], stp->root_id[2], stp->root_id[3],
@@ -717,7 +717,7 @@ void add_ipv4_information(list_view *lw, list_view_header *header, struct ip_inf
         if (ip->foffset & 0x2000) snprintcat(buf, MAXLINE, "More Fragments");
         snprintcat(buf, MAXLINE, ")");
     }
-    hdr = ADD_SUB_HEADER(lw, header, selected[FLAGS], FLAGS, "%s", buf, flags);
+    hdr = ADD_SUB_HEADER(lw, header, selected[IPV4_FLAGS], IPV4_FLAGS, "%s", buf, flags);
     add_flags(lw, hdr, flags, get_ipv4_flags(), 3);
     ADD_TEXT_ELEMENT(lw, header, "Time to live: %u", ip->ttl);
     snprintf(buf, MAXLINE, "Protocol: %u", ip->protocol);
@@ -1127,7 +1127,7 @@ void add_tcp_information(list_view *lw, list_view_header *header, struct tcp *tc
     ADD_TEXT_ELEMENT(lw, header, "Sequence number: %u", tcp->seq_num);
     ADD_TEXT_ELEMENT(lw, header, "Acknowledgment number: %u", tcp->ack_num);
     ADD_TEXT_ELEMENT(lw, header, "Data offset: %u", tcp->offset);
-    hdr = ADD_SUB_HEADER(lw, header, selected[FLAGS], FLAGS, "Flags: %s(0x%x)", buf, flags);
+    hdr = ADD_SUB_HEADER(lw, header, selected[TCP_FLAGS], TCP_FLAGS, "Flags: %s(0x%x)", buf, flags);
     add_flags(lw, hdr, flags, get_tcp_flags(), 9);
     ADD_TEXT_ELEMENT(lw, header, "Window size: %u", tcp->window);
     ADD_TEXT_ELEMENT(lw, header, "Checksum: %u", tcp->checksum);
@@ -1224,7 +1224,7 @@ void add_dns_information(list_view *lw, list_view_header *header, struct dns_inf
     ADD_TEXT_ELEMENT(lw, header, "QR: %d (%s)", dns->qr, dns->qr ? "DNS Response" : "DNS Query");
     ADD_TEXT_ELEMENT(lw, header, "Opcode: %d (%s)", dns->opcode, get_dns_opcode(dns->opcode));
 
-    hdr = ADD_SUB_HEADER(lw, header, selected[FLAGS], FLAGS, "Flags 0x%x", flags);
+    hdr = ADD_SUB_HEADER(lw, header, selected[DNS_FLAGS], DNS_FLAGS, "Flags 0x%x", flags);
     add_flags(lw, hdr, flags, get_dns_flags(), 5);
     if (dns->qr) {
         ADD_TEXT_ELEMENT(lw, header, "Rcode: %d (%s)", dns->rcode, get_dns_rcode(dns->rcode));
@@ -1437,7 +1437,7 @@ void add_nbns_information(list_view *lw, list_view_header *header, struct nbns_i
     ADD_TEXT_ELEMENT(lw, header, "ID: 0x%x", nbns->id);
     ADD_TEXT_ELEMENT(lw, header, "Response flag: %d (%s)", nbns->r, nbns->r ? "Response" : "Request");
     ADD_TEXT_ELEMENT(lw, header, "Opcode: %d (%s)", nbns->opcode, get_nbns_opcode(nbns->opcode));
-    hdr = ADD_SUB_HEADER(lw, header, selected[FLAGS], FLAGS, "Flags 0x%x", flags);
+    hdr = ADD_SUB_HEADER(lw, header, selected[NBNS_FLAGS], NBNS_FLAGS, "Flags 0x%x", flags);
     add_flags(lw, hdr, flags, get_nbns_flags(), 6);
     ADD_TEXT_ELEMENT(lw, header, "Rcode: %d (%s)", nbns->rcode, get_nbns_rcode(nbns->rcode));
     ADD_TEXT_ELEMENT(lw, header, "Question Entries: %d, Answer RRs: %d, Authority RRs: %d, Additional RRs: %d",
