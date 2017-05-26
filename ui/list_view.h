@@ -27,8 +27,9 @@ typedef struct {
     uint16_t type;
 } list_view_item;
 
-typedef struct {
+typedef struct lvh {
     list_view_item base;
+    struct lvh *parent;
     bool expanded;
     int32_t data;
     list_t *subwidgets;

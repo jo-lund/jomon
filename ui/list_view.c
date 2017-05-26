@@ -24,6 +24,7 @@ static list_view_header *create_header(char *txt, bool expanded, uint16_t data, 
 static void list_view_item_init(list_view_item *item, char *txt, uint32_t attr, uint16_t type);
 static list_view_item *get_widget(list_t *widgets, int i, int *j);
 static int get_size(list_t *widgets);
+static bool header_expanded(list_view_header *header);
 
 list_view *create_list_view()
 {
@@ -115,6 +116,7 @@ list_view_header *add_header(list_view *this, char *txt, bool expanded, uint32_t
 {
     list_view_header *w = create_header(txt, expanded, data, A_BOLD);
 
+    w->parent = NULL;
     list_push_back(this->widgets, w);
     this->num_elements++;
     this->size++;
@@ -137,7 +139,7 @@ list_view_item *add_text_element(list_view *this, list_view_header *header, char
     }
     list_push_back(header->subwidgets, w);
     this->num_elements++;
-    if (header->expanded) {
+    if (header_expanded(header)) {
         this->size++;
     }
     return w;
@@ -155,6 +157,7 @@ list_view_header *add_sub_header(list_view *this, list_view_header *header, bool
     strcat(buf, "\n");
     va_end(ap);
     h = create_header(buf, expanded, data, A_BOLD);
+    h->parent = header;
     if (!header->subwidgets) {
         header->subwidgets = list_init();
     }
@@ -291,4 +294,16 @@ int get_size(list_t *widgets)
         n = list_next(n);
     }
     return size;
+}
+
+/* Returns whether all parent headers are expanded or not */
+bool header_expanded(list_view_header *header)
+{
+    if (!header) {
+        return false;
+    }
+    if (header->expanded && header->parent) {
+        return header_expanded(header->parent);
+    }
+    return header->expanded;
 }
