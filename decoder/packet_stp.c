@@ -4,20 +4,16 @@
 #include "packet_stp.h"
 #include "packet.h"
 
-static struct packet_flags stp_flags[7] = {
-    { "Topology Change Acknowlegment", 1 },
-    { "Agreement", 1 },
-    { "Forwarding", 1 },
-    { "Learning", 1 },
-    { "Port Role", 2 },
-    { "Proposal", 1 },
-    { "Topology Change", 1 }
-};
+static char *port_role[] = { "", "Alternate/Backup", "Root", "Designated" };
 
-static struct packet_flags port_role[3] = {
-    { "Alternate/Backup", 1 },
-    { "Root", 1 },
-    { "Designated", 1 }
+static struct packet_flags stp_flags[] = {
+    { "Topology Change Acknowlegment", 1, NULL },
+    { "Agreement", 1, NULL},
+    { "Forwarding", 1, NULL },
+    { "Learning", 1, NULL },
+    { "Port Role:", 2, port_role },
+    { "Proposal", 1, NULL },
+    { "Topology Change", 1, NULL }
 };
 
 /*

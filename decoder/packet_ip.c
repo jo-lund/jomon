@@ -30,10 +30,10 @@
 #define CS6 0X30
 #define CS7 0X38
 
-static struct packet_flags ipv4_flags[3] = {
-    { "Reserved", 1 },
-    { "Don't Fragment", 1 },
-    { "More Fragments", 1 }
+static struct packet_flags ipv4_flags[] = {
+    { "Reserved", 1, NULL },
+    { "Don't Fragment", 1, NULL },
+    { "More Fragments", 1, NULL }
 };
 
 /*

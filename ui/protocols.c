@@ -70,7 +70,6 @@ static void add_pim_register(list_view *lw, list_view_header *header, struct pim
 static void add_pim_register_stop(list_view *lw, list_view_header *header, struct pim_info *pim);
 static void add_pim_bootstrap(list_view *lw, list_view_header *header, struct pim_info *pim);
 static void add_pim_candidate(list_view *lw, list_view_header *header, struct pim_info *pim);
-//static void add_flags(list_view *lw, list_view_header *header, uint16_t flags, char *flag_str[], int num_flags);
 static void add_flags(list_view *lw, list_view_header *header, uint16_t flags, struct packet_flags *pf, int num_flags);
 
 void write_to_buf(char *buf, int size, struct packet *p)
@@ -1544,20 +1543,25 @@ void add_http_information(list_view *lw, list_view_header *header, struct http_i
 void add_flags(list_view *lw, list_view_header *header, uint16_t flags, struct packet_flags *pf, int num_flags)
 {
     char buf[MAXLINE];
-    int fields = 0;
+    int num_bits = 0;
 
     for (int i = 0; i < num_flags; i++) {
-        fields += pf[i].width;
+        num_bits += pf[i].width;
     }
-    for (int i = 0; i < fields; i++) {
+    for (int i = 0; i < num_bits; i++) {
         snprintf(buf + i, MAXLINE - i, ".");
     }
-
-    for (int i = 0, k = 0; k < fields; i++) {
+    for (int i = 0, k = 0; k < num_bits; i++) {
         for (int j = 0; j < pf[i].width; j++) {
-            buf[k + j] = ((flags >> (fields - (k + j) - 1)) & 0x01) + '0';
+            buf[k + j] = ((flags >> (num_bits - (k + j) - 1)) & 0x01) + '0';
         }
-        snprintf(buf + fields, MAXLINE - fields, "  %s", pf[i].str);
+        snprintf(buf + num_bits, MAXLINE - num_bits, "  %s", pf[i].str);
+        if (pf[i].sflags) {
+            uint8_t bf;
+
+            bf = (flags >> (num_bits - (k + pf[i].width))) & ((1 << pf[i].width) - 1);
+            snprintcat(buf, MAXLINE, " %s", pf[i].sflags[bf]);
+        }
         ADD_TEXT_ELEMENT(lw, header, "%s", buf);
         for (int j = 0; j < pf[i].width; j++) {
             buf[k + j] = '.';

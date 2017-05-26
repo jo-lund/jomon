@@ -10,6 +10,7 @@
 struct packet_flags {
     char *str;
     int width;
+    char **sflags;
 };
 
 struct packet_statistics {

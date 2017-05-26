@@ -5,13 +5,13 @@
 #include "packet_dns.h"
 #include "packet.h"
 
-static struct packet_flags nbns_flags[6] = {
-    { "Authoritative answer", 1 },
-    { "Truncation", 1 },
-    { "Recursion desired", 1 },
-    { "Recursion available", 1 },
-    { "", 2 },
-    { "Broadcast/Multicast", 1 }
+static struct packet_flags nbns_flags[] = {
+    { "Authoritative answer", 1, NULL },
+    { "Truncation", 1, NULL },
+    { "Recursion desired", 1, NULL },
+    { "Recursion available", 1, NULL },
+    { "", 2, NULL },
+    { "Broadcast/Multicast", 1, NULL }
 };
 
 static void decode_nbns_name(char *dest, char *src);
@@ -51,7 +51,7 @@ bool handle_nbns(unsigned char *buffer, int n, struct application_info *info)
     info->nbns->tc = (ptr[2] & 0x02) >> 1;
     info->nbns->rd = ptr[2] & 0x01;
     info->nbns->ra = (ptr[3] & 0x80) >> 7;
-    info->nbns->broadcast = ptr[3] & 0x10;
+    info->nbns->broadcast = (ptr[3] & 0x10) >> 4;
     info->nbns->rcode = ptr[3] & 0x0f;
     for (int i = 0, j = 4; i < 4; i++, j += 2) {
         info->nbns->section_count[i] = ptr[j] << 8 | ptr[j + 1];
