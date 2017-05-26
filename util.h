@@ -5,7 +5,6 @@
 #include "list.h"
 
 struct arp_info;
-struct dns_resource_record;
 
 struct tm_t {
     int days;
@@ -54,5 +53,9 @@ int str_find_last(const char *str, char c);
 
 /* Given a file with full path name, return the directory part */
 void get_directory_part(char *fullpath);
+
+uint16_t get_uint16be(const unsigned char *buf);
+uint32_t get_uint32be(const unsigned char *buf);
+
 
 #endif
