@@ -54,8 +54,16 @@ int str_find_last(const char *str, char c);
 /* Given a file with full path name, return the directory part */
 void get_directory_part(char *fullpath);
 
+/* Extracts a 16 bits integer in big endian format from buf */
 uint16_t get_uint16be(const unsigned char *buf);
+
+/* Extracts a 32 bits integer in big endian format from buf */
 uint32_t get_uint32be(const unsigned char *buf);
 
+/* Extracts a 16 bits integer in little endian format from buf */
+uint16_t get_uint16le(const unsigned char *buf);
+
+/* Extracts a 32 bits integer in little endian format from buf */
+uint32_t get_uint32le(const unsigned char *buf);
 
 #endif

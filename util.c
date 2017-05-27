@@ -178,7 +178,6 @@ void get_directory_part(char *fullpath)
     fullpath[i] = '\0';
 }
 
-
 inline uint16_t get_uint16be(const unsigned char *buf)
 {
     return (uint16_t) buf[0] << 8 | (uint16_t) buf[1];
@@ -190,4 +189,17 @@ inline uint32_t get_uint32be(const unsigned char *buf)
            (uint32_t) buf[1] << 16 |
            (uint32_t) buf[2] << 8 |
            (uint32_t) buf[3];
+}
+
+inline uint16_t get_uint16le(const unsigned char *buf)
+{
+    return (uint16_t) buf[1] << 8 | (uint16_t) buf[0];
+}
+
+inline uint32_t get_uint32le(const unsigned char *buf)
+{
+    return (uint32_t) buf[3] << 24 |
+           (uint32_t) buf[2] << 16 |
+           (uint32_t) buf[1] << 8 |
+           (uint32_t) buf[0];
 }
