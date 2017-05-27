@@ -22,7 +22,6 @@ static struct packet_flags nbns_nb_flags[] = {
     { "Owner Node Type:", 2, nb_ont }
 };
 
-static void decode_nbns_name(char *dest, char *src);
 static void parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **ptr, struct nbns_info *info);
 
 /*
@@ -50,6 +49,8 @@ static void parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char
  */
 bool handle_nbns(unsigned char *buffer, int n, struct application_info *info)
 {
+    if (n < DNS_HDRLEN) return false;
+
     unsigned char *ptr = buffer;
 
     info->nbns = malloc(sizeof(struct nbns_info));

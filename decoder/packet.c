@@ -18,6 +18,7 @@
 #include "packet_arp.h"
 #include "packet_ip.h"
 #include "packet_ssdp.h"
+#include "packet_nbds.h"
 
 struct packet_statistics pstat = { 0 };
 
@@ -150,6 +151,9 @@ void free_protocol_data(struct application_info *info)
             free(info->nbns);
         }
         break;
+    case NBDS:
+        free_nbds_packet(info->nbds);
+        break;
     case SSDP:
         if (info->ssdp) {
             list_free(info->ssdp, free);
@@ -180,6 +184,8 @@ bool check_port(unsigned char *buffer, int n, struct application_info *info,
         return handle_dns(buffer, n, info);
     case NBNS:
         return handle_nbns(buffer, n, info);
+    case NBDS:
+        return handle_nbds(buffer, n, info);
     case SSDP:
         return handle_ssdp(buffer, n, info);
     /* case HTTP: */

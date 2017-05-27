@@ -29,5 +29,6 @@ void add_ssdp_information(list_view *lw, list_view_header *header, list_t *ssdp)
 void add_http_information(list_view *lw, list_view_header *header, struct http_info *http);
 void add_dns_information(list_view *lw, list_view_header *header, struct dns_info *dns);
 void add_nbns_information(list_view *lw, list_view_header *header, struct nbns_info *nbns);
+void add_nbds_information(list_view *lw, list_view_header *header, struct nbds_info *nbds);
 
 #endif

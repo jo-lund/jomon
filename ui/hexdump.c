@@ -42,6 +42,7 @@ enum hex_state {
     HD_DNS,
     HD_SSDP,
     HD_NBNS,
+    HD_NBDS,
     HD_HTTP,
     HD_SNAP,
     HD_STP,
@@ -67,6 +68,7 @@ static hex_conversion hex_state_val[] = {
     { HD_DNS, "DNS" },
     { HD_SSDP, "SSDP" },
     { HD_NBNS, "NBNS" },
+    { HD_NBDS, "NBDS" },
     { HD_HTTP, "HTTP" },
     { HD_SNAP, "SNAP" },
     { HD_STP, "STP" },
@@ -422,6 +424,9 @@ enum hex_state get_next_state(enum hex_state cur_state, struct packet *p)
             break;
         case NBNS:
             next_state = HD_NBNS;
+            break;
+        case NBDS:
+            next_state = HD_NBDS;
             break;
         case HTTP:
             next_state = HD_HTTP;

@@ -42,6 +42,7 @@ enum layer {
     TCP_FLAGS,
     DNS_FLAGS,
     NBNS_FLAGS,
+    NBDS_FLAGS,
     SUBLAYER,
     NUM_LAYERS
 };

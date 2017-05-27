@@ -47,6 +47,7 @@ static void print_igmp(char *buf, int n, struct igmp_info *info);
 static void print_pim(char *buf, int n, struct pim_info *pim);
 static void print_dns(char *buf, int n, struct dns_info *dns, uint16_t type);
 static void print_nbns(char *buf, int n, struct nbns_info *nbns);
+static void print_nbds(char *buf, int n, struct nbds_info *nbds);
 static void print_ssdp(char *buf, int n, list_t *ssdp);
 static void print_http(char *buf, int n, struct http_info *http);
 static void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t type);
@@ -353,23 +354,26 @@ void print_tcp(char *buf, int n, struct tcp *info)
     }
 }
 
-void print_udp(char *buf, int n, struct udp_info *info)
+void print_udp(char *buf, int n, struct udp_info *udp)
 {
-    switch (info->data.utype) {
+    switch (udp->data.utype) {
     case DNS:
     case MDNS:
-        print_dns(buf, n, info->data.dns, info->data.utype);
+        print_dns(buf, n, udp->data.dns, udp->data.utype);
         break;
     case NBNS:
-        print_nbns(buf, n, info->data.nbns);
+        print_nbns(buf, n, udp->data.nbns);
+        break;
+    case NBDS:
+        print_nbds(buf, n, udp->data.nbds);
         break;
     case SSDP:
-        print_ssdp(buf, n, info->data.ssdp);
+        print_ssdp(buf, n, udp->data.ssdp);
         break;
     default:
         PRINT_PROTOCOL(buf, n, "UDP");
-        PRINT_INFO(buf, n, "Source port: %d  Destination port: %d", info->src_port,
-                   info->dst_port);
+        PRINT_INFO(buf, n, "Source port: %d  Destination port: %d", udp->src_port,
+                   udp->dst_port);
         break;
     }
 }
@@ -473,6 +477,16 @@ void print_nbns(char *buf, int n, struct nbns_info *nbns)
         PRINT_INFO(buf, n, "%s ", nbns->record[0].rrname);
         PRINT_INFO(buf, n, "%s ", get_nbns_type(nbns->record[0].rrtype));
         print_nbns_record(nbns, 0, buf, n, nbns->record[0].rrtype);
+    }
+}
+
+void print_nbds(char *buf, int n, struct nbds_info *nbds)
+{
+    char *type;
+
+    PRINT_PROTOCOL(buf, n, "NBDS");
+    if ((type = get_nbds_message_type(nbds->msg_type))) {
+        PRINT_INFO(buf, n, "%s", type);
     }
 }
 
@@ -1523,6 +1537,54 @@ void add_nbns_record(list_view *lw, list_view_header *w, struct nbns_info *nbns,
         break;
     case NBNS_NBSTAT:
         break;
+    default:
+        break;
+    }
+}
+
+void add_nbds_information(list_view *lw, list_view_header *header, struct nbds_info *nbds)
+{
+    list_view_header *hdr;
+    char src_addr[INET_ADDRSTRLEN];
+    char *type;
+
+    if ((type = get_nbds_message_type(nbds->msg_type))) {
+        ADD_TEXT_ELEMENT(lw, header, "Message type: 0x%x (%s)", nbds->msg_type, type);
+    } else {
+        ADD_TEXT_ELEMENT(lw, header, "Message type: 0x%x", nbds->msg_type);
+    }
+    hdr = ADD_SUB_HEADER(lw, header, selected[NBDS_FLAGS], NBDS_FLAGS, "Flags (0x%x)",
+                         nbds->flags);
+    add_flags(lw, hdr, nbds->flags, get_nbds_flags(), 4);
+    ADD_TEXT_ELEMENT(lw, header, "Datagram id: 0x%x", nbds->dgm_id);
+    inet_ntop(AF_INET, &nbds->source_ip, src_addr, INET_ADDRSTRLEN);
+    ADD_TEXT_ELEMENT(lw, header, "Source IP: %s", src_addr);
+    ADD_TEXT_ELEMENT(lw, header, "Source port: %u", nbds->source_port);
+
+    switch (nbds->msg_type) {
+    case NBDS_DIRECT_UNIQUE:
+    case NBDS_DIRECT_GROUP:
+    case NBDS_BROADCAST:
+        ADD_TEXT_ELEMENT(lw, header, "Datagram length: %u bytes", nbds->msg.grp_unique->dgm_length);
+        ADD_TEXT_ELEMENT(lw, header, "Packet offset: %u", nbds->msg.grp_unique->packet_offset);
+        ADD_TEXT_ELEMENT(lw, header, "Source name: %s", nbds->msg.grp_unique->src_name);
+        ADD_TEXT_ELEMENT(lw, header, "Destination name: %s", nbds->msg.grp_unique->dest_name);
+        if (nbds->msg.grp_unique->data) {
+            list_view_header *w = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Data");
+
+            add_hexdump(lw, w, HEXMODE_NORMAL, nbds->msg.grp_unique->data,
+                        nbds->msg.grp_unique->data_size);
+        }
+        break;
+    case NBDS_ERROR:
+        ADD_TEXT_ELEMENT(lw, header, "Error code: %u", nbds->msg.error_code);
+        break;
+    case NBDS_QUERY_REQUEST:
+    case NBDS_POSITIVE_QUERY_RESPONSE:
+    case NBDS_NEGATIVE_QUERY_RESPONSE:
+        ADD_TEXT_ELEMENT(lw, header, "Destination name: %s", nbds->msg.dest_name);
+        break;
+
     default:
         break;
     }

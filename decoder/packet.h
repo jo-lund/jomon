@@ -8,9 +8,9 @@
 #include "packet_ethernet.h"
 
 struct packet_flags {
-    char *str;
-    int width;
-    char **sflags;
+    char *str;     /* flag description */
+    int width;     /* number of bits in the field */
+    char **sflags; /* description of field indexed by bit value */
 };
 
 struct packet_statistics {
@@ -74,6 +74,7 @@ struct application_info {
     union {
         struct dns_info *dns;
         struct nbns_info *nbns;
+        struct nbds_info *nbds;
         struct http_info *http;
         list_t *ssdp;
     };

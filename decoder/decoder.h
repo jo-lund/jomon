@@ -11,5 +11,6 @@
 #include "packet_stp.h"
 #include "packet_ip.h"
 #include "packet_tcp.h"
+#include "packet_nbds.h"
 
 #endif

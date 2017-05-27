@@ -1098,6 +1098,10 @@ void add_app_elements(main_screen *ms, struct packet *p, struct application_info
         header = ADD_HEADER(ms->lvw, "NetBIOS Name Service (NBNS)", selected[APPLICATION], APPLICATION);
         add_nbns_information(ms->lvw, header, info->nbns);
         break;
+    case NBDS:
+        header = ADD_HEADER(ms->lvw, "NetBIOS Datagram Service (NBDS)", selected[APPLICATION], APPLICATION);
+        add_nbds_information(ms->lvw, header, info->nbds);
+        break;
     case HTTP:
         header = ADD_HEADER(ms->lvw, "Hypertext Transfer Protocol (HTTP)", selected[APPLICATION], APPLICATION);
         add_http_information(ms->lvw, header, info->http);
