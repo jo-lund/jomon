@@ -93,8 +93,6 @@ void stat_screen_get_input()
 
 void stat_screen_print()
 {
-    //if (!screen_stat) return;
-
     int y = 0;
     struct iw_statistics iwstat;
     struct iw_range iwrange;
@@ -122,76 +120,16 @@ void stat_screen_print()
     }
     if (show_packet_stats) {
         mvwprintw(stat_screen->win, ++y, 0, "");
-        if (pstat.num_packets) {
+
+        if (pstat[0].num_packets) {
             printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%23s %12s", "Packets", "Bytes");
-            printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "Total");
-            wprintw(stat_screen->win, ": %8u", pstat.num_packets);
-            wprintw(stat_screen->win, "%13llu", pstat.tot_bytes);
-        }
-        if (pstat.num_arp) {
-            printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "ARP");
-            wprintw(stat_screen->win, ": %8u", pstat.num_arp);
-            wprintw(stat_screen->win, "%13llu", pstat.bytes_arp);
-        }
-        if (pstat.num_stp) {
-            printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "STP");
-            wprintw(stat_screen->win, ": %8u", pstat.num_stp);
-            wprintw(stat_screen->win, "%13llu", pstat.bytes_stp);
-        }
-        if (pstat.num_ip) {
-            printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "IPv4");
-            wprintw(stat_screen->win, ": %8u", pstat.num_ip);
-            wprintw(stat_screen->win, "%13llu", pstat.bytes_ip);
-        }
-        if (pstat.num_ip6) {
-            printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "IPv6");
-            wprintw(stat_screen->win, ": %8u", pstat.num_ip6);
-            wprintw(stat_screen->win, "%13llu", pstat.bytes_ip6);
-        }
-        if (pstat.num_icmp) {
-            printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "ICMP");
-            wprintw(stat_screen->win, ": %8u", pstat.num_icmp);
-            wprintw(stat_screen->win, "%13llu", pstat.bytes_icmp);
-        }
-        if (pstat.num_igmp) {
-            printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "IGMP");
-            wprintw(stat_screen->win, ": %8u", pstat.num_igmp);
-            wprintw(stat_screen->win, "%13llu", pstat.bytes_igmp);
-        }
-        if (pstat.num_pim) {
-            printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "PIM");
-            wprintw(stat_screen->win, ": %8u", pstat.num_pim);
-            wprintw(stat_screen->win, "%13llu", pstat.bytes_pim);
-        }
-        if (pstat.num_tcp) {
-            printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "TCP");
-            wprintw(stat_screen->win, ": %8u", pstat.num_tcp);
-            wprintw(stat_screen->win, "%13llu", pstat.bytes_tcp);
-        }
-        if (pstat.num_udp) {
-            printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "UDP");
-            wprintw(stat_screen->win, ": %8u", pstat.num_udp);
-            wprintw(stat_screen->win, "%13llu", pstat.bytes_udp);
-        }
-        if (pstat.num_dns) {
-            printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "DNS");
-            wprintw(stat_screen->win, ": %8u", pstat.num_dns);
-            wprintw(stat_screen->win, "%13llu", pstat.bytes_dns);
-        }
-        if (pstat.num_nbns) {
-            printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "NBNS");
-            wprintw(stat_screen->win, ": %8u", pstat.num_nbns);
-            wprintw(stat_screen->win, "%13llu", pstat.bytes_nbns);
-        }
-        if (pstat.num_http) {
-            printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "HTTP");
-            wprintw(stat_screen->win, ": %8u", pstat.num_http);
-            wprintw(stat_screen->win, "%13llu", pstat.bytes_http);
-        }
-        if (pstat.num_ssdp) {
-            printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "SSDP");
-            wprintw(stat_screen->win, ": %8u", pstat.num_ssdp);
-            wprintw(stat_screen->win, "%13llu", pstat.bytes_ssdp);
+            for (int i = 0; i <= NUM_PROTOCOLS; i++) {
+                if (pstat[i].num_packets) {
+                    printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", pstat[i].protocol);
+                    wprintw(stat_screen->win, ": %8u", pstat[i].num_packets);
+                    wprintw(stat_screen->win, "%13llu", pstat[i].num_bytes);
+                }
+            }
         }
     }
     wrefresh(stat_screen->win);

@@ -31,8 +31,8 @@ bool handle_arp(unsigned char *buffer, int n, struct eth_info *eth)
 
     struct ether_arp *arp_header;
 
-    pstat.num_arp++;
-    pstat.bytes_arp += n;
+    pstat[PROT_ARP].num_packets++;
+    pstat[PROT_ARP].num_bytes += n;
     arp_header = (struct ether_arp *) buffer;
     eth->arp = malloc(sizeof(struct arp_info));
     memcpy(eth->arp->sip, arp_header->arp_spa, 4); /* sender protocol address */

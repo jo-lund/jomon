@@ -22,8 +22,8 @@ bool handle_ssdp(unsigned char *buffer, int n, struct application_info *info)
 {
     list_t *ssdp_fields;
 
-    pstat.num_ssdp++;
-    pstat.bytes_ssdp += n;
+    pstat[PROT_SSDP].num_packets++;
+    pstat[PROT_SSDP].num_bytes += n;
     ssdp_fields = list_init();
     parse_ssdp((char *) buffer, n, ssdp_fields);
     info->ssdp = ssdp_fields;

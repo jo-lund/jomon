@@ -38,8 +38,8 @@ bool handle_pim(unsigned char *buffer, int n, struct pim_info *pim)
 {
     if (n < PIM_HEADER_LEN) return false;
 
-    pstat.num_pim++;
-    pstat.bytes_pim += n;
+    pstat[PROT_PIM].num_packets++;
+    pstat[PROT_PIM].num_bytes += n;
     pim->version = (buffer[0] >> 4) & 0xf;
     pim->type = buffer[0] & 0xf;
     pim->checksum = buffer[1] << 8 | buffer[2];

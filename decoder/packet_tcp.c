@@ -86,8 +86,8 @@ bool handle_tcp(unsigned char *buffer, int n, struct tcp *info)
     tcp = (struct tcphdr *) buffer;
     if (n < tcp->doff * 4) return false;
 
-    pstat.num_tcp++;
-    pstat.bytes_tcp += n;
+    pstat[PROT_TCP].num_packets++;
+    pstat[PROT_TCP].num_bytes += n;
     info->src_port = ntohs(tcp->source);
     info->dst_port = ntohs(tcp->dest);
     info->seq_num = ntohl(tcp->seq);

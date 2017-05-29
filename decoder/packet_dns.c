@@ -153,8 +153,8 @@ bool handle_dns(unsigned char *buffer, int n, struct application_info *info)
             parse_dns_record(i, buffer, n, &ptr, info->dns);
         }
     }
-    pstat.num_dns++;
-    pstat.bytes_dns += n;
+    pstat[PROT_DNS].num_packets++;
+    pstat[PROT_DNS].num_bytes += n;
     return true;
 }
 

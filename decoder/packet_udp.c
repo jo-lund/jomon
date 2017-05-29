@@ -22,8 +22,8 @@ bool handle_udp(unsigned char *buffer, int n, struct udp_info *info)
     struct udphdr *udp;
     bool error;
 
-    pstat.num_udp++;
-    pstat.bytes_udp += n;
+    pstat[PROT_UDP].num_packets++;
+    pstat[PROT_UDP].num_bytes += n;
     udp = (struct udphdr *) buffer;
     info->src_port = ntohs(udp->source);
     info->dst_port = ntohs(udp->dest);

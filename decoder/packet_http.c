@@ -72,8 +72,8 @@ bool parse_http(char *buffer, uint16_t len, struct http_info *http)
             memcpy(http->data, ptr, n);
             http->len = n;
         }
-        pstat.num_http++;
-        pstat.bytes_http += len;
+        pstat[PROT_HTTP].num_packets++;
+        pstat[PROT_HTTP].num_bytes += len;
     }
     return is_http;
 }

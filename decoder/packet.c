@@ -20,7 +20,24 @@
 #include "packet_ssdp.h"
 #include "packet_nbds.h"
 
-struct packet_statistics pstat = { 0 };
+/* this needs to be in the same order as enum protocols */
+struct packet_statistics pstat[] = {
+    { "Total", 0, 0 },
+    { "ARP", 0, 0 },
+    { "STP", 0, 0 },
+    { "IPv4", 0, 0 },
+    { "IPv6", 0, 0 },
+    { "ICMP", 0, 0 },
+    { "IGMP", 0, 0 },
+    { "PIM", 0, 0 },
+    { "TCP", 0, 0 },
+    { "UDP", 0, 0 },
+    { "DNS", 0, 0 },
+    { "NBNS", 0, 0 },
+    { "NBDS", 0, 0 },
+    { "HTTP", 0, 0 },
+    { "SSDP", 0, 0 }
+};
 
 static void free_protocol_data(struct application_info *info);
 
@@ -57,8 +74,8 @@ size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet 
             break;
         }
     }
-    (*p)->num = ++pstat.num_packets;
-    pstat.tot_bytes += msg.msg_len;
+    (*p)->num = ++pstat[0].num_packets;
+    pstat[0].num_bytes += msg.msg_len;
     return msg.msg_len;
 }
 
@@ -69,8 +86,8 @@ bool decode_packet(unsigned char *buffer, size_t len, struct packet **p)
         free_packet(p);
         return false;
     }
-    (*p)->num = ++pstat.num_packets;
-    pstat.tot_bytes += len;
+    (*p)->num = ++pstat[0].num_packets;
+    pstat[0].num_bytes += len;
     return true;
 }
 
@@ -213,5 +230,8 @@ unsigned char *get_adu_payload(struct packet *p)
 
 void clear_statistics()
 {
-    memset(&pstat, 0, sizeof(struct packet_statistics));
+    for (int i = 0; i <= NUM_PROTOCOLS; i++) {
+        pstat[i].num_packets = 0;
+        pstat[i].num_bytes = 0;
+    }
 }

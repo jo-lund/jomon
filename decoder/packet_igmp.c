@@ -52,8 +52,8 @@ bool handle_igmp(unsigned char *buffer, int n, struct igmp_info *info)
 
     struct igmphdr *igmp;
 
-    pstat.num_igmp++;
-    pstat.bytes_igmp += n;
+    pstat[PROT_IGMP].num_packets++;
+    pstat[PROT_IGMP].num_bytes += n;
     igmp = (struct igmphdr *) buffer;
     info->type = igmp->type;
     info->max_resp_time = igmp->code;
