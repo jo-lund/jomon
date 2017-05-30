@@ -48,8 +48,8 @@ static bool interactive = false;
 static bool input_mode = false;
 static int hexmode = HEXMODE_NORMAL;
 static int view_mode = DECODED_VIEW;
-static file_input_dialogue *id = NULL;
-static file_input_dialogue *sd = NULL;
+static input_dialogue *id = NULL;
+static input_dialogue *sd = NULL;
 static label_dialogue *ld = NULL;
 static char load_filepath[MAXPATH + 1] = { 0 };
 static bool decode_error = false;
@@ -175,10 +175,10 @@ void main_screen_refresh(main_screen *ms)
 void create_load_dialogue()
 {
     if (!id) {
-        id = file_input_dialogue_create("Enter capture file to load", load_handle_ok,
+        id = input_dialogue_create("Enter capture file to load", load_handle_ok,
                                         load_handle_cancel);
         if (load_filepath[0] != 0) {
-            FILE_INPUT_DIALOGUE_SET_INPUT(id, load_filepath);
+            INPUT_DIALOGUE_SET_INPUT(id, load_filepath);
         }
         push_screen((screen *) id);
     }
@@ -187,7 +187,7 @@ void create_load_dialogue()
 void create_save_dialogue()
 {
     if (!sd) {
-        sd = file_input_dialogue_create("Save file", save_handle_ok, save_handle_cancel);
+        sd = input_dialogue_create("Save file", save_handle_ok, save_handle_cancel);
         push_screen((screen *) sd);
     }
 }
@@ -230,13 +230,13 @@ void load_handle_ok(void *file)
         }
         fclose(fp);
     }
-    file_input_dialogue_free(id);
+    input_dialogue_free(id);
     id = NULL;
 }
 
 void load_handle_cancel(void *d)
 {
-    file_input_dialogue_free(id);
+    input_dialogue_free(id);
     id = NULL;
     if (decode_error) {
         main_screen_clear(mscr);
@@ -257,13 +257,13 @@ void save_handle_ok(void *file)
         write_file(fp, packets);
         fclose(fp);
     }
-    file_input_dialogue_free(sd);
+    input_dialogue_free(sd);
     sd = NULL;
 }
 
 void save_handle_cancel(void *d)
 {
-    file_input_dialogue_free(sd);
+    input_dialogue_free(sd);
     sd = NULL;
 }
 

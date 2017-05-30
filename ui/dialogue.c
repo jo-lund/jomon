@@ -12,13 +12,13 @@ static int num_chars;
 static void dialogue_init(dialogue *d, char *title);
 static void dialogue_set_title(dialogue *this, char *title);
 static void dialogue_render(dialogue *this);
-static void file_input_dialogue_get_input(file_input_dialogue *this);
-static void file_input_dialogue_set_input(file_input_dialogue *this, char *input);
-static void file_input_dialogue_render(file_input_dialogue *this);
-static void file_input_dialogue_set_button_action(file_input_dialogue *this,
+static void input_dialogue_get_input(input_dialogue *this);
+static void input_dialogue_set_input(input_dialogue *this, char *input);
+static void input_dialogue_render(input_dialogue *this);
+static void input_dialogue_set_button_action(input_dialogue *this,
                                                   button_action ok, void *arg1,
                                                   button_action cancel, void *arg2);
-static void file_input_dialogue_handle_enter(file_input_dialogue *this);
+static void input_dialogue_handle_enter(input_dialogue *this);
 static void label_dialogue_render(label_dialogue *this);
 static void label_dialogue_get_input(struct label_dialogue *this);
 
@@ -66,7 +66,7 @@ void dialogue_render(dialogue *this)
     win = ((screen *) this)->win;
     mx = getmaxx(win);
     box(win, 0, 0);
-    wbkgd(win, COLOR_PAIR(5));
+    wbkgd(win, COLOR_PAIR(9));
     if (this->title) {
         len = strlen(this->title);
         mvwprintw(win, 0, (mx - len) / 2, this->title);
@@ -75,34 +75,34 @@ void dialogue_render(dialogue *this)
     wrefresh(win);
 }
 
-file_input_dialogue *file_input_dialogue_create(char *title, button_action ok, button_action cancel)
+input_dialogue *input_dialogue_create(char *title, button_action ok, button_action cancel)
 {
-    file_input_dialogue *id;
+    input_dialogue *id;
     int my, mx;
 
-    id = malloc(sizeof(file_input_dialogue));
+    id = malloc(sizeof(input_dialogue));
     dialogue_init((dialogue *) id, title);
     getmaxyx(((screen *) id)->win, my, mx);
-    ((screen *) id)->type = FILE_INPUT_DIALOGUE;
+    ((screen *) id)->type = INPUT_DIALOGUE;
     id->ok = button_create((screen *) id, ok, NULL, "Ok", my - 5, 4);
     id->cancel = button_create((screen *) id, cancel, NULL, "Cancel", my - 5, mx - 16);
     id->input.win = derwin(((screen *) id)->win, 1, mx - 8, 6, 4);
     id->input.focus = false;
     id->has_focus = 0;
-    id->file_input_dialogue_set_button_action = file_input_dialogue_set_button_action;
-    id->file_input_dialogue_get_input = file_input_dialogue_get_input;
-    id->file_input_dialogue_set_input = file_input_dialogue_set_input;
-    id->file_input_dialogue_render = file_input_dialogue_render;
+    id->input_dialogue_set_button_action = input_dialogue_set_button_action;
+    id->input_dialogue_get_input = input_dialogue_get_input;
+    id->input_dialogue_set_input = input_dialogue_set_input;
+    id->input_dialogue_render = input_dialogue_render;
     nodelay(id->input.win, TRUE);
     keypad(id->input.win, TRUE);
     getcwd(file, MAXPATH); // TODO: Use file path of loaded file if available
     waddstr(id->input.win, file);
     num_chars = strlen(file);
-    file_input_dialogue_render(id);
+    input_dialogue_render(id);
     return id;
 }
 
-void file_input_dialogue_free(file_input_dialogue *id)
+void input_dialogue_free(input_dialogue *id)
 {
     if (id) {
         button_free(id->ok);
@@ -113,23 +113,23 @@ void file_input_dialogue_free(file_input_dialogue *id)
     }
 }
 
-void file_input_dialogue_set_input(file_input_dialogue *this, char *input)
+void input_dialogue_set_input(input_dialogue *this, char *input)
 {
     strncpy(file, input, MAXPATH);
     werase(this->input.win);
     waddstr(this->input.win, file);
     num_chars = strlen(file);
-    file_input_dialogue_render(this);
+    input_dialogue_render(this);
 }
 
-void file_input_dialogue_set_button_action(file_input_dialogue *this, button_action ok, void *arg1,
+void input_dialogue_set_button_action(input_dialogue *this, button_action ok, void *arg1,
                                            button_action cancel, void *arg2)
 {
     BUTTON_SET_ACTION(this->ok, ok, arg1);
     BUTTON_SET_ACTION(this->cancel, cancel, arg2);
 }
 
-void file_input_dialogue_get_input(file_input_dialogue *this)
+void input_dialogue_get_input(input_dialogue *this)
 {
     int c;
 
@@ -137,11 +137,11 @@ void file_input_dialogue_get_input(file_input_dialogue *this)
     switch (c) {
     case '\t':
         this->has_focus = (this->has_focus + 1) % 3;
-        file_input_dialogue_render(this);
+        input_dialogue_render(this);
         break;
     case KEY_ENTER:
     case '\n':
-        file_input_dialogue_handle_enter(this);
+        input_dialogue_handle_enter(this);
         break;
     case KEY_ESC:
         curs_set(0);
@@ -171,7 +171,7 @@ void file_input_dialogue_get_input(file_input_dialogue *this)
     }
 }
 
-void file_input_dialogue_render(file_input_dialogue *this)
+void input_dialogue_render(input_dialogue *this)
 {
     werase(((container *) this->ok)->win);
     werase(((container *) this->cancel)->win);
@@ -201,7 +201,7 @@ void file_input_dialogue_render(file_input_dialogue *this)
     wrefresh(((screen *) this)->win);
 }
 
-void file_input_dialogue_handle_enter(file_input_dialogue *this)
+void input_dialogue_handle_enter(input_dialogue *this)
 {
     switch (this->has_focus) {
     case 0:

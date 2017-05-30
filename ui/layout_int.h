@@ -21,7 +21,7 @@
 enum screen_type {
     HELP_SCREEN,
     STAT_SCREEN,
-    FILE_INPUT_DIALOGUE,
+    INPUT_DIALOGUE,
     LABEL_DIALOGUE
 };
 

@@ -32,6 +32,7 @@ void init_ncurses(bool capturing)
     init_pair(6, COLOR_YELLOW, -1);
     init_pair(7, COLOR_MAGENTA, -1);
     init_pair(8, COLOR_RED, -1);
+    init_pair(9, COLOR_WHITE, COLOR_BLUE);
     set_escdelay(25); /* set escdelay to 25 ms */
     screen_changed_publisher = publisher_init();
     screen_stack = stack_init(NUM_SCREENS);
@@ -194,8 +195,8 @@ void handle_input()
         case HELP_SCREEN:
             pop_screen();
             break;
-        case FILE_INPUT_DIALOGUE:
-            FILE_INPUT_DIALOGUE_GET_INPUT((file_input_dialogue *) s);
+        case INPUT_DIALOGUE:
+            INPUT_DIALOGUE_GET_INPUT((input_dialogue *) s);
             break;
         case LABEL_DIALOGUE:
             LABEL_DIALOGUE_GET_INPUT((label_dialogue *) s);
