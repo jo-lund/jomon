@@ -524,34 +524,40 @@ void print_status(main_screen *ms)
     uid_t euid = geteuid();
 
     mvwprintw(ms->status, 0, 0, "F1");
-    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-10s", "Help");
+    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Help");
     wprintw(ms->status, "F2");
-    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-10s", "Menu");
+    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Menu");
     if (capturing || euid != 0) {
-        printat(ms->status, -1, -1, A_DIM, "F3");
+        printat(ms->status, -1, -1, GREY, "F3");
     } else {
         wprintw(ms->status, "F3");
     }
-    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-10s", "Start");
+    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Start");
     if (capturing) {
         wprintw(ms->status, "F4");
     } else {
-        printat(ms->status, -1, -1, A_DIM, "F4");
+        printat(ms->status, -1, -1, GREY, "F4");
     }
-    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-10s", "Stop");
-
-    wprintw(ms->status, "F5");
-    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-10s", "Save");
-    wprintw(ms->status, "F6");
-    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-10s", "Load");
+    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Stop");
+    if (capturing) {
+        printat(ms->status, -1, -1, GREY, "F5");
+        printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Save");
+        printat(ms->status, -1, -1, GREY, "F6");
+        printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Load");
+    } else {
+        wprintw(ms->status, "F5");
+        printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Save");
+        wprintw(ms->status, "F6");
+        printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Load");
+    }
     wprintw(ms->status, "F7");
     if (view_mode == DECODED_VIEW) {
-        printat(ms->status, -1, -1, COLOR_PAIR(2), "%-10s", "View (dec)");
+        printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "View (dec)");
     } else {
-        printat(ms->status, -1, -1, COLOR_PAIR(2), "%-10s", "View (hex)");
+        printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "View (hex)");
     }
     wprintw(ms->status, "F10");
-    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-10s", "Quit");
+    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Quit");
     wrefresh(ms->status);
 }
 
@@ -633,7 +639,7 @@ bool check_line(main_screen *ms)
     int num_lines = 0;
 
     if (ms->subwindow.win) {
-        num_lines += ms->subwindow.num_lines - 1;
+        num_lines += ms->subwindow.num_lines;
     }
     if (ms->selection_line < vector_size(packets) + num_lines - 1) {
         return true;

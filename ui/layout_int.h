@@ -17,6 +17,7 @@
 #define YELLOW (COLOR_PAIR(6) | A_BOLD)
 #define LIGHT_BLUE (BLUE | A_BOLD)
 #define PURPLE (MAGENTA | A_BOLD)
+#define GREY (COLOR_PAIR(10) | A_BOLD)
 
 enum screen_type {
     HELP_SCREEN,
