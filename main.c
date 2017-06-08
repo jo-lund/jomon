@@ -160,7 +160,7 @@ void finish()
 {
     if (use_ncurses) {
         end_ncurses();
-        vector_free(packets);
+        vector_free(packets, free_packet);
     }
     free(ctx.device);
     free(local_addr);
@@ -226,7 +226,7 @@ void init_structures()
 
     /* Initialize table to store packets */
     if (use_ncurses || load_file) {
-        packets = vector_init(1000, free_packet);
+        packets = vector_init(1000);
     }
 }
 
@@ -280,7 +280,7 @@ void stop_scan()
 void start_scan()
 {
     clear_statistics();
-    vector_clear(packets);
+    vector_clear(packets, free_packet);
     init_socket(ctx.device);
     run();
 }

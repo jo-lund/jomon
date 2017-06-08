@@ -5,13 +5,13 @@ typedef struct vector vector_t;
 typedef void (*vector_deallocate)(void *);
 
 /* initialize vector with size of sz */
-vector_t *vector_init(int sz, vector_deallocate func);
+vector_t *vector_init(int sz);
 
 /* insert element at the end */
 void vector_push_back(vector_t *vector, void *data);
 
 /* Remove element at the end. Total capacity will not be reduced */
-void vector_pop_back(vector_t *vector);
+void vector_pop_back(vector_t *vector, vector_deallocate func);
 
 /* get data from end of vector */
 void *vector_back(vector_t *vector);
@@ -25,12 +25,12 @@ int vector_size(vector_t *vector);
 /*
  * Clears the vector
  *
- * Memory for the data is deallocated but not the vector. To free all memory
- * associated with vector use vector_free.
+ * Memory for the data is deallocated if func is specified, but not the vector.
+ * To free all memory associated with vector use vector_free.
  */
-void vector_clear(vector_t *vector);
+void vector_clear(vector_t *vector, vector_deallocate func);
 
 /* Free all memory used by vector */
-void vector_free(vector_t *vector);
+void vector_free(vector_t *vector, vector_deallocate func);
 
 #endif
