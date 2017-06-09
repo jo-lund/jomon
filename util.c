@@ -119,13 +119,22 @@ int str_find_last(const char *str, char c)
     return -1;
 }
 
-char *format_time(struct timeval *t, char *buf, int n)
+char *format_timeval(struct timeval *t, char *buf, int n)
 {
     struct tm *time;
 
     time = localtime(&t->tv_sec);
     strftime(buf, n, "%T", time);
     snprintcat(buf, n, ".%ld", t->tv_usec);
+    return buf;
+}
+
+char *format_timespec(struct timespec *t, char *buf, int n)
+{
+    struct tm *time;
+
+    time = localtime(&t->tv_sec);
+    strftime(buf, n, "%c", time);
     return buf;
 }
 

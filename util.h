@@ -34,16 +34,24 @@ int snprintcat(char *buf, int size, char *fmt, ...);
 /* Converts str to lower case */
 char *strtolower(char *str);
 
-/* Converts seconds to number of days, hours, minutes and seconds */
+/*
+ * Converts seconds to number of days, hours, minutes and seconds
+ * TODO: use localtime & strftime
+ */
 struct tm_t get_time(uint32_t num_secs);
 
 /*
  * Converts the tm_t struct to a string of the form:
  * "x days, x hours, x minutes, x seconds"
+ * TODO: use localtime & strftime
  */
 void time_ntop(struct tm_t *time, char *result, int len);
 
-char *format_time(struct timeval *t, char *buf, int n);
+/* TODO: format should be made configurable */
+char *format_timeval(struct timeval *t, char *buf, int n);
+
+/* TODO: format should be made configurable */
+char *format_timespec(struct timespec *t, char *buf, int n);
 
 /* Find index of the first character 'c' in string. Return -1 if not found */
 int str_find_first(const char *str, char c);

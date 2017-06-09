@@ -95,7 +95,7 @@ void write_to_buf(char *buf, int size, struct packet *p)
 
             HW_ADDR_NTOP(smac, p->eth.mac_src);
             HW_ADDR_NTOP(dmac, p->eth.mac_dst);
-            format_time(&p->time, time, TBUFLEN);
+            format_timeval(&p->time, time, TBUFLEN);
             PRINT_LINE(buf, size, p->num, time, smac, dmac, "ETH II", "Ethertype: 0x%x", p->eth.ethertype);
         }
         break;
@@ -111,7 +111,7 @@ void print_arp(char *buf, int n, struct arp_info *info, uint32_t num, struct tim
 
     inet_ntop(AF_INET, info->sip, sip, INET_ADDRSTRLEN);
     inet_ntop(AF_INET, info->tip, tip, INET_ADDRSTRLEN);
-    format_time(t, time, TBUFLEN);
+    format_timeval(t, time, TBUFLEN);
     switch (info->op) {
     case ARPOP_REQUEST:
         PRINT_LINE(buf, n, num, time, sip, tip, "ARP",
@@ -132,7 +132,7 @@ void print_llc(char *buf, int n, struct eth_info *eth, uint32_t num, struct time
 {
     char time[TBUFLEN];
 
-    format_time(t, time, TBUFLEN);
+    format_timeval(t, time, TBUFLEN);
     if (get_eth802_type(eth->llc) == ETH_802_STP) {
         char smac[HW_ADDRSTRLEN];
         char dmac[HW_ADDRSTRLEN];
@@ -166,7 +166,7 @@ void print_ip(char *buf, int n, struct ip_info *ip, uint32_t num, struct timeval
 {
     char time[TBUFLEN];
 
-    format_time(t, time, TBUFLEN);
+    format_timeval(t, time, TBUFLEN);
     PRINT_NUMBER(buf, n, num);
     PRINT_TIME(buf, n, time);
     if (!numeric && (ip->protocol != IPPROTO_UDP ||
@@ -226,7 +226,7 @@ void print_ipv6(char *buf, int n, struct ipv6_info *ip, uint32_t num, struct tim
     char dst[INET6_ADDRSTRLEN];
     char time[TBUFLEN];
 
-    format_time(t, time, TBUFLEN);
+    format_timeval(t, time, TBUFLEN);
     PRINT_NUMBER(buf, n, num);
     PRINT_TIME(buf, n, time);
     inet_ntop(AF_INET6, ip->src, src, INET6_ADDRSTRLEN);
