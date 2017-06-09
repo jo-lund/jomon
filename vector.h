@@ -22,6 +22,9 @@ void *vector_get_data(vector_t *vector, int i);
 /* Get the number of elements stored in the vector */
 int vector_size(vector_t *vector);
 
+/* Return the underlying array */
+void *vector_data(vector_t *vector);
+
 /*
  * Clears the vector
  *

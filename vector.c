@@ -71,6 +71,11 @@ inline int vector_size(vector_t *vector)
     return vector->c;
 }
 
+inline void *vector_data(vector_t *vector)
+{
+    return (void *) vector->buf;
+}
+
 void vector_clear(vector_t *vector, vector_deallocate func)
 {
     for (unsigned int i = 0; i < vector->c; i++) {
