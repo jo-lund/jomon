@@ -208,7 +208,7 @@ void load_handle_ok(void *file)
     if ((fp = open_file((const char *) file, "r", &err)) == NULL) {
         create_file_error_dialogue(err, create_load_dialogue);
     } else {
-        vector_clear(packets);
+        vector_clear(packets, free_packet);
         clear_statistics();
         err = read_file(fp, on_packet);
         if (err == NO_ERROR) {

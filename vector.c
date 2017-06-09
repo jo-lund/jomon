@@ -14,14 +14,13 @@ struct vector {
     vector_deallocate func;
 };
 
-vector_t *vector_init(int sz, vector_deallocate func)
+vector_t *vector_init(int sz)
 {
     vector_t *vector;
 
     vector = malloc(sizeof(vector_t));
     vector->size = sz;
     vector->c = 0;
-    vector->func= func;
     vector->buf = (item_t *) malloc(vector->size * sizeof(struct item));
 
     return vector;
@@ -41,13 +40,11 @@ void vector_push_back(vector_t *vector, void *data)
     }
 }
 
-inline void vector_pop_back(vector_t *vector)
+inline void vector_pop_back(vector_t *vector, vector_deallocate func)
 {
     if (vector->c) {
-        if (vector->func) {
-            vector->func(vector->buf[vector->c].data);
-        } else {
-            free(vector->buf[vector->c].data);
+        if (func) {
+            func(vector->buf[vector->c].data);
         }
         vector->c--;
     }
@@ -74,21 +71,19 @@ inline int vector_size(vector_t *vector)
     return vector->c;
 }
 
-void vector_clear(vector_t *vector)
+void vector_clear(vector_t *vector, vector_deallocate func)
 {
     for (unsigned int i = 0; i < vector->c; i++) {
-        if (vector->func) {
-            vector->func(vector->buf[i].data);
-        } else {
-            free(vector->buf[i].data);
+        if (func) {
+            func(vector->buf[i].data);
         }
     }
     vector->c = 0;
 }
 
-void vector_free(vector_t *vector)
+void vector_free(vector_t *vector, vector_deallocate func)
 {
-    vector_clear(vector);
+    vector_clear(vector, func);
     vector->size = 0;
     free(vector->buf);
     free(vector);
