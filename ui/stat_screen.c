@@ -120,7 +120,6 @@ void stat_screen_print()
     }
     if (show_packet_stats) {
         mvwprintw(stat_screen->win, ++y, 0, "");
-
         if (pstat[0].num_packets) {
             printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%23s %12s", "Packets", "Bytes");
             for (int i = 0; i <= NUM_PROTOCOLS; i++) {

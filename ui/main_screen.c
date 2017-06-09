@@ -577,14 +577,21 @@ void goto_line(main_screen *ms, int c)
             num /= 10;
         }
     } else if (num && (c == '\n' || c == KEY_ENTER)) {
-        if (num > vector_size(packets)) return;
+        if ((ms->subwindow.win && num > ms->subwindow.num_lines + vector_size(packets)) ||
+            (!ms->subwindow.win && num > vector_size(packets))) {
+            return;
+        }
 
         int my;
 
         my = getmaxy(ms->pktlist);
         if (num >= ms->top && num < ms->top + my) {
             remove_selectionbar(ms, ms->pktlist, ms->selection_line, A_NORMAL);
-            ms->selection_line = num - 1;
+            if (ms->subwindow.win && num > ms->top + ms->subwindow.top) {
+                ms->selection_line = num - 1 + ms->subwindow.num_lines;
+            } else {
+                ms->selection_line = num - 1;
+            }
             show_selectionbar(ms, ms->pktlist, ms->selection_line, A_NORMAL);
         } else {
             werase(ms->pktlist);
@@ -784,7 +791,11 @@ void scroll_page(main_screen *ms, int num_lines)
     if (num_lines > 0) { /* scroll page down */
         if (vector_size(packets) <= num_lines) {
             remove_selectionbar(ms, ms->pktlist, ms->selection_line - ms->top, A_NORMAL);
-            ms->selection_line = vector_size(packets) - 1;
+            if (ms->subwindow.win) {
+                ms->selection_line = ms->subwindow.num_lines + vector_size(packets) - 1;
+            } else {
+                ms->selection_line = vector_size(packets) - 1;
+            }
             show_selectionbar(ms, ms->pktlist, ms->selection_line - ms->top, A_NORMAL);
             wrefresh(ms->pktlist);
             if (ms->subwindow.win) {
