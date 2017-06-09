@@ -3,6 +3,8 @@
 
 #include "layout_int.h"
 #include "button.h"
+#include "../misc.h"
+#include "../vector.h"
 
 #define DIALOGUE_SET_TITLE(o, d, t) ((o)->dialogue_set_title(d, t))
 #define DIALOGUE_RENDER(o) ((o)->dialogue_render(o))
@@ -10,8 +12,8 @@
 #define INPUT_DIALOGUE_SET_INPUT(o, i) ((o)->input_dialogue_set_input(o, i))
 #define INPUT_DIALOGUE_SET_BUTTON_ACTION(o, act1, arg1, act2, arg2) \
     ((o)->input_dialogue_set_button_action(o, act1, arg1, act2, arg2))
-#define INPUT_DIALOGUE_RENDER(o) ((o)->input_dialogue_render(o))
 #define LABEL_DIALOGUE_GET_INPUT(o) ((o)->label_dialogue_get_input(o))
+#define FILE_DIALOGUE_GET_INPUT(o) ((o)->file_dialogue_get_input(o))
 
 typedef struct dialogue {
     screen screen_base;
@@ -56,8 +58,21 @@ typedef struct label_dialogue {
     button *ok;
 
     void (*label_dialogue_get_input)(struct label_dialogue *ld);
-
 } label_dialogue;
+
+/* file selection dialogue */
+typedef struct file_dialogue {
+    dialogue dialogue_base;
+    container list;
+    char path[MAXPATH + 1];
+    int i;
+    int num_files;
+    int top;
+    int list_height;
+    vector_t *files;
+
+    void (*file_dialogue_get_input)(struct file_dialogue *fd);
+} file_dialogue;
 
 /* Create a new dialogue. It needs to be freed by calling 'dialogue_free' */
 dialogue *dialogue_create(char *title);
@@ -77,5 +92,12 @@ label_dialogue *label_dialogue_create(char *title, char *label, button_action ac
 
 /* free the memory associated with label dialogue */
 void label_dialogue_free(label_dialogue *ld);
+
+/* Create a new file dialogue. It needs to be freed with 'file_dialogue_free' */
+file_dialogue *file_dialogue_create(char *title, char *path);
+
+/* free the memory associated with input dialogue */
+void file_dialogue_free(file_dialogue *fd);
+
 
 #endif

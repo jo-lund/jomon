@@ -51,6 +51,7 @@ static int view_mode = DECODED_VIEW;
 static input_dialogue *id = NULL;
 static input_dialogue *sd = NULL;
 static label_dialogue *ld = NULL;
+static file_dialogue *fd = NULL;
 static char load_filepath[MAXPATH + 1] = { 0 };
 static bool decode_error = false;
 static main_screen *mscr;
@@ -174,6 +175,7 @@ void main_screen_refresh(main_screen *ms)
 // TODO: Maybe the create_xxx_dialogues should return a pointer to dialogue
 void create_load_dialogue()
 {
+#if 0
     if (!id) {
         id = input_dialogue_create("Enter capture file to load", load_handle_ok,
                                         load_handle_cancel);
@@ -181,6 +183,15 @@ void create_load_dialogue()
             INPUT_DIALOGUE_SET_INPUT(id, load_filepath);
         }
         push_screen((screen *) id);
+    }
+#endif
+
+    if (!fd) {
+        if (load_filepath[0] == 0) {
+            getcwd(load_filepath, MAXPATH);
+        }
+        fd = file_dialogue_create("Load capture file", load_filepath);
+        push_screen((screen *) fd);
     }
 }
 

@@ -3,8 +3,8 @@
 #include <ncurses.h>
 #include <ctype.h>
 #include <unistd.h>
+#include <dirent.h>
 #include "dialogue.h"
-#include "../misc.h"
 
 static char file[MAXPATH + 1];
 static int num_chars;
@@ -21,6 +21,15 @@ static void input_dialogue_set_button_action(input_dialogue *this,
 static void input_dialogue_handle_enter(input_dialogue *this);
 static void label_dialogue_render(label_dialogue *this);
 static void label_dialogue_get_input(struct label_dialogue *this);
+
+static void file_dialogue_render(file_dialogue *this);
+static void file_dialogue_populate(file_dialogue *this, char *path);
+static void file_dialogue_get_input(struct file_dialogue *this);
+
+static int cmpstring(const void *p1, const void *p2)
+{
+    return strcmp(* (const char **) p1, * (const char **) p2);
+}
 
 dialogue *dialogue_create(char *title)
 {
@@ -66,7 +75,7 @@ void dialogue_render(dialogue *this)
     win = ((screen *) this)->win;
     mx = getmaxx(win);
     box(win, 0, 0);
-    wbkgd(win, COLOR_PAIR(9));
+    wbkgd(win, COLOR_PAIR(11));
     if (this->title) {
         len = strlen(this->title);
         mvwprintw(win, 0, (mx - len) / 2, this->title);
@@ -95,7 +104,6 @@ input_dialogue *input_dialogue_create(char *title, button_action ok, button_acti
     id->input_dialogue_render = input_dialogue_render;
     nodelay(id->input.win, TRUE);
     keypad(id->input.win, TRUE);
-    getcwd(file, MAXPATH); // TODO: Use file path of loaded file if available
     waddstr(id->input.win, file);
     num_chars = strlen(file);
     input_dialogue_render(id);
@@ -266,4 +274,120 @@ void label_dialogue_get_input(struct label_dialogue *this)
      default:
          break;
      }
+}
+
+file_dialogue *file_dialogue_create(char *title, char *path)
+{
+    file_dialogue *fd;
+    int my, mx;
+
+    fd = malloc(sizeof(file_dialogue));
+    dialogue_init((dialogue *) fd, title);
+    getmaxyx(((screen *) fd)->win, my, mx);
+    ((screen *) fd)->type = FILE_DIALOGUE;
+    fd->file_dialogue_get_input = file_dialogue_get_input;
+    fd->list_height = 8;
+    fd->list.win = derwin(((screen *) fd)->win, fd->list_height, mx - 15, 3, 7);
+    fd->list.focus = true;
+    fd->i = 0;
+    fd->num_files = 0;
+    fd->top = 0;
+    fd->files = vector_init(10);
+    strncpy(fd->path, path, MAXPATH);
+    scrollok(fd->list.win, TRUE);
+    nodelay(fd->list.win, TRUE);
+    keypad(fd->list.win, TRUE);
+    file_dialogue_render(fd);
+    return fd;
+}
+
+void file_dialogue_free(file_dialogue *fd)
+{
+    if (fd) {
+        delwin(((screen *) fd)->win);
+        delwin(fd->list.win);
+        vector_free(fd->files, free);
+        free(fd);
+    }
+}
+
+void file_dialogue_render(file_dialogue *this)
+{
+    DIALOGUE_RENDER((dialogue *) this);
+    wbkgd(this->list.win, COLOR_PAIR(11) | A_BOLD);
+    file_dialogue_populate(this, this->path);
+    wrefresh(this->list.win);
+    wrefresh(((screen *) this)->win);
+}
+
+void file_dialogue_populate(file_dialogue *this, char *path)
+{
+    DIR *dir;
+    struct dirent *ent;
+
+    if ((dir = opendir(path))) {
+        this->num_files = 0;
+        while ((ent = readdir(dir))) {
+            char *data;
+
+            if (strcmp(ent->d_name, ".") == 0) continue;
+            data = strdup(ent->d_name);
+            vector_push_back(this->files, data);
+            this->num_files++;
+        }
+        qsort(vector_data(this->files), vector_size(this->files),
+              sizeof(char *), cmpstring);
+        for (int i = 0; i < vector_size(this->files); i++) {
+            mvwprintw(this->list.win, i, 2, "%s", vector_get_data(this->files, i));
+        }
+        mvwchgat(this->list.win, this->i, 0, -1, A_NORMAL, 2, NULL);
+        closedir(dir);
+    }
+}
+
+void file_dialogue_get_input(struct file_dialogue *this)
+{
+    int c;
+
+    c = wgetch(this->list.win);
+    switch (c) {
+    case KEY_ESC:
+        pop_screen();
+        break;
+    case KEY_UP:
+        mvwchgat(this->list.win, this->i - this->top, 0, -1, A_BOLD, 11, NULL);
+        if (this->top == 0 && this->i - 1 < 0) {
+            //this->i = this->num_files - 1;
+        } else if (this->i == this->top) {
+            wscrl(this->list.win, -1);
+            this->top--;
+            this->i--;
+            mvwprintw(this->list.win, 0, 2, "%s", vector_get_data(this->files, this->i));
+        } else {
+            this->i = (this->i - 1) % this->num_files;
+        }
+        mvwchgat(this->list.win, this->i - this->top, 0, -1, A_BOLD, 2, NULL);
+        wrefresh(this->list.win);
+        break;
+    case KEY_DOWN:
+        if (this->i >= this->top + this->list_height - 1 &&
+            this->i < this->num_files - 1) {
+            mvwchgat(this->list.win, this->i - this->top, 0, -1, A_BOLD, 11, NULL);
+            wscrl(this->list.win, 1);
+            //this->i = (this->i + 1) % this->num_files;
+            this->i++;
+            this->top++;
+            mvwprintw(this->list.win, this->list_height - 1, 2, "%s",
+                      vector_get_data(this->files, this->i));
+            mvwchgat(this->list.win, this->list_height - 1, 0, -1, A_BOLD, 2, NULL);
+        } else if (this->i < this->num_files - 1) {
+            mvwchgat(this->list.win, this->i - this->top, 0, -1, A_BOLD, 11, NULL);
+            mvwchgat(this->list.win, this->i - this->top + 1, 0, -1, A_BOLD, 2, NULL);
+            this->i = (this->i + 1) % this->num_files;
+        }
+        wrefresh(this->list.win);
+        break;
+    default:
+        break;
+    }
 }
