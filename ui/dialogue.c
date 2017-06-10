@@ -322,7 +322,8 @@ void label_dialogue_get_input(struct label_dialogue *this)
      }
 }
 
-file_dialogue *file_dialogue_create(char *title, char *path, button_action ok, button_action cancel)
+file_dialogue *file_dialogue_create(char *title, enum file_selection_type type,
+                                    char *path, button_action ok, button_action cancel)
 {
     file_dialogue *fd;
     int my, mx;
@@ -334,21 +335,19 @@ file_dialogue *file_dialogue_create(char *title, char *path, button_action ok, b
     fd->file_dialogue_get_input = file_dialogue_get_input;
     fd->list_height = my - 10;
     fd->list.win = derwin(((screen *) fd)->win, fd->list_height, mx - 15, 3, 7);
-    fd->list.focus = true;
     fd->input.win = derwin(((screen *) fd)->win, 1, mx - 15, fd->list_height + 4, 7);
-    fd->input.focus = false;
     fd->i = 0;
     fd->num_files = 0;
     fd->top = 0;
     fd->files = vector_init(10);
     fd->ok = button_create((screen *) fd, ok, NULL, "Ok", my - 4, 7);
     fd->cancel = button_create((screen *) fd, cancel, NULL, "Cancel", my - 4, mx - 20);
-    fd->has_focus = 0;
     strncpy(fd->path, path, MAXPATH);
     scrollok(fd->list.win, TRUE);
     nodelay(fd->list.win, TRUE);
     keypad(fd->list.win, TRUE);
     file_dialogue_render(fd);
+    fd->has_focus = FS_LIST;
     return fd;
 }
 

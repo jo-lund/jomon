@@ -62,6 +62,11 @@ typedef struct label_dialogue {
 
 struct stat;
 
+enum file_selection_type {
+    FS_LOAD,
+    FS_SAVE
+};
+
 /* file selection dialogue */
 typedef struct file_dialogue {
     dialogue dialogue_base;
@@ -76,6 +81,7 @@ typedef struct file_dialogue {
     button *ok;
     button *cancel;
     int has_focus;
+    enum file_selection_type type;
 
     void (*file_dialogue_get_input)(struct file_dialogue *fd);
 } file_dialogue;
@@ -100,7 +106,8 @@ label_dialogue *label_dialogue_create(char *title, char *label, button_action ac
 void label_dialogue_free(label_dialogue *ld);
 
 /* Create a new file dialogue. It needs to be freed with 'file_dialogue_free' */
-file_dialogue *file_dialogue_create(char *title, char *path, button_action ok, button_action cancel);
+file_dialogue *file_dialogue_create(char *title, enum file_selection_type type,
+                                    char *path, button_action ok, button_action cancel);
 
 /* free the memory associated with input dialogue */
 void file_dialogue_free(file_dialogue *fd);
