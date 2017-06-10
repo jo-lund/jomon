@@ -474,7 +474,30 @@ void file_dialogue_get_input(struct file_dialogue *this)
     case '\t':
         file_dialogue_update_focus(this);
         break;
+    case '\b':
+    case KEY_BACKSPACE:
+        if (this->has_focus == 1) {
+            int y, x;
+
+            getyx(this->input.win, y, x);
+            if (x > 0) {
+                int n;
+
+                n = strlen(this->path);
+                if (n > 0) {
+                    this->path[n - 1] = '\0';
+                }
+                mvwdelch(this->input.win, y, x - 1);
+                wrefresh(this->input.win);
+            }
+        }
+        break;
     default:
+        if (this->has_focus == 1 && isprint(c)) {
+            snprintcat(this->path, MAXPATH, "%c", c);
+            waddch(this->input.win, c);
+            wrefresh(this->input.win);
+        }
         break;
     }
 }
@@ -484,19 +507,57 @@ void file_dialogue_handle_enter(struct file_dialogue *this)
     struct file_info *info;
 
     info = (struct file_info *) vector_get_data(this->files, this->i);
-    if (S_ISDIR(info->stat->st_mode)) {
-        if (strcmp(info->name, "..") == 0) {
-            get_directory_part(this->path); /* remove ".." */
-            if (strcmp(this->path, "/") != 0) {
-                get_directory_part(this->path); /* go up dir */
+    switch (this->has_focus) {
+    case 0:
+        if (S_ISDIR(info->stat->st_mode)) {
+            if (strcmp(info->name, "..") == 0) {
+                get_directory_part(this->path); /* remove ".." */
+                if (strcmp(this->path, "/") != 0) {
+                    get_directory_part(this->path); /* go up dir */
+                }
+            }
+            werase(this->list.win);
+            file_dialogue_populate(this, this->path);
+            wrefresh(this->list.win);
+        } else {
+            pop_screen();
+            this->ok->action(this->path);
+        }
+        break;
+    case 1:
+    {
+        int n = strlen(this->path);
+
+        if (n > 0) {
+            struct stat buf[sizeof(struct stat)];
+
+            if (this->path[n - 1] == '/') {
+                this->path[n - 1] = '\0';
+            }
+            lstat(this->path, buf);
+            if (S_ISDIR(buf->st_mode)) {
+                werase(this->list.win);
+                file_dialogue_populate(this, this->path);
+                wrefresh(this->list.win);
+            } else {
+                pop_screen();
+                this->ok->action(this->path);
             }
         }
-        werase(this->list.win);
-        file_dialogue_populate(this, this->path);
-        wrefresh(this->list.win);
-    } else {
-        pop_screen();
-        this->ok->action(this->path);
+        curs_set(0);
+        this->has_focus = 0;
+        break;
+    }
+    case 2:
+         pop_screen();
+         this->ok->action(this->path);
+        break;
+    case 3:
+         pop_screen();
+         this->cancel->action(NULL);
+         break;
+    default:
+        break;
     }
 }
 
@@ -537,27 +598,31 @@ void file_dialogue_update_focus(struct file_dialogue *this)
         } else {
             file_dialogue_populate(this, this->path);
         }
+        BUTTON_RENDER(this->ok);
+        BUTTON_RENDER(this->cancel);
         wrefresh(this->list.win);
         wrefresh(((screen *) this)->win);
         break;
     case 1:
-        wmove(((screen *) this)->win, this->list_height, strlen(this->path) + 1);
+        wmove(((screen *) this)->win, this->list_height + 4, strlen(this->path) + 7);
         curs_set(1);
         remove_selectionbar(this, this->i);
+        wrefresh(this->input.win);
         wrefresh(this->list.win);
         wrefresh(((screen *) this)->win);
         break;
     case 2:
         curs_set(0);
         BUTTON_SET_FOCUS(this->ok, true);
+        BUTTON_RENDER(this->ok);
         break;
     case 3:
         BUTTON_SET_FOCUS(this->ok, false);
         BUTTON_SET_FOCUS(this->cancel, true);
+        BUTTON_RENDER(this->ok);
+        BUTTON_RENDER(this->cancel);
         break;
     default:
         break;
     }
-    BUTTON_RENDER(this->ok);
-    BUTTON_RENDER(this->cancel);
 }

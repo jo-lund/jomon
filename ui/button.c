@@ -44,12 +44,12 @@ void button_render(button *b)
     len = strlen(b->txt) + 4;
     getmaxyx(win, my, mx);
     if (((container *) b)->focus) {
-        box(win, 0, 0);
+        wbkgd(win, COLOR_PAIR(2));
     } else {
-        werase(win);
+        wbkgd(win, COLOR_PAIR(12));
     }
     mvwprintw(win, my / 2, (mx - len) / 2, "[ %s ]", b->txt);
-    wbkgd(win, COLOR_PAIR(12));
+
     wrefresh(win);
 }
 
