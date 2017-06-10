@@ -198,9 +198,6 @@ void handle_input()
         case HELP_SCREEN:
             pop_screen();
             break;
-        case INPUT_DIALOGUE:
-            INPUT_DIALOGUE_GET_INPUT((input_dialogue *) s);
-            break;
         case LABEL_DIALOGUE:
             LABEL_DIALOGUE_GET_INPUT((label_dialogue *) s);
             break;
