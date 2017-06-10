@@ -1031,11 +1031,11 @@ void add_elements(main_screen *ms, struct packet *p)
             add_snap_information(ms->lvw, header, p);
             break;
         default:
-            header = ADD_HEADER(ms->lvw, "Unknown payload", selected[APPLICATION], APPLICATION);
+            header = ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
             add_hexdump(ms->lvw, header, hexmode, p->eth.data + ETH_HLEN + LLC_HDR_LEN, LLC_PAYLOAD_LEN(p));
         }
     } else {
-        header = ADD_HEADER(ms->lvw, "Unknown payload", selected[APPLICATION], APPLICATION);
+        header = ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
         add_hexdump(ms->lvw, header, hexmode, p->eth.data + ETH_HLEN, p->eth.payload_len);
     }
 }
@@ -1098,7 +1098,7 @@ void add_transport_elements(main_screen *ms, struct packet *p)
         break;
     default:
         /* unknown transport layer payload */
-        header = ADD_HEADER(ms->lvw, "Unknown payload", selected[APPLICATION], APPLICATION);
+        header = ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
         add_hexdump(ms->lvw, header, hexmode, get_ip_payload(p), IP_PAYLOAD_LEN(p));
     }
 }
@@ -1131,7 +1131,7 @@ void add_app_elements(main_screen *ms, struct packet *p, struct application_info
         break;
     default:
         if (len) {
-            header = ADD_HEADER(ms->lvw, "Unknown payload", selected[APPLICATION], APPLICATION);
+            header = ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
             add_hexdump(ms->lvw, header, hexmode, get_adu_payload(p), len);
         }
         break;

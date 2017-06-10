@@ -72,7 +72,7 @@ static hex_conversion hex_state_val[] = {
     { HD_HTTP, "HTTP" },
     { HD_SNAP, "SNAP" },
     { HD_STP, "STP" },
-    { HD_UNKNOWN, "Unknown" }
+    { HD_UNKNOWN, "Data" }
 };
 
 static list_t *protocols;
