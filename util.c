@@ -134,7 +134,8 @@ char *format_timespec(struct timespec *t, char *buf, int n)
     struct tm *time;
 
     time = localtime(&t->tv_sec);
-    strftime(buf, n, "%c", time);
+    strftime(buf, n - 1, "%T", time);
+    strcat(buf, "\0");
     return buf;
 }
 
@@ -179,12 +180,32 @@ void time_ntop(struct tm_t *time, char *result, int len)
     }
 }
 
-void get_directory_part(char *fullpath)
+char *get_directory_part(char *path)
 {
     int i;
 
-    i = str_find_last(fullpath, '/');
-    fullpath[i] = '\0';
+    i = str_find_last(path, '/');
+    if (i == 0) {
+        path[i + 1] = '\0';
+    } else if (i != -1) {
+        path[i] = '\0';
+    }
+    return path;
+}
+
+char *get_file_part(char *path)
+{
+    int i;
+
+    i = str_find_last(path, '/');
+    if (i != -1) {
+        int n;
+
+        n = strlen(path + i + 1);
+        memmove(path, path + i + 1, n);
+        path[n] = '\0';
+    }
+    return path;
 }
 
 inline uint16_t get_uint16be(const unsigned char *buf)

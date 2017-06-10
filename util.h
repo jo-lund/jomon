@@ -6,6 +6,7 @@
 
 struct arp_info;
 
+// TODO: remove this
 struct tm_t {
     int days;
     int hours;
@@ -60,7 +61,10 @@ int str_find_first(const char *str, char c);
 int str_find_last(const char *str, char c);
 
 /* Given a file with full path name, return the directory part */
-void get_directory_part(char *fullpath);
+char *get_directory_part(char *path);
+
+/* Given a file with full path name, return the file part */
+char *get_file_part(char *path);
 
 /* Extracts a 16 bits integer in big endian format from buf */
 uint16_t get_uint16be(const unsigned char *buf);
