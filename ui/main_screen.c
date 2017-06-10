@@ -6,6 +6,7 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <menu.h>
+#include <sys/stat.h>
 #include "layout.h"
 #include "protocols.h"
 #include "../list.h"
@@ -50,12 +51,12 @@ static int view_mode = DECODED_VIEW;
 static label_dialogue *ld = NULL;
 static file_dialogue *fd = NULL;
 static file_dialogue *sd = NULL;
+static progress_dialogue *pd = NULL;
 static char load_filepath[MAXPATH + 1] = { 0 };
 static bool decode_error = false;
 static main_screen *mscr;
 static chtype original_line[MAXLINE];
 
-extern bool on_packet(unsigned char *buffer, uint32_t n, struct timeval *t);
 static bool check_line(main_screen *ms);
 static void handle_keydown(main_screen *ms, int num_lines);
 static void handle_keyup(main_screen *ms, int num_lines);
@@ -79,6 +80,7 @@ static void save_handle_cancel(void *);
 static void handle_file_error(void *callback);
 static void show_selectionbar(main_screen *ms, WINDOW *win, int line, uint32_t attr);
 static void remove_selectionbar(main_screen *ms, WINDOW *win, int line, uint32_t attr);
+static bool packet_show_progress(unsigned char *buffer, uint32_t n, struct timeval *t);
 
 /* Handles subwindow layout */
 static void create_subwindow(main_screen *ms, int num_lines, int lineno);
@@ -198,7 +200,7 @@ void create_file_error_dialogue(enum file_error err, void (*callback)())
 {
     char *error = get_file_error(err);
 
-    ld = label_dialogue_create("File Error", error, handle_file_error, callback);
+    ld = label_dialogue_create(" File Error ", error, handle_file_error, callback);
     push_screen((screen *) ld);
 }
 
@@ -210,9 +212,13 @@ void load_handle_ok(void *file)
     if ((fp = open_file((const char *) file, "r", &err)) == NULL) {
         create_file_error_dialogue(err, create_load_dialogue);
     } else {
+        struct stat buf[sizeof(struct stat)];
         vector_clear(packets, free_packet);
         clear_statistics();
-        err = read_file(fp, on_packet);
+
+        lstat((const char *) file, buf);
+        pd = progress_dialogue_create(" Progress ", buf->st_size);
+        err = read_file(fp, packet_show_progress);
         if (err == NO_ERROR) {
             int i;
 
@@ -224,6 +230,7 @@ void load_handle_ok(void *file)
                 load_filepath[i] = '\0';
             }
             print_header(mscr);
+            print_status(mscr);
             print_file(mscr);
         } else {
             memset(ctx.filename, 0, MAXPATH);
@@ -231,6 +238,8 @@ void load_handle_ok(void *file)
             create_file_error_dialogue(err, create_load_dialogue);
         }
         fclose(fp);
+        progress_dialogue_free(pd);
+        pd = NULL;
     }
     file_dialogue_free(fd);
     fd = NULL;
@@ -243,6 +252,7 @@ void load_handle_cancel(void *d)
     if (decode_error) {
         main_screen_clear(mscr);
         print_header(mscr);
+        print_status(mscr);
         wrefresh(mscr->pktlist);
         decode_error = false;
     }
@@ -428,7 +438,7 @@ void main_screen_get_input(main_screen *ms)
         }
         break;
     case KEY_F(5):
-        if (!capturing) {
+        if (!capturing && vector_size(packets) > 0) {
             create_save_dialogue();
         }
         break;
@@ -541,14 +551,17 @@ void print_status(main_screen *ms)
         printat(ms->status, -1, -1, GREY, "F4");
     }
     printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Stop");
-    if (capturing) {
+    if (capturing || vector_size(packets) == 0) {
         printat(ms->status, -1, -1, GREY, "F5");
         printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Save");
-        printat(ms->status, -1, -1, GREY, "F6");
-        printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Load");
     } else {
         wprintw(ms->status, "F5");
         printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Save");
+    }
+    if (capturing) {
+        printat(ms->status, -1, -1, GREY, "F6");
+        printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Load");
+    } else {
         wprintw(ms->status, "F6");
         printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Load");
     }
@@ -1302,4 +1315,18 @@ void handle_selectionbar(main_screen *ms, int c)
              show_selectionbar(ms, ms->subwindow.win, subline + 1, ms->lvw ? GET_ATTR(ms->lvw, subline + 1) : A_NORMAL);
          }
      }
+}
+
+bool packet_show_progress(unsigned char *buffer, uint32_t n, struct timeval *t)
+{
+    struct packet *p;
+
+    if (!decode_packet(buffer, n, &p)) {
+        return false;
+    }
+    p->time.tv_sec = t->tv_sec;
+    p->time.tv_usec = t->tv_usec;
+    vector_push_back(packets, p);
+    PROGRESS_DIALOGUE_UPDATE(pd, n);
+    return true;
 }

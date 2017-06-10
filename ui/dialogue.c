@@ -34,6 +34,8 @@ static void file_dialogue_handle_enter(struct file_dialogue *this);
 static void file_dialogue_update_focus(struct file_dialogue *this);
 static void file_dialogue_handle_keydown(struct file_dialogue *this);
 static void file_dialogue_handle_keyup(struct file_dialogue *this);
+static void progress_dialogue_render(progress_dialogue *this);
+static void progress_dialogue_update(progress_dialogue *this, int n);
 
 static int cmpstring(const void *p1, const void *p2)
 {
@@ -518,4 +520,59 @@ void file_dialogue_handle_keyup(struct file_dialogue *this)
         this->i--;
         file_dialogue_update_input(this, get_directory_part(this->path));
     }
+}
+
+progress_dialogue *progress_dialogue_create(char *title, int size)
+{
+    progress_dialogue *pd;
+    int my, mx;
+
+    getmaxyx(stdscr, my, mx);
+    pd = malloc(sizeof(progress_dialogue));
+    dialogue_init((dialogue *) pd, title, my / 5, mx / 6 + 10);
+    ((screen *) pd)->type = PROGRESS_DIALOGUE;
+    pd->progress_dialogue_update = progress_dialogue_update;
+    pd->size = size;
+    pd->percent = 0;
+    pd->sum = 0;
+    pd->idx = 0;
+    progress_dialogue_render(pd);
+    return pd;
+}
+
+void progress_dialogue_free(progress_dialogue *pd)
+{
+    delwin(((screen *) pd)->win);
+    free(pd);
+}
+
+void progress_dialogue_update(progress_dialogue *this, int n)
+{
+    int tmp;
+
+    this->sum += n;
+    tmp = ((float) this->sum / this->size) * 100;
+    if (tmp != this->percent) {
+        this->percent = tmp;
+        progress_dialogue_render(this);
+    }
+}
+
+void progress_dialogue_render(progress_dialogue *this)
+{
+    int width;
+
+    DIALOGUE_RENDER((dialogue *) this);
+    width = this->percent / 5;
+    mvwprintw(((screen *) this)->win, 3, 3, "%d %%", this->percent);
+    if (this->idx < 1) {
+        mvwprintw(((screen *) this)->win, 3, 8, "[");
+        mvwprintw(((screen *) this)->win, 3, 29, "]");
+        this->idx++;
+    }
+    while (this->idx < width + 1) {
+        printat(((screen *) this)->win, 3, this->idx + 8, COLOR_PAIR(12), "#");
+        this->idx++;
+    }
+    wrefresh(((screen *) this)->win);
 }

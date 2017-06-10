@@ -22,9 +22,9 @@
 enum screen_type {
     HELP_SCREEN,
     STAT_SCREEN,
-    INPUT_DIALOGUE,
     LABEL_DIALOGUE,
-    FILE_DIALOGUE
+    FILE_DIALOGUE,
+    PROGRESS_DIALOGUE
 };
 
 enum layer {

@@ -10,6 +10,7 @@
 #define DIALOGUE_RENDER(o) ((o)->dialogue_render(o))
 #define LABEL_DIALOGUE_GET_INPUT(o) ((o)->label_dialogue_get_input(o))
 #define FILE_DIALOGUE_GET_INPUT(o) ((o)->file_dialogue_get_input(o))
+#define PROGRESS_DIALOGUE_UPDATE(o, n) ((o)->progress_dialogue_update(o, n))
 
 typedef struct dialogue {
     screen screen_base;
@@ -58,6 +59,16 @@ typedef struct file_dialogue {
     void (*file_dialogue_get_input)(struct file_dialogue *fd);
 } file_dialogue;
 
+typedef struct progress_dialogue {
+    dialogue dialogue_base;
+    int percent;
+    int size;
+    int sum;
+    int idx;
+
+    void (*progress_dialogue_update)(struct progress_dialogue *pd, int n);
+} progress_dialogue;
+
 /* Create a new dialogue. It needs to be freed by calling 'dialogue_free' */
 dialogue *dialogue_create(char *title);
 
@@ -74,8 +85,13 @@ void label_dialogue_free(label_dialogue *ld);
 file_dialogue *file_dialogue_create(char *title, enum file_selection_type type,
                                     char *path, button_action ok, button_action cancel);
 
-/* free the memory associated with input dialogue */
+/* free the memory associated with file dialogue */
 void file_dialogue_free(file_dialogue *fd);
 
+/* Create a progress dialogue. It needs to be freed with 'progress_dialogue_free' */
+progress_dialogue *progress_dialogue_create(char *title, int size);
+
+/* Free the memory associated with progress dialogue */
+void progress_dialogue_free(progress_dialogue *pd);
 
 #endif
