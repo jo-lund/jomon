@@ -51,7 +51,7 @@ static void free_data(void *data)
 
 static void show_selectionbar(file_dialogue *fd, int line)
 {
-    mvwchgat(fd->list.win, line, 0, -1, A_NORMAL, 2, NULL);
+    mvwchgat(fd->list.win, line, 0, -1, A_NORMAL, 1, NULL);
 }
 
 static void remove_selectionbar(file_dialogue *fd, int line)
@@ -188,6 +188,7 @@ file_dialogue *file_dialogue_create(char *title, enum file_selection_type type,
     fd->i = 0;
     fd->num_files = 0;
     fd->top = 0;
+    fd->has_focus = FS_LIST;
     fd->files = vector_init(10);
     fd->ok = button_create((screen *) fd, ok, NULL, "Ok", my - 4, 7);
     fd->cancel = button_create((screen *) fd, cancel, NULL, "Cancel", my - 4, mx - 20);
@@ -196,7 +197,6 @@ file_dialogue *file_dialogue_create(char *title, enum file_selection_type type,
     nodelay(fd->list.win, TRUE);
     keypad(fd->list.win, TRUE);
     file_dialogue_render(fd);
-    fd->has_focus = FS_LIST;
     return fd;
 }
 
@@ -345,6 +345,7 @@ void file_dialogue_handle_enter(struct file_dialogue *this)
                 }
             }
             werase(this->list.win);
+            this->top = 0;
             file_dialogue_populate(this, this->path);
             wrefresh(this->list.win);
         } else {
@@ -365,6 +366,7 @@ void file_dialogue_handle_enter(struct file_dialogue *this)
             lstat(this->path, buf);
             if (S_ISDIR(buf->st_mode)) {
                 werase(this->list.win);
+                this->top = 0;
                 file_dialogue_populate(this, this->path);
                 wrefresh(this->list.win);
             } else {
@@ -421,11 +423,7 @@ void file_dialogue_update_focus(struct file_dialogue *this)
     case FS_LIST:
         BUTTON_SET_FOCUS(this->ok, false);
         BUTTON_SET_FOCUS(this->cancel, false);
-        if (this->num_files) {
-            file_dialogue_populate(this, get_directory_part(this->path));
-        } else {
-            file_dialogue_populate(this, this->path);
-        }
+        show_selectionbar(this, this->i - this->top);
         BUTTON_RENDER(this->ok);
         BUTTON_RENDER(this->cancel);
         wrefresh(this->list.win);
@@ -434,7 +432,7 @@ void file_dialogue_update_focus(struct file_dialogue *this)
     case FS_INPUT:
         wmove(((screen *) this)->win, this->list_height + 4, strlen(this->path) + 7);
         curs_set(1);
-        remove_selectionbar(this, this->i);
+        remove_selectionbar(this, this->i - this->top);
         wrefresh(this->input.win);
         wrefresh(this->list.win);
         wrefresh(((screen *) this)->win);
