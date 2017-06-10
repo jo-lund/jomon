@@ -60,16 +60,22 @@ typedef struct label_dialogue {
     void (*label_dialogue_get_input)(struct label_dialogue *ld);
 } label_dialogue;
 
+struct stat;
+
 /* file selection dialogue */
 typedef struct file_dialogue {
     dialogue dialogue_base;
     container list;
+    container input;
     char path[MAXPATH + 1];
     int i;
     int num_files;
     int top;
     int list_height;
     vector_t *files;
+    button *ok;
+    button *cancel;
+    int has_focus;
 
     void (*file_dialogue_get_input)(struct file_dialogue *fd);
 } file_dialogue;
@@ -94,7 +100,7 @@ label_dialogue *label_dialogue_create(char *title, char *label, button_action ac
 void label_dialogue_free(label_dialogue *ld);
 
 /* Create a new file dialogue. It needs to be freed with 'file_dialogue_free' */
-file_dialogue *file_dialogue_create(char *title, char *path);
+file_dialogue *file_dialogue_create(char *title, char *path, button_action ok, button_action cancel);
 
 /* free the memory associated with input dialogue */
 void file_dialogue_free(file_dialogue *fd);

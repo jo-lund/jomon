@@ -11,7 +11,7 @@ button *button_create(screen *scr, button_action act, void *arg, char *txt, int 
 {
     button *b = malloc(sizeof(button));
 
-    b->c.win = derwin(scr->win, 3, 12, y, x);
+    b->c.win = derwin(scr->win, 1, 12, y, x);
     b->c.focus = false;
     b->txt = txt;
     b->action = act;
@@ -41,15 +41,15 @@ void button_render(button *b)
     WINDOW *win;
 
     win = ((container *) b)->win;
-    len = strlen(b->txt);
+    len = strlen(b->txt) + 4;
     getmaxyx(win, my, mx);
     if (((container *) b)->focus) {
         box(win, 0, 0);
     } else {
         werase(win);
     }
-    mvwprintw(win, my / 2, (mx - len) / 2, b->txt);
-    wbkgd(win, COLOR_PAIR(1));
+    mvwprintw(win, my / 2, (mx - len) / 2, "[ %s ]", b->txt);
+    wbkgd(win, COLOR_PAIR(12));
     wrefresh(win);
 }
 

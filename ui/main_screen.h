@@ -1,6 +1,8 @@
 #ifndef MAIN_SCREEN_H
 #define MAIN_SCREEN_H
 
+#include "list_view.h"
+
 typedef struct {
     struct line_info {
         int line_number;

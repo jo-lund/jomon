@@ -15,7 +15,6 @@
 #include "../decoder/decoder.h"
 #include "../stack.h"
 #include "../file_pcap.h"
-#include "list_view.h"
 #include "layout_int.h"
 #include "stat_screen.h"
 #include "../signal.h"
@@ -172,25 +171,14 @@ void main_screen_refresh(main_screen *ms)
     }
 }
 
-// TODO: Maybe the create_xxx_dialogues should return a pointer to dialogue
 void create_load_dialogue()
 {
-#if 0
-    if (!id) {
-        id = input_dialogue_create("Enter capture file to load", load_handle_ok,
-                                        load_handle_cancel);
-        if (load_filepath[0] != 0) {
-            INPUT_DIALOGUE_SET_INPUT(id, load_filepath);
-        }
-        push_screen((screen *) id);
-    }
-#endif
-
     if (!fd) {
         if (load_filepath[0] == 0) {
             getcwd(load_filepath, MAXPATH);
         }
-        fd = file_dialogue_create("Load capture file", load_filepath);
+        fd = file_dialogue_create("Load capture file", load_filepath, load_handle_ok,
+                                  load_handle_cancel);
         push_screen((screen *) fd);
     }
 }
@@ -230,7 +218,7 @@ void load_handle_ok(void *file)
             i = str_find_last(ctx.filename, '/');
             if (i > 0 && i < MAXPATH) {
                 strncpy(load_filepath, ctx.filename, i);
-                load_filepath[i + 1] = '\0';
+                load_filepath[i] = '\0';
             }
             print_header(mscr);
             print_file(mscr);
@@ -241,14 +229,14 @@ void load_handle_ok(void *file)
         }
         fclose(fp);
     }
-    input_dialogue_free(id);
-    id = NULL;
+    file_dialogue_free(fd);
+    fd = NULL;
 }
 
 void load_handle_cancel(void *d)
 {
-    input_dialogue_free(id);
-    id = NULL;
+    file_dialogue_free(fd);
+    fd = NULL;
     if (decode_error) {
         main_screen_clear(mscr);
         print_header(mscr);
