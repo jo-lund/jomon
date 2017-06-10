@@ -20,7 +20,7 @@ enum file_selection_focus {
     FS_CANCEL
 };
 
-static void dialogue_init(dialogue *d, char *title);
+static void dialogue_init(dialogue *d, char *title, int height, int width);
 static void dialogue_set_title(dialogue *this, char *title);
 static void dialogue_render(dialogue *this);
 static void label_dialogue_render(label_dialogue *this);
@@ -68,19 +68,21 @@ static void remove_selectionbar(file_dialogue *fd, int line)
 
 dialogue *dialogue_create(char *title)
 {
+    int my, mx;
     dialogue *d = malloc(sizeof(dialogue));
 
-    dialogue_init(d, title);
+    getmaxyx(stdscr, my, mx);
+    dialogue_init(d, title, my / 4, mx / 5 + 10);
     return d;
 }
 
-void dialogue_init(dialogue *d, char *title)
+void dialogue_init(dialogue *d, char *title, int height, int width)
 {
     int my, mx;
 
     getmaxyx(stdscr, my, mx);
-    d->height  = my / 3;
-    d->width = mx / 5 + 10;
+    d->height = height;
+    d->width = width;
     d->screen_base.focus = false;
     d->screen_base.win = newwin(d->height, d->width, (my - d->height) / 2, (mx - d->width) / 2);
     d->title = title;
@@ -122,9 +124,11 @@ void dialogue_render(dialogue *this)
 label_dialogue *label_dialogue_create(char *title, char *label, button_action act, void *arg)
 {
     label_dialogue *ld;
+    int my, mx;
 
+    getmaxyx(stdscr, my, mx);
     ld = malloc(sizeof(label_dialogue));
-    dialogue_init((dialogue *) ld, title);
+    dialogue_init((dialogue *) ld, title, my / 5, mx / 6 + 10);
     ((screen *) ld)->type = LABEL_DIALOGUE;
     ld->label = label;
     ld->ok = button_create((screen *) ld, act, arg, "Ok", ((dialogue *) ld)->height - 5,
@@ -172,8 +176,9 @@ file_dialogue *file_dialogue_create(char *title, enum file_selection_type type,
     file_dialogue *fd;
     int my, mx;
 
+    getmaxyx(stdscr, my, mx);
     fd = malloc(sizeof(file_dialogue));
-    dialogue_init((dialogue *) fd, title);
+    dialogue_init((dialogue *) fd, title, my / 3, mx / 5 + 10);
     getmaxyx(((screen *) fd)->win, my, mx);
     ((screen *) fd)->type = FILE_DIALOGUE;
     fd->file_dialogue_get_input = file_dialogue_get_input;
