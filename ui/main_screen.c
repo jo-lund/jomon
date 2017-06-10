@@ -188,7 +188,7 @@ void create_save_dialogue()
         if (load_filepath[0] == 0) {
             getcwd(load_filepath, MAXPATH);
         }
-        sd = file_dialogue_create(" Save file ", FS_SAVE, load_filepath,
+        sd = file_dialogue_create(" Save capture file ", FS_SAVE, load_filepath,
                                   save_handle_ok, save_handle_cancel);
         push_screen((screen *) sd);
     }

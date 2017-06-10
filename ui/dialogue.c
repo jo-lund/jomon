@@ -237,7 +237,9 @@ void file_dialogue_populate(file_dialogue *this, char *path)
 {
     DIR *dir;
     struct dirent *ent;
+    vector_t *entries;
 
+    entries = vector_init(10);
     if ((dir = opendir(path))) {
         this->num_files = 0;
         if (vector_size(this->files) > 0) {
@@ -262,11 +264,26 @@ void file_dialogue_populate(file_dialogue *this, char *path)
             snprintf(filepath, MAXPATH, "%s/%s", path, info->name);
             lstat(filepath, buf);
             info->stat = buf;
-            vector_push_back(this->files, info);
+            if (S_ISDIR(info->stat->st_mode)) {
+                vector_push_back(this->files, info);
+            } else {
+                vector_push_back(entries, info);
+            }
             this->num_files++;
         }
+        /* sort directories */
         qsort(vector_data(this->files), vector_size(this->files),
               sizeof(struct file_info *), cmpstring);
+
+        /* sort regular files */
+        qsort(vector_data(entries), vector_size(entries),
+              sizeof(struct file_info *), cmpstring);
+
+        /* insert regular files at end */
+        for (int i = 0; i < vector_size(entries); i++) {
+            vector_push_back(this->files, vector_get_data(entries, i));
+        }
+        vector_free(entries, NULL);
         for (int i = 0; i < vector_size(this->files); i++) {
             struct file_info *info;
 
