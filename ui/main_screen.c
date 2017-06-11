@@ -213,11 +213,16 @@ void load_handle_ok(void *file)
         create_file_error_dialogue(err, create_load_dialogue);
     } else {
         struct stat buf[sizeof(struct stat)];
+        char filename[MAXPATH + 1];
+        char title[MAXLINE];
+
+        strcpy(filename, file);
+        get_file_part(filename);
+        snprintf(title, MAXLINE, " Loading %s ", filename);
         vector_clear(packets, free_packet);
         clear_statistics();
-
         lstat((const char *) file, buf);
-        pd = progress_dialogue_create(" Progress ", buf->st_size);
+        pd = progress_dialogue_create(title, buf->st_size);
         err = read_file(fp, packet_show_progress);
         if (err == NO_ERROR) {
             int i;

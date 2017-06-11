@@ -529,13 +529,15 @@ progress_dialogue *progress_dialogue_create(char *title, int size)
 
     getmaxyx(stdscr, my, mx);
     pd = malloc(sizeof(progress_dialogue));
-    dialogue_init((dialogue *) pd, title, my / 5, mx / 6 + 10);
+    dialogue_init((dialogue *) pd, title, my / 5, mx / 6);
     ((screen *) pd)->type = PROGRESS_DIALOGUE;
     pd->progress_dialogue_update = progress_dialogue_update;
     pd->size = size;
     pd->percent = 0;
     pd->sum = 0;
     pd->idx = 0;
+    pd->ypos = (my / 5) / 2 - 1;
+    pd->xpos = ((mx / 6) - 28) / 2;
     progress_dialogue_render(pd);
     return pd;
 }
@@ -564,14 +566,14 @@ void progress_dialogue_render(progress_dialogue *this)
 
     DIALOGUE_RENDER((dialogue *) this);
     width = this->percent / 5;
-    mvwprintw(((screen *) this)->win, 3, 3, "%d %%", this->percent);
+    mvwprintw(((screen *) this)->win, this->ypos, this->xpos, "%d %%", this->percent);
     if (this->idx < 1) {
-        mvwprintw(((screen *) this)->win, 3, 8, "[");
-        mvwprintw(((screen *) this)->win, 3, 29, "]");
+        mvwprintw(((screen *) this)->win, this->ypos, this->xpos + 6, "[");
+        mvwprintw(((screen *) this)->win, this->ypos, this->xpos + 27, "]");
         this->idx++;
     }
     while (this->idx < width + 1) {
-        printat(((screen *) this)->win, 3, this->idx + 8, COLOR_PAIR(12), "#");
+        mvwprintw(((screen *) this)->win, this->ypos, this->idx + this->xpos + 6, "#");
         this->idx++;
     }
     wrefresh(((screen *) this)->win);

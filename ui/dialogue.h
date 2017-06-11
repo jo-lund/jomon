@@ -65,6 +65,8 @@ typedef struct progress_dialogue {
     int size;
     int sum;
     int idx;
+    int ypos;
+    int xpos;
 
     void (*progress_dialogue_update)(struct progress_dialogue *pd, int n);
 } progress_dialogue;
