@@ -141,7 +141,6 @@ void write_file(FILE *fp, vector_t *packets)
 {
     int bufidx = 0;
     unsigned char buf[BUFSIZE];
-    bool flush = false;
 
     write_header(buf);
     bufidx += sizeof(pcap_hdr_t);
@@ -150,14 +149,12 @@ void write_file(FILE *fp, vector_t *packets)
                            (struct packet *) vector_get_data(packets, i));
         if (!n) { /* write buf to file */
             fwrite(buf, sizeof(unsigned char), bufidx, fp);
-            bufidx = 0;
-            flush = false;
+            bufidx = write_data(buf, BUFSIZE, (struct packet *) vector_get_data(packets, i));
         } else {
             bufidx += n;
-            flush = true;
         }
     }
-    if (flush) {
+    if (bufidx) {
         fwrite(buf, sizeof(unsigned char), bufidx, fp);
     }
 }
@@ -182,7 +179,7 @@ void write_header(unsigned char *buf)
 
 int write_data(unsigned char *buf, int len, struct packet *p)
 {
-    if (p->eth.payload_len + ETH_HLEN > len) {
+    if (p->eth.payload_len + ETH_HLEN + sizeof(pcaprec_hdr_t) > len) {
         return 0;
     }
 
