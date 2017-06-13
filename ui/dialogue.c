@@ -120,7 +120,6 @@ void dialogue_render(dialogue *this)
         mvwprintw(win, 0, (mx - len) / 2, this->title);
         printat(win, 0, (mx - len) / 2, A_BOLD, this->title);
     }
-    wrefresh(win);
 }
 
 label_dialogue *label_dialogue_create(char *title, char *label, button_action act, void *arg)
@@ -232,7 +231,6 @@ void file_dialogue_render(file_dialogue *this)
     BUTTON_RENDER(this->ok);
     BUTTON_RENDER(this->cancel);
     wrefresh(this->list.win);
-    wrefresh(scr->win);
 }
 
 void file_dialogue_populate(file_dialogue *this, char *path)
@@ -353,6 +351,7 @@ void file_dialogue_handle_enter(struct file_dialogue *this)
 {
     struct file_info *info;
 
+    curs_set(0);
     info = (struct file_info *) vector_get_data(this->files, this->i);
     switch (this->has_focus) {
     case FS_LIST:
@@ -500,7 +499,6 @@ void file_dialogue_handle_keydown(struct file_dialogue *this)
 void file_dialogue_handle_keyup(struct file_dialogue *this)
 {
     if (this->has_focus == FS_LIST) {
-
         remove_selectionbar(this, this->i - this->top);
         if (this->top == 0 && this->i - 1 < 0) {
 
@@ -538,6 +536,7 @@ progress_dialogue *progress_dialogue_create(char *title, int size)
     pd->idx = 0;
     pd->ypos = (my / 5) / 2 - 1;
     pd->xpos = ((mx / 6) - 28) / 2;
+    dialogue_render((dialogue *) pd);
     progress_dialogue_render(pd);
     return pd;
 }
@@ -564,7 +563,6 @@ void progress_dialogue_render(progress_dialogue *this)
 {
     int width;
 
-    DIALOGUE_RENDER((dialogue *) this);
     width = this->percent / 5;
     mvwprintw(((screen *) this)->win, this->ypos, this->xpos, "%d %%", this->percent);
     if (this->idx < 1) {

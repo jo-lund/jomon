@@ -107,6 +107,8 @@ unsigned char *get_adu_payload(struct packet *p);
 /* Clear packet statistics */
 void clear_statistics();
 
+uint16_t get_packet_size(struct packet *p);
+
 /* Should be internal to the decoder */
 bool check_port(unsigned char *buffer, int n, struct application_info *info,
                 uint16_t port, bool *error);

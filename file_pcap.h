@@ -4,6 +4,7 @@
 #include "vector.h"
 
 typedef bool (*packet_handler)(unsigned char *buffer, uint32_t n, struct timeval *t);
+typedef void (*progress_update)(int i);
 
 enum file_error {
     NO_ERROR,
@@ -31,7 +32,8 @@ FILE *open_file(const char *path, const char *mode, enum file_error *err);
  */
 enum file_error read_file(FILE *fp, packet_handler f);
 
-void write_file(FILE *fp, vector_t *packets);
+/* Write packets to file */
+void write_file(FILE *fp, vector_t *packets, progress_update f);
 
 /* Get a string representing the error */
 char *get_file_error(enum file_error err);

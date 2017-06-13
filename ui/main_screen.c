@@ -80,7 +80,8 @@ static void save_handle_cancel(void *);
 static void handle_file_error(void *callback);
 static void show_selectionbar(main_screen *ms, WINDOW *win, int line, uint32_t attr);
 static void remove_selectionbar(main_screen *ms, WINDOW *win, int line, uint32_t attr);
-static bool packet_show_progress(unsigned char *buffer, uint32_t n, struct timeval *t);
+static bool read_show_progress(unsigned char *buffer, uint32_t n, struct timeval *t);
+static void write_show_progress(int i);
 
 /* Handles subwindow layout */
 static void create_subwindow(main_screen *ms, int num_lines, int lineno);
@@ -223,7 +224,8 @@ void load_handle_ok(void *file)
         clear_statistics();
         lstat((const char *) file, buf);
         pd = progress_dialogue_create(title, buf->st_size);
-        err = read_file(fp, packet_show_progress);
+        push_screen((screen *) pd);
+        err = read_file(fp, read_show_progress);
         if (err == NO_ERROR) {
             int i;
 
@@ -243,6 +245,7 @@ void load_handle_ok(void *file)
             create_file_error_dialogue(err, create_load_dialogue);
         }
         fclose(fp);
+        pop_screen(pd);
         progress_dialogue_free(pd);
         pd = NULL;
     }
@@ -271,7 +274,16 @@ void save_handle_ok(void *file)
     if ((fp = open_file((const char *) file, "w", &err)) == NULL) {
         create_file_error_dialogue(err, create_save_dialogue);
     } else {
-        write_file(fp, packets);
+        char title[MAXLINE];
+
+        get_file_part(file);
+        snprintf(title, MAXLINE, " Saving %s ", (char *) file);
+        pd = progress_dialogue_create(title, pstat[0].num_bytes);
+        push_screen((screen *) pd);
+        write_file(fp, packets, write_show_progress);
+        pop_screen();
+        progress_dialogue_free(pd);
+        pd = NULL;
         fclose(fp);
     }
     file_dialogue_free(sd);
@@ -289,6 +301,25 @@ void handle_file_error(void *callback)
     label_dialogue_free(ld);
     ld = NULL;
     (* ((void (*)()) callback))();
+}
+
+void write_show_progress(int size)
+{
+    PROGRESS_DIALOGUE_UPDATE(pd, size);
+}
+
+bool read_show_progress(unsigned char *buffer, uint32_t n, struct timeval *t)
+{
+    struct packet *p;
+
+    if (!decode_packet(buffer, n, &p)) {
+        return false;
+    }
+    p->time.tv_sec = t->tv_sec;
+    p->time.tv_usec = t->tv_usec;
+    vector_push_back(packets, p);
+    PROGRESS_DIALOGUE_UPDATE(pd, n);
+    return true;
 }
 
 void show_selectionbar(main_screen *ms, WINDOW *win, int line, uint32_t attr)
@@ -1320,18 +1351,4 @@ void handle_selectionbar(main_screen *ms, int c)
              show_selectionbar(ms, ms->subwindow.win, subline + 1, ms->lvw ? GET_ATTR(ms->lvw, subline + 1) : A_NORMAL);
          }
      }
-}
-
-bool packet_show_progress(unsigned char *buffer, uint32_t n, struct timeval *t)
-{
-    struct packet *p;
-
-    if (!decode_packet(buffer, n, &p)) {
-        return false;
-    }
-    p->time.tv_sec = t->tv_sec;
-    p->time.tv_usec = t->tv_usec;
-    vector_push_back(packets, p);
-    PROGRESS_DIALOGUE_UPDATE(pd, n);
-    return true;
 }

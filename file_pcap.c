@@ -137,7 +137,7 @@ int read_buf(unsigned char *buf, size_t len)
     return 0;
 }
 
-void write_file(FILE *fp, vector_t *packets)
+void write_file(FILE *fp, vector_t *packets, progress_update f)
 {
     int bufidx = 0;
     unsigned char buf[BUFSIZE];
@@ -145,14 +145,18 @@ void write_file(FILE *fp, vector_t *packets)
     write_header(buf);
     bufidx += sizeof(pcap_hdr_t);
     for (int i = 0; i < vector_size(packets); i++) {
-        int n = write_data(buf + bufidx, BUFSIZE - bufidx,
-                           (struct packet *) vector_get_data(packets, i));
+        struct packet *p;
+        int n;
+
+        p = (struct packet *) vector_get_data(packets, i);
+        n = write_data(buf + bufidx, BUFSIZE - bufidx, p);
         if (!n) { /* write buf to file */
             fwrite(buf, sizeof(unsigned char), bufidx, fp);
-            bufidx = write_data(buf, BUFSIZE, (struct packet *) vector_get_data(packets, i));
+            bufidx = write_data(buf, BUFSIZE, p);
         } else {
             bufidx += n;
         }
+        f(get_packet_size(p));
     }
     if (bufidx) {
         fwrite(buf, sizeof(unsigned char), bufidx, fp);
@@ -179,7 +183,7 @@ void write_header(unsigned char *buf)
 
 int write_data(unsigned char *buf, int len, struct packet *p)
 {
-    if (p->eth.payload_len + ETH_HLEN + sizeof(pcaprec_hdr_t) > len) {
+    if (get_packet_size(p) + sizeof(pcaprec_hdr_t) > len) {
         return 0;
     }
 
@@ -195,7 +199,7 @@ int write_data(unsigned char *buf, int len, struct packet *p)
     /* write packet */
     memcpy(buf + sizeof(pcaprec_hdr_t), p->eth.data, p->eth.payload_len + ETH_HLEN);
 
-    return p->eth.payload_len + ETH_HLEN + sizeof(pcaprec_hdr_t);
+    return get_packet_size(p) + sizeof(pcaprec_hdr_t);
 }
 
 enum file_error errno_file_error(int err)

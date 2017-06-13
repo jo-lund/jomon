@@ -20,7 +20,7 @@
 #include "packet_ssdp.h"
 #include "packet_nbds.h"
 
-/* this needs to be in the same order as enum protocols */
+/* this needs to be in the same order as enum protocols, see packet.h */
 struct packet_statistics pstat[] = {
     { "Total", 0, 0 },
     { "ARP", 0, 0 },
@@ -234,4 +234,9 @@ void clear_statistics()
         pstat[i].num_packets = 0;
         pstat[i].num_bytes = 0;
     }
+}
+
+inline uint16_t get_packet_size(struct packet *p)
+{
+    return p->eth.payload_len + ETH_HLEN;
 }
