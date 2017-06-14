@@ -110,9 +110,11 @@ bool handle_dns(unsigned char *buffer, int n, struct application_info *info)
         for (int i = ANCOUNT; i < 4; i++) {
             num_records += info->dns->section_count[i];
         }
-        info->dns->record = malloc(num_records * sizeof(struct dns_resource_record));
-        for (int i = 0; i < num_records; i++) {
-            parse_dns_record(i, buffer, n, &ptr, info->dns);
+        if (num_records) {
+            info->dns->record = malloc(num_records * sizeof(struct dns_resource_record));
+            for (int i = 0; i < num_records; i++) {
+                parse_dns_record(i, buffer, n, &ptr, info->dns);
+            }
         }
     } else { /* DNS query */
         if (info->dns->rcode != 0) { /* RCODE will be zero */
@@ -148,9 +150,11 @@ bool handle_dns(unsigned char *buffer, int n, struct application_info *info)
         for (int i = NSCOUNT; i < 4; i++) {
             num_records += info->dns->section_count[i];
         }
-        info->dns->record = malloc(num_records * sizeof(struct dns_resource_record));
-        for (int i = 0; i < num_records; i++) {
-            parse_dns_record(i, buffer, n, &ptr, info->dns);
+        if (num_records) {
+            info->dns->record = malloc(num_records * sizeof(struct dns_resource_record));
+            for (int i = 0; i < num_records; i++) {
+                parse_dns_record(i, buffer, n, &ptr, info->dns);
+            }
         }
     }
     pstat[PROT_DNS].num_packets++;
