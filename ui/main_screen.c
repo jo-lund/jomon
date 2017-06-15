@@ -648,11 +648,11 @@ void goto_line(main_screen *ms, int c)
                 print_lines(ms, vector_size(packets) - my, vector_size(packets), 0);
                 ms->top = vector_size(packets) - my;
                 ms->selection_line = num - 1;
-                show_selectionbar(ms, ms->pktlist, ms->selection_line, A_NORMAL);
+                show_selectionbar(ms, ms->pktlist, ms->selection_line - ms->top, A_NORMAL);
             } else {
                 print_lines(ms, num - 1, num + my - 1, 0);
                 ms->selection_line = ms->top = num - 1;
-                show_selectionbar(ms, ms->pktlist, ms->selection_line, A_NORMAL);
+                show_selectionbar(ms, ms->pktlist, 0, A_NORMAL);
             }
         }
         wrefresh(ms->pktlist);
