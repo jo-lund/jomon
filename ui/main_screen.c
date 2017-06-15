@@ -394,10 +394,7 @@ void main_screen_get_input(main_screen *ms)
         break;
     case KEY_ESC:
         if (input_mode) {
-            curs_set(0);
-            werase(ms->status);
-            print_status(ms);
-            input_mode = false;
+            goto_line(ms, c);
         } else if (interactive) {
             main_screen_set_interactive(ms, false);
         }
@@ -614,9 +611,9 @@ void print_status(main_screen *ms)
 
 void goto_line(main_screen *ms, int c)
 {
-    static uint32_t num = 0;
+    static int num = 0;
 
-    if (isdigit(c)) {
+    if (isdigit(c) && num < INT_MAX / 10) {
         waddch(ms->status, c);
         num = num * 10 + c - '0';
     } else if (c == KEY_BACKSPACE) {
@@ -664,7 +661,12 @@ void goto_line(main_screen *ms, int c)
         input_mode = false;
         num = 0;
         print_status(ms);
-
+    } else if (c == KEY_ESC) {
+        curs_set(0);
+        werase(ms->status);
+        print_status(ms);
+        num = 0;
+        input_mode = false;
     }
     wrefresh(ms->status);
 }
