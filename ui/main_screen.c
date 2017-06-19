@@ -236,18 +236,19 @@ void load_handle_ok(void *file)
                 strncpy(load_filepath, ctx.filename, i);
                 load_filepath[i] = '\0';
             }
+            pop_screen();
+            progress_dialogue_free(pd);
             print_header(mscr);
             print_status(mscr);
             print_file(mscr);
         } else {
+            pop_screen();
+            progress_dialogue_free(pd);
             memset(ctx.filename, 0, MAXPATH);
             decode_error = true;
             create_file_error_dialogue(err, create_load_dialogue);
         }
         fclose(fp);
-        pop_screen(pd);
-        progress_dialogue_free(pd);
-        pd = NULL;
     }
     file_dialogue_free(fd);
     fd = NULL;
@@ -283,7 +284,6 @@ void save_handle_ok(void *file)
         write_file(fp, packets, write_show_progress);
         pop_screen();
         progress_dialogue_free(pd);
-        pd = NULL;
         fclose(fp);
     }
     file_dialogue_free(sd);
