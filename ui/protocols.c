@@ -1380,7 +1380,7 @@ void add_dns_soa(list_view *lw, list_view_header *w, struct dns_info *dns, int i
     ADD_TEXT_ELEMENT(lw, w, "mname (primary name server): %s", dns->record[i].rdata.soa.mname);
     ADD_TEXT_ELEMENT(lw, w, "rname (mailbox of responsible authority): %s",
               dns->record[i].rdata.soa.rname);
-    ADD_TEXT_ELEMENT(lw, w, "Serial number: %d", dns->record[i].rdata.soa.serial);
+    ADD_TEXT_ELEMENT(lw, w, "Serial number: %u", dns->record[i].rdata.soa.serial);
     tm = get_time(dns->record[i].rdata.soa.refresh);
     time_ntop(&tm, time, 512);
     ADD_TEXT_ELEMENT(lw, w, "Refresh interval: %d (%s)",
