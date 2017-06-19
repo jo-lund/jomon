@@ -1208,9 +1208,6 @@ void print_protocol_information(main_screen *ms, struct packet *p, int lineno)
         subline = ms->selection_line - ms->top - ms->subwindow.top;
         if (inside_subwindow(ms)) {
             show_selectionbar(ms, ms->subwindow.win, subline, GET_ATTR(ms->lvw, subline));
-        } else {
-            show_selectionbar(ms, ms->pktlist, ms->selection_line, A_NORMAL);
-            wrefresh(ms->pktlist);
         }
         prefresh(ms->subwindow.win, 0, 0, GET_SCRY(ms->subwindow.top), 0, GET_SCRY(my) - 1, mx);
     } else if (HEXDUMP_VIEW) {
@@ -1227,9 +1224,6 @@ void print_protocol_information(main_screen *ms, struct packet *p, int lineno)
         subline = ms->selection_line - ms->top - ms->subwindow.top;
         if (inside_subwindow(ms)) {
             show_selectionbar(ms, ms->subwindow.win, subline, A_NORMAL);
-        } else {
-            show_selectionbar(ms, ms->pktlist, ms->selection_line, A_NORMAL);
-            wrefresh(ms->pktlist);
         }
         prefresh(ms->subwindow.win, 0, 0, GET_SCRY(ms->subwindow.top), 0, GET_SCRY(my) - 1, mx);
     }
