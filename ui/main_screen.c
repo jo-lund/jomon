@@ -701,7 +701,7 @@ bool check_line(main_screen *ms)
     if (ms->subwindow.win) {
         num_lines += ms->subwindow.num_lines;
     }
-    if (ms->selection_line < vector_size(packets) + num_lines - 1) {
+    if (ms->selection_line + ms->scrolly < vector_size(packets) + num_lines - 1) {
         return true;
     }
     return false;
