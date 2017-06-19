@@ -163,7 +163,7 @@ list_view_header *add_sub_header(list_view *this, list_view_header *header, bool
     }
     list_push_back(header->subwidgets, h);
     this->num_elements++;
-    if (header->expanded) {
+    if (header_expanded(header)) {
         this->size++;
     }
     return h;
