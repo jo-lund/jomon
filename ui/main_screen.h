@@ -40,7 +40,7 @@ typedef struct {
     int scrollx; /* the amount scrolled on the x-axis */
 } main_screen;
 
-main_screen *main_screen_create(int nlines, int ncols, bool is_capturing);
+main_screen *main_screen_create(int nlines, int ncols, main_context *mctx);
 void main_screen_free(main_screen *ms);
 void main_screen_clear(main_screen *ms);
 void main_screen_get_input(main_screen *ms);

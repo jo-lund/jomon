@@ -39,11 +39,10 @@ enum views {
 #define NUM_VIEWS 2
 
 extern vector_t *packets;
-extern main_context ctx;
 bool selected[NUM_LAYERS]; // TODO: need to handle this differently
 bool numeric = true;
 
-static bool capturing = true;
+static main_context *ctx;
 static bool interactive = false;
 static bool input_mode = false;
 static int hexmode = HEXMODE_NORMAL;
@@ -108,7 +107,7 @@ void main_screen_render(main_screen *ms, char *buf)
     }
 }
 
-main_screen *main_screen_create(int nlines, int ncols, bool is_capturing)
+main_screen *main_screen_create(int nlines, int ncols, main_context *mctx)
 {
     main_screen *ms;
 
@@ -124,7 +123,7 @@ main_screen *main_screen_create(int nlines, int ncols, bool is_capturing)
     ms->status = newwin(STATUS_HEIGHT, ncols, nlines - STATUS_HEIGHT, 0);
     memset(&ms->subwindow, 0, sizeof(ms->subwindow));
     mscr = ms;
-    capturing = is_capturing;
+    ctx = mctx;
     nodelay(ms->pktlist, TRUE); /* input functions must be non-blocking */
     keypad(ms->pktlist, TRUE);
     scrollok(ms->pktlist, TRUE);
@@ -230,10 +229,10 @@ void load_handle_ok(void *file)
             int i;
 
             main_screen_clear(mscr);
-            strcpy(ctx.filename, (const char *) file);
-            i = str_find_last(ctx.filename, '/');
+            strcpy(ctx->filename, (const char *) file);
+            i = str_find_last(ctx->filename, '/');
             if (i > 0 && i < MAXPATH) {
-                strncpy(load_filepath, ctx.filename, i);
+                strncpy(load_filepath, ctx->filename, i);
                 load_filepath[i] = '\0';
             }
             pop_screen();
@@ -244,7 +243,7 @@ void load_handle_ok(void *file)
         } else {
             pop_screen();
             progress_dialogue_free(pd);
-            memset(ctx.filename, 0, MAXPATH);
+            memset(ctx->filename, 0, MAXPATH);
             decode_error = true;
             create_file_error_dialogue(err, create_load_dialogue);
         }
@@ -447,36 +446,36 @@ void main_screen_get_input(main_screen *ms)
     {
         uid_t euid = geteuid();
 
-        if (!capturing && euid == 0) {
+        if (!ctx->capturing && euid == 0) {
             if (interactive) {
                 main_screen_set_interactive(ms, false);
             }
             werase(ms->pktlist);
             wrefresh(ms->pktlist);
             ms->outy = 0;
-            capturing = true;
+            ctx->capturing = true;
             print_status(ms);
             start_scan();
         }
         break;
     }
     case KEY_F(4):
-        if (capturing) {
+        if (ctx->capturing) {
             if (!interactive) {
                 main_screen_set_interactive(ms, true);
             }
             stop_scan();
-            capturing = false;
+            ctx->capturing = false;
             print_status(ms);
         }
         break;
     case KEY_F(5):
-        if (!capturing && vector_size(packets) > 0) {
+        if (!ctx->capturing && vector_size(packets) > 0) {
             create_save_dialogue();
         }
         break;
     case KEY_F(6):
-        if (!capturing) {
+        if (!ctx->capturing) {
             create_load_dialogue();
         }
         break;
@@ -543,12 +542,12 @@ void print_header(main_screen *ms)
     int y = 0;
     char addr[INET_ADDRSTRLEN];
 
-    if (ctx.filename[0]) {
+    if (ctx->filename[0]) {
         printat(ms->header, y, 0, COLOR_PAIR(4) | A_BOLD, "Filename");
-        wprintw(ms->header, ": %s", ctx.filename);
+        wprintw(ms->header, ": %s", ctx->filename);
     } else {
         printat(ms->header, y, 0, COLOR_PAIR(4) | A_BOLD, "Device");
-        wprintw(ms->header, ": %s", ctx.device);
+        wprintw(ms->header, ": %s", ctx->device);
     }
     inet_ntop(AF_INET, &local_addr->sin_addr, addr, sizeof(addr));
     printat(ms->header, ++y, 0, COLOR_PAIR(4) | A_BOLD, "Local address");
@@ -572,26 +571,26 @@ void print_status(main_screen *ms)
     printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Help");
     wprintw(ms->status, "F2");
     printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Menu");
-    if (capturing || euid != 0) {
+    if (ctx->capturing || euid != 0) {
         printat(ms->status, -1, -1, GREY, "F3");
     } else {
         wprintw(ms->status, "F3");
     }
     printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Start");
-    if (capturing) {
+    if (ctx->capturing) {
         wprintw(ms->status, "F4");
     } else {
         printat(ms->status, -1, -1, GREY, "F4");
     }
     printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Stop");
-    if (capturing || vector_size(packets) == 0) {
+    if (ctx->capturing || vector_size(packets) == 0) {
         printat(ms->status, -1, -1, GREY, "F5");
         printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Save");
     } else {
         wprintw(ms->status, "F5");
         printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Save");
     }
-    if (capturing) {
+    if (ctx->capturing) {
         printat(ms->status, -1, -1, GREY, "F6");
         printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Load");
     } else {
@@ -941,7 +940,7 @@ void main_screen_set_interactive(main_screen *ms, bool interactive_mode)
             delete_subwindow(ms);
             ms->main_line.selected = false;
         }
-        if (ms->outy >= my && capturing) {
+        if (ms->outy >= my && ctx->capturing) {
             goto_end(ms);
         } else {
             remove_selectionbar(ms, ms->pktlist, ms->selection_line - ms->top, A_NORMAL);

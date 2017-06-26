@@ -36,7 +36,7 @@ extern void stat_screen_print();
 struct sockaddr_in *local_addr;
 bool statistics = false;
 vector_t *packets;
-main_context ctx = { NULL, { 0 } };
+main_context ctx;
 
 static volatile sig_atomic_t signal_flag = 0;
 static int sockfd = -1; /* packet socket file descriptor */
@@ -74,7 +74,7 @@ int main(int argc, char **argv)
             verbose = true;
             break;
         case 's':
-            statistics = true;
+            ctx.show_statistics = true;
             break;
         case 'r':
             strcpy(ctx.filename, optarg);
@@ -101,6 +101,7 @@ int main(int argc, char **argv)
         enum file_error err;
         FILE *fp;
 
+        ctx.capturing = false;
         if ((fp = open_file(ctx.filename, "r", &err)) == NULL) {
             err_sys("Error in %s", ctx.filename);
         }
@@ -110,7 +111,7 @@ int main(int argc, char **argv)
         }
         fclose(fp);
         if (use_ncurses) {
-            init_ncurses(false);
+            init_ncurses(&ctx);
             print_file();
         } else {
             for (int i = 0; i < vector_size(packets); i++) {
@@ -122,9 +123,10 @@ int main(int argc, char **argv)
             finish();
         }
     } else {
+        ctx.capturing = true;
         init_socket(ctx.device);
         if (use_ncurses) {
-            init_ncurses(true);
+            init_ncurses(&ctx);
         }
     }
     run();

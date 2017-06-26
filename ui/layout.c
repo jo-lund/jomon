@@ -9,12 +9,13 @@
 #include <string.h>
 
 extern vector_t *packets;
+extern main_context ctx;
 publisher_t *screen_changed_publisher;
 static screen *screen_cache[NUM_SCREENS];
 static _stack_t *screen_stack;
 static main_screen *ms;
 
-void init_ncurses(bool capturing)
+void init_ncurses(main_context *ctx)
 {
     int mx, my;
 
@@ -41,7 +42,7 @@ void init_ncurses(bool capturing)
     screen_stack = stack_init(NUM_SCREENS);
     memset(screen_cache, 0, NUM_SCREENS * sizeof(screen*));
     getmaxyx(stdscr, my, mx);
-    ms = main_screen_create(my, mx, capturing);
+    ms = main_screen_create(my, mx, ctx);
 }
 
 void end_ncurses()

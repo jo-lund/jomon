@@ -37,6 +37,8 @@
 typedef struct {
     char *device;
     char filename[MAXPATH + 1];
+    bool capturing;
+    bool show_statistics;
 } main_context;
 
 extern struct sockaddr_in *local_addr;
