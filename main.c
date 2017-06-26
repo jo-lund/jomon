@@ -39,11 +39,12 @@ vector_t *packets;
 main_context ctx;
 
 static volatile sig_atomic_t signal_flag = 0;
-static int sockfd = -1; /* packet socket file descriptor */
+static int sockfd = -1;
 static bool use_ncurses = true;
 static bool promiscuous = false;
 static bool verbose = false;
 static bool load_file = false;
+static bool fd_changed = false;
 
 bool on_packet(unsigned char *buffer, uint32_t n, struct timeval *t);
 static void print_help(char *prg);
@@ -246,6 +247,10 @@ void run()
             stat_screen_print();
             alarm(1);
         }
+        if (fd_changed) {
+            fds[0].fd = sockfd;
+            fd_changed = false;
+        }
         if (poll(fds, 2, -1) == -1) {
             if (errno == EINTR) continue;
             err_sys("poll error");
@@ -277,6 +282,8 @@ void run()
 void stop_scan()
 {
     close(sockfd);
+    sockfd = -1;
+    fd_changed = true;
 }
 
 void start_scan()
@@ -284,7 +291,7 @@ void start_scan()
     clear_statistics();
     vector_clear(packets, free_packet);
     init_socket(ctx.device);
-    run();
+    fd_changed = true;
 }
 
 bool on_packet(unsigned char *buffer, uint32_t n, struct timeval *t)
