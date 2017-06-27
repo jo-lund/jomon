@@ -71,6 +71,8 @@ bool handle_nbds(unsigned char *buffer, int n, struct application_info *adu)
     default:
         break;
     }
+    pstat[PROT_NBDS].num_packets++;
+    pstat[PROT_NBDS].num_bytes += n;
     return true;
 }
 
