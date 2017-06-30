@@ -53,6 +53,8 @@ screen *stat_screen_create()
 void stat_screen_changed()
 {
     if (stat_screen->focus) {
+        memset(&rx, 0, sizeof(linkdef));
+        memset(&tx, 0, sizeof(linkdef));
         alarm(1);
     }
 }
