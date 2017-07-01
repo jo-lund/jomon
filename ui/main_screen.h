@@ -13,6 +13,7 @@ typedef struct {
         WINDOW *win;
         int top; /* index to the first line in the subwindow relative to the
                     main window */
+        int lineno;
         int num_lines;
     } subwindow;
 

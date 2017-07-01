@@ -91,6 +91,7 @@ static void add_transport_elements(main_screen *ms, struct packet *p);
 static void add_app_elements(main_screen *ms, struct packet *p, struct application_info *info, uint16_t len);
 static void handle_selectionbar(main_screen *ms, int c);
 static void refresh_pad(main_screen *ms, int scrolly, int minx);
+static bool subwindow_on_screen(main_screen *ms);
 
 void main_screen_render(main_screen *ms, char *buf)
 {
@@ -712,13 +713,7 @@ void scroll_column(main_screen *ms, int scrollx, int num_lines)
         werase(ms->pktlist);
         ms->scrollx += scrollx;
         if (ms->subwindow.win) {
-            /* print lines above and below the pad */
-            ms->outy = print_lines(ms, ms->top + ms->scrolly,
-                                   ms->top + ms->scrolly + ms->subwindow.top, 0);
-            ms->outy += ms->subwindow.num_lines;
-            if (!ms->scrolly) {
-                ms->outy += print_lines(ms, ms->main_line.line_number + 1, ms->top + num_lines, ms->outy);
-            }
+            ms->outy = print_lines(ms, ms->top + ms->scrolly, ms->top + num_lines, 0);
             if (!inside_subwindow(ms)) {
                 show_selectionbar(ms, ms->pktlist, ms->selection_line - ms->top, A_NORMAL);
             }
@@ -886,7 +881,6 @@ void scroll_page(main_screen *ms, int num_lines)
         }
     } else { /* scroll page up */
         if (vector_size(packets) <= abs(num_lines) || ms->top == 0) {
-
             remove_selectionbar(ms, ms->pktlist, ms->selection_line, A_NORMAL);
             ms->selection_line = 0;
             show_selectionbar(ms, ms->pktlist, 0, A_NORMAL);
@@ -957,26 +951,33 @@ void main_screen_set_interactive(main_screen *ms, bool interactive_mode)
 int print_lines(main_screen *ms, int from, int to, int y)
 {
     int c = 0;
+    int line = from;
 
-    while (from < to) {
+    while (line < to) {
         struct packet *p;
         char buffer[MAXLINE];
 
-        p = vector_get_data(packets, from);
-        if (!p) break;
-        write_to_buf(buffer, MAXLINE, p);
-        if (ms->scrollx) {
-            int n = strlen(buffer);
-
-            if (ms->scrollx < n) {
-                printnlw(ms->pktlist, buffer, n, y++, 0, ms->scrollx);
-            } else {
-                y++;
-            }
+        if (ms->subwindow.win && line > ms->subwindow.lineno &&
+            line <= ms->subwindow.lineno + ms->lvw->size + 1) {
+            y++;
         } else {
-            printnlw(ms->pktlist, buffer, strlen(buffer), y++, 0, ms->scrollx);
+            p = vector_get_data(packets, from);
+            if (!p) break;
+            write_to_buf(buffer, MAXLINE, p);
+            if (ms->scrollx) {
+                int n = strlen(buffer);
+
+                if (ms->scrollx < n) {
+                    printnlw(ms->pktlist, buffer, n, y++, 0, ms->scrollx);
+                } else {
+                    y++;
+                }
+            } else {
+                printnlw(ms->pktlist, buffer, strlen(buffer), y++, 0, ms->scrollx);
+            }
+            from++;
         }
-        from++;
+        line++;
         c++;
     }
     return c;
@@ -1022,7 +1023,8 @@ void print_selected_packet(main_screen *ms)
 
         /* the index to the selected line needs to be adjusted in case of an
            open subwindow */
-        if (ms->subwindow.win && screen_line > ms->subwindow.top + ms->scrolly) {
+        if (ms->subwindow.win && subwindow_on_screen(ms) &&
+            screen_line > ms->subwindow.top + ms->scrolly) {
             ms->main_line.line_number = screen_line - ms->subwindow.num_lines;
             ms->selection_line -= ms->subwindow.num_lines;
         } else {
@@ -1252,9 +1254,10 @@ void create_subwindow(main_screen *ms, int num_lines, int lineno)
     ms->subwindow.win = newpad(num_lines, mx);
     ms->subwindow.top = start_line + 1;
     ms->subwindow.num_lines = num_lines;
+    ms->subwindow.lineno = lineno;
     wmove(ms->pktlist, start_line + 1, 0);
     wclrtobot(ms->pktlist); /* clear everything below selection bar */
-    ms->outy = start_line + num_lines + 1;
+    ms->outy = start_line + 1;
 
     if (!ms->scrolly) {
         ms->outy += print_lines(ms, c, ms->top + my, ms->outy);
@@ -1295,6 +1298,15 @@ bool inside_subwindow(main_screen *ms)
     int subline = ms->selection_line - ms->top - ms->subwindow.top;
 
     return ms->subwindow.win && subline >= 0 && subline < ms->subwindow.num_lines;
+}
+
+/* Returns whether the subwindow is shown on screen or not */
+bool subwindow_on_screen(main_screen *ms)
+{
+    int my;
+
+    my = getmaxy(ms->pktlist);
+    return ms->subwindow.lineno >= ms->top && ms->subwindow.lineno <= ms->top + my;
 }
 
 /*
