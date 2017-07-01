@@ -958,7 +958,7 @@ int print_lines(main_screen *ms, int from, int to, int y)
         char buffer[MAXLINE];
 
         if (ms->subwindow.win && line > ms->subwindow.lineno &&
-            line <= ms->subwindow.lineno + ms->lvw->size + 1) {
+            line <= ms->subwindow.lineno + ms->subwindow.num_lines) {
             y++;
         } else {
             p = vector_get_data(packets, from);
