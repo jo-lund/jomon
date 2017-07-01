@@ -746,7 +746,8 @@ void handle_keyup(main_screen *ms, int num_lines)
         ms->top--;
         wscrl(ms->pktlist, -1);
 
-        if (p && !inside_subwindow(ms)) {
+        int subline = ms->selection_line - ms->top - ms->subwindow.top;
+        if (p && !(ms->subwindow.win && subline > 0 && subline < ms->subwindow.num_lines)) {
             char line[MAXLINE];
 
             write_to_buf(line, MAXLINE, p);
@@ -798,7 +799,9 @@ void handle_keydown(main_screen *ms, int num_lines)
         }
         ms->top++;
         wscrl(ms->pktlist, 1);
-        if (p && !inside_subwindow(ms)) {
+
+        int subline = ms->selection_line - ms->top - ms->subwindow.top + 1;
+        if (p && !(ms->subwindow.win && subline > 0 && subline < ms->subwindow.num_lines)) {
             char line[MAXLINE];
 
             write_to_buf(line, MAXLINE, p);
