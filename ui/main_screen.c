@@ -1264,6 +1264,8 @@ void create_subwindow(main_screen *ms, int num_lines, int lineno)
 
     if (!ms->scrolly) {
         ms->outy += print_lines(ms, c, ms->top + my, ms->outy);
+    } else {
+        ms->outy += num_lines;
     }
     wrefresh(ms->pktlist);
 }
