@@ -23,16 +23,23 @@ bool handle_icmp(unsigned char *buffer, int n, struct icmp_info *info)
 {
     if (n < ICMP_HDR_LEN) return false;
 
-    struct icmphdr *icmp = (struct icmphdr *) buffer;
+    struct icmp *icmp = (struct icmp *) buffer;
 
     pstat[PROT_ICMP].num_packets++;
     pstat[PROT_ICMP].num_bytes += n;
-    info->type = icmp->type;
-    info->code = icmp->code;
-    info->checksum = htons(info->checksum);
-    if (icmp->type == ICMP_ECHOREPLY || icmp->type == ICMP_ECHO) {
-        info->echo.id = ntohs(icmp->un.echo.id);
-        info->echo.seq_num = ntohs(icmp->un.echo.sequence);
+    info->type = icmp->icmp_type;
+    info->code = icmp->icmp_code;
+    info->checksum = htons(icmp->icmp_cksum);
+    switch (icmp->icmp_type) {
+    case ICMP_ECHOREPLY:
+    case ICMP_ECHO:
+        info->echo.id = ntohs(icmp->icmp_id);
+        info->echo.seq_num = ntohs(icmp->icmp_seq);
+        break;
+    case ICMP_DEST_UNREACH:
+        break;
+    default:
+        break;
     }
     return true;
 }
