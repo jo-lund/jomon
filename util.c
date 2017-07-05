@@ -233,3 +233,25 @@ inline uint32_t get_uint32le(const unsigned char *buf)
            (uint32_t) buf[1] << 8 |
            (uint32_t) buf[0];
 }
+
+char *format_bytes(int bytes, char *buf, int len)
+{
+    static const char *format[] = { "", "K", "M", "G", "T" };
+    float f = bytes;
+    int c = 0;
+
+    while (f > 1024) {
+        f /= 1024.0;
+        c++;
+    }
+    if (c < sizeof(format) / sizeof(const char *)) {
+        float decpt = f - (int) f;
+
+        if (decpt >= 0.1) {
+            snprintf(buf, len, "%.1f%s", f, format[c]);
+        } else {
+            snprintf(buf, len, "%d%s", (int) f, format[c]);
+        }
+    }
+    return buf;
+}

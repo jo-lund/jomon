@@ -78,4 +78,7 @@ uint16_t get_uint16le(const unsigned char *buf);
 /* Extracts a 32 bits integer in little endian format from buf */
 uint32_t get_uint32le(const unsigned char *buf);
 
+/* Transforms the bytes to a human readable format, e.g. "1K", "42M" etc. */
+char *format_bytes(int bytes, char *buf, int len);
+
 #endif

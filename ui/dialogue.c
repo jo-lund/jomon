@@ -8,6 +8,8 @@
 #include "dialogue.h"
 #include "../util.h"
 
+#define FORMAT_BUF_LEN 7
+
 struct file_info {
     char *name;
     struct stat *stat;
@@ -321,7 +323,7 @@ void file_dialogue_get_input(struct file_dialogue *this)
         break;
     case '\b':
     case KEY_BACKSPACE:
-        if (this->has_focus == 1) {
+        if (this->has_focus == FS_INPUT) {
             int y, x;
 
             getyx(this->input.win, y, x);
@@ -338,7 +340,7 @@ void file_dialogue_get_input(struct file_dialogue *this)
         }
         break;
     default:
-        if (this->has_focus == 1 && isprint(c)) {
+        if (this->has_focus == FS_INPUT && isprint(c)) {
             snprintcat(this->path, MAXPATH, "%c", c);
             waddch(this->input.win, c);
             wrefresh(this->input.win);
@@ -412,13 +414,16 @@ void file_dialogue_handle_enter(struct file_dialogue *this)
 void file_dialogue_print(struct file_dialogue *this, struct file_info *info, int i)
 {
     int w;
+    char buf[FORMAT_BUF_LEN];
 
     if (S_ISDIR(info->stat->st_mode)) {
         w = getmaxx(this->list.win) - strlen(info->name) - 2;
-        printat(this->list.win, i, 1, A_BOLD, "%s%*d", info->name, w, info->stat->st_size);
+        printat(this->list.win, i, 1, A_BOLD, "%s%*s", info->name, w,
+                format_bytes(info->stat->st_size, buf, FORMAT_BUF_LEN));
     } else {
         w = getmaxx(this->list.win) - strlen(info->name) - 2;
-        mvwprintw(this->list.win, i, 1, "%s%*d", info->name, w, info->stat->st_size);
+        mvwprintw(this->list.win, i, 1, "%s%*s", info->name, w,
+                  format_bytes(info->stat->st_size, buf, FORMAT_BUF_LEN));
     }
 }
 
