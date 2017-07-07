@@ -38,7 +38,7 @@
 
 static void print_arp(char *buf, int n, struct arp_info *info, uint32_t num, struct timeval *t);
 static void print_llc(char *buf, int n, struct eth_info *eth, uint32_t num, struct timeval *t);
-static void print_ip(char *buf, int n, struct ip_info *ip, uint32_t num, struct timeval *t);
+static void print_ip(char *buf, int n, struct ipv4_info *ip, uint32_t num, struct timeval *t);
 static void print_ipv6(char *buf, int n, struct ipv6_info *ip, uint32_t num, struct timeval *t);
 static void print_udp(char *buf, int n, struct udp_info *info);
 static void print_tcp(char *buf, int n, struct tcp *info);
@@ -162,7 +162,7 @@ void print_llc(char *buf, int n, struct eth_info *eth, uint32_t num, struct time
     }
 }
 
-void print_ip(char *buf, int n, struct ip_info *ip, uint32_t num, struct timeval *t)
+void print_ip(char *buf, int n, struct ipv4_info *ip, uint32_t num, struct timeval *t)
 {
     char time[TBUFLEN];
 
@@ -693,7 +693,7 @@ void add_stp_information(list_view *lw, list_view_header *header, struct packet 
     }
 }
 
-void add_ipv4_information(list_view *lw, list_view_header *header, struct ip_info *ip)
+void add_ipv4_information(list_view *lw, list_view_header *header, struct ipv4_info *ip)
 {
     char *protocol;
     char *dscp;

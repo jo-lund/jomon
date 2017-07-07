@@ -11,7 +11,7 @@ struct igmp_info {
     uint32_t group_addr;
 };
 
-struct ip_info;
+struct ipv4_info;
 
 bool handle_igmp(unsigned char *buffer, int n, struct igmp_info *info);
 char *get_igmp_type(uint8_t type);

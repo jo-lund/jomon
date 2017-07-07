@@ -22,7 +22,7 @@ struct snap_info {
     uint16_t protocol_id; /* If OUI is 0 the protocol ID is the Ethernet type */
     union {
         struct arp_info *arp;
-        struct ip_info *ip;
+        struct ipv4_info *ip;
     };
 };
 
@@ -46,7 +46,7 @@ struct eth_info {
     union {
         struct eth_802_llc *llc;
         struct arp_info *arp;
-        struct ip_info *ip;
+        struct ipv4_info *ip;
         struct ipv6_info *ipv6;
     };
 };

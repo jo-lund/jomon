@@ -78,7 +78,7 @@ bool handle_ipv4(unsigned char *buffer, int n, struct eth_info *eth)
 
     pstat[PROT_IPv4].num_packets++;
     pstat[PROT_IPv4].num_bytes += n;
-    eth->ip = calloc(1, sizeof(struct ip_info));
+    eth->ip = calloc(1, sizeof(struct ipv4_info));
     eth->ip->src = ip->saddr;
     eth->ip->dst = ip->daddr;
     eth->ip->version = ip->version;
@@ -262,7 +262,7 @@ struct packet_flags *get_ipv4_flags()
     return ipv4_flags;
 }
 
-uint16_t get_ipv4_foffset(struct ip_info *ip)
+uint16_t get_ipv4_foffset(struct ipv4_info *ip)
 {
     return ip->foffset & 0x1fff;
 }

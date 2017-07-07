@@ -14,7 +14,7 @@
 #define IPV6_FIXED_HEADER_LEN 40
 
 // TODO: Improve the structure of this
-struct ip_info {
+struct ipv4_info {
     unsigned int version : 4;
     unsigned int ihl     : 4; /* Internet Header Length */
     unsigned int dscp    : 6; /* Differentiated Services Code Point (RFC 2474) */
@@ -63,7 +63,7 @@ unsigned char *get_ip_payload(struct packet *p);
 struct packet_flags *get_ipv4_flags();
 
 /* Get the IPv4 fragment offset field */
-uint16_t get_ipv4_foffset(struct ip_info *ip);
+uint16_t get_ipv4_foffset(struct ipv4_info *ip);
 
 /* internal to the decoder */
 bool handle_ipv4(unsigned char *buffer, int n, struct eth_info *info);

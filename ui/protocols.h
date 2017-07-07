@@ -18,7 +18,7 @@ void add_arp_information(list_view *lw, list_view_header *header, struct packet 
 void add_llc_information(list_view *lw, list_view_header *header, struct packet *p);
 void add_snap_information(list_view *lw, list_view_header *header, struct packet *p);
 void add_stp_information(list_view *lw, list_view_header *header, struct packet *p);
-void add_ipv4_information(list_view *lw, list_view_header *header, struct ip_info *ip);
+void add_ipv4_information(list_view *lw, list_view_header *header, struct ipv4_info *ip);
 void add_ipv6_information(list_view *lw, list_view_header *header, struct ipv6_info *ip);
 void add_udp_information(list_view *lw, list_view_header *header, struct udp_info *udp);
 void add_tcp_information(list_view *lw, list_view_header *header, struct tcp *tcp);
