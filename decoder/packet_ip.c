@@ -261,3 +261,8 @@ struct packet_flags *get_ipv4_flags()
 {
     return ipv4_flags;
 }
+
+uint16_t get_ipv4_foffset(struct ip_info *ip)
+{
+    return ip->foffset & 0x1fff;
+}

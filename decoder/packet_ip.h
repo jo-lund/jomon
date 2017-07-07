@@ -59,7 +59,11 @@ char *get_ip_transport_protocol(uint8_t protocol);
 /* Return a pointer the IPv4/IPv6 payload */
 unsigned char *get_ip_payload(struct packet *p);
 
+/* Get the IPv4 packet flags */
 struct packet_flags *get_ipv4_flags();
+
+/* Get the IPv4 fragment offset field */
+uint16_t get_ipv4_foffset(struct ip_info *ip);
 
 /* internal to the decoder */
 bool handle_ipv4(unsigned char *buffer, int n, struct eth_info *info);

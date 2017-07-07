@@ -733,6 +733,7 @@ void add_ipv4_information(list_view *lw, list_view_header *header, struct ip_inf
     }
     hdr = ADD_SUB_HEADER(lw, header, selected[IPV4_FLAGS], IPV4_FLAGS, "%s", buf, flags);
     add_flags(lw, hdr, flags, get_ipv4_flags(), 3);
+    ADD_TEXT_ELEMENT(lw, header, "Fragment offset: %u", get_ipv4_foffset(ip));
     ADD_TEXT_ELEMENT(lw, header, "Time to live: %u", ip->ttl);
     snprintf(buf, MAXLINE, "Protocol: %u", ip->protocol);
     if ((protocol = get_ip_transport_protocol(ip->protocol))) {
@@ -1605,6 +1606,15 @@ void add_http_information(list_view *lw, list_view_header *header, struct http_i
 {
 }
 
+/*
+ * Display the bit values of flags
+ *
+ * flags contains the flag values
+ * num_flags is the size of packet_flags
+ * packet_flags is an array that contains a name/description of the specific flag,
+ * its width (which is the number of bits in the flag), and, based on the value of
+ * the flag, a description of the specific field value, see decoder/packet.h.
+ */
 void add_flags(list_view *lw, list_view_header *header, uint16_t flags, struct packet_flags *pf, int num_flags)
 {
     char buf[MAXLINE];
@@ -1617,13 +1627,16 @@ void add_flags(list_view *lw, list_view_header *header, uint16_t flags, struct p
         snprintf(buf + i, MAXLINE - i, ".");
     }
     for (int i = 0, k = 0; k < num_bits; i++) {
+        /* print the bits of the flag 'i' */
         for (int j = 0; j < pf[i].width; j++) {
             buf[k + j] = ((flags >> (num_bits - (k + j) - 1)) & 0x01) + '0';
         }
+        /* print the flag description */
         snprintf(buf + num_bits, MAXLINE - num_bits, "  %s", pf[i].str);
         if (pf[i].sflags) {
             uint8_t bf;
 
+            /* print the field description based on index (bit value of field) */
             bf = (flags >> (num_bits - (k + pf[i].width))) & ((1 << pf[i].width) - 1);
             snprintcat(buf, MAXLINE, " %s", pf[i].sflags[bf]);
         }
