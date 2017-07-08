@@ -1,0 +1,21 @@
+* KNOWN BUGS:
+- Resizing of window causes problems with layout.
+- If you go to a line (with "go to line") on the current screen and the selection
+  line is on bolded text, the text will disappear.
+- Sometimes when refreshing the screen the selection bar will have "gaps". Seems
+  to be present if there are long lines without any characters. I suspect this
+  has something to do with not calling touchwin on the main screen before
+  refreshing the subwindow.
+- If you are on the first page and inspect a packet (on line 2 and greater) that
+  covers the entire screen, it is not possible to scroll up. It doesn't seem to
+  take into account that the screen has been scrolled to make room for the
+  packet being inspected.
+- Switching view mode when a packet covers the entire screen causes the remaining
+  lines in the hexdump to all show at the bottom line.
+- Error in parsing slowdown.pcap
+- If we inspect the last packet (which causes the window to scroll in order to
+  show everything) it's possible to scroll further down. The window will start
+  showing packets that are supposed to be located over the packet being inspected.
+- When inspecting a packet at the bottom of the screen (if scrolly is greater
+  than 0) and we scroll horizontally, outy will be wrong and it will start
+  printing packets near the bottom.

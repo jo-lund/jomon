@@ -1,0 +1,195 @@
+* Most important things to improve and implement:
+  1. Store TCP sessions (and implement reassembly) to start showing packets/data
+     based on TCP. Also need to print a better view of TCP packets, i.e. the one
+     line of information on the main screen.
+  2. Implement packet filtering based on BPF.
+  3. Improve memory efficiency. Need to remove malloc calls from the packet
+     parser and instead use a different memory allocation scheme. One possibility
+     is to implement something akin to explicit regions, which are preallocated
+     with a certain size and get more when needed.
+
+* GENERAL
+- Write a DNS cache to improve performance when getting host names. On Linux
+  there is no OS level DNS caching in the resolver.
+  (see http://stackoverflow.com/questions/11020027/dns-caching-in-linux)
+  This means implementing my own hash table. The difficulty here is in how long
+  the resource records (RR) should be cached (DNS ttl variable). Have to include
+  a timer.
+- Should be possible to detect hostnames without sending out any reverse DNS
+  lookup, i.e have a passive network sniffer. Could use the information stored in
+  the DNS cache to print the names related to the IP addresses that have been
+  found based on the traffic.
+- Improve memory efficiency. Maybe possible to use explicit regions?
+- Implement possiblity to make a text search for a specific pattern. Should also
+  include regex search (possible to use PCRE). Difficult to implement when
+  everything is stored in compressed form. Could be based on BPF, i.e only make
+  it possible to search what is "inside" the packet and not the text that is
+  displayed.
+- char *device should not be allocated in the get_default_device function but in the
+  caller function instead.
+- Also possible to have a page to show traffic per host/process on the network
+  instead of the default of printing per frame. Possible to give output that
+  netstat is showing (netstat -tup), which shows connection status and process
+  name. Here we should add RX/TX for each process as well, a'la nethogs.
+
+  Need to go through /proc/<pid>/fd for each process
+  open(/proc/<pid>/fd)
+  readlink(/proc/<pid>/fd/<num>)  (e.g. readlink("/proc/3175/fd/0", "/dev/pts/15", 29))
+  open("/proc/<pid>/cmdline", O_RDONLY)
+
+- Implement injecting packets on the network (e.g. to query server response time,
+  test the network's ability to handle high traffic volume, etc.
+- Implement a logging mechanism that can print out debug messages to file/stdout
+- Use getopt_long in order to support long options. See pg_dump for an example
+  on how to implement this.
+- Make a ring buffer to store the data read from a pcap file. Then I don't need
+  to shift the data when consuming frames.
+- Use an initial guess for the buffer size when listing interfaces and increase
+  this in case there is more, i.e. the same as is done in get_default_interface()
+- Include more global variables into the main_context struct, e.g. local_address.
+- Can implement support for editing packets, e.g. like WireEdit
+  (https://wireedit.com/)
+- DNS traceroute to detect malicious DNS injection on transit traffic,
+  SIGCOMM 2012 paper.
+- Need to check the data structure sizes for overflow,
+  see e.g. http://nullprogram.com/blog/2016/10/07/
+- If a HTTP packet is encoded in gzip, add the possibility to automatically
+  decompress it.
+- Should implement events. I already use alarm() to generate a SIGALRM to update
+  the statistics screen every second. Maybe I could make this into a generic
+  event handling routine. I need this to implement several timers, e.g. both
+  a timer to update the statistics screen and a dialogue on top that removes
+  itself after a certain amount of time. The timer events have to have an id so
+  that we can know which timer has expired and call the correct callback.
+
+  It's possible to make a process_events function that is called from the main
+  event loop. This function can then act based on the event fired. This can be
+  implemented in a new file event.h/event.c. Instead of then having
+  stat_screen_print() called directly from main.c's event loop, this can be a
+  callback to the timer event. process_events() checks the id of the event and
+  calls the correct callback. The events can be inserted in a list like the
+  publisher/subscribe mechanism in signal.h/signal.c does.
+
+  Look at:
+  timer_create - create a POSIX per-process timer
+  timer_settime, timer_gettime - arm/disarm and fetch state of POSIX per-process timer
+- Print out information about a pcap file, e.g.:
+  Size: 368 MB
+  Packets: 791615
+  Flows: 40686
+  Average packet size: 449 bytes
+  Duration: 5 minutes
+  Number Applications: 132
+- Should print the checksums in hex format.
+- It could be nice to have a page showing all the IP addresses on the local
+  network (based on the local address and enumerating based on addresses found
+  during a packet scan). This page could show IP address, host name, OS info etc.
+  This would generate no traffic (except if host names etc. are wanted), but
+  would obviously just give a limited view of the hosts on the network.
+
+* Ncurses GUI
+- http://invisible-island.net/ncurses/ncurses-intro.html
+- Remove the PRINT_INFO macro. It only calls snprintcat.
+- Implement a possibility to select multiple list_view headers. Then one can
+  print all the selected headers when enter is pressed.
+- Why do I have a selection_line and a main_line? Remove selection_line and
+  use main_line instead.
+
+  main_line will always store the line that has been selected when enter is
+  pressed even when the selection_line has moved, e.g. when the user presses
+  the arrow keys but hasn't selected a new line yet.
+
+  I should rename selection_line to selectionbar and add a comment that this is
+  an index that is "absolute", i.e. it goes from 0 to n (where n is the number
+  of lines). "main_line" can be renamed to selected_line.
+
+- When adding "transport elements" move the test for IPv6/IPv4 to one function
+  so I don't need to write the if/else test all the time.
+- XXX_RENDER should not be called by calling functions of widgets, but should
+  be called in the widgets themselves.
+- Need to clean up the interface for the widget_create (constructor) functions.
+- Implement the possibility to have several subwindows open at once. The
+  subwindows can be stored in a list (or vector) and if there is not more space
+  left to show a new subwindow, close the least previously used window (or maybe
+  just the window on top of the screen).
+- Show the reply to a request/query and the opposite, e.g. a DNS response
+  related to the DNS query that is being inspected. Can maybe give the line
+  number to where the response/query is.
+- Implement scrolling in the pad.
+- No need to call the base render functions for the derived functions. The base
+  function should only be called one time and does not need to be updated again
+  when the derived class changes.
+- The handling of colours need to be improved. The colour pairs can be stored in
+  an array, and it should be easy to retrieve the correct colour for the
+  specific element.
+
+  Another interesting solution is to add themes, e.g. dark/light theme and store
+  the colours for the respective theme in an hash table.
+  Elements to be defined that use colours (COLOR_BLACK in ncurses is actually grey):
+  - hexdump: hd_ethernet, hd_network, hd_transport, hd_default
+  - header: Filename/device/address (green | bold on default)
+  - status: buttons (black on cyan)
+  - button: background (black on cyan / black on white)
+  - stat screen: title (green | bold on default), headers: (cyan | bold on default)
+  - dialogue: background (white on black)
+  - file dialogue: list background (cyan on default), input background (black on white)
+  - general: greyed out text
+
+- statusbar should be made into a container. It can have as argument an array
+  (or some other structure) that it uses to populate the container and prints
+  the buttons etc. When a new screen is pushed the statusbar needs to be updated
+  according to what the screen does.
+- Split protocols.c into two files: one that prints information on a single line,
+  i.e. the normal output, and one that prints packet information when a packet
+  is selected.
+
+* Packet decoder
+- Use PACKET_MMAP to remove "read" system calls (prevents copying data from kernel
+  to user space.
+
+- decoder.h should be autogenerated based on the the other header files in the
+  decoder.
+- Internal definitions used in the decoder should be moved to internal header
+  files.
+- Implement a general API to get the different headers that will be independent
+  of implementational details (how the structs are organized). This can be used
+  by other parts of the program (external header). If I then make a change in
+  the implementation, then I don't need to propagate that change for every part
+  that needs the packet information. May be a bit difficult to abstract
+  properly.
+- DNS resource records I need to implement: NSEC, LOC
+- Instead of having long statements like eth->ip->udp->dns->id, I should make
+  macros to return the packet I'm interested in, e.g. GET_DNS_MEMBER(p, id).
+  Check netinet/in.h or netinet/ipv6.h for an example of this. This needs to be
+  defined in packet.h
+- Need to support reassembly of "fragmented" TCP segments, e.g. for HTTP requests/
+  responses over several TCP segements. Make a tcp_analyzer.c file whose
+  responsibility it is to analyze the byte streams in the TCP sessions. Should I
+  make a buffer to store out of order packets and only feed the packets to the
+  analyzer when I'm sure that the packets are in order?
+  It's possible to use the libnids library for this. libnids performs TCP/IP
+  reassembly in exactly the same way as Linux 2.0.36 kernels.
+- decode_packet should return struct packet or NULL in case of error. Better than
+  having it return a boolean and use packet as a parameter to the function.
+- Replace the DNS name arrays in struct dns_info with char ptrs.
+- Look at the use of list_t and use other data structures where applicable.
+  Candidates for using a red-black tree (std::map): http->header
+- Look at the use of bit fields and portability. Need to make sure that it works
+  on big endian machines.
+- In order to save memory it's possible to decode packets the way Wireshark does,
+  i.e. store all packets on disk and read from it to show the decoded packets.
+- parse_pim_message in packet.pim.c can be changed to use a jump table instead
+  of a switch statement.
+- Implement error handling
+- Implement packet filtering with Linux packet filter (BPF) and a display filter.
+  This could also have an option to just highlight the traffic you are interested
+  in instead of filtering it.
+  See "pcap-filter" for filter syntax. Packet filter syntax in BNF form:
+  http://www.manualslib.com/manual/342018/Paradyne-Jetfusion-2208.html?page=231
+  Find out which parser generator is the best to use (e.g. Flex/Bison, Flex/Lemon
+  etc.) I'm leaning on using Lemon as it seems more lightweight and modular than
+  Bison. Lemon documentation: http://www.hwaci.com/sw/lemon/lemon.html
+  https://www.codeproject.com/Articles/1056460/Generating-a-High-Speed-Parser-Part-Lemon
+  First compile BPF assembler code to its opcode representation. Then, later, I
+  can add support for high-level syntax.
+  Also make a disassembler/debugger for this.
