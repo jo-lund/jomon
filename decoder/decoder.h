@@ -12,5 +12,6 @@
 #include "packet_ip.h"
 #include "packet_tcp.h"
 #include "packet_nbds.h"
+#include "packet_snmp.h"
 
 #endif

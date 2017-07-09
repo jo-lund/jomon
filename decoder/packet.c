@@ -36,7 +36,8 @@ struct packet_statistics pstat[] = {
     { "NBNS", 0, 0 },
     { "NBDS", 0, 0 },
     { "HTTP", 0, 0 },
-    { "SSDP", 0, 0 }
+    { "SSDP", 0, 0 },
+    { "SNMP", 0, 0 }
 };
 
 static void free_protocol_data(struct application_info *info);
@@ -208,6 +209,9 @@ bool check_port(unsigned char *buffer, int n, struct application_info *info,
     /* case HTTP: */
     /*     *error = handle_http(buffer, info, packet_len); */
     /*     return true; */
+    case SNMP:
+    case SNMPTRAP:
+        return handle_snmp(buffer, n, info);
     default:
         return false;
     }

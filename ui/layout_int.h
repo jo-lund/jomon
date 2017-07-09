@@ -45,6 +45,8 @@ enum layer {
     DNS_FLAGS,
     NBNS_FLAGS,
     NBDS_FLAGS,
+    SMB,
+    SMB_FLAGS,
     SUBLAYER,
     NUM_LAYERS
 };

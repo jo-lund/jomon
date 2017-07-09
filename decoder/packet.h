@@ -27,10 +27,11 @@ enum protocols {
     PROT_NBNS,
     PROT_NBDS,
     PROT_HTTP,
-    PROT_SSDP
+    PROT_SSDP,
+    PROT_SNMP
 };
 
-#define NUM_PROTOCOLS 14
+#define NUM_PROTOCOLS 15
 
 struct packet_statistics {
     char *protocol;
@@ -50,11 +51,13 @@ enum port {
      * Windows system can use DNS for all the purposes for which NBNS was used
      * previously.
      */
-    NBNS = 137,  /* NetBIOS Name Service */
-    NBDS = 138,  /* NetBIOS Datagram Service */
-    NBSS = 139,  /* NetBIOS Session Service */
-    SSDP = 1900, /* Simple Service Discovery Protocol */
-    MDNS = 5353  /* Multicast DNS */
+    NBNS = 137,     /* NetBIOS Name Service */
+    NBDS = 138,     /* NetBIOS Datagram Service */
+    NBSS = 139,     /* NetBIOS Session Service */
+    SNMP = 161,     /* Simple Network Management Protocol */
+    SNMPTRAP = 162, /* Simple Network Management Protocol Trap */
+    SSDP = 1900,    /* Simple Service Discovery Protocol */
+    MDNS = 5353     /* Multicast DNS */
 };
 
 enum packet_type {
@@ -69,6 +72,7 @@ struct application_info {
         struct nbns_info *nbns;
         struct nbds_info *nbds;
         struct http_info *http;
+        struct snmp_info *snmp;
         list_t *ssdp;
     };
 };

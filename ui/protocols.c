@@ -46,12 +46,13 @@ static void print_icmp(char *buf, int n, struct icmp_info *info);
 static void print_igmp(char *buf, int n, struct igmp_info *info);
 static void print_pim(char *buf, int n, struct pim_info *pim);
 static void print_dns(char *buf, int n, struct dns_info *dns, uint16_t type);
+static void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t type);
 static void print_nbns(char *buf, int n, struct nbns_info *nbns);
+static void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t type);
 static void print_nbds(char *buf, int n, struct nbds_info *nbds);
 static void print_ssdp(char *buf, int n, list_t *ssdp);
 static void print_http(char *buf, int n, struct http_info *http);
-static void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t type);
-static void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t type);
+static void print_snmp(char *buf, int n, struct snmp_info *snmp);
 static void add_dns_soa(list_view *lw, list_view_header *w, struct dns_info *dns, int i);
 static void add_dns_txt(list_view *lw, list_view_header *w, struct dns_info *dns, int i);
 static void add_dns_opt(list_view *lw, list_view_header *w, struct dns_info *dns, int i);
@@ -370,6 +371,9 @@ void print_udp(char *buf, int n, struct udp_info *udp)
     case SSDP:
         print_ssdp(buf, n, udp->data.ssdp);
         break;
+    case SNMP:
+        print_snmp(buf, n, udp->data.snmp);
+        break;
     default:
         PRINT_PROTOCOL(buf, n, "UDP");
         PRINT_INFO(buf, n, "Source port: %d  Destination port: %d", udp->src_port,
@@ -586,6 +590,18 @@ void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t
         break;
     default:
         break;
+    }
+}
+
+void print_snmp(char *buf, int n, struct snmp_info *snmp)
+{
+    char *type;
+
+    PRINT_PROTOCOL(buf, n, "SNMP");
+    if ((type = get_snmp_type(snmp))) {
+        PRINT_INFO(buf, n, "%s", type);
+    } else {
+        PRINT_INFO(buf, n, "type: %d", snmp->pdu_type);
     }
 }
 
