@@ -4,6 +4,7 @@
 #include "packet_ip.h"
 
 static struct packet_flags tcp_flags[] = {
+    { "Reserved", 3, NULL },
     { "NS: ECN nonce concealment protection", 1, NULL },
     { "CWR: Congestion Window Reduced", 1, NULL },
     { "ECE: ECN echo", 1, NULL },

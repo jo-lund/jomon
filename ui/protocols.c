@@ -1159,7 +1159,7 @@ void add_tcp_information(list_view *lw, list_view_header *header, struct tcp *tc
     ADD_TEXT_ELEMENT(lw, header, "Acknowledgment number: %u", tcp->ack_num);
     ADD_TEXT_ELEMENT(lw, header, "Data offset: %u", tcp->offset);
     hdr = ADD_SUB_HEADER(lw, header, selected[TCP_FLAGS], TCP_FLAGS, "Flags: %s(0x%x)", buf, flags);
-    add_flags(lw, hdr, flags, get_tcp_flags(), 9);
+    add_flags(lw, hdr, flags, get_tcp_flags(), 10);
     ADD_TEXT_ELEMENT(lw, header, "Window size: %u", tcp->window);
     ADD_TEXT_ELEMENT(lw, header, "Checksum: %u", tcp->checksum);
     ADD_TEXT_ELEMENT(lw, header, "Urgent pointer: %u", tcp->urg_ptr);
