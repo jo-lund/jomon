@@ -1,4 +1,5 @@
 #include <string.h>
+#include <stdio.h>
 #include "packet_snmp.h"
 #include "packet.h"
 #include "../vector.h"
@@ -24,12 +25,16 @@
 #define CONTEXT_SPECIFIC 2
 #define PRIVATE 3
 
+typedef union {
+    uint32_t ival;
+    char *pval;
+} snmp_value;
+
 static bool parse_message(unsigned char *buffer, int n, struct snmp_info *snmp);
-static bool parse_header(unsigned char *buffer, int n, struct snmp_info *snmp);
 static bool parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp);
 static bool parse_variables(unsigned char *buffer, int n, struct snmp_pdu *pdu);
 static uint32_t parse_value(unsigned char **data, uint8_t *class, uint8_t *tag,
-                            vector_t *vec);
+                            snmp_value *value);
 /*
  * SNMP messages use a tag-length-value encding scheme (Basic Encoding Rules).
  * SNMP uses only a subset of the basic encoding rules of ASN.1. Namely, all
@@ -58,7 +63,7 @@ bool parse_message(unsigned char *buffer, int n, struct snmp_info *snmp)
         msg_len = parse_value(&ptr, &class, &tag, NULL);
     }
     if (tag == SEQUENCE_TAG) {
-        return parse_header(ptr, msg_len, snmp);
+        return parse_pdu(ptr, msg_len, snmp);
     }
     return false;
 }
@@ -69,72 +74,53 @@ bool parse_message(unsigned char *buffer, int n, struct snmp_info *snmp)
  * community - octet string
  * PDU type - context specific with tag from 0 - 4
  */
-bool parse_header(unsigned char *buffer, int n, struct snmp_info *snmp)
+bool parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp)
 {
     uint8_t class;
     uint8_t tag;
     unsigned char *ptr = buffer;
-    vector_t *header;
-    int i = 0;
+    snmp_value val[2];
 
-    header = vector_init(2);
-    while (n > 0 && i < 2) {
-        n -= parse_value(&ptr, &class, &tag, header);
-        i++;
+    for (int i = 0; i < 2 && n > 0; i++) {
+        n -= parse_value(&ptr, &class, &tag, &val[i]);
     }
-    if (n > 0 && i == 2) {
-        snmp->version = * (uint8_t *) vector_get_data(header, 0);
-        snmp->community = (char *) vector_get_data(header, 1);
-        vector_pop_back(header, NULL); /* don't deallocate community ptr */
-        vector_free(header, free);
-    } else {
-        return false;
-    }
+    if (n > 0) {
+        /* parse common header */
+        snmp->version = val[0].ival;
+        snmp->community = val[1].pval;
+        n = parse_value(&ptr, &class, &tag, NULL); /* get PDU type */
+        if (n > 0 && class == CONTEXT_SPECIFIC) {
+            snmp->pdu_type = tag;
+            switch (snmp->pdu_type) {
+            case SNMP_GET_REQUEST:
+            case SNMP_GET_NEXT_REQUEST:
+            case SNMP_SET_REQUEST:
+            case SNMP_GET_RESPONSE:
+            {
+                uint8_t class;
+                uint8_t tag;
+                snmp_value val[3];
 
-    /* get PDU type */
-    n -= parse_value(&ptr, &class, &tag, NULL);
-    if (n > 0 && class == CONTEXT_SPECIFIC) { /* class should be context specific */
-        snmp->pdu_type = tag;
-        return parse_pdu(ptr, n, snmp);
+                /* parse get/set header */
+                snmp->pdu = malloc(sizeof(struct snmp_pdu));
+                for (int i = 0; i < 3 && n > 0; i++) {
+                    n -= parse_value(&ptr, &class, &tag, &val[i]);
+                }
+                if (n > 0) {
+                    snmp->pdu->request_id = val[0].ival;
+                    snmp->pdu->error_status = val[1].ival;
+                    snmp->pdu->error_index = val[2].ival;
+                    return parse_variables(ptr, n, snmp->pdu);
+                }
+                return false;
+            }
+            case SNMP_TRAP:
+            default:
+                return false;
+            }
+        }
     }
     return false;
-}
-
-bool parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp)
-{
-    unsigned char *ptr = buffer;
-
-    switch (snmp->pdu_type) {
-    case SNMP_GET_REQUEST:
-    case SNMP_GET_NEXT_REQUEST:
-    case SNMP_SET_REQUEST:
-    case SNMP_GET_RESPONSE:
-    {
-        uint8_t class;
-        uint8_t tag;
-        vector_t *pdu;
-        int i = 0;
-
-        /* parse get/set header */
-        pdu = vector_init(3);
-        snmp->pdu = malloc(sizeof(struct snmp_pdu));
-        while (n > 0 && i < 3) {
-            n -= parse_value(&ptr, &class, &tag, pdu);
-            i++;
-        }
-        if (n > 0 && i == 3) {
-            snmp->pdu->request_id = * (uint32_t *) vector_get_data(pdu, 0);
-            snmp->pdu->error_status = * (uint32_t *) vector_get_data(pdu, 1);
-            snmp->pdu->error_index = * (uint32_t *) vector_get_data(pdu, 2);
-            vector_free(pdu, free);
-            return parse_variables(ptr, n, snmp->pdu);
-        }
-        break;
-    }
-    case SNMP_TRAP:
-    default:
-        return false;
-    }
 }
 
 /*
@@ -147,14 +133,45 @@ bool parse_variables(unsigned char *buffer, int n, struct snmp_pdu *pdu)
     uint8_t tag;
     unsigned char *ptr = buffer;
 
-    n -= parse_value(&ptr, &class, &tag, NULL);
-    if (tag == SEQUENCE_TAG && n > 0) {
-        parse_value(&ptr, &class, &tag, NULL);
+    pdu->varbind_list = list_init();
+    n = parse_value(&ptr, &class, &tag, NULL);
+    if (tag == SEQUENCE_TAG) {
+        while (n > 0) {
+            n -= parse_value(&ptr, &class, &tag, NULL);
+            if (tag == SEQUENCE_TAG && n > 0) {
+                snmp_value val;
+
+                n = parse_value(&ptr, &class, &tag, &val);
+                if (tag == OBJECT_ID_TAG && n > 0) {
+                    struct snmp_varbind *var;
+
+                    var = malloc(sizeof(struct snmp_varbind));
+                    var->object_name = val.pval;
+                    n -= parse_value(&ptr, &class, &tag, &val);
+                    var->type = tag;
+                    switch (tag) {
+                    case INTEGER_TAG:
+                        var->object_syntax.ival = val.ival;
+                        break;
+                    case OCTET_STRING_TAG:
+                    case OBJECT_ID_TAG:
+                        var->object_syntax.pval = val.pval;
+                        break;
+                    case NULL_TAG:
+                        var->object_syntax.pval = NULL;
+                        break;
+                    default:
+                        break;
+                    }
+                    list_push_back(pdu->varbind_list, var);
+                }
+            }
+        }
     }
     return true;
 }
 
-uint32_t parse_value(unsigned char **data, uint8_t *class, uint8_t *tag, vector_t *vec)
+uint32_t parse_value(unsigned char **data, uint8_t *class, uint8_t *tag, snmp_value *value)
 {
     uint32_t len = 0;
     unsigned char *ptr = *data;
@@ -171,7 +188,7 @@ uint32_t parse_value(unsigned char **data, uint8_t *class, uint8_t *tag, vector_
         int num_octets;
 
         num_octets = *ptr & 0x7f;
-        if (num_octets <= 4) { /* BER has support for up to 127 octets */
+        if (num_octets <= 4) {
             for (int i = 0; i < num_octets; i++) {
                 len = len << 8 | *++ptr;
             }
@@ -181,35 +198,58 @@ uint32_t parse_value(unsigned char **data, uint8_t *class, uint8_t *tag, vector_
     }
     ptr++; /* skip (last) length byte */
 
-    if (vec && *class == 0) { /* universal */
+    if (value && *class == 0) { /* universal */
         switch (*tag) {
         case INTEGER_TAG:
-        {
-            int32_t val = 0;
-            int32_t *pval;
-
+            value->ival = 0;
             for (int i = 0; i < len; i++) {
-                val = val << 8 | *ptr++;
+                value->ival = value->ival << 8 | *ptr++;
             }
-            pval = malloc(sizeof(int32_t));
-            *pval = val;
-            vector_push_back(vec, pval);
             break;
-        }
         case OCTET_STRING_TAG:
             if (len > 0) {
-                char *pval;
-
-                pval = malloc(len);
-                memcpy(pval, ptr, len);
-                vector_push_back(vec, pval);
+                value->pval = malloc(len);
+                memcpy(value->pval, ptr, len);
                 ptr += len;
             }
             break;
         case OBJECT_ID_TAG:
             if (len > 0) {
-            }
+                char val[MAX_OID_LEN];
+                int i = 0;
+                int j = 0;
+                char c;
 
+                /*
+                 * The first two oid components are encoded as x * 40 + y, where
+                 * x is the value of the first oid component and y the second.
+                 */
+                c = ptr[j++];
+                val[0] = c / 40 + '0';
+                val[1] = '.';
+                i += 2;
+                c %= 40;
+                i += snprintf(val + i, MAX_OID_LEN - i, "%d.", c);
+                while (i < MAX_OID_LEN && j < len) {
+                    if (ptr[j] & 0x80) {
+                        uint32_t v = 0;
+
+                        for (int k = 0; k < 4 && ptr[j] & 0x80; k++) {
+                            v = v << 7 | (ptr[j++] & 0x7f);
+                        }
+                        v = v << 7 | (ptr[j++] & 0x7f); /* last group */
+                        i += snprintf(val + i, MAX_OID_LEN - i, "%d.", v);
+                    } else {
+                        uint8_t v;
+
+                        v = ptr[j++];
+                        i += snprintf(val + i, MAX_OID_LEN - i, "%d.", v);
+                    }
+                }
+                val[i-1] = '\0';
+                value->pval = malloc(strlen(val) + 1);
+                strcpy(value->pval, val);
+            }
             break;
         default:
             break;

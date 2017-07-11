@@ -19,6 +19,7 @@
 #include "packet_ip.h"
 #include "packet_ssdp.h"
 #include "packet_nbds.h"
+#include "packet_snmp.h"
 
 /* this needs to be in the same order as enum protocols, see packet.h */
 struct packet_statistics pstat[] = {

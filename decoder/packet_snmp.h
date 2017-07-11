@@ -3,12 +3,13 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "../list.h"
 
 /* PDU types */
 #define SNMP_GET_REQUEST 0
 #define SNMP_GET_NEXT_REQUEST 1
-#define SNMP_SET_REQUEST 2
-#define SNMP_GET_RESPONSE 3
+#define SNMP_GET_RESPONSE 2
+#define SNMP_SET_REQUEST 3
 #define SNMP_TRAP 4
 
 /* error status */
@@ -21,13 +22,20 @@
 
 typedef char* oid;
 
-struct application_info;
+struct snmp_varbind {
+    oid object_name;
+    uint8_t type;
+    union {
+        int32_t ival;
+        char *pval;
+    } object_syntax;
+};
 
 struct snmp_pdu {
     uint32_t request_id;
     uint32_t error_status;
     uint32_t error_index;
-    char data[];
+    list_t *varbind_list;
 };
 
 struct snmp_trap {
@@ -37,7 +45,6 @@ struct snmp_trap {
     uint8_t specific_code;
     uint32_t timestamp; /* representing the number of hundreths of a second since
                            the agent initialized */
-    char data[];
 };
 
 struct snmp_info {
@@ -49,6 +56,8 @@ struct snmp_info {
         struct snmp_trap *trap;
     };
 };
+
+struct application_info;
 
 char *get_snmp_type(struct snmp_info *snmp);
 bool handle_snmp(unsigned char *buffer, int n, struct application_info *adu);

@@ -599,9 +599,23 @@ void print_snmp(char *buf, int n, struct snmp_info *snmp)
 
     PRINT_PROTOCOL(buf, n, "SNMP");
     if ((type = get_snmp_type(snmp))) {
-        PRINT_INFO(buf, n, "%s", type);
+        PRINT_INFO(buf, n, "%s ", type);
     } else {
-        PRINT_INFO(buf, n, "type: %d", snmp->pdu_type);
+        PRINT_INFO(buf, n, "type: %d ", snmp->pdu_type);
+    }
+    if (snmp->pdu_type == SNMP_TRAP) {
+
+    } else {
+        if (snmp->pdu->varbind_list) {
+            const node_t *n = list_begin(snmp->pdu->varbind_list);
+
+            while (n) {
+                struct snmp_varbind *var = (struct snmp_varbind *) list_data(n);
+
+                PRINT_INFO(buf, MAXLINE, "%s ", var->object_name);
+                n = list_next(n);
+            }
+        }
     }
 }
 
