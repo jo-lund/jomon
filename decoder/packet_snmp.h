@@ -20,6 +20,15 @@
 #define SNMP_READ_ONLY 4    /* manager tried to modify a read-only variable */
 #define SNMP_GEN_ERR        /* some other error */
 
+/* value types */
+#define SNMP_BOOLEAN_TAG 1
+#define SNMP_INTEGER_TAG 2
+#define SNMP_BIT_STRING_TAG 3
+#define SNMP_OCTET_STRING_TAG 4
+#define SNMP_NULL_TAG 5
+#define SNMP_OBJECT_ID_TAG 6
+#define SNMP_SEQUENCE_TAG 16
+
 typedef char* oid;
 
 struct snmp_varbind {
@@ -60,6 +69,8 @@ struct snmp_info {
 struct application_info;
 
 char *get_snmp_type(struct snmp_info *snmp);
+void free_snmp_packet(struct snmp_info *snmp);
+
 bool handle_snmp(unsigned char *buffer, int n, struct application_info *adu);
 
 #endif

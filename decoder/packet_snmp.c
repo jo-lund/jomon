@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include "packet_snmp.h"
 #include "packet.h"
-#include "../vector.h"
 
 /*
  * there are at most 128 sub-indentifiers in a value and each sub-identifier has
@@ -10,14 +9,7 @@
  */
 #define MAX_OID_LEN 512
 
-/* type */
-#define BOOLEAN_TAG 1
-#define INTEGER_TAG 2
-#define BIT_STRING_TAG 3
-#define OCTET_STRING_TAG 4
-#define NULL_TAG 5
-#define OBJECT_ID_TAG 6
-#define SEQUENCE_TAG 16
+#define MIN_MSG 6 /* tag and length bytes */
 
 /* class */
 #define UNIVERSAL 0
@@ -30,11 +22,11 @@ typedef union {
     char *pval;
 } snmp_value;
 
-static bool parse_message(unsigned char *buffer, int n, struct snmp_info *snmp);
 static bool parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp);
 static bool parse_variables(unsigned char *buffer, int n, struct snmp_pdu *pdu);
 static uint32_t parse_value(unsigned char **data, uint8_t *class, uint8_t *tag,
                             snmp_value *value);
+static void free_snmp_varbind(void *data);
 /*
  * SNMP messages use a tag-length-value encding scheme (Basic Encoding Rules).
  * SNMP uses only a subset of the basic encoding rules of ASN.1. Namely, all
@@ -43,27 +35,19 @@ static uint32_t parse_value(unsigned char **data, uint8_t *class, uint8_t *tag,
  */
 bool handle_snmp(unsigned char *buffer, int n, struct application_info *adu)
 {
-    bool error;
-
-    adu->snmp = malloc(sizeof(struct snmp_info));
-    error = parse_message(buffer, n, adu->snmp);
-    pstat[PROT_SNMP].num_packets++;
-    pstat[PROT_SNMP].num_bytes += n;
-    return error;
-}
-
-bool parse_message(unsigned char *buffer, int n, struct snmp_info *snmp)
-{
     uint8_t class;
     uint8_t tag;
     uint32_t msg_len;
     unsigned char *ptr = buffer;
 
-    if (n > 2) { /* tag + length (short form) */
+    pstat[PROT_SNMP].num_packets++;
+    pstat[PROT_SNMP].num_bytes += n;
+    adu->snmp = calloc(1, sizeof(struct snmp_info));
+    if (n > MIN_MSG) {
         msg_len = parse_value(&ptr, &class, &tag, NULL);
     }
-    if (tag == SEQUENCE_TAG) {
-        return parse_pdu(ptr, msg_len, snmp);
+    if (tag == SNMP_SEQUENCE_TAG) {
+        return parse_pdu(ptr, msg_len, adu->snmp);
     }
     return false;
 }
@@ -85,7 +69,7 @@ bool parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp)
         n -= parse_value(&ptr, &class, &tag, &val[i]);
     }
     if (n > 0) {
-        /* parse common header */
+        /* common header */
         snmp->version = val[0].ival;
         snmp->community = val[1].pval;
         n = parse_value(&ptr, &class, &tag, NULL); /* get PDU type */
@@ -135,14 +119,14 @@ bool parse_variables(unsigned char *buffer, int n, struct snmp_pdu *pdu)
 
     pdu->varbind_list = list_init();
     n = parse_value(&ptr, &class, &tag, NULL);
-    if (tag == SEQUENCE_TAG) {
+    if (tag == SNMP_SEQUENCE_TAG) {
         while (n > 0) {
-            n -= parse_value(&ptr, &class, &tag, NULL);
-            if (tag == SEQUENCE_TAG && n > 0) {
-                snmp_value val;
+            snmp_value val;
 
-                n = parse_value(&ptr, &class, &tag, &val);
-                if (tag == OBJECT_ID_TAG && n > 0) {
+            n -= parse_value(&ptr, &class, &tag, &val);
+            if (tag == SNMP_SEQUENCE_TAG && n >= 0) {
+                n -= parse_value(&ptr, &class, &tag, &val);
+                if (tag == SNMP_OBJECT_ID_TAG && n > 0) {
                     struct snmp_varbind *var;
 
                     var = malloc(sizeof(struct snmp_varbind));
@@ -150,15 +134,13 @@ bool parse_variables(unsigned char *buffer, int n, struct snmp_pdu *pdu)
                     n -= parse_value(&ptr, &class, &tag, &val);
                     var->type = tag;
                     switch (tag) {
-                    case INTEGER_TAG:
+                    case SNMP_INTEGER_TAG:
                         var->object_syntax.ival = val.ival;
                         break;
-                    case OCTET_STRING_TAG:
-                    case OBJECT_ID_TAG:
+                    case SNMP_OCTET_STRING_TAG:
+                    case SNMP_OBJECT_ID_TAG:
+                    case SNMP_NULL_TAG:
                         var->object_syntax.pval = val.pval;
-                        break;
-                    case NULL_TAG:
-                        var->object_syntax.pval = NULL;
                         break;
                     default:
                         break;
@@ -175,6 +157,7 @@ uint32_t parse_value(unsigned char **data, uint8_t *class, uint8_t *tag, snmp_va
 {
     uint32_t len = 0;
     unsigned char *ptr = *data;
+    int len_num_octets = 0;
 
     /*
      * For low-tag-number form (tags 0 - 30), the first two bits specify the
@@ -185,11 +168,9 @@ uint32_t parse_value(unsigned char **data, uint8_t *class, uint8_t *tag, snmp_va
     *tag = *ptr & 0x1f;
     ptr++;
     if (*ptr & 0x80) { /* long form */
-        int num_octets;
-
-        num_octets = *ptr & 0x7f;
-        if (num_octets <= 4) {
-            for (int i = 0; i < num_octets; i++) {
+        len_num_octets = *ptr & 0x7f;
+        if (len_num_octets <= 4) {
+            for (int i = 0; i < len_num_octets; i++) {
                 len = len << 8 | *++ptr;
             }
         }
@@ -200,20 +181,24 @@ uint32_t parse_value(unsigned char **data, uint8_t *class, uint8_t *tag, snmp_va
 
     if (value && *class == 0) { /* universal */
         switch (*tag) {
-        case INTEGER_TAG:
+        case SNMP_INTEGER_TAG:
             value->ival = 0;
             for (int i = 0; i < len; i++) {
                 value->ival = value->ival << 8 | *ptr++;
             }
+            /* add tag and length bytes */
+            len = (len_num_octets) ? len + len_num_octets : len + 2;
             break;
-        case OCTET_STRING_TAG:
+        case SNMP_OCTET_STRING_TAG:
             if (len > 0) {
                 value->pval = malloc(len);
                 memcpy(value->pval, ptr, len);
                 ptr += len;
             }
+            /* add tag and length bytes */
+            len = (len_num_octets) ? len + len_num_octets : len + 2;
             break;
-        case OBJECT_ID_TAG:
+        case SNMP_OBJECT_ID_TAG:
             if (len > 0) {
                 char val[MAX_OID_LEN];
                 int i = 0;
@@ -249,14 +234,26 @@ uint32_t parse_value(unsigned char **data, uint8_t *class, uint8_t *tag, snmp_va
                 val[i-1] = '\0';
                 value->pval = malloc(strlen(val) + 1);
                 strcpy(value->pval, val);
+                ptr += len;
+
+                /* add tag and length bytes */
+                len = (len_num_octets) ? len + len_num_octets : len + 2;
             }
+            break;
+        case SNMP_NULL_TAG:
+            value->pval = NULL;
+            len = 2; /* tag and length bytes */
+            break;
+        case SNMP_SEQUENCE_TAG:
+            /* only add tag and length bytes */
+            len = (len_num_octets) ? len_num_octets : 2;
             break;
         default:
             break;
         }
     }
     *data = ptr;
-    return len + 2; /* tag and length bytes + length of content */
+    return len;
 }
 
 char *get_snmp_type(struct snmp_info *snmp)
@@ -275,4 +272,36 @@ char *get_snmp_type(struct snmp_info *snmp)
     default:
         return NULL;
     }
+}
+
+void free_snmp_varbind(void *data)
+{
+    struct snmp_varbind *var = (struct snmp_varbind *) data;
+
+    if (var->type == SNMP_OCTET_STRING_TAG || var->type == SNMP_OBJECT_ID_TAG) {
+        if (var->object_syntax.pval) {
+            free(var->object_syntax.pval);
+        }
+    }
+    free(var);
+}
+
+void free_snmp_packet(struct snmp_info *snmp)
+{
+    if (snmp->community) {
+        free(snmp->community);
+    }
+    switch (snmp->pdu_type) {
+    case SNMP_GET_REQUEST:
+    case SNMP_GET_NEXT_REQUEST:
+    case SNMP_SET_REQUEST:
+    case SNMP_GET_RESPONSE:
+        list_free(snmp->pdu->varbind_list, free_snmp_varbind);
+        free(snmp->pdu);
+        break;
+    case SNMP_TRAP:
+    default:
+        break;
+    }
+    free(snmp);
 }

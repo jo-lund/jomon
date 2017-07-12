@@ -73,6 +73,7 @@ static void add_pim_register_stop(list_view *lw, list_view_header *header, struc
 static void add_pim_bootstrap(list_view *lw, list_view_header *header, struct pim_info *pim);
 static void add_pim_candidate(list_view *lw, list_view_header *header, struct pim_info *pim);
 static void add_flags(list_view *lw, list_view_header *header, uint16_t flags, struct packet_flags *pf, int num_flags);
+static void add_snmp_pdu(list_view *lw, list_view_header *header, struct snmp_pdu *pdu);
 
 void write_to_buf(char *buf, int size, struct packet *p)
 {
@@ -1634,6 +1635,73 @@ void add_ssdp_information(list_view *lw, list_view_header *header, list_t *ssdp)
 
 void add_http_information(list_view *lw, list_view_header *header, struct http_info *http)
 {
+}
+
+void add_snmp_information(list_view *lw, list_view_header *header, struct snmp_info *snmp)
+{
+    list_view_header *hdr;
+
+    ADD_TEXT_ELEMENT(lw, header, "Version: %d", snmp->version);
+    ADD_TEXT_ELEMENT(lw, header, "Community: %s", snmp->community);
+    switch (snmp->pdu_type) {
+    case SNMP_GET_REQUEST:
+        hdr = ADD_SUB_HEADER(lw, header, selected[SNMP_PDU], SNMP_PDU, "GetRequest");
+        add_snmp_pdu(lw, hdr, snmp->pdu);
+        break;
+    case SNMP_GET_NEXT_REQUEST:
+        hdr = ADD_SUB_HEADER(lw, header, selected[SNMP_PDU], SNMP_PDU, "GetNextRequest");
+        add_snmp_pdu(lw, hdr, snmp->pdu);
+        break;
+    case SNMP_SET_REQUEST:
+        hdr = ADD_SUB_HEADER(lw, header, selected[SNMP_PDU], SNMP_PDU, "SetRequest");
+        add_snmp_pdu(lw, hdr, snmp->pdu);
+        break;
+    case SNMP_GET_RESPONSE:
+        hdr = ADD_SUB_HEADER(lw, header, selected[SNMP_PDU], SNMP_PDU, "GetResponse");;
+        add_snmp_pdu(lw, hdr, snmp->pdu);
+        break;
+    case SNMP_TRAP:
+        hdr = ADD_SUB_HEADER(lw, header, selected[SNMP_PDU], SNMP_PDU, "Trap");
+        add_snmp_pdu(lw, hdr, snmp->pdu);
+        break;
+    default:
+        break;
+    }
+}
+
+void add_snmp_pdu(list_view *lw, list_view_header *header, struct snmp_pdu *pdu)
+{
+    const node_t *n = list_begin(pdu->varbind_list);
+
+    ADD_TEXT_ELEMENT(lw, header, "Request ID: %d", pdu->request_id);
+    ADD_TEXT_ELEMENT(lw, header, "Error status: %d", pdu->error_status);
+    ADD_TEXT_ELEMENT(lw, header, "Error index: %d", pdu->error_index);
+    while (n) {
+        struct snmp_varbind *var = list_data(n);
+        list_view_header *hdr;
+
+        if (var->type == SNMP_INTEGER_TAG) {
+            hdr = ADD_SUB_HEADER(lw, header, selected[SNMP_VARS], SNMP_VARS, "%s: %d",
+                                 var->object_name, var->object_syntax.ival);
+            ADD_TEXT_ELEMENT(lw, hdr, "Object name: %s", var->object_name);
+            ADD_TEXT_ELEMENT(lw, hdr, "Value: %d", var->object_syntax.ival);
+        } else {
+            if (!var->object_syntax.pval) {
+                hdr = ADD_SUB_HEADER(lw, header, selected[SNMP_VARS], SNMP_VARS, "%s: null",
+                                     var->object_name);
+                ADD_TEXT_ELEMENT(lw, hdr, "Object name: %s", var->object_name);
+                ADD_TEXT_ELEMENT(lw, hdr, "Value: null");
+
+            } else {
+                hdr = ADD_SUB_HEADER(lw, header, selected[SNMP_VARS], SNMP_VARS, "%s: %s",
+                                     var->object_name, var->object_syntax.pval);
+                ADD_TEXT_ELEMENT(lw, hdr, "Object name: %s", var->object_name);
+                ADD_TEXT_ELEMENT(lw, hdr, "Value: %s", var->object_syntax.pval);
+            }
+        }
+        n = list_next(n);
+        if (n) ADD_TEXT_ELEMENT(lw, hdr, "");
+    }
 }
 
 /*

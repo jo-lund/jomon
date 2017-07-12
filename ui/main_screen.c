@@ -1157,31 +1157,35 @@ void add_transport_elements(main_screen *ms, struct packet *p)
     }
 }
 
-void add_app_elements(main_screen *ms, struct packet *p, struct application_info *info, uint16_t len)
+void add_app_elements(main_screen *ms, struct packet *p, struct application_info *adu, uint16_t len)
 {
     list_view_header *header;
 
-    switch (info->utype) {
+    switch (adu->utype) {
     case DNS:
     case MDNS:
         header = ADD_HEADER(ms->lvw, "Domain Name System (DNS)", selected[APPLICATION], APPLICATION);
-        add_dns_information(ms->lvw, header, info->dns);
+        add_dns_information(ms->lvw, header, adu->dns);
         break;
     case NBNS:
         header = ADD_HEADER(ms->lvw, "NetBIOS Name Service (NBNS)", selected[APPLICATION], APPLICATION);
-        add_nbns_information(ms->lvw, header, info->nbns);
+        add_nbns_information(ms->lvw, header, adu->nbns);
         break;
     case NBDS:
         header = ADD_HEADER(ms->lvw, "NetBIOS Datagram Service (NBDS)", selected[APPLICATION], APPLICATION);
-        add_nbds_information(ms->lvw, header, info->nbds);
+        add_nbds_information(ms->lvw, header, adu->nbds);
         break;
     case HTTP:
         header = ADD_HEADER(ms->lvw, "Hypertext Transfer Protocol (HTTP)", selected[APPLICATION], APPLICATION);
-        add_http_information(ms->lvw, header, info->http);
+        add_http_information(ms->lvw, header, adu->http);
         break;
     case SSDP:
         header = ADD_HEADER(ms->lvw, "Simple Service Discovery Protocol (SSDP)", selected[APPLICATION], APPLICATION);
-        add_ssdp_information(ms->lvw, header, info->ssdp);
+        add_ssdp_information(ms->lvw, header, adu->ssdp);
+        break;
+    case SNMP:
+        header = ADD_HEADER(ms->lvw, "Simple Network Management Protocol (SNMP)", selected[APPLICATION], APPLICATION);
+        add_snmp_information(ms->lvw, header, adu->snmp);
         break;
     default:
         if (len) {

@@ -47,6 +47,8 @@ enum layer {
     NBDS_FLAGS,
     SMB,
     SMB_FLAGS,
+    SNMP_PDU,
+    SNMP_VARS,
     SUBLAYER,
     NUM_LAYERS
 };

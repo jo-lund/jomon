@@ -156,30 +156,33 @@ void free_packet(void *data)
     free(p);
 }
 
-void free_protocol_data(struct application_info *info)
+void free_protocol_data(struct application_info *adu)
 {
-    switch (info->utype) {
+    switch (adu->utype) {
     case DNS:
-        free_dns_packet(info->dns);
+        free_dns_packet(adu->dns);
         break;
     case NBNS:
-        if (info->nbns) {
-            if (info->nbns->record) {
-                free(info->nbns->record);
+        if (adu->nbns) {
+            if (adu->nbns->record) {
+                free(adu->nbns->record);
             }
-            free(info->nbns);
+            free(adu->nbns);
         }
         break;
     case NBDS:
-        free_nbds_packet(info->nbds);
+        free_nbds_packet(adu->nbds);
         break;
     case SSDP:
-        if (info->ssdp) {
-            list_free(info->ssdp, free);
+        if (adu->ssdp) {
+            list_free(adu->ssdp, free);
         }
         break;
     case HTTP:
-        free_http_packet(info->http);
+        free_http_packet(adu->http);
+        break;
+    case SNMP:
+        free_snmp_packet(adu->snmp);
         break;
     default:
         break;
