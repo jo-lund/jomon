@@ -49,11 +49,12 @@ struct snmp_pdu {
 
 struct snmp_trap {
     oid enterprise;
-    uint32_t agent_addr;
+    char *agent_addr;
     uint8_t trap_type;
     uint8_t specific_code;
     uint32_t timestamp; /* representing the number of hundreths of a second since
                            the agent initialized */
+    list_t *varbind_list;
 };
 
 struct snmp_info {

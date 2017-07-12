@@ -182,6 +182,7 @@ void free_protocol_data(struct application_info *adu)
         free_http_packet(adu->http);
         break;
     case SNMP:
+    case SNMPTRAP:
         free_snmp_packet(adu->snmp);
         break;
     default:

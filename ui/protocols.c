@@ -74,6 +74,8 @@ static void add_pim_bootstrap(list_view *lw, list_view_header *header, struct pi
 static void add_pim_candidate(list_view *lw, list_view_header *header, struct pim_info *pim);
 static void add_flags(list_view *lw, list_view_header *header, uint16_t flags, struct packet_flags *pf, int num_flags);
 static void add_snmp_pdu(list_view *lw, list_view_header *header, struct snmp_pdu *pdu);
+static void add_snmp_trap(list_view *lw, list_view_header *header, struct snmp_trap *pdu);
+static void add_snmp_variables(list_view *lw, list_view_header *header, list_t *vars);
 
 void write_to_buf(char *buf, int size, struct packet *p)
 {
@@ -373,6 +375,7 @@ void print_udp(char *buf, int n, struct udp_info *udp)
         print_ssdp(buf, n, udp->data.ssdp);
         break;
     case SNMP:
+    case SNMPTRAP:
         print_snmp(buf, n, udp->data.snmp);
         break;
     default:
@@ -597,6 +600,7 @@ void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t
 void print_snmp(char *buf, int n, struct snmp_info *snmp)
 {
     char *type;
+    list_t *vars;
 
     PRINT_PROTOCOL(buf, n, "SNMP");
     if ((type = get_snmp_type(snmp))) {
@@ -605,17 +609,18 @@ void print_snmp(char *buf, int n, struct snmp_info *snmp)
         PRINT_INFO(buf, n, "type: %d ", snmp->pdu_type);
     }
     if (snmp->pdu_type == SNMP_TRAP) {
-
+        vars = snmp->trap->varbind_list;
     } else {
-        if (snmp->pdu->varbind_list) {
-            const node_t *n = list_begin(snmp->pdu->varbind_list);
+        vars = snmp->pdu->varbind_list;
+    }
+    if (vars) {
+        const node_t *n = list_begin(vars);
 
-            while (n) {
-                struct snmp_varbind *var = (struct snmp_varbind *) list_data(n);
+        while (n) {
+            struct snmp_varbind *var = (struct snmp_varbind *) list_data(n);
 
-                PRINT_INFO(buf, MAXLINE, "%s ", var->object_name);
-                n = list_next(n);
-            }
+            PRINT_INFO(buf, MAXLINE, "%s ", var->object_name);
+            n = list_next(n);
         }
     }
 }
@@ -1662,7 +1667,7 @@ void add_snmp_information(list_view *lw, list_view_header *header, struct snmp_i
         break;
     case SNMP_TRAP:
         hdr = ADD_SUB_HEADER(lw, header, selected[SNMP_PDU], SNMP_PDU, "Trap");
-        add_snmp_pdu(lw, hdr, snmp->pdu);
+        add_snmp_trap(lw, hdr, snmp->trap);
         break;
     default:
         break;
@@ -1671,11 +1676,25 @@ void add_snmp_information(list_view *lw, list_view_header *header, struct snmp_i
 
 void add_snmp_pdu(list_view *lw, list_view_header *header, struct snmp_pdu *pdu)
 {
-    const node_t *n = list_begin(pdu->varbind_list);
-
     ADD_TEXT_ELEMENT(lw, header, "Request ID: %d", pdu->request_id);
     ADD_TEXT_ELEMENT(lw, header, "Error status: %d", pdu->error_status);
     ADD_TEXT_ELEMENT(lw, header, "Error index: %d", pdu->error_index);
+    add_snmp_variables(lw, header, pdu->varbind_list);
+}
+
+void add_snmp_trap(list_view *lw, list_view_header *header, struct snmp_trap *pdu)
+{
+    ADD_TEXT_ELEMENT(lw, header, "Enterprise: %s", pdu->enterprise);
+    ADD_TEXT_ELEMENT(lw, header, "Agent address: %s", pdu->agent_addr);
+    ADD_TEXT_ELEMENT(lw, header, "Trap type: %d", pdu->trap_type);
+    ADD_TEXT_ELEMENT(lw, header, "Specific code: %d", pdu->specific_code);
+    add_snmp_variables(lw, header, pdu->varbind_list);
+}
+
+void add_snmp_variables(list_view *lw, list_view_header *header, list_t *vars)
+{
+    const node_t *n = list_begin(vars);
+
     while (n) {
         struct snmp_varbind *var = list_data(n);
         list_view_header *hdr;
@@ -1703,6 +1722,7 @@ void add_snmp_pdu(list_view *lw, list_view_header *header, struct snmp_pdu *pdu)
         if (n) ADD_TEXT_ELEMENT(lw, hdr, "");
     }
 }
+
 
 /*
  * Display the bit values of flags

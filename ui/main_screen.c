@@ -1184,6 +1184,7 @@ void add_app_elements(main_screen *ms, struct packet *p, struct application_info
         add_ssdp_information(ms->lvw, header, adu->ssdp);
         break;
     case SNMP:
+    case SNMPTRAP:
         header = ADD_HEADER(ms->lvw, "Simple Network Management Protocol (SNMP)", selected[APPLICATION], APPLICATION);
         add_snmp_information(ms->lvw, header, adu->snmp);
         break;
