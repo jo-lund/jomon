@@ -333,6 +333,26 @@ char *get_snmp_type(struct snmp_info *snmp)
     }
 }
 
+char *get_snmp_error_status(struct snmp_pdu *pdu)
+{
+    switch (pdu->error_status) {
+    case SNMP_NO_ERROR:
+        return "noError";
+    case SNMP_TOO_BIG:
+        return "tooBig";
+    case SNMP_NO_SUCH_NAME:
+        return "noSuchName";
+    case SNMP_BAD_VALUE:
+        return "badValue";
+    case SNMP_READ_ONLY:
+        return "readOnly";
+    case SNMP_GEN_ERR:
+        return "genError";
+    default:
+        return NULL;
+    }
+}
+
 void free_snmp_varbind(void *data)
 {
     struct snmp_varbind *var = (struct snmp_varbind *) data;

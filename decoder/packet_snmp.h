@@ -18,7 +18,7 @@
 #define SNMP_NO_SUCH_NAME 2 /* operation specified a nonexistent variable */
 #define SNMP_BAD_VALUE 3    /* a set operation specified an invalid value or syntax */
 #define SNMP_READ_ONLY 4    /* manager tried to modify a read-only variable */
-#define SNMP_GEN_ERR        /* some other error */
+#define SNMP_GEN_ERR 5      /* some other error */
 
 /* value types */
 #define SNMP_BOOLEAN_TAG 1
@@ -70,6 +70,7 @@ struct snmp_info {
 struct application_info;
 
 char *get_snmp_type(struct snmp_info *snmp);
+char *get_snmp_error_status(struct snmp_pdu *snmp);
 void free_snmp_packet(struct snmp_info *snmp);
 
 bool handle_snmp(unsigned char *buffer, int n, struct application_info *adu);

@@ -46,6 +46,7 @@ enum hex_state {
     HD_HTTP,
     HD_SNAP,
     HD_STP,
+    HD_SNMP,
     HD_UNKNOWN
 };
 
@@ -72,6 +73,7 @@ static hex_conversion hex_state_val[] = {
     { HD_HTTP, "HTTP" },
     { HD_SNAP, "SNAP" },
     { HD_STP, "STP" },
+    { HD_SNMP, "SNMP" },
     { HD_UNKNOWN, "Data" }
 };
 
@@ -433,6 +435,10 @@ enum hex_state get_next_state(enum hex_state cur_state, struct packet *p)
             break;
         case SSDP:
             next_state = HD_SSDP;
+            break;
+        case SNMP:
+        case SNMPTRAP:
+            next_state = HD_SNMP;
             break;
         default:
             next_state = HD_UNKNOWN;
