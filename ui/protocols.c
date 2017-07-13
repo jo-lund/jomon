@@ -76,6 +76,7 @@ static void add_flags(list_view *lw, list_view_header *header, uint16_t flags, s
 static void add_snmp_pdu(list_view *lw, list_view_header *header, struct snmp_pdu *pdu);
 static void add_snmp_trap(list_view *lw, list_view_header *header, struct snmp_trap *pdu);
 static void add_snmp_variables(list_view *lw, list_view_header *header, list_t *vars);
+static void add_smb_information(list_view *lw, list_view_header *header, struct smb_info *smb);
 
 void write_to_buf(char *buf, int size, struct packet *p)
 {
@@ -1602,15 +1603,15 @@ void add_nbds_information(list_view *lw, list_view_header *header, struct nbds_i
     case NBDS_DIRECT_UNIQUE:
     case NBDS_DIRECT_GROUP:
     case NBDS_BROADCAST:
-        ADD_TEXT_ELEMENT(lw, header, "Datagram length: %u bytes", nbds->msg.grp_unique->dgm_length);
-        ADD_TEXT_ELEMENT(lw, header, "Packet offset: %u", nbds->msg.grp_unique->packet_offset);
-        ADD_TEXT_ELEMENT(lw, header, "Source name: %s", nbds->msg.grp_unique->src_name);
-        ADD_TEXT_ELEMENT(lw, header, "Destination name: %s", nbds->msg.grp_unique->dest_name);
-        if (nbds->msg.grp_unique->data) {
-            list_view_header *w = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Data");
+        ADD_TEXT_ELEMENT(lw, header, "Datagram length: %u bytes", nbds->msg.dgm->dgm_length);
+        ADD_TEXT_ELEMENT(lw, header, "Packet offset: %u", nbds->msg.dgm->packet_offset);
+        ADD_TEXT_ELEMENT(lw, header, "Source name: %s", nbds->msg.dgm->src_name);
+        ADD_TEXT_ELEMENT(lw, header, "Destination name: %s", nbds->msg.dgm->dest_name);
+        if (nbds->msg.dgm->smb) {
+            list_view_header *hdr;
 
-            add_hexdump(lw, w, HEXMODE_NORMAL, nbds->msg.grp_unique->data,
-                        nbds->msg.grp_unique->data_size);
+            hdr = ADD_HEADER(lw, "Server Message Block (SMB)", selected[SMB], SMB);
+            add_smb_information(lw, hdr, nbds->msg.dgm->smb);
         }
         break;
     case NBDS_ERROR:
@@ -1625,6 +1626,30 @@ void add_nbds_information(list_view *lw, list_view_header *header, struct nbds_i
     default:
         break;
     }
+}
+
+void add_smb_information(list_view *lw, list_view_header *header, struct smb_info *smb)
+{
+    char *cmd;
+    list_view_header *hdr, *hdr2;
+
+    ADD_TEXT_ELEMENT(lw, header, "Protocol: %c%c%c", smb->protocol[1], smb->protocol[2],
+                     smb->protocol[3]);
+    if ((cmd = get_smb_command(smb->command)) != NULL) {
+        ADD_TEXT_ELEMENT(lw, header, "Command: %s", cmd);
+    } else {
+        ADD_TEXT_ELEMENT(lw, header, "Command: 0x%x", smb->command);
+    }
+    ADD_TEXT_ELEMENT(lw, header, "Status: %d", smb->status);
+    hdr = ADD_SUB_HEADER(lw, header, selected[SMB_FLAGS], SMB_FLAGS, "Flags (0x%x)", smb->flags);
+    add_flags(lw, hdr, smb->flags, get_smb_flags(), 8);
+    hdr2 = ADD_SUB_HEADER(lw, header, selected[SMB_FLAGS], SMB_FLAGS, "Flags2 (0x%x)", smb->flags2);
+    add_flags(lw, hdr2, smb->flags2, get_smb_flags2(), 9);
+    ADD_TEXT_ELEMENT(lw, header, "PID: %d", smb->pidhigh << 16 | smb->pidlow);
+    ADD_TEXT_ELEMENT(lw, header, "Security features:");
+    ADD_TEXT_ELEMENT(lw, header, "Tree identifier: %d", smb->tid);
+    ADD_TEXT_ELEMENT(lw, header, "User identifier: %d", smb->uid);
+    ADD_TEXT_ELEMENT(lw, header, "Multiplex identifier: %d", smb->mid);
 }
 
 void add_ssdp_information(list_view *lw, list_view_header *header, list_t *ssdp)

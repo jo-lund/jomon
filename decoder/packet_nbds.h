@@ -41,14 +41,13 @@
 #define GET_NBDS_SNT_FLAG(flags) ((flags) & 0xc)
 
 /* direct unique, direct group, and broadcast datagram */
-struct nbds_group_unique {
+struct nbds_datagram {
     uint16_t dgm_length; /* the number of bytes following the PACKET_OFFSET field */
     uint16_t packet_offset; /* Used in conjunction with the F and M flags in the header
                                to allow reconstruction of fragmented NetBIOS datagrams */
     char src_name[NBNS_NAMELEN];
     char dest_name[NBNS_NAMELEN];
-    char *data;
-    int data_size; /* not part of the message on the network */
+    struct smb_info *smb;
 };
 
 struct nbds_info {
@@ -59,7 +58,7 @@ struct nbds_info {
     uint16_t source_port;
 
     union {
-        struct nbds_group_unique *grp_unique;
+        struct nbds_datagram *dgm;
         uint8_t error_code; /* datagram error packet */
 
         /* datagram query request or positive or negative query response */

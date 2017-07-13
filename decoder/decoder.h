@@ -13,5 +13,6 @@
 #include "packet_tcp.h"
 #include "packet_nbds.h"
 #include "packet_snmp.h"
+#include "packet_smb.h"
 
 #endif
