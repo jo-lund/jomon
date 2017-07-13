@@ -29,6 +29,16 @@
 #define SNMP_OBJECT_ID_TAG 6
 #define SNMP_SEQUENCE_TAG 16
 
+/* trap types */
+#define SNMP_COLD_START 0
+#define SNMP_WARM_START 1
+#define SNMP_LINK_DOWN 2
+#define SNMP_LINK_UP 3
+#define SNMP_AUTHENTICATION_FAILURE 4
+#define SNMP_EGP_NEIGHBOR_LOSS 5
+#define SNMP_ENTERPRISE_SPECIFIC 6
+
+
 typedef char* oid;
 
 struct snmp_varbind {
@@ -70,7 +80,8 @@ struct snmp_info {
 struct application_info;
 
 char *get_snmp_type(struct snmp_info *snmp);
-char *get_snmp_error_status(struct snmp_pdu *snmp);
+char *get_snmp_error_status(struct snmp_pdu *pdu);
+char *get_snmp_trap_type(struct snmp_trap *pdu);
 void free_snmp_packet(struct snmp_info *snmp);
 
 bool handle_snmp(unsigned char *buffer, int n, struct application_info *adu);

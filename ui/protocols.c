@@ -1676,17 +1676,29 @@ void add_snmp_information(list_view *lw, list_view_header *header, struct snmp_i
 
 void add_snmp_pdu(list_view *lw, list_view_header *header, struct snmp_pdu *pdu)
 {
+    char *error;
+
     ADD_TEXT_ELEMENT(lw, header, "Request ID: %d", pdu->request_id);
-    ADD_TEXT_ELEMENT(lw, header, "Error status: %d", pdu->error_status);
+    if ((error = get_snmp_error_status(pdu))) {
+        ADD_TEXT_ELEMENT(lw, header, "Error status: %s (%d)", error, pdu->error_status);
+    } else {
+        ADD_TEXT_ELEMENT(lw, header, "Error status: %d", pdu->error_status);
+    }
     ADD_TEXT_ELEMENT(lw, header, "Error index: %d", pdu->error_index);
     add_snmp_variables(lw, header, pdu->varbind_list);
 }
 
 void add_snmp_trap(list_view *lw, list_view_header *header, struct snmp_trap *pdu)
 {
+    char *trap;
+
     ADD_TEXT_ELEMENT(lw, header, "Enterprise: %s", pdu->enterprise);
     ADD_TEXT_ELEMENT(lw, header, "Agent address: %s", pdu->agent_addr);
-    ADD_TEXT_ELEMENT(lw, header, "Trap type: %d", pdu->trap_type);
+    if ((trap =get_snmp_trap_type(pdu))) {
+        ADD_TEXT_ELEMENT(lw, header, "Trap type: %s (%d)", trap, pdu->trap_type);
+    } else {
+        ADD_TEXT_ELEMENT(lw, header, "Trap type: %d", pdu->trap_type);
+    }
     ADD_TEXT_ELEMENT(lw, header, "Specific code: %d", pdu->specific_code);
     add_snmp_variables(lw, header, pdu->varbind_list);
 }

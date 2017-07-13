@@ -10,7 +10,7 @@
  */
 #define MAX_OID_LEN 512
 
-#define MIN_MSG 6 /* tag and length bytes */
+#define MIN_MSG 18 /* Should at least contain the header. What about varbind? */
 
 /* class */
 #define UNIVERSAL 0
@@ -155,7 +155,7 @@ list_t *parse_variables(unsigned char *buffer, int n)
             snmp_value val;
 
             n -= parse_value(&ptr, &class, &tag, &val);
-            if (tag == SNMP_SEQUENCE_TAG && n >= 0) {
+            if (tag == SNMP_SEQUENCE_TAG && n > 0) {
                 n -= parse_value(&ptr, &class, &tag, &val);
                 if (tag == SNMP_OBJECT_ID_TAG && n > 0) {
                     struct snmp_varbind *var;
@@ -348,6 +348,28 @@ char *get_snmp_error_status(struct snmp_pdu *pdu)
         return "readOnly";
     case SNMP_GEN_ERR:
         return "genError";
+    default:
+        return NULL;
+    }
+}
+
+char *get_snmp_trap_type(struct snmp_trap *pdu)
+{
+    switch (pdu->trap_type) {
+    case SNMP_COLD_START:
+        return "coldStart";
+    case SNMP_WARM_START:
+        return "warmStart";
+    case SNMP_LINK_DOWN:
+        return "LinkDown";
+    case SNMP_LINK_UP:
+        return "LinkUp";
+    case SNMP_AUTHENTICATION_FAILURE:
+        return "authenticationFailure";
+    case SNMP_EGP_NEIGHBOR_LOSS:
+        return "egpNeighborLoss";
+    case SNMP_ENTERPRISE_SPECIFIC:
+        return "enterpriseSpecific";
     default:
         return NULL;
     }
