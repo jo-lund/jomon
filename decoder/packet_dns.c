@@ -570,7 +570,9 @@ void free_dns_packet(struct dns_info *dns)
                 list_free(dns->record->rdata.txt, free_txt_rr);
                 break;
             case DNS_TYPE_OPT:
-                free(dns->record->rdata.opt.data);
+                if (dns->record->rdata.opt.rdlen) {
+                    free(dns->record->rdata.opt.data);
+                }
                 break;
             default:
                 break;
