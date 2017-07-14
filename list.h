@@ -19,6 +19,9 @@ void list_push_front(list_t *list, void *data);
 /* Inserts element at the end */
 void list_push_back(list_t *list, void *data);
 
+/* Inserts element at position 'i' */
+void list_insert(list_t *list, void *data, int i);
+
 /* Removes element from the front and deallocates memory if func is specified */
 void list_pop_front(list_t *list, list_deallocate func);
 

@@ -65,6 +65,26 @@ void list_push_back(list_t *list, void *data)
     list->size++;
 }
 
+void list_insert(list_t *list, void *data, int i)
+{
+    if (i == 0) {
+        list_push_front(list, data);
+    } else if (i == list->size) {
+        list_push_back(list, data);
+    } else if (i < list->size) {
+        node_t *n;
+        node_t *node;
+
+        INIT_NODE(node);
+        n = (node_t *) list_ith(list, i);
+        n->prev->next = node;
+        node->prev = n->prev;
+        node->next = n;
+        n->prev = node;
+        list->size++;
+    }
+}
+
 void list_pop_front(list_t *list, list_deallocate func)
 {
     if (list->head) {
