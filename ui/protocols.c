@@ -1353,7 +1353,7 @@ void add_dns_record_hdr(list_view *lw, list_view_header *header, struct dns_info
     }
     snprintcat(buffer, MAXLINE, "%-8s", get_dns_type(dns->record[idx].type));
     print_dns_record(dns, idx, buffer, MAXLINE, dns->record[idx].type);
-    w = ADD_SUB_HEADER(lw, header, false, SUBLAYER, "%s", buffer);
+    w = ADD_SUB_HEADER(lw, header, selected[DNS_RECORDS], DNS_RECORDS, "%s", buffer);
     add_dns_record(lw, w, dns, idx, buffer, MAXLINE, dns->record[idx].type);
 }
 
@@ -1539,7 +1539,7 @@ void add_nbns_record_hdr(list_view *lw, list_view_header *header, struct nbns_in
     snprintcat(buffer, MAXLINE, "IN\t");
     snprintcat(buffer, MAXLINE, "%s\t", get_nbns_type(nbns->record[i].rrtype));
     print_nbns_record(nbns, i, buffer, MAXLINE, nbns->record[i].rrtype);
-    hdr = ADD_SUB_HEADER(lw, header, false, SUBLAYER, "%s", buffer);
+    hdr = ADD_SUB_HEADER(lw, header, selected[NBNS_RECORDS], NBNS_RECORDS, "%s", buffer);
     add_nbns_record(lw, hdr, nbns, i, buffer, MAXLINE, nbns->record[i].rrtype);
 }
 
@@ -1789,7 +1789,6 @@ void add_snmp_variables(list_view *lw, list_view_header *header, list_t *vars)
         if (n) ADD_TEXT_ELEMENT(lw, hdr, "");
     }
 }
-
 
 /*
  * Display the bit values of flags
