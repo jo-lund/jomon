@@ -1736,24 +1736,54 @@ void add_snmp_variables(list_view *lw, list_view_header *header, list_t *vars)
         struct snmp_varbind *var = list_data(n);
         list_view_header *hdr;
 
-        if (var->type == SNMP_INTEGER_TAG) {
+        switch (var->type) {
+        case SNMP_INTEGER_TAG:
             hdr = ADD_SUB_HEADER(lw, header, selected[SNMP_VARS], SNMP_VARS, "%s: %d",
                                  var->object_name, var->object_syntax.ival);
             ADD_TEXT_ELEMENT(lw, hdr, "Object name: %s", var->object_name);
             ADD_TEXT_ELEMENT(lw, hdr, "Value: %d", var->object_syntax.ival);
-        } else {
-            if (!var->object_syntax.pval) {
-                hdr = ADD_SUB_HEADER(lw, header, selected[SNMP_VARS], SNMP_VARS, "%s: null",
-                                     var->object_name);
-                ADD_TEXT_ELEMENT(lw, hdr, "Object name: %s", var->object_name);
-                ADD_TEXT_ELEMENT(lw, hdr, "Value: null");
+            break;
+        case SNMP_NULL_TAG:
+            hdr = ADD_SUB_HEADER(lw, header, selected[SNMP_VARS], SNMP_VARS, "%s: null",
+                                 var->object_name);
+            ADD_TEXT_ELEMENT(lw, hdr, "Object name: %s", var->object_name);
+            ADD_TEXT_ELEMENT(lw, hdr, "Value: null");
+            break;
+        case SNMP_OCTET_STRING_TAG:
+        {
+            bool printable = true;
+            char buf[512];
 
-            } else {
+            for (int i = 0; i < var->plen; i++) {
+                if (!isprint(var->object_syntax.pval[i])) {
+                    printable = false;
+                    break;
+                }
+            }
+            for (int i = 0; i < var->plen; i++) {
+                snprintf(buf + 2 * i, 512 - 2 * i, "%02x", (unsigned char) var->object_syntax.pval[i]);
+            }
+            if (printable) {
                 hdr = ADD_SUB_HEADER(lw, header, selected[SNMP_VARS], SNMP_VARS, "%s: %s",
                                      var->object_name, var->object_syntax.pval);
                 ADD_TEXT_ELEMENT(lw, hdr, "Object name: %s", var->object_name);
-                ADD_TEXT_ELEMENT(lw, hdr, "Value: %s", var->object_syntax.pval);
+                ADD_TEXT_ELEMENT(lw, hdr, "Value: %s (%s)", var->object_syntax.pval, buf);
+            } else {
+                hdr = ADD_SUB_HEADER(lw, header, selected[SNMP_VARS], SNMP_VARS, "%s: %s",
+                                     var->object_name, buf);
+                ADD_TEXT_ELEMENT(lw, hdr, "Object name: %s", var->object_name);
+                ADD_TEXT_ELEMENT(lw, hdr, "Value: %s", buf);
             }
+            break;
+        }
+        case SNMP_OBJECT_ID_TAG:
+            hdr = ADD_SUB_HEADER(lw, header, selected[SNMP_VARS], SNMP_VARS, "%s: %s",
+                                 var->object_name, var->object_syntax.pval);
+            ADD_TEXT_ELEMENT(lw, hdr, "Object name: %s", var->object_name);
+            ADD_TEXT_ELEMENT(lw, hdr, "Value: %s", var->object_syntax.pval);
+            break;
+        default:
+            break;
         }
         n = list_next(n);
         if (n) ADD_TEXT_ELEMENT(lw, hdr, "");

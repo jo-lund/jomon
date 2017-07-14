@@ -25,9 +25,12 @@
 #define TIMETICKS 3
 #define OPAQUE 4
 
-typedef union {
-    uint32_t ival;
-    char *pval;
+typedef struct {
+    uint32_t plen;
+    union {
+        uint32_t ival;
+        char *pval;
+    };
 } snmp_value;
 
 static bool parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp);
@@ -172,6 +175,7 @@ list_t *parse_variables(unsigned char *buffer, int n)
                     case SNMP_OBJECT_ID_TAG:
                     case SNMP_NULL_TAG:
                         var->object_syntax.pval = val.pval;
+                        var->plen = val.plen;
                         break;
                     default:
                         break;
@@ -252,6 +256,7 @@ uint32_t parse_value(unsigned char **data, uint8_t *class, uint8_t *tag, snmp_va
             if (len > 0) {
                 value->pval = malloc(len);
                 memcpy(value->pval, ptr, len);
+                value->plen = len;
                 ptr += len;
             }
             /* add tag and length bytes */
@@ -293,6 +298,7 @@ uint32_t parse_value(unsigned char **data, uint8_t *class, uint8_t *tag, snmp_va
                 val[i-1] = '\0';
                 value->pval = malloc(strlen(val) + 1);
                 strcpy(value->pval, val);
+                value->plen = len;
                 ptr += len;
 
                 /* add tag and length bytes */
@@ -301,6 +307,7 @@ uint32_t parse_value(unsigned char **data, uint8_t *class, uint8_t *tag, snmp_va
             break;
         case SNMP_NULL_TAG:
             value->pval = NULL;
+            value->plen = 0;
             len = 2; /* tag and length bytes */
             break;
         case SNMP_SEQUENCE_TAG:

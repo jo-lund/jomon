@@ -44,6 +44,7 @@ typedef char* oid;
 struct snmp_varbind {
     oid object_name;
     uint8_t type;
+    uint32_t plen;
     union {
         int32_t ival;
         char *pval;
