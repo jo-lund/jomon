@@ -10,7 +10,7 @@
  */
 #define MAX_OID_LEN 512
 
-#define MIN_MSG 18 /* Should at least contain the header. What about varbind? */
+#define MIN_MSG 18 /* should at least contain a minimum header */
 
 /* class */
 #define UNIVERSAL 0
@@ -224,9 +224,6 @@ uint32_t parse_value(unsigned char **data, uint8_t *class, uint8_t *tag, snmp_va
             for (int i = 0; i < len; i++) {
                 j += snprintf(value->pval + j, INET_ADDRSTRLEN - j, "%d.", *ptr++);
             }
-            if (j < INET_ADDRSTRLEN) {
-                value->pval[j-1] = '\0';
-            }
             break;
         }
         case OPAQUE:
@@ -254,8 +251,9 @@ uint32_t parse_value(unsigned char **data, uint8_t *class, uint8_t *tag, snmp_va
             break;
         case SNMP_OCTET_STRING_TAG:
             if (len > 0) {
-                value->pval = malloc(len);
+                value->pval = malloc(len + 1);
                 memcpy(value->pval, ptr, len);
+                value->pval[len] = '\0';
                 value->plen = len;
                 ptr += len;
             }
