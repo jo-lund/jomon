@@ -221,7 +221,7 @@ uint32_t parse_value(unsigned char **data, uint8_t *class, uint8_t *tag, snmp_va
             int j = 0;
 
             value->pval = malloc(INET_ADDRSTRLEN);
-            for (int i = 0; i < len; i++) {
+            for (unsigned int i = 0; i < len; i++) {
                 j += snprintf(value->pval + j, INET_ADDRSTRLEN - j, "%d.", *ptr++);
             }
             break;
@@ -243,7 +243,7 @@ uint32_t parse_value(unsigned char **data, uint8_t *class, uint8_t *tag, snmp_va
         switch (*tag) {
         case SNMP_INTEGER_TAG:
             value->ival = 0;
-            for (int i = 0; i < len; i++) {
+            for (unsigned int i = 0; i < len; i++) {
                 value->ival = value->ival << 8 | *ptr++;
             }
             /* add tag and length bytes */
@@ -263,8 +263,8 @@ uint32_t parse_value(unsigned char **data, uint8_t *class, uint8_t *tag, snmp_va
         case SNMP_OBJECT_ID_TAG:
             if (len > 0) {
                 char val[MAX_OID_LEN];
-                int i = 0;
-                int j = 0;
+                unsigned int i = 0;
+                unsigned int j = 0;
                 char c;
 
                 /*

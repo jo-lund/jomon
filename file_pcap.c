@@ -43,7 +43,7 @@ static int read_buf(unsigned char *buf, size_t len);
 static enum file_error read_header(unsigned char *buf, size_t len);
 static enum file_error errno_file_error(int err);
 static void write_header(unsigned char *buf);
-static int write_data(unsigned char *buf, int len, struct packet *p);
+static int write_data(unsigned char *buf, unsigned int len, struct packet *p);
 
 FILE *open_file(const char *path, const char *mode, enum file_error *err)
 {
@@ -105,7 +105,7 @@ enum file_error read_header(unsigned char *buf, size_t len)
 /* Return number of bytes left in buffer or -1 on error */
 int read_buf(unsigned char *buf, size_t len)
 {
-    int n = len;
+    size_t n = len;
 
     while (n > 0) {
         uint32_t pkt_len;
@@ -181,7 +181,7 @@ void write_header(unsigned char *buf)
     memcpy(buf, &header, sizeof(pcap_hdr_t));
 }
 
-int write_data(unsigned char *buf, int len, struct packet *p)
+int write_data(unsigned char *buf, unsigned int len, struct packet *p)
 {
     if (get_packet_size(p) + sizeof(pcaprec_hdr_t) > len) {
         return 0;

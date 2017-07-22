@@ -238,7 +238,7 @@ char *format_bytes(int bytes, char *buf, int len)
 {
     static const char *format[] = { "", "K", "M", "G", "T" };
     float f = bytes;
-    int c = 0;
+    unsigned int c = 0;
 
     while (f > 1024) {
         f /= 1024.0;

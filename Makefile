@@ -8,7 +8,7 @@ CC := gcc
 CXX := g++
 CFLAGS += -g -std=gnu99
 CXXFLAGS += -Wno-write-strings
-CPPFLAGS += -Wall $(addprefix -I,$(incdir))
+CPPFLAGS += -Wall -Wextra $(addprefix -I,$(incdir))
 LIBS += -lmenu -lncurses
 TESTS = util_test
 

@@ -48,7 +48,7 @@ static void print_pim(char *buf, int n, struct pim_info *pim);
 static void print_dns(char *buf, int n, struct dns_info *dns, uint16_t type);
 static void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t type);
 static void print_nbns(char *buf, int n, struct nbns_info *nbns);
-static void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t type);
+static void print_nbns_record(struct nbns_info *info, int i, char *buf, int n);
 static void print_nbds(char *buf, int n, struct nbds_info *nbds);
 static void print_ssdp(char *buf, int n, list_t *ssdp);
 static void print_http(char *buf, int n, struct http_info *http);
@@ -59,10 +59,10 @@ static void add_dns_opt(list_view *lw, list_view_header *w, struct dns_info *dns
 static void add_dns_record_hdr(list_view *lw, list_view_header *header, struct dns_info *dns,
                                int idx, int max_record_name);
 static void add_dns_record(list_view *lw, list_view_header *w, struct dns_info *info, int i,
-                           char *buf, int n, uint16_t type);
+                           uint16_t type);
 static void add_nbns_record_hdr(list_view *lw, list_view_header *header, struct nbns_info *nbns, int i);
 static void add_nbns_record(list_view *lw, list_view_header *w, struct nbns_info *nbnsn, int i,
-                            char *buf, int n, uint16_t type);
+                            uint16_t type);
 static void add_tcp_options(list_view *lw, list_view_header *header, struct tcp *tcp);
 static void add_pim_hello(list_view *lw, list_view_header *header, struct pim_info *pim);
 static void add_pim_assert(list_view *lw, list_view_header *header, struct pim_info *pim);
@@ -436,7 +436,7 @@ void print_dns(char *buf, int n, struct dns_info *dns, uint16_t type)
         PRINT_INFO(buf, n, "%s ", dns->record[0].name);
         PRINT_INFO(buf, n, "%s ", get_dns_class(GET_MDNS_RRCLASS(dns->record[0].rrclass)));
         PRINT_INFO(buf, n, "%s ", get_dns_type(dns->record[0].type));
-        for (int i = 0; i < dns->section_count[ANCOUNT]; i++) {
+        for (unsigned int i = 0; i < dns->section_count[ANCOUNT]; i++) {
             print_dns_record(dns, i, buf, n, dns->record[i].type);
             PRINT_INFO(buf, n, " ");
         }
@@ -454,7 +454,7 @@ void print_nbns(char *buf, int n, struct nbns_info *nbns)
         PRINT_INFO(buf, n, "%s ", nbns->question.qname);
         PRINT_INFO(buf, n, "%s ", get_nbns_type(nbns->question.qtype));
         if (nbns->section_count[ARCOUNT]) {
-            print_nbns_record(nbns, 0, buf, n, nbns->record[0].rrtype);
+            print_nbns_record(nbns, 0, buf, n);
         }
     } else {
         switch (nbns->rcode) {
@@ -485,7 +485,7 @@ void print_nbns(char *buf, int n, struct nbns_info *nbns)
         PRINT_INFO(buf, n, "Name %s response: ", strtolower(opcode));
         PRINT_INFO(buf, n, "%s ", nbns->record[0].rrname);
         PRINT_INFO(buf, n, "%s ", get_nbns_type(nbns->record[0].rrtype));
-        print_nbns_record(nbns, 0, buf, n, nbns->record[0].rrtype);
+        print_nbns_record(nbns, 0, buf, n);
     }
 }
 
@@ -558,7 +558,7 @@ void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t t
     }
 }
 
-void print_nbns_record(struct nbns_info *info, int i, char *buf, int n, uint16_t type)
+void print_nbns_record(struct nbns_info *info, int i, char *buf, int n)
 {
     switch (info->record[i].rrtype) {
     case NBNS_NB:
@@ -1354,10 +1354,10 @@ void add_dns_record_hdr(list_view *lw, list_view_header *header, struct dns_info
     snprintcat(buffer, MAXLINE, "%-8s", get_dns_type(dns->record[idx].type));
     print_dns_record(dns, idx, buffer, MAXLINE, dns->record[idx].type);
     w = ADD_SUB_HEADER(lw, header, selected[DNS_RECORDS], DNS_RECORDS, "%s", buffer);
-    add_dns_record(lw, w, dns, idx, buffer, MAXLINE, dns->record[idx].type);
+    add_dns_record(lw, w, dns, idx, dns->record[idx].type);
 }
 
-void add_dns_record(list_view *lw, list_view_header *w, struct dns_info *dns, int i, char *buf, int n, uint16_t type)
+void add_dns_record(list_view *lw, list_view_header *w, struct dns_info *dns, int i, uint16_t type)
 {
     char time[512];
     struct tm_t tm;
@@ -1538,13 +1538,13 @@ void add_nbns_record_hdr(list_view *lw, list_view_header *header, struct nbns_in
     snprintf(buffer, MAXLINE, "%s\t", nbns->record[i].rrname);
     snprintcat(buffer, MAXLINE, "IN\t");
     snprintcat(buffer, MAXLINE, "%s\t", get_nbns_type(nbns->record[i].rrtype));
-    print_nbns_record(nbns, i, buffer, MAXLINE, nbns->record[i].rrtype);
+    print_nbns_record(nbns, i, buffer, MAXLINE);
     hdr = ADD_SUB_HEADER(lw, header, selected[NBNS_RECORDS], NBNS_RECORDS, "%s", buffer);
-    add_nbns_record(lw, hdr, nbns, i, buffer, MAXLINE, nbns->record[i].rrtype);
+    add_nbns_record(lw, hdr, nbns, i, nbns->record[i].rrtype);
 }
 
 void add_nbns_record(list_view *lw, list_view_header *w, struct nbns_info *nbns, int i,
-                     char *buf, int n, uint16_t type)
+                     uint16_t type)
 {
     char time[512];
     struct tm_t tm;
@@ -1754,13 +1754,13 @@ void add_snmp_variables(list_view *lw, list_view_header *header, list_t *vars)
             bool printable = true;
             char buf[512];
 
-            for (int i = 0; i < var->plen; i++) {
+            for (unsigned int i = 0; i < var->plen; i++) {
                 if (!isprint(var->object_syntax.pval[i])) {
                     printable = false;
                     break;
                 }
             }
-            for (int i = 0; i < var->plen; i++) {
+            for (unsigned int i = 0; i < var->plen; i++) {
                 snprintf(buf + 2 * i, 512 - 2 * i, "%02x", (unsigned char) var->object_syntax.pval[i]);
             }
             if (printable) {

@@ -237,8 +237,8 @@ void init_structures()
 void run()
 {
     struct pollfd fds[] = {
-        { sockfd, POLLIN },
-        { STDIN_FILENO, POLLIN }
+        { sockfd, POLLIN, 0 },
+        { STDIN_FILENO, POLLIN, 0 }
     };
 
     while (1) {

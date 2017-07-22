@@ -68,7 +68,7 @@ bool stack_empty(_stack_t *stack)
 void stack_free(_stack_t *stack, stack_deallocate func)
 {
     if (func) {
-        for (int i = 0; i < stack->top; i++) {
+        for (unsigned int i = 0; i < stack->top; i++) {
             func(stack->buf[i].data);
         }
     }
