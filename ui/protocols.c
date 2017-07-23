@@ -319,44 +319,45 @@ void print_pim(char *buf, int n, struct pim_info *pim)
     }
 }
 
-void print_tcp(char *buf, int n, struct tcp *info)
+void print_tcp(char *buf, int n, struct tcp *tcp)
 {
-    switch (info->data.utype) {
+    switch (tcp->data.utype) {
     case HTTP:
-        print_http(buf, n, info->data.http);
+        print_http(buf, n, tcp->data.http);
         break;
     case DNS:
     case MDNS:
-        print_dns(buf, n, info->data.dns, info->data.utype);
+        print_dns(buf, n, tcp->data.dns, tcp->data.utype);
         break;
     case NBNS:
-        print_nbns(buf, n, info->data.nbns);
+        print_nbns(buf, n, tcp->data.nbns);
         break;
     default:
         PRINT_PROTOCOL(buf, n, "TCP");
-        PRINT_INFO(buf, n, "Source port: %d  Destination port: %d", info->src_port,
-                   info->dst_port);
-        PRINT_INFO(buf, n, "  Flags: ");
-        if (info->urg) {
-            PRINT_INFO(buf, n, "URG ");
+        PRINT_INFO(buf, n, "Source port: %d  Destination port: %d", tcp->src_port,
+                   tcp->dst_port);
+        PRINT_INFO(buf, n, "  Flags:");
+        if (tcp->urg) {
+            PRINT_INFO(buf, n, " URG");
         }
-        if (info->ack) {
-            PRINT_INFO(buf, n, "ACK ");
+        if (tcp->ack) {
+            PRINT_INFO(buf, n, " ACK");
         }
-        if (info->psh) {
-            PRINT_INFO(buf, n, "PSH ");
+        if (tcp->psh) {
+            PRINT_INFO(buf, n, " PSH");
         }
-        if (info->rst) {
-            PRINT_INFO(buf, n, "RST ");
+        if (tcp->rst) {
+            PRINT_INFO(buf, n, " RST");
         }
-        if (info->syn) {
-            PRINT_INFO(buf, n, "SYN ");
+        if (tcp->syn) {
+            PRINT_INFO(buf, n, " SYN");
         }
-        if (info->fin) {
-            PRINT_INFO(buf, n, "FIN");
+        if (tcp->fin) {
+            PRINT_INFO(buf, n, " FIN");
         }
         break;
     }
+    PRINT_INFO(buf, n, "  seq: %u  ack: %u  win: %u", tcp->seq_num, tcp->ack_num, tcp->window);
 }
 
 void print_udp(char *buf, int n, struct udp_info *udp)
