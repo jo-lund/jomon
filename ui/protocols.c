@@ -643,7 +643,6 @@ void add_ethernet_information(list_view *lw, list_view_header *header, struct pa
         snprintcat(line, MAXLINE, " (%s)", type);
     }
     ADD_TEXT_ELEMENT(lw, header, line);
-    ADD_TEXT_ELEMENT(lw, header, "");
 }
 
 void add_llc_information(list_view *lw, list_view_header *header, struct packet *p)
@@ -651,7 +650,6 @@ void add_llc_information(list_view *lw, list_view_header *header, struct packet 
     ADD_TEXT_ELEMENT(lw, header, "Destination Service Access Point (DSAP): 0x%x", p->eth.llc->dsap);
     ADD_TEXT_ELEMENT(lw, header, "Source Service Access Point (SSAP): 0x%x", p->eth.llc->ssap);
     ADD_TEXT_ELEMENT(lw, header, "Control: 0x%x", p->eth.llc->control);
-    ADD_TEXT_ELEMENT(lw, header, "");
 }
 
 void add_snap_information(list_view *lw, list_view_header *header, struct packet *p)
@@ -659,7 +657,6 @@ void add_snap_information(list_view *lw, list_view_header *header, struct packet
     ADD_TEXT_ELEMENT(lw, header, "IEEE Organizationally Unique Identifier (OUI): 0x%06x\n",
               get_eth802_oui(p->eth.llc->snap));
     ADD_TEXT_ELEMENT(lw, header, "Protocol Id: 0x%04x\n", p->eth.llc->snap->protocol_id);
-    ADD_TEXT_ELEMENT(lw, header, "");
 }
 
 void add_arp_information(list_view *lw, list_view_header *header, struct packet *p)
@@ -783,7 +780,6 @@ void add_ipv4_information(list_view *lw, list_view_header *header, struct ipv4_i
     inet_ntop(AF_INET, &ip->dst, dst, INET_ADDRSTRLEN);
     ADD_TEXT_ELEMENT(lw, header,"Source IP address: %s", src);
     ADD_TEXT_ELEMENT(lw, header,"Destination IP address: %s", dst);
-    ADD_TEXT_ELEMENT(lw, header, "");
 }
 
 void add_ipv6_information(list_view *lw, list_view_header *header, struct ipv6_info *ip)
@@ -807,7 +803,6 @@ void add_ipv6_information(list_view *lw, list_view_header *header, struct ipv6_i
     ADD_TEXT_ELEMENT(lw, header, "Hop limit: %u", ip->hop_limit);
     ADD_TEXT_ELEMENT(lw, header, "Source address: %s", src);
     ADD_TEXT_ELEMENT(lw, header, "Destination address: %s", dst);
-    ADD_TEXT_ELEMENT(lw, header, "");
 }
 
 void add_icmp_information(list_view *lw, list_view_header *header, struct icmp_info *icmp)
@@ -953,7 +948,6 @@ void add_pim_hello(list_view *lw, list_view_header *header, struct pim_info *pim
             break;
         }
         n = list_next(n);
-        if (n) ADD_TEXT_ELEMENT(lw, w, "");
     }
     list_free(opt, free);
 }
@@ -1064,8 +1058,6 @@ void add_pim_join_prune(list_view *lw, list_view_header *header, struct pim_info
                 free(addr);
             }
         }
-        ADD_TEXT_ELEMENT(lw, joined, "");
-
         pruned = ADD_SUB_HEADER(lw, grp, false, SUBLAYER, "Pruned sources (%d)",
                                 pim->jpg->groups[i].num_pruned_src);
         for (int j = 0; j < pim->jpg->groups[i].num_pruned_src; j++) {
@@ -1143,7 +1135,6 @@ void add_udp_information(list_view *lw, list_view_header *header, struct udp_inf
     ADD_TEXT_ELEMENT(lw, header, "Destination port: %u", udp->dst_port);
     ADD_TEXT_ELEMENT(lw, header, "Length: %u", udp->len);
     ADD_TEXT_ELEMENT(lw, header, "Checksum: %u", udp->checksum);
-    ADD_TEXT_ELEMENT(lw, header, "");
 }
 
 void add_tcp_information(list_view *lw, list_view_header *header, struct tcp *tcp)
@@ -1188,7 +1179,6 @@ void add_tcp_information(list_view *lw, list_view_header *header, struct tcp *tc
     if (tcp->options) {
         add_tcp_options(lw, header, tcp);
     }
-    ADD_TEXT_ELEMENT(lw, header, "");
 }
 
 void add_tcp_options(list_view *lw, list_view_header *header, struct tcp *tcp)
@@ -1253,7 +1243,6 @@ void add_tcp_options(list_view *lw, list_view_header *header, struct tcp *tcp)
             break;
         }
         n = list_next(n);
-        if (n) ADD_TEXT_ELEMENT(lw, w, "");
     }
     free_tcp_options(options);
 }
@@ -1292,9 +1281,6 @@ void add_dns_information(list_view *lw, list_view_header *header, struct dns_inf
             ADD_TEXT_ELEMENT(lw, hdr, "QNAME: %s, QTYPE: %s, QCLASS: %s",
                              dns->question.qname, get_dns_type_extended(dns->question.qtype),
                              get_dns_class_extended(GET_MDNS_RRCLASS(dns->question.qclass)));
-            if (records) {
-                ADD_TEXT_ELEMENT(lw, hdr, "");
-            }
         }
     }
     if (records) {
@@ -1309,7 +1295,6 @@ void add_dns_information(list_view *lw, list_view_header *header, struct dns_inf
             }
         }
         if (authority) {
-            if (hdr) ADD_TEXT_ELEMENT(lw, hdr, "");
             len = get_dns_max_namelen(dns->record + answers, authority);
             hdr = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Authoritative nameservers");
             for (int i = 0; i < authority; i++) {
@@ -1317,7 +1302,6 @@ void add_dns_information(list_view *lw, list_view_header *header, struct dns_inf
             }
         }
         if (additional) {
-            if (hdr) ADD_TEXT_ELEMENT(lw, hdr, "");
             len = get_dns_max_namelen(dns->record + answers + authority, additional);
             hdr = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Additional records");
             for (int i = 0; i < additional; i++) {
@@ -1395,7 +1379,6 @@ void add_dns_record(list_view *lw, list_view_header *w, struct dns_info *dns, in
     default:
         break;
     }
-    ADD_TEXT_ELEMENT(lw, w, "");
 }
 
 void add_dns_txt(list_view *lw, list_view_header *w, struct dns_info *dns, int i)
@@ -1503,7 +1486,6 @@ void add_nbns_information(list_view *lw, list_view_header *header, struct nbns_i
         hdr = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Questions");
         ADD_TEXT_ELEMENT(lw, hdr, "Question name: %s, Question type: %s, Question class: IN (Internet)",
                          nbns->question.qname, get_nbns_type_extended(nbns->question.qtype));
-        if (records) ADD_TEXT_ELEMENT(lw, hdr, "");
     }
     if (records) {
         list_view_header *hdr = NULL;
@@ -1515,14 +1497,12 @@ void add_nbns_information(list_view *lw, list_view_header *header, struct nbns_i
             }
         }
         if (authority) {
-            if (hdr) ADD_TEXT_ELEMENT(lw, hdr, "");
             hdr = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Authoritative nameservers");
             for (int i = 0; i < authority; i++) {
                 add_nbns_record_hdr(lw, hdr, nbns, i + answers);
             }
         }
         if (additional) {
-            if (hdr) ADD_TEXT_ELEMENT(lw, hdr, "");
             hdr = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Additional records");
             for (int i = 0; i < additional; i++) {
                 add_nbns_record_hdr(lw, hdr, nbns, i + answers + authority);
@@ -1787,7 +1767,6 @@ void add_snmp_variables(list_view *lw, list_view_header *header, list_t *vars)
             break;
         }
         n = list_next(n);
-        if (n) ADD_TEXT_ELEMENT(lw, hdr, "");
     }
 }
 
@@ -1831,5 +1810,4 @@ void add_flags(list_view *lw, list_view_header *header, uint16_t flags, struct p
         }
         k += pf[i].width;
     }
-    ADD_TEXT_ELEMENT(lw, header, "");
 }

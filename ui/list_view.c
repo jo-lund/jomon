@@ -12,6 +12,7 @@ static list_view_header *add_header(list_view *this, char *text, bool expanded, 
 static list_view_header *add_sub_header(list_view *this, list_view_header *header, bool expanded,
                                       uint32_t data, char *text, ...);
 static list_view_item *add_text_element(list_view *this, list_view_header *header, char *txt, ...);
+static void add_separator(list_view *this, list_view_header *hdr);
 static void free_list_view_item(list_t *widgets);
 static void render(list_view *this, WINDOW *win, int scrollx);
 static bool get_expanded(list_view *this, int i);
@@ -25,6 +26,7 @@ static void list_view_item_init(list_view_item *item, char *txt, uint32_t attr, 
 static list_view_item *get_widget(list_t *widgets, int i, int *j);
 static int get_size(list_t *widgets);
 static bool header_expanded(list_view_header *header);
+static list_view_header *get_prev_subheader(list_t *subwidgets);
 
 list_view *create_list_view()
 {
@@ -115,7 +117,14 @@ list_view_header *create_header(char *txt, bool expanded, uint16_t data, uint32_
 list_view_header *add_header(list_view *this, char *txt, bool expanded, uint32_t data)
 {
     list_view_header *w = create_header(txt, expanded, data, A_BOLD);
+    const node_t *n = list_end(this->widgets);
 
+    if (n) {
+        list_view_header *h;
+
+        h = list_data(n);
+        add_separator(this, h);
+    }
     w->parent = NULL;
     list_push_back(this->widgets, w);
     this->num_elements++;
@@ -136,6 +145,12 @@ list_view_item *add_text_element(list_view *this, list_view_header *header, char
     w = create_item(buf, A_NORMAL, TEXT);
     if (!header->subwidgets) {
         header->subwidgets = list_init();
+    } else {
+        list_view_header *p;
+
+        if ((p = get_prev_subheader(header->subwidgets))) {
+            add_separator(this, p);
+        }
     }
     list_push_back(header->subwidgets, w);
     this->num_elements++;
@@ -146,7 +161,7 @@ list_view_item *add_text_element(list_view *this, list_view_header *header, char
 }
 
 list_view_header *add_sub_header(list_view *this, list_view_header *header, bool expanded,
-                               uint32_t data, char *txt, ...)
+                                 uint32_t data, char *txt, ...)
 {
     va_list ap;
     char buf[MAXLINE];
@@ -160,6 +175,12 @@ list_view_header *add_sub_header(list_view *this, list_view_header *header, bool
     h->parent = header;
     if (!header->subwidgets) {
         header->subwidgets = list_init();
+    } else {
+        list_view_header *p;
+
+        if ((p = get_prev_subheader(header->subwidgets))) {
+            add_separator(this, p);
+        }
     }
     list_push_back(header->subwidgets, h);
     this->num_elements++;
@@ -167,6 +188,20 @@ list_view_header *add_sub_header(list_view *this, list_view_header *header, bool
         this->size++;
     }
     return h;
+}
+
+void add_separator(list_view *this, list_view_header *hdr)
+{
+    if (hdr->subwidgets) {
+        list_view_item *w;
+
+        w = create_item("", A_NORMAL, TEXT);
+        list_push_back(hdr->subwidgets, w);
+        this->num_elements++;
+        if (header_expanded(hdr)) {
+            this->size++;
+        }
+    }
 }
 
 void render(list_view *this, WINDOW *win, int scrollx)
@@ -271,7 +306,6 @@ list_view_item *get_widget(list_t *widgets, int i, int *j)
         if (w->type == HEADER && ((list_view_header *) w)->subwidgets &&
             ((list_view_header *) w)->expanded) {
             list_view_item *widget = get_widget(((list_view_header *) w)->subwidgets, i, j);
-
             if (widget) return widget;
         }
         n = list_next(n);
@@ -306,4 +340,15 @@ bool header_expanded(list_view_header *header)
         return header_expanded(header->parent);
     }
     return header->expanded;
+}
+
+list_view_header *get_prev_subheader(list_t *subwidgets)
+{
+    const node_t *n = list_end(subwidgets);
+    list_view_item *w = (list_view_item *) list_data(n);
+
+    if (w->type == HEADER) {
+        return (list_view_header *) w;
+    }
+    return NULL;
 }
