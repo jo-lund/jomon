@@ -305,6 +305,7 @@ void file_dialogue_get_input(struct file_dialogue *this)
     c = wgetch(this->list.win);
     switch (c) {
     case KEY_ESC:
+        curs_set(0);
         pop_screen();
         this->cancel->action(NULL);
         break;
