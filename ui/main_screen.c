@@ -899,7 +899,7 @@ void scroll_page(main_screen *ms, int num_lines)
                     ms->selection_line = 0;
                 }
                 print_lines(ms, 0, -num_lines, 0);
-                show_selectionbar(ms, ms->pktlist, ms->selection_line - ms->top, A_NORMAL);
+                show_selectionbar(ms, ms->pktlist, ms->selection_line, A_NORMAL);
                 wrefresh(ms->pktlist);
                 if (ms->subwindow.win) {
                     refresh_pad(ms, ms->top, ms->scrollx);
