@@ -1,5 +1,6 @@
 #include "packet_pim.h"
 #include "packet.h"
+#include "../util.h"
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,10 +16,8 @@ static bool parse_assert_msg(unsigned char *buffer, int n, struct pim_info *pim)
 static bool parse_join_prune(unsigned char *buffer, int n, struct pim_info *pim);
 static bool parse_bootstrap(unsigned char *buffer, int n, struct pim_info *pim);
 static bool parse_candidate_rp(unsigned char *buffer, int n, struct pim_info *pim);
-
-/* the caller needs to free the address stored in the respective structs */
-static unsigned char *parse_address(unsigned char **data, uint8_t family,
-                                    uint8_t encoding);
+static void parse_address(unsigned char **data, pim_addr *addr, uint8_t family,
+                          uint8_t encoding);
 static void parse_src_address(unsigned char **data, struct pim_source_addr *saddr);
 static void parse_grp_address(unsigned char **data, struct pim_group_addr *gaddr);
 static void parse_unicast_address(unsigned char **data, struct pim_unicast_addr *uaddr);
@@ -144,9 +143,8 @@ bool parse_assert_msg(unsigned char *buffer, int n, struct pim_info *pim)
     pim->assert = malloc(sizeof(struct pim_assert));
     parse_grp_address(&buffer, &pim->assert->gaddr);
     parse_unicast_address(&buffer, &pim->assert->saddr);
-    pim->assert->metric_pref = buffer[0] << 24 | buffer[1] << 16 | buffer[2] << 8 | buffer[0];
-    pim->assert->metric= buffer[0] << 24 | buffer[1] << 16 | buffer[2] << 8 | buffer[0];
-
+    pim->assert->metric_pref = get_uint32be(buffer);
+    pim->assert->metric = get_uint32be(buffer + 4);
     return true;
 }
 
@@ -209,7 +207,7 @@ void parse_src_address(unsigned char **data, struct pim_source_addr *saddr)
     saddr->rpt = ptr[2] & 0x1;
     saddr->mask_len = ptr[3];
     ptr += 4;
-    saddr->addr = parse_address(&ptr, saddr->addr_family, saddr->encoding);
+    parse_address(&ptr, &saddr->addr, saddr->addr_family, saddr->encoding);
     *data = ptr;
 }
 
@@ -223,7 +221,7 @@ void parse_grp_address(unsigned char **data, struct pim_group_addr *gaddr)
     gaddr->zone = ptr[2] & 0x01;
     gaddr->mask_len = ptr[3];
     ptr += 4;
-    gaddr->addr = parse_address(&ptr, gaddr->addr_family, gaddr->encoding);
+    parse_address(&ptr, &gaddr->addr, gaddr->addr_family, gaddr->encoding);
     *data = ptr;
 }
 
@@ -234,31 +232,28 @@ void parse_unicast_address(unsigned char **data, struct pim_unicast_addr *uaddr)
     uaddr->addr_family = ptr[0];
     uaddr->encoding = ptr[1];
     ptr += 2;
-    uaddr->addr = parse_address(&ptr, uaddr->addr_family, uaddr->encoding);
+    parse_address(&ptr, &uaddr->addr, uaddr->addr_family, uaddr->encoding);
     *data = ptr;
 }
 
-unsigned char *parse_address(unsigned char **data, uint8_t family, uint8_t encoding)
+void parse_address(unsigned char **data, pim_addr *addr, uint8_t family,
+                   uint8_t encoding)
 {
-    unsigned char *addr = NULL;
     unsigned char *ptr = *data;
 
     switch (family) {
     case AF_IP:
-        addr = malloc(4);
-        memcpy(addr, ptr, 4);
+        addr->ipv4_addr = get_uint32le(ptr); /* store in big-endian format */
         ptr += 4;
         break;
     case AF_IP6:
-        addr = malloc(16);
-        memcpy(addr, ptr, 16);
+        memcpy(addr->ipv6_addr, ptr, 16);
         ptr += 16;
         break;
     default:
         printf("PIM: Unknown address family: %d\n", family);
     }
     *data = ptr;
-    return addr;
 }
 
 list_t *parse_hello_options(struct pim_info *pim)
@@ -284,10 +279,10 @@ list_t *parse_hello_options(struct pim_info *pim)
             opt->lan_prune_delay.override_interval = ptr[2] << 8 | ptr[3];
             break;
         case PIM_DR_PRIORITY:
-            opt->dr_priority = ptr[0] << 24 | ptr[1] << 16 | ptr[2] << 8 | ptr[3];
+            opt->dr_priority = get_uint32be(ptr);
             break;
         case PIM_GENERATION_ID:
-            opt->gen_id = ptr[0] << 24 | ptr[1] << 16 | ptr[2] << 8 | ptr[3];
+            opt->gen_id = get_uint32be(ptr);
             break;
         case PIM_STATE_REFRESH_CAPABLE:
             opt->state_refresh.version = ptr[0];
@@ -332,25 +327,19 @@ char *get_pim_message_type(uint8_t type)
     }
 }
 
-char *get_pim_address(uint8_t family, unsigned char *addr)
+char *get_pim_address(uint8_t family, pim_addr *addr)
 {
+    char *ipaddr;
+
     switch (family) {
     case AF_IP:
-    {
-        char *ipaddr;
-
         ipaddr = malloc(INET_ADDRSTRLEN);
         inet_ntop(AF_INET, addr, ipaddr, INET_ADDRSTRLEN);
         return ipaddr;
-    }
     case AF_IP6:
-    {
-        char *ipaddr;
-
         ipaddr = malloc(INET6_ADDRSTRLEN);
         inet_ntop(AF_INET6, addr, ipaddr, INET6_ADDRSTRLEN);
         return ipaddr;
-    }
     default:
         return NULL;
     }
@@ -369,26 +358,9 @@ void free_pim_packet(struct pim_info *pim)
         free(pim->reg);
         break;
     case PIM_REGISTER_STOP:
-        if (pim->reg_stop->gaddr.addr) {
-            free(pim->reg_stop->gaddr.addr);
-        }
-        if (pim->reg_stop->saddr.addr) {
-            free(pim->reg_stop->saddr.addr);
-        }
         free(pim->reg_stop);
         break;
     case PIM_BOOTSTRAP:
-        if (pim->bootstrap->bsr_addr.addr) {
-            free(pim->bootstrap->bsr_addr.addr);
-        }
-        if (pim->bootstrap->groups->gaddr.addr) {
-            free(pim->jpg->groups->gaddr.addr);
-        }
-        for (int i = 0; i < pim->bootstrap->groups->frag_rp_count; i++) {
-            if (pim->bootstrap->groups->rps->rp_addr.addr) {
-                free(pim->bootstrap->groups->rps->rp_addr.addr);
-            }
-        }
         if (pim->bootstrap->groups->rps) {
             free(pim->bootstrap->groups->rps);
         }
@@ -396,37 +368,15 @@ void free_pim_packet(struct pim_info *pim)
         free(pim->bootstrap);
         break;
     case PIM_ASSERT:
-        if (pim->assert->gaddr.addr) {
-            free(pim->assert->gaddr.addr);
-        }
-        if (pim->assert->saddr.addr) {
-            free(pim->assert->saddr.addr);
-        }
         free(pim->assert);
         break;
     case PIM_JOIN_PRUNE:
     case PIM_GRAFT:
     case PIM_GRAFT_ACK:
-        if (pim->jpg->neighbour.addr) {
-            free(pim->jpg->neighbour.addr);
-        }
         if (pim->jpg->groups) {
             for (int i = 0; i < pim->jpg->num_groups; i++) {
-                if (pim->jpg->groups->gaddr.addr) {
-                    free(pim->jpg->groups->gaddr.addr);
-                }
-                for (int j = 0; j < pim->jpg->groups->num_joined_src; j++) {
-                    if (pim->jpg->groups->joined_src[j].addr) {
-                        free(pim->jpg->groups->joined_src[j].addr);
-                    }
-                }
                 if (pim->jpg->groups->joined_src) {
                     free(pim->jpg->groups->joined_src);
-                }
-                for (int j = 0; j < pim->jpg->groups->num_pruned_src; j++) {
-                    if (pim->jpg->groups->pruned_src[j].addr) {
-                        free(pim->jpg->groups->pruned_src[j].addr);
-                    }
                 }
                 if (pim->jpg->groups->pruned_src) {
                     free(pim->jpg->groups->pruned_src);
@@ -437,14 +387,6 @@ void free_pim_packet(struct pim_info *pim)
         free(pim->jpg);
         break;
     case PIM_CANDIDATE_RP_ADVERTISEMENT:
-        if (pim->candidate->rp_addr.addr) {
-            free(pim->candidate->rp_addr.addr);
-        }
-        for (int i = 0; i < pim->candidate->prefix_count; i++) {
-            if (pim->candidate->gaddrs[i].addr) {
-                free(pim->candidate->gaddrs[i].addr);
-            }
-        }
         free(pim->candidate->gaddrs);
         free(pim->candidate);
         break;

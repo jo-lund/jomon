@@ -975,12 +975,12 @@ void add_pim_register_stop(list_view *lw, list_view_header *header, struct pim_i
     char *addr;
 
     h = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Register-Stop Message");
-    addr = get_pim_address(pim->assert->gaddr.addr_family, pim->assert->gaddr.addr);
+    addr = get_pim_address(pim->assert->gaddr.addr_family, &pim->assert->gaddr.addr);
     if (addr) {
         ADD_TEXT_ELEMENT(lw, h, "Group address: %s/%d", addr, pim->assert->gaddr.mask_len);
         free(addr);
     }
-    addr = get_pim_address(pim->assert->saddr.addr_family, pim->assert->saddr.addr);
+    addr = get_pim_address(pim->assert->saddr.addr_family, &pim->assert->saddr.addr);
     if (addr) {
         ADD_TEXT_ELEMENT(lw, h, "Source address: %s", addr);
         free(addr);
@@ -993,12 +993,12 @@ void add_pim_assert(list_view *lw, list_view_header *header, struct pim_info *pi
     char *addr;
 
     h = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Assert Message");
-    addr = get_pim_address(pim->assert->gaddr.addr_family, pim->assert->gaddr.addr);
+    addr = get_pim_address(pim->assert->gaddr.addr_family, &pim->assert->gaddr.addr);
     if (addr) {
         ADD_TEXT_ELEMENT(lw, h, "Group address: %s/%d", addr, pim->assert->gaddr.mask_len);
         free(addr);
     }
-    addr = get_pim_address(pim->assert->saddr.addr_family, pim->assert->saddr.addr);
+    addr = get_pim_address(pim->assert->saddr.addr_family, &pim->assert->saddr.addr);
     if (addr) {
         ADD_TEXT_ELEMENT(lw, h, "Source address: %s", addr);
         free(addr);
@@ -1030,7 +1030,7 @@ void add_pim_join_prune(list_view *lw, list_view_header *header, struct pim_info
         return;
     }
 
-    addr = get_pim_address(pim->jpg->neighbour.addr_family, pim->jpg->neighbour.addr);
+    addr = get_pim_address(pim->jpg->neighbour.addr_family, &pim->jpg->neighbour.addr);
     if (addr) {
         ADD_TEXT_ELEMENT(lw, h, "Upstream neighbour: %s", addr);
         free(addr);
@@ -1045,7 +1045,7 @@ void add_pim_join_prune(list_view *lw, list_view_header *header, struct pim_info
         list_view_header *joined;
         list_view_header *pruned;
 
-        addr = get_pim_address(pim->jpg->groups[i].gaddr.addr_family, pim->jpg->groups[i].gaddr.addr);
+        addr = get_pim_address(pim->jpg->groups[i].gaddr.addr_family, &pim->jpg->groups[i].gaddr.addr);
         if (addr) {
             ADD_TEXT_ELEMENT(lw, grp, "Group address %d: %s/%d", i + 1, addr, pim->jpg->groups[i].gaddr.mask_len);
             free(addr);
@@ -1055,7 +1055,7 @@ void add_pim_join_prune(list_view *lw, list_view_header *header, struct pim_info
                                 pim->jpg->groups[i].num_joined_src);
         for (int j = 0; j < pim->jpg->groups[i].num_joined_src; j++) {
             addr = get_pim_address(pim->jpg->groups[i].joined_src[j].addr_family,
-                                   pim->jpg->groups[i].joined_src[j].addr);
+                                   &pim->jpg->groups[i].joined_src[j].addr);
             if (addr) {
                 ADD_TEXT_ELEMENT(lw, joined, "Joined address %d: %s/%d", j + 1, addr,
                                  pim->jpg->groups[i].joined_src[j].mask_len);
@@ -1066,7 +1066,7 @@ void add_pim_join_prune(list_view *lw, list_view_header *header, struct pim_info
                                 pim->jpg->groups[i].num_pruned_src);
         for (int j = 0; j < pim->jpg->groups[i].num_pruned_src; j++) {
             addr = get_pim_address(pim->jpg->groups[i].pruned_src[j].addr_family,
-                                   pim->jpg->groups[i].pruned_src[j].addr);
+                                   &pim->jpg->groups[i].pruned_src[j].addr);
             if (addr) {
                 ADD_TEXT_ELEMENT(lw, pruned, "Pruned address %d: %s/%d", j + 1, addr,
                                  pim->jpg->groups[i].pruned_src[j].mask_len);
@@ -1086,12 +1086,12 @@ void add_pim_bootstrap(list_view *lw, list_view_header *header, struct pim_info 
     ADD_TEXT_ELEMENT(lw, h, "Fragment tag: 0x%x", pim->bootstrap->tag);
     ADD_TEXT_ELEMENT(lw, h, "Hash mask length: %d", pim->bootstrap->hash_len);
     ADD_TEXT_ELEMENT(lw, h, "BSR priority: %d", pim->bootstrap->priority);
-    addr = get_pim_address(pim->bootstrap->bsr_addr.addr_family, pim->bootstrap->bsr_addr.addr);
+    addr = get_pim_address(pim->bootstrap->bsr_addr.addr_family, &pim->bootstrap->bsr_addr.addr);
     if (addr) {
         ADD_TEXT_ELEMENT(lw, h, "BSR address: %s", addr);
         free(addr);
     }
-    addr = get_pim_address(pim->bootstrap->groups->gaddr.addr_family, pim->bootstrap->groups->gaddr.addr);
+    addr = get_pim_address(pim->bootstrap->groups->gaddr.addr_family, &pim->bootstrap->groups->gaddr.addr);
     if (addr) {
         grp = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Group %s/%d", addr, pim->bootstrap->groups->gaddr.mask_len);
         free(addr);
@@ -1100,7 +1100,7 @@ void add_pim_bootstrap(list_view *lw, list_view_header *header, struct pim_info 
     ADD_TEXT_ELEMENT(lw, grp, "Frag RP count: %u", pim->bootstrap->groups->frag_rp_count);
     for (int i = 0; i < pim->bootstrap->groups->frag_rp_count; i++) {
         addr = get_pim_address(pim->bootstrap->groups->rps[i].rp_addr.addr_family,
-                               pim->bootstrap->groups->rps[i].rp_addr.addr);
+                               &pim->bootstrap->groups->rps[i].rp_addr.addr);
         if (addr) {
             ADD_TEXT_ELEMENT(lw, grp, "RP address %d: %s", i, addr);
             free(addr);
@@ -1119,13 +1119,13 @@ void add_pim_candidate(list_view *lw, list_view_header *header, struct pim_info 
     ADD_TEXT_ELEMENT(lw, h, "Prefix count: %u", pim->candidate->prefix_count);
     ADD_TEXT_ELEMENT(lw, h, "Priority: %u", pim->candidate->priority);
     ADD_TEXT_ELEMENT(lw, h, "Holdtime: %u", pim->candidate->holdtime);
-    addr = get_pim_address(pim->candidate->rp_addr.addr_family, pim->candidate->rp_addr.addr);
+    addr = get_pim_address(pim->candidate->rp_addr.addr_family, &pim->candidate->rp_addr.addr);
     if (addr) {
         ADD_TEXT_ELEMENT(lw, h, "RP address: %s", addr);
         free(addr);
     }
     for (int i = 0; i < pim->candidate->prefix_count; i++) {
-        addr = get_pim_address(pim->candidate->gaddrs[i].addr_family, pim->candidate->gaddrs[i].addr);
+        addr = get_pim_address(pim->candidate->gaddrs[i].addr_family, &pim->candidate->gaddrs[i].addr);
         if (addr) {
             ADD_TEXT_ELEMENT(lw, h, "Group address %d: %s/%d", i, addr, pim->candidate->gaddrs[i].mask_len);
             free(addr);
