@@ -1164,8 +1164,9 @@ void add_app_elements(main_screen *ms, struct packet *p, struct application_info
     switch (adu->utype) {
     case DNS:
     case MDNS:
+    case LLMNR:
         header = ADD_HEADER(ms->lvw, "Domain Name System (DNS)", selected[APPLICATION], APPLICATION);
-        add_dns_information(ms->lvw, header, adu->dns);
+        add_dns_information(ms->lvw, header, adu->dns, adu->utype);
         break;
     case NBNS:
         header = ADD_HEADER(ms->lvw, "NetBIOS Name Service (NBNS)", selected[APPLICATION], APPLICATION);
