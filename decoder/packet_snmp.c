@@ -57,9 +57,9 @@ bool handle_snmp(unsigned char *buffer, int n, struct application_info *adu)
     adu->snmp = calloc(1, sizeof(struct snmp_info));
     if (n > MIN_MSG) {
         msg_len = parse_value(&ptr, &class, &tag, NULL);
-    }
-    if (tag == SNMP_SEQUENCE_TAG) {
-        return parse_pdu(ptr, msg_len, adu->snmp);
+        if (tag == SNMP_SEQUENCE_TAG) {
+            return parse_pdu(ptr, msg_len, adu->snmp);
+        }
     }
     return false;
 }

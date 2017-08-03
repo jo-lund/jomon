@@ -4,6 +4,8 @@
 #include "packet_ip.h"
 #include "packet_stp.h"
 
+#define MAX_PACKET_SIZE 65535
+
 /*
  * Ethernet header
  *
@@ -44,7 +46,7 @@
  */
 bool handle_ethernet(unsigned char *buffer, int n, struct eth_info *eth)
 {
-    if (n < ETH_HLEN) return false;
+    if (n < ETH_HLEN || n > MAX_PACKET_SIZE) return false;
 
     struct ethhdr *eth_header;
     bool error = false;
