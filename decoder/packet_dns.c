@@ -15,6 +15,13 @@ static struct packet_flags dns_flags[] = {
     { "Reserved", 3, NULL }
 };
 
+static struct packet_flags llmnr_flags[] = {
+    { "Conflict", 1, NULL },
+    { "Truncation", 1, NULL },
+    { "Tentative", 1, NULL },
+    { "Reserved", 4, NULL }
+};
+
 static void parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data, struct dns_info *dns);
 static char *parse_dns_txt(unsigned char **data);
 static void free_txt_rr(void *data);
@@ -83,10 +90,16 @@ bool handle_dns(unsigned char *buffer, int n, struct application_info *info)
     info->dns->id = ptr[0] << 8 | ptr[1];
     info->dns->qr = (ptr[2] & 0x80) >> 7;
     info->dns->opcode = (ptr[2] & 0x78) >> 3;
-    info->dns->aa = (ptr[2] & 0x04) >> 2;
-    info->dns->tc = (ptr[2] & 0x02) >> 1;
-    info->dns->rd = ptr[2] & 0x01;
-    info->dns->ra = (ptr[3] & 0x80) >> 7;
+    if (info->utype == LLMNR) {
+        info->dns->llmnr_flags.c = (ptr[2] & 0x04) >> 2;
+        info->dns->llmnr_flags.tc = (ptr[2] & 0x02) >> 1;
+        info->dns->llmnr_flags.t = ptr[2] & 0x01;
+    } else {
+        info->dns->dns_flags.aa = (ptr[2] & 0x04) >> 2;
+        info->dns->dns_flags.tc = (ptr[2] & 0x02) >> 1;
+        info->dns->dns_flags.rd = ptr[2] & 0x01;
+        info->dns->dns_flags.ra = (ptr[3] & 0x80) >> 7;
+    }
     info->dns->rcode = ptr[3] & 0x0f;
     for (int i = 0, j = 4; i < 4; i++, j += 2) {
         info->dns->section_count[i] = ptr[j] << 8 | ptr[j + 1];
@@ -555,6 +568,11 @@ int get_dns_max_namelen(struct dns_resource_record *record, int n)
 struct packet_flags *get_dns_flags()
 {
     return dns_flags;
+}
+
+struct packet_flags *get_llmnr_flags()
+{
+    return llmnr_flags;
 }
 
 void free_dns_packet(struct dns_info *dns)

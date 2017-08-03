@@ -113,17 +113,30 @@ struct dns_opt_rr {
     unsigned char *data;
 };
 
+struct dns_flags {
+    unsigned int aa : 1; /* authoritative answer */
+    unsigned int tc : 1; /* truncation - specifies that the message was truncated */
+    unsigned int rd : 1; /* recursion desired - if set it directs the name server
+                            to pursue the query recursively */
+    unsigned int ra : 1; /* recursion avilable - denotes whether recursive query
+                            support is available in the name server */
+};
+
+struct llmnr_flags {
+    unsigned int c  : 1; /* conflict */
+    unsigned int tc : 1; /* truncation */
+    unsigned int t  : 1; /* tentative */
+};
+
 // TODO: Clean up this structure
 struct dns_info {
     uint16_t id; /* A 16 bit identifier */
     unsigned int qr     : 1; /* 0 DNS query, 1 DNS response */
     unsigned int opcode : 4; /* specifies the kind of query in the message */
-    unsigned int aa     : 1; /* authoritative answer */
-    unsigned int tc     : 1; /* truncation - specifies that the message was truncated */
-    unsigned int rd     : 1; /* recursion desired - if set it directs the name server
-                                to pursue the query recursively */
-    unsigned int ra     : 1; /* recursion avilable - denotes whether recursive query
-                                support is available in the name server */
+    union {
+        struct dns_flags dns_flags;
+        struct llmnr_flags llmnr_flags;
+    };
     unsigned int rcode  : 4; /* response code */
     unsigned int section_count[4];
 
@@ -233,6 +246,7 @@ struct dns_info {
     } *record;
 };
 
+/* Get the string representation for the different DNS types */
 char *get_dns_opcode(uint8_t opcode);
 char *get_dns_rcode(uint8_t rcode);
 char *get_dns_type(uint16_t type);
@@ -246,7 +260,11 @@ char *get_dns_class_extended(uint16_t rrclass);
  */
 int get_dns_max_namelen(struct dns_resource_record *record, int n);
 
+/* Get the DNS flags */
 struct packet_flags *get_dns_flags();
+
+/* Get the LLMNR flags */
+struct packet_flags *get_llmnr_flags();
 
 /*
  * Parse the DNS pseudo opt resource record. The list needs to be freed with

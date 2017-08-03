@@ -27,7 +27,7 @@ void add_igmp_information(list_view *lw, list_view_header *header, struct igmp_i
 void add_pim_information(list_view *lw, list_view_header *header, struct pim_info *pim);
 void add_ssdp_information(list_view *lw, list_view_header *header, list_t *ssdp);
 void add_http_information(list_view *lw, list_view_header *header, struct http_info *http);
-void add_dns_information(list_view *lw, list_view_header *header, struct dns_info *dns);
+void add_dns_information(list_view *lw, list_view_header *header, struct dns_info *dns, uint16_t type);
 void add_nbns_information(list_view *lw, list_view_header *header, struct nbns_info *nbns);
 void add_nbds_information(list_view *lw, list_view_header *header, struct nbds_info *nbds);
 void add_snmp_information(list_view *lw, list_view_header *header, struct snmp_info *snmp);

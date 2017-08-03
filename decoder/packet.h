@@ -57,7 +57,8 @@ enum port {
     SNMP = 161,     /* Simple Network Management Protocol */
     SNMPTRAP = 162, /* Simple Network Management Protocol Trap */
     SSDP = 1900,    /* Simple Service Discovery Protocol */
-    MDNS = 5353     /* Multicast DNS */
+    MDNS = 5353,    /* Multicast DNS */
+    LLMNR = 5355    /* Link-Local Multicast Name Resolution */
 };
 
 enum packet_type {

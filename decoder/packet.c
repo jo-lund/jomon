@@ -204,6 +204,7 @@ bool check_port(unsigned char *buffer, int n, struct application_info *info,
     switch (port) {
     case DNS:
     case MDNS:
+    case LLMNR:
         return handle_dns(buffer, n, info);
     case NBNS:
         return handle_nbns(buffer, n, info);

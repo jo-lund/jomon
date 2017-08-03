@@ -327,6 +327,7 @@ void print_tcp(char *buf, int n, struct tcp *tcp)
         break;
     case DNS:
     case MDNS:
+    case LLMNR:
         print_dns(buf, n, tcp->data.dns, tcp->data.utype);
         break;
     case NBNS:
@@ -365,6 +366,7 @@ void print_udp(char *buf, int n, struct udp_info *udp)
     switch (udp->data.utype) {
     case DNS:
     case MDNS:
+    case LLMNR:
         print_dns(buf, n, udp->data.dns, udp->data.utype);
         break;
     case NBNS:
@@ -392,8 +394,10 @@ void print_dns(char *buf, int n, struct dns_info *dns, uint16_t type)
 {
     if (type == DNS) {
         PRINT_PROTOCOL(buf, n, "DNS");
-    } else {
+    } else if (type == MDNS) {
         PRINT_PROTOCOL(buf, n, "MDNS");
+    } else {
+        PRINT_PROTOCOL(buf, n, "LLMNR");
     }
     if (dns->qr == 0) {
         switch (dns->opcode) {
@@ -1247,7 +1251,8 @@ void add_tcp_options(list_view *lw, list_view_header *header, struct tcp *tcp)
     free_tcp_options(options);
 }
 
-void add_dns_information(list_view *lw, list_view_header *header, struct dns_info *dns)
+void add_dns_information(list_view *lw, list_view_header *header,
+                         struct dns_info *dns, uint16_t type)
 {
     int records = 0;
     int answers = dns->section_count[ANCOUNT];
@@ -1256,7 +1261,13 @@ void add_dns_information(list_view *lw, list_view_header *header, struct dns_inf
     list_view_header *hdr;
     uint16_t flags;
 
-    flags = dns->aa << 6 | dns->tc << 5 | dns->rd << 4 | dns->ra << 3;
+    if (type == LLMNR) {
+        flags = dns->llmnr_flags.c << 6 | dns->llmnr_flags.tc << 5 |
+            dns->llmnr_flags.t << 4;
+    } else {
+        flags = dns->dns_flags.aa << 6 | dns->dns_flags.tc << 5 |
+            dns->dns_flags.rd << 4 | dns->dns_flags.ra << 3;
+    }
 
     /* number of resource records */
     for (int i = 1; i < 4; i++) {
@@ -1267,7 +1278,11 @@ void add_dns_information(list_view *lw, list_view_header *header, struct dns_inf
     ADD_TEXT_ELEMENT(lw, header, "Opcode: %d (%s)", dns->opcode, get_dns_opcode(dns->opcode));
 
     hdr = ADD_SUB_HEADER(lw, header, selected[DNS_FLAGS], DNS_FLAGS, "Flags 0x%x", flags);
-    add_flags(lw, hdr, flags, get_dns_flags(), 5);
+    if (type == LLMNR) {
+        add_flags(lw, hdr, flags, get_llmnr_flags(), 4);
+    } else {
+        add_flags(lw, hdr, flags, get_dns_flags(), 5);
+    }
     if (dns->qr) {
         ADD_TEXT_ELEMENT(lw, header, "Rcode: %d (%s)", dns->rcode, get_dns_rcode(dns->rcode));
     }
