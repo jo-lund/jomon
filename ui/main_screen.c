@@ -739,9 +739,9 @@ void handle_keyup(main_screen *ms, int num_lines)
 
         ms->selection_line--;
         if (ms->subwindow.win && (ms->selection_line >= ms->subwindow.top + ms->top + ms->subwindow.num_lines)) {
-            p = vector_get_data(packets, ms->selection_line - ms->subwindow.num_lines);
+            p = vector_get_data(packets, ms->selection_line - ms->subwindow.num_lines + ms->scrolly);
         } else {
-            p = vector_get_data(packets, ms->selection_line);
+            p = vector_get_data(packets, ms->selection_line + ms->scrolly);
         }
         ms->top--;
         wscrl(ms->pktlist, -1);
@@ -793,9 +793,9 @@ void handle_keydown(main_screen *ms, int num_lines)
 
         ms->selection_line++;
         if (ms->subwindow.win && (ms->selection_line >= ms->subwindow.top + ms->top + ms->subwindow.num_lines)) {
-            p = vector_get_data(packets, ms->selection_line - ms->subwindow.num_lines);
+            p = vector_get_data(packets, ms->selection_line - ms->subwindow.num_lines + ms->scrolly);
         } else {
-            p = vector_get_data(packets, ms->selection_line);
+            p = vector_get_data(packets, ms->selection_line + ms->scrolly);
         }
         ms->top++;
         wscrl(ms->pktlist, 1);
