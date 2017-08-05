@@ -97,7 +97,7 @@ void free_packet(void *data)
 {
     struct packet *p = (struct packet *) data;
 
-    if (p->eth.ethertype < ETH_P_802_3_MIN) {
+    if (p->eth.ethertype <= ETH_802_3_MAX) {
         free_ethernet802_3_frame(&p->eth);
         return;
     }

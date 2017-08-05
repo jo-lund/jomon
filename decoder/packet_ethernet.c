@@ -61,7 +61,7 @@ bool handle_ethernet(unsigned char *buffer, int n, struct eth_info *eth)
     memcpy(eth->data, buffer, n);
 
     /* Ethernet 802.3 frame */
-    if (eth->ethertype < ETH_P_802_3_MIN) {
+    if (eth->ethertype <= ETH_802_3_MAX) {
         unsigned char *ptr;
 
         ptr = buffer + ETH_HLEN;

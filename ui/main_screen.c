@@ -1055,7 +1055,7 @@ void add_elements(main_screen *ms, struct packet *p)
     ms->lvw = create_list_view();
 
     /* inspect packet and add packet headers as elements to the list view */
-    if (p->eth.ethertype < ETH_P_802_3_MIN) {
+    if (p->eth.ethertype <= ETH_802_3_MAX) {
         header = ADD_HEADER(ms->lvw, "Ethernet 802.3", selected[ETHERNET_LAYER], ETHERNET_LAYER);
     } else {
         header = ADD_HEADER(ms->lvw, "Ethernet II", selected[ETHERNET_LAYER], ETHERNET_LAYER);
@@ -1072,7 +1072,7 @@ void add_elements(main_screen *ms, struct packet *p)
         header = ADD_HEADER(ms->lvw, "Internet Protocol (IPv6)", selected[IP], IP);
         add_ipv6_information(ms->lvw, header, p->eth.ipv6);
         add_transport_elements(ms, p);
-    } else if (p->eth.ethertype < ETH_P_802_3_MIN) {
+    } else if (p->eth.ethertype <= ETH_802_3_MAX) {
         header = ADD_HEADER(ms->lvw, "Logical Link Control (LLC)", selected[LLC], LLC);
         add_llc_information(ms->lvw, header, p);
         switch (get_eth802_type(p->eth.llc)) {

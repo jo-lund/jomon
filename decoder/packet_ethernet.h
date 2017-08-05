@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <netinet/if_ether.h>
 
+#define ETH_802_3_MAX 1500
 #define LLC_HDR_LEN 3
 #define SNAP_HDR_LEN 5
 

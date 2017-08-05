@@ -91,7 +91,7 @@ void write_to_buf(char *buf, int size, struct packet *p)
         print_ipv6(buf, size, p->eth.ipv6, p->num, &p->time);
         break;
     default:
-        if (p->eth.ethertype < ETH_P_802_3_MIN) {
+        if (p->eth.ethertype <= ETH_802_3_MAX) {
             print_llc(buf, size, &p->eth, p->num, &p->time);
         } else if (p->eth.payload_len) {
             char smac[HW_ADDRSTRLEN];

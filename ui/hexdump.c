@@ -336,7 +336,7 @@ enum hex_state get_next_state(enum hex_state cur_state, struct packet *p)
 
     switch (cur_state) {
     case HD_ETHERNET:
-        if (p->eth.ethertype < ETH_P_802_3_MIN) {
+        if (p->eth.ethertype <= ETH_802_3_MAX) {
             next_state = HD_LLC;
         } else {
             switch (p->eth.ethertype) {
