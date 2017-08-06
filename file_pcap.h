@@ -9,6 +9,8 @@ typedef void (*progress_update)(int i);
 enum file_error {
     NO_ERROR,
     FORMAT_ERROR,
+    LINK_ERROR,
+    VERSION_ERROR,
     DECODE_ERROR,
     ACCESS_ERROR,
     NOT_FOUND_ERROR,
