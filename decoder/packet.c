@@ -52,6 +52,7 @@ size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet 
     struct timeval *val;
 
     *p = calloc(1, sizeof(struct packet));
+    (*p)->ptype = UNKNOWN;
     iov.iov_base = buffer;
     iov.iov_len = len;
     memset(&msg, 0, sizeof(struct mmsghdr));
@@ -84,8 +85,9 @@ size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet 
 bool decode_packet(unsigned char *buffer, size_t len, struct packet **p)
 {
     *p = calloc(1, sizeof(struct packet));
+    (*p)->ptype = UNKNOWN;
     if (!handle_ethernet(buffer, len, &(*p)->eth)) {
-        free_packet(p);
+        free_packet(*p);
         return false;
     }
     (*p)->num = ++pstat[0].num_packets;
@@ -99,60 +101,62 @@ void free_packet(void *data)
 
     if (p->eth.ethertype <= ETH_802_3_MAX) {
         free_ethernet802_3_frame(&p->eth);
-        return;
-    }
-    switch (p->eth.ethertype) {
-    case ETH_P_IP:
-        switch (p->eth.ip->protocol) {
-        case IPPROTO_UDP:
-            free_protocol_data(&p->eth.ip->udp.data);
-            break;
-        case IPPROTO_TCP:
-            free_protocol_data(&p->eth.ip->tcp.data);
-            if (p->eth.ip->tcp.options) {
-                free(p->eth.ip->tcp.options);
+    } else {
+        switch (p->eth.ethertype) {
+        case ETH_P_IP:
+            switch (p->eth.ip->protocol) {
+            case IPPROTO_UDP:
+                free_protocol_data(&p->eth.ip->udp.data);
+                break;
+            case IPPROTO_TCP:
+                free_protocol_data(&p->eth.ip->tcp.data);
+                if (p->eth.ip->tcp.options) {
+                    free(p->eth.ip->tcp.options);
+                }
+                break;
+            case IPPROTO_PIM:
+                free_pim_packet(&p->eth.ip->pim);
+                break;
+            case IPPROTO_ICMP:
+            case IPPROTO_IGMP:
+                break;
+            default:
+                break;
             }
+            free(p->eth.ip);
             break;
-        case IPPROTO_PIM:
-            free_pim_packet(&p->eth.ip->pim);
+        case ETH_P_IPV6:
+            switch (p->eth.ipv6->next_header) {
+            case IPPROTO_UDP:
+                free_protocol_data(&p->eth.ipv6->udp.data);
+                break;
+            case IPPROTO_TCP:
+                free_protocol_data(&p->eth.ipv6->tcp.data);
+                if (p->eth.ipv6->tcp.options) {
+                    free(p->eth.ipv6->tcp.options);
+                }
+                break;
+            case IPPROTO_PIM:
+                free_pim_packet(&p->eth.ipv6->pim);
+                break;
+            case IPPROTO_ICMP:
+            case IPPROTO_IGMP:
+                break;
+            default:
+                break;
+            }
+            free(p->eth.ipv6);
             break;
-        case IPPROTO_ICMP:
-        case IPPROTO_IGMP:
+        case ETH_P_ARP:
+            free(p->eth.arp);
             break;
         default:
             break;
         }
-        free(p->eth.ip);
-        break;
-    case ETH_P_IPV6:
-        switch (p->eth.ipv6->next_header) {
-        case IPPROTO_UDP:
-            free_protocol_data(&p->eth.ipv6->udp.data);
-            break;
-        case IPPROTO_TCP:
-            free_protocol_data(&p->eth.ipv6->tcp.data);
-            if (p->eth.ipv6->tcp.options) {
-                free(p->eth.ipv6->tcp.options);
-            }
-            break;
-        case IPPROTO_PIM:
-            free_pim_packet(&p->eth.ipv6->pim);
-            break;
-        case IPPROTO_ICMP:
-        case IPPROTO_IGMP:
-            break;
-        default:
-            break;
-        }
-        free(p->eth.ipv6);
-        break;
-    case ETH_P_ARP:
-        free(p->eth.arp);
-        break;
-    default:
-        break;
     }
-    free(p->eth.data);
+    if (p->eth.data) {
+        free(p->eth.data);
+    }
     free(p);
 }
 
