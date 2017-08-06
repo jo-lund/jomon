@@ -2,6 +2,7 @@
 #define PACKET_PIM_H
 
 #include "../list.h"
+#include "packet.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -258,7 +259,7 @@ list_t *parse_hello_options(struct pim_info *pim);
 char *get_pim_address(uint8_t family, pim_addr *addr);
 
 /* internal to the decoder */
-bool handle_pim(unsigned char *buffer, int n, struct pim_info *pim);
+packet_error handle_pim(unsigned char *buffer, int n, struct pim_info *pim);
 void free_pim_packet(struct pim_info *pim);
 
 #endif

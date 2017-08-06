@@ -66,15 +66,13 @@ static struct packet_flags ipv4_flags[] = {
  * offset of zero.
  * Protocol: Defines the protocol used in the data portion of the packet.
  */
-bool handle_ipv4(unsigned char *buffer, int n, struct eth_info *eth)
+packet_error handle_ipv4(unsigned char *buffer, int n, struct eth_info *eth)
 {
     struct iphdr *ip;
     unsigned int header_len;
-    bool error = false;
 
     ip = (struct iphdr *) buffer;
-    if (n < ip->ihl * 4) return false;
-
+    if (n < ip->ihl * 4) return IPv4_ERR;
 
     pstat[PROT_IPv4].num_packets++;
     pstat[PROT_IPv4].num_bytes += n;
@@ -98,28 +96,18 @@ bool handle_ipv4(unsigned char *buffer, int n, struct eth_info *eth)
     header_len = ip->ihl * 4;
     switch (ip->protocol) {
     case IPPROTO_ICMP:
-        error = !handle_icmp(buffer + header_len, n - header_len, &eth->ip->icmp);
-        break;
+        return handle_icmp(buffer + header_len, n - header_len, &eth->ip->icmp);
     case IPPROTO_IGMP:
-        error = !handle_igmp(buffer + header_len, n - header_len, &eth->ip->igmp);
-        break;
+        return handle_igmp(buffer + header_len, n - header_len, &eth->ip->igmp);
     case IPPROTO_TCP:
-        error = !handle_tcp(buffer + header_len, n - header_len, &eth->ip->tcp);
-        break;
+        return handle_tcp(buffer + header_len, n - header_len, &eth->ip->tcp);
     case IPPROTO_UDP:
-        error = !handle_udp(buffer + header_len, n - header_len, &eth->ip->udp);
-        break;
+        return handle_udp(buffer + header_len, n - header_len, &eth->ip->udp);
     case IPPROTO_PIM:
-        error = !handle_pim(buffer + header_len, n - header_len, &eth->ip->pim);
-        break;
+        return handle_pim(buffer + header_len, n - header_len, &eth->ip->pim);
     default:
-        error = true;
-        break;
+        return NO_ERR;
     }
-    // TODO: Need to correctly handle errors. We need to know that the packet
-    // had some errors in parsing and that the protocol data should be printed
-    // as plain data and not as the original protocol
-    return true;
 }
 
 /*
@@ -161,15 +149,14 @@ bool handle_ipv4(unsigned char *buffer, int n, struct eth_info *eth)
  * Source Address:      128-bit address of the originator of the packet
  * Destination Address: 128-bit address of the intended recipient of the packet
  */
-
-bool handle_ipv6(unsigned char *buffer, int n, struct eth_info *eth)
+packet_error handle_ipv6(unsigned char *buffer, int n, struct eth_info *eth)
 {
     struct ip6_hdr *ip6;
     bool error = false;
     unsigned int header_len;
 
     header_len = sizeof(struct ip6_hdr);
-    if (n < header_len) return false;
+    if (n < header_len) return IPv6_ERR;
 
     pstat[PROT_IPv6].num_packets++;
     pstat[PROT_IPv6].num_bytes += n;
@@ -200,10 +187,9 @@ bool handle_ipv6(unsigned char *buffer, int n, struct eth_info *eth)
         break;
     case IPPROTO_ICMPV6:
     default:
-        error = true;
         break;
     }
-    return true;
+    return NO_ERR;
 }
 
 char *get_ip_dscp(uint8_t dscp)

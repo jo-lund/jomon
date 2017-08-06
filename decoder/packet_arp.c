@@ -25,9 +25,9 @@
  * PS: Protocol Size, number of bytes in the requested network address
  * OP: Operation. 1 = ARP request, 2 = ARP reply, 3 = RARP request, 4 = RARP reply
  */
-bool handle_arp(unsigned char *buffer, int n, struct eth_info *eth)
+packet_error handle_arp(unsigned char *buffer, int n, struct eth_info *eth)
 {
-    if (n < ARP_SIZE) return false;
+    if (n < ARP_SIZE) return ARP_ERR;
 
     struct ether_arp *arp_header;
 
@@ -44,7 +44,7 @@ bool handle_arp(unsigned char *buffer, int n, struct eth_info *eth)
     eth->arp->pt = ntohs(arp_header->arp_pro);
     eth->arp->hs = arp_header->arp_hln;
     eth->arp->ps = arp_header->arp_pln;
-    return true;
+    return NO_ERR;
 }
 
 char *get_arp_hardware_type(uint16_t type)

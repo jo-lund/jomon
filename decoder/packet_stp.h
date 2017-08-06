@@ -2,6 +2,7 @@
 #define PACKET_STP_H
 
 #include <stdbool.h>
+#include "packet.h"
 
 enum stp_bpdu_type {
     CONFIG = 0x0,
@@ -36,7 +37,7 @@ struct stp_info {
 
 struct eth_802_llc;
 
-bool handle_stp(unsigned char *buffer, uint16_t n, struct eth_802_llc *llc);
+packet_error handle_stp(unsigned char *buffer, uint16_t n, struct eth_802_llc *llc);
 char *get_stp_bpdu_type(uint8_t type);
 struct packet_flags *get_stp_flags();
 

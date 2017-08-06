@@ -11,6 +11,8 @@
 
 #define LLC_PAYLOAD_LEN(p) ((p)->eth.ethertype - LLC_HDR_LEN)
 
+struct packet;
+
 enum eth_802_type {
     ETH_802_UNKNOWN,
     ETH_802_STP,
@@ -57,7 +59,7 @@ uint32_t get_eth802_oui(struct snap_info *snap);
 char *get_ethernet_type(uint16_t ethertype);
 
 /* Should be internal to the decoder */
-bool handle_ethernet(unsigned char *buffer, int n, struct eth_info *eth);
+bool handle_ethernet(unsigned char *buffer, int n, struct packet *p);
 void free_ethernet802_3_frame(struct eth_info *eth);
 
 #endif

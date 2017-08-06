@@ -15,9 +15,9 @@
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  */
-bool handle_udp(unsigned char *buffer, int n, struct udp_info *info)
+packet_error handle_udp(unsigned char *buffer, int n, struct udp_info *info)
 {
-    if (n < UDP_HDR_LEN) return false;
+    if (n < UDP_HDR_LEN) return UDP_ERR;
 
     struct udphdr *udp;
     bool error;
@@ -34,9 +34,9 @@ bool handle_udp(unsigned char *buffer, int n, struct udp_info *info)
         info->data.utype = *((uint16_t *) info + i);
         if (check_port(buffer + UDP_HDR_LEN, n - UDP_HDR_LEN, &info->data,
                        info->data.utype, &error)) {
-            return true;
+            return NO_ERR;
         }
     }
     info->data.utype = 0;
-    return true;
+    return NO_ERR;
 }

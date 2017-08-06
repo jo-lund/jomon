@@ -46,9 +46,9 @@
  *
  * TODO: Handle IGMPv3 membership query
  */
-bool handle_igmp(unsigned char *buffer, int n, struct igmp_info *info)
+packet_error handle_igmp(unsigned char *buffer, int n, struct igmp_info *info)
 {
-    if (n < IGMP_HDR_LEN) return false;
+    if (n < IGMP_HDR_LEN) return IGMP_ERR;
 
     struct igmphdr *igmp;
 
@@ -59,7 +59,7 @@ bool handle_igmp(unsigned char *buffer, int n, struct igmp_info *info)
     info->max_resp_time = igmp->code;
     info->checksum = ntohs(igmp->csum);
     info->group_addr = igmp->group;
-    return true;
+    return NO_ERR;
 }
 
 char *get_igmp_type(uint8_t type)

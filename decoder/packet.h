@@ -61,10 +61,30 @@ enum port {
     LLMNR = 5355    /* Link-Local Multicast Name Resolution */
 };
 
-enum packet_type {
+typedef enum {
     UNKNOWN = -1,
     ETHERNET
-};
+} packet_type;
+
+typedef enum {
+    NO_ERR,
+    ETH_ERR,
+    ARP_ERR,
+    STP_ERR,
+    IPv4_ERR,
+    IPv6_ERR,
+    ICMP_ERR,
+    IGMP_ERR,
+    PIM_ERR,
+    TCP_ERR,
+    UDP_ERR,
+    DNS_ERR,
+    NBNS_ERR,
+    NBDS_ERR,
+    HTTP_ERR,
+    SSDP_ERR,
+    SNMP_ERR
+} packet_error;
 
 struct application_info {
     uint16_t utype; /* specifies the application layer protocol */
@@ -83,8 +103,9 @@ struct application_info {
  * only support for Ethernet.
  */
 struct packet {
-    enum packet_type ptype;
+    packet_type ptype;
     uint32_t num;
+    packet_error perr;
     struct timeval time;
     struct eth_info eth;
 };

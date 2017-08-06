@@ -36,6 +36,7 @@
         PRINT_INFO(buffer, n, fmt, ## __VA_ARGS__);             \
     } while (0)
 
+static void print_error(char *buf, int size, struct packet *p);
 static void print_arp(char *buf, int n, struct arp_info *info, uint32_t num, struct timeval *t);
 static void print_llc(char *buf, int n, struct eth_info *eth, uint32_t num, struct timeval *t);
 static void print_ip(char *buf, int n, struct ipv4_info *ip, uint32_t num, struct timeval *t);
@@ -80,55 +81,69 @@ static void add_smb_information(list_view *lw, list_view_header *header, struct 
 
 void write_to_buf(char *buf, int size, struct packet *p)
 {
-    switch (p->eth.ethertype) {
-    case ETH_P_ARP:
-        print_arp(buf, size, p->eth.arp, p->num, &p->time);
-        break;
-    case ETH_P_IP:
-        print_ip(buf, size, p->eth.ip, p->num, &p->time);
-        break;
-    case ETH_P_IPV6:
-        print_ipv6(buf, size, p->eth.ipv6, p->num, &p->time);
-        break;
-    default:
-        if (p->eth.ethertype <= ETH_802_3_MAX) {
-            print_llc(buf, size, &p->eth, p->num, &p->time);
-        } else if (p->eth.payload_len) {
-            char smac[HW_ADDRSTRLEN];
-            char dmac[HW_ADDRSTRLEN];
-            char time[TBUFLEN];
-
-            HW_ADDR_NTOP(smac, p->eth.mac_src);
-            HW_ADDR_NTOP(dmac, p->eth.mac_dst);
-            format_timeval(&p->time, time, TBUFLEN);
-            PRINT_LINE(buf, size, p->num, time, smac, dmac, "ETH II", "Ethertype: 0x%x", p->eth.ethertype);
+    if (p->perr != NO_ERR) {
+        print_error(buf, size, p);
+    } else {
+        switch (p->eth.ethertype) {
+        case ETH_P_ARP:
+            print_arp(buf, size, p->eth.arp, p->num, &p->time);
+            break;
+        case ETH_P_IP:
+            print_ip(buf, size, p->eth.ip, p->num, &p->time);
+            break;
+        case ETH_P_IPV6:
+            print_ipv6(buf, size, p->eth.ipv6, p->num, &p->time);
+            break;
+        default:
+            if (p->eth.ethertype <= ETH_802_3_MAX) {
+                print_llc(buf, size, &p->eth, p->num, &p->time);
+            } else if (p->eth.payload_len) {
+                print_error(buf, size, p);
+            }
+            break;
         }
-        break;
     }
 }
 
-void print_arp(char *buf, int n, struct arp_info *info, uint32_t num, struct timeval *t)
+void print_error(char *buf, int size, struct packet *p)
+{
+    char smac[HW_ADDRSTRLEN];
+    char dmac[HW_ADDRSTRLEN];
+    char time[TBUFLEN];
+
+    HW_ADDR_NTOP(smac, p->eth.mac_src);
+    HW_ADDR_NTOP(dmac, p->eth.mac_dst);
+    format_timeval(&p->time, time, TBUFLEN);
+    if (p->perr != NO_ERR) {
+        PRINT_LINE(buf, size, p->num, time, smac, dmac,
+                   "ETH II", "Ethertype: 0x%x [decode error]", p->eth.ethertype);
+    } else { /* not yet supported */
+        PRINT_LINE(buf, size, p->num, time, smac, dmac, "ETH II", "Ethertype: 0x%x", p->eth.ethertype);
+    }
+}
+
+void print_arp(char *buf, int n, struct arp_info *arp, uint32_t num, struct timeval *t)
 {
     char sip[INET_ADDRSTRLEN];
     char tip[INET_ADDRSTRLEN];
     char sha[HW_ADDRSTRLEN];
     char time[TBUFLEN];
 
-    inet_ntop(AF_INET, info->sip, sip, INET_ADDRSTRLEN);
-    inet_ntop(AF_INET, info->tip, tip, INET_ADDRSTRLEN);
+    inet_ntop(AF_INET, arp->sip, sip, INET_ADDRSTRLEN);
+    inet_ntop(AF_INET, arp->tip, tip, INET_ADDRSTRLEN);
     format_timeval(t, time, TBUFLEN);
-    switch (info->op) {
+    switch (arp->op) {
     case ARPOP_REQUEST:
         PRINT_LINE(buf, n, num, time, sip, tip, "ARP",
                    "Request: Looking for hardware address of %s", tip);
         break;
     case ARPOP_REPLY:
-        HW_ADDR_NTOP(sha, info->sha);
+        HW_ADDR_NTOP(sha, arp->sha);
         PRINT_LINE(buf, n, num, time, sip, tip, "ARP",
                    "Reply: %s has hardware address %s", sip, sha);
         break;
     default:
-        PRINT_LINE(buf, n, num, time, info->sip, info->tip, "ARP", "Opcode %d", info->op);
+        PRINT_LINE(buf, n, num, time, arp->sip, arp->tip, "ARP", "Opcode %d", arp->op);
         break;
     }
 }
@@ -1094,19 +1109,19 @@ void add_pim_bootstrap(list_view *lw, list_view_header *header, struct pim_info 
     addr = get_pim_address(pim->bootstrap->groups->gaddr.addr_family, &pim->bootstrap->groups->gaddr.addr);
     if (addr) {
         grp = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Group %s/%d", addr, pim->bootstrap->groups->gaddr.mask_len);
-        free(addr);
-    }
-    ADD_TEXT_ELEMENT(lw, grp, "RP count: %u", pim->bootstrap->groups->rp_count);
-    ADD_TEXT_ELEMENT(lw, grp, "Frag RP count: %u", pim->bootstrap->groups->frag_rp_count);
-    for (int i = 0; i < pim->bootstrap->groups->frag_rp_count; i++) {
-        addr = get_pim_address(pim->bootstrap->groups->rps[i].rp_addr.addr_family,
-                               &pim->bootstrap->groups->rps[i].rp_addr.addr);
-        if (addr) {
-            ADD_TEXT_ELEMENT(lw, grp, "RP address %d: %s", i, addr);
-            free(addr);
+        ADD_TEXT_ELEMENT(lw, grp, "RP count: %u", pim->bootstrap->groups->rp_count);
+        ADD_TEXT_ELEMENT(lw, grp, "Frag RP count: %u", pim->bootstrap->groups->frag_rp_count);
+        for (int i = 0; i < pim->bootstrap->groups->frag_rp_count; i++) {
+            addr = get_pim_address(pim->bootstrap->groups->rps[i].rp_addr.addr_family,
+                                   &pim->bootstrap->groups->rps[i].rp_addr.addr);
+            if (addr) {
+                ADD_TEXT_ELEMENT(lw, grp, "RP address %d: %s", i, addr);
+                free(addr);
+            }
+            ADD_TEXT_ELEMENT(lw, grp, "Holdtime: %u", pim->bootstrap->groups->rps[i].holdtime);
+            ADD_TEXT_ELEMENT(lw, grp, "Priority: %u", pim->bootstrap->groups->rps[i].priority);
         }
-        ADD_TEXT_ELEMENT(lw, grp, "Holdtime: %u", pim->bootstrap->groups->rps[i].holdtime);
-        ADD_TEXT_ELEMENT(lw, grp, "Priority: %u", pim->bootstrap->groups->rps[i].priority);
+        free(addr);
     }
 }
 

@@ -270,6 +270,7 @@ void run()
 
                     write_to_buf(buf, MAXLINE, p);
                     printf("%s\n", buf);
+                    free_packet(p);
                 }
             }
         }
