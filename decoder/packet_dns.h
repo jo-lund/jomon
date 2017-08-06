@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "packet.h"
 
 #define DNS_HDRLEN 12
 #define DNS_NAMELEN 256 /* a DNS name is 255 bytes or less + null byte */
@@ -274,7 +275,7 @@ list_t *parse_dns_options(struct dns_resource_record *rr);
 void free_dns_options(list_t *opt);
 
 /* internal to the decoder */
-bool handle_dns(unsigned char *buffer, int n, struct application_info *info);
+packet_error handle_dns(unsigned char *buffer, int n, struct application_info *info);
 int parse_dns_name(unsigned char *buffer, int n, unsigned char *ptr, char name[]);
 void free_dns_packet(struct dns_info *dns);
 

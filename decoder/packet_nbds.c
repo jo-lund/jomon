@@ -35,9 +35,9 @@ static bool parse_datagram(unsigned char *buffer, int n, unsigned char **data,
  * fields. Theses fields are actually specific to messages that carry a data
  * payload: the DIRECT_UNIQUE, DIRECT_GROUP, and BROADCAST DATAGRAM messages.
  */
-bool handle_nbds(unsigned char *buffer, int n, struct application_info *adu)
+packet_error handle_nbds(unsigned char *buffer, int n, struct application_info *adu)
 {
-    if (n < NBDS_HDRLEN) return false;
+    if (n < NBDS_HDRLEN) return NBDS_ERR;
 
     unsigned char *ptr;
 
@@ -74,7 +74,7 @@ bool handle_nbds(unsigned char *buffer, int n, struct application_info *adu)
     }
     pstat[PROT_NBDS].num_packets++;
     pstat[PROT_NBDS].num_bytes += n;
-    return true;
+    return NO_ERR;
 }
 
 bool parse_datagram(unsigned char *buffer, int n, unsigned char **data,

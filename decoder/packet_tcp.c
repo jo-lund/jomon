@@ -81,7 +81,7 @@ static void free_options(void *data);
 packet_error handle_tcp(unsigned char *buffer, int n, struct tcp *info)
 {
     struct tcphdr *tcp;
-    bool error;
+    packet_error error;
     uint16_t payload_len;
 
     tcp = (struct tcphdr *) buffer;
@@ -122,11 +122,11 @@ packet_error handle_tcp(unsigned char *buffer, int n, struct tcp *info)
             info->data.utype = *((uint16_t *) info + i);
             if (check_port(buffer + info->offset * 4, payload_len, &info->data,
                            info->data.utype, &error)) {
-                return NO_ERR;
+                return error;
             }
         }
     }
-    info->data.utype = 0;
+    info->data.utype = 0; /* unknown application protocol */
     return NO_ERR;
 }
 

@@ -33,7 +33,7 @@ typedef struct {
     };
 } snmp_value;
 
-static bool parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp);
+static packet_error parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp);
 static list_t *parse_variables(unsigned char *buffer, int n);
 static uint32_t parse_value(unsigned char **data, uint8_t *class, uint8_t *tag,
                             snmp_value *value);
@@ -45,7 +45,7 @@ static void free_snmp_varbind(void *data);
  * encodings use the definite-length form. Further, whenever permissible,
  * non-constructor encodings are used rather than constructor encodings.
  */
-bool handle_snmp(unsigned char *buffer, int n, struct application_info *adu)
+packet_error handle_snmp(unsigned char *buffer, int n, struct application_info *adu)
 {
     uint8_t class;
     uint8_t tag;
@@ -61,7 +61,7 @@ bool handle_snmp(unsigned char *buffer, int n, struct application_info *adu)
             return parse_pdu(ptr, msg_len, adu->snmp);
         }
     }
-    return false;
+    return NO_ERR;
 }
 
 /*
@@ -70,7 +70,7 @@ bool handle_snmp(unsigned char *buffer, int n, struct application_info *adu)
  * community - octet string
  * PDU type - context specific with tag from 0 - 4
  */
-bool parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp)
+packet_error parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp)
 {
     uint8_t class;
     uint8_t tag;
@@ -107,9 +107,9 @@ bool parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp)
                     snmp->pdu->error_status = val[1].ival;
                     snmp->pdu->error_index = val[2].ival;
                     snmp->pdu->varbind_list = parse_variables(ptr, n);
-                    return true;
+                    return NO_ERR;
                 }
-                return false;
+                return SNMP_ERR;
             }
             case SNMP_TRAP:
             {
@@ -128,16 +128,16 @@ bool parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp)
                     snmp->trap->specific_code = val[3].ival;
                     snmp->trap->timestamp = val[4].ival;
                     snmp->trap->varbind_list = parse_variables(ptr, n);
-                    return true;
+                    return NO_ERR;
                 }
-                return false;
+                return SNMP_ERR;
             }
             default:
-                return false;
+                return SNMP_ERR;
             }
         }
     }
-    return false;
+    return SNMP_ERR;
 }
 
 /*

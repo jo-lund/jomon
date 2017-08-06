@@ -202,32 +202,36 @@ void free_protocol_data(struct application_info *adu)
 
 /*
  * Checks which well-known or registered port the packet originated from or is
- * addressed to. On error the error argument will be set to true, e.g. if
- * checksum correction is enabled and this calculation fails.
+ * addressed to. In case of errors in decoding the packet, the error argument
+ * will be set accordingly.
  *
- * Returns false if it's an ephemeral port, the port is not yet supported or in
- * case of errors in decoding the packet.
+ * Returns false if it's an ephemeral port or the port is not yet supported.
  */
 bool check_port(unsigned char *buffer, int n, struct application_info *info,
-                uint16_t port, bool *error)
+                uint16_t port, packet_error *error)
 {
     switch (port) {
     case DNS:
     case MDNS:
     case LLMNR:
-        return handle_dns(buffer, n, info);
+        *error = handle_dns(buffer, n, info);
+        return true;
     case NBNS:
-        return handle_nbns(buffer, n, info);
+        *error = handle_nbns(buffer, n, info);
+        return true;
     case NBDS:
-        return handle_nbds(buffer, n, info);
+        *error = handle_nbds(buffer, n, info);
+        return true;
     case SSDP:
-        return handle_ssdp(buffer, n, info);
+        *error = handle_ssdp(buffer, n, info);
+        return true;
     /* case HTTP: */
     /*     *error = handle_http(buffer, info, packet_len); */
     /*     return true; */
     case SNMP:
     case SNMPTRAP:
-        return handle_snmp(buffer, n, info);
+        *error = handle_snmp(buffer, n, info);
+        return true;
     default:
         return false;
     }

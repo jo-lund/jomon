@@ -20,7 +20,7 @@ packet_error handle_udp(unsigned char *buffer, int n, struct udp_info *info)
     if (n < UDP_HDR_LEN) return UDP_ERR;
 
     struct udphdr *udp;
-    bool error;
+    packet_error error;
 
     pstat[PROT_UDP].num_packets++;
     pstat[PROT_UDP].num_bytes += n;
@@ -34,9 +34,9 @@ packet_error handle_udp(unsigned char *buffer, int n, struct udp_info *info)
         info->data.utype = *((uint16_t *) info + i);
         if (check_port(buffer + UDP_HDR_LEN, n - UDP_HDR_LEN, &info->data,
                        info->data.utype, &error)) {
-            return NO_ERR;
+            return error;
         }
     }
-    info->data.utype = 0;
+    info->data.utype = 0; /* unknown application protocol */
     return NO_ERR;
 }

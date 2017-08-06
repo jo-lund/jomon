@@ -70,7 +70,7 @@ struct packet_flags *get_nbds_flags();
 char *get_nbds_message_type(uint8_t type);
 
 /* internal to the decoder */
-bool handle_nbds(unsigned char *buffer, int n, struct application_info *adu);
+packet_error handle_nbds(unsigned char *buffer, int n, struct application_info *adu);
 void free_nbds_packet(struct nbds_info *nbds);
 
 #endif

@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "packet.h"
 
 /* SMB commands */
 #define SMB_COM_CREATE_DIRECTORY 0x0
@@ -76,6 +77,6 @@ char *get_smb_command(uint8_t cmd);
 struct packet_flags *get_smb_flags();
 struct packet_flags *get_smb_flags2();
 
-bool handle_smb(unsigned char *buffer, int n, struct smb_info *smb);
+packet_error handle_smb(unsigned char *buffer, int n, struct smb_info *smb);
 
 #endif

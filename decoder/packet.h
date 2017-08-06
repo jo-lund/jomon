@@ -83,7 +83,8 @@ typedef enum {
     NBDS_ERR,
     HTTP_ERR,
     SSDP_ERR,
-    SNMP_ERR
+    SNMP_ERR,
+    SMB_ERR
 } packet_error;
 
 struct application_info {
@@ -137,7 +138,7 @@ uint16_t get_packet_size(struct packet *p);
 
 /* Should be internal to the decoder */
 bool check_port(unsigned char *buffer, int n, struct application_info *info,
-                uint16_t port, bool *error);
+                uint16_t port, packet_error *error);
 
 
 #endif

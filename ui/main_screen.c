@@ -1180,6 +1180,12 @@ void add_app_elements(main_screen *ms, struct packet *p, struct application_info
 {
     list_view_header *header;
 
+    if (p->perr != NO_ERR && len > 0) {
+        header = ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
+        add_hexdump(ms->lvw, header, hexmode, get_adu_payload(p), len);
+        return;
+    }
+
     switch (adu->utype) {
     case DNS:
     case MDNS:

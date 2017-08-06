@@ -76,15 +76,15 @@ static void free_opt_rr(void *data);
  * ARCOUNT: an unsigned 16 bit integer specifying the number of
  *          resource records in the additional records section.
  */
-bool handle_dns(unsigned char *buffer, int n, struct application_info *info)
+packet_error handle_dns(unsigned char *buffer, int n, struct application_info *info)
 {
     unsigned char *ptr = buffer;
 
-    if (n < DNS_HDRLEN) return false;
+    if (n < DNS_HDRLEN) return DNS_ERR;
 
     // TODO: Handle more than one question
     if ((ptr[4] << 8 | ptr[5]) > 0x1) { /* the QDCOUNT will in practice always be one */
-        return false;
+        return DNS_ERR;
     }
     info->dns = malloc(sizeof(struct dns_info));
     info->dns->id = ptr[0] << 8 | ptr[1];
@@ -132,12 +132,12 @@ bool handle_dns(unsigned char *buffer, int n, struct application_info *info)
     } else { /* DNS query */
         if (info->dns->rcode != 0) { /* RCODE will be zero */
             free(info->dns);
-            return false;
+            return DNS_ERR;
         }
         /* ANCOUNT should be zero */
         if (info->dns->section_count[ANCOUNT] != 0) {
             free(info->dns);
-            return false;
+            return DNS_ERR;
         }
         /*
          * ARCOUNT will typically be 0, 1, or 2, depending on whether EDNS0
@@ -145,7 +145,7 @@ bool handle_dns(unsigned char *buffer, int n, struct application_info *info)
          */
         if (info->dns->section_count[ARCOUNT] > 2) {
             free(info->dns);
-            return false;
+            return DNS_ERR;
         }
         ptr += DNS_HDRLEN;
 
@@ -172,7 +172,7 @@ bool handle_dns(unsigned char *buffer, int n, struct application_info *info)
     }
     pstat[PROT_DNS].num_packets++;
     pstat[PROT_DNS].num_bytes += n;
-    return true;
+    return NO_ERR;
 }
 
 /*

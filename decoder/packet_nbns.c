@@ -47,9 +47,9 @@ static void parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char
  * |AA |TC |RD |RA | 0 | 0 | B |
  * +---+---+---+---+---+---+---+
  */
-bool handle_nbns(unsigned char *buffer, int n, struct application_info *info)
+packet_error handle_nbns(unsigned char *buffer, int n, struct application_info *info)
 {
-    if (n < DNS_HDRLEN) return false;
+    if (n < DNS_HDRLEN) return NBNS_ERR;
 
     unsigned char *ptr = buffer;
 
@@ -76,7 +76,7 @@ bool handle_nbns(unsigned char *buffer, int n, struct application_info *info)
     if (info->nbns->r) { /* response */
         if (info->nbns->section_count[QDCOUNT] != 0) { /* QDCOUNT is always 0 for responses */
             free(info->nbns);
-            return false;
+            return NBNS_ERR;
         }
         ptr += DNS_HDRLEN;
 
@@ -93,11 +93,11 @@ bool handle_nbns(unsigned char *buffer, int n, struct application_info *info)
     } else { /* request */
         if (info->nbns->aa) { /* authoritative answer is only to be set in responses */
             free(info->nbns);
-            return false;
+            return NBNS_ERR;
         }
         if (info->nbns->section_count[QDCOUNT] == 0) { /* QDCOUNT must be non-zero for requests */
             free(info->nbns);
-            return false;
+            return NBNS_ERR;
         }
         ptr += DNS_HDRLEN;
 
@@ -117,7 +117,7 @@ bool handle_nbns(unsigned char *buffer, int n, struct application_info *info)
     }
     pstat[PROT_NBNS].num_packets++;
     pstat[PROT_NBNS].num_bytes += n;
-    return true;
+    return NO_ERR;
 }
 
 /*
