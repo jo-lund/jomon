@@ -90,6 +90,12 @@ packet_error parse_join_prune(unsigned char *buffer, int n, struct pim_info *pim
         parse_grp_address(&buffer, &pim->jpg->groups[i].gaddr);
         pim->jpg->groups[i].num_joined_src = buffer[0] << 8 | buffer[1];
         pim->jpg->groups[i].num_pruned_src = buffer[2] << 8 | buffer[3];
+        if (pim->jpg->groups[i].num_joined_src > n - 4) {
+            return PIM_ERR;
+        }
+        if (pim->jpg->groups[i].num_pruned_src > n - 4) {
+            return PIM_ERR;
+        }
         if (pim->jpg->groups[i].num_joined_src) {
             pim->jpg->groups[i].joined_src = calloc(pim->jpg->groups[i].num_joined_src,
                                               sizeof(struct pim_source_addr));
@@ -169,7 +175,7 @@ packet_error parse_bootstrap(unsigned char *buffer, int n, struct pim_info *pim)
     parse_grp_address(&buffer, &pim->bootstrap->groups->gaddr);
     pim->bootstrap->groups->rp_count = buffer[0];
     pim->bootstrap->groups->frag_rp_count = buffer[1];
-    if (pim->bootstrap->groups->frag_rp_count > n) {
+    if (pim->bootstrap->groups->frag_rp_count > n - 2) {
         return PIM_ERR;
     }
     buffer += 2;
@@ -189,7 +195,7 @@ packet_error parse_candidate_rp(unsigned char *buffer, int n, struct pim_info *p
     // TODO: Add a check for minimum packet size
     pim->candidate = malloc(sizeof(struct pim_candidate_rp_advertisement));
     pim->candidate->prefix_count = buffer[0];
-    if (pim->candidate->prefix_count > n) {
+    if (pim->candidate->prefix_count > n - 4) {
         return PIM_ERR;
     }
     pim->candidate->priority = buffer[1];
