@@ -80,10 +80,12 @@ packet_error parse_join_prune(unsigned char *buffer, int n, struct pim_info *pim
     parse_unicast_address(&buffer, &pim->jpg->neighbour);
     buffer++; /* next byte is reserved */
     pim->jpg->num_groups = buffer[0];
+    if (pim->jpg->num_groups > n) {
+        return PIM_ERR;
+    }
     pim->jpg->holdtime = buffer[1] << 8 | buffer[2];
     pim->jpg->groups = calloc(pim->jpg->num_groups, sizeof(*pim->jpg->groups));
     buffer += 3;
-
     for (int i = 0; i < pim->jpg->num_groups; i++) {
         parse_grp_address(&buffer, &pim->jpg->groups[i].gaddr);
         pim->jpg->groups[i].num_joined_src = buffer[0] << 8 | buffer[1];
@@ -167,6 +169,9 @@ packet_error parse_bootstrap(unsigned char *buffer, int n, struct pim_info *pim)
     parse_grp_address(&buffer, &pim->bootstrap->groups->gaddr);
     pim->bootstrap->groups->rp_count = buffer[0];
     pim->bootstrap->groups->frag_rp_count = buffer[1];
+    if (pim->bootstrap->groups->frag_rp_count > n) {
+        return PIM_ERR;
+    }
     buffer += 2;
     pim->bootstrap->groups->rps =
         calloc(pim->bootstrap->groups->frag_rp_count, sizeof(*pim->bootstrap->groups->rps));
@@ -184,6 +189,9 @@ packet_error parse_candidate_rp(unsigned char *buffer, int n, struct pim_info *p
     // TODO: Add a check for minimum packet size
     pim->candidate = malloc(sizeof(struct pim_candidate_rp_advertisement));
     pim->candidate->prefix_count = buffer[0];
+    if (pim->candidate->prefix_count > n) {
+        return PIM_ERR;
+    }
     pim->candidate->priority = buffer[1];
     pim->candidate->holdtime = buffer[2] << 8 | buffer[3];
     buffer += 4;
