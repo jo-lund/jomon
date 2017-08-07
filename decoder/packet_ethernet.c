@@ -86,7 +86,6 @@ bool handle_ethernet(unsigned char *buffer, int n, struct packet *p)
                will be layered on top of SNAP */
         }
     } else {
-        // TODO: Need to handle errors properly
         p->eth.payload_len = n - ETH_HLEN;
         switch (p->eth.ethertype) {
         case ETH_P_IP:

@@ -152,7 +152,6 @@ packet_error handle_ipv4(unsigned char *buffer, int n, struct eth_info *eth)
 packet_error handle_ipv6(unsigned char *buffer, int n, struct eth_info *eth)
 {
     struct ip6_hdr *ip6;
-    bool error = false;
     unsigned int header_len;
 
     header_len = sizeof(struct ip6_hdr);
@@ -174,17 +173,13 @@ packet_error handle_ipv6(unsigned char *buffer, int n, struct eth_info *eth)
     // TODO: Handle IPv6 extension headers and errors
     switch (eth->ipv6->next_header) {
     case IPPROTO_IGMP:
-        error = !handle_igmp(buffer + header_len, n - header_len, &eth->ipv6->igmp);
-        break;
+        return handle_igmp(buffer + header_len, n - header_len, &eth->ipv6->igmp);
     case IPPROTO_TCP:
-        error = !handle_tcp(buffer + header_len, n - header_len, &eth->ipv6->tcp);
-        break;
+        return handle_tcp(buffer + header_len, n - header_len, &eth->ipv6->tcp);
     case IPPROTO_UDP:
-        error = !handle_udp(buffer + header_len, n - header_len, &eth->ipv6->udp);
-        break;
+        return handle_udp(buffer + header_len, n - header_len, &eth->ipv6->udp);
     case IPPROTO_PIM:
-        error = !handle_pim(buffer + header_len, n - header_len, &eth->ipv6->pim);
-        break;
+        return handle_pim(buffer + header_len, n - header_len, &eth->ipv6->pim);
     case IPPROTO_ICMPV6:
     default:
         break;
