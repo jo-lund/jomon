@@ -418,9 +418,9 @@ void print_dns(char *buf, int n, struct dns_info *dns, uint16_t type)
         switch (dns->opcode) {
         case DNS_QUERY:
             PRINT_INFO(buf, n, "Standard query: ");
-            PRINT_INFO(buf, n, "%s ", dns->question.qname);
-            PRINT_INFO(buf, n, "%s ", get_dns_class(GET_MDNS_RRCLASS(dns->question.qclass)));
-            PRINT_INFO(buf, n, "%s", get_dns_type(dns->question.qtype));
+            PRINT_INFO(buf, n, "%s ", dns->question[0].qname);
+            PRINT_INFO(buf, n, "%s ", get_dns_class(GET_MDNS_RRCLASS(dns->question[0].qclass)));
+            PRINT_INFO(buf, n, "%s", get_dns_type(dns->question[0].qtype));
             break;
         case DNS_IQUERY:
             PRINT_INFO(buf, n, "Inverse query");
@@ -1307,10 +1307,10 @@ void add_dns_information(list_view *lw, list_view_header *header,
         list_view_header *hdr;
 
         hdr = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Questions");
-        for (int i = dns->section_count[QDCOUNT]; i > 0; i--) {
+        for (int i = 0; i < dns->section_count[QDCOUNT]; i++) {
             ADD_TEXT_ELEMENT(lw, hdr, "QNAME: %s, QTYPE: %s, QCLASS: %s",
-                             dns->question.qname, get_dns_type_extended(dns->question.qtype),
-                             get_dns_class_extended(GET_MDNS_RRCLASS(dns->question.qclass)));
+                             dns->question[i].qname, get_dns_type_extended(dns->question[i].qtype),
+                             get_dns_class_extended(GET_MDNS_RRCLASS(dns->question[i].qclass)));
         }
     }
     if (records) {

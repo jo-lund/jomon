@@ -142,11 +142,11 @@ struct dns_info {
     unsigned int section_count[4];
 
     /* question section */
-    struct {
+    struct dns_question {
         char qname[DNS_NAMELEN];
         uint16_t qtype;  /* QTYPES are a superset of TYPES */
         uint16_t qclass; /* QCLASS values are a superset of CLASS values */
-    } question;
+    } *question;
 
     /* answer/authority/additional section */
     struct dns_resource_record {

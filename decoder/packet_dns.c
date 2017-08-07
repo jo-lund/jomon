@@ -22,7 +22,10 @@ static struct packet_flags llmnr_flags[] = {
     { "Reserved", 4, NULL }
 };
 
-static void parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data, struct dns_info *dns);
+static void parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
+                             struct dns_info *dns);
+static bool parse_dns_question(unsigned char *buffer, int n, unsigned char **data,
+                               struct dns_info *dns);
 static char *parse_dns_txt(unsigned char **data);
 static void free_txt_rr(void *data);
 static void free_opt_rr(void *data);
@@ -82,10 +85,6 @@ packet_error handle_dns(unsigned char *buffer, int n, struct application_info *i
 
     if (n < DNS_HDRLEN) return DNS_ERR;
 
-    // TODO: Handle more than one question
-    if ((ptr[4] << 8 | ptr[5]) > 0x1) { /* the QDCOUNT will in practice always be one */
-        return DNS_ERR;
-    }
     info->dns = malloc(sizeof(struct dns_info));
     info->dns->id = ptr[0] << 8 | ptr[1];
     info->dns->qr = (ptr[2] & 0x80) >> 7;
@@ -111,10 +110,9 @@ packet_error handle_dns(unsigned char *buffer, int n, struct application_info *i
 
         /* QUESTION section */
         if (info->dns->section_count[QDCOUNT] > 0) {
-            ptr += parse_dns_name(buffer, n, ptr, info->dns->question.qname);
-            info->dns->question.qtype = ptr[0] << 8 | ptr[1];
-            info->dns->question.qclass = ptr[2] << 8 | ptr[3];
-            ptr += 4;
+            if (!parse_dns_question(buffer, n, &ptr, info->dns)) {
+                return DNS_ERR;
+            }
         }
 
         /* Answer/Authority/Additional records sections */
@@ -131,12 +129,10 @@ packet_error handle_dns(unsigned char *buffer, int n, struct application_info *i
         }
     } else { /* DNS query */
         if (info->dns->rcode != 0) { /* RCODE will be zero */
-            free(info->dns);
             return DNS_ERR;
         }
         /* ANCOUNT should be zero */
         if (info->dns->section_count[ANCOUNT] != 0) {
-            free(info->dns);
             return DNS_ERR;
         }
         /*
@@ -144,17 +140,15 @@ packet_error handle_dns(unsigned char *buffer, int n, struct application_info *i
          * (RFC 2671) or TSIG (RFC 2845) are used
          */
         if (info->dns->section_count[ARCOUNT] > 2) {
-            free(info->dns);
             return DNS_ERR;
         }
         ptr += DNS_HDRLEN;
 
         /* QUESTION section */
         if (info->dns->section_count[QDCOUNT] > 0) {
-            ptr += parse_dns_name(buffer, n, ptr, info->dns->question.qname);
-            info->dns->question.qtype = ptr[0] << 8 | ptr[1];
-            info->dns->question.qclass = ptr[2] << 8 | ptr[3];
-            ptr += 4;
+            if (!parse_dns_question(buffer, n, &ptr, info->dns)) {
+                return DNS_ERR;
+            }
         }
 
         /* authority and additional records */
@@ -173,6 +167,26 @@ packet_error handle_dns(unsigned char *buffer, int n, struct application_info *i
     pstat[PROT_DNS].num_packets++;
     pstat[PROT_DNS].num_bytes += n;
     return NO_ERR;
+}
+
+bool parse_dns_question(unsigned char *buffer, int n, unsigned char **data,
+                        struct dns_info *dns)
+{
+    unsigned char *ptr = *data;
+
+    if (dns->section_count[QDCOUNT] > n) {
+        return false;
+    }
+    dns->question = malloc(dns->section_count[QDCOUNT] *
+                           sizeof(struct dns_question));
+    for (unsigned int i = 0; i < dns->section_count[QDCOUNT]; i++) {
+        ptr += parse_dns_name(buffer, n, ptr, dns->question[i].qname);
+        dns->question[i].qtype = ptr[0] << 8 | ptr[1];
+        dns->question[i].qclass = ptr[2] << 8 | ptr[3];
+        ptr += 4;
+    }
+    *data = ptr;
+    return true;
 }
 
 /*
@@ -578,6 +592,9 @@ struct packet_flags *get_llmnr_flags()
 void free_dns_packet(struct dns_info *dns)
 {
     if (dns) {
+        if (dns->question) {
+            free(dns->question);
+        }
         if (dns->record) {
             switch (dns->record->type) {
             case DNS_TYPE_HINFO:
