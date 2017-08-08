@@ -52,16 +52,16 @@ packet_error handle_snmp(unsigned char *buffer, int n, struct application_info *
     uint32_t msg_len;
     unsigned char *ptr = buffer;
 
-    pstat[PROT_SNMP].num_packets++;
-    pstat[PROT_SNMP].num_bytes += n;
+    if (n < MIN_MSG) return SNMP_ERR;
+
     adu->snmp = calloc(1, sizeof(struct snmp_info));
-    if (n > MIN_MSG) {
-        msg_len = parse_value(&ptr, &class, &tag, NULL);
-        if (tag == SNMP_SEQUENCE_TAG) {
-            return parse_pdu(ptr, msg_len, adu->snmp);
-        }
+    msg_len = parse_value(&ptr, &class, &tag, NULL);
+    if (tag == SNMP_SEQUENCE_TAG) {
+        pstat[PROT_SNMP].num_packets++;
+        pstat[PROT_SNMP].num_bytes += n;
+        return parse_pdu(ptr, msg_len, adu->snmp);
     }
-    return NO_ERR;
+    return SNMP_ERR;
 }
 
 /*
