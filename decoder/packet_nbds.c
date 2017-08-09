@@ -16,8 +16,8 @@ struct packet_flags nbds_flags[] = {
     { "More flag", 1, NULL }
 };
 
-static bool parse_datagram(unsigned char *buffer, size_t n, unsigned char **data,
-                           size_t dlen, struct application_info *adu);
+static bool parse_datagram(unsigned char *buffer, int n, unsigned char **data,
+                           int dlen, struct application_info *adu);
 
 /*
  * NBDS header:
@@ -35,12 +35,12 @@ static bool parse_datagram(unsigned char *buffer, size_t n, unsigned char **data
  * fields. Theses fields are actually specific to messages that carry a data
  * payload: the DIRECT_UNIQUE, DIRECT_GROUP, and BROADCAST DATAGRAM messages.
  */
-packet_error handle_nbds(unsigned char *buffer, size_t n, struct application_info *adu)
+packet_error handle_nbds(unsigned char *buffer, int n, struct application_info *adu)
 {
     if (n < NBDS_HDRLEN) return NBDS_ERR;
 
     unsigned char *ptr;
-    size_t plen = n;
+    int plen = n;
 
     ptr = buffer;
     adu->nbds = malloc(sizeof(struct nbds_info));
@@ -81,8 +81,8 @@ packet_error handle_nbds(unsigned char *buffer, size_t n, struct application_inf
     return NO_ERR;
 }
 
-bool parse_datagram(unsigned char *buffer, size_t n, unsigned char **data,
-                    size_t dlen, struct application_info *adu)
+bool parse_datagram(unsigned char *buffer, int n, unsigned char **data,
+                    int dlen, struct application_info *adu)
 
 {
     unsigned char *ptr = *data;

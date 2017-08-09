@@ -46,7 +46,7 @@
  *
  * TODO: Handle IGMPv3 membership query
  */
-packet_error handle_igmp(unsigned char *buffer, size_t n, struct igmp_info *info)
+packet_error handle_igmp(unsigned char *buffer, int n, struct igmp_info *info)
 {
     if (n < IGMP_HDR_LEN) return IGMP_ERR;
 

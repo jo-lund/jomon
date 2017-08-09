@@ -44,7 +44,7 @@
  *
  * The K2 value is 0 (zero).
  */
-bool handle_ethernet(unsigned char *buffer, size_t n, struct packet *p)
+bool handle_ethernet(unsigned char *buffer, int n, struct packet *p)
 {
     if (n < ETH_HLEN || n > MAX_PACKET_SIZE) return false;
 

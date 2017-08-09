@@ -23,8 +23,8 @@ static struct packet_flags nbns_nb_flags[] = {
     { "Owner Node Type:", 2, nb_ont }
 };
 
-static int parse_nbns_record(int i, unsigned char *buffer, size_t n, unsigned char **data,
-                             size_t dlen, struct nbns_info *info);
+static int parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **data,
+                             int dlen, struct nbns_info *info);
 
 /*
  * NBNS serves much of the same purpose as DNS, and the NetBIOS Name Service
@@ -49,12 +49,12 @@ static int parse_nbns_record(int i, unsigned char *buffer, size_t n, unsigned ch
  * |AA |TC |RD |RA | 0 | 0 | B |
  * +---+---+---+---+---+---+---+
  */
-packet_error handle_nbns(unsigned char *buffer, size_t n, struct application_info *info)
+packet_error handle_nbns(unsigned char *buffer, int n, struct application_info *info)
 {
     if (n < DNS_HDRLEN) return NBNS_ERR;
 
     unsigned char *ptr = buffer;
-    size_t plen = n;
+    int plen = n;
 
     info->nbns = malloc(sizeof(struct nbns_info));
     info->nbns->id = ptr[0] << 8 | ptr[1];
@@ -152,11 +152,11 @@ void decode_nbns_name(char *dest, char *src)
  * Parse a NBNS resource record.
  * int i is the resource record index.
  */
-int parse_nbns_record(int i, unsigned char *buffer, size_t n, unsigned char **data,
-                      size_t dlen, struct nbns_info *nbns)
+int parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **data,
+                      int dlen, struct nbns_info *nbns)
 {
     unsigned char *ptr = *data;
-    size_t rdlen;
+    int rdlen;
     char name[DNS_NAMELEN];
     int len;
 

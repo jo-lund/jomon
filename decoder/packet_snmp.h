@@ -86,6 +86,6 @@ char *get_snmp_error_status(struct snmp_pdu *pdu);
 char *get_snmp_trap_type(struct snmp_trap *pdu);
 void free_snmp_packet(struct snmp_info *snmp);
 
-packet_error handle_snmp(unsigned char *buffer, size_t n, struct application_info *adu);
+packet_error handle_snmp(unsigned char *buffer, int n, struct application_info *adu);
 
 #endif

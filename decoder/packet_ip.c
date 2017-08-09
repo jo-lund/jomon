@@ -66,7 +66,7 @@ static struct packet_flags ipv4_flags[] = {
  * offset of zero.
  * Protocol: Defines the protocol used in the data portion of the packet.
  */
-packet_error handle_ipv4(unsigned char *buffer, size_t n, struct eth_info *eth)
+packet_error handle_ipv4(unsigned char *buffer, int n, struct eth_info *eth)
 {
     struct iphdr *ip;
     unsigned int header_len;
@@ -149,7 +149,7 @@ packet_error handle_ipv4(unsigned char *buffer, size_t n, struct eth_info *eth)
  * Source Address:      128-bit address of the originator of the packet
  * Destination Address: 128-bit address of the intended recipient of the packet
  */
-packet_error handle_ipv6(unsigned char *buffer, size_t n, struct eth_info *eth)
+packet_error handle_ipv6(unsigned char *buffer, int n, struct eth_info *eth)
 {
     struct ip6_hdr *ip6;
     unsigned int header_len;

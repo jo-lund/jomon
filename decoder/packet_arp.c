@@ -25,7 +25,7 @@
  * PS: Protocol Size, number of bytes in the requested network address
  * OP: Operation. 1 = ARP request, 2 = ARP reply, 3 = RARP request, 4 = RARP reply
  */
-packet_error handle_arp(unsigned char *buffer, size_t n, struct eth_info *eth)
+packet_error handle_arp(unsigned char *buffer, int n, struct eth_info *eth)
 {
     if (n < ARP_SIZE) return ARP_ERR;
 

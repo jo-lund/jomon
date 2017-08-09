@@ -75,6 +75,6 @@ void free_tcp_options(list_t *options);
 struct packet_flags *get_tcp_flags();
 
 /* should be internal to the decoder */
-packet_error handle_tcp(unsigned char *buffer, size_t n, struct tcp *info);
+packet_error handle_tcp(unsigned char *buffer, int n, struct tcp *info);
 
 #endif

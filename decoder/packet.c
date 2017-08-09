@@ -207,7 +207,7 @@ void free_protocol_data(struct application_info *adu)
  * Returns the error status. This is set to "unknown protocol" if it's an
  * ephemeral port or the port is not yet supported.
  */
-packet_error check_port(unsigned char *buffer, size_t n, struct application_info *adu,
+packet_error check_port(unsigned char *buffer, int n, struct application_info *adu,
                         uint16_t port)
 {
     switch (port) {
