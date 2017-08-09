@@ -23,10 +23,10 @@ static struct packet_flags llmnr_flags[] = {
     { "Reserved", 4, NULL }
 };
 
-static int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
-                            int dlen, struct dns_info *dns);
-static int parse_dns_question(unsigned char *buffer, int n, unsigned char **data,
-                              int dlen, struct dns_info *dns);
+static int parse_dns_record(int i, unsigned char *buffer, size_t n, unsigned char **data,
+                            size_t dlen, struct dns_info *dns);
+static int parse_dns_question(unsigned char *buffer, size_t n, unsigned char **data,
+                              size_t dlen, struct dns_info *dns);
 static char *parse_dns_txt(unsigned char **data);
 static void free_txt_rr(void *data);
 static void free_opt_rr(void *data);
@@ -80,10 +80,10 @@ static void free_opt_rr(void *data);
  * ARCOUNT: an unsigned 16 bit integer specifying the number of
  *          resource records in the additional records section.
  */
-packet_error handle_dns(unsigned char *buffer, int n, struct application_info *info)
+packet_error handle_dns(unsigned char *buffer, size_t n, struct application_info *info)
 {
     unsigned char *ptr = buffer;
-    int plen = n;
+    size_t plen = n;
 
     if (n < DNS_HDRLEN) return DNS_ERR;
     info->dns = malloc(sizeof(struct dns_info));
@@ -188,8 +188,8 @@ packet_error handle_dns(unsigned char *buffer, int n, struct application_info *i
     return NO_ERR;
 }
 
-int parse_dns_question(unsigned char *buffer, int n, unsigned char **data,
-                       int dlen, struct dns_info *dns)
+int parse_dns_question(unsigned char *buffer, size_t n, unsigned char **data,
+                       size_t dlen, struct dns_info *dns)
 {
     unsigned char *ptr = *data;
     int len = 0;
@@ -216,8 +216,8 @@ int parse_dns_question(unsigned char *buffer, int n, unsigned char **data,
  * Parse a DNS resource record.
  * int i is the recource record index.
  */
-int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
-                     int dlen, struct dns_info *dns)
+int parse_dns_record(int i, unsigned char *buffer, size_t n, unsigned char **data,
+                     size_t dlen, struct dns_info *dns)
 {
     int len;
     uint16_t rdlen;
@@ -369,7 +369,7 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
  * every domain name ends with the null label of the root, a domain name is
  * terminated by a length byte of zero.
  */
-int parse_dns_name(unsigned char *buffer, int n, unsigned char *ptr, char name[])
+int parse_dns_name(unsigned char *buffer, size_t n, unsigned char *ptr, char name[])
 {
     unsigned int len = 0; /* total length of name entry */
     unsigned int label_length = ptr[0];

@@ -33,8 +33,8 @@ typedef struct {
     };
 } snmp_value;
 
-static packet_error parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp);
-static list_t *parse_variables(unsigned char *buffer, int n);
+static packet_error parse_pdu(unsigned char *buffer, size_t n, struct snmp_info *snmp);
+static list_t *parse_variables(unsigned char *buffer, size_t n);
 static uint32_t parse_value(unsigned char **data, uint8_t *class, uint8_t *tag,
                             snmp_value *value);
 static void free_snmp_varbind(void *data);
@@ -45,7 +45,7 @@ static void free_snmp_varbind(void *data);
  * encodings use the definite-length form. Further, whenever permissible,
  * non-constructor encodings are used rather than constructor encodings.
  */
-packet_error handle_snmp(unsigned char *buffer, int n, struct application_info *adu)
+packet_error handle_snmp(unsigned char *buffer, size_t n, struct application_info *adu)
 {
     uint8_t class;
     uint8_t tag;
@@ -70,7 +70,7 @@ packet_error handle_snmp(unsigned char *buffer, int n, struct application_info *
  * community - octet string
  * PDU type - context specific with tag from 0 - 4
  */
-packet_error parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp)
+packet_error parse_pdu(unsigned char *buffer, size_t n, struct snmp_info *snmp)
 {
     uint8_t class;
     uint8_t tag;
@@ -144,7 +144,7 @@ packet_error parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp)
  * The variables start with a sequence consisting of object identifiers and
  * values (INTEGER, OCTET STRING, etc.)
  */
-list_t *parse_variables(unsigned char *buffer, int n)
+list_t *parse_variables(unsigned char *buffer, size_t n)
 {
     uint8_t class;
     uint8_t tag;

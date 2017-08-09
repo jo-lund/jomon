@@ -19,7 +19,7 @@ struct icmp_info {
 
 struct ipv4_info;
 
-packet_error handle_icmp(unsigned char *buffer, int n, struct icmp_info *info);
+packet_error handle_icmp(unsigned char *buffer, size_t n, struct icmp_info *info);
 char *get_icmp_dest_unreach_code(uint8_t code);
 char *get_icmp_type(uint8_t type);
 

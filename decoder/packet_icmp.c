@@ -19,7 +19,7 @@
  *
  * The ICMP header is 8 bytes.
  */
-packet_error handle_icmp(unsigned char *buffer, int n, struct icmp_info *info)
+packet_error handle_icmp(unsigned char *buffer, size_t n, struct icmp_info *info)
 {
     if (n < ICMP_HDR_LEN) return ICMP_ERR;
 

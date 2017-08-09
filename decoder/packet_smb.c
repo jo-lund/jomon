@@ -39,7 +39,7 @@ static struct packet_flags smb_flags2[] = {
     { "May contain long names", 1, NULL }
 };
 
-packet_error handle_smb(unsigned char *buffer, int n, struct smb_info *smb)
+packet_error handle_smb(unsigned char *buffer, size_t n, struct smb_info *smb)
 {
     if (n < SMB_HDR_LEN) return SMB_ERR;
 

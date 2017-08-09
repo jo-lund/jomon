@@ -9,13 +9,13 @@
 
 #define PIM_HEADER_LEN 4
 
-static packet_error parse_pim_message(unsigned char *buffer, int n, struct pim_info *pim);
-static packet_error parse_register_msg(unsigned char *buffer, int n, struct pim_info *pim);
-static packet_error parse_register_stop(unsigned char *buffer, int n, struct pim_info *pim);
-static packet_error parse_assert_msg(unsigned char *buffer, int n, struct pim_info *pim);
-static packet_error parse_join_prune(unsigned char *buffer, int n, struct pim_info *pim);
-static packet_error parse_bootstrap(unsigned char *buffer, int n, struct pim_info *pim);
-static packet_error parse_candidate_rp(unsigned char *buffer, int n, struct pim_info *pim);
+static packet_error parse_pim_message(unsigned char *buffer, size_t n, struct pim_info *pim);
+static packet_error parse_register_msg(unsigned char *buffer, size_t n, struct pim_info *pim);
+static packet_error parse_register_stop(unsigned char *buffer, size_t n, struct pim_info *pim);
+static packet_error parse_assert_msg(unsigned char *buffer, size_t n, struct pim_info *pim);
+static packet_error parse_join_prune(unsigned char *buffer, size_t n, struct pim_info *pim);
+static packet_error parse_bootstrap(unsigned char *buffer, size_t n, struct pim_info *pim);
+static packet_error parse_candidate_rp(unsigned char *buffer, size_t n, struct pim_info *pim);
 static void parse_address(unsigned char **data, pim_addr *addr, uint8_t family,
                           uint8_t encoding);
 static void parse_src_address(unsigned char **data, struct pim_source_addr *saddr);
@@ -33,7 +33,7 @@ static void parse_unicast_address(unsigned char **data, struct pim_unicast_addr 
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  */
-packet_error handle_pim(unsigned char *buffer, int n, struct pim_info *pim)
+packet_error handle_pim(unsigned char *buffer, size_t n, struct pim_info *pim)
 {
     if (n < PIM_HEADER_LEN) return PIM_ERR;
 
@@ -45,7 +45,7 @@ packet_error handle_pim(unsigned char *buffer, int n, struct pim_info *pim)
     return parse_pim_message(buffer + PIM_HEADER_LEN, n - PIM_HEADER_LEN, pim);
 }
 
-packet_error parse_pim_message(unsigned char *buffer, int n, struct pim_info *pim)
+packet_error parse_pim_message(unsigned char *buffer, size_t n, struct pim_info *pim)
 {
     switch (pim->type) {
     case PIM_HELLO:
@@ -73,7 +73,7 @@ packet_error parse_pim_message(unsigned char *buffer, int n, struct pim_info *pi
     }
 }
 
-packet_error parse_join_prune(unsigned char *buffer, int n, struct pim_info *pim)
+packet_error parse_join_prune(unsigned char *buffer, size_t n, struct pim_info *pim)
 {
     // TODO: Add a check for minimum packet size
     pim->jpg = malloc(sizeof(struct pim_join_prune));
@@ -116,7 +116,7 @@ packet_error parse_join_prune(unsigned char *buffer, int n, struct pim_info *pim
     return NO_ERR;
 }
 
-packet_error parse_register_msg(unsigned char *buffer, int n, struct pim_info *pim)
+packet_error parse_register_msg(unsigned char *buffer, size_t n, struct pim_info *pim)
 {
     // TODO: Add a check for minimum packet size
     pim->reg = malloc(sizeof(struct pim_register));
@@ -134,7 +134,7 @@ packet_error parse_register_msg(unsigned char *buffer, int n, struct pim_info *p
     return true;
 }
 
-packet_error parse_register_stop(unsigned char *buffer, int n, struct pim_info *pim)
+packet_error parse_register_stop(unsigned char *buffer, size_t n, struct pim_info *pim)
 {
     // TODO: Add a check for minimum packet size
     pim->reg_stop = malloc(sizeof(struct pim_register_stop));
@@ -144,7 +144,7 @@ packet_error parse_register_stop(unsigned char *buffer, int n, struct pim_info *
     return NO_ERR;
 }
 
-packet_error parse_assert_msg(unsigned char *buffer, int n, struct pim_info *pim)
+packet_error parse_assert_msg(unsigned char *buffer, size_t n, struct pim_info *pim)
 {
     if (n < 18) return PIM_ERR;
 
@@ -156,7 +156,7 @@ packet_error parse_assert_msg(unsigned char *buffer, int n, struct pim_info *pim
     return NO_ERR;
 }
 
-packet_error parse_bootstrap(unsigned char *buffer, int n, struct pim_info *pim)
+packet_error parse_bootstrap(unsigned char *buffer, size_t n, struct pim_info *pim)
 {
     // TODO: Add a check for minimum packet size
     pim->bootstrap = malloc(sizeof(struct pim_bootstrap));
@@ -190,7 +190,7 @@ packet_error parse_bootstrap(unsigned char *buffer, int n, struct pim_info *pim)
     return NO_ERR;
 }
 
-packet_error parse_candidate_rp(unsigned char *buffer, int n, struct pim_info *pim)
+packet_error parse_candidate_rp(unsigned char *buffer, size_t n, struct pim_info *pim)
 {
     // TODO: Add a check for minimum packet size
     pim->candidate = malloc(sizeof(struct pim_candidate_rp_advertisement));

@@ -13,7 +13,7 @@ struct igmp_info {
 
 struct ipv4_info;
 
-packet_error handle_igmp(unsigned char *buffer, int n, struct igmp_info *info);
+packet_error handle_igmp(unsigned char *buffer, size_t n, struct igmp_info *info);
 char *get_igmp_type(uint8_t type);
 
 #endif

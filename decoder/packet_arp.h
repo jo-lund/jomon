@@ -25,7 +25,7 @@ struct arp_info {
 
 struct eth_info;
 
-packet_error handle_arp(unsigned char *buffer, int n, struct eth_info *info);
+packet_error handle_arp(unsigned char *buffer, size_t n, struct eth_info *info);
 char *get_arp_hardware_type(uint16_t type);
 char *get_arp_protocol_type(uint16_t type);
 char *get_arp_opcode(uint16_t opcode);

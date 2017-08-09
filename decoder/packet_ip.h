@@ -66,7 +66,7 @@ struct packet_flags *get_ipv4_flags();
 uint16_t get_ipv4_foffset(struct ipv4_info *ip);
 
 /* internal to the decoder */
-packet_error handle_ipv4(unsigned char *buffer, int n, struct eth_info *info);
-packet_error handle_ipv6(unsigned char *buffer, int n, struct eth_info *info);
+packet_error handle_ipv4(unsigned char *buffer, size_t n, struct eth_info *info);
+packet_error handle_ipv6(unsigned char *buffer, size_t n, struct eth_info *info);
 
 #endif

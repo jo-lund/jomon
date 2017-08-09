@@ -78,7 +78,7 @@ static void free_options(void *data);
  *            the urgent data. This field is only be interpreted in segments with
  *            the URG control bit set.
  */
-packet_error handle_tcp(unsigned char *buffer, int n, struct tcp *info)
+packet_error handle_tcp(unsigned char *buffer, size_t n, struct tcp *info)
 {
     struct tcphdr *tcp;
     packet_error error;

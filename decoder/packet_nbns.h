@@ -115,7 +115,7 @@ struct packet_flags *get_nbns_flags();
 struct packet_flags *get_nbns_nb_flags();
 
 /* internal to the decoder */
-packet_error handle_nbns(unsigned char *buffer, int n, struct application_info *info);
+packet_error handle_nbns(unsigned char *buffer, size_t n, struct application_info *info);
 void decode_nbns_name(char *dest, char *src);
 
 #endif
