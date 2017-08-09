@@ -404,8 +404,10 @@ void free_snmp_packet(struct snmp_info *snmp)
     case SNMP_GET_NEXT_REQUEST:
     case SNMP_SET_REQUEST:
     case SNMP_GET_RESPONSE:
-        list_free(snmp->pdu->varbind_list, free_snmp_varbind);
-        free(snmp->pdu);
+        if (snmp->pdu) {
+            list_free(snmp->pdu->varbind_list, free_snmp_varbind);
+            free(snmp->pdu);
+        }
         break;
     case SNMP_TRAP:
         free(snmp->trap->enterprise);

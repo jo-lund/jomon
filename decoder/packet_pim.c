@@ -16,11 +16,12 @@ static packet_error parse_assert_msg(unsigned char *buffer, int n, struct pim_in
 static packet_error parse_join_prune(unsigned char *buffer, int n, struct pim_info *pim);
 static packet_error parse_bootstrap(unsigned char *buffer, int n, struct pim_info *pim);
 static packet_error parse_candidate_rp(unsigned char *buffer, int n, struct pim_info *pim);
-static void parse_address(unsigned char **data, pim_addr *addr, uint8_t family,
+static bool parse_address(unsigned char **data, int *n, pim_addr *addr, uint8_t family,
                           uint8_t encoding);
-static void parse_src_address(unsigned char **data, struct pim_source_addr *saddr);
-static void parse_grp_address(unsigned char **data, struct pim_group_addr *gaddr);
-static void parse_unicast_address(unsigned char **data, struct pim_unicast_addr *uaddr);
+static bool parse_src_address(unsigned char **data, int *n, struct pim_source_addr *saddr);
+static bool parse_grp_address(unsigned char **data, int *n, struct pim_group_addr *gaddr);
+static bool parse_unicast_address(unsigned char **data, int *n,
+                                  struct pim_unicast_addr *uaddr);
 
 /*
  *
@@ -75,10 +76,14 @@ packet_error parse_pim_message(unsigned char *buffer, int n, struct pim_info *pi
 
 packet_error parse_join_prune(unsigned char *buffer, int n, struct pim_info *pim)
 {
-    // TODO: Add a check for minimum packet size
+    if (n < 4) return PIM_ERR;
+
     pim->jpg = malloc(sizeof(struct pim_join_prune));
-    parse_unicast_address(&buffer, &pim->jpg->neighbour);
+    if (!parse_unicast_address(&buffer, &n, &pim->jpg->neighbour)) {
+        return PIM_ERR;
+    }
     buffer++; /* next byte is reserved */
+    n--;
     pim->jpg->num_groups = buffer[0];
     if (pim->jpg->num_groups > n) {
         return PIM_ERR;
@@ -86,14 +91,19 @@ packet_error parse_join_prune(unsigned char *buffer, int n, struct pim_info *pim
     pim->jpg->holdtime = buffer[1] << 8 | buffer[2];
     pim->jpg->groups = calloc(pim->jpg->num_groups, sizeof(*pim->jpg->groups));
     buffer += 3;
+    n -= 3;
     for (int i = 0; i < pim->jpg->num_groups; i++) {
-        parse_grp_address(&buffer, &pim->jpg->groups[i].gaddr);
-        pim->jpg->groups[i].num_joined_src = buffer[0] << 8 | buffer[1];
-        pim->jpg->groups[i].num_pruned_src = buffer[2] << 8 | buffer[3];
-        if (pim->jpg->groups[i].num_joined_src > n - 4) {
+        if (!parse_grp_address(&buffer, &n, &pim->jpg->groups[i].gaddr)) {
             return PIM_ERR;
         }
-        if (pim->jpg->groups[i].num_pruned_src > n - 4) {
+        if (n < 4) return PIM_ERR;
+        pim->jpg->groups[i].num_joined_src = buffer[0] << 8 | buffer[1];
+        pim->jpg->groups[i].num_pruned_src = buffer[2] << 8 | buffer[3];
+        n -= 4;
+        if (pim->jpg->groups[i].num_joined_src > n) {
+            return PIM_ERR;
+        }
+        if (pim->jpg->groups[i].num_pruned_src > n) {
             return PIM_ERR;
         }
         if (pim->jpg->groups[i].num_joined_src) {
@@ -106,25 +116,30 @@ packet_error parse_join_prune(unsigned char *buffer, int n, struct pim_info *pim
         }
         buffer += 4;
         for (int j = 0; j < pim->jpg->groups[i].num_joined_src; j++) {
-            parse_src_address(&buffer, &pim->jpg->groups[i].joined_src[j]);
+            if (!parse_src_address(&buffer, &n, &pim->jpg->groups[i].joined_src[j])) {
+                return PIM_ERR;
+            }
         }
         for (int j = 0; j < pim->jpg->groups[i].num_pruned_src; j++) {
-            parse_src_address(&buffer, &pim->jpg->groups[i].pruned_src[j]);
+            if (!parse_src_address(&buffer, &n, &pim->jpg->groups[i].pruned_src[j])) {
+                return PIM_ERR;
+            }
         }
     }
-
     return NO_ERR;
 }
 
 packet_error parse_register_msg(unsigned char *buffer, int n, struct pim_info *pim)
 {
-    // TODO: Add a check for minimum packet size
+    if (n < 4) return PIM_ERR;
+
     pim->reg = malloc(sizeof(struct pim_register));
     pim->reg->border = (buffer[0] & 0x80) >> 7; /* Deprecated. Should be zero */
     pim->reg->null = (buffer[0] & 0x40) >> 6;
     buffer += 4;
-    if (n - 4 > 0) {
-        pim->reg->data_len = n - 4;
+    n -= 4;
+    if (n > 0) {
+        pim->reg->data_len = n;
         pim->reg->data = malloc(pim->reg->data_len);
         memcpy(pim->reg->data, buffer, pim->reg->data_len);
     } else {
@@ -136,21 +151,26 @@ packet_error parse_register_msg(unsigned char *buffer, int n, struct pim_info *p
 
 packet_error parse_register_stop(unsigned char *buffer, int n, struct pim_info *pim)
 {
-    // TODO: Add a check for minimum packet size
     pim->reg_stop = malloc(sizeof(struct pim_register_stop));
-
-    parse_grp_address(&buffer, &pim->reg_stop->gaddr);
-    parse_unicast_address(&buffer, &pim->reg_stop->saddr);
+    if (!parse_grp_address(&buffer, &n, &pim->reg_stop->gaddr)) {
+        return PIM_ERR;
+    }
+    if (!parse_unicast_address(&buffer, &n, &pim->reg_stop->saddr)) {
+        return PIM_ERR;
+    }
     return NO_ERR;
 }
 
 packet_error parse_assert_msg(unsigned char *buffer, int n, struct pim_info *pim)
 {
-    if (n < 18) return PIM_ERR;
-
     pim->assert = malloc(sizeof(struct pim_assert));
-    parse_grp_address(&buffer, &pim->assert->gaddr);
-    parse_unicast_address(&buffer, &pim->assert->saddr);
+    if (!parse_grp_address(&buffer, &n, &pim->assert->gaddr)) {
+        return PIM_ERR;
+    }
+    if (!parse_unicast_address(&buffer, &n, &pim->assert->saddr)) {
+        return PIM_ERR;
+    }
+    if (n < 8) return PIM_ERR;
     pim->assert->metric_pref = get_uint32be(buffer);
     pim->assert->metric = get_uint32be(buffer + 4);
     return NO_ERR;
@@ -158,13 +178,17 @@ packet_error parse_assert_msg(unsigned char *buffer, int n, struct pim_info *pim
 
 packet_error parse_bootstrap(unsigned char *buffer, int n, struct pim_info *pim)
 {
-    // TODO: Add a check for minimum packet size
+    if (n < 4) return PIM_ERR;
+
     pim->bootstrap = malloc(sizeof(struct pim_bootstrap));
     pim->bootstrap->tag = buffer[0] << 8 | buffer[1];
     pim->bootstrap->hash_len = buffer[2];
     pim->bootstrap->priority = buffer[3];
     buffer += 4;
-    parse_unicast_address(&buffer, &pim->bootstrap->bsr_addr);
+    n -= 4;
+    if (!parse_unicast_address(&buffer, &n, &pim->bootstrap->bsr_addr)) {
+        return PIM_ERR;
+    }
 
     /*
      * Seems to be no way to know the number of group addresses without actually
@@ -172,48 +196,64 @@ packet_error parse_bootstrap(unsigned char *buffer, int n, struct pim_info *pim)
      * group. For now we only support 1 group
      */
     pim->bootstrap->groups = calloc(1, sizeof(*pim->bootstrap->groups));
-    parse_grp_address(&buffer, &pim->bootstrap->groups->gaddr);
+    if (!parse_grp_address(&buffer, &n, &pim->bootstrap->groups->gaddr)) {
+        return PIM_ERR;
+    }
+    if (n < 2) return PIM_ERR;
+
     pim->bootstrap->groups->rp_count = buffer[0];
     pim->bootstrap->groups->frag_rp_count = buffer[1];
-    if (pim->bootstrap->groups->frag_rp_count > n - 2) {
+    n -= 2;
+    if (pim->bootstrap->groups->frag_rp_count > n) {
         return PIM_ERR;
     }
     buffer += 2;
     pim->bootstrap->groups->rps =
         calloc(pim->bootstrap->groups->frag_rp_count, sizeof(*pim->bootstrap->groups->rps));
     for (int i = 0; i < pim->bootstrap->groups->frag_rp_count; i++) {
-        parse_unicast_address(&buffer, &pim->bootstrap->groups->rps->rp_addr);
+        if (!parse_unicast_address(&buffer, &n, &pim->bootstrap->groups->rps->rp_addr)) {
+            return PIM_ERR;
+        }
+        if (n < 3) return PIM_ERR;
         pim->bootstrap->groups->rps->holdtime = buffer[0] << 8 | buffer[1];
         pim->bootstrap->groups->rps->priority = buffer[2];
         buffer += 3;
+        n -= 3;
     }
     return NO_ERR;
 }
 
 packet_error parse_candidate_rp(unsigned char *buffer, int n, struct pim_info *pim)
 {
-    // TODO: Add a check for minimum packet size
     pim->candidate = malloc(sizeof(struct pim_candidate_rp_advertisement));
     pim->candidate->prefix_count = buffer[0];
     if (pim->candidate->prefix_count > n - 4) {
         return PIM_ERR;
     }
+    if (n < 4) return PIM_ERR;
+
     pim->candidate->priority = buffer[1];
     pim->candidate->holdtime = buffer[2] << 8 | buffer[3];
     buffer += 4;
-    parse_unicast_address(&buffer, &pim->candidate->rp_addr);
+    n -= 4;
+    if (!parse_unicast_address(&buffer, &n, &pim->candidate->rp_addr)) {
+        return PIM_ERR;
+    }
     pim->candidate->gaddrs = calloc(pim->candidate->prefix_count,
                                     sizeof(struct pim_group_addr));
     for (int i = 0; i < pim->candidate->prefix_count; i++) {
-        parse_grp_address(&buffer, &pim->candidate->gaddrs[i]);
+        if (!parse_grp_address(&buffer, &n, &pim->candidate->gaddrs[i])) {
+            return PIM_ERR;
+        }
     }
     return NO_ERR;
 }
 
-void parse_src_address(unsigned char **data, struct pim_source_addr *saddr)
+bool parse_src_address(unsigned char **data, int *n, struct pim_source_addr *saddr)
 {
     unsigned char *ptr = *data;
 
+    if (*n < 4) return false;
     saddr->addr_family = ptr[0];
     saddr->encoding = ptr[1];
     saddr->sparse = (ptr[2] & 0x4) >> 2;
@@ -221,53 +261,75 @@ void parse_src_address(unsigned char **data, struct pim_source_addr *saddr)
     saddr->rpt = ptr[2] & 0x1;
     saddr->mask_len = ptr[3];
     ptr += 4;
-    parse_address(&ptr, &saddr->addr, saddr->addr_family, saddr->encoding);
+    *n -= 4;
+    if (!parse_address(&ptr, n, &saddr->addr, saddr->addr_family, saddr->encoding)) {
+        return false;
+    }
     *data = ptr;
+    return true;
 }
 
-void parse_grp_address(unsigned char **data, struct pim_group_addr *gaddr)
+bool parse_grp_address(unsigned char **data, int *n, struct pim_group_addr *gaddr)
 {
     unsigned char *ptr = *data;
 
+    if (*n < 4) return false;
     gaddr->addr_family = ptr[0];
     gaddr->encoding = ptr[1];
     gaddr->bidirectional = (ptr[2] & 0xc0) >> 7;
     gaddr->zone = ptr[2] & 0x01;
     gaddr->mask_len = ptr[3];
     ptr += 4;
-    parse_address(&ptr, &gaddr->addr, gaddr->addr_family, gaddr->encoding);
+    *n -= 4;
+    if (!parse_address(&ptr, n, &gaddr->addr, gaddr->addr_family, gaddr->encoding)) {
+        return false;
+    }
     *data = ptr;
+    return true;
 }
 
-void parse_unicast_address(unsigned char **data, struct pim_unicast_addr *uaddr)
+bool parse_unicast_address(unsigned char **data, int *n, struct pim_unicast_addr *uaddr)
 {
     unsigned char *ptr = *data;
 
+    if (*n < 2) return false;
     uaddr->addr_family = ptr[0];
     uaddr->encoding = ptr[1];
     ptr += 2;
-    parse_address(&ptr, &uaddr->addr, uaddr->addr_family, uaddr->encoding);
+    *n -= 2;
+    if (!parse_address(&ptr, n, &uaddr->addr, uaddr->addr_family, uaddr->encoding)) {
+        return false;
+    }
     *data = ptr;
+    return true;
 }
 
-void parse_address(unsigned char **data, pim_addr *addr, uint8_t family,
+bool parse_address(unsigned char **data, int *n, pim_addr *addr, uint8_t family,
                    uint8_t encoding)
 {
     unsigned char *ptr = *data;
 
     switch (family) {
     case AF_IP:
+        if (*n < 4) return false;
+
         addr->ipv4_addr = get_uint32le(ptr); /* store in big-endian format */
         ptr += 4;
+        *n -= 4;
         break;
     case AF_IP6:
+        if (*n < 16) return false;
+
         memcpy(addr->ipv6_addr, ptr, 16);
         ptr += 16;
+        *n -= 16;
         break;
     default:
         printf("PIM: Unknown address family: %d\n", family);
+        return false;
     }
     *data = ptr;
+    return true;
 }
 
 list_t *parse_hello_options(struct pim_info *pim)
