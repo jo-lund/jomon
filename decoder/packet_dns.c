@@ -105,46 +105,11 @@ packet_error handle_dns(unsigned char *buffer, size_t n, struct application_info
         info->dns->section_count[i] = ptr[j] << 8 | ptr[j + 1];
     }
     info->dns->record = NULL;
-
-    if (info->dns->qr) { /* DNS response */
-        ptr += DNS_HDRLEN;
-        plen -= DNS_HDRLEN;
-
-        /* QUESTION section */
-        if (info->dns->section_count[QDCOUNT] > 0) {
-            int len = parse_dns_question(buffer, n, &ptr, plen, info->dns);
-
-            if (len == -1) {
-                return DNS_ERR;
-            }
-            plen -= len;
-        }
-
-        /* Answer/Authority/Additional records sections */
-        int num_records = 0;
-
-        for (int i = ANCOUNT; i < 4; i++) {
-            num_records += info->dns->section_count[i];
-        }
-        if (num_records) {
-            info->dns->record = malloc(num_records * sizeof(struct dns_resource_record));
-            for (int i = 0; i < num_records; i++) {
-                int len = parse_dns_record(i, buffer, n, &ptr, plen, info->dns);
-
-                if (len == -1) {
-                    return DNS_ERR;
-                }
-                plen -= len;
-            }
-        }
-    } else { /* DNS query */
+    if (!info->dns->qr) {  /* DNS query */
         if (info->dns->rcode != 0) { /* RCODE will be zero */
             return DNS_ERR;
         }
-        /* ANCOUNT should be zero */
-        if (info->dns->section_count[ANCOUNT] != 0) {
-            return DNS_ERR;
-        }
+
         /*
          * ARCOUNT will typically be 0, 1, or 2, depending on whether EDNS0
          * (RFC 2671) or TSIG (RFC 2845) are used
@@ -152,37 +117,38 @@ packet_error handle_dns(unsigned char *buffer, size_t n, struct application_info
         if (info->dns->section_count[ARCOUNT] > 2) {
             return DNS_ERR;
         }
-        ptr += DNS_HDRLEN;
-        plen -= DNS_HDRLEN;
+    }
+    ptr += DNS_HDRLEN;
+    plen -= DNS_HDRLEN;
 
-        /* QUESTION section */
-        if (info->dns->section_count[QDCOUNT] > 0) {
-            int len = parse_dns_question(buffer, n, &ptr, plen, info->dns);
+    /* QUESTION section */
+    if (info->dns->section_count[QDCOUNT] > 0) {
+        int len = parse_dns_question(buffer, n, &ptr, plen, info->dns);
+
+        if (len == -1) {
+            return DNS_ERR;
+        }
+        plen -= len;
+    }
+
+    /* Answer/Authority/Additional records sections */
+    int num_records = 0;
+
+    for (int i = ANCOUNT; i < 4; i++) {
+        num_records += info->dns->section_count[i];
+    }
+    if (num_records) {
+        info->dns->record = malloc(num_records * sizeof(struct dns_resource_record));
+        for (int i = 0; i < num_records; i++) {
+            int len = parse_dns_record(i, buffer, n, &ptr, plen, info->dns);
 
             if (len == -1) {
                 return DNS_ERR;
             }
             plen -= len;
         }
-
-        /* authority and additional records */
-        int num_records = 0;
-
-        for (int i = NSCOUNT; i < 4; i++) {
-            num_records += info->dns->section_count[i];
-        }
-        if (num_records) {
-            info->dns->record = malloc(num_records * sizeof(struct dns_resource_record));
-            for (int i = 0; i < num_records; i++) {
-                int len = parse_dns_record(i, buffer, n, &ptr, plen, info->dns);
-
-                if (len == -1) {
-                    return DNS_ERR;
-                }
-                plen -= len;
-            }
-        }
     }
+
     pstat[PROT_DNS].num_packets++;
     pstat[PROT_DNS].num_bytes += n;
     return NO_ERR;
