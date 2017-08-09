@@ -120,8 +120,9 @@ packet_error handle_tcp(unsigned char *buffer, int n, struct tcp *info)
     if (payload_len > 0) {
         for (int i = 0; i < 2; i++) {
             info->data.utype = *((uint16_t *) info + i);
-            if (check_port(buffer + info->offset * 4, payload_len, &info->data,
-                           info->data.utype, &error)) {
+            error = check_port(buffer + info->offset * 4, payload_len, &info->data,
+                               info->data.utype);
+            if (error != UNK_PROTOCOL) {
                 return error;
             }
         }

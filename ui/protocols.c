@@ -81,7 +81,7 @@ static void add_smb_information(list_view *lw, list_view_header *header, struct 
 
 void write_to_buf(char *buf, int size, struct packet *p)
 {
-    if (p->perr != NO_ERR) {
+    if (p->perr != NO_ERR && p->perr != UNK_PROTOCOL) {
         print_error(buf, size, p);
     } else {
         switch (p->eth.ethertype) {
@@ -114,12 +114,8 @@ void print_error(char *buf, int size, struct packet *p)
     HW_ADDR_NTOP(smac, p->eth.mac_src);
     HW_ADDR_NTOP(dmac, p->eth.mac_dst);
     format_timeval(&p->time, time, TBUFLEN);
-    if (p->perr != NO_ERR) {
-        PRINT_LINE(buf, size, p->num, time, smac, dmac,
-                   "ETH II", "Ethertype: 0x%x [decode error]", p->eth.ethertype);
-    } else { /* not yet supported */
-        PRINT_LINE(buf, size, p->num, time, smac, dmac, "ETH II", "Ethertype: 0x%x", p->eth.ethertype);
-    }
+    PRINT_LINE(buf, size, p->num, time, smac, dmac,
+               "ETH II", "Ethertype: 0x%x [decode error]", p->eth.ethertype);
 }
 
 void print_arp(char *buf, int n, struct arp_info *arp, uint32_t num, struct timeval *t)

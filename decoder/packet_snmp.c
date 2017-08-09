@@ -394,6 +394,8 @@ void free_snmp_varbind(void *data)
 
 void free_snmp_packet(struct snmp_info *snmp)
 {
+    if (!snmp) return;
+
     if (snmp->community) {
         free(snmp->community);
     }

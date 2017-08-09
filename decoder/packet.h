@@ -68,6 +68,7 @@ typedef enum {
 
 typedef enum {
     NO_ERR,
+    UNK_PROTOCOL,
     ETH_ERR,
     ARP_ERR,
     STP_ERR,
@@ -137,8 +138,7 @@ void clear_statistics();
 uint16_t get_packet_size(struct packet *p);
 
 /* Should be internal to the decoder */
-bool check_port(unsigned char *buffer, int n, struct application_info *info,
-                uint16_t port, packet_error *error);
-
+packet_error check_port(unsigned char *buffer, int n,
+                        struct application_info *adu, uint16_t port);
 
 #endif
