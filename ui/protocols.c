@@ -296,7 +296,7 @@ void print_igmp(char *buf, int n, struct igmp_info *info)
     switch (info->type) {
     case IGMP_HOST_MEMBERSHIP_QUERY:
         PRINT_INFO(buf, n, "Membership query  Max response time: %d seconds",
-                        info->max_resp_time / 10);
+                   info->max_resp_time / 10);
         break;
     case IGMP_HOST_MEMBERSHIP_REPORT:
         PRINT_INFO(buf, n, "Membership report");
@@ -367,9 +367,9 @@ void print_tcp(char *buf, int n, struct tcp *tcp)
         if (tcp->fin) {
             PRINT_INFO(buf, n, " FIN");
         }
+        PRINT_INFO(buf, n, "  seq: %u  ack: %u  win: %u", tcp->seq_num, tcp->ack_num, tcp->window);
         break;
     }
-    PRINT_INFO(buf, n, "  seq: %u  ack: %u  win: %u", tcp->seq_num, tcp->ack_num, tcp->window);
 }
 
 void print_udp(char *buf, int n, struct udp_info *udp)
@@ -413,10 +413,12 @@ void print_dns(char *buf, int n, struct dns_info *dns, uint16_t type)
     if (dns->qr == 0) {
         switch (dns->opcode) {
         case DNS_QUERY:
-            PRINT_INFO(buf, n, "Standard query: ");
-            PRINT_INFO(buf, n, "%s ", dns->question[0].qname);
-            PRINT_INFO(buf, n, "%s ", get_dns_class(GET_MDNS_RRCLASS(dns->question[0].qclass)));
-            PRINT_INFO(buf, n, "%s", get_dns_type(dns->question[0].qtype));
+            if (dns->question) {
+                PRINT_INFO(buf, n, "Standard query: ");
+                PRINT_INFO(buf, n, "%s ", dns->question[0].qname);
+                PRINT_INFO(buf, n, "%s ", get_dns_class(GET_MDNS_RRCLASS(dns->question[0].qclass)));
+                PRINT_INFO(buf, n, "%s", get_dns_type(dns->question[0].qtype));
+            }
             break;
         case DNS_IQUERY:
             PRINT_INFO(buf, n, "Inverse query");
@@ -449,12 +451,14 @@ void print_dns(char *buf, int n, struct dns_info *dns, uint16_t type)
         }
 
         // TODO: Need to print the proper name for all values.
-        PRINT_INFO(buf, n, "%s ", dns->record[0].name);
-        PRINT_INFO(buf, n, "%s ", get_dns_class(GET_MDNS_RRCLASS(dns->record[0].rrclass)));
-        PRINT_INFO(buf, n, "%s ", get_dns_type(dns->record[0].type));
-        for (unsigned int i = 0; i < dns->section_count[ANCOUNT]; i++) {
-            print_dns_record(dns, i, buf, n, dns->record[i].type);
-            PRINT_INFO(buf, n, " ");
+        if (dns->record) {
+            PRINT_INFO(buf, n, "%s ", dns->record[0].name);
+            PRINT_INFO(buf, n, "%s ", get_dns_class(GET_MDNS_RRCLASS(dns->record[0].rrclass)));
+            PRINT_INFO(buf, n, "%s ", get_dns_type(dns->record[0].type));
+            for (unsigned int i = 0; i < dns->section_count[ANCOUNT]; i++) {
+                print_dns_record(dns, i, buf, n, dns->record[i].type);
+                PRINT_INFO(buf, n, " ");
+            }
         }
     }
 }
