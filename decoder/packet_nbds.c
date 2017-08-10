@@ -17,7 +17,7 @@ struct packet_flags nbds_flags[] = {
 };
 
 static bool parse_datagram(unsigned char *buffer, int n, unsigned char **data,
-                           int dlen, struct application_info *adu);
+                           struct application_info *adu);
 
 /*
  * NBDS header:
@@ -40,7 +40,6 @@ packet_error handle_nbds(unsigned char *buffer, int n, struct application_info *
     if (n < NBDS_HDRLEN) return NBDS_ERR;
 
     unsigned char *ptr;
-    int plen = n;
 
     ptr = buffer;
     adu->nbds = malloc(sizeof(struct nbds_info));
@@ -50,13 +49,14 @@ packet_error handle_nbds(unsigned char *buffer, int n, struct application_info *
     adu->nbds->source_ip = get_uint32le(ptr + 4);
     adu->nbds->source_port = get_uint16be(ptr + 8);
     ptr += NBDS_HDRLEN;
-    plen -= NBDS_HDRLEN;
 
     switch (adu->nbds->msg_type) {
     case NBDS_DIRECT_UNIQUE:
     case NBDS_DIRECT_GROUP:
     case NBDS_BROADCAST:
-        parse_datagram(buffer, n, &ptr, plen, adu);
+        if (!parse_datagram(buffer, n, &ptr, adu)) {
+            return NBDS_ERR;
+        }
         break;
     case NBDS_ERROR:
         adu->nbds->msg.error_code = ptr[0];
@@ -82,7 +82,7 @@ packet_error handle_nbds(unsigned char *buffer, int n, struct application_info *
 }
 
 bool parse_datagram(unsigned char *buffer, int n, unsigned char **data,
-                    int dlen, struct application_info *adu)
+                    struct application_info *adu)
 
 {
     unsigned char *ptr = *data;
@@ -92,27 +92,26 @@ bool parse_datagram(unsigned char *buffer, int n, unsigned char **data,
     int name_len;
 
     dgm = calloc(1, sizeof(struct nbds_datagram));
+    adu->nbds->msg.dgm = dgm;
     dgm->dgm_length = get_uint16be(ptr);
     dgm->packet_offset = get_uint16be(ptr + 2);
     ptr += 4;
-    dlen -= 4;
-    name_len = parse_dns_name(buffer, n, ptr, name);
-    if (name_len == -1) return false;
+    if ((name_len = parse_dns_name(buffer, n, ptr, name)) == -1) {
+        return false;
+    }
     decode_nbns_name(dgm->src_name, name);
     ptr += name_len;
-    dlen -= name_len;
     len = name_len;
-    name_len = parse_dns_name(buffer, n, ptr, name);
-    if (name_len == -1) return false;
+    if ((name_len = parse_dns_name(buffer, n, ptr, name)) == -1) {
+        return false;
+    }
     decode_nbns_name(dgm->dest_name, name);
     len += name_len;
     ptr += name_len;
-
     if (dgm->dgm_length > len) {
         dgm->smb = malloc(sizeof(struct smb_info));
         handle_smb(ptr, dgm->dgm_length - len, dgm->smb);
     }
-    adu->nbds->msg.dgm = dgm;
     *data = ptr;
     return true;
 }

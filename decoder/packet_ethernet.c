@@ -85,7 +85,7 @@ bool handle_ethernet(unsigned char *buffer, int n, struct packet *p)
             /* TODO: If OUI is 0 I need to to handle the internet protocols that
                will be layered on top of SNAP */
         }
-    } else {
+    } else { /* Ethernet II */
         p->eth.payload_len = n - ETH_HLEN;
         switch (p->eth.ethertype) {
         case ETH_P_IP:
@@ -99,6 +99,7 @@ bool handle_ethernet(unsigned char *buffer, int n, struct packet *p)
             break;
         case ETH_P_PAE: /* TODO: not yet supported */
         default:
+            p->perr = UNK_PROTOCOL;
             break;
         }
     }

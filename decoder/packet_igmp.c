@@ -1,4 +1,4 @@
-#include <linux/igmp.h>
+#include <netinet/igmp.h>
 #include <stddef.h>
 #include <arpa/inet.h>
 #include "packet_icmp.h"
@@ -50,30 +50,28 @@ packet_error handle_igmp(unsigned char *buffer, int n, struct igmp_info *info)
 {
     if (n < IGMP_HDR_LEN) return IGMP_ERR;
 
-    struct igmphdr *igmp;
+    struct igmp *igmp;
 
     pstat[PROT_IGMP].num_packets++;
     pstat[PROT_IGMP].num_bytes += n;
-    igmp = (struct igmphdr *) buffer;
-    info->type = igmp->type;
-    info->max_resp_time = igmp->code;
-    info->checksum = ntohs(igmp->csum);
-    info->group_addr = igmp->group;
+    igmp = (struct igmp *) buffer;
+    info->type = igmp->igmp_type;
+    info->max_resp_time = igmp->igmp_code;
+    info->checksum = ntohs(igmp->igmp_cksum);
+    info->group_addr = igmp->igmp_group.s_addr;
     return NO_ERR;
 }
 
 char *get_igmp_type(uint8_t type)
 {
     switch (type) {
-    case IGMP_HOST_MEMBERSHIP_QUERY:
+    case IGMP_MEMBERSHIP_QUERY:
         return "Membership query";
-    case IGMP_HOST_MEMBERSHIP_REPORT:
+    case IGMP_V1_MEMBERSHIP_REPORT:
         return "Version 1 Membership report";
-    case IGMPV2_HOST_MEMBERSHIP_REPORT:
+    case IGMP_V2_MEMBERSHIP_REPORT:
         return "Version 2 Membership report";
-    case IGMPV3_HOST_MEMBERSHIP_REPORT:
-        return "Version 3 Membership report";
-    case IGMP_HOST_LEAVE_MESSAGE:
+    case IGMP_V2_LEAVE_GROUP:
         return "Leave group";
     case IGMP_PIM:
     default:

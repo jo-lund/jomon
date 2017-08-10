@@ -6,7 +6,6 @@
 #ifdef __linux__
 #include <net/if_arp.h>
 #include <netpacket/packet.h>
-#include <linux/if.h>
 #include <linux/wireless.h>
 #endif
 #include <string.h>

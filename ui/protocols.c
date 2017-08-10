@@ -1,6 +1,6 @@
 #include <arpa/inet.h>
 #include <net/if_arp.h>
-#include <linux/igmp.h>
+#include <netinet/igmp.h>
 #include <netinet/ip_icmp.h>
 #include <string.h>
 #include <ctype.h>
@@ -114,8 +114,13 @@ void print_error(char *buf, int size, struct packet *p)
     HW_ADDR_NTOP(smac, p->eth.mac_src);
     HW_ADDR_NTOP(dmac, p->eth.mac_dst);
     format_timeval(&p->time, time, TBUFLEN);
-    PRINT_LINE(buf, size, p->num, time, smac, dmac,
-               "ETH II", "Ethertype: 0x%x [decode error]", p->eth.ethertype);
+    if (p->perr != NO_ERR && p->perr != UNK_PROTOCOL) {
+        PRINT_LINE(buf, size, p->num, time, smac, dmac,
+                   "ETH II", "Ethertype: 0x%x [decode error]", p->eth.ethertype);
+    } else { /* not yet supported */
+        PRINT_LINE(buf, size, p->num, time, smac, dmac, "ETH II", "Ethertype: 0x%x",
+                   p->eth.ethertype);
+    }
 }
 
 void print_arp(char *buf, int n, struct arp_info *arp, uint32_t num, struct timeval *t)
@@ -294,21 +299,18 @@ void print_igmp(char *buf, int n, struct igmp_info *info)
 
     PRINT_PROTOCOL(buf, n, "IGMP");
     switch (info->type) {
-    case IGMP_HOST_MEMBERSHIP_QUERY:
+    case IGMP_MEMBERSHIP_QUERY:
         PRINT_INFO(buf, n, "Membership query  Max response time: %d seconds",
-                        info->max_resp_time / 10);
+                   info->max_resp_time / 10);
         break;
-    case IGMP_HOST_MEMBERSHIP_REPORT:
+    case IGMP_V1_MEMBERSHIP_REPORT:
         PRINT_INFO(buf, n, "Membership report");
         break;
-    case IGMPV2_HOST_MEMBERSHIP_REPORT:
+    case IGMP_V2_MEMBERSHIP_REPORT:
         PRINT_INFO(buf, n, "IGMP2 Membership report");
         break;
-    case IGMP_HOST_LEAVE_MESSAGE:
+    case IGMP_V2_LEAVE_GROUP:
         PRINT_INFO(buf, n, "Leave group");
-        break;
-    case IGMPV3_HOST_MEMBERSHIP_REPORT:
-        PRINT_INFO(buf, n, "IGMP3 Membership report");
         break;
     default:
         PRINT_INFO(buf, n, "Type 0x%x", info->type);

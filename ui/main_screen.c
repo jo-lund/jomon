@@ -1,8 +1,5 @@
 #include <string.h>
-#include <signal.h>
-#include <linux/igmp.h>
 #include <arpa/inet.h>
-#include <netinet/ip_icmp.h>
 #include <ctype.h>
 #include <unistd.h>
 #include <menu.h>
