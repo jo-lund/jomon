@@ -35,12 +35,12 @@ typedef struct {
 
 static packet_error parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp);
 static list_t *parse_variables(unsigned char *buffer, int n);
-static uint32_t parse_value(unsigned char **data, uint8_t *class, uint8_t *tag,
-                            snmp_value *value);
+static int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag,
+                       snmp_value *value);
 static void free_snmp_varbind(void *data);
 
 /*
- * SNMP messages use a tag-length-value encding scheme (Basic Encoding Rules).
+ * SNMP messages use a tag-length-value encoding scheme (Basic Encoding Rules).
  * SNMP uses only a subset of the basic encoding rules of ASN.1. Namely, all
  * encodings use the definite-length form. Further, whenever permissible,
  * non-constructor encodings are used rather than constructor encodings.
@@ -49,13 +49,15 @@ packet_error handle_snmp(unsigned char *buffer, int n, struct application_info *
 {
     uint8_t class;
     uint8_t tag;
-    uint32_t msg_len;
+    int msg_len;
     unsigned char *ptr = buffer;
 
     if (n < MIN_MSG) return SNMP_ERR;
 
     adu->snmp = calloc(1, sizeof(struct snmp_info));
-    msg_len = parse_value(&ptr, &class, &tag, NULL);
+    if ((msg_len = parse_value(&ptr, n, &class, &tag, NULL)) == -1) {
+        return SNMP_ERR;
+    }
     if (tag == SNMP_SEQUENCE_TAG) {
         pstat[PROT_SNMP].num_packets++;
         pstat[PROT_SNMP].num_bytes += n;
@@ -76,15 +78,23 @@ packet_error parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp)
     uint8_t tag;
     unsigned char *ptr = buffer;
     snmp_value val[2];
+    int val_len;
 
     for (int i = 0; i < 2 && n > 0; i++) {
-        n -= parse_value(&ptr, &class, &tag, &val[i]);
+        if ((val_len = parse_value(&ptr, n, &class, &tag, &val[i])) == -1) {
+            return SNMP_ERR;
+        }
+        n -= val_len;
     }
     if (n > 0) {
         /* common header */
         snmp->version = val[0].ival;
         snmp->community = val[1].pval;
-        n = parse_value(&ptr, &class, &tag, NULL); /* get PDU type */
+
+        /* get PDU type */
+        if ((n = parse_value(&ptr, n, &class, &tag, NULL)) == -1) {
+            return SNMP_ERR;
+        }
         if (n > 0 && class == CONTEXT_SPECIFIC) {
             snmp->pdu_type = tag;
             switch (snmp->pdu_type) {
@@ -99,14 +109,19 @@ packet_error parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp)
 
                 /* parse get/set header */
                 for (int i = 0; i < 3 && n > 0; i++) {
-                    n -= parse_value(&ptr, &class, &tag, &val[i]);
+                    if ((val_len = parse_value(&ptr, n, &class, &tag, &val[i])) == -1) {
+                        return SNMP_ERR;
+                    }
+                    n -= val_len;
                 }
                 if (n > 0) {
                     snmp->pdu = malloc(sizeof(struct snmp_pdu));
                     snmp->pdu->request_id = val[0].ival;
                     snmp->pdu->error_status = val[1].ival;
                     snmp->pdu->error_index = val[2].ival;
-                    snmp->pdu->varbind_list = parse_variables(ptr, n);
+                    if ((snmp->pdu->varbind_list = parse_variables(ptr, n)) == NULL) {
+                        return SNMP_ERR;
+                    }
                     return NO_ERR;
                 }
                 return SNMP_ERR;
@@ -118,7 +133,10 @@ packet_error parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp)
                 snmp_value val[5];
 
                 for (int i = 0; i < 5 && n > 0; i++) {
-                    n -= parse_value(&ptr, &class, &tag, &val[i]);
+                    if ((val_len = parse_value(&ptr, n, &class, &tag, &val[i])) == -1) {
+                        return SNMP_ERR;
+                    }
+                    n -= val_len;
                 }
                 if (n > 0) {
                     snmp->trap = malloc(sizeof(struct snmp_trap));
@@ -127,7 +145,9 @@ packet_error parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp)
                     snmp->trap->trap_type = val[2].ival;
                     snmp->trap->specific_code = val[3].ival;
                     snmp->trap->timestamp = val[4].ival;
-                    snmp->trap->varbind_list = parse_variables(ptr, n);
+                    if ((snmp->trap->varbind_list = parse_variables(ptr, n)) == NULL) {
+                        return SNMP_ERR;
+                    }
                     return NO_ERR;
                 }
                 return SNMP_ERR;
@@ -152,20 +172,32 @@ list_t *parse_variables(unsigned char *buffer, int n)
     list_t *varbind_list;
 
     varbind_list = list_init();
-    n = parse_value(&ptr, &class, &tag, NULL);
+    if ((n = parse_value(&ptr, n, &class, &tag, NULL)) == -1) {
+        return NULL;
+    }
     if (tag == SNMP_SEQUENCE_TAG) {
         while (n > 0) {
             snmp_value val;
+            int val_len;
 
-            n -= parse_value(&ptr, &class, &tag, &val);
+            if ((val_len = parse_value(&ptr, n, &class, &tag, &val)) == -1) {
+                return NULL;
+            }
+            n -= val_len;
             if (tag == SNMP_SEQUENCE_TAG && n > 0) {
-                n -= parse_value(&ptr, &class, &tag, &val);
+                if ((val_len = parse_value(&ptr, n, &class, &tag, &val)) == -1) {
+                    return NULL;
+                }
+                n -= val_len;
                 if (tag == SNMP_OBJECT_ID_TAG && n > 0) {
                     struct snmp_varbind *var;
 
                     var = malloc(sizeof(struct snmp_varbind));
                     var->object_name = val.pval;
-                    n -= parse_value(&ptr, &class, &tag, &val);
+                    if ((val_len = parse_value(&ptr, n, &class, &tag, &val)) == -1) {
+                        return NULL;
+                    }
+                    n -= val_len;
                     var->type = tag;
                     switch (tag) {
                     case SNMP_INTEGER_TAG:
@@ -188,9 +220,9 @@ list_t *parse_variables(unsigned char *buffer, int n)
     return varbind_list;
 }
 
-uint32_t parse_value(unsigned char **data, uint8_t *class, uint8_t *tag, snmp_value *value)
+int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag, snmp_value *value)
 {
-    uint32_t len = 0;
+    int len = 0;
     unsigned char *ptr = *data;
     int len_num_octets = 0;
 
@@ -212,6 +244,9 @@ uint32_t parse_value(unsigned char **data, uint8_t *class, uint8_t *tag, snmp_va
     } else { /* short form */
         len = *ptr;
     }
+    if (len > n) {
+        return -1;
+    }
     ptr++; /* skip (last) length byte */
 
     if (value && *class == APPLICATION) { /* application specific */
@@ -221,7 +256,7 @@ uint32_t parse_value(unsigned char **data, uint8_t *class, uint8_t *tag, snmp_va
             int j = 0;
 
             value->pval = malloc(INET_ADDRSTRLEN);
-            for (unsigned int i = 0; i < len; i++) {
+            for (int i = 0; i < len; i++) {
                 j += snprintf(value->pval + j, INET_ADDRSTRLEN - j, "%d.", *ptr++);
             }
             break;
@@ -243,7 +278,7 @@ uint32_t parse_value(unsigned char **data, uint8_t *class, uint8_t *tag, snmp_va
         switch (*tag) {
         case SNMP_INTEGER_TAG:
             value->ival = 0;
-            for (unsigned int i = 0; i < len; i++) {
+            for (int i = 0; i < len; i++) {
                 value->ival = value->ival << 8 | *ptr++;
             }
             /* add tag and length bytes */
@@ -264,7 +299,7 @@ uint32_t parse_value(unsigned char **data, uint8_t *class, uint8_t *tag, snmp_va
             if (len > 0) {
                 char val[MAX_OID_LEN];
                 unsigned int i = 0;
-                unsigned int j = 0;
+                int j = 0;
                 char c;
 
                 /*
