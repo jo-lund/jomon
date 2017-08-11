@@ -452,10 +452,10 @@ void free_pim_packet(struct pim_info *pim)
         if (pim->jpg->groups) {
             for (int i = 0; i < pim->jpg->num_groups; i++) {
                 if (pim->jpg->groups->joined_src) {
-                    free(pim->jpg->groups->joined_src);
+                    free(pim->jpg->groups[i].joined_src);
                 }
                 if (pim->jpg->groups->pruned_src) {
-                    free(pim->jpg->groups->pruned_src);
+                    free(pim->jpg->groups[i].pruned_src);
                 }
             }
             free(pim->jpg->groups);
