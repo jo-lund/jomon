@@ -81,6 +81,7 @@ packet_error handle_ipv4(unsigned char *buffer, int n, struct eth_info *eth)
     eth->ip->dst = ip->daddr;
     eth->ip->version = ip->version;
     eth->ip->ihl = ip->ihl;
+    header_len = ip->ihl * 4;
 
     /* Originally defined as type of service, but now defined as differentiated
        services code point and explicit congestion control */
@@ -88,12 +89,15 @@ packet_error handle_ipv4(unsigned char *buffer, int n, struct eth_info *eth)
     eth->ip->ecn = ip->tos & 0x03;
 
     eth->ip->length = ntohs(ip->tot_len);
+    if (eth->ip->length < header_len) { /* total length less than header length */
+        return IPv4_ERR;
+    }
     eth->ip->id = ntohs(ip->id);
     eth->ip->foffset = ntohs(ip->frag_off);
     eth->ip->ttl = ip->ttl;
     eth->ip->protocol = ip->protocol;
     eth->ip->checksum = ntohs(ip->check);
-    header_len = ip->ihl * 4;
+
     switch (ip->protocol) {
     case IPPROTO_ICMP:
         return handle_icmp(buffer + header_len, n - header_len, &eth->ip->icmp);

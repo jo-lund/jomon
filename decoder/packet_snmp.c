@@ -360,6 +360,8 @@ int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag, snmp_
             len += len_num_octets + 2;
             break;
         }
+    } else if (*class == CONTEXT_SPECIFIC) {
+        len += len_num_octets + 2;
     }
     *data = ptr;
     return len;

@@ -12,5 +12,3 @@
   packet being inspected.
 - Switching view mode when a packet covers the entire screen causes the remaining
   lines in the hexdump to all show at the bottom line.
-- Error in parsing slowdown.pcap
-- Crash when freeing bigFlows.pcap
