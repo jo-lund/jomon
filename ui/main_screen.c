@@ -445,13 +445,10 @@ void main_screen_get_input(main_screen *ms)
         uid_t euid = geteuid();
 
         if (!ctx->capturing && euid == 0) {
-            if (interactive) {
-                main_screen_set_interactive(ms, false);
-            }
-            werase(ms->pktlist);
-            wrefresh(ms->pktlist);
-            ms->outy = 0;
+            main_screen_clear(ms);
             ctx->capturing = true;
+            wrefresh(ms->pktlist);
+            print_header(ms);
             print_status(ms);
             start_scan();
         }
@@ -710,7 +707,7 @@ void scroll_column(main_screen *ms, int scrollx, int num_lines)
         werase(ms->pktlist);
         ms->scrollx += scrollx;
         if (ms->subwindow.win) {
-            ms->outy = print_lines(ms, ms->top + ms->scrolly, ms->top + num_lines, 0);
+            ms->outy = print_lines(ms, ms->top + ms->scrolly, ms->top + num_lines, 0) + ms->scrolly;
             if (!inside_subwindow(ms)) {
                 show_selectionbar(ms, ms->pktlist, ms->selection_line - ms->top, A_NORMAL);
             }
