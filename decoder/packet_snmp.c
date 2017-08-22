@@ -173,6 +173,7 @@ list_t *parse_variables(unsigned char *buffer, int n)
 
     varbind_list = list_init();
     if ((n = parse_value(&ptr, n, &class, &tag, NULL)) == -1) {
+        list_free(varbind_list, free);
         return NULL;
     }
     if (tag == SNMP_SEQUENCE_TAG) {
@@ -181,11 +182,13 @@ list_t *parse_variables(unsigned char *buffer, int n)
             int val_len;
 
             if ((val_len = parse_value(&ptr, n, &class, &tag, &val)) == -1) {
+                list_free(varbind_list, free);
                 return NULL;
             }
             n -= val_len;
             if (tag == SNMP_SEQUENCE_TAG && n > 0) {
                 if ((val_len = parse_value(&ptr, n, &class, &tag, &val)) == -1) {
+                    list_free(varbind_list, free);
                     return NULL;
                 }
                 n -= val_len;
@@ -195,6 +198,7 @@ list_t *parse_variables(unsigned char *buffer, int n)
                     var = malloc(sizeof(struct snmp_varbind));
                     var->object_name = val.pval;
                     if ((val_len = parse_value(&ptr, n, &class, &tag, &val)) == -1) {
+                        list_free(varbind_list, free);
                         return NULL;
                     }
                     n -= val_len;
@@ -282,7 +286,7 @@ int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag, snmp_
                 value->ival = value->ival << 8 | *ptr++;
             }
             /* add tag and length bytes */
-            len = (len_num_octets) ? len + len_num_octets : len + 2;
+            len += len_num_octets + 2;
             break;
         case SNMP_OCTET_STRING_TAG:
             if (len > 0) {
@@ -291,9 +295,12 @@ int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag, snmp_
                 value->pval[len] = '\0';
                 value->plen = len;
                 ptr += len;
+            } else {
+                value->pval = NULL;
+                value->plen = 0;
             }
             /* add tag and length bytes */
-            len = (len_num_octets) ? len + len_num_octets : len + 2;
+            len += len_num_octets + 2;
             break;
         case SNMP_OBJECT_ID_TAG:
             if (len > 0) {
@@ -333,10 +340,12 @@ int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag, snmp_
                 strcpy(value->pval, val);
                 value->plen = len;
                 ptr += len;
-
-                /* add tag and length bytes */
-                len = (len_num_octets) ? len + len_num_octets : len + 2;
+            } else {
+                value->pval = NULL;
+                value->plen = 0;
             }
+            /* add tag and length bytes */
+            len += len_num_octets + 2;
             break;
         case SNMP_NULL_TAG:
             value->pval = NULL;
@@ -344,10 +353,11 @@ int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag, snmp_
             len = 2; /* tag and length bytes */
             break;
         case SNMP_SEQUENCE_TAG:
-            /* only add tag and length bytes */
-            len = (len_num_octets) ? len_num_octets : 2;
+            /* only tag and length bytes */
+            len = len_num_octets + 2;
             break;
         default:
+            len += len_num_octets + 2;
             break;
         }
     }
