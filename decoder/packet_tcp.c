@@ -217,3 +217,8 @@ struct packet_flags *get_tcp_flags()
 {
     return tcp_flags;
 }
+
+int get_tcp_flags_size()
+{
+    return sizeof(tcp_flags) / sizeof(struct packet_flags);
+}

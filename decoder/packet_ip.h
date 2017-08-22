@@ -61,6 +61,7 @@ unsigned char *get_ip_payload(struct packet *p);
 
 /* Get the IPv4 packet flags */
 struct packet_flags *get_ipv4_flags();
+int get_ipv4_flags_size();
 
 /* Get the IPv4 fragment offset field */
 uint16_t get_ipv4_foffset(struct ipv4_info *ip);

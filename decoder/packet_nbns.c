@@ -322,7 +322,17 @@ struct packet_flags *get_nbns_flags()
     return nbns_flags;
 }
 
+int get_nbns_flags_size()
+{
+    return sizeof(nbns_flags) / sizeof(struct packet_flags);
+}
+
 struct packet_flags *get_nbns_nb_flags()
 {
     return nbns_nb_flags;
+}
+
+int get_nbns_nb_flags_size()
+{
+    return sizeof(nbns_nb_flags) / sizeof(struct packet_flags);
 }

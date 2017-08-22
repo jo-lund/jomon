@@ -72,7 +72,17 @@ struct packet_flags *get_smb_flags()
     return smb_flags;
 }
 
+int get_smb_flags_size()
+{
+    return sizeof(smb_flags) / sizeof(struct packet_flags);
+}
+
 struct packet_flags *get_smb_flags2()
 {
     return smb_flags2;
+}
+
+int get_smb_flags2_size()
+{
+    return sizeof(smb_flags2) / sizeof(struct packet_flags);
 }

@@ -617,9 +617,19 @@ struct packet_flags *get_dns_flags()
     return dns_flags;
 }
 
+int get_dns_flags_size()
+{
+    return sizeof(dns_flags) / sizeof(struct packet_flags);
+}
+
 struct packet_flags *get_llmnr_flags()
 {
     return llmnr_flags;
+}
+
+int get_llmnr_flags_size()
+{
+    return sizeof(llmnr_flags) / sizeof(struct packet_flags);
 }
 
 void free_dns_packet(struct dns_info *dns)

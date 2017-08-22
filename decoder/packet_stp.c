@@ -78,3 +78,8 @@ struct packet_flags *get_stp_flags()
 {
     return stp_flags;
 }
+
+int get_stp_flags_size()
+{
+    return sizeof(stp_flags) / sizeof(struct packet_flags);
+}

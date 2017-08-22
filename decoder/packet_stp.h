@@ -40,5 +40,6 @@ struct eth_802_llc;
 packet_error handle_stp(unsigned char *buffer, uint16_t n, struct eth_802_llc *llc);
 char *get_stp_bpdu_type(uint8_t type);
 struct packet_flags *get_stp_flags();
+int get_stp_flags_size();
 
 #endif

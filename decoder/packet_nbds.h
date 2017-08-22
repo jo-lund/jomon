@@ -67,6 +67,7 @@ struct nbds_info {
 };
 
 struct packet_flags *get_nbds_flags();
+int get_nbds_flags_size();
 char *get_nbds_message_type(uint8_t type);
 
 /* internal to the decoder */

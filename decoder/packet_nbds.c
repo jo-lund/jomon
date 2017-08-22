@@ -134,6 +134,11 @@ struct packet_flags *get_nbds_flags()
     return nbds_flags;
 }
 
+int get_nbds_flags_size()
+{
+    return sizeof(nbds_flags) / sizeof(struct packet_flags);
+}
+
 char *get_nbds_message_type(uint8_t type)
 {
     switch (type) {

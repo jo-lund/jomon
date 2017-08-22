@@ -263,9 +263,11 @@ int get_dns_max_namelen(struct dns_resource_record *record, int n);
 
 /* Get the DNS flags */
 struct packet_flags *get_dns_flags();
+int get_dns_flags_size();
 
 /* Get the LLMNR flags */
 struct packet_flags *get_llmnr_flags();
+int get_llmnr_flags_size();
 
 /*
  * Parse the DNS pseudo opt resource record. The list needs to be freed with

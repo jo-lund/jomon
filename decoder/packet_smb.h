@@ -75,7 +75,9 @@ struct smb_info {
 
 char *get_smb_command(uint8_t cmd);
 struct packet_flags *get_smb_flags();
+int get_smb_flags_size();
 struct packet_flags *get_smb_flags2();
+int get_smb_flags2_size();
 
 packet_error handle_smb(unsigned char *buffer, int n, struct smb_info *smb);
 
