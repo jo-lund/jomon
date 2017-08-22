@@ -84,6 +84,7 @@ packet_error handle_dns(unsigned char *buffer, int n, struct application_info *i
 {
     unsigned char *ptr = buffer;
     int plen = n;
+    int num_records = 0;
 
     if (n < DNS_HDRLEN) return DNS_ERR;
     info->dns = malloc(sizeof(struct dns_info));
@@ -132,8 +133,6 @@ packet_error handle_dns(unsigned char *buffer, int n, struct application_info *i
     }
 
     /* Answer/Authority/Additional records sections */
-    int num_records = 0;
-
     for (int i = ANCOUNT; i < 4; i++) {
         num_records += info->dns->section_count[i];
     }
@@ -166,7 +165,9 @@ int parse_dns_question(unsigned char *buffer, int n, unsigned char **data,
     dns->question = malloc(dns->section_count[QDCOUNT] *
                            sizeof(struct dns_question));
     for (unsigned int i = 0; i < dns->section_count[QDCOUNT]; i++) {
-        len = parse_dns_name(buffer, n, ptr, dns->question[i].qname);
+        if ((len = parse_dns_name(buffer, n, ptr, dns->question[i].qname)) == -1) {
+            return -1;
+        }
         ptr += len;
         dns->question[i].qtype = ptr[0] << 8 | ptr[1];
         dns->question[i].qclass = ptr[2] << 8 | ptr[3];
@@ -176,7 +177,6 @@ int parse_dns_question(unsigned char *buffer, int n, unsigned char **data,
     *data = ptr;
     return len;
 }
-
 
 /*
  * Parse a DNS resource record.

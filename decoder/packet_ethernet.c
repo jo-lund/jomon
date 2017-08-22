@@ -103,6 +103,7 @@ bool handle_ethernet(unsigned char *buffer, int n, struct packet *p)
             break;
         }
     }
+    p->ptype = ETHERNET;
     return true;
 }
 

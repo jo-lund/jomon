@@ -9,13 +9,6 @@
 #include <string.h>
 #include <signal.h>
 #include <unistd.h>
-#include <arpa/inet.h>
-#include <net/if.h>
-#include <sys/ioctl.h>
-#ifdef MACOS
-#include <net/if_dl.h>
-#include <net/if_types.h>
-#endif
 #ifdef __linux__
 #include <netpacket/packet.h>
 #endif
@@ -37,7 +30,6 @@ struct sockaddr_in *local_addr;
 bool statistics = false;
 vector_t *packets;
 main_context ctx;
-
 static volatile sig_atomic_t signal_flag = 0;
 static int sockfd = -1;
 static bool use_ncurses = true;
@@ -233,7 +225,6 @@ void init_structures()
     }
 }
 
-/* The main event loop */
 void run()
 {
     struct pollfd fds[] = {
