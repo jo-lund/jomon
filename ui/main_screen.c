@@ -1119,10 +1119,14 @@ void add_transport_elements(main_screen *ms, struct packet *p)
                                 selected[TRANSPORT], TRANSPORT);
             if (p->eth.ethertype == ETH_P_IP) {
                 add_tcp_information(ms->lvw, header, &p->eth.ip->tcp);
-                add_app_elements(ms, p, &p->eth.ip->tcp.data, len);
+                if (len < p->eth.payload_len) {
+                    add_app_elements(ms, p, &p->eth.ip->tcp.data, len);
+                }
             } else {
                 add_tcp_information(ms->lvw, header, &p->eth.ipv6->tcp);
-                add_app_elements(ms, p, &p->eth.ipv6->tcp.data, len);
+                if (len < p->eth.payload_len) {
+                    add_app_elements(ms, p, &p->eth.ipv6->tcp.data, len);
+                }
             }
             break;
         }
@@ -1133,10 +1137,14 @@ void add_transport_elements(main_screen *ms, struct packet *p)
             header = ADD_HEADER(ms->lvw, "User Datagram Protocol (UDP)", selected[TRANSPORT], TRANSPORT);
             if (p->eth.ethertype == ETH_P_IP) {
                 add_udp_information(ms->lvw, header, &p->eth.ip->udp);
-                add_app_elements(ms, p, &p->eth.ip->udp.data, len);
+                if (len < p->eth.payload_len) {
+                    add_app_elements(ms, p, &p->eth.ip->udp.data, len);
+                }
             } else {
                 add_udp_information(ms->lvw, header, &p->eth.ipv6->udp);
-                add_app_elements(ms, p, &p->eth.ipv6->udp.data, len);
+                if (len < p->eth.payload_len) {
+                    add_app_elements(ms, p, &p->eth.ipv6->udp.data, len);
+                }
             }
             break;
         }
@@ -1163,9 +1171,15 @@ void add_transport_elements(main_screen *ms, struct packet *p)
             }
             break;
         default:
+        {
             /* unknown transport layer payload */
-            header = ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
-            add_hexdump(ms->lvw, header, hexmode, get_ip_payload(p), IP_PAYLOAD_LEN(p));
+            uint16_t len = IP_PAYLOAD_LEN(p);
+
+            if (len < p->eth.payload_len) {
+                header = ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
+                add_hexdump(ms->lvw, header, hexmode, get_ip_payload(p), len);
+            }
+        }
         }
     }
 }

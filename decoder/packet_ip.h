@@ -7,8 +7,8 @@
 #include "packet_udp.h"
 #include "packet_pim.h"
 
-#define IP_PAYLOAD_LEN(p) ((p)->eth.ethertype == ETH_P_IP) ? \
-    ((p)->eth.ip->length - (p)->eth.ip->ihl * 4) :          \
+#define IP_PAYLOAD_LEN(p) ((p)->eth.ethertype == ETH_P_IP) ?    \
+    ((p)->eth.ip->length - (p)->eth.ip->ihl * 4) :              \
     ((p)->eth.ipv6->payload_len)
 
 #define IPV6_FIXED_HEADER_LEN 40
