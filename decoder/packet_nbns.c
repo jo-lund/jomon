@@ -119,10 +119,17 @@ packet_error handle_nbns(unsigned char *buffer, int n, struct application_info *
         len -= 4;
 
         /* Additional records section */
+        if (info->nbns->section_count[ARCOUNT] > n) {
+            return NBNS_ERR;
+        }
         if (info->nbns->section_count[ARCOUNT]) {
-            info->nbns->record = malloc(sizeof(struct nbns_rr));
-            if (parse_nbns_record(0, buffer, n, &ptr, plen, info->nbns) == -1) {
-                return NBNS_ERR;
+            info->nbns->record = malloc(info->nbns->section_count[ARCOUNT] *
+                                        sizeof(struct nbns_rr));
+            for (int i = 0; i < info->nbns->section_count[ARCOUNT]; i++) {
+                int len = parse_nbns_record(i, buffer, n, &ptr, plen, info->nbns);
+
+                if (len == -1) return NBNS_ERR;
+                plen -= len;
             }
         }
     }

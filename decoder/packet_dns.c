@@ -384,7 +384,7 @@ int parse_dns_name(unsigned char *buffer, int n, unsigned char *ptr, char name[]
                 compression = true;
             }
         } else {
-            if (len > n || len >= DNS_NAMELEN) {
+            if (len > n || len + label_length >= DNS_NAMELEN) {
                 return -1;
             }
             memcpy(name + len, ptr + 1, label_length);
@@ -394,7 +394,9 @@ int parse_dns_name(unsigned char *buffer, int n, unsigned char *ptr, char name[]
             label_length = ptr[0];
         }
     }
-    name[len - 1] = '\0';
+    if (len) {
+        name[len - 1] = '\0';
+    }
     len++; /* add null label */
     return compression ? name_ptr_len : len;
 }

@@ -108,11 +108,11 @@ packet_error parse_join_prune(unsigned char *buffer, int n, struct pim_info *pim
         }
         if (pim->jpg->groups[i].num_joined_src) {
             pim->jpg->groups[i].joined_src = calloc(pim->jpg->groups[i].num_joined_src,
-                                              sizeof(struct pim_source_addr));
+                                                    sizeof(struct pim_source_addr));
         }
         if (pim->jpg->groups[i].num_pruned_src) {
-            pim->jpg->groups[i].pruned_src = calloc(pim->jpg->groups[i].num_joined_src,
-                                              sizeof(struct pim_source_addr));
+            pim->jpg->groups[i].pruned_src = calloc(pim->jpg->groups[i].num_pruned_src,
+                                                    sizeof(struct pim_source_addr));
         }
         buffer += 4;
         for (int j = 0; j < pim->jpg->groups[i].num_joined_src; j++) {
@@ -451,10 +451,10 @@ void free_pim_packet(struct pim_info *pim)
     case PIM_GRAFT_ACK:
         if (pim->jpg->groups) {
             for (int i = 0; i < pim->jpg->num_groups; i++) {
-                if (pim->jpg->groups->joined_src) {
+                if (pim->jpg->groups[i].joined_src) {
                     free(pim->jpg->groups[i].joined_src);
                 }
-                if (pim->jpg->groups->pruned_src) {
+                if (pim->jpg->groups[i].pruned_src) {
                     free(pim->jpg->groups[i].pruned_src);
                 }
             }

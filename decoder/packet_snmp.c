@@ -364,6 +364,9 @@ int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag, snmp_
         len += len_num_octets + 2;
     }
     *data = ptr;
+    if (len == 0) {
+        return len_num_octets + 2;
+    }
     return len;
 }
 
@@ -457,10 +460,12 @@ void free_snmp_packet(struct snmp_info *snmp)
         }
         break;
     case SNMP_TRAP:
-        free(snmp->trap->enterprise);
-        free(snmp->trap->agent_addr);
-        list_free(snmp->trap->varbind_list, free_snmp_varbind);
-        free(snmp->trap);
+        if (snmp->trap) {
+            free(snmp->trap->enterprise);
+            free(snmp->trap->agent_addr);
+            list_free(snmp->trap->varbind_list, free_snmp_varbind);
+            free(snmp->trap);
+        }
         break;
     default:
         break;
