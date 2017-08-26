@@ -105,6 +105,11 @@ packet_error handle_tcp(unsigned char *buffer, int n, struct tcp *info)
     info->urg_ptr = ntohs(tcp->urg_ptr);
     payload_len = n - info->offset * 4;
 
+    /* bogus header length */
+    if (info->offset < 5) {
+        return TCP_ERR;
+    }
+
     /* the minimum header without options is 20 bytes */
     if (info->offset > 5) {
         uint8_t options_len;

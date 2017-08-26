@@ -136,6 +136,9 @@ packet_error handle_dns(unsigned char *buffer, int n, struct application_info *i
     for (int i = ANCOUNT; i < 4; i++) {
         num_records += info->dns->section_count[i];
     }
+    if (num_records > n) {
+        return DNS_ERR;
+    }
     if (num_records) {
         info->dns->record = malloc(num_records * sizeof(struct dns_resource_record));
         for (int i = 0; i < num_records; i++) {
@@ -381,7 +384,7 @@ int parse_dns_name(unsigned char *buffer, int n, unsigned char *ptr, char name[]
                 compression = true;
             }
         } else {
-            if (len > n) {
+            if (len > n || len >= DNS_NAMELEN) {
                 return -1;
             }
             memcpy(name + len, ptr + 1, label_length);

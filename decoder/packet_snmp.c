@@ -173,7 +173,7 @@ list_t *parse_variables(unsigned char *buffer, int n)
 
     varbind_list = list_init();
     if ((n = parse_value(&ptr, n, &class, &tag, NULL)) == -1) {
-        list_free(varbind_list, free);
+        list_free(varbind_list, free_snmp_varbind);
         return NULL;
     }
     if (tag == SNMP_SEQUENCE_TAG) {
@@ -182,7 +182,7 @@ list_t *parse_variables(unsigned char *buffer, int n)
             int val_len;
 
             if ((val_len = parse_value(&ptr, n, &class, &tag, &val)) == -1) {
-                list_free(varbind_list, free);
+                list_free(varbind_list, free_snmp_varbind);
                 return NULL;
             }
             n -= val_len;
@@ -198,7 +198,7 @@ list_t *parse_variables(unsigned char *buffer, int n)
                     var = malloc(sizeof(struct snmp_varbind));
                     var->object_name = val.pval;
                     if ((val_len = parse_value(&ptr, n, &class, &tag, &val)) == -1) {
-                        list_free(varbind_list, free);
+                        list_free(varbind_list, free_snmp_varbind);
                         return NULL;
                     }
                     n -= val_len;

@@ -28,8 +28,10 @@ packet_error handle_udp(unsigned char *buffer, int n, struct udp_info *info)
     info->src_port = ntohs(udp->source);
     info->dst_port = ntohs(udp->dest);
     info->len = ntohs(udp->len);
+    if (info->len < UDP_HDR_LEN || info->len > n) {
+        return UDP_ERR;
+    }
     info->checksum = ntohs(udp->check);
-
     for (int i = 0; i < 2; i++) {
         info->data.utype = *((uint16_t *) info + i);
         error = check_port(buffer + UDP_HDR_LEN, n - UDP_HDR_LEN, &info->data,

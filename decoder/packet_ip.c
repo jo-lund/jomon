@@ -72,7 +72,7 @@ packet_error handle_ipv4(unsigned char *buffer, int n, struct eth_info *eth)
     unsigned int header_len;
 
     ip = (struct iphdr *) buffer;
-    if (n < ip->ihl * 4) return IPv4_ERR;
+    if (n < ip->ihl * 4 || ip->ihl < 5) return IPv4_ERR;
 
     pstat[PROT_IPv4].num_packets++;
     pstat[PROT_IPv4].num_bytes += n;
@@ -89,7 +89,8 @@ packet_error handle_ipv4(unsigned char *buffer, int n, struct eth_info *eth)
     eth->ip->ecn = ip->tos & 0x03;
 
     eth->ip->length = ntohs(ip->tot_len);
-    if (eth->ip->length < header_len) { /* total length less than header length */
+    if (eth->ip->length < header_len || /* total length less than header length */
+        eth->ip->length > n) { /* total length greater than packet length */
         return IPv4_ERR;
     }
     eth->ip->id = ntohs(ip->id);
