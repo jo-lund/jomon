@@ -24,8 +24,6 @@
 #include "file_pcap.h"
 #include "ui/protocols.h"
 
-extern void stat_screen_print();
-
 struct sockaddr_in *local_addr;
 bool statistics = false;
 vector_t *packets;
@@ -235,7 +233,7 @@ void run()
     while (1) {
         if (signal_flag) {
             signal_flag = 0;
-            stat_screen_print();
+            layout(ALARM);
             alarm(1);
         }
         if (fd_changed) {
@@ -255,7 +253,7 @@ void run()
             if (n) {
                 if (use_ncurses) {
                     vector_push_back(packets, p);
-                    print_packet(p);
+                    layout(NEW_PACKET);
                 } else {
                     char buf[MAXLINE];
 

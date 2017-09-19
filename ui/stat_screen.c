@@ -10,7 +10,13 @@
 #endif
 #include <ctype.h>
 
+#define MAX_NAME 128
+
 static const char *devpath = "/proc/net/dev";
+static const char *statuspath = "/proc/self/status";
+static const char *mempath = "/proc/meminfo";
+static const char *cpupath = "/proc/cpuinfo";
+static const char *statpath = "/proc/stat";
 
 /* RX/TX variables read from /proc/net/dev */
 typedef struct {
@@ -28,26 +34,66 @@ typedef struct {
     unsigned int pps; /* packets per second */
 } linkdef;
 
+typedef struct {
+    unsigned long total_ram;
+    unsigned long free_ram;
+    unsigned long buffers;
+    unsigned long cached;
+    unsigned int vm_rss;
+    int pid;
+    int num_cpu;
+    char cpu_name[MAX_NAME];
+} hwstat;
+
+typedef struct {
+    unsigned long user;
+    unsigned long nice;
+    unsigned long system;
+    unsigned long idle;
+} cputime;
+
+enum page {
+    NET_STAT,
+    HW_STAT
+};
+
+#define NUM_PAGES 2
+
 extern main_context ctx;
 static linkdef rx; /* data received */
 static linkdef tx; /* data transmitted */
+static hwstat hw;
+static cputime **cpustat;
+static int cpuidx = 0;
 static bool show_packet_stats = true;
 static screen *stat_screen;
+static enum page stat_page;
 
-static bool read_stats();
+static bool read_hwstat();
+static bool read_netstat();
 static void calculate_rate();
+static void print_netstat();
+static void print_hwstat();
+static void init_stat();
 
 screen *stat_screen_create()
 {
-    memset(&rx, 0, sizeof(linkdef));
-    memset(&tx, 0, sizeof(linkdef));
     stat_screen = create_screen(STAT_SCREEN);
     nodelay(stat_screen->win, TRUE);
     keypad(stat_screen->win, TRUE);
     add_subscription(screen_changed_publisher, stat_screen_changed);
-    stat_screen_print();
-    alarm(1);
+    stat_page = NET_STAT;
+    init_stat();
     return stat_screen;
+}
+
+void stat_screen_free()
+{
+    publisher_free(screen_changed_publisher);
+    for (int i = 0; i < hw.num_cpu; i++) {
+        free(cpustat[i]);
+    }
+    free(cpustat);
 }
 
 void stat_screen_changed()
@@ -55,6 +101,7 @@ void stat_screen_changed()
     if (stat_screen->focus) {
         memset(&rx, 0, sizeof(linkdef));
         memset(&tx, 0, sizeof(linkdef));
+        stat_screen_print();
         alarm(1);
     }
 }
@@ -84,6 +131,14 @@ void stat_screen_get_input()
         show_packet_stats = !show_packet_stats;
         stat_screen_print();
         break;
+    case 'v':
+        stat_page = (stat_page + 1) % NUM_PAGES;
+        if (stat_page == NET_STAT) {
+            memset(&rx, 0, sizeof(linkdef));
+            memset(&tx, 0, sizeof(linkdef));
+        }
+        stat_screen_print();
+        break;
     case 'q':
     case KEY_F(10):
         finish();
@@ -95,12 +150,70 @@ void stat_screen_get_input()
 
 void stat_screen_print()
 {
+    werase(stat_screen->win);
+    switch (stat_page) {
+    case NET_STAT:
+        print_netstat();
+        break;
+    case HW_STAT:
+        print_hwstat();
+        break;
+    default:
+        break;
+    }
+    wrefresh(stat_screen->win);
+}
+
+void init_stat()
+{
+    FILE *fp;
+    char buf[MAXLINE];
+
+    memset(&rx, 0, sizeof(linkdef));
+    memset(&tx, 0, sizeof(linkdef));
+    memset(&hw, 0, sizeof(hwstat));
+    if (!(fp = fopen(statpath, "r"))) {
+        return;
+    }
+    while (fgets(buf, MAXLINE, fp)) {
+        if (strncmp(buf, "cpu", 3) == 0) {
+            if (isdigit(buf[3])) {
+                hw.num_cpu++;
+            }
+        }
+    }
+    fclose(fp);
+    if (!(fp = fopen(cpupath, "r"))) {
+        return;
+    }
+    while (fgets(buf, MAXLINE, fp)) {
+        if (strncmp(buf, "model name", 10) == 0) {
+            int i = 10;
+            int len;
+
+            while (isspace(buf[i]) || buf[i] == ':') {
+                i++;
+            }
+            len = strlen(buf + i) - 1;
+            strncpy(hw.cpu_name, buf + i, len);
+            hw.cpu_name[len] = '\0';
+            break;
+        }
+    }
+    fclose(fp);
+    cpustat = malloc(hw.num_cpu * sizeof(cputime *));
+    for (int i = 0; i < hw.num_cpu; i++) {
+        cpustat[i] = calloc(2, sizeof(cputime));
+    }
+}
+
+void print_netstat()
+{
     int y = 0;
     struct iw_statistics iwstat;
     struct iw_range iwrange;
 
-    werase(stat_screen->win);
-    read_stats();
+    read_netstat();
     calculate_rate();
     printat(stat_screen->win, y, 0, COLOR_PAIR(4) | A_BOLD, "Network statistics for %s", ctx.device);
     mvwprintw(stat_screen->win, ++y, 0, "");
@@ -133,10 +246,40 @@ void stat_screen_print()
             }
         }
     }
-    wrefresh(stat_screen->win);
 }
 
-bool read_stats()
+void print_hwstat()
+{
+    int y = 0;
+    unsigned long idle;
+
+    read_hwstat();
+    printat(stat_screen->win, y, 0, COLOR_PAIR(4) | A_BOLD, "Memory and CPU statistics");
+    mvwprintw(stat_screen->win, ++y, 0, "");
+    printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%20s", "Total memory");
+    wprintw(stat_screen->win, ": %8lu kB", hw.total_ram);
+    printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%20s", "Memory used");
+    wprintw(stat_screen->win, ": %8lu kB", hw.total_ram - hw.free_ram);
+    printat(stat_screen->win, -1, -1, COLOR_PAIR(3) | A_BOLD, "%10s", "Buffers");
+    wprintw(stat_screen->win, ": %6lu kB", hw.buffers);
+    printat(stat_screen->win, -1, -1, COLOR_PAIR(3) | A_BOLD, "%8s", "Cache");
+    wprintw(stat_screen->win, ": %8lu kB", hw.cached);
+    mvwprintw(stat_screen->win, ++y, 0, "");
+    printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%20s", "Process memory (RSS)");
+    wprintw(stat_screen->win, ": %8lu kB", hw.vm_rss);
+    printat(stat_screen->win, -1, -1, COLOR_PAIR(3) | A_BOLD, "%6s", "Pid");
+    wprintw(stat_screen->win, ": %d", hw.pid);
+    mvwprintw(stat_screen->win, ++y, 0, "");
+    if (cpustat[0][0].idle != 0 && cpustat[0][1].idle != 0) {
+        for (int i = 0; i < hw.num_cpu; i++) {
+            idle = cpustat[i][!cpuidx].idle - cpustat[i][cpuidx].idle;
+            printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "CPU%d idle", i);
+            wprintw(stat_screen->win, ": %5d %%", idle);
+        }
+    }
+}
+
+bool read_netstat()
 {
     FILE *fp;
     char buf[MAXLINE];
@@ -163,6 +306,95 @@ bool read_stats()
             break;
         }
     }
+    fclose(fp);
+    return true;
+}
+
+bool read_hwstat()
+{
+    FILE *fp;
+    char buf[MAXLINE];
+    int cpu = 0;
+
+    /* get memory statistics */
+    if (!(fp = fopen(mempath, "r"))) {
+        return false;
+    }
+    while (fgets(buf, MAXLINE, fp)) {
+        int i = 0;
+
+        if (strncmp(buf, "MemTotal:", 9) == 0) {
+            i += 9;
+            while (isspace(buf[i])) {
+                i++;
+            }
+            sscanf(buf + i, "%lu", &hw.total_ram);
+        } else if (strncmp(buf, "MemFree:", 8) == 0) {
+            i += 8;
+            while (isspace(buf[i])) {
+                i++;
+            }
+            sscanf(buf + i, "%lu", &hw.free_ram);
+        } else if (strncmp(buf, "Buffers:", 8) == 0) {
+            i += 8;
+            while (isspace(buf[i])) {
+                i++;
+            }
+            sscanf(buf + i, "%lu", &hw.buffers);
+        } else if (strncmp(buf, "Cached:", 7) == 0) {
+            i += 7;
+            while (isspace(buf[i])) {
+                i++;
+            }
+            sscanf(buf + i, "%lu", &hw.cached);
+        }
+    }
+    fclose(fp);
+
+    /* get process memory statistics */
+    if (!(fp = fopen(statuspath, "r"))) {
+        return false;
+    }
+    while (fgets(buf, MAXLINE, fp)) {
+        int i = 0;
+
+        if (strncmp(buf, "Pid:", 4) == 0) {
+            i += 4;
+            while (isspace(buf[i])) {
+                i++;
+            }
+            sscanf(buf + i, "%u", &hw.pid);
+        }
+        if (strncmp(buf, "VmRSS:", 6) == 0) {
+            i += 6;
+            while (isspace(buf[i])) {
+                i++;
+            }
+            sscanf(buf + i, "%u", &hw.vm_rss);
+        }
+    }
+    fclose(fp);
+
+    /* get CPU statistics */
+    if (!(fp = fopen(statpath, "r"))) {
+        return false;
+    }
+    while (fgets(buf, MAXLINE, fp)) {
+        if (strncmp(buf, "cpu", 3) == 0) {
+            int i = 3;
+
+            if (isdigit(buf[i])) {
+                i++;
+                while (isspace(buf[i])) {
+                    i++;
+                }
+                sscanf(buf + i, "%lu %lu %lu %lu", &cpustat[cpu][cpuidx].user, &cpustat[cpu][cpuidx].nice,
+                       &cpustat[cpu][cpuidx].system, &cpustat[cpu][cpuidx].idle);
+                cpu++;
+            }
+        }
+    }
+    cpuidx = (cpuidx + 1) % 2;
     fclose(fp);
     return true;
 }

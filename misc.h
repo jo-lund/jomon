@@ -38,6 +38,11 @@ typedef struct {
     bool show_statistics;
 } main_context;
 
+enum event {
+    NEW_PACKET,
+    ALARM
+};
+
 extern struct sockaddr_in *local_addr;
 
 void finish();

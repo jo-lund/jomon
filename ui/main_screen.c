@@ -297,7 +297,7 @@ void handle_file_error(void *callback)
 {
     label_dialogue_free(ld);
     ld = NULL;
-    (* ((void (*)()) callback))();
+    (* (void (*)()) callback)();
 }
 
 void write_show_progress(int size)
