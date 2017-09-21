@@ -121,25 +121,25 @@ void list_pop_back(list_t *list, list_deallocate func)
 
 void list_remove(list_t *list, void *data, list_deallocate func)
 {
-    node_t *n = list->head;
+    node_t **n = &list->head;
 
-    while (n) {
-        if (n->data == data) {
-            if (n == list->head) {
-                list_pop_front(list, func);
-            } else if (n == list->tail) {
-                list_pop_back(list, func);
+    while (*n) {
+        if ((*n)->data == data) {
+            node_t *t = *n;
+
+            *n = (*n)->next;
+            if (*n) {
+                (*n)->prev = t->prev;
             } else {
-                n->prev->next = n->next;
-                n->next->prev = n->prev;
-                if (func) {
-                    func(n->data);
-                }
-                free(n);
-                list->size--;
+                list->tail = t->prev;
             }
+            if (func) {
+                func(t->data);
+            }
+            free(t);
+        } else {
+            n = &(*n)->next;
         }
-        n = n->next;
     }
 }
 
