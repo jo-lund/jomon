@@ -2,6 +2,7 @@
 #define PACKET_ICMP_H
 
 #include <stdbool.h>
+#include "packet.h"
 
 struct icmp_info {
     uint8_t type;
@@ -18,7 +19,7 @@ struct icmp_info {
 
 struct ipv4_info;
 
-bool handle_icmp(unsigned char *buffer, int n, struct icmp_info *info);
+packet_error handle_icmp(unsigned char *buffer, int n, struct icmp_info *info);
 char *get_icmp_dest_unreach_code(uint8_t code);
 char *get_icmp_type(uint8_t type);
 

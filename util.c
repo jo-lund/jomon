@@ -1,15 +1,11 @@
-#include <arpa/inet.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <errno.h>
 #include <string.h>
 #include <netdb.h>
-#include <netinet/if_ether.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <ctype.h>
-#include <netinet/ip_icmp.h>
-#include <linux/igmp.h>
 #include <time.h>
 #include "util.h"
 #include "vector.h"

@@ -7,8 +7,8 @@
 #include "packet_udp.h"
 #include "packet_pim.h"
 
-#define IP_PAYLOAD_LEN(p) ((p)->eth.ethertype == ETH_P_IP) ? \
-    ((p)->eth.ip->length - (p)->eth.ip->ihl * 4) :          \
+#define IP_PAYLOAD_LEN(p) ((p)->eth.ethertype == ETH_P_IP) ?    \
+    ((p)->eth.ip->length - (p)->eth.ip->ihl * 4) :              \
     ((p)->eth.ipv6->payload_len)
 
 #define IPV6_FIXED_HEADER_LEN 40
@@ -61,12 +61,13 @@ unsigned char *get_ip_payload(struct packet *p);
 
 /* Get the IPv4 packet flags */
 struct packet_flags *get_ipv4_flags();
+int get_ipv4_flags_size();
 
 /* Get the IPv4 fragment offset field */
 uint16_t get_ipv4_foffset(struct ipv4_info *ip);
 
 /* internal to the decoder */
-bool handle_ipv4(unsigned char *buffer, int n, struct eth_info *info);
-bool handle_ipv6(unsigned char *buffer, int n, struct eth_info *info);
+packet_error handle_ipv4(unsigned char *buffer, int n, struct eth_info *info);
+packet_error handle_ipv6(unsigned char *buffer, int n, struct eth_info *info);
 
 #endif

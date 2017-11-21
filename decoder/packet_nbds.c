@@ -35,9 +35,9 @@ static bool parse_datagram(unsigned char *buffer, int n, unsigned char **data,
  * fields. Theses fields are actually specific to messages that carry a data
  * payload: the DIRECT_UNIQUE, DIRECT_GROUP, and BROADCAST DATAGRAM messages.
  */
-bool handle_nbds(unsigned char *buffer, int n, struct application_info *adu)
+packet_error handle_nbds(unsigned char *buffer, int n, struct application_info *adu)
 {
-    if (n < NBDS_HDRLEN) return false;
+    if (n < NBDS_HDRLEN) return NBDS_ERR;
 
     unsigned char *ptr;
 
@@ -54,7 +54,9 @@ bool handle_nbds(unsigned char *buffer, int n, struct application_info *adu)
     case NBDS_DIRECT_UNIQUE:
     case NBDS_DIRECT_GROUP:
     case NBDS_BROADCAST:
-        parse_datagram(buffer, n, &ptr, adu);
+        if (!parse_datagram(buffer, n, &ptr, adu)) {
+            return NBDS_ERR;
+        }
         break;
     case NBDS_ERROR:
         adu->nbds->msg.error_code = ptr[0];
@@ -65,7 +67,9 @@ bool handle_nbds(unsigned char *buffer, int n, struct application_info *adu)
     {
         char name[DNS_NAMELEN];
 
-        parse_dns_name(buffer, n, ptr, name);
+        if (parse_dns_name(buffer, n, ptr, name) == -1) {
+            return NBDS_ERR;
+        }
         decode_nbns_name(adu->nbds->msg.dest_name, name);
         break;
     }
@@ -74,7 +78,7 @@ bool handle_nbds(unsigned char *buffer, int n, struct application_info *adu)
     }
     pstat[PROT_NBDS].num_packets++;
     pstat[PROT_NBDS].num_bytes += n;
-    return true;
+    return NO_ERR;
 }
 
 bool parse_datagram(unsigned char *buffer, int n, unsigned char **data,
@@ -85,26 +89,29 @@ bool parse_datagram(unsigned char *buffer, int n, unsigned char **data,
     struct nbds_datagram *dgm;
     char name[DNS_NAMELEN];
     uint16_t len;
-    uint16_t ptr_len;
+    int name_len;
 
     dgm = calloc(1, sizeof(struct nbds_datagram));
+    adu->nbds->msg.dgm = dgm;
     dgm->dgm_length = get_uint16be(ptr);
     dgm->packet_offset = get_uint16be(ptr + 2);
     ptr += 4;
-    ptr_len = parse_dns_name(buffer, n, ptr, name);
+    if ((name_len = parse_dns_name(buffer, n, ptr, name)) == -1) {
+        return false;
+    }
     decode_nbns_name(dgm->src_name, name);
-    ptr += ptr_len;
-    len = ptr_len;
-    ptr_len = parse_dns_name(buffer, n, ptr, name);
+    ptr += name_len;
+    len = name_len;
+    if ((name_len = parse_dns_name(buffer, n, ptr, name)) == -1) {
+        return false;
+    }
     decode_nbns_name(dgm->dest_name, name);
-    len += ptr_len;
-    ptr += ptr_len;
-
+    len += name_len;
+    ptr += name_len;
     if (dgm->dgm_length > len) {
         dgm->smb = malloc(sizeof(struct smb_info));
         handle_smb(ptr, dgm->dgm_length - len, dgm->smb);
     }
-    adu->nbds->msg.dgm = dgm;
     *data = ptr;
     return true;
 }
@@ -125,6 +132,11 @@ void free_nbds_packet(struct nbds_info *nbds)
 struct packet_flags *get_nbds_flags()
 {
     return nbds_flags;
+}
+
+int get_nbds_flags_size()
+{
+    return sizeof(nbds_flags) / sizeof(struct packet_flags);
 }
 
 char *get_nbds_message_type(uint8_t type)

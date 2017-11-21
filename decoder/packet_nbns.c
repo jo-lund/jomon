@@ -4,6 +4,7 @@
 #include "packet_nbns.h"
 #include "packet_dns.h"
 #include "packet.h"
+#include "../util.h"
 
 static struct packet_flags nbns_flags[] = {
     { "Authoritative answer", 1, NULL },
@@ -22,7 +23,8 @@ static struct packet_flags nbns_nb_flags[] = {
     { "Owner Node Type:", 2, nb_ont }
 };
 
-static void parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **ptr, struct nbns_info *info);
+static int parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **data,
+                             int dlen, struct nbns_info *info);
 
 /*
  * NBNS serves much of the same purpose as DNS, and the NetBIOS Name Service
@@ -47,11 +49,12 @@ static void parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char
  * |AA |TC |RD |RA | 0 | 0 | B |
  * +---+---+---+---+---+---+---+
  */
-bool handle_nbns(unsigned char *buffer, int n, struct application_info *info)
+packet_error handle_nbns(unsigned char *buffer, int n, struct application_info *info)
 {
-    if (n < DNS_HDRLEN) return false;
+    if (n < DNS_HDRLEN) return NBNS_ERR;
 
     unsigned char *ptr = buffer;
+    int plen = n;
 
     info->nbns = malloc(sizeof(struct nbns_info));
     info->nbns->id = ptr[0] << 8 | ptr[1];
@@ -75,10 +78,10 @@ bool handle_nbns(unsigned char *buffer, int n, struct application_info *info)
 
     if (info->nbns->r) { /* response */
         if (info->nbns->section_count[QDCOUNT] != 0) { /* QDCOUNT is always 0 for responses */
-            free(info->nbns);
-            return false;
+            return NBNS_ERR;
         }
         ptr += DNS_HDRLEN;
+        plen -= DNS_HDRLEN;
 
         /* Answer/Authority/Additional records sections */
         int i = ANCOUNT;
@@ -88,36 +91,51 @@ bool handle_nbns(unsigned char *buffer, int n, struct application_info *info)
         }
         info->nbns->record = malloc(num_records * sizeof(struct nbns_rr));
         for (int j = 0; j < num_records; j++) {
-            parse_nbns_record(j, buffer, n, &ptr, info->nbns);
+            int len = parse_nbns_record(j, buffer, n, &ptr, plen, info->nbns);
+
+            if (len == -1) return NBNS_ERR;
+            plen -= len;
         }
     } else { /* request */
         if (info->nbns->aa) { /* authoritative answer is only to be set in responses */
-            free(info->nbns);
-            return false;
+            return NBNS_ERR;
         }
         if (info->nbns->section_count[QDCOUNT] == 0) { /* QDCOUNT must be non-zero for requests */
-            free(info->nbns);
-            return false;
+            return NBNS_ERR;
         }
         ptr += DNS_HDRLEN;
 
         /* QUESTION section */
         char name[DNS_NAMELEN];
-        ptr += parse_dns_name(buffer, n, ptr, name);
+        int len = parse_dns_name(buffer, n, ptr, name);
+
+        if (len == -1) return NBNS_ERR;
+        ptr += len;
+        plen -= len;
         decode_nbns_name(info->nbns->question.qname, name);
         info->nbns->question.qtype = ptr[0] << 8 | ptr[1];
         info->nbns->question.qclass = ptr[2] << 8 | ptr[3];
         ptr += 4; /* skip qtype and qclass */
+        len -= 4;
 
         /* Additional records section */
+        if (info->nbns->section_count[ARCOUNT] > n) {
+            return NBNS_ERR;
+        }
         if (info->nbns->section_count[ARCOUNT]) {
-            info->nbns->record = malloc(sizeof(struct nbns_rr));
-            parse_nbns_record(0, buffer, n, &ptr, info->nbns);
+            info->nbns->record = malloc(info->nbns->section_count[ARCOUNT] *
+                                        sizeof(struct nbns_rr));
+            for (int i = 0; i < info->nbns->section_count[ARCOUNT]; i++) {
+                int len = parse_nbns_record(i, buffer, n, &ptr, plen, info->nbns);
+
+                if (len == -1) return NBNS_ERR;
+                plen -= len;
+            }
         }
     }
     pstat[PROT_NBNS].num_packets++;
     pstat[PROT_NBNS].num_bytes += n;
-    return true;
+    return NO_ERR;
 }
 
 /*
@@ -141,70 +159,79 @@ void decode_nbns_name(char *dest, char *src)
  * Parse a NBNS resource record.
  * int i is the resource record index.
  */
-void parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **ptr, struct nbns_info *nbns)
+int parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **data,
+                      int dlen, struct nbns_info *nbns)
 {
+    unsigned char *ptr = *data;
     int rdlen;
     char name[DNS_NAMELEN];
+    int len;
 
-    *ptr += parse_dns_name(buffer, n, *ptr, name);
+    len = parse_dns_name(buffer, n, ptr, name);
+    if (len == -1) return -1;
+    ptr += len;
     decode_nbns_name(nbns->record[i].rrname, name);
-    nbns->record[i].rrtype = (*ptr)[0] << 8 | (*ptr)[1];
-    nbns->record[i].rrclass = (*ptr)[2] << 8 | (*ptr)[3];
-    nbns->record[i].ttl = (*ptr)[4] << 24 | (*ptr)[5] << 16 | (*ptr)[6] << 8 | (*ptr)[7];
-    rdlen = (*ptr)[8] << 8 | (*ptr)[9];
-    *ptr += 10; /* skip to rdata field */
+    nbns->record[i].rrtype = get_uint16be(ptr);
+    nbns->record[i].rrclass = get_uint16be(ptr + 2);
+    nbns->record[i].ttl = get_uint32be(ptr + 4);
+    rdlen = get_uint16be(ptr + 8);
+    ptr += 10; /* skip to rdata field */
+    dlen -= 10;
+    if (rdlen > dlen) return -1;
+    len += 10 + rdlen;
 
     switch (nbns->record[i].rrtype) {
     case NBNS_NB:
         if (rdlen >= 6) {
-            nbns->record[i].rdata.nb.g = ((*ptr)[0] & 0x80U) >> 7;
-            nbns->record[i].rdata.nb.ont = ((*ptr)[0] & 0x60) >> 5;
+            nbns->record[i].rdata.nb.g = (ptr[0] & 0x80U) >> 7;
+            nbns->record[i].rdata.nb.ont = (ptr[0] & 0x60) >> 5;
             rdlen -= 2;
-            (*ptr) += 2;
+            ptr += 2;
             for (int j = 0, k = 0; k < rdlen && k < MAX_NBNS_ADDR * 4 ; j++, k += 4) {
-                nbns->record[i].rdata.nb.address[j] =
-                    (*ptr)[k] << 24 | (*ptr)[k + 1] << 16 | (*ptr)[k + 2] << 8 | (*ptr)[k + 3];
+                nbns->record[i].rdata.nb.address[j] = get_uint32be(ptr + k);
             }
             nbns->record[i].rdata.nb.num_addr = rdlen / 4;
         }
-        *ptr += rdlen;
+        ptr += rdlen;
         break;
     case NBNS_NS:
     {
         char name[DNS_NAMELEN];
+        int name_len = parse_dns_name(buffer, n, ptr, name);
 
-        *ptr += parse_dns_name(buffer, n, *ptr, name);
+        if (name_len == -1) return -1;
+        ptr += name_len;
         decode_nbns_name(nbns->record[i].rdata.nsdname, name);
         break;
     }
     case NBNS_A:
         if (rdlen == 4) {
-            nbns->record[i].rdata.nsdipaddr =
-                (*ptr)[0] << 24 | (*ptr)[1] << 16 | (*ptr)[2] << 8 | (*ptr)[3];
+            nbns->record[i].rdata.nsdipaddr = get_uint32be(ptr);
         }
-        *ptr += rdlen;
+        ptr += rdlen;
         break;
     case NBNS_NBSTAT:
     {
         uint8_t num_names;
 
-        num_names = (*ptr)[0];
-        (*ptr)++;
+        num_names = ptr[0];
+        ptr++;
         for (int j = 0; j < num_names; j++) {
-            memcpy(nbns->record[i].rdata.nbstat[j].node_name, (*ptr), NBNS_NAMELEN);
+            memcpy(nbns->record[i].rdata.nbstat[j].node_name, ptr, NBNS_NAMELEN);
             nbns->record[i].rdata.nbstat[j].node_name[NBNS_NAMELEN] = '\0';
-            *ptr += NBNS_NAMELEN;
-            nbns->record[i].rdata.nbstat[j].name_flags = (*ptr)[0] << 8 | (*ptr)[1];
-            *ptr += 2;
+            ptr += NBNS_NAMELEN;
+            nbns->record[i].rdata.nbstat[j].name_flags = ptr[0] << 8 | ptr[1];
+            ptr += 2;
         }
         // TODO: Include statistics
         break;
     }
     case NBNS_NULL:
     default:
-        *ptr += rdlen;
+        ptr += rdlen;
         break;
     }
+    return len;
 }
 
 char *get_nbns_opcode(uint8_t opcode)
@@ -302,7 +329,17 @@ struct packet_flags *get_nbns_flags()
     return nbns_flags;
 }
 
+int get_nbns_flags_size()
+{
+    return sizeof(nbns_flags) / sizeof(struct packet_flags);
+}
+
 struct packet_flags *get_nbns_nb_flags()
 {
     return nbns_nb_flags;
+}
+
+int get_nbns_nb_flags_size()
+{
+    return sizeof(nbns_nb_flags) / sizeof(struct packet_flags);
 }

@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "packet.h"
 
 #define NBNS_NAMELEN 17
 #define MAX_NBNS_NAMES 8
@@ -111,10 +112,12 @@ char *get_nbns_type(uint16_t qtype);
 char *get_nbns_type_extended(uint16_t qtype);
 char *get_nbns_node_type(uint8_t type);
 struct packet_flags *get_nbns_flags();
+int get_nbns_flags_size();
 struct packet_flags *get_nbns_nb_flags();
+int get_nbns_nb_flags_size();
 
 /* internal to the decoder */
-bool handle_nbns(unsigned char *buffer, int n, struct application_info *info);
+packet_error handle_nbns(unsigned char *buffer, int n, struct application_info *info);
 void decode_nbns_name(char *dest, char *src);
 
 #endif

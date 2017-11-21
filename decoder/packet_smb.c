@@ -39,9 +39,9 @@ static struct packet_flags smb_flags2[] = {
     { "May contain long names", 1, NULL }
 };
 
-bool handle_smb(unsigned char *buffer, int n, struct smb_info *smb)
+packet_error handle_smb(unsigned char *buffer, int n, struct smb_info *smb)
 {
-    if (n < SMB_HDR_LEN) return false;
+    if (n < SMB_HDR_LEN) return SMB_ERR;
 
     memcpy(smb->protocol, buffer, 4);
     smb->command = buffer[4];
@@ -56,7 +56,7 @@ bool handle_smb(unsigned char *buffer, int n, struct smb_info *smb)
     smb->uid = get_uint16le(buffer + 4);
     smb->mid = get_uint16le(buffer + 6);
 
-    return true;
+    return NO_ERR;
 }
 
 char *get_smb_command(uint8_t cmd)
@@ -72,7 +72,17 @@ struct packet_flags *get_smb_flags()
     return smb_flags;
 }
 
+int get_smb_flags_size()
+{
+    return sizeof(smb_flags) / sizeof(struct packet_flags);
+}
+
 struct packet_flags *get_smb_flags2()
 {
     return smb_flags2;
+}
+
+int get_smb_flags2_size()
+{
+    return sizeof(smb_flags2) / sizeof(struct packet_flags);
 }

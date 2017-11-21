@@ -19,9 +19,9 @@
  *
  * The ICMP header is 8 bytes.
  */
-bool handle_icmp(unsigned char *buffer, int n, struct icmp_info *info)
+packet_error handle_icmp(unsigned char *buffer, int n, struct icmp_info *info)
 {
-    if (n < ICMP_HDR_LEN) return false;
+    if (n < ICMP_HDR_LEN) return ICMP_ERR;
 
     struct icmp *icmp = (struct icmp *) buffer;
 
@@ -41,7 +41,7 @@ bool handle_icmp(unsigned char *buffer, int n, struct icmp_info *info)
     default:
         break;
     }
-    return true;
+    return NO_ERR;
 }
 
 

@@ -2,6 +2,7 @@
 #define PACKET_PIM_H
 
 #include "../list.h"
+#include "packet.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -34,11 +35,16 @@
 #define GET_RPTBIT(mp) ((mp) >> 31)
 #define GET_METRIC_PREFERENCE(mp) ((mp) & 0x7fffffff)
 
+typedef union {
+    uint32_t ipv4_addr;
+    uint8_t ipv6_addr[16];
+} pim_addr;
+
 struct pim_unicast_addr {
     uint8_t addr_family;
     uint8_t encoding;
-    unsigned char *addr; /* Unicast address as represented by the given address
-                            family and encoding type */
+    pim_addr addr; /* Unicast address as represented by the given address
+                      family and encoding type */
 };
 
 struct pim_group_addr {
@@ -47,7 +53,7 @@ struct pim_group_addr {
     unsigned int bidirectional : 1;
     unsigned int zone : 1;
     uint8_t mask_len;
-    unsigned char *addr; /* contains the group multicast address */
+    pim_addr addr; /* contains the group multicast address */
 };
 
 struct pim_source_addr {
@@ -58,7 +64,7 @@ struct pim_source_addr {
     unsigned int rpt : 1; /* the rendezvous point tree bit is for use with
                            Join/Prune messages */
     uint8_t mask_len;
-    unsigned char *addr; /* the source address */
+    pim_addr addr; /* the source address */
 };
 
 /* this is sent periodically by routers on all interfaces */
@@ -250,10 +256,10 @@ list_t *parse_hello_options(struct pim_info *pim);
  * 'family' is the address family.
  * 'addr' is the address in byte format.
  */
-char *get_pim_address(uint8_t family, unsigned char *addr);
+char *get_pim_address(uint8_t family, pim_addr *addr);
 
 /* internal to the decoder */
-bool handle_pim(unsigned char *buffer, int n, struct pim_info *pim);
+packet_error handle_pim(unsigned char *buffer, int n, struct pim_info *pim);
 void free_pim_packet(struct pim_info *pim);
 
 #endif

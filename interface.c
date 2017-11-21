@@ -6,7 +6,6 @@
 #ifdef __linux__
 #include <net/if_arp.h>
 #include <netpacket/packet.h>
-#include <linux/if.h>
 #include <linux/wireless.h>
 #endif
 #include <string.h>
@@ -236,7 +235,7 @@ char *get_active_interface(int fd, char *buffer, int len)
                 err_sys("ioctl error");
             }
             if (ifr->ifr_flags & IFF_UP && ifr->ifr_flags & IFF_RUNNING) {
-                int namelen = strlen(ifr->ifr_name);
+                size_t namelen = strlen(ifr->ifr_name);
 
                 device = malloc(namelen + 1);
                 strcpy(device, ifr->ifr_name);

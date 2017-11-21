@@ -9,9 +9,6 @@
 #include <netinet/ip.h>
 #include <stdbool.h>
 #include <limits.h>
-#ifdef __linux__
-#include <linux/limits.h>
-#endif
 
 /*
  * Only a portion of each packet is passed by the kernel to the application, this
@@ -41,8 +38,12 @@ typedef struct {
     bool show_statistics;
 } main_context;
 
+enum event {
+    NEW_PACKET,
+    ALARM
+};
+
 extern struct sockaddr_in *local_addr;
-extern bool statistics;
 
 void finish();
 void stop_scan();

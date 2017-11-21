@@ -99,6 +99,12 @@ enum file_error read_header(unsigned char *buf, size_t len)
     } else {
         return FORMAT_ERROR;
     }
+    if (file_header->network != LINKTYPE_ETHERNET) {
+        return LINK_ERROR;
+    }
+    if (file_header->version_major != 2 || file_header->version_minor != 4) {
+        return VERSION_ERROR;
+    }
     return NO_ERROR;
 }
 
@@ -219,6 +225,10 @@ char *get_file_error(enum file_error err)
     switch (err) {
     case FORMAT_ERROR:
         return "File format not recognized.";
+    case LINK_ERROR:
+        return "Link type not supported";
+    case VERSION_ERROR:
+        return "pcap version not supported";
     case DECODE_ERROR:
         return "Error decoding packets.";
     case ACCESS_ERROR:

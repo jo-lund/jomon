@@ -78,14 +78,14 @@ static void free_options(void *data);
  *            the urgent data. This field is only be interpreted in segments with
  *            the URG control bit set.
  */
-bool handle_tcp(unsigned char *buffer, int n, struct tcp *info)
+packet_error handle_tcp(unsigned char *buffer, int n, struct tcp *info)
 {
     struct tcphdr *tcp;
-    bool error;
+    packet_error error;
     uint16_t payload_len;
 
     tcp = (struct tcphdr *) buffer;
-    if (n < tcp->doff * 4) return false;
+    if (n < tcp->doff * 4) return TCP_ERR;
 
     pstat[PROT_TCP].num_packets++;
     pstat[PROT_TCP].num_bytes += n;
@@ -105,6 +105,11 @@ bool handle_tcp(unsigned char *buffer, int n, struct tcp *info)
     info->urg_ptr = ntohs(tcp->urg_ptr);
     payload_len = n - info->offset * 4;
 
+    /* bogus header length */
+    if (info->offset < 5) {
+        return TCP_ERR;
+    }
+
     /* the minimum header without options is 20 bytes */
     if (info->offset > 5) {
         uint8_t options_len;
@@ -120,14 +125,15 @@ bool handle_tcp(unsigned char *buffer, int n, struct tcp *info)
     if (payload_len > 0) {
         for (int i = 0; i < 2; i++) {
             info->data.utype = *((uint16_t *) info + i);
-            if (check_port(buffer + info->offset * 4, payload_len, &info->data,
-                           info->data.utype, &error)) {
-                return true;
+            error = check_port(buffer + info->offset * 4, payload_len, &info->data,
+                               info->data.utype);
+            if (error != UNK_PROTOCOL) {
+                return error;
             }
         }
     }
-    info->data.utype = 0;
-    return true;
+    info->data.utype = 0; /* unknown application protocol */
+    return NO_ERR;
 }
 
 list_t *parse_tcp_options(unsigned char *data, int len)
@@ -215,4 +221,9 @@ void free_options(void *data)
 struct packet_flags *get_tcp_flags()
 {
     return tcp_flags;
+}
+
+int get_tcp_flags_size()
+{
+    return sizeof(tcp_flags) / sizeof(struct packet_flags);
 }

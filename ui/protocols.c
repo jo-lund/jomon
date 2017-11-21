@@ -1,6 +1,6 @@
 #include <arpa/inet.h>
 #include <net/if_arp.h>
-#include <linux/igmp.h>
+#include <netinet/igmp.h>
 #include <netinet/ip_icmp.h>
 #include <string.h>
 #include <ctype.h>
@@ -36,6 +36,7 @@
         PRINT_INFO(buffer, n, fmt, ## __VA_ARGS__);             \
     } while (0)
 
+static void print_error(char *buf, int size, struct packet *p);
 static void print_arp(char *buf, int n, struct arp_info *info, uint32_t num, struct timeval *t);
 static void print_llc(char *buf, int n, struct eth_info *eth, uint32_t num, struct timeval *t);
 static void print_ip(char *buf, int n, struct ipv4_info *ip, uint32_t num, struct timeval *t);
@@ -80,55 +81,70 @@ static void add_smb_information(list_view *lw, list_view_header *header, struct 
 
 void write_to_buf(char *buf, int size, struct packet *p)
 {
-    switch (p->eth.ethertype) {
-    case ETH_P_ARP:
-        print_arp(buf, size, p->eth.arp, p->num, &p->time);
-        break;
-    case ETH_P_IP:
-        print_ip(buf, size, p->eth.ip, p->num, &p->time);
-        break;
-    case ETH_P_IPV6:
-        print_ipv6(buf, size, p->eth.ipv6, p->num, &p->time);
-        break;
-    default:
-        if (p->eth.ethertype < ETH_P_802_3_MIN) {
-            print_llc(buf, size, &p->eth, p->num, &p->time);
-        } else if (p->eth.payload_len) {
-            char smac[HW_ADDRSTRLEN];
-            char dmac[HW_ADDRSTRLEN];
-            char time[TBUFLEN];
-
-            HW_ADDR_NTOP(smac, p->eth.mac_src);
-            HW_ADDR_NTOP(dmac, p->eth.mac_dst);
-            format_timeval(&p->time, time, TBUFLEN);
-            PRINT_LINE(buf, size, p->num, time, smac, dmac, "ETH II", "Ethertype: 0x%x", p->eth.ethertype);
+    if (p->perr != NO_ERR && p->perr != UNK_PROTOCOL) {
+        print_error(buf, size, p);
+    } else {
+        switch (p->eth.ethertype) {
+        case ETH_P_ARP:
+            print_arp(buf, size, p->eth.arp, p->num, &p->time);
+            break;
+        case ETH_P_IP:
+            print_ip(buf, size, p->eth.ip, p->num, &p->time);
+            break;
+        case ETH_P_IPV6:
+            print_ipv6(buf, size, p->eth.ipv6, p->num, &p->time);
+            break;
+        default:
+            if (p->eth.ethertype <= ETH_802_3_MAX) {
+                print_llc(buf, size, &p->eth, p->num, &p->time);
+            } else if (p->eth.payload_len) {
+                print_error(buf, size, p);
+            }
+            break;
         }
-        break;
     }
 }
 
-void print_arp(char *buf, int n, struct arp_info *info, uint32_t num, struct timeval *t)
+void print_error(char *buf, int size, struct packet *p)
+{
+    char smac[HW_ADDRSTRLEN];
+    char dmac[HW_ADDRSTRLEN];
+    char time[TBUFLEN];
+
+    HW_ADDR_NTOP(smac, p->eth.mac_src);
+    HW_ADDR_NTOP(dmac, p->eth.mac_dst);
+    format_timeval(&p->time, time, TBUFLEN);
+    if (p->perr != NO_ERR && p->perr != UNK_PROTOCOL) {
+        PRINT_LINE(buf, size, p->num, time, smac, dmac,
+                   "ETH II", "Ethertype: 0x%x [decode error]", p->eth.ethertype);
+    } else { /* not yet supported */
+        PRINT_LINE(buf, size, p->num, time, smac, dmac, "ETH II", "Ethertype: 0x%x",
+                   p->eth.ethertype);
+    }
+}
+
+void print_arp(char *buf, int n, struct arp_info *arp, uint32_t num, struct timeval *t)
 {
     char sip[INET_ADDRSTRLEN];
     char tip[INET_ADDRSTRLEN];
     char sha[HW_ADDRSTRLEN];
     char time[TBUFLEN];
 
-    inet_ntop(AF_INET, info->sip, sip, INET_ADDRSTRLEN);
-    inet_ntop(AF_INET, info->tip, tip, INET_ADDRSTRLEN);
+    inet_ntop(AF_INET, arp->sip, sip, INET_ADDRSTRLEN);
+    inet_ntop(AF_INET, arp->tip, tip, INET_ADDRSTRLEN);
     format_timeval(t, time, TBUFLEN);
-    switch (info->op) {
+    switch (arp->op) {
     case ARPOP_REQUEST:
         PRINT_LINE(buf, n, num, time, sip, tip, "ARP",
                    "Request: Looking for hardware address of %s", tip);
         break;
     case ARPOP_REPLY:
-        HW_ADDR_NTOP(sha, info->sha);
+        HW_ADDR_NTOP(sha, arp->sha);
         PRINT_LINE(buf, n, num, time, sip, tip, "ARP",
                    "Reply: %s has hardware address %s", sip, sha);
         break;
     default:
-        PRINT_LINE(buf, n, num, time, info->sip, info->tip, "ARP", "Opcode %d", info->op);
+        PRINT_LINE(buf, n, num, time, arp->sip, arp->tip, "ARP", "Opcode %d", arp->op);
         break;
     }
 }
@@ -283,21 +299,18 @@ void print_igmp(char *buf, int n, struct igmp_info *info)
 
     PRINT_PROTOCOL(buf, n, "IGMP");
     switch (info->type) {
-    case IGMP_HOST_MEMBERSHIP_QUERY:
+    case IGMP_MEMBERSHIP_QUERY:
         PRINT_INFO(buf, n, "Membership query  Max response time: %d seconds",
-                        info->max_resp_time / 10);
+                   info->max_resp_time / 10);
         break;
-    case IGMP_HOST_MEMBERSHIP_REPORT:
+    case IGMP_V1_MEMBERSHIP_REPORT:
         PRINT_INFO(buf, n, "Membership report");
         break;
-    case IGMPV2_HOST_MEMBERSHIP_REPORT:
+    case IGMP_V2_MEMBERSHIP_REPORT:
         PRINT_INFO(buf, n, "IGMP2 Membership report");
         break;
-    case IGMP_HOST_LEAVE_MESSAGE:
+    case IGMP_V2_LEAVE_GROUP:
         PRINT_INFO(buf, n, "Leave group");
-        break;
-    case IGMPV3_HOST_MEMBERSHIP_REPORT:
-        PRINT_INFO(buf, n, "IGMP3 Membership report");
         break;
     default:
         PRINT_INFO(buf, n, "Type 0x%x", info->type);
@@ -327,6 +340,7 @@ void print_tcp(char *buf, int n, struct tcp *tcp)
         break;
     case DNS:
     case MDNS:
+    case LLMNR:
         print_dns(buf, n, tcp->data.dns, tcp->data.utype);
         break;
     case NBNS:
@@ -355,9 +369,9 @@ void print_tcp(char *buf, int n, struct tcp *tcp)
         if (tcp->fin) {
             PRINT_INFO(buf, n, " FIN");
         }
+        PRINT_INFO(buf, n, "  seq: %u  ack: %u  win: %u", tcp->seq_num, tcp->ack_num, tcp->window);
         break;
     }
-    PRINT_INFO(buf, n, "  seq: %u  ack: %u  win: %u", tcp->seq_num, tcp->ack_num, tcp->window);
 }
 
 void print_udp(char *buf, int n, struct udp_info *udp)
@@ -365,6 +379,7 @@ void print_udp(char *buf, int n, struct udp_info *udp)
     switch (udp->data.utype) {
     case DNS:
     case MDNS:
+    case LLMNR:
         print_dns(buf, n, udp->data.dns, udp->data.utype);
         break;
     case NBNS:
@@ -392,16 +407,20 @@ void print_dns(char *buf, int n, struct dns_info *dns, uint16_t type)
 {
     if (type == DNS) {
         PRINT_PROTOCOL(buf, n, "DNS");
-    } else {
+    } else if (type == MDNS) {
         PRINT_PROTOCOL(buf, n, "MDNS");
+    } else {
+        PRINT_PROTOCOL(buf, n, "LLMNR");
     }
     if (dns->qr == 0) {
         switch (dns->opcode) {
         case DNS_QUERY:
-            PRINT_INFO(buf, n, "Standard query: ");
-            PRINT_INFO(buf, n, "%s ", dns->question.qname);
-            PRINT_INFO(buf, n, "%s ", get_dns_class(GET_MDNS_RRCLASS(dns->question.qclass)));
-            PRINT_INFO(buf, n, "%s", get_dns_type(dns->question.qtype));
+            if (dns->question) {
+                PRINT_INFO(buf, n, "Standard query: ");
+                PRINT_INFO(buf, n, "%s ", dns->question[0].qname);
+                PRINT_INFO(buf, n, "%s ", get_dns_class(GET_MDNS_RRCLASS(dns->question[0].qclass)));
+                PRINT_INFO(buf, n, "%s", get_dns_type(dns->question[0].qtype));
+            }
             break;
         case DNS_IQUERY:
             PRINT_INFO(buf, n, "Inverse query");
@@ -434,12 +453,14 @@ void print_dns(char *buf, int n, struct dns_info *dns, uint16_t type)
         }
 
         // TODO: Need to print the proper name for all values.
-        PRINT_INFO(buf, n, "%s ", dns->record[0].name);
-        PRINT_INFO(buf, n, "%s ", get_dns_class(GET_MDNS_RRCLASS(dns->record[0].rrclass)));
-        PRINT_INFO(buf, n, "%s ", get_dns_type(dns->record[0].type));
-        for (unsigned int i = 0; i < dns->section_count[ANCOUNT]; i++) {
-            print_dns_record(dns, i, buf, n, dns->record[i].type);
-            PRINT_INFO(buf, n, " ");
+        if (dns->record) {
+            PRINT_INFO(buf, n, "%s ", dns->record[0].name);
+            PRINT_INFO(buf, n, "%s ", get_dns_class(GET_MDNS_RRCLASS(dns->record[0].rrclass)));
+            PRINT_INFO(buf, n, "%s ", get_dns_type(dns->record[0].type));
+            for (unsigned int i = 0; i < dns->section_count[ANCOUNT]; i++) {
+                print_dns_record(dns, i, buf, n, dns->record[i].type);
+                PRINT_INFO(buf, n, " ");
+            }
         }
     }
 }
@@ -710,7 +731,7 @@ void add_stp_information(list_view *lw, list_view_header *header, struct packet 
             if (stp->port_role == 0x03) snprintcat(buf, 1024, "Designated");
         }
         hdr = ADD_SUB_HEADER(lw, header, selected[STP_FLAGS], STP_FLAGS, "%s (0x%x)", buf, flags);
-        add_flags(lw, hdr, flags, get_stp_flags(), 7);
+        add_flags(lw, hdr, flags, get_stp_flags(), get_stp_flags_size());
         ADD_TEXT_ELEMENT(lw, header, "Root ID: %u/%02x.%02x.%02x.%02x.%02x.%02x", stp->root_id[0] << 8 |
                   stp->root_id[1], stp->root_id[2], stp->root_id[3],
                   stp->root_id[4], stp->root_id[5], stp->root_id[6],
@@ -767,7 +788,7 @@ void add_ipv4_information(list_view *lw, list_view_header *header, struct ipv4_i
         snprintcat(buf, MAXLINE, ")");
     }
     hdr = ADD_SUB_HEADER(lw, header, selected[IPV4_FLAGS], IPV4_FLAGS, "%s", buf, flags);
-    add_flags(lw, hdr, flags, get_ipv4_flags(), 3);
+    add_flags(lw, hdr, flags, get_ipv4_flags(), get_ipv4_flags_size());
     ADD_TEXT_ELEMENT(lw, header, "Fragment offset: %u", get_ipv4_foffset(ip));
     ADD_TEXT_ELEMENT(lw, header, "Time to live: %u", ip->ttl);
     snprintf(buf, MAXLINE, "Protocol: %u", ip->protocol);
@@ -971,12 +992,12 @@ void add_pim_register_stop(list_view *lw, list_view_header *header, struct pim_i
     char *addr;
 
     h = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Register-Stop Message");
-    addr = get_pim_address(pim->assert->gaddr.addr_family, pim->assert->gaddr.addr);
+    addr = get_pim_address(pim->assert->gaddr.addr_family, &pim->assert->gaddr.addr);
     if (addr) {
         ADD_TEXT_ELEMENT(lw, h, "Group address: %s/%d", addr, pim->assert->gaddr.mask_len);
         free(addr);
     }
-    addr = get_pim_address(pim->assert->saddr.addr_family, pim->assert->saddr.addr);
+    addr = get_pim_address(pim->assert->saddr.addr_family, &pim->assert->saddr.addr);
     if (addr) {
         ADD_TEXT_ELEMENT(lw, h, "Source address: %s", addr);
         free(addr);
@@ -989,12 +1010,12 @@ void add_pim_assert(list_view *lw, list_view_header *header, struct pim_info *pi
     char *addr;
 
     h = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Assert Message");
-    addr = get_pim_address(pim->assert->gaddr.addr_family, pim->assert->gaddr.addr);
+    addr = get_pim_address(pim->assert->gaddr.addr_family, &pim->assert->gaddr.addr);
     if (addr) {
         ADD_TEXT_ELEMENT(lw, h, "Group address: %s/%d", addr, pim->assert->gaddr.mask_len);
         free(addr);
     }
-    addr = get_pim_address(pim->assert->saddr.addr_family, pim->assert->saddr.addr);
+    addr = get_pim_address(pim->assert->saddr.addr_family, &pim->assert->saddr.addr);
     if (addr) {
         ADD_TEXT_ELEMENT(lw, h, "Source address: %s", addr);
         free(addr);
@@ -1026,7 +1047,7 @@ void add_pim_join_prune(list_view *lw, list_view_header *header, struct pim_info
         return;
     }
 
-    addr = get_pim_address(pim->jpg->neighbour.addr_family, pim->jpg->neighbour.addr);
+    addr = get_pim_address(pim->jpg->neighbour.addr_family, &pim->jpg->neighbour.addr);
     if (addr) {
         ADD_TEXT_ELEMENT(lw, h, "Upstream neighbour: %s", addr);
         free(addr);
@@ -1041,7 +1062,7 @@ void add_pim_join_prune(list_view *lw, list_view_header *header, struct pim_info
         list_view_header *joined;
         list_view_header *pruned;
 
-        addr = get_pim_address(pim->jpg->groups[i].gaddr.addr_family, pim->jpg->groups[i].gaddr.addr);
+        addr = get_pim_address(pim->jpg->groups[i].gaddr.addr_family, &pim->jpg->groups[i].gaddr.addr);
         if (addr) {
             ADD_TEXT_ELEMENT(lw, grp, "Group address %d: %s/%d", i + 1, addr, pim->jpg->groups[i].gaddr.mask_len);
             free(addr);
@@ -1051,7 +1072,7 @@ void add_pim_join_prune(list_view *lw, list_view_header *header, struct pim_info
                                 pim->jpg->groups[i].num_joined_src);
         for (int j = 0; j < pim->jpg->groups[i].num_joined_src; j++) {
             addr = get_pim_address(pim->jpg->groups[i].joined_src[j].addr_family,
-                                   pim->jpg->groups[i].joined_src[j].addr);
+                                   &pim->jpg->groups[i].joined_src[j].addr);
             if (addr) {
                 ADD_TEXT_ELEMENT(lw, joined, "Joined address %d: %s/%d", j + 1, addr,
                                  pim->jpg->groups[i].joined_src[j].mask_len);
@@ -1062,7 +1083,7 @@ void add_pim_join_prune(list_view *lw, list_view_header *header, struct pim_info
                                 pim->jpg->groups[i].num_pruned_src);
         for (int j = 0; j < pim->jpg->groups[i].num_pruned_src; j++) {
             addr = get_pim_address(pim->jpg->groups[i].pruned_src[j].addr_family,
-                                   pim->jpg->groups[i].pruned_src[j].addr);
+                                   &pim->jpg->groups[i].pruned_src[j].addr);
             if (addr) {
                 ADD_TEXT_ELEMENT(lw, pruned, "Pruned address %d: %s/%d", j + 1, addr,
                                  pim->jpg->groups[i].pruned_src[j].mask_len);
@@ -1082,27 +1103,27 @@ void add_pim_bootstrap(list_view *lw, list_view_header *header, struct pim_info 
     ADD_TEXT_ELEMENT(lw, h, "Fragment tag: 0x%x", pim->bootstrap->tag);
     ADD_TEXT_ELEMENT(lw, h, "Hash mask length: %d", pim->bootstrap->hash_len);
     ADD_TEXT_ELEMENT(lw, h, "BSR priority: %d", pim->bootstrap->priority);
-    addr = get_pim_address(pim->bootstrap->bsr_addr.addr_family, pim->bootstrap->bsr_addr.addr);
+    addr = get_pim_address(pim->bootstrap->bsr_addr.addr_family, &pim->bootstrap->bsr_addr.addr);
     if (addr) {
         ADD_TEXT_ELEMENT(lw, h, "BSR address: %s", addr);
         free(addr);
     }
-    addr = get_pim_address(pim->bootstrap->groups->gaddr.addr_family, pim->bootstrap->groups->gaddr.addr);
+    addr = get_pim_address(pim->bootstrap->groups->gaddr.addr_family, &pim->bootstrap->groups->gaddr.addr);
     if (addr) {
         grp = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Group %s/%d", addr, pim->bootstrap->groups->gaddr.mask_len);
-        free(addr);
-    }
-    ADD_TEXT_ELEMENT(lw, grp, "RP count: %u", pim->bootstrap->groups->rp_count);
-    ADD_TEXT_ELEMENT(lw, grp, "Frag RP count: %u", pim->bootstrap->groups->frag_rp_count);
-    for (int i = 0; i < pim->bootstrap->groups->frag_rp_count; i++) {
-        addr = get_pim_address(pim->bootstrap->groups->rps[i].rp_addr.addr_family,
-                               pim->bootstrap->groups->rps[i].rp_addr.addr);
-        if (addr) {
-            ADD_TEXT_ELEMENT(lw, grp, "RP address %d: %s", i, addr);
-            free(addr);
+        ADD_TEXT_ELEMENT(lw, grp, "RP count: %u", pim->bootstrap->groups->rp_count);
+        ADD_TEXT_ELEMENT(lw, grp, "Frag RP count: %u", pim->bootstrap->groups->frag_rp_count);
+        for (int i = 0; i < pim->bootstrap->groups->frag_rp_count; i++) {
+            addr = get_pim_address(pim->bootstrap->groups->rps[i].rp_addr.addr_family,
+                                   &pim->bootstrap->groups->rps[i].rp_addr.addr);
+            if (addr) {
+                ADD_TEXT_ELEMENT(lw, grp, "RP address %d: %s", i, addr);
+                free(addr);
+            }
+            ADD_TEXT_ELEMENT(lw, grp, "Holdtime: %u", pim->bootstrap->groups->rps[i].holdtime);
+            ADD_TEXT_ELEMENT(lw, grp, "Priority: %u", pim->bootstrap->groups->rps[i].priority);
         }
-        ADD_TEXT_ELEMENT(lw, grp, "Holdtime: %u", pim->bootstrap->groups->rps[i].holdtime);
-        ADD_TEXT_ELEMENT(lw, grp, "Priority: %u", pim->bootstrap->groups->rps[i].priority);
+        free(addr);
     }
 }
 
@@ -1115,13 +1136,13 @@ void add_pim_candidate(list_view *lw, list_view_header *header, struct pim_info 
     ADD_TEXT_ELEMENT(lw, h, "Prefix count: %u", pim->candidate->prefix_count);
     ADD_TEXT_ELEMENT(lw, h, "Priority: %u", pim->candidate->priority);
     ADD_TEXT_ELEMENT(lw, h, "Holdtime: %u", pim->candidate->holdtime);
-    addr = get_pim_address(pim->candidate->rp_addr.addr_family, pim->candidate->rp_addr.addr);
+    addr = get_pim_address(pim->candidate->rp_addr.addr_family, &pim->candidate->rp_addr.addr);
     if (addr) {
         ADD_TEXT_ELEMENT(lw, h, "RP address: %s", addr);
         free(addr);
     }
     for (int i = 0; i < pim->candidate->prefix_count; i++) {
-        addr = get_pim_address(pim->candidate->gaddrs[i].addr_family, pim->candidate->gaddrs[i].addr);
+        addr = get_pim_address(pim->candidate->gaddrs[i].addr_family, &pim->candidate->gaddrs[i].addr);
         if (addr) {
             ADD_TEXT_ELEMENT(lw, h, "Group address %d: %s/%d", i, addr, pim->candidate->gaddrs[i].mask_len);
             free(addr);
@@ -1172,7 +1193,7 @@ void add_tcp_information(list_view *lw, list_view_header *header, struct tcp *tc
     ADD_TEXT_ELEMENT(lw, header, "Acknowledgment number: %u", tcp->ack_num);
     ADD_TEXT_ELEMENT(lw, header, "Data offset: %u", tcp->offset);
     hdr = ADD_SUB_HEADER(lw, header, selected[TCP_FLAGS], TCP_FLAGS, "Flags: %s(0x%x)", buf, flags);
-    add_flags(lw, hdr, flags, get_tcp_flags(), 10);
+    add_flags(lw, hdr, flags, get_tcp_flags(), get_tcp_flags_size());
     ADD_TEXT_ELEMENT(lw, header, "Window size: %u", tcp->window);
     ADD_TEXT_ELEMENT(lw, header, "Checksum: %u", tcp->checksum);
     ADD_TEXT_ELEMENT(lw, header, "Urgent pointer: %u", tcp->urg_ptr);
@@ -1247,7 +1268,8 @@ void add_tcp_options(list_view *lw, list_view_header *header, struct tcp *tcp)
     free_tcp_options(options);
 }
 
-void add_dns_information(list_view *lw, list_view_header *header, struct dns_info *dns)
+void add_dns_information(list_view *lw, list_view_header *header,
+                         struct dns_info *dns, uint16_t type)
 {
     int records = 0;
     int answers = dns->section_count[ANCOUNT];
@@ -1256,7 +1278,13 @@ void add_dns_information(list_view *lw, list_view_header *header, struct dns_inf
     list_view_header *hdr;
     uint16_t flags;
 
-    flags = dns->aa << 6 | dns->tc << 5 | dns->rd << 4 | dns->ra << 3;
+    if (type == LLMNR) {
+        flags = dns->llmnr_flags.c << 6 | dns->llmnr_flags.tc << 5 |
+            dns->llmnr_flags.t << 4;
+    } else {
+        flags = dns->dns_flags.aa << 6 | dns->dns_flags.tc << 5 |
+            dns->dns_flags.rd << 4 | dns->dns_flags.ra << 3;
+    }
 
     /* number of resource records */
     for (int i = 1; i < 4; i++) {
@@ -1267,7 +1295,11 @@ void add_dns_information(list_view *lw, list_view_header *header, struct dns_inf
     ADD_TEXT_ELEMENT(lw, header, "Opcode: %d (%s)", dns->opcode, get_dns_opcode(dns->opcode));
 
     hdr = ADD_SUB_HEADER(lw, header, selected[DNS_FLAGS], DNS_FLAGS, "Flags 0x%x", flags);
-    add_flags(lw, hdr, flags, get_dns_flags(), 5);
+    if (type == LLMNR) {
+        add_flags(lw, hdr, flags, get_llmnr_flags(), get_llmnr_flags_size());
+    } else {
+        add_flags(lw, hdr, flags, get_dns_flags(), get_dns_flags_size());
+    }
     if (dns->qr) {
         ADD_TEXT_ELEMENT(lw, header, "Rcode: %d (%s)", dns->rcode, get_dns_rcode(dns->rcode));
     }
@@ -1277,10 +1309,10 @@ void add_dns_information(list_view *lw, list_view_header *header, struct dns_inf
         list_view_header *hdr;
 
         hdr = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Questions");
-        for (int i = dns->section_count[QDCOUNT]; i > 0; i--) {
+        for (int i = 0; i < dns->section_count[QDCOUNT]; i++) {
             ADD_TEXT_ELEMENT(lw, hdr, "QNAME: %s, QTYPE: %s, QCLASS: %s",
-                             dns->question.qname, get_dns_type_extended(dns->question.qtype),
-                             get_dns_class_extended(GET_MDNS_RRCLASS(dns->question.qclass)));
+                             dns->question[i].qname, get_dns_type_extended(dns->question[i].qtype),
+                             get_dns_class_extended(GET_MDNS_RRCLASS(dns->question[i].qclass)));
         }
     }
     if (records) {
@@ -1474,7 +1506,7 @@ void add_nbns_information(list_view *lw, list_view_header *header, struct nbns_i
     ADD_TEXT_ELEMENT(lw, header, "Response flag: %d (%s)", nbns->r, nbns->r ? "Response" : "Request");
     ADD_TEXT_ELEMENT(lw, header, "Opcode: %d (%s)", nbns->opcode, get_nbns_opcode(nbns->opcode));
     hdr = ADD_SUB_HEADER(lw, header, selected[NBNS_FLAGS], NBNS_FLAGS, "Flags 0x%x", flags);
-    add_flags(lw, hdr, flags, get_nbns_flags(), 6);
+    add_flags(lw, hdr, flags, get_nbns_flags(), get_nbns_flags_size());
     ADD_TEXT_ELEMENT(lw, header, "Rcode: %d (%s)", nbns->rcode, get_nbns_rcode(nbns->rcode));
     ADD_TEXT_ELEMENT(lw, header, "Question Entries: %d, Answer RRs: %d, Authority RRs: %d, Additional RRs: %d",
                      nbns->section_count[QDCOUNT], answers, authority, additional);
@@ -1549,7 +1581,7 @@ void add_nbns_record(list_view *lw, list_view_header *w, struct nbns_info *nbns,
 
         flags = nbns->record[i].rdata.nb.g << 2 | nbns->record[i].rdata.nb.ont;
         hdr = ADD_SUB_HEADER(lw, w, selected[NBNS_FLAGS], NBNS_FLAGS, "NB flags (0x%x)", flags);
-        add_flags(lw, hdr, flags, get_nbns_nb_flags(), 2);
+        add_flags(lw, hdr, flags, get_nbns_nb_flags(), get_nbns_nb_flags_size());
         break;
     }
     case NBNS_NS:
@@ -1574,7 +1606,7 @@ void add_nbds_information(list_view *lw, list_view_header *header, struct nbds_i
     }
     hdr = ADD_SUB_HEADER(lw, header, selected[NBDS_FLAGS], NBDS_FLAGS, "Flags (0x%x)",
                          nbds->flags);
-    add_flags(lw, hdr, nbds->flags, get_nbds_flags(), 4);
+    add_flags(lw, hdr, nbds->flags, get_nbds_flags(), get_nbds_flags_size());
     ADD_TEXT_ELEMENT(lw, header, "Datagram id: 0x%x", nbds->dgm_id);
     inet_ntop(AF_INET, &nbds->source_ip, src_addr, INET_ADDRSTRLEN);
     ADD_TEXT_ELEMENT(lw, header, "Source IP: %s", src_addr);
@@ -1623,9 +1655,9 @@ void add_smb_information(list_view *lw, list_view_header *header, struct smb_inf
     }
     ADD_TEXT_ELEMENT(lw, header, "Status: %d", smb->status);
     hdr = ADD_SUB_HEADER(lw, header, selected[SMB_FLAGS], SMB_FLAGS, "Flags (0x%x)", smb->flags);
-    add_flags(lw, hdr, smb->flags, get_smb_flags(), 8);
+    add_flags(lw, hdr, smb->flags, get_smb_flags(), get_smb_flags_size());
     hdr2 = ADD_SUB_HEADER(lw, header, selected[SMB_FLAGS], SMB_FLAGS, "Flags2 (0x%x)", smb->flags2);
-    add_flags(lw, hdr2, smb->flags2, get_smb_flags2(), 9);
+    add_flags(lw, hdr2, smb->flags2, get_smb_flags2(), get_smb_flags2_size());
     ADD_TEXT_ELEMENT(lw, header, "PID: %d", smb->pidhigh << 16 | smb->pidlow);
     ADD_TEXT_ELEMENT(lw, header, "Security features:");
     ADD_TEXT_ELEMENT(lw, header, "Tree identifier: %d", smb->tid);

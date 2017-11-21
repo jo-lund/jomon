@@ -12,10 +12,3 @@
   packet being inspected.
 - Switching view mode when a packet covers the entire screen causes the remaining
   lines in the hexdump to all show at the bottom line.
-- Error in parsing slowdown.pcap
-- If we inspect the last packet (which causes the window to scroll in order to
-  show everything) it's possible to scroll further down. The window will start
-  showing packets that are supposed to be located over the packet being inspected.
-- When inspecting a packet at the bottom of the screen (if scrolly is greater
-  than 0) and we scroll horizontally, outy will be wrong and it will start
-  printing packets near the bottom.

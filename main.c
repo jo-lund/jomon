@@ -9,13 +9,6 @@
 #include <string.h>
 #include <signal.h>
 #include <unistd.h>
-#include <arpa/inet.h>
-#include <net/if.h>
-#include <sys/ioctl.h>
-#ifdef MACOS
-#include <net/if_dl.h>
-#include <net/if_types.h>
-#endif
 #ifdef __linux__
 #include <netpacket/packet.h>
 #endif
@@ -31,13 +24,10 @@
 #include "file_pcap.h"
 #include "ui/protocols.h"
 
-extern void stat_screen_print();
-
 struct sockaddr_in *local_addr;
 bool statistics = false;
 vector_t *packets;
 main_context ctx;
-
 static volatile sig_atomic_t signal_flag = 0;
 static int sockfd = -1;
 static bool use_ncurses = true;
@@ -233,7 +223,6 @@ void init_structures()
     }
 }
 
-/* The main event loop */
 void run()
 {
     struct pollfd fds[] = {
@@ -244,7 +233,7 @@ void run()
     while (1) {
         if (signal_flag) {
             signal_flag = 0;
-            stat_screen_print();
+            layout(ALARM);
             alarm(1);
         }
         if (fd_changed) {
@@ -264,12 +253,13 @@ void run()
             if (n) {
                 if (use_ncurses) {
                     vector_push_back(packets, p);
-                    print_packet(p);
+                    layout(NEW_PACKET);
                 } else {
                     char buf[MAXLINE];
 
                     write_to_buf(buf, MAXLINE, p);
                     printf("%s\n", buf);
+                    free_packet(p);
                 }
             }
         }

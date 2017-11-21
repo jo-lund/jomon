@@ -213,6 +213,26 @@ void handle_input()
     }
 }
 
+void layout(enum event ev)
+{
+    switch (ev) {
+    case NEW_PACKET:
+        print_packet(vector_back(packets));
+        break;
+    case ALARM:
+    {
+        screen *s = stack_top(screen_stack);
+
+        if (s && s->type == STAT_SCREEN) {
+            stat_screen_print();
+        }
+        break;
+    }
+    default:
+        break;
+    }
+}
+
 screen *help_screen_create()
 {
     screen *scr;

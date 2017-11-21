@@ -18,7 +18,7 @@ static void parse_ssdp(char *str, int n, list_t *msg_header);
  * Responses to such search requests are sent via unicast addressing to the
  * originating address and port number of the multicast request.
  */
-bool handle_ssdp(unsigned char *buffer, int n, struct application_info *info)
+packet_error handle_ssdp(unsigned char *buffer, int n, struct application_info *info)
 {
     list_t *ssdp_fields;
 
@@ -27,7 +27,7 @@ bool handle_ssdp(unsigned char *buffer, int n, struct application_info *info)
     ssdp_fields = list_init();
     parse_ssdp((char *) buffer, n, ssdp_fields);
     info->ssdp = ssdp_fields;
-    return true;
+    return NO_ERR;
 }
 
 /*

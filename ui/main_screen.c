@@ -1,8 +1,5 @@
 #include <string.h>
-#include <signal.h>
-#include <linux/igmp.h>
 #include <arpa/inet.h>
-#include <netinet/ip_icmp.h>
 #include <ctype.h>
 #include <unistd.h>
 #include <menu.h>
@@ -300,7 +297,7 @@ void handle_file_error(void *callback)
 {
     label_dialogue_free(ld);
     ld = NULL;
-    (* ((void (*)()) callback))();
+    (* (void (*)()) callback)();
 }
 
 void write_show_progress(int size)
@@ -448,13 +445,10 @@ void main_screen_get_input(main_screen *ms)
         uid_t euid = geteuid();
 
         if (!ctx->capturing && euid == 0) {
-            if (interactive) {
-                main_screen_set_interactive(ms, false);
-            }
-            werase(ms->pktlist);
-            wrefresh(ms->pktlist);
-            ms->outy = 0;
+            main_screen_clear(ms);
             ctx->capturing = true;
+            wrefresh(ms->pktlist);
+            print_header(ms);
             print_status(ms);
             start_scan();
         }
@@ -713,7 +707,7 @@ void scroll_column(main_screen *ms, int scrollx, int num_lines)
         werase(ms->pktlist);
         ms->scrollx += scrollx;
         if (ms->subwindow.win) {
-            ms->outy = print_lines(ms, ms->top + ms->scrolly, ms->top + num_lines, 0);
+            ms->outy = print_lines(ms, ms->top + ms->scrolly, ms->top + num_lines, 0) + ms->scrolly;
             if (!inside_subwindow(ms)) {
                 show_selectionbar(ms, ms->pktlist, ms->selection_line - ms->top, A_NORMAL);
             }
@@ -739,9 +733,9 @@ void handle_keyup(main_screen *ms, int num_lines)
 
         ms->selection_line--;
         if (ms->subwindow.win && (ms->selection_line >= ms->subwindow.top + ms->top + ms->subwindow.num_lines)) {
-            p = vector_get_data(packets, ms->selection_line - ms->subwindow.num_lines);
+            p = vector_get_data(packets, ms->selection_line - ms->subwindow.num_lines + ms->scrolly);
         } else {
-            p = vector_get_data(packets, ms->selection_line);
+            p = vector_get_data(packets, ms->selection_line + ms->scrolly);
         }
         ms->top--;
         wscrl(ms->pktlist, -1);
@@ -793,9 +787,9 @@ void handle_keydown(main_screen *ms, int num_lines)
 
         ms->selection_line++;
         if (ms->subwindow.win && (ms->selection_line >= ms->subwindow.top + ms->top + ms->subwindow.num_lines)) {
-            p = vector_get_data(packets, ms->selection_line - ms->subwindow.num_lines);
+            p = vector_get_data(packets, ms->selection_line - ms->subwindow.num_lines + ms->scrolly);
         } else {
-            p = vector_get_data(packets, ms->selection_line);
+            p = vector_get_data(packets, ms->selection_line + ms->scrolly);
         }
         ms->top++;
         wscrl(ms->pktlist, 1);
@@ -1055,42 +1049,54 @@ void add_elements(main_screen *ms, struct packet *p)
     ms->lvw = create_list_view();
 
     /* inspect packet and add packet headers as elements to the list view */
-    if (p->eth.ethertype < ETH_P_802_3_MIN) {
+    if (p->eth.ethertype <= ETH_802_3_MAX) {
         header = ADD_HEADER(ms->lvw, "Ethernet 802.3", selected[ETHERNET_LAYER], ETHERNET_LAYER);
     } else {
         header = ADD_HEADER(ms->lvw, "Ethernet II", selected[ETHERNET_LAYER], ETHERNET_LAYER);
     }
     add_ethernet_information(ms->lvw, header, p);
-    if (p->eth.ethertype == ETH_P_ARP) {
-        header = ADD_HEADER(ms->lvw, "Address Resolution Protocol (ARP)", selected[ARP], ARP);
-        add_arp_information(ms->lvw, header, p);
-    } else if (p->eth.ethertype == ETH_P_IP) {
-        header = ADD_HEADER(ms->lvw, "Internet Protocol (IPv4)", selected[IP], IP);
-        add_ipv4_information(ms->lvw, header, p->eth.ip);
-        add_transport_elements(ms, p);
-    } else if (p->eth.ethertype == ETH_P_IPV6) {
-        header = ADD_HEADER(ms->lvw, "Internet Protocol (IPv6)", selected[IP], IP);
-        add_ipv6_information(ms->lvw, header, p->eth.ipv6);
-        add_transport_elements(ms, p);
-    } else if (p->eth.ethertype < ETH_P_802_3_MIN) {
-        header = ADD_HEADER(ms->lvw, "Logical Link Control (LLC)", selected[LLC], LLC);
-        add_llc_information(ms->lvw, header, p);
-        switch (get_eth802_type(p->eth.llc)) {
-        case ETH_802_STP:
-            header = ADD_HEADER(ms->lvw, "Spanning Tree Protocol (STP)", selected[STP], STP);
-            add_stp_information(ms->lvw, header, p);
-            break;
-        case ETH_802_SNAP:
-            header = ADD_HEADER(ms->lvw, "Subnetwork Access Protocol (SNAP)", selected[SNAP], SNAP);
-            add_snap_information(ms->lvw, header, p);
-            break;
-        default:
-            header = ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
-            add_hexdump(ms->lvw, header, hexmode, p->eth.data + ETH_HLEN + LLC_HDR_LEN, LLC_PAYLOAD_LEN(p));
-        }
-    } else {
+    if (p->perr == ARP_ERR || p->perr == IPv4_ERR || p->perr == IPv6_ERR) {
         header = ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
         add_hexdump(ms->lvw, header, hexmode, p->eth.data + ETH_HLEN, p->eth.payload_len);
+    } else {
+        if (p->eth.ethertype == ETH_P_ARP) {
+            header = ADD_HEADER(ms->lvw, "Address Resolution Protocol (ARP)", selected[ARP], ARP);
+            add_arp_information(ms->lvw, header, p);
+        } else if (p->eth.ethertype == ETH_P_IP) {
+            header = ADD_HEADER(ms->lvw, "Internet Protocol (IPv4)", selected[IP], IP);
+            add_ipv4_information(ms->lvw, header, p->eth.ip);
+            add_transport_elements(ms, p);
+        } else if (p->eth.ethertype == ETH_P_IPV6) {
+            header = ADD_HEADER(ms->lvw, "Internet Protocol (IPv6)", selected[IP], IP);
+            add_ipv6_information(ms->lvw, header, p->eth.ipv6);
+            add_transport_elements(ms, p);
+        } else if (p->eth.ethertype <= ETH_802_3_MAX) {
+            header = ADD_HEADER(ms->lvw, "Logical Link Control (LLC)", selected[LLC], LLC);
+            add_llc_information(ms->lvw, header, p);
+            if (p->perr == STP_ERR) {
+                header = ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
+                add_hexdump(ms->lvw, header, hexmode, p->eth.data + ETH_HLEN + LLC_HDR_LEN, LLC_PAYLOAD_LEN(p));
+            } else {
+                switch (get_eth802_type(p->eth.llc)) {
+                case ETH_802_STP:
+                    header = ADD_HEADER(ms->lvw, "Spanning Tree Protocol (STP)", selected[STP], STP);
+                    add_stp_information(ms->lvw, header, p);
+                    break;
+                case ETH_802_SNAP:
+                    header = ADD_HEADER(ms->lvw, "Subnetwork Access Protocol (SNAP)", selected[SNAP], SNAP);
+                    add_snap_information(ms->lvw, header, p);
+                    break;
+                default:
+                    header = ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
+                    add_hexdump(ms->lvw, header, hexmode, p->eth.data + ETH_HLEN + LLC_HDR_LEN,
+                                LLC_PAYLOAD_LEN(p));
+                    break;
+                }
+            }
+        } else { /* unknown network layer protocol */
+            header = ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
+            add_hexdump(ms->lvw, header, hexmode, p->eth.data + ETH_HLEN, p->eth.payload_len);
+        }
     }
 }
 
@@ -1099,61 +1105,82 @@ void add_transport_elements(main_screen *ms, struct packet *p)
     list_view_header *header;
     uint8_t protocol = (p->eth.ethertype == ETH_P_IP) ? p->eth.ip->protocol : p->eth.ipv6->next_header;
 
-    switch (protocol) {
-    case IPPROTO_TCP:
-    {
-        uint16_t len = TCP_PAYLOAD_LEN(p);
-
-        header = ADD_HEADER(ms->lvw, "Transmission Control Protocol (TCP)", selected[TRANSPORT], TRANSPORT);
-        if (p->eth.ethertype == ETH_P_IP) {
-            add_tcp_information(ms->lvw, header, &p->eth.ip->tcp);
-            add_app_elements(ms, p, &p->eth.ip->tcp.data, len);
-        } else {
-            add_tcp_information(ms->lvw, header, &p->eth.ipv6->tcp);
-            add_app_elements(ms, p, &p->eth.ipv6->tcp.data, len);
-        }
-        break;
-    }
-    case IPPROTO_UDP:
-    {
-        uint16_t len = UDP_PAYLOAD_LEN(p);
-
-        header = ADD_HEADER(ms->lvw, "User Datagram Protocol (UDP)", selected[TRANSPORT], TRANSPORT);
-        if (p->eth.ethertype == ETH_P_IP) {
-            add_udp_information(ms->lvw, header, &p->eth.ip->udp);
-            add_app_elements(ms, p, &p->eth.ip->udp.data, len);
-        } else {
-            add_udp_information(ms->lvw, header, &p->eth.ipv6->udp);
-            add_app_elements(ms, p, &p->eth.ipv6->udp.data, len);
-        }
-        break;
-    }
-    case IPPROTO_ICMP:
-        if (p->eth.ethertype == ETH_P_IP) {
-            header = ADD_HEADER(ms->lvw, "Internet Control Message Protocol (ICMP)", selected[ICMP], ICMP);
-            add_icmp_information(ms->lvw, header, &p->eth.ip->icmp);
-        }
-        break;
-    case IPPROTO_IGMP:
-        header = ADD_HEADER(ms->lvw, "Internet Group Management Protocol (IGMP)", selected[IGMP], IGMP);
-        if (p->eth.ethertype == ETH_P_IP) {
-            add_igmp_information(ms->lvw, header, &p->eth.ip->igmp);
-        } else {
-            add_igmp_information(ms->lvw, header, &p->eth.ipv6->igmp);
-        }
-        break;
-    case IPPROTO_PIM:
-        header = ADD_HEADER(ms->lvw, "Protocol Independent Multicast (PIM)", selected[PIM], PIM);
-        if (p->eth.ethertype == ETH_P_IP) {
-            add_pim_information(ms->lvw, header, &p->eth.ip->pim);
-        } else {
-            add_pim_information(ms->lvw, header, &p->eth.ipv6->pim);
-        }
-        break;
-    default:
-        /* unknown transport layer payload */
+    if (p->perr == TCP_ERR || p->perr == UDP_ERR || p->perr == ICMP_ERR ||
+        p->perr == IGMP_ERR || p->perr == PIM_ERR) {
         header = ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
         add_hexdump(ms->lvw, header, hexmode, get_ip_payload(p), IP_PAYLOAD_LEN(p));
+    } else {
+        switch (protocol) {
+        case IPPROTO_TCP:
+        {
+            uint16_t len = TCP_PAYLOAD_LEN(p);
+
+            header = ADD_HEADER(ms->lvw, "Transmission Control Protocol (TCP)",
+                                selected[TRANSPORT], TRANSPORT);
+            if (p->eth.ethertype == ETH_P_IP) {
+                add_tcp_information(ms->lvw, header, &p->eth.ip->tcp);
+                if (len < p->eth.payload_len) {
+                    add_app_elements(ms, p, &p->eth.ip->tcp.data, len);
+                }
+            } else {
+                add_tcp_information(ms->lvw, header, &p->eth.ipv6->tcp);
+                if (len < p->eth.payload_len) {
+                    add_app_elements(ms, p, &p->eth.ipv6->tcp.data, len);
+                }
+            }
+            break;
+        }
+        case IPPROTO_UDP:
+        {
+            uint16_t len = UDP_PAYLOAD_LEN(p);
+
+            header = ADD_HEADER(ms->lvw, "User Datagram Protocol (UDP)", selected[TRANSPORT], TRANSPORT);
+            if (p->eth.ethertype == ETH_P_IP) {
+                add_udp_information(ms->lvw, header, &p->eth.ip->udp);
+                if (len < p->eth.payload_len) {
+                    add_app_elements(ms, p, &p->eth.ip->udp.data, len);
+                }
+            } else {
+                add_udp_information(ms->lvw, header, &p->eth.ipv6->udp);
+                if (len < p->eth.payload_len) {
+                    add_app_elements(ms, p, &p->eth.ipv6->udp.data, len);
+                }
+            }
+            break;
+        }
+        case IPPROTO_ICMP:
+            if (p->eth.ethertype == ETH_P_IP) {
+                header = ADD_HEADER(ms->lvw, "Internet Control Message Protocol (ICMP)", selected[ICMP], ICMP);
+                add_icmp_information(ms->lvw, header, &p->eth.ip->icmp);
+            }
+            break;
+        case IPPROTO_IGMP:
+            header = ADD_HEADER(ms->lvw, "Internet Group Management Protocol (IGMP)", selected[IGMP], IGMP);
+            if (p->eth.ethertype == ETH_P_IP) {
+                add_igmp_information(ms->lvw, header, &p->eth.ip->igmp);
+            } else {
+                add_igmp_information(ms->lvw, header, &p->eth.ipv6->igmp);
+            }
+            break;
+        case IPPROTO_PIM:
+            header = ADD_HEADER(ms->lvw, "Protocol Independent Multicast (PIM)", selected[PIM], PIM);
+            if (p->eth.ethertype == ETH_P_IP) {
+                add_pim_information(ms->lvw, header, &p->eth.ip->pim);
+            } else {
+                add_pim_information(ms->lvw, header, &p->eth.ipv6->pim);
+            }
+            break;
+        default:
+        {
+            /* unknown transport layer payload */
+            uint16_t len = IP_PAYLOAD_LEN(p);
+
+            if (len < p->eth.payload_len) {
+                header = ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
+                add_hexdump(ms->lvw, header, hexmode, get_ip_payload(p), len);
+            }
+        }
+        }
     }
 }
 
@@ -1161,11 +1188,18 @@ void add_app_elements(main_screen *ms, struct packet *p, struct application_info
 {
     list_view_header *header;
 
+    if (p->perr != NO_ERR && len > 0) {
+        header = ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
+        add_hexdump(ms->lvw, header, hexmode, get_adu_payload(p), len);
+        return;
+    }
+
     switch (adu->utype) {
     case DNS:
     case MDNS:
+    case LLMNR:
         header = ADD_HEADER(ms->lvw, "Domain Name System (DNS)", selected[APPLICATION], APPLICATION);
-        add_dns_information(ms->lvw, header, adu->dns);
+        add_dns_information(ms->lvw, header, adu->dns, adu->utype);
         break;
     case NBNS:
         header = ADD_HEADER(ms->lvw, "NetBIOS Name Service (NBNS)", selected[APPLICATION], APPLICATION);

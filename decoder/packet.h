@@ -57,13 +57,36 @@ enum port {
     SNMP = 161,     /* Simple Network Management Protocol */
     SNMPTRAP = 162, /* Simple Network Management Protocol Trap */
     SSDP = 1900,    /* Simple Service Discovery Protocol */
-    MDNS = 5353     /* Multicast DNS */
+    MDNS = 5353,    /* Multicast DNS */
+    LLMNR = 5355    /* Link-Local Multicast Name Resolution */
 };
 
-enum packet_type {
+typedef enum {
     UNKNOWN = -1,
     ETHERNET
-};
+} packet_type;
+
+typedef enum {
+    NO_ERR,
+    UNK_PROTOCOL,
+    ETH_ERR,
+    ARP_ERR,
+    STP_ERR,
+    IPv4_ERR,
+    IPv6_ERR,
+    ICMP_ERR,
+    IGMP_ERR,
+    PIM_ERR,
+    TCP_ERR,
+    UDP_ERR,
+    DNS_ERR,
+    NBNS_ERR,
+    NBDS_ERR,
+    HTTP_ERR,
+    SSDP_ERR,
+    SNMP_ERR,
+    SMB_ERR
+} packet_error;
 
 struct application_info {
     uint16_t utype; /* specifies the application layer protocol */
@@ -82,8 +105,9 @@ struct application_info {
  * only support for Ethernet.
  */
 struct packet {
-    enum packet_type ptype;
+    packet_type ptype;
     uint32_t num;
+    packet_error perr;
     struct timeval time;
     struct eth_info eth;
 };
@@ -114,8 +138,7 @@ void clear_statistics();
 uint16_t get_packet_size(struct packet *p);
 
 /* Should be internal to the decoder */
-bool check_port(unsigned char *buffer, int n, struct application_info *info,
-                uint16_t port, bool *error);
-
+packet_error check_port(unsigned char *buffer, int n,
+                        struct application_info *adu, uint16_t port);
 
 #endif

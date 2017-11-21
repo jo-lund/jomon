@@ -52,6 +52,7 @@ size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet 
     struct timeval *val;
 
     *p = calloc(1, sizeof(struct packet));
+    (*p)->ptype = UNKNOWN;
     iov.iov_base = buffer;
     iov.iov_len = len;
     memset(&msg, 0, sizeof(struct mmsghdr));
@@ -64,7 +65,7 @@ size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet 
         free(*p);
         err_sys("recvmmsg error");
     }
-    if (!handle_ethernet(buffer, msg.msg_len, &(*p)->eth)) {
+    if (!handle_ethernet(buffer, msg.msg_len, *p)) {
         free_packet(*p);
         return 0;
     }
@@ -84,8 +85,9 @@ size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet 
 bool decode_packet(unsigned char *buffer, size_t len, struct packet **p)
 {
     *p = calloc(1, sizeof(struct packet));
-    if (!handle_ethernet(buffer, len, &(*p)->eth)) {
-        free_packet(p);
+    (*p)->ptype = UNKNOWN;
+    if (!handle_ethernet(buffer, len, *p)) {
+        free_packet(*p);
         return false;
     }
     (*p)->num = ++pstat[0].num_packets;
@@ -97,62 +99,70 @@ void free_packet(void *data)
 {
     struct packet *p = (struct packet *) data;
 
-    if (p->eth.ethertype < ETH_P_802_3_MIN) {
+    if (p->eth.ethertype <= ETH_802_3_MAX) {
         free_ethernet802_3_frame(&p->eth);
-        return;
-    }
-    switch (p->eth.ethertype) {
-    case ETH_P_IP:
-        switch (p->eth.ip->protocol) {
-        case IPPROTO_UDP:
-            free_protocol_data(&p->eth.ip->udp.data);
-            break;
-        case IPPROTO_TCP:
-            free_protocol_data(&p->eth.ip->tcp.data);
-            if (p->eth.ip->tcp.options) {
-                free(p->eth.ip->tcp.options);
+    } else {
+        switch (p->eth.ethertype) {
+        case ETH_P_IP:
+            if (p->eth.ip) {
+                switch (p->eth.ip->protocol) {
+                case IPPROTO_UDP:
+                    free_protocol_data(&p->eth.ip->udp.data);
+                    break;
+                case IPPROTO_TCP:
+                    free_protocol_data(&p->eth.ip->tcp.data);
+                    if (p->eth.ip->tcp.options) {
+                        free(p->eth.ip->tcp.options);
+                    }
+                    break;
+                case IPPROTO_PIM:
+                    free_pim_packet(&p->eth.ip->pim);
+                    break;
+                case IPPROTO_ICMP:
+                case IPPROTO_IGMP:
+                    break;
+                default:
+                    break;
+                }
+                free(p->eth.ip);
             }
             break;
-        case IPPROTO_PIM:
-            free_pim_packet(&p->eth.ip->pim);
+        case ETH_P_IPV6:
+            if (p->eth.ipv6) {
+                switch (p->eth.ipv6->next_header) {
+                case IPPROTO_UDP:
+                    free_protocol_data(&p->eth.ipv6->udp.data);
+                    break;
+                case IPPROTO_TCP:
+                    free_protocol_data(&p->eth.ipv6->tcp.data);
+                    if (p->eth.ipv6->tcp.options) {
+                        free(p->eth.ipv6->tcp.options);
+                    }
+                    break;
+                case IPPROTO_PIM:
+                    free_pim_packet(&p->eth.ipv6->pim);
+                    break;
+                case IPPROTO_ICMP:
+                case IPPROTO_IGMP:
+                    break;
+                default:
+                    break;
+                }
+                free(p->eth.ipv6);
+            }
             break;
-        case IPPROTO_ICMP:
-        case IPPROTO_IGMP:
+        case ETH_P_ARP:
+            if (p->eth.arp) {
+                free(p->eth.arp);
+            }
             break;
         default:
             break;
         }
-        free(p->eth.ip);
-        break;
-    case ETH_P_IPV6:
-        switch (p->eth.ipv6->next_header) {
-        case IPPROTO_UDP:
-            free_protocol_data(&p->eth.ipv6->udp.data);
-            break;
-        case IPPROTO_TCP:
-            free_protocol_data(&p->eth.ipv6->tcp.data);
-            if (p->eth.ipv6->tcp.options) {
-                free(p->eth.ipv6->tcp.options);
-            }
-            break;
-        case IPPROTO_PIM:
-            free_pim_packet(&p->eth.ipv6->pim);
-            break;
-        case IPPROTO_ICMP:
-        case IPPROTO_IGMP:
-            break;
-        default:
-            break;
-        }
-        free(p->eth.ipv6);
-        break;
-    case ETH_P_ARP:
-        free(p->eth.arp);
-        break;
-    default:
-        break;
     }
-    free(p->eth.data);
+    if (p->eth.data) {
+        free(p->eth.data);
+    }
     free(p);
 }
 
@@ -192,33 +202,30 @@ void free_protocol_data(struct application_info *adu)
 
 /*
  * Checks which well-known or registered port the packet originated from or is
- * addressed to. On error the error argument will be set to true, e.g. if
- * checksum correction is enabled and this calculation fails.
+ * addressed to.
  *
- * Returns false if it's an ephemeral port, the port is not yet supported or in
- * case of errors in decoding the packet.
+ * Returns the error status. This is set to "unknown protocol" if it's an
+ * ephemeral port or the port is not yet supported.
  */
-bool check_port(unsigned char *buffer, int n, struct application_info *info,
-                uint16_t port, bool *error)
+packet_error check_port(unsigned char *buffer, int n, struct application_info *adu,
+                        uint16_t port)
 {
     switch (port) {
     case DNS:
     case MDNS:
-        return handle_dns(buffer, n, info);
+    case LLMNR:
+        return handle_dns(buffer, n, adu);
     case NBNS:
-        return handle_nbns(buffer, n, info);
+        return handle_nbns(buffer, n, adu);
     case NBDS:
-        return handle_nbds(buffer, n, info);
+        return handle_nbds(buffer, n, adu);
     case SSDP:
-        return handle_ssdp(buffer, n, info);
-    /* case HTTP: */
-    /*     *error = handle_http(buffer, info, packet_len); */
-    /*     return true; */
+        return handle_ssdp(buffer, n, adu);
     case SNMP:
     case SNMPTRAP:
-        return handle_snmp(buffer, n, info);
+        return handle_snmp(buffer, n, adu);
     default:
-        return false;
+        return UNK_PROTOCOL;
     }
 }
 
