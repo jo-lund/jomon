@@ -12,8 +12,8 @@ typedef struct {
     struct subwin_info {
         WINDOW *win;
         int top; /* index to the first line in the subwindow relative to the
-                    main window */
-        int lineno;
+                    main window, i.e. from 0 to max lines in window */
+        int lineno; /* index to the selected line */
         int num_lines;
     } subwindow;
 

@@ -392,6 +392,9 @@ void main_screen_get_input(main_screen *ms)
     case KEY_ESC:
         if (input_mode) {
             goto_line(ms, c);
+        } else if (ms->subwindow.win) {
+            delete_subwindow(ms);
+            ms->main_line.selected = false;
         } else if (interactive) {
             main_screen_set_interactive(ms, false);
         }
@@ -1248,7 +1251,7 @@ void print_protocol_information(main_screen *ms, struct packet *p, int lineno)
             show_selectionbar(ms, ms->subwindow.win, subline, GET_ATTR(ms->lvw, subline));
         }
         refresh_pad(ms, 0, ms->scrollx);
-    } else if (HEXDUMP_VIEW) {
+    } else {
         int subline;
         int num_lines = (hexmode == HEXMODE_NORMAL) ? (p->eth.payload_len + ETH_HLEN) / 16 + 3 :
             (p->eth.payload_len + ETH_HLEN) / 64 + 3;
@@ -1276,12 +1279,11 @@ void create_subwindow(main_screen *ms, int num_lines, int lineno)
     getmaxyx(ms->pktlist, my, mx);
     start_line = lineno - ms->top;
     c = lineno + 1;
-    if (num_lines >= my) num_lines = my - 1;
 
     /* if there is not enough space for the information to be printed, the
        screen needs to be scrolled to make room for all the lines */
     if (my - (start_line + 1) < num_lines) {
-        ms->scrolly = num_lines - (my - (start_line + 1));
+        ms->scrolly = (num_lines >= my) ? start_line : num_lines - (my - (start_line + 1));
         wscrl(ms->pktlist, ms->scrolly);
         start_line -= ms->scrolly;
         ms->selection_line -= ms->scrolly;
@@ -1289,6 +1291,7 @@ void create_subwindow(main_screen *ms, int num_lines, int lineno)
 
     /* make space for protocol specific information */
     ms->subwindow.win = newpad(num_lines, mx);
+    scrollok(ms->subwindow.win, TRUE);
     ms->subwindow.top = start_line + 1;
     ms->subwindow.num_lines = num_lines;
     ms->subwindow.lineno = lineno;
