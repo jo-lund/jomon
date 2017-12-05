@@ -215,19 +215,18 @@ void handle_input()
 
 void layout(enum event ev)
 {
+    screen *s;
+
     switch (ev) {
     case NEW_PACKET:
         print_packet(vector_back(packets));
         break;
     case ALARM:
-    {
-        screen *s = stack_top(screen_stack);
-
+        s = stack_top(screen_stack);
         if (s && s->type == STAT_SCREEN) {
             stat_screen_print();
         }
         break;
-    }
     default:
         break;
     }
@@ -292,18 +291,14 @@ void help_screen_render()
     wprintw(win, ": Change hexdump mode");
     printat(win, ++y, 0, CYAN | A_BOLD, "%12s", "Enter");
     wprintw(win, ": Inspect packet");
-    printat(win, ++y, 0, CYAN | A_BOLD, "%12s", "Esc i");
+    printat(win, ++y, 0, CYAN | A_BOLD, "%12s", "Esc");
+    wprintw(win, ": Close packet window/Quit interactive mode");
+    printat(win, ++y, 0, CYAN | A_BOLD, "%12s", "i");
     wprintw(win, ": Quit interactive mode");
     mvwprintw(win, ++y, 0, "");
     printat(win, ++y, 0, GREEN | A_BOLD, "Statistics screen keyboard shortcuts");
-    printat(win, ++y, 0, CYAN | A_BOLD, "%12s", "b B");
-    wprintw(win, ": Use kilobits/kilobytes");
-    printat(win, ++y, 0, CYAN | A_BOLD, "%12s", "m M");
-    wprintw(win, ": Use megabits/megabytes");
     printat(win, ++y, 0, CYAN | A_BOLD, "%12s", "p");
     wprintw(win, ": Show/hide packet statistics");
-    printat(win, ++y, 0, CYAN | A_BOLD, "%12s", "c");
-    wprintw(win, ": Clear statistics");
     printat(win, ++y, 0, CYAN | A_BOLD, "%12s", "Esc x");
     wprintw(win, ": Exit statistics screen");
 }

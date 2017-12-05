@@ -90,21 +90,6 @@ static void handle_selectionbar(main_screen *ms, int c);
 static void refresh_pad(main_screen *ms, int scrolly, int minx);
 static bool subwindow_on_screen(main_screen *ms);
 
-void main_screen_render(main_screen *ms, char *buf)
-{
-    int my;
-
-    my = getmaxy(ms->pktlist);
-    if (!interactive || (interactive && ms->outy < my)) {
-        scroll_window(ms);
-        printnlw(ms->pktlist, buf, strlen(buf), ms->outy, 0, ms->scrollx);
-        ms->outy++;
-        if (screen_stack_empty()) {
-            wrefresh(ms->pktlist);
-        }
-    }
-}
-
 main_screen *main_screen_create(int nlines, int ncols, main_context *mctx)
 {
     main_screen *ms;
@@ -140,6 +125,21 @@ void main_screen_free(main_screen *ms)
     delwin(ms->status);
     free(ms);
     mscr = NULL;
+}
+
+void main_screen_render(main_screen *ms, char *buf)
+{
+    int my;
+
+    my = getmaxy(ms->pktlist);
+    if (!interactive || (interactive && ms->outy < my)) {
+        scroll_window(ms);
+        printnlw(ms->pktlist, buf, strlen(buf), ms->outy, 0, ms->scrollx);
+        ms->outy++;
+        if (screen_stack_empty()) {
+            wrefresh(ms->pktlist);
+        }
+    }
 }
 
 void main_screen_clear(main_screen *ms)

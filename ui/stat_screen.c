@@ -89,7 +89,6 @@ screen *stat_screen_create()
 
 void stat_screen_free()
 {
-    publisher_free(screen_changed_publisher);
     for (int i = 0; i < hw.num_cpu; i++) {
         free(cpustat[i]);
     }
