@@ -75,10 +75,11 @@ static void calculate_rate();
 static void print_netstat();
 static void print_hwstat();
 static void init_stat();
+static void stat_screen_free();
 
 screen *stat_screen_create()
 {
-    stat_screen = create_screen(STAT_SCREEN);
+    stat_screen = create_screen(STAT_SCREEN, stat_screen_free);
     nodelay(stat_screen->win, TRUE);
     keypad(stat_screen->win, TRUE);
     add_subscription(screen_changed_publisher, stat_screen_changed);
@@ -93,6 +94,7 @@ void stat_screen_free()
         free(cpustat[i]);
     }
     free(cpustat);
+    free_screen(stat_screen);
 }
 
 void stat_screen_changed()

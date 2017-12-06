@@ -4,6 +4,8 @@
 #include "list_view.h"
 
 typedef struct {
+    screen base;
+
     struct line_info {
         int line_number;
         bool selected;
@@ -19,7 +21,6 @@ typedef struct {
 
     WINDOW *header;
     WINDOW *status;
-    WINDOW *pktlist;
     int selection_line; /* index to the selection bar */
     list_view *lvw;
 
@@ -46,7 +47,6 @@ void main_screen_free(main_screen *ms);
 void main_screen_clear(main_screen *ms);
 void main_screen_get_input(main_screen *ms);
 void main_screen_set_interactive(main_screen *ms, bool interactive_mode);
-void main_screen_refresh(main_screen *ms);
 
 /* print the buffer to main screen */
 void main_screen_render(main_screen *ms, char *buf);

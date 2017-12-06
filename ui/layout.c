@@ -8,10 +8,19 @@
 #include "../stack.h"
 #include <string.h>
 
+struct screen_cache_item {
+    screen *scr;
+    free_screen_fn fn;
+};
+
+static void screen_cache_insert(enum screen_type type, screen *s, free_screen_fn fn);
+static void screen_cache_clear();
+static void screen_refresh(screen *s);
+
 extern vector_t *packets;
 extern main_context ctx;
 publisher_t *screen_changed_publisher;
-static screen *screen_cache[NUM_SCREENS];
+static struct screen_cache_item screen_cache[NUM_SCREENS];
 static _stack_t *screen_stack;
 static main_screen *ms;
 
@@ -40,51 +49,59 @@ void init_ncurses(main_context *ctx)
     set_escdelay(25); /* set escdelay to 25 ms */
     screen_changed_publisher = publisher_init();
     screen_stack = stack_init(NUM_SCREENS);
-    memset(screen_cache, 0, NUM_SCREENS * sizeof(screen*));
     getmaxyx(stdscr, my, mx);
     ms = main_screen_create(my, mx, ctx);
+    screen_cache_insert(MAIN_SCREEN, (screen *) ms, main_screen_free);
+    push_screen((screen *) ms);
 }
 
 void end_ncurses()
 {
-    main_screen_free(ms);
-    for (int i = 0; i < NUM_SCREENS; i++) {
-        if (screen_cache[i]) {
-            free_screen(screen_cache[i]);
-        }
-    }
+    screen_cache_clear();
     publisher_free(screen_changed_publisher);
     endwin();
 }
 
-screen *create_screen(enum screen_type type)
+screen *create_screen(enum screen_type type, free_screen_fn fn)
 {
-    int mx, my;
-    WINDOW *win;
+    if (!screen_cache[type].scr) {
+        int mx, my;
 
-    screen_cache[type] = malloc(sizeof(screen));
-    getmaxyx(stdscr, my, mx);
-    win = newwin(my, mx, 0, 0);
-    screen_cache[type]->win = win;
-    screen_cache[type]->type = type;
-    screen_cache[type]->focus = false;
-    return screen_cache[type];
+        screen_cache[type].scr = malloc(sizeof(screen));
+        getmaxyx(stdscr, my, mx);
+        screen_cache[type].scr->win = newwin(my, mx, 0, 0);
+        screen_cache[type].scr->type = type;
+        screen_cache[type].scr->focus = false;
+        screen_cache[type].scr->screen_refresh = screen_refresh;
+        if (fn) {
+            screen_cache[type].fn = fn;
+        } else {
+            screen_cache[type].fn = free_screen;
+        }
+    }
+    return screen_cache[type].scr;
 }
 
 screen *get_screen(enum screen_type type)
 {
-    if (screen_cache[type]) {
-        return screen_cache[type];
+    if (screen_cache[type].scr) {
+        return screen_cache[type].scr;
     }
     return NULL;
 }
 
-void free_screen(screen *scr)
+void free_screen(void *s)
 {
-    if (scr) {
-        delwin(scr->win);
-        free(scr);
-    }
+    screen *scr = (screen *) s;
+
+    if (scr->win) delwin(scr->win);
+    free(scr);
+}
+
+void screen_refresh(screen *s)
+{
+    touchwin(s->win);
+    wrefresh(s->win);
 }
 
 container *create_container()
@@ -98,9 +115,24 @@ container *create_container()
 
 void free_container(container *c)
 {
-    if (c) {
-        if (c->win) delwin(c->win);
-        free(c);
+    if (c->win) delwin(c->win);
+    free(c);
+}
+
+void screen_cache_insert(enum screen_type type, screen *s, free_screen_fn fn)
+{
+    screen_cache[type].scr = s;
+    screen_cache[type].fn = fn;
+}
+
+void screen_cache_clear()
+{
+    for (int i = 0; i < NUM_SCREENS; i++) {
+        if (screen_cache[i].scr) {
+            screen_cache[i].fn(screen_cache[i].scr);
+            screen_cache[i].scr = NULL;
+            screen_cache[i].fn = NULL;
+        }
     }
 }
 
@@ -114,7 +146,7 @@ void print_packet(struct packet *p)
 
 void print_file()
 {
-    int my = getmaxy(ms->pktlist);
+    int my = getmaxy(ms->base.win);
 
     for (int i = 0; i < vector_size(packets) && i < my; i++) {
         print_packet(vector_get_data(packets, i));
@@ -124,33 +156,30 @@ void print_file()
 
 void pop_screen()
 {
-    screen *scr = stack_pop(screen_stack);
+    screen *oldscr = stack_pop(screen_stack);
 
-    scr->focus = false;
-    if (stack_empty(screen_stack)) {
-        wgetch(ms->pktlist); /* remove character from input queue */
-        main_screen_refresh(ms);
-    } else {
-        screen *s = stack_top(screen_stack);
+    oldscr->focus = false;
+    if (!stack_empty(screen_stack)) {
+        screen *newscr = stack_top(screen_stack);
 
-        s->focus = true;
+        newscr->focus = true;
         publish(screen_changed_publisher);
-        wgetch(s->win); /* remove character from input queue */
-        touchwin(s->win);
-        wrefresh(s->win);
+        wgetch(newscr->win); /* remove character from input queue */
+        SCREEN_REFRESH(newscr);
     }
 }
 
-void push_screen(screen *scr)
+void push_screen(screen *newscr)
 {
-    screen *s = stack_top(screen_stack);
+    screen *oldscr = stack_top(screen_stack);
 
-    if (s) s->focus = false;
-    scr->focus = true;
-    stack_push(screen_stack, scr);
+    if (oldscr) {
+        oldscr->focus = false;
+    }
+    newscr->focus = true;
+    stack_push(screen_stack, newscr);
     publish(screen_changed_publisher);
-    touchwin(scr->win);
-    wrefresh(scr->win);
+    SCREEN_REFRESH(newscr);
 }
 
 inline bool screen_stack_empty()
@@ -191,8 +220,12 @@ void handle_input()
 {
     screen *s = stack_top(screen_stack);
 
+    // TODO: get_input should be part of struct screen
     if (s) {
         switch (s->type) {
+        case MAIN_SCREEN:
+            main_screen_get_input(ms);
+            break;
         case STAT_SCREEN:
             stat_screen_get_input();
             break;
@@ -208,8 +241,6 @@ void handle_input()
         default:
             break;
         }
-    } else { /* main screen is not part of the screen stack */
-        main_screen_get_input(ms);
     }
 }
 
@@ -236,7 +267,7 @@ screen *help_screen_create()
 {
     screen *scr;
 
-    scr = create_screen(HELP_SCREEN);
+    scr = create_screen(HELP_SCREEN, NULL);
     help_screen_render();
     return scr;
 }

@@ -5,7 +5,6 @@
 #include "../signal.h"
 
 #define KEY_ESC 27
-#define NUM_SCREENS 2
 
 /* colours on default background  */
 #define CYAN COLOR_PAIR(3)
@@ -19,7 +18,10 @@
 #define PURPLE (MAGENTA | A_BOLD)
 #define GREY (COLOR_PAIR(10) | A_BOLD)
 
+#define NUM_SCREENS 3 /* see enum screen_type */
+
 enum screen_type {
+    MAIN_SCREEN,
     HELP_SCREEN,
     STAT_SCREEN,
     LABEL_DIALOGUE,
@@ -55,10 +57,15 @@ enum layer {
     NUM_LAYERS
 };
 
-typedef struct {
+#define SCREEN_REFRESH(o) ((o)->screen_refresh(o))
+
+typedef struct screen {
     enum screen_type type;
     bool focus;
     WINDOW *win;
+
+    /* the function to be called on screen refresh */
+    int (*screen_refresh)(struct screen *this);
 } screen;
 
 typedef struct {
@@ -69,14 +76,20 @@ typedef struct {
 extern publisher_t *screen_changed_publisher;
 extern bool selected[NUM_LAYERS];
 
+typedef void (*free_screen_fn)(void *);
+
 /*
- * Allocates space for the specified screen type and returns a pointer to it.
- * Should only be used by derived classes. Needs to be freed with free_screen().
+ * Allocates space for the specified screen type and returns it as a singleton
+ * object. 'fn' specifies the function that should be called on destruction. If
+ * this is NULL the screen destructor, free_screen, will be called.
+ *
+ * Clients don't need to worry about freeing the object themselves, since this
+ * will be handled by layout.
  */
-screen *create_screen(enum screen_type type);
+screen *create_screen(enum screen_type type, free_screen_fn fn);
 
 /* Free the memory allocated for screen */
-void free_screen(screen *scr);
+void free_screen(void *s);
 
 /* Allocates space for a new container. Needs to be freed with free_container() */
 container *create_container();
