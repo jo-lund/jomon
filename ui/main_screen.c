@@ -36,10 +36,9 @@ enum views {
 #define NUM_VIEWS 2
 
 extern vector_t *packets;
+extern main_context ctx;
 bool selected[NUM_LAYERS]; // TODO: need to handle this differently
 bool numeric = true;
-
-static main_context *ctx;
 static bool interactive = false;
 static bool input_mode = false;
 static int hexmode = HEXMODE_NORMAL;
@@ -52,7 +51,6 @@ static char load_filepath[MAXPATH + 1] = { 0 };
 static bool decode_error = false;
 static chtype original_line[MAXLINE];
 
-static void main_screen_refresh(screen *s);
 static bool check_line(main_screen *ms);
 static void handle_keydown(main_screen *ms, int num_lines);
 static void handle_keyup(main_screen *ms, int num_lines);
@@ -90,43 +88,61 @@ static void handle_selectionbar(main_screen *ms, int c);
 static void refresh_pad(main_screen *ms, int scrolly, int minx);
 static bool subwindow_on_screen(main_screen *ms);
 
-main_screen *main_screen_create(int nlines, int ncols, main_context *mctx)
+static screen_operations msop = {
+    .screen_init = main_screen_init,
+    .screen_free = main_screen_free,
+    .screen_refresh = main_screen_refresh,
+    .screen_get_input = main_screen_get_input
+};
+
+main_screen *main_screen_create()
 {
     main_screen *ms;
 
     ms = malloc(sizeof(main_screen));
+    ms->base.op = &msop;
+    main_screen_init((screen *) ms);
+    return ms;
+}
+
+void main_screen_init(screen *s)
+{
+    main_screen *ms = (main_screen *) s;
+    int my, mx;
+
+    getmaxyx(stdscr, my, mx);
     ms->outy = 0;
     ms->selection_line = 0;
     ms->top = 0;
     ms->scrolly = 0;
     ms->scrollx = 0;
     ms->lvw = NULL;
-    ms->header = newwin(HEADER_HEIGHT, ncols, 0, 0);
+    ms->header = newwin(HEADER_HEIGHT, mx, 0, 0);
     ms->base.type = MAIN_SCREEN;
-    ms->base.win = newwin(nlines - HEADER_HEIGHT - STATUS_HEIGHT, ncols, HEADER_HEIGHT, 0);
-    ms->base.screen_refresh = main_screen_refresh;
-    ms->status = newwin(STATUS_HEIGHT, ncols, nlines - STATUS_HEIGHT, 0);
+    ms->base.win = newwin(my - HEADER_HEIGHT - STATUS_HEIGHT, mx, HEADER_HEIGHT, 0);
+    ms->status = newwin(STATUS_HEIGHT, mx, my - STATUS_HEIGHT, 0);
     memset(&ms->subwindow, 0, sizeof(ms->subwindow));
-    ctx = mctx;
     nodelay(ms->base.win, TRUE); /* input functions must be non-blocking */
     keypad(ms->base.win, TRUE);
     scrollok(ms->base.win, TRUE);
+
+    // TODO: move to a proper render function
     print_header(ms);
     print_status(ms);
-    return ms;
 }
 
-void main_screen_free(main_screen *ms)
+void main_screen_free(screen *s)
 {
-    if (ms->subwindow.win) {
-        delwin(ms->subwindow.win);
-    }
+    main_screen *ms = (main_screen *) s;
+
+    delwin(ms->subwindow.win);
     delwin(ms->header);
-    delwin(ms->base.win);
     delwin(ms->status);
+    delwin(ms->base.win);
     free(ms);
 }
 
+// TODO: Rename to main_screen_update
 void main_screen_render(main_screen *ms, char *buf)
 {
     int my;
@@ -229,12 +245,12 @@ void load_handle_ok(void *file)
             int i;
             main_screen *ms;
 
-            ms = (main_screen *) get_screen(MAIN_SCREEN);
+            ms = (main_screen *) screen_cache_get(MAIN_SCREEN);
             main_screen_clear(ms);
-            strcpy(ctx->filename, (const char *) file);
-            i = str_find_last(ctx->filename, '/');
+            strcpy(ctx.filename, (const char *) file);
+            i = str_find_last(ctx.filename, '/');
             if (i > 0 && i < MAXPATH) {
-                strncpy(load_filepath, ctx->filename, i);
+                strncpy(load_filepath, ctx.filename, i);
                 load_filepath[i] = '\0';
             }
             pop_screen();
@@ -245,7 +261,7 @@ void load_handle_ok(void *file)
         } else {
             pop_screen();
             progress_dialogue_free(pd);
-            memset(ctx->filename, 0, MAXPATH);
+            memset(ctx.filename, 0, MAXPATH);
             decode_error = true;
             create_file_error_dialogue(err, create_load_dialogue);
         }
@@ -262,7 +278,7 @@ void load_handle_cancel(void *d)
     if (decode_error) {
         main_screen *ms;
 
-        ms = (main_screen *) get_screen(MAIN_SCREEN);
+        ms = (main_screen *) screen_cache_get(MAIN_SCREEN);
         main_screen_clear(ms);
         print_header(ms);
         print_status(ms);
@@ -358,11 +374,13 @@ void scroll_window(main_screen *ms)
     }
 }
 
-void main_screen_get_input(main_screen *ms)
+void main_screen_get_input(screen *s)
 {
     int c = 0;
     int my;
+    main_screen *ms;
 
+    ms = (main_screen *) s;
     my = getmaxy(ms->base.win);
     c = wgetch(ms->base.win);
     switch (c) {
@@ -439,12 +457,16 @@ void main_screen_get_input(main_screen *ms)
         break;
     case KEY_F(1):
     {
-        screen *scr = get_screen(HELP_SCREEN);
+        screen *scr = screen_cache_get(HELP_SCREEN);
 
         if (scr) {
             push_screen(scr);
         } else {
-            push_screen(help_screen_create());
+            screen *s = help_screen_create();
+
+            screen_cache_insert(HELP_SCREEN, s);
+            help_screen_render();
+            push_screen(s);
         }
         break;
     }
@@ -454,9 +476,9 @@ void main_screen_get_input(main_screen *ms)
     {
         uid_t euid = geteuid();
 
-        if (!ctx->capturing && euid == 0) {
+        if (!ctx.capturing && euid == 0) {
             main_screen_clear(ms);
-            ctx->capturing = true;
+            ctx.capturing = true;
             wrefresh(ms->base.win);
             print_header(ms);
             print_status(ms);
@@ -465,22 +487,22 @@ void main_screen_get_input(main_screen *ms)
         break;
     }
     case KEY_F(4):
-        if (ctx->capturing) {
+        if (ctx.capturing) {
             if (!interactive) {
                 main_screen_set_interactive(ms, true);
             }
             stop_scan();
-            ctx->capturing = false;
+            ctx.capturing = false;
             print_status(ms);
         }
         break;
     case KEY_F(5):
-        if (!ctx->capturing && vector_size(packets) > 0) {
+        if (!ctx.capturing && vector_size(packets) > 0) {
             create_save_dialogue();
         }
         break;
     case KEY_F(6):
-        if (!ctx->capturing) {
+        if (!ctx.capturing) {
             create_load_dialogue();
         }
         break;
@@ -513,12 +535,15 @@ void main_screen_get_input(main_screen *ms)
         break;
     case 's':
     {
-        screen *scr = get_screen(STAT_SCREEN);
+        screen *scr = screen_cache_get(STAT_SCREEN);
 
         if (scr) {
             push_screen(scr);
         } else {
-            push_screen(stat_screen_create());
+            screen *s = stat_screen_create();
+
+            screen_cache_insert(STAT_SCREEN, s);
+            push_screen(s);
         }
         break;
     }
@@ -547,12 +572,12 @@ void print_header(main_screen *ms)
     int y = 0;
     char addr[INET_ADDRSTRLEN];
 
-    if (ctx->filename[0]) {
+    if (ctx.filename[0]) {
         printat(ms->header, y, 0, COLOR_PAIR(4) | A_BOLD, "Filename");
-        wprintw(ms->header, ": %s", ctx->filename);
+        wprintw(ms->header, ": %s", ctx.filename);
     } else {
         printat(ms->header, y, 0, COLOR_PAIR(4) | A_BOLD, "Device");
-        wprintw(ms->header, ": %s", ctx->device);
+        wprintw(ms->header, ": %s", ctx.device);
     }
     inet_ntop(AF_INET, &local_addr->sin_addr, addr, sizeof(addr));
     printat(ms->header, ++y, 0, COLOR_PAIR(4) | A_BOLD, "Local address");
@@ -576,26 +601,26 @@ void print_status(main_screen *ms)
     printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Help");
     wprintw(ms->status, "F2");
     printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Menu");
-    if (ctx->capturing || euid != 0) {
+    if (ctx.capturing || euid != 0) {
         printat(ms->status, -1, -1, GREY, "F3");
     } else {
         wprintw(ms->status, "F3");
     }
     printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Start");
-    if (ctx->capturing) {
+    if (ctx.capturing) {
         wprintw(ms->status, "F4");
     } else {
         printat(ms->status, -1, -1, GREY, "F4");
     }
     printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Stop");
-    if (ctx->capturing || vector_size(packets) == 0) {
+    if (ctx.capturing || vector_size(packets) == 0) {
         printat(ms->status, -1, -1, GREY, "F5");
         printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Save");
     } else {
         wprintw(ms->status, "F5");
         printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Save");
     }
-    if (ctx->capturing) {
+    if (ctx.capturing) {
         printat(ms->status, -1, -1, GREY, "F6");
         printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Load");
     } else {
@@ -940,7 +965,7 @@ void main_screen_set_interactive(main_screen *ms, bool interactive_mode)
             delete_subwindow(ms);
             ms->main_line.selected = false;
         }
-        if (ms->outy >= my && ctx->capturing) {
+        if (ms->outy >= my && ctx.capturing) {
             goto_end(ms);
         } else {
             remove_selectionbar(ms, ms->base.win, ms->selection_line - ms->top, A_NORMAL);

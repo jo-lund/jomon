@@ -42,10 +42,12 @@ typedef struct {
     int scrollx; /* the amount scrolled on the x-axis */
 } main_screen;
 
-main_screen *main_screen_create(int nlines, int ncols, main_context *mctx);
-void main_screen_free(main_screen *ms);
+main_screen *main_screen_create();
+void main_screen_init(screen *s);
+void main_screen_free(screen *s);
+void main_screen_refresh(screen *s);
+void main_screen_get_input(screen *s);
 void main_screen_clear(main_screen *ms);
-void main_screen_get_input(main_screen *ms);
 void main_screen_set_interactive(main_screen *ms, bool interactive_mode);
 
 /* print the buffer to main screen */

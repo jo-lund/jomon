@@ -8,25 +8,17 @@
 #include "../stack.h"
 #include <string.h>
 
-struct screen_cache_item {
-    screen *scr;
-    free_screen_fn fn;
-};
-
-static void screen_cache_insert(enum screen_type type, screen *s, free_screen_fn fn);
-static void screen_cache_clear();
-static void screen_refresh(screen *s);
-
 extern vector_t *packets;
 extern main_context ctx;
 publisher_t *screen_changed_publisher;
-static struct screen_cache_item screen_cache[NUM_SCREENS];
+static struct screen *screen_cache[NUM_SCREENS];
 static _stack_t *screen_stack;
-static main_screen *ms;
+static void help_screen_get_input(screen *s);
 
 void init_ncurses(main_context *ctx)
 {
     int mx, my;
+    main_screen *ms;
 
     initscr(); /* initialize curses mode */
     cbreak(); /* disable line buffering */
@@ -50,8 +42,8 @@ void init_ncurses(main_context *ctx)
     screen_changed_publisher = publisher_init();
     screen_stack = stack_init(NUM_SCREENS);
     getmaxyx(stdscr, my, mx);
-    ms = main_screen_create(my, mx, ctx);
-    screen_cache_insert(MAIN_SCREEN, (screen *) ms, main_screen_free);
+    ms = main_screen_create();
+    screen_cache_insert(MAIN_SCREEN, (screen *) ms);
     push_screen((screen *) ms);
 }
 
@@ -62,40 +54,36 @@ void end_ncurses()
     endwin();
 }
 
-screen *create_screen(enum screen_type type, free_screen_fn fn)
+screen *screen_create(screen_operations *defop)
 {
-    if (!screen_cache[type].scr) {
-        int mx, my;
+    screen *s;
 
-        screen_cache[type].scr = malloc(sizeof(screen));
-        getmaxyx(stdscr, my, mx);
-        screen_cache[type].scr->win = newwin(my, mx, 0, 0);
-        screen_cache[type].scr->type = type;
-        screen_cache[type].scr->focus = false;
-        screen_cache[type].scr->screen_refresh = screen_refresh;
-        if (fn) {
-            screen_cache[type].fn = fn;
-        } else {
-            screen_cache[type].fn = free_screen;
-        }
-    }
-    return screen_cache[type].scr;
+    s = malloc(sizeof(screen));
+    s->op = defop;
+    SCREEN_INIT(s);
+    return s;
 }
 
-screen *get_screen(enum screen_type type)
+screen *screen_cache_get(enum screen_type type)
 {
-    if (screen_cache[type].scr) {
-        return screen_cache[type].scr;
+    if (screen_cache[type]) {
+        return screen_cache[type];
     }
     return NULL;
 }
 
-void free_screen(void *s)
+void screen_init(screen *s)
 {
-    screen *scr = (screen *) s;
+    int my, mx;
 
-    if (scr->win) delwin(scr->win);
-    free(scr);
+    getmaxyx(stdscr, my, mx);
+    s->win = newwin(my, mx, 0, 0);
+}
+
+void screen_free(screen *s)
+{
+    delwin(s->win);
+    free(s);
 }
 
 void screen_refresh(screen *s)
@@ -119,19 +107,25 @@ void free_container(container *c)
     free(c);
 }
 
-void screen_cache_insert(enum screen_type type, screen *s, free_screen_fn fn)
+void screen_cache_insert(enum screen_type st, screen *s)
 {
-    screen_cache[type].scr = s;
-    screen_cache[type].fn = fn;
+    screen_cache[st] = s;
+}
+
+void screen_cache_remove(enum screen_type st)
+{
+    if (screen_cache[st]) {
+        SCREEN_FREE(screen_cache[st]);
+        screen_cache[st] = NULL;
+    }
 }
 
 void screen_cache_clear()
 {
     for (int i = 0; i < NUM_SCREENS; i++) {
-        if (screen_cache[i].scr) {
-            screen_cache[i].fn(screen_cache[i].scr);
-            screen_cache[i].scr = NULL;
-            screen_cache[i].fn = NULL;
+        if (screen_cache[i]) {
+            SCREEN_FREE(screen_cache[i]);
+            screen_cache[i] = NULL;
         }
     }
 }
@@ -141,17 +135,17 @@ void print_packet(struct packet *p)
     char buf[MAXLINE];
 
     write_to_buf(buf, MAXLINE, p);
-    main_screen_render(ms, buf);
+    main_screen_render((main_screen *) screen_cache[MAIN_SCREEN], buf);
 }
 
 void print_file()
 {
-    int my = getmaxy(ms->base.win);
+    int my = getmaxy(screen_cache[MAIN_SCREEN]->win);
 
     for (int i = 0; i < vector_size(packets) && i < my; i++) {
         print_packet(vector_get_data(packets, i));
     }
-    main_screen_set_interactive(ms, true);
+    main_screen_set_interactive((main_screen *) screen_cache[MAIN_SCREEN], true);
 }
 
 void pop_screen()
@@ -220,27 +214,8 @@ void handle_input()
 {
     screen *s = stack_top(screen_stack);
 
-    // TODO: get_input should be part of struct screen
-    if (s) {
-        switch (s->type) {
-        case MAIN_SCREEN:
-            main_screen_get_input(ms);
-            break;
-        case STAT_SCREEN:
-            stat_screen_get_input();
-            break;
-        case HELP_SCREEN:
-            pop_screen();
-            break;
-        case LABEL_DIALOGUE:
-            LABEL_DIALOGUE_GET_INPUT((label_dialogue *) s);
-            break;
-        case FILE_DIALOGUE:
-            FILE_DIALOGUE_GET_INPUT((file_dialogue *) s);
-            break;
-        default:
-            break;
-        }
+    if (s->op->screen_get_input) {
+        SCREEN_GET_INPUT(s);
     }
 }
 
@@ -265,17 +240,23 @@ void layout(enum event ev)
 
 screen *help_screen_create()
 {
-    screen *scr;
+    screen *s;
+    static screen_operations op;
 
-    scr = create_screen(HELP_SCREEN, NULL);
-    help_screen_render();
-    return scr;
+    op = SCREEN_OPTS(.screen_get_input = help_screen_get_input);
+    s = screen_create(&op);
+    return s;
+}
+
+void help_screen_get_input(screen *s)
+{
+    pop_screen(s);
 }
 
 void help_screen_render()
 {
     int y = 0;
-    WINDOW *win = get_screen(HELP_SCREEN)->win;
+    WINDOW *win = screen_cache_get(HELP_SCREEN)->win;
 
     wprintw(win, "Monitor 0.0.1 (c) 2017 John Olav Lund");
     mvwprintw(win, ++y, 0, "");

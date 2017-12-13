@@ -60,13 +60,14 @@ enum page {
 #define NUM_PAGES 2
 
 extern main_context ctx;
+
+// TODO: Make a stat_screen struct
 static linkdef rx; /* data received */
 static linkdef tx; /* data transmitted */
 static hwstat hw;
 static cputime **cpustat;
 static int cpuidx = 0;
 static bool show_packet_stats = true;
-static screen *stat_screen;
 static enum page stat_page;
 
 static bool read_hwstat();
@@ -76,16 +77,29 @@ static void print_netstat();
 static void print_hwstat();
 static void init_stat();
 static void stat_screen_free();
+static void stat_screen_init();
+
+static screen *stat_screen; // TODO: Remove this
 
 screen *stat_screen_create()
 {
-    stat_screen = create_screen(STAT_SCREEN, stat_screen_free);
-    nodelay(stat_screen->win, TRUE);
-    keypad(stat_screen->win, TRUE);
+    static screen_operations op;
+
+    op = SCREEN_OPTS(.screen_init = stat_screen_init,
+                     .screen_free = stat_screen_free,
+                     .screen_get_input = stat_screen_get_input);
+    stat_screen = screen_create(&op);
+    return stat_screen;
+}
+
+void stat_screen_init(screen *s)
+{
+    screen_init(s);
+    nodelay(s->win, TRUE);
+    keypad(s->win, TRUE);
     add_subscription(screen_changed_publisher, stat_screen_changed);
     stat_page = NET_STAT;
     init_stat();
-    return stat_screen;
 }
 
 void stat_screen_free()
@@ -94,7 +108,7 @@ void stat_screen_free()
         free(cpustat[i]);
     }
     free(cpustat);
-    free_screen(stat_screen);
+    screen_free(stat_screen);
 }
 
 void stat_screen_changed()
@@ -107,9 +121,9 @@ void stat_screen_changed()
     }
 }
 
-void stat_screen_get_input()
+void stat_screen_get_input(screen *s)
 {
-    int c = wgetch(stat_screen->win);
+    int c = wgetch(s->win);
 
     switch (c) {
     case 'x':
@@ -122,8 +136,10 @@ void stat_screen_get_input()
         screen *scr;
 
         alarm(0);
-        if (!(scr = get_screen(HELP_SCREEN))) {
+        if (!(scr = screen_cache_get(HELP_SCREEN))) {
             scr = help_screen_create();
+            screen_cache_insert(HELP_SCREEN, scr);
+            help_screen_render();
         }
         push_screen(scr);
         break;

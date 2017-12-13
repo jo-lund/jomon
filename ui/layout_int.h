@@ -18,17 +18,6 @@
 #define PURPLE (MAGENTA | A_BOLD)
 #define GREY (COLOR_PAIR(10) | A_BOLD)
 
-#define NUM_SCREENS 3 /* see enum screen_type */
-
-enum screen_type {
-    MAIN_SCREEN,
-    HELP_SCREEN,
-    STAT_SCREEN,
-    LABEL_DIALOGUE,
-    FILE_DIALOGUE,
-    PROGRESS_DIALOGUE
-};
-
 enum layer {
     ETHERNET_LAYER,
     ARP,
@@ -57,16 +46,46 @@ enum layer {
     NUM_LAYERS
 };
 
-#define SCREEN_REFRESH(o) ((o)->screen_refresh(o))
+#define NUM_SCREENS 6 /* see enum screen_type */
+
+enum screen_type {
+    MAIN_SCREEN,
+    HELP_SCREEN,
+    STAT_SCREEN,
+    LABEL_DIALOGUE,
+    FILE_DIALOGUE,
+    PROGRESS_DIALOGUE
+};
+
+/*
+ * Convenience macros that will call the functions defined in screen_operations.
+ * The argument 'o' is a pointer to the screen.
+ */
+#define SCREEN_INIT(o) ((o)->op->screen_init(o))
+#define SCREEN_FREE(o) ((o)->op->screen_free(o))
+#define SCREEN_REFRESH(o) ((o)->op->screen_refresh(o))
+#define SCREEN_GET_INPUT(o) ((o)->op->screen_get_input(o))
+
+#define SCREEN_DEFAULTS .screen_init = screen_init, \
+        .screen_free = screen_free,                 \
+        .screen_refresh = screen_refresh
+
+#define SCREEN_OPTS(...) ((struct screen_operations)   \
+        { SCREEN_DEFAULTS, __VA_ARGS__ })
 
 typedef struct screen {
     enum screen_type type;
     bool focus;
     WINDOW *win;
-
-    /* the function to be called on screen refresh */
-    int (*screen_refresh)(struct screen *this);
+    struct screen_operations *op;
 } screen;
+
+typedef struct screen_operations {
+    void (*screen_init)(screen *s);
+    void (*screen_free)(screen *s);
+    void (*screen_refresh)(screen *s);
+    void (*screen_get_input)(screen *s);
+} screen_operations;
 
 typedef struct {
     bool focus;
@@ -76,20 +95,17 @@ typedef struct {
 extern publisher_t *screen_changed_publisher;
 extern bool selected[NUM_LAYERS];
 
-typedef void (*free_screen_fn)(void *);
+/* Create a screen object */
+screen *screen_create(screen_operations *op);
 
-/*
- * Allocates space for the specified screen type and returns it as a singleton
- * object. 'fn' specifies the function that should be called on destruction. If
- * this is NULL the screen destructor, free_screen, will be called.
- *
- * Clients don't need to worry about freeing the object themselves, since this
- * will be handled by layout.
- */
-screen *create_screen(enum screen_type type, free_screen_fn fn);
+/* Default screen constructor */
+void screen_init(screen *s);
 
-/* Free the memory allocated for screen */
-void free_screen(void *s);
+/* Default screen destructor */
+void screen_free(screen *s);
+
+/* Default function called on screen refresh */
+void screen_refresh(screen *s);
 
 /* Allocates space for a new container. Needs to be freed with free_container() */
 container *create_container();
@@ -101,7 +117,11 @@ void free_container(container *c);
  * Returns the screen with the specified type. Returns NULL if the screen
  * doesn't exist.
  */
-screen *get_screen(enum screen_type type);
+screen *screen_cache_get(enum screen_type type);
+
+void screen_cache_insert(enum screen_type st, screen *s);
+void screen_cache_remove(enum screen_type st);
+void screen_cache_clear();
 
 /* Push the screen on the screen stack */
 void push_screen(screen *scr);
