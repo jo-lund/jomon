@@ -26,10 +26,10 @@ static void dialogue_init(dialogue *d, char *title, int height, int width);
 static void dialogue_set_title(dialogue *this, char *title);
 static void dialogue_render(dialogue *this);
 static void label_dialogue_render(label_dialogue *this);
-static void label_dialogue_get_input(struct label_dialogue *this);
+static void label_dialogue_get_input(screen *s);
 static void file_dialogue_render(file_dialogue *this);
 static void file_dialogue_populate(file_dialogue *this, char *path);
-static void file_dialogue_get_input(struct file_dialogue *this);
+static void file_dialogue_get_input(screen *s);
 static void file_dialogue_print(struct file_dialogue *this, struct file_info *info, int i);
 static void file_dialogue_update_input(struct file_dialogue *this, char *path);
 static void file_dialogue_handle_enter(struct file_dialogue *this);
@@ -73,8 +73,11 @@ static void remove_selectionbar(file_dialogue *fd, int line)
 dialogue *dialogue_create(char *title)
 {
     int my, mx;
+    static screen_operations op;
     dialogue *d = malloc(sizeof(dialogue));
 
+    op = SCREEN_OPTS(.screen_free = dialogue_free);
+    d->screen_base.op = &op;
     getmaxyx(stdscr, my, mx);
     dialogue_init(d, title, my / 4, mx / 5 + 10);
     return d;
@@ -94,11 +97,11 @@ void dialogue_init(dialogue *d, char *title, int height, int width)
     d->dialogue_render = dialogue_render;
 }
 
-void dialogue_free(dialogue *d)
+void dialogue_free(screen *s)
 {
-    if (d) {
-        delwin(((screen *) d)->win);
-        free(d);
+    if (s) {
+        delwin(s->win);
+        free((dialogue *) s);
     }
 }
 
@@ -128,25 +131,27 @@ label_dialogue *label_dialogue_create(char *title, char *label, button_action ac
 {
     label_dialogue *ld;
     int my, mx;
+    static screen_operations op;
 
     getmaxyx(stdscr, my, mx);
     ld = malloc(sizeof(label_dialogue));
+    op = SCREEN_OPTS(.screen_free = label_dialogue_free,
+                     .screen_get_input = label_dialogue_get_input);
+    ld->dialogue_base.screen_base.op = &op;
     dialogue_init((dialogue *) ld, title, my / 5, mx / 6 + 10);
-    ((screen *) ld)->type = LABEL_DIALOGUE;
     ld->label = label;
     ld->ok = button_create((screen *) ld, act, arg, "Ok", ((dialogue *) ld)->height - 5,
                            (((dialogue *) ld)->width - 12) / 2);
-    ld->label_dialogue_get_input = label_dialogue_get_input;
     keypad(((screen *) ld)->win, TRUE);
     BUTTON_SET_FOCUS(ld->ok, true);
     label_dialogue_render(ld);
     return ld;
 }
 
-void label_dialogue_free(label_dialogue *ld)
+void label_dialogue_free(screen *s)
 {
-    delwin(((screen *) ld)->win);
-    free(ld);
+    delwin(s->win);
+    free((label_dialogue *) s);
 }
 
 void label_dialogue_render(label_dialogue *this)
@@ -156,17 +161,19 @@ void label_dialogue_render(label_dialogue *this)
     mvwprintw(((screen *) this)->win, 5, 4, "%s", this->label);
 }
 
-void label_dialogue_get_input(struct label_dialogue *this)
+void label_dialogue_get_input(screen *s)
 {
      int c;
+     label_dialogue *ld;
 
-     c = wgetch(((screen *) this)->win);
+     ld = (label_dialogue *) s;
+     c = wgetch(s->win);
      switch (c) {
      case KEY_ENTER:
      case '\n':
      case KEY_ESC:
          pop_screen();
-         this->ok->action(this->ok->argument);
+         ld->ok->action(ld->ok->argument);
          break;
      default:
          break;
@@ -178,13 +185,15 @@ file_dialogue *file_dialogue_create(char *title, enum file_selection_type type,
 {
     file_dialogue *fd;
     int my, mx;
+    static screen_operations op;
 
     getmaxyx(stdscr, my, mx);
     fd = malloc(sizeof(file_dialogue));
+    op = SCREEN_OPTS(.screen_free = file_dialogue_free,
+                     .screen_get_input = file_dialogue_get_input);
+    fd->dialogue_base.screen_base.op = &op;
     dialogue_init((dialogue *) fd, title, my / 3, mx / 5 + 10);
     getmaxyx(((screen *) fd)->win, my, mx);
-    ((screen *) fd)->type = FILE_DIALOGUE;
-    fd->file_dialogue_get_input = file_dialogue_get_input;
     fd->list_height = my - 10;
     fd->list.win = derwin(((screen *) fd)->win, fd->list_height, mx - 15, 3, 7);
     fd->input.win = derwin(((screen *) fd)->win, 1, mx - 15, fd->list_height + 4, 7);
@@ -203,10 +212,12 @@ file_dialogue *file_dialogue_create(char *title, enum file_selection_type type,
     return fd;
 }
 
-void file_dialogue_free(file_dialogue *fd)
+void file_dialogue_free(screen *s)
 {
-    if (fd) {
-        delwin(((screen *) fd)->win);
+    if (s) {
+        file_dialogue *fd = (file_dialogue *) s;
+
+        delwin(s->win);
         delwin(fd->list.win);
         delwin(fd->input.win);
         vector_free(fd->files, free_data);
@@ -298,53 +309,55 @@ void file_dialogue_populate(file_dialogue *this, char *path)
     }
 }
 
-void file_dialogue_get_input(struct file_dialogue *this)
+void file_dialogue_get_input(screen *s)
 {
     int c;
+    file_dialogue *fd;
 
-    c = wgetch(this->list.win);
+    fd = (file_dialogue *) s;
+    c = wgetch(fd->list.win);
     switch (c) {
     case KEY_ESC:
         curs_set(0);
         pop_screen();
-        this->cancel->action(NULL);
+        fd->cancel->action(NULL);
         break;
     case KEY_UP:
-        file_dialogue_handle_keyup(this);
+        file_dialogue_handle_keyup(fd);
         break;
     case KEY_DOWN:
-        file_dialogue_handle_keydown(this);
+        file_dialogue_handle_keydown(fd);
         break;
     case KEY_ENTER:
     case '\n':
-        file_dialogue_handle_enter(this);
+        file_dialogue_handle_enter(fd);
         break;
     case '\t':
-        file_dialogue_update_focus(this);
+        file_dialogue_update_focus(fd);
         break;
     case '\b':
     case KEY_BACKSPACE:
-        if (this->has_focus == FS_INPUT) {
+        if (fd->has_focus == FS_INPUT) {
             int y, x;
 
-            getyx(this->input.win, y, x);
+            getyx(fd->input.win, y, x);
             if (x > 0) {
                 int n;
 
-                n = strlen(this->path);
+                n = strlen(fd->path);
                 if (n > 0) {
-                    this->path[n - 1] = '\0';
+                    fd->path[n - 1] = '\0';
                 }
-                mvwdelch(this->input.win, y, x - 1);
-                wrefresh(this->input.win);
+                mvwdelch(fd->input.win, y, x - 1);
+                wrefresh(fd->input.win);
             }
         }
         break;
     default:
-        if (this->has_focus == FS_INPUT && isprint(c)) {
-            snprintcat(this->path, MAXPATH, "%c", c);
-            waddch(this->input.win, c);
-            wrefresh(this->input.win);
+        if (fd->has_focus == FS_INPUT && isprint(c)) {
+            snprintcat(fd->path, MAXPATH, "%c", c);
+            waddch(fd->input.win, c);
+            wrefresh(fd->input.win);
         }
         break;
     }
@@ -530,11 +543,13 @@ progress_dialogue *progress_dialogue_create(char *title, int size)
 {
     progress_dialogue *pd;
     int my, mx;
+    static screen_operations op;
 
     getmaxyx(stdscr, my, mx);
     pd = malloc(sizeof(progress_dialogue));
+    op = SCREEN_OPTS(.screen_free = progress_dialogue_free);
+    pd->dialogue_base.screen_base.op = &op;
     dialogue_init((dialogue *) pd, title, my / 5, mx / 6);
-    ((screen *) pd)->type = PROGRESS_DIALOGUE;
     pd->progress_dialogue_update = progress_dialogue_update;
     pd->size = size;
     pd->percent = 0;
@@ -547,10 +562,12 @@ progress_dialogue *progress_dialogue_create(char *title, int size)
     return pd;
 }
 
-void progress_dialogue_free(progress_dialogue *pd)
+void progress_dialogue_free(screen *s)
 {
-    delwin(((screen *) pd)->win);
-    free(pd);
+    if (s) {
+        delwin(s->win);
+        free((progress_dialogue *) s);
+    }
 }
 
 void progress_dialogue_update(progress_dialogue *this, int n)

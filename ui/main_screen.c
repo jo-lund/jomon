@@ -76,6 +76,7 @@ static void show_selectionbar(main_screen *ms, WINDOW *win, int line, uint32_t a
 static void remove_selectionbar(main_screen *ms, WINDOW *win, int line, uint32_t attr);
 static bool read_show_progress(unsigned char *buffer, uint32_t n, struct timeval *t);
 static void write_show_progress(int i);
+static void main_screen_get_input(screen *s);
 
 /* Handles subwindow layout */
 static void create_subwindow(main_screen *ms, int num_lines, int lineno);
@@ -118,7 +119,6 @@ void main_screen_init(screen *s)
     ms->scrollx = 0;
     ms->lvw = NULL;
     ms->header = newwin(HEADER_HEIGHT, mx, 0, 0);
-    ms->base.type = MAIN_SCREEN;
     ms->base.win = newwin(my - HEADER_HEIGHT - STATUS_HEIGHT, mx, HEADER_HEIGHT, 0);
     ms->status = newwin(STATUS_HEIGHT, mx, my - STATUS_HEIGHT, 0);
     memset(&ms->subwindow, 0, sizeof(ms->subwindow));
@@ -254,26 +254,26 @@ void load_handle_ok(void *file)
                 load_filepath[i] = '\0';
             }
             pop_screen();
-            progress_dialogue_free(pd);
+            SCREEN_FREE((screen *) pd);
             print_header(ms);
             print_status(ms);
             print_file(ms);
         } else {
             pop_screen();
-            progress_dialogue_free(pd);
+            SCREEN_FREE((screen *) pd);
             memset(ctx.filename, 0, MAXPATH);
             decode_error = true;
             create_file_error_dialogue(err, create_load_dialogue);
         }
         fclose(fp);
     }
-    file_dialogue_free(fd);
+    SCREEN_FREE((screen *) fd);
     fd = NULL;
 }
 
 void load_handle_cancel(void *d)
 {
-    file_dialogue_free(fd);
+    SCREEN_FREE((screen *) fd);
     fd = NULL;
     if (decode_error) {
         main_screen *ms;
@@ -303,22 +303,23 @@ void save_handle_ok(void *file)
         push_screen((screen *) pd);
         write_file(fp, packets, write_show_progress);
         pop_screen();
-        progress_dialogue_free(pd);
+        SCREEN_FREE((screen *) pd);
         fclose(fp);
     }
-    file_dialogue_free(sd);
+    SCREEN_FREE((screen *) sd);
+
     sd = NULL;
 }
 
 void save_handle_cancel(void *d)
 {
-    file_dialogue_free(sd);
+    SCREEN_FREE((screen *) sd);
     sd = NULL;
 }
 
 void handle_file_error(void *callback)
 {
-    label_dialogue_free(ld);
+    SCREEN_FREE((screen *) ld);
     ld = NULL;
     (* (void (*)()) callback)();
 }

@@ -7,7 +7,7 @@ extern bool numeric;
 struct packet;
 
 /* initialize ncurses and create the screen layout */
-void init_ncurses(main_context *ctx);
+void init_ncurses();
 
 /* end ncurses mode */
 void end_ncurses();

@@ -15,9 +15,8 @@ static struct screen *screen_cache[NUM_SCREENS];
 static _stack_t *screen_stack;
 static void help_screen_get_input(screen *s);
 
-void init_ncurses(main_context *ctx)
+void init_ncurses()
 {
-    int mx, my;
     main_screen *ms;
 
     initscr(); /* initialize curses mode */
@@ -41,7 +40,6 @@ void init_ncurses(main_context *ctx)
     set_escdelay(25); /* set escdelay to 25 ms */
     screen_changed_publisher = publisher_init();
     screen_stack = stack_init(NUM_SCREENS);
-    getmaxyx(stdscr, my, mx);
     ms = main_screen_create();
     screen_cache_insert(MAIN_SCREEN, (screen *) ms);
     push_screen((screen *) ms);
@@ -228,10 +226,7 @@ void layout(enum event ev)
         print_packet(vector_back(packets));
         break;
     case ALARM:
-        s = stack_top(screen_stack);
-        if (s && s->type == STAT_SCREEN) {
-            stat_screen_print();
-        }
+        stat_screen_print();
         break;
     default:
         break;

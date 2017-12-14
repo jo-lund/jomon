@@ -74,7 +74,6 @@ enum screen_type {
         { SCREEN_DEFAULTS, __VA_ARGS__ })
 
 typedef struct screen {
-    enum screen_type type;
     bool focus;
     WINDOW *win;
     struct screen_operations *op;
