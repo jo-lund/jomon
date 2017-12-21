@@ -353,9 +353,21 @@ void remove_selectionbar(main_screen *ms, WINDOW *win, int line, uint32_t attr)
 {
     if (inside_subwindow(ms) && !ms->lvw) { // TODO: fix this
         int i = 0;
+        bool print_line = false;
 
         while (original_line[i] != 0) {
-            mvwaddch(win, line, i, original_line[i++]);
+            if (original_line[i++] != ' ') {
+                print_line = true;
+                break;
+            }
+        }
+        if (print_line) {
+            i = 0;
+            while (original_line[i] != 0) {
+                waddch(win, original_line[i++]);
+            }
+        } else {
+            mvwchgat(win, line, 0, -1, attr, PAIR_NUMBER(attr), NULL);
         }
     } else {
         mvwchgat(win, line, 0, -1, attr, PAIR_NUMBER(attr), NULL);
@@ -574,14 +586,14 @@ void print_header(main_screen *ms)
     char addr[INET_ADDRSTRLEN];
 
     if (ctx.filename[0]) {
-        printat(ms->header, y, 0, COLOR_PAIR(4) | A_BOLD, "Filename");
+        printat(ms->header, y, 0, GREEN | A_BOLD, "Filename");
         wprintw(ms->header, ": %s", ctx.filename);
     } else {
-        printat(ms->header, y, 0, COLOR_PAIR(4) | A_BOLD, "Device");
+        printat(ms->header, y, 0, GREEN | A_BOLD, "Device");
         wprintw(ms->header, ": %s", ctx.device);
     }
     inet_ntop(AF_INET, &local_addr->sin_addr, addr, sizeof(addr));
-    printat(ms->header, ++y, 0, COLOR_PAIR(4) | A_BOLD, "Local address");
+    printat(ms->header, ++y, 0, GREEN | A_BOLD, "Local address");
     wprintw(ms->header, ": %s", addr);
     y += 2;
     mvwprintw(ms->header, y, 0, "Number");
