@@ -235,34 +235,36 @@ void print_netstat()
     struct iw_statistics iwstat;
     struct iw_range iwrange;
     screen *s = screen_cache_get(STAT_SCREEN);
+    int hdrcol = get_theme_colour(HEADER_TXT);
+    int subcol = get_theme_colour(SUBHEADER_TXT);
 
     read_netstat();
     calculate_rate();
-    printat(s->win, y, 0, COLOR_PAIR(4) | A_BOLD, "Network statistics for %s", ctx.device);
+    printat(s->win, y, 0, hdrcol | A_BOLD, "Network statistics for %s", ctx.device);
     mvwprintw(s->win, ++y, 0, "");
-    printat(s->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "Upload rate");
+    printat(s->win, ++y, 0, subcol | A_BOLD, "%13s", "Upload rate");
     wprintw(s->win, ": %8.2f kB/s", tx.kbps);
     wprintw(s->win, "\t%4d packets/s", tx.pps);
-    printat(s->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "Download rate");
+    printat(s->win, ++y, 0, subcol | A_BOLD, "%13s", "Download rate");
     wprintw(s->win, ": %8.2f kB/s", rx.kbps);
     wprintw(s->win, "\t%4d packets/s", rx.pps);
 
     if (get_iw_stats(ctx.device, &iwstat) && get_iw_range(ctx.device, &iwrange)) {
         mvwprintw(s->win, ++y, 0, "");
-        printat(s->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "Link quality");
+        printat(s->win, ++y, 0, subcol | A_BOLD, "%13s", "Link quality");
         wprintw(s->win, ": %8u/%u", iwstat.qual.qual, iwrange.max_qual.qual);
-        printat(s->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "Level");
+        printat(s->win, ++y, 0, subcol | A_BOLD, "%13s", "Level");
         wprintw(s->win, ": %8d dBm", (int8_t) iwstat.qual.level);
-        printat(s->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "Noise");
+        printat(s->win, ++y, 0, subcol | A_BOLD, "%13s", "Noise");
         wprintw(s->win, ": %8d dBm", (int8_t) iwstat.qual.noise);
     }
     if (show_packet_stats) {
         mvwprintw(s->win, ++y, 0, "");
         if (pstat[0].num_packets) {
-            printat(s->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%23s %12s", "Packets", "Bytes");
+            printat(s->win, ++y, 0, subcol | A_BOLD, "%23s %12s", "Packets", "Bytes");
             for (int i = 0; i <= NUM_PROTOCOLS; i++) {
                 if (pstat[i].num_packets) {
-                    printat(s->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", pstat[i].protocol);
+                    printat(s->win, ++y, 0, subcol | A_BOLD, "%13s", pstat[i].protocol);
                     wprintw(s->win, ": %8u", pstat[i].num_packets);
                     wprintw(s->win, "%13llu", pstat[i].num_bytes);
                 }
@@ -276,28 +278,30 @@ void print_hwstat()
     int y = 0;
     unsigned long idle;
     screen *s = screen_cache_get(STAT_SCREEN);
+    int hdrcol = get_theme_colour(HEADER_TXT);
+    int subcol = get_theme_colour(SUBHEADER_TXT);
 
     read_hwstat();
-    printat(s->win, y, 0, COLOR_PAIR(4) | A_BOLD, "Memory and CPU statistics");
+    printat(s->win, y, 0, hdrcol, "Memory and CPU statistics");
     mvwprintw(s->win, ++y, 0, "");
-    printat(s->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%20s", "Total memory");
+    printat(s->win, ++y, 0, subcol, "%20s", "Total memory");
     wprintw(s->win, ": %8lu kB", hw.total_ram);
-    printat(s->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%20s", "Memory used");
+    printat(s->win, ++y, 0, subcol, "%20s", "Memory used");
     wprintw(s->win, ": %8lu kB", hw.total_ram - hw.free_ram);
-    printat(s->win, -1, -1, COLOR_PAIR(3) | A_BOLD, "%10s", "Buffers");
+    printat(s->win, -1, -1, subcol, "%10s", "Buffers");
     wprintw(s->win, ": %6lu kB", hw.buffers);
-    printat(s->win, -1, -1, COLOR_PAIR(3) | A_BOLD, "%8s", "Cache");
+    printat(s->win, -1, -1, subcol, "%8s", "Cache");
     wprintw(s->win, ": %8lu kB", hw.cached);
     mvwprintw(s->win, ++y, 0, "");
-    printat(s->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%20s", "Process memory (RSS)");
+    printat(s->win, ++y, 0, subcol, "%20s", "Process memory (RSS)");
     wprintw(s->win, ": %8lu kB", hw.vm_rss);
-    printat(s->win, -1, -1, COLOR_PAIR(3) | A_BOLD, "%6s", "Pid");
+    printat(s->win, -1, -1, subcol, "%6s", "Pid");
     wprintw(s->win, ": %d", hw.pid);
     mvwprintw(s->win, ++y, 0, "");
     if (cpustat[0][0].idle != 0 && cpustat[0][1].idle != 0) {
         for (int i = 0; i < hw.num_cpu; i++) {
             idle = cpustat[i][!cpuidx].idle - cpustat[i][cpuidx].idle;
-            printat(s->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "CPU%d idle", i);
+            printat(s->win, ++y, 0, subcol, "CPU%d idle", i);
             wprintw(s->win, ": %5d %%", idle);
         }
     }

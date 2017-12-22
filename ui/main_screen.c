@@ -346,7 +346,7 @@ bool read_show_progress(unsigned char *buffer, uint32_t n, struct timeval *t)
 void show_selectionbar(main_screen *ms, WINDOW *win, int line, uint32_t attr)
 {
     mvwinchstr(win, line, 0, original_line);
-    mvwchgat(win, line, 0, -1, attr, 2, NULL);
+    mvwchgat(win, line, 0, -1, attr, PAIR_NUMBER(get_theme_colour(SELECTIONBAR)), NULL);
 }
 
 void remove_selectionbar(main_screen *ms, WINDOW *win, int line, uint32_t attr)
@@ -584,16 +584,17 @@ void print_header(main_screen *ms)
 {
     int y = 0;
     char addr[INET_ADDRSTRLEN];
+    int txtcol = get_theme_colour(HEADER_TXT);
 
     if (ctx.filename[0]) {
-        printat(ms->header, y, 0, GREEN | A_BOLD, "Filename");
+        printat(ms->header, y, 0, txtcol | A_BOLD, "Filename");
         wprintw(ms->header, ": %s", ctx.filename);
     } else {
-        printat(ms->header, y, 0, GREEN | A_BOLD, "Device");
+        printat(ms->header, y, 0, txtcol | A_BOLD, "Device");
         wprintw(ms->header, ": %s", ctx.device);
     }
     inet_ntop(AF_INET, &local_addr->sin_addr, addr, sizeof(addr));
-    printat(ms->header, ++y, 0, GREEN | A_BOLD, "Local address");
+    printat(ms->header, ++y, 0, txtcol | A_BOLD, "Local address");
     wprintw(ms->header, ": %s", addr);
     y += 2;
     mvwprintw(ms->header, y, 0, "Number");
@@ -609,45 +610,47 @@ void print_header(main_screen *ms)
 void print_status(main_screen *ms)
 {
     uid_t euid = geteuid();
+    int colour = get_theme_colour(STATUS_BUTTON);
+    int disabled = get_theme_colour(DISABLE);
 
     mvwprintw(ms->status, 0, 0, "F1");
-    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Help");
+    printat(ms->status, -1, -1, colour, "%-11s", "Help");
     wprintw(ms->status, "F2");
-    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Menu");
+    printat(ms->status, -1, -1, colour, "%-11s", "Menu");
     if (ctx.capturing || euid != 0) {
-        printat(ms->status, -1, -1, GREY, "F3");
+        printat(ms->status, -1, -1, disabled, "F3");
     } else {
         wprintw(ms->status, "F3");
     }
-    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Start");
+    printat(ms->status, -1, -1, colour, "%-11s", "Start");
     if (ctx.capturing) {
         wprintw(ms->status, "F4");
     } else {
-        printat(ms->status, -1, -1, GREY, "F4");
+        printat(ms->status, -1, -1, disabled, "F4");
     }
-    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Stop");
+    printat(ms->status, -1, -1, colour, "%-11s", "Stop");
     if (ctx.capturing || vector_size(packets) == 0) {
-        printat(ms->status, -1, -1, GREY, "F5");
-        printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Save");
+        printat(ms->status, -1, -1, disabled, "F5");
+        printat(ms->status, -1, -1, colour, "%-11s", "Save");
     } else {
         wprintw(ms->status, "F5");
-        printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Save");
+        printat(ms->status, -1, -1, colour, "%-11s", "Save");
     }
     if (ctx.capturing) {
-        printat(ms->status, -1, -1, GREY, "F6");
-        printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Load");
+        printat(ms->status, -1, -1, disabled, "F6");
+        printat(ms->status, -1, -1, colour, "%-11s", "Load");
     } else {
         wprintw(ms->status, "F6");
-        printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Load");
+        printat(ms->status, -1, -1, colour, "%-11s", "Load");
     }
     wprintw(ms->status, "F7");
     if (view_mode == DECODED_VIEW) {
-        printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "View (dec)");
+        printat(ms->status, -1, -1, colour, "%-11s", "View (dec)");
     } else {
-        printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "View (hex)");
+        printat(ms->status, -1, -1, colour, "%-11s", "View (hex)");
     }
     wprintw(ms->status, "F10");
-    printat(ms->status, -1, -1, COLOR_PAIR(2), "%-11s", "Quit");
+    printat(ms->status, -1, -1, colour, "%-11s", "Quit");
     wrefresh(ms->status);
 }
 

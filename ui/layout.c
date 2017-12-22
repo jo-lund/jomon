@@ -8,12 +8,36 @@
 #include "../stack.h"
 #include <string.h>
 
+#define NUM_THEMES 3
+#define NUM_COLOURS 8
+
+#define COLOUR_IDX(f, b) ((b == -1) ? (f) + 1 : (b) + 1 + ((f) + 1) * NUM_COLOURS)
+
 extern vector_t *packets;
 extern main_context ctx;
 publisher_t *screen_changed_publisher;
 static struct screen *screen_cache[NUM_SCREENS];
 static _stack_t *screen_stack;
+static int theme;
 static void help_screen_get_input(screen *s);
+static void init_colours();
+
+static int themes[NUM_THEMES][NUM_ELEMENTS] = {
+    [DEFAULT] = {
+        [HEADER]        = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_WHITE)),
+        [HEADER_TXT]    = COLOR_PAIR(COLOUR_IDX(COLOR_GREEN, -1)) | A_BOLD,
+        [SUBHEADER_TXT] = COLOR_PAIR(COLOUR_IDX(COLOR_CYAN, -1)) | A_BOLD,
+        [STATUS_BUTTON] = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_CYAN)),
+        [BUTTON]        = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_WHITE)),
+        [DIALOGUE_BKGD] = COLOR_PAIR(COLOUR_IDX(COLOR_WHITE, COLOR_BLACK)),
+        [FD_LIST_BKGD]  = COLOR_PAIR(COLOUR_IDX(COLOR_CYAN, -1)),
+        [FD_INPUT_BKGD] = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_WHITE)),
+        [FD_TEXT]       = COLOR_PAIR(COLOUR_IDX(COLOR_CYAN, -1)),
+        [DISABLE]       = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, -1)) | A_BOLD,
+        [FOCUS]         = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_CYAN)),
+        [SELECTIONBAR]  = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_CYAN))
+    }
+};
 
 void init_ncurses()
 {
@@ -25,18 +49,7 @@ void init_ncurses()
     curs_set(0);
     use_default_colors();
     start_color();
-    init_pair(1, COLOR_WHITE, COLOR_CYAN);
-    init_pair(2, COLOR_BLACK, COLOR_CYAN);
-    init_pair(3, COLOR_CYAN, -1);
-    init_pair(4, COLOR_GREEN, -1);
-    init_pair(5, COLOR_BLUE, -1);
-    init_pair(6, COLOR_YELLOW, -1);
-    init_pair(7, COLOR_MAGENTA, -1);
-    init_pair(8, COLOR_RED, -1);
-    init_pair(9, COLOR_WHITE, COLOR_BLUE);
-    init_pair(10, COLOR_BLACK, -1);
-    init_pair(11, COLOR_WHITE, COLOR_BLACK);
-    init_pair(12, COLOR_BLACK, COLOR_WHITE);
+    init_colours();
     set_escdelay(25); /* set escdelay to 25 ms */
     screen_changed_publisher = publisher_init();
     screen_stack = stack_init(NUM_SCREENS);
@@ -219,8 +232,6 @@ void handle_input()
 
 void layout(enum event ev)
 {
-    screen *s;
-
     switch (ev) {
     case NEW_PACKET:
         print_packet(vector_back(packets));
@@ -231,6 +242,25 @@ void layout(enum event ev)
     default:
         break;
     }
+}
+
+void init_colours()
+{
+    /* colours on default background */
+    for (int i = 0; i < NUM_COLOURS; i++) {
+        init_pair(i + 1, i, -1);
+    }
+    for (int i = 0; i < NUM_COLOURS; i++) {
+        for (int j = 0; j < NUM_COLOURS; j++) {
+            init_pair(j + 1 + ((i + 1) * NUM_COLOURS), i, j);
+        }
+    }
+    theme = DEFAULT;
+}
+
+inline int get_theme_colour(enum elements elem)
+{
+    return themes[theme][elem];
 }
 
 screen *help_screen_create()
@@ -252,6 +282,8 @@ void help_screen_render()
 {
     int y = 0;
     WINDOW *win = screen_cache_get(HELP_SCREEN)->win;
+    int hdrcol = get_theme_colour(HEADER_TXT);
+    int subcol = get_theme_colour(SUBHEADER_TXT);
 
     wprintw(win, "Monitor 0.0.1 (c) 2017 John Olav Lund");
     mvwprintw(win, ++y, 0, "");
@@ -259,53 +291,53 @@ void help_screen_render()
               "by pressing \'i\'. In interactive mode the packet scan will continue in the " \
               "background.");
     mvwprintw(win, ++y, 0, "");
-    printat(win, ++y, 0, GREEN | A_BOLD, "General keyboard shortcuts");
-    printat(win, ++y, 0, CYAN | A_BOLD, "%12s", "F1");
+    printat(win, ++y, 0, hdrcol, "General keyboard shortcuts");
+    printat(win, ++y, 0, subcol, "%12s", "F1");
     wprintw(win, ": Show help");
-    printat(win, ++y, 0, CYAN | A_BOLD, "%12s", "F10 q");
+    printat(win, ++y, 0, subcol, "%12s", "F10 q");
     wprintw(win, ": Quit");
     mvwprintw(win, ++y, 0, "");
-    printat(win, ++y, 0, GREEN | A_BOLD, "Main screen keyboard shortcuts");
-    printat(win, ++y, 0, CYAN | A_BOLD, "%12s", "i");
+    printat(win, ++y, 0, hdrcol, "Main screen keyboard shortcuts");
+    printat(win, ++y, 0, subcol, "%12s", "i");
     wprintw(win, ": Enter interactive mode");
-    printat(win, ++y, 0, CYAN | A_BOLD, "%12s", "s");
+    printat(win, ++y, 0, subcol, "%12s", "s");
     wprintw(win, ": Show statistics screen");
-    printat(win, ++y, 0, CYAN | A_BOLD, "%12s", "F2");
+    printat(win, ++y, 0, subcol, "%12s", "F2");
     wprintw(win, ": Show menu");
-    printat(win, ++y, 0, CYAN | A_BOLD, "%12s", "F3");
+    printat(win, ++y, 0, subcol, "%12s", "F3");
     wprintw(win, ": Start packet scan");
-    printat(win, ++y, 0, CYAN | A_BOLD, "%12s", "F4");
+    printat(win, ++y, 0, subcol, "%12s", "F4");
     wprintw(win, ": Stop packet scan");
-    printat(win, ++y, 0, CYAN | A_BOLD, "%12s", "F5");
+    printat(win, ++y, 0, subcol, "%12s", "F5");
     wprintw(win, ": Save file in pcap format");
-    printat(win, ++y, 0, CYAN | A_BOLD, "%12s", "F6");
+    printat(win, ++y, 0, subcol, "%12s", "F6");
     wprintw(win, ": Load file in pcap format");
-    printat(win, ++y, 0, CYAN | A_BOLD, "%12s", "F7");
+    printat(win, ++y, 0, subcol, "%12s", "F7");
     wprintw(win, ": Change between decoded view or hexdump");
     mvwprintw(win, ++y, 0, "");
-    printat(win, ++y, 0, GREEN | A_BOLD, "Keyboard shortcuts in interactive mode");
-    printat(win, ++y, 0, CYAN | A_BOLD, "%12s", "Arrows");
+    printat(win, ++y, 0, hdrcol, "Keyboard shortcuts in interactive mode");
+    printat(win, ++y, 0, subcol, "%12s", "Arrows");
     wprintw(win, ": Scroll the packet list");
-    printat(win, ++y, 0, CYAN | A_BOLD, "%12s", "Space pgdown");
+    printat(win, ++y, 0, subcol, "%12s", "Space pgdown");
     wprintw(win, ": Scroll page down");
-    printat(win, ++y, 0, CYAN | A_BOLD, "%12s", "b pgup");
+    printat(win, ++y, 0, subcol, "%12s", "b pgup");
     wprintw(win, ": Scroll page up");
-    printat(win, ++y, 0, CYAN | A_BOLD, "%12s", "Home End");
+    printat(win, ++y, 0, subcol, "%12s", "Home End");
     wprintw(win, ": Go to first/last page");
-    printat(win, ++y, 0, CYAN | A_BOLD, "%12s", "g");
+    printat(win, ++y, 0, subcol, "%12s", "g");
     wprintw(win, ": Go to line");
-    printat(win, ++y, 0, CYAN | A_BOLD, "%12s", "h");
+    printat(win, ++y, 0, subcol, "%12s", "h");
     wprintw(win, ": Change hexdump mode");
-    printat(win, ++y, 0, CYAN | A_BOLD, "%12s", "Enter");
+    printat(win, ++y, 0, subcol, "%12s", "Enter");
     wprintw(win, ": Inspect packet");
-    printat(win, ++y, 0, CYAN | A_BOLD, "%12s", "Esc");
+    printat(win, ++y, 0, subcol, "%12s", "Esc");
     wprintw(win, ": Close packet window/Quit interactive mode");
-    printat(win, ++y, 0, CYAN | A_BOLD, "%12s", "i");
+    printat(win, ++y, 0, subcol, "%12s", "i");
     wprintw(win, ": Quit interactive mode");
     mvwprintw(win, ++y, 0, "");
-    printat(win, ++y, 0, GREEN | A_BOLD, "Statistics screen keyboard shortcuts");
-    printat(win, ++y, 0, CYAN | A_BOLD, "%12s", "p");
+    printat(win, ++y, 0, hdrcol, "Statistics screen keyboard shortcuts");
+    printat(win, ++y, 0, subcol, "%12s", "p");
     wprintw(win, ": Show/hide packet statistics");
-    printat(win, ++y, 0, CYAN | A_BOLD, "%12s", "Esc x");
+    printat(win, ++y, 0, subcol, "%12s", "Esc x");
     wprintw(win, ": Exit statistics screen");
 }
