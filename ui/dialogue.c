@@ -432,12 +432,12 @@ void file_dialogue_print(struct file_dialogue *this, struct file_info *info, int
 
     if (S_ISDIR(info->stat->st_mode)) {
         w = getmaxx(this->list.win) - strlen(info->name) - 2;
-        printat(this->list.win, i, 1, A_BOLD, "%s%*s", info->name, w,
+        printat(this->list.win, i, 1, A_BOLD | get_theme_colour(FD_TEXT), "%s%*s", info->name, w,
                 format_bytes(info->stat->st_size, buf, FORMAT_BUF_LEN));
     } else {
         w = getmaxx(this->list.win) - strlen(info->name) - 2;
-        mvwprintw(this->list.win, i, 1, "%s%*s", info->name, w,
-                  format_bytes(info->stat->st_size, buf, FORMAT_BUF_LEN));
+        printat(this->list.win, i, 1, get_theme_colour(FD_TEXT), "%s%*s", info->name, w,
+                format_bytes(info->stat->st_size, buf, FORMAT_BUF_LEN));
     }
 }
 

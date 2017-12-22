@@ -125,6 +125,9 @@ void main_screen_init(screen *s)
     nodelay(ms->base.win, TRUE); /* input functions must be non-blocking */
     keypad(ms->base.win, TRUE);
     scrollok(ms->base.win, TRUE);
+    wbkgd(ms->base.win, get_theme_colour(BACKGROUND));
+    wbkgd(ms->header, get_theme_colour(BACKGROUND));
+    wbkgd(ms->status, get_theme_colour(BACKGROUND));
 
     // TODO: move to a proper render function
     print_header(ms);
@@ -587,14 +590,14 @@ void print_header(main_screen *ms)
     int txtcol = get_theme_colour(HEADER_TXT);
 
     if (ctx.filename[0]) {
-        printat(ms->header, y, 0, txtcol | A_BOLD, "Filename");
+        printat(ms->header, y, 0, txtcol, "Filename");
         wprintw(ms->header, ": %s", ctx.filename);
     } else {
-        printat(ms->header, y, 0, txtcol | A_BOLD, "Device");
+        printat(ms->header, y, 0, txtcol, "Device");
         wprintw(ms->header, ": %s", ctx.device);
     }
     inet_ntop(AF_INET, &local_addr->sin_addr, addr, sizeof(addr));
-    printat(ms->header, ++y, 0, txtcol | A_BOLD, "Local address");
+    printat(ms->header, ++y, 0, txtcol, "Local address");
     wprintw(ms->header, ": %s", addr);
     y += 2;
     mvwprintw(ms->header, y, 0, "Number");

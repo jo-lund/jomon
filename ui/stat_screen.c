@@ -240,31 +240,31 @@ void print_netstat()
 
     read_netstat();
     calculate_rate();
-    printat(s->win, y, 0, hdrcol | A_BOLD, "Network statistics for %s", ctx.device);
+    printat(s->win, y, 0, hdrcol, "Network statistics for %s", ctx.device);
     mvwprintw(s->win, ++y, 0, "");
-    printat(s->win, ++y, 0, subcol | A_BOLD, "%13s", "Upload rate");
+    printat(s->win, ++y, 0, subcol, "%13s", "Upload rate");
     wprintw(s->win, ": %8.2f kB/s", tx.kbps);
     wprintw(s->win, "\t%4d packets/s", tx.pps);
-    printat(s->win, ++y, 0, subcol | A_BOLD, "%13s", "Download rate");
+    printat(s->win, ++y, 0, subcol, "%13s", "Download rate");
     wprintw(s->win, ": %8.2f kB/s", rx.kbps);
     wprintw(s->win, "\t%4d packets/s", rx.pps);
 
     if (get_iw_stats(ctx.device, &iwstat) && get_iw_range(ctx.device, &iwrange)) {
         mvwprintw(s->win, ++y, 0, "");
-        printat(s->win, ++y, 0, subcol | A_BOLD, "%13s", "Link quality");
+        printat(s->win, ++y, 0, subcol, "%13s", "Link quality");
         wprintw(s->win, ": %8u/%u", iwstat.qual.qual, iwrange.max_qual.qual);
-        printat(s->win, ++y, 0, subcol | A_BOLD, "%13s", "Level");
+        printat(s->win, ++y, 0, subcol, "%13s", "Level");
         wprintw(s->win, ": %8d dBm", (int8_t) iwstat.qual.level);
-        printat(s->win, ++y, 0, subcol | A_BOLD, "%13s", "Noise");
+        printat(s->win, ++y, 0, subcol, "%13s", "Noise");
         wprintw(s->win, ": %8d dBm", (int8_t) iwstat.qual.noise);
     }
     if (show_packet_stats) {
         mvwprintw(s->win, ++y, 0, "");
         if (pstat[0].num_packets) {
-            printat(s->win, ++y, 0, subcol | A_BOLD, "%23s %12s", "Packets", "Bytes");
+            printat(s->win, ++y, 0, subcol, "%23s %12s", "Packets", "Bytes");
             for (int i = 0; i <= NUM_PROTOCOLS; i++) {
                 if (pstat[i].num_packets) {
-                    printat(s->win, ++y, 0, subcol | A_BOLD, "%13s", pstat[i].protocol);
+                    printat(s->win, ++y, 0, subcol, "%13s", pstat[i].protocol);
                     wprintw(s->win, ": %8u", pstat[i].num_packets);
                     wprintw(s->win, "%13llu", pstat[i].num_bytes);
                 }

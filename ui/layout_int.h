@@ -25,6 +25,7 @@ enum elements {
     DISABLE,
     FOCUS,
     SELECTIONBAR,
+    BACKGROUND,
     NUM_ELEMENTS
 };
 
