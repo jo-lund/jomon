@@ -55,7 +55,7 @@ static void free_data(void *data)
 
 static void show_selectionbar(file_dialogue *fd, int line)
 {
-    mvwchgat(fd->list.win, line, 0, -1, A_NORMAL, get_theme_colour(SELECTIONBAR), NULL);
+    mvwchgat(fd->list.win, line, 0, -1, A_NORMAL, PAIR_NUMBER(get_theme_colour(SELECTIONBAR)), NULL);
 }
 
 static void remove_selectionbar(file_dialogue *fd, int line)
@@ -64,9 +64,9 @@ static void remove_selectionbar(file_dialogue *fd, int line)
 
     info = (struct file_info *) vector_get_data(fd->files, fd->i);
     if (S_ISDIR(info->stat->st_mode)) {
-        mvwchgat(fd->list.win, line, 0, -1, A_BOLD, get_theme_colour(FD_TEXT), NULL);
+        mvwchgat(fd->list.win, line, 0, -1, A_BOLD, PAIR_NUMBER(get_theme_colour(FD_TEXT)), NULL);
     } else {
-        mvwchgat(fd->list.win, line, 0, -1, A_NORMAL, get_theme_colour(FD_TEXT), NULL);
+        mvwchgat(fd->list.win, line, 0, -1, A_NORMAL, PAIR_NUMBER(get_theme_colour(FD_TEXT)), NULL);
     }
 }
 
@@ -119,7 +119,7 @@ void dialogue_render(dialogue *this)
     win = ((screen *) this)->win;
     mx = getmaxx(win);
     box(win, 0, 0);
-    wbkgd(win, COLOR_PAIR(get_theme_colour(DIALOGUE_BKGD)));
+    wbkgd(win, get_theme_colour(DIALOGUE_BKGD));
     if (this->title) {
         len = strlen(this->title);
         mvwprintw(win, 0, (mx - len) / 2, this->title);
@@ -234,12 +234,12 @@ void file_dialogue_render(file_dialogue *this)
 
     scr = (screen *) this;
     DIALOGUE_RENDER((dialogue *) this);
-    wbkgd(this->list.win, COLOR_PAIR(get_theme_colour(FD_LIST_BKGD)));
-    wbkgd(this->input.win, COLOR_PAIR(get_theme_colour(FD_INPUT_BKGD)));
+    wbkgd(this->list.win, get_theme_colour(FD_LIST_BKGD));
+    wbkgd(this->input.win, get_theme_colour(FD_INPUT_BKGD));
     w = getmaxx(scr->win) - 13;
     printat(scr->win, 2, 8, A_BOLD, "Name");
     printat(scr->win, 2, w, A_BOLD, "Size");
-    mvwchgat(scr->win, 2, 7, w - 2, A_NORMAL, get_theme_colour(HEADER), NULL);
+    mvwchgat(scr->win, 2, 7, w - 2, A_NORMAL, PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
     file_dialogue_populate(this, this->path);
     BUTTON_RENDER(this->ok);
     BUTTON_RENDER(this->cancel);

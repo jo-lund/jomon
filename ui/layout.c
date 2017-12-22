@@ -24,18 +24,18 @@ static void init_colours();
 
 static int themes[NUM_THEMES][NUM_ELEMENTS] = {
     [DEFAULT] = {
-        [HEADER]        = COLOUR_IDX(COLOR_BLACK, COLOR_WHITE),
-        [HEADER_TXT]    = COLOUR_IDX(COLOR_GREEN, -1),
-        [SUBHEADER_TXT] = COLOUR_IDX(COLOR_CYAN, -1),
-        [STATUS_BUTTON] = COLOUR_IDX(COLOR_BLACK, COLOR_CYAN),
-        [BUTTON]        = COLOUR_IDX(COLOR_BLACK, COLOR_WHITE),
-        [DIALOGUE_BKGD] = COLOUR_IDX(COLOR_WHITE, COLOR_BLACK),
-        [FD_LIST_BKGD]  = COLOUR_IDX(COLOR_CYAN, -1),
-        [FD_INPUT_BKGD] = COLOUR_IDX(COLOR_BLACK, COLOR_WHITE),
-        [FD_TEXT]       = COLOUR_IDX(COLOR_CYAN, -1),
-        [DISABLE]       = COLOUR_IDX(COLOR_BLACK, -1),
-        [FOCUS]         = COLOUR_IDX(COLOR_BLACK, COLOR_CYAN),
-        [SELECTIONBAR]  = COLOUR_IDX(COLOR_BLACK, COLOR_CYAN)
+        [HEADER]        = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_WHITE)),
+        [HEADER_TXT]    = COLOR_PAIR(COLOUR_IDX(COLOR_GREEN, -1)) | A_BOLD,
+        [SUBHEADER_TXT] = COLOR_PAIR(COLOUR_IDX(COLOR_CYAN, -1)) | A_BOLD,
+        [STATUS_BUTTON] = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_CYAN)),
+        [BUTTON]        = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_WHITE)),
+        [DIALOGUE_BKGD] = COLOR_PAIR(COLOUR_IDX(COLOR_WHITE, COLOR_BLACK)),
+        [FD_LIST_BKGD]  = COLOR_PAIR(COLOUR_IDX(COLOR_CYAN, -1)),
+        [FD_INPUT_BKGD] = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_WHITE)),
+        [FD_TEXT]       = COLOR_PAIR(COLOUR_IDX(COLOR_CYAN, -1)),
+        [DISABLE]       = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, -1)) | A_BOLD,
+        [FOCUS]         = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_CYAN)),
+        [SELECTIONBAR]  = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_CYAN))
     }
 };
 
@@ -291,53 +291,53 @@ void help_screen_render()
               "by pressing \'i\'. In interactive mode the packet scan will continue in the " \
               "background.");
     mvwprintw(win, ++y, 0, "");
-    printat(win, ++y, 0, COLOR_PAIR(hdrcol) | A_BOLD, "General keyboard shortcuts");
-    printat(win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%12s", "F1");
+    printat(win, ++y, 0, hdrcol, "General keyboard shortcuts");
+    printat(win, ++y, 0, subcol, "%12s", "F1");
     wprintw(win, ": Show help");
-    printat(win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%12s", "F10 q");
+    printat(win, ++y, 0, subcol, "%12s", "F10 q");
     wprintw(win, ": Quit");
     mvwprintw(win, ++y, 0, "");
-    printat(win, ++y, 0, COLOR_PAIR(hdrcol) | A_BOLD, "Main screen keyboard shortcuts");
-    printat(win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%12s", "i");
+    printat(win, ++y, 0, hdrcol, "Main screen keyboard shortcuts");
+    printat(win, ++y, 0, subcol, "%12s", "i");
     wprintw(win, ": Enter interactive mode");
-    printat(win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%12s", "s");
+    printat(win, ++y, 0, subcol, "%12s", "s");
     wprintw(win, ": Show statistics screen");
-    printat(win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%12s", "F2");
+    printat(win, ++y, 0, subcol, "%12s", "F2");
     wprintw(win, ": Show menu");
-    printat(win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%12s", "F3");
+    printat(win, ++y, 0, subcol, "%12s", "F3");
     wprintw(win, ": Start packet scan");
-    printat(win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%12s", "F4");
+    printat(win, ++y, 0, subcol, "%12s", "F4");
     wprintw(win, ": Stop packet scan");
-    printat(win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%12s", "F5");
+    printat(win, ++y, 0, subcol, "%12s", "F5");
     wprintw(win, ": Save file in pcap format");
-    printat(win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%12s", "F6");
+    printat(win, ++y, 0, subcol, "%12s", "F6");
     wprintw(win, ": Load file in pcap format");
-    printat(win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%12s", "F7");
+    printat(win, ++y, 0, subcol, "%12s", "F7");
     wprintw(win, ": Change between decoded view or hexdump");
     mvwprintw(win, ++y, 0, "");
-    printat(win, ++y, 0, COLOR_PAIR(hdrcol) | A_BOLD, "Keyboard shortcuts in interactive mode");
-    printat(win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%12s", "Arrows");
+    printat(win, ++y, 0, hdrcol, "Keyboard shortcuts in interactive mode");
+    printat(win, ++y, 0, subcol, "%12s", "Arrows");
     wprintw(win, ": Scroll the packet list");
-    printat(win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%12s", "Space pgdown");
+    printat(win, ++y, 0, subcol, "%12s", "Space pgdown");
     wprintw(win, ": Scroll page down");
-    printat(win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%12s", "b pgup");
+    printat(win, ++y, 0, subcol, "%12s", "b pgup");
     wprintw(win, ": Scroll page up");
-    printat(win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%12s", "Home End");
+    printat(win, ++y, 0, subcol, "%12s", "Home End");
     wprintw(win, ": Go to first/last page");
-    printat(win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%12s", "g");
+    printat(win, ++y, 0, subcol, "%12s", "g");
     wprintw(win, ": Go to line");
-    printat(win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%12s", "h");
+    printat(win, ++y, 0, subcol, "%12s", "h");
     wprintw(win, ": Change hexdump mode");
-    printat(win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%12s", "Enter");
+    printat(win, ++y, 0, subcol, "%12s", "Enter");
     wprintw(win, ": Inspect packet");
-    printat(win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%12s", "Esc");
+    printat(win, ++y, 0, subcol, "%12s", "Esc");
     wprintw(win, ": Close packet window/Quit interactive mode");
-    printat(win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%12s", "i");
+    printat(win, ++y, 0, subcol, "%12s", "i");
     wprintw(win, ": Quit interactive mode");
     mvwprintw(win, ++y, 0, "");
-    printat(win, ++y, 0, COLOR_PAIR(hdrcol) | A_BOLD, "Statistics screen keyboard shortcuts");
-    printat(win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%12s", "p");
+    printat(win, ++y, 0, hdrcol, "Statistics screen keyboard shortcuts");
+    printat(win, ++y, 0, subcol, "%12s", "p");
     wprintw(win, ": Show/hide packet statistics");
-    printat(win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%12s", "Esc x");
+    printat(win, ++y, 0, subcol, "%12s", "Esc x");
     wprintw(win, ": Exit statistics screen");
 }

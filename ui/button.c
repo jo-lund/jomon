@@ -44,9 +44,9 @@ void button_render(button *b)
     len = strlen(b->txt) + 4;
     getmaxyx(win, my, mx);
     if (((container *) b)->focus) {
-        wbkgd(win, COLOR_PAIR(get_theme_colour(FOCUS)));
+        wbkgd(win, get_theme_colour(FOCUS));
     } else {
-        wbkgd(win, COLOR_PAIR(get_theme_colour(BUTTON)));
+        wbkgd(win, get_theme_colour(BUTTON));
     }
     mvwprintw(win, my / 2, (mx - len) / 2, "[ %s ]", b->txt);
 
