@@ -12,6 +12,14 @@
 #define HD_WIDE_LEN 75
 #define HD_ASCII_IDX 60
 
+// TODO: Remove this and make the elements modifiable
+#define CYAN COLOR_PAIR(7)
+#define GREEN COLOR_PAIR(3)
+#define BLUE COLOR_PAIR(5)
+#define MAGENTA COLOR_PAIR(6)
+#define LIGHT_BLUE (BLUE | A_BOLD)
+#define PURPLE (MAGENTA | A_BOLD)
+
 typedef struct {
     int type;
     union {

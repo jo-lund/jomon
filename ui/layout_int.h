@@ -6,17 +6,27 @@
 
 #define KEY_ESC 27
 
-/* colours on default background  */
-#define CYAN COLOR_PAIR(3)
-#define GREEN COLOR_PAIR(4)
-#define BLUE COLOR_PAIR(5)
-#define BROWN COLOR_PAIR(6)
-#define MAGENTA COLOR_PAIR(7)
-#define RED COLOR_PAIR(8)
-#define YELLOW (COLOR_PAIR(6) | A_BOLD)
-#define LIGHT_BLUE (BLUE | A_BOLD)
-#define PURPLE (MAGENTA | A_BOLD)
-#define GREY (COLOR_PAIR(10) | A_BOLD)
+enum colour_themes {
+    DEFAULT,
+    LIGHT,
+    DARK
+};
+
+enum elements {
+    HEADER,
+    HEADER_TXT,
+    SUBHEADER_TXT,
+    STATUS_BUTTON,
+    BUTTON,
+    DIALOGUE_BKGD,
+    FD_LIST_BKGD,
+    FD_INPUT_BKGD,
+    FD_TEXT,
+    DISABLE,
+    FOCUS,
+    SELECTIONBAR,
+    NUM_ELEMENTS
+};
 
 enum layer {
     ETHERNET_LAYER,
@@ -149,5 +159,6 @@ screen *help_screen_create();
 /* Render the help screen */
 void help_screen_render();
 
+int get_theme_colour(enum elements elem);
 
 #endif

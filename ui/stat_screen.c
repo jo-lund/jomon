@@ -234,34 +234,36 @@ void print_netstat()
     int y = 0;
     struct iw_statistics iwstat;
     struct iw_range iwrange;
+    int hdrcol = get_theme_colour(HEADER_TXT);
+    int subcol = get_theme_colour(SUBHEADER_TXT);
 
     read_netstat();
     calculate_rate();
-    printat(stat_screen->win, y, 0, COLOR_PAIR(4) | A_BOLD, "Network statistics for %s", ctx.device);
+    printat(stat_screen->win, y, 0, COLOR_PAIR(hdrcol) | A_BOLD, "Network statistics for %s", ctx.device);
     mvwprintw(stat_screen->win, ++y, 0, "");
-    printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "Upload rate");
+    printat(stat_screen->win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%13s", "Upload rate");
     wprintw(stat_screen->win, ": %8.2f kB/s", tx.kbps);
     wprintw(stat_screen->win, "\t%4d packets/s", tx.pps);
-    printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "Download rate");
+    printat(stat_screen->win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%13s", "Download rate");
     wprintw(stat_screen->win, ": %8.2f kB/s", rx.kbps);
     wprintw(stat_screen->win, "\t%4d packets/s", rx.pps);
 
     if (get_iw_stats(ctx.device, &iwstat) && get_iw_range(ctx.device, &iwrange)) {
         mvwprintw(stat_screen->win, ++y, 0, "");
-        printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "Link quality");
+        printat(stat_screen->win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%13s", "Link quality");
         wprintw(stat_screen->win, ": %8u/%u", iwstat.qual.qual, iwrange.max_qual.qual);
-        printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "Level");
+        printat(stat_screen->win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%13s", "Level");
         wprintw(stat_screen->win, ": %8d dBm", (int8_t) iwstat.qual.level);
-        printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", "Noise");
+        printat(stat_screen->win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%13s", "Noise");
         wprintw(stat_screen->win, ": %8d dBm", (int8_t) iwstat.qual.noise);
     }
     if (show_packet_stats) {
         mvwprintw(stat_screen->win, ++y, 0, "");
         if (pstat[0].num_packets) {
-            printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%23s %12s", "Packets", "Bytes");
+            printat(stat_screen->win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%23s %12s", "Packets", "Bytes");
             for (int i = 0; i <= NUM_PROTOCOLS; i++) {
                 if (pstat[i].num_packets) {
-                    printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%13s", pstat[i].protocol);
+                    printat(stat_screen->win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%13s", pstat[i].protocol);
                     wprintw(stat_screen->win, ": %8u", pstat[i].num_packets);
                     wprintw(stat_screen->win, "%13llu", pstat[i].num_bytes);
                 }
@@ -274,28 +276,30 @@ void print_hwstat()
 {
     int y = 0;
     unsigned long idle;
+    int hdrcol = get_theme_colour(HEADER_TXT);
+    int subcol = get_theme_colour(SUBHEADER_TXT);
 
     read_hwstat();
-    printat(stat_screen->win, y, 0, COLOR_PAIR(4) | A_BOLD, "Memory and CPU statistics");
+    printat(stat_screen->win, y, 0, COLOR_PAIR(hdrcol) | A_BOLD, "Memory and CPU statistics");
     mvwprintw(stat_screen->win, ++y, 0, "");
-    printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%20s", "Total memory");
+    printat(stat_screen->win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%20s", "Total memory");
     wprintw(stat_screen->win, ": %8lu kB", hw.total_ram);
-    printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%20s", "Memory used");
+    printat(stat_screen->win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%20s", "Memory used");
     wprintw(stat_screen->win, ": %8lu kB", hw.total_ram - hw.free_ram);
-    printat(stat_screen->win, -1, -1, COLOR_PAIR(3) | A_BOLD, "%10s", "Buffers");
+    printat(stat_screen->win, -1, -1, COLOR_PAIR(subcol) | A_BOLD, "%10s", "Buffers");
     wprintw(stat_screen->win, ": %6lu kB", hw.buffers);
-    printat(stat_screen->win, -1, -1, COLOR_PAIR(3) | A_BOLD, "%8s", "Cache");
+    printat(stat_screen->win, -1, -1, COLOR_PAIR(subcol) | A_BOLD, "%8s", "Cache");
     wprintw(stat_screen->win, ": %8lu kB", hw.cached);
     mvwprintw(stat_screen->win, ++y, 0, "");
-    printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "%20s", "Process memory (RSS)");
+    printat(stat_screen->win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "%20s", "Process memory (RSS)");
     wprintw(stat_screen->win, ": %8lu kB", hw.vm_rss);
-    printat(stat_screen->win, -1, -1, COLOR_PAIR(3) | A_BOLD, "%6s", "Pid");
+    printat(stat_screen->win, -1, -1, COLOR_PAIR(subcol) | A_BOLD, "%6s", "Pid");
     wprintw(stat_screen->win, ": %d", hw.pid);
     mvwprintw(stat_screen->win, ++y, 0, "");
     if (cpustat[0][0].idle != 0 && cpustat[0][1].idle != 0) {
         for (int i = 0; i < hw.num_cpu; i++) {
             idle = cpustat[i][!cpuidx].idle - cpustat[i][cpuidx].idle;
-            printat(stat_screen->win, ++y, 0, COLOR_PAIR(3) | A_BOLD, "CPU%d idle", i);
+            printat(stat_screen->win, ++y, 0, COLOR_PAIR(subcol) | A_BOLD, "CPU%d idle", i);
             wprintw(stat_screen->win, ": %5d %%", idle);
         }
     }
