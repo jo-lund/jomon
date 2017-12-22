@@ -19,6 +19,7 @@
 #include "dialogue.h"
 #include "main_screen.h"
 #include "hexdump.h"
+#include "help_screen.h"
 
 #define HEADER_HEIGHT 4
 #define STATUS_HEIGHT 1

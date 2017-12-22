@@ -154,12 +154,6 @@ void printnlw(WINDOW *win, char *str, int len, int y, int x, int scrollx);
  */
 void printat(WINDOW *win, int y, int x, int attrs, const char *fmt, ...);
 
-/* Create and render the help screen */
-screen *help_screen_create();
-
-/* Render the help screen */
-void help_screen_render();
-
 int get_theme_colour(enum elements elem);
 
 #endif
