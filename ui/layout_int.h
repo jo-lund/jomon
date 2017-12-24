@@ -81,7 +81,7 @@ enum screen_type {
         .screen_free = screen_free,                 \
         .screen_refresh = screen_refresh
 
-#define SCREEN_OPTS(...) ((struct screen_operations)   \
+#define SCREEN_OPS(...) ((struct screen_operations)   \
         { SCREEN_DEFAULTS, __VA_ARGS__ })
 
 typedef struct screen {

@@ -3,6 +3,7 @@
 #include "../misc.h"
 #include "../interface.h"
 #include "../decoder/decoder.h"
+#include "help_screen.h"
 #include <string.h>
 #include <unistd.h>
 #ifdef __linux__
@@ -85,7 +86,7 @@ screen *stat_screen_create()
 {
     static screen_operations op;
 
-    op = SCREEN_OPTS(.screen_init = stat_screen_init,
+    op = SCREEN_OPS(.screen_init = stat_screen_init,
                      .screen_free = stat_screen_free,
                      .screen_get_input = stat_screen_get_input);
     return screen_create(&op);

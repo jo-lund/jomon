@@ -19,7 +19,6 @@ publisher_t *screen_changed_publisher;
 static struct screen *screen_cache[NUM_SCREENS];
 static _stack_t *screen_stack;
 static int theme;
-static void help_screen_get_input(screen *s);
 static void init_colours();
 
 static int themes[NUM_THEMES][NUM_ELEMENTS] = {

@@ -7,7 +7,7 @@ screen *help_screen_create()
     screen *s;
     static screen_operations op;
 
-    op = SCREEN_OPTS(.screen_get_input = help_screen_get_input);
+    op = SCREEN_OPS(.screen_get_input = help_screen_get_input);
     s = screen_create(&op);
     return s;
 }

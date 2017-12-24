@@ -76,7 +76,7 @@ dialogue *dialogue_create(char *title)
     static screen_operations op;
     dialogue *d = malloc(sizeof(dialogue));
 
-    op = SCREEN_OPTS(.screen_free = dialogue_free);
+    op = SCREEN_OPS(.screen_free = dialogue_free);
     d->screen_base.op = &op;
     getmaxyx(stdscr, my, mx);
     dialogue_init(d, title, my / 4, mx / 5 + 10);
@@ -135,7 +135,7 @@ label_dialogue *label_dialogue_create(char *title, char *label, button_action ac
 
     getmaxyx(stdscr, my, mx);
     ld = malloc(sizeof(label_dialogue));
-    op = SCREEN_OPTS(.screen_free = label_dialogue_free,
+    op = SCREEN_OPS(.screen_free = label_dialogue_free,
                      .screen_get_input = label_dialogue_get_input);
     ld->dialogue_base.screen_base.op = &op;
     dialogue_init((dialogue *) ld, title, my / 5, mx / 6 + 10);
@@ -189,7 +189,7 @@ file_dialogue *file_dialogue_create(char *title, enum file_selection_type type,
 
     getmaxyx(stdscr, my, mx);
     fd = malloc(sizeof(file_dialogue));
-    op = SCREEN_OPTS(.screen_free = file_dialogue_free,
+    op = SCREEN_OPS(.screen_free = file_dialogue_free,
                      .screen_get_input = file_dialogue_get_input);
     fd->dialogue_base.screen_base.op = &op;
     dialogue_init((dialogue *) fd, title, my / 3, mx / 5 + 10);
@@ -547,7 +547,7 @@ progress_dialogue *progress_dialogue_create(char *title, int size)
 
     getmaxyx(stdscr, my, mx);
     pd = malloc(sizeof(progress_dialogue));
-    op = SCREEN_OPTS(.screen_free = progress_dialogue_free);
+    op = SCREEN_OPS(.screen_free = progress_dialogue_free);
     pd->dialogue_base.screen_base.op = &op;
     dialogue_init((dialogue *) pd, title, my / 5, mx / 6);
     pd->progress_dialogue_update = progress_dialogue_update;
