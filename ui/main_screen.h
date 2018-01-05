@@ -50,6 +50,6 @@ void main_screen_clear(main_screen *ms);
 void main_screen_set_interactive(main_screen *ms, bool interactive_mode);
 
 /* print the buffer to main screen */
-void main_screen_render(main_screen *ms, char *buf);
+void main_screen_update(main_screen *ms, char *buf);
 
 #endif

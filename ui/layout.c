@@ -105,14 +105,6 @@ screen *screen_create(screen_operations *defop)
     return s;
 }
 
-screen *screen_cache_get(enum screen_type type)
-{
-    if (screen_cache[type]) {
-        return screen_cache[type];
-    }
-    return NULL;
-}
-
 void screen_init(screen *s)
 {
     int my, mx;
@@ -149,6 +141,14 @@ void free_container(container *c)
     free(c);
 }
 
+screen *screen_cache_get(enum screen_type type)
+{
+    if (screen_cache[type]) {
+        return screen_cache[type];
+    }
+    return NULL;
+}
+
 void screen_cache_insert(enum screen_type st, screen *s)
 {
     screen_cache[st] = s;
@@ -177,7 +177,7 @@ void print_packet(struct packet *p)
     char buf[MAXLINE];
 
     write_to_buf(buf, MAXLINE, p);
-    main_screen_render((main_screen *) screen_cache[MAIN_SCREEN], buf);
+    main_screen_update((main_screen *) screen_cache[MAIN_SCREEN], buf);
 }
 
 void print_file()

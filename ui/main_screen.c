@@ -146,8 +146,7 @@ void main_screen_free(screen *s)
     free(ms);
 }
 
-// TODO: Rename to main_screen_update
-void main_screen_render(main_screen *ms, char *buf)
+void main_screen_update(main_screen *ms, char *buf)
 {
     int my;
 
@@ -371,10 +370,11 @@ void remove_selectionbar(main_screen *ms, WINDOW *win, int line, uint32_t attr)
                 waddch(win, original_line[i++]);
             }
         } else {
-            mvwchgat(win, line, 0, -1, attr, PAIR_NUMBER(attr), NULL);
+            mvwchgat(win, line, 0, -1, attr, PAIR_NUMBER(get_theme_colour(BACKGROUND)), NULL);
+
         }
     } else {
-        mvwchgat(win, line, 0, -1, attr, PAIR_NUMBER(attr), NULL);
+        mvwchgat(win, line, 0, -1, attr, PAIR_NUMBER(get_theme_colour(BACKGROUND)), NULL);
     }
 }
 
@@ -1034,7 +1034,6 @@ int print_lines(main_screen *ms, int from, int to, int y)
     return c;
 }
 
-
 /*
  * Print more information about a packet when selected. This will print more
  * details about the specific protocol headers and payload.
@@ -1343,6 +1342,7 @@ void create_subwindow(main_screen *ms, int num_lines, int lineno)
 
     /* make space for protocol specific information */
     ms->subwindow.win = newpad(num_lines, mx);
+    wbkgd(ms->subwindow.win, get_theme_colour(BACKGROUND));
     scrollok(ms->subwindow.win, TRUE);
     ms->subwindow.top = start_line + 1;
     ms->subwindow.num_lines = num_lines;
