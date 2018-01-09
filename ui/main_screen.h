@@ -21,7 +21,8 @@ typedef struct {
 
     WINDOW *header;
     WINDOW *status;
-    int selection_line; /* index to the selection bar */
+    int selectionbar; /* absolute index to the selection bar, [0, n), where 'n'
+                         is the total number of lines */
     list_view *lvw;
 
     /* next available line, i.e. outy - 1 is the last line printed on the screen */
