@@ -1,6 +1,5 @@
 srcdir := decoder ui
 incdir := decoder ui
-testdir := unittests
 BUILDDIR := build
 TARGETDIR := bin
 
@@ -37,11 +36,3 @@ clean :
 .PHONY : tags
 tags :
 	@find . -name "*.h" -o -name "*.c" | etags -
-
-test : $(TESTS)
-
-$(testdir)/util_test.o : $(testdir)/util_test.c
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(testdir)/util_test.c -o $@
-
-util_test : $(testdir)/util_test.o
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -lgtest_main -lgtest -lpthread  $< -o $(testdir)/$@
