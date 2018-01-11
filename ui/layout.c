@@ -89,6 +89,12 @@ void init_ncurses()
     ms = main_screen_create();
     screen_cache_insert(MAIN_SCREEN, (screen *) ms);
     push_screen((screen *) ms);
+    if (ctx.show_statistics) {
+        screen *s = stat_screen_create();
+
+        screen_cache_insert(STAT_SCREEN, s);
+        push_screen(s);
+    }
 }
 
 void end_ncurses()
