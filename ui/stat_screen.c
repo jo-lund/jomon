@@ -61,6 +61,7 @@ enum page {
 #define NUM_PAGES 2
 
 extern main_context ctx;
+extern WINDOW *status;
 
 // TODO: Make a stat_screen struct
 static linkdef rx; /* data received */
@@ -77,19 +78,22 @@ static void calculate_rate();
 static void print_netstat();
 static void print_hwstat();
 static void init_stat();
-static void stat_screen_free();
-static void stat_screen_init();
+static void stat_screen_free(screen *s);
+static void stat_screen_init(screen *s);
 static void stat_screen_get_input(screen *s);
-static void stat_screen_changed();
+static void stat_screen_refresh(screen *s);
+static void print_status();
+
+static screen_operations ssop = {
+    .screen_init = stat_screen_init,
+    .screen_free = stat_screen_free,
+    .screen_refresh = stat_screen_refresh,
+    .screen_get_input = stat_screen_get_input
+};
 
 screen *stat_screen_create()
 {
-    static screen_operations op;
-
-    op = SCREEN_OPS(.screen_init = stat_screen_init,
-                     .screen_free = stat_screen_free,
-                     .screen_get_input = stat_screen_get_input);
-    return screen_create(&op);
+    return screen_create(&ssop);
 }
 
 void stat_screen_init(screen *s)
@@ -97,30 +101,27 @@ void stat_screen_init(screen *s)
     screen_init(s);
     nodelay(s->win, TRUE);
     keypad(s->win, TRUE);
-    add_subscription(screen_changed_publisher, stat_screen_changed);
     stat_page = NET_STAT;
     init_stat();
 }
 
-void stat_screen_free()
+void stat_screen_free(screen *s)
 {
     for (int i = 0; i < hw.num_cpu; i++) {
         free(cpustat[i]);
     }
     free(cpustat);
-    screen_free(screen_cache_get(STAT_SCREEN));
+    screen_free(s);
 }
 
-void stat_screen_changed()
+void stat_screen_refresh(screen *s)
 {
-    screen *s = screen_cache_get(STAT_SCREEN);
-
-    if (s->focus) {
-        memset(&rx, 0, sizeof(linkdef));
-        memset(&tx, 0, sizeof(linkdef));
-        stat_screen_print();
-        alarm(1);
-    }
+    screen_refresh(s);
+    memset(&rx, 0, sizeof(linkdef));
+    memset(&tx, 0, sizeof(linkdef));
+    stat_screen_print();
+    print_status();
+    alarm(1);
 }
 
 void stat_screen_get_input(screen *s)
@@ -130,6 +131,7 @@ void stat_screen_get_input(screen *s)
     switch (c) {
     case 'x':
     case KEY_ESC:
+    case KEY_F(3):
         alarm(0);
         pop_screen();
         break;
@@ -183,7 +185,10 @@ void stat_screen_print()
         default:
             break;
         }
-        wrefresh(s->win);
+        wnoutrefresh(s->win);
+        touchwin(status);
+        wnoutrefresh(status);
+        doupdate();
     }
 }
 
@@ -445,4 +450,20 @@ void calculate_rate()
     tx.prev_bytes = tx.tot_bytes;
     rx.prev_packets = rx.num_packets;
     tx.prev_packets = tx.num_packets;
+}
+
+void print_status()
+{
+    int colour = get_theme_colour(STATUS_BUTTON);
+
+    werase(status);
+    mvwprintw(status, 0, 0, "F1");
+    printat(status, -1, -1, colour, "%-11s", "Help");
+    wprintw(status, "F2");
+    printat(status, -1, -1, colour, "%-11s", "Menu");
+    wprintw(status, "F3");
+    printat(status, -1, -1, colour, "%-11s", "Back");
+    wprintw(status, "F10");
+    printat(status, -1, -1, colour, "%-11s", "Quit");
+    wrefresh(status);
 }

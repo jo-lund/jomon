@@ -5,6 +5,7 @@
 #include "../signal.h"
 
 #define KEY_ESC 27
+#define STATUS_HEIGHT 1
 
 enum colour_themes {
     DEFAULT,

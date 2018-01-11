@@ -22,7 +22,6 @@
 #include "help_screen.h"
 
 #define HEADER_HEIGHT 4
-#define STATUS_HEIGHT 1
 #define NUM_COLS_SCROLL 4
 
 /* Get the y and x screen coordinates. The argument is the main_screen coordinate */
@@ -38,6 +37,7 @@ enum views {
 
 extern vector_t *packets;
 extern main_context ctx;
+extern WINDOW *status;
 bool selected[NUM_LAYERS]; // TODO: need to handle this differently
 bool numeric = true;
 static bool interactive = false;
@@ -121,14 +121,12 @@ void main_screen_init(screen *s)
     ms->lvw = NULL;
     ms->header = newwin(HEADER_HEIGHT, mx, 0, 0);
     ms->base.win = newwin(my - HEADER_HEIGHT - STATUS_HEIGHT, mx, HEADER_HEIGHT, 0);
-    ms->status = newwin(STATUS_HEIGHT, mx, my - STATUS_HEIGHT, 0);
     memset(&ms->subwindow, 0, sizeof(ms->subwindow));
     nodelay(ms->base.win, TRUE); /* input functions must be non-blocking */
     keypad(ms->base.win, TRUE);
     scrollok(ms->base.win, TRUE);
     wbkgd(ms->base.win, get_theme_colour(BACKGROUND));
     wbkgd(ms->header, get_theme_colour(BACKGROUND));
-    wbkgd(ms->status, get_theme_colour(BACKGROUND));
 
     // TODO: move to a proper render function
     print_header(ms);
@@ -141,7 +139,6 @@ void main_screen_free(screen *s)
 
     delwin(ms->subwindow.win);
     delwin(ms->header);
-    delwin(ms->status);
     delwin(ms->base.win);
     free(ms);
 }
@@ -179,16 +176,17 @@ void main_screen_refresh(screen *s)
     ms = (main_screen *) s;
     getmaxyx(ms->base.win, my, mx);
     touchwin(ms->base.win);
-    touchwin(ms->status);
+    touchwin(status);
     touchwin(ms->header);
     wnoutrefresh(ms->base.win);
     wnoutrefresh(ms->header);
-    wnoutrefresh(ms->status);
+    wnoutrefresh(status);
     doupdate();
     if (ms->subwindow.win) {
         prefresh(ms->subwindow.win, 0, 0, GET_SCRY(ms->subwindow.top), 0,
                  GET_SCRY(my) - 1, mx);
     }
+    print_status(ms);
 }
 
 void create_load_dialogue()
@@ -539,15 +537,15 @@ void main_screen_get_input(screen *s)
         if (!interactive) return;
         input_mode = !input_mode;
         if (input_mode) {
-            werase(ms->status);
-            mvwprintw(ms->status, 0, 0, "Go to line: ");
+            werase(status);
+            mvwprintw(status, 0, 0, "Go to line: ");
             curs_set(1);
         } else {
             curs_set(0);
-            werase(ms->status);
+            werase(status);
             print_status(ms);
         }
-        wrefresh(ms->status);
+        wrefresh(status);
         break;
     case 's':
     {
@@ -616,45 +614,46 @@ void print_status(main_screen *ms)
     int colour = get_theme_colour(STATUS_BUTTON);
     int disabled = get_theme_colour(DISABLE);
 
-    mvwprintw(ms->status, 0, 0, "F1");
-    printat(ms->status, -1, -1, colour, "%-11s", "Help");
-    wprintw(ms->status, "F2");
-    printat(ms->status, -1, -1, colour, "%-11s", "Menu");
+    werase(status);
+    mvwprintw(status, 0, 0, "F1");
+    printat(status, -1, -1, colour, "%-11s", "Help");
+    wprintw(status, "F2");
+    printat(status, -1, -1, colour, "%-11s", "Menu");
     if (ctx.capturing || euid != 0) {
-        printat(ms->status, -1, -1, disabled, "F3");
+        printat(status, -1, -1, disabled, "F3");
     } else {
-        wprintw(ms->status, "F3");
+        wprintw(status, "F3");
     }
-    printat(ms->status, -1, -1, colour, "%-11s", "Start");
+    printat(status, -1, -1, colour, "%-11s", "Start");
     if (ctx.capturing) {
-        wprintw(ms->status, "F4");
+        wprintw(status, "F4");
     } else {
-        printat(ms->status, -1, -1, disabled, "F4");
+        printat(status, -1, -1, disabled, "F4");
     }
-    printat(ms->status, -1, -1, colour, "%-11s", "Stop");
+    printat(status, -1, -1, colour, "%-11s", "Stop");
     if (ctx.capturing || vector_size(packets) == 0) {
-        printat(ms->status, -1, -1, disabled, "F5");
-        printat(ms->status, -1, -1, colour, "%-11s", "Save");
+        printat(status, -1, -1, disabled, "F5");
+        printat(status, -1, -1, colour, "%-11s", "Save");
     } else {
-        wprintw(ms->status, "F5");
-        printat(ms->status, -1, -1, colour, "%-11s", "Save");
+        wprintw(status, "F5");
+        printat(status, -1, -1, colour, "%-11s", "Save");
     }
     if (ctx.capturing) {
-        printat(ms->status, -1, -1, disabled, "F6");
-        printat(ms->status, -1, -1, colour, "%-11s", "Load");
+        printat(status, -1, -1, disabled, "F6");
+        printat(status, -1, -1, colour, "%-11s", "Load");
     } else {
-        wprintw(ms->status, "F6");
-        printat(ms->status, -1, -1, colour, "%-11s", "Load");
+        wprintw(status, "F6");
+        printat(status, -1, -1, colour, "%-11s", "Load");
     }
-    wprintw(ms->status, "F7");
+    wprintw(status, "F7");
     if (view_mode == DECODED_VIEW) {
-        printat(ms->status, -1, -1, colour, "%-11s", "View (dec)");
+        printat(status, -1, -1, colour, "%-11s", "View (dec)");
     } else {
-        printat(ms->status, -1, -1, colour, "%-11s", "View (hex)");
+        printat(status, -1, -1, colour, "%-11s", "View (hex)");
     }
-    wprintw(ms->status, "F10");
-    printat(ms->status, -1, -1, colour, "%-11s", "Quit");
-    wrefresh(ms->status);
+    wprintw(status, "F10");
+    printat(status, -1, -1, colour, "%-11s", "Quit");
+    wrefresh(status);
 }
 
 void goto_line(main_screen *ms, int c)
@@ -662,14 +661,14 @@ void goto_line(main_screen *ms, int c)
     static int num = 0;
 
     if (isdigit(c) && num < INT_MAX / 10) {
-        waddch(ms->status, c);
+        waddch(status, c);
         num = num * 10 + c - '0';
     } else if (c == KEY_BACKSPACE) {
         int x, y;
 
-        getyx(ms->status, y, x);
+        getyx(status, y, x);
         if (x >= 13) {
-            mvwdelch(ms->status, y, x - 1);
+            mvwdelch(status, y, x - 1);
             num /= 10;
         }
     } else if (num && (c == '\n' || c == KEY_ENTER)) {
@@ -705,18 +704,18 @@ void goto_line(main_screen *ms, int c)
         }
         wrefresh(ms->base.win);
         curs_set(0);
-        werase(ms->status);
+        werase(status);
         input_mode = false;
         num = 0;
         print_status(ms);
     } else if (c == KEY_ESC) {
         curs_set(0);
-        werase(ms->status);
+        werase(status);
         print_status(ms);
         num = 0;
         input_mode = false;
     }
-    wrefresh(ms->status);
+    wrefresh(status);
 }
 
 void goto_end(main_screen *ms)

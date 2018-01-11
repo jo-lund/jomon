@@ -20,7 +20,6 @@ typedef struct {
     } subwindow;
 
     WINDOW *header;
-    WINDOW *status;
     int selectionbar; /* absolute index to the selection bar, [0, n), where 'n'
                          is the total number of lines */
     list_view *lvw;

@@ -15,7 +15,7 @@
 
 extern vector_t *packets;
 extern main_context ctx;
-publisher_t *screen_changed_publisher;
+WINDOW *status;
 static struct screen *screen_cache[NUM_SCREENS];
 static _stack_t *screen_stack;
 static int theme;
@@ -72,6 +72,7 @@ static int themes[NUM_THEMES][NUM_ELEMENTS] = {
 void init_ncurses()
 {
     main_screen *ms;
+    int mx, my;
 
     initscr(); /* initialize curses mode */
     cbreak(); /* disable line buffering */
@@ -81,8 +82,10 @@ void init_ncurses()
     start_color();
     init_colours();
     set_escdelay(25); /* set escdelay to 25 ms */
-    screen_changed_publisher = publisher_init();
     screen_stack = stack_init(NUM_SCREENS);
+    getmaxyx(stdscr, my, mx);
+    status = newwin(STATUS_HEIGHT, mx, my - STATUS_HEIGHT, 0);
+    wbkgd(status, get_theme_colour(BACKGROUND));
     ms = main_screen_create();
     screen_cache_insert(MAIN_SCREEN, (screen *) ms);
     push_screen((screen *) ms);
@@ -91,7 +94,7 @@ void init_ncurses()
 void end_ncurses()
 {
     screen_cache_clear();
-    publisher_free(screen_changed_publisher);
+    delwin(status);
     endwin();
 }
 
@@ -199,7 +202,6 @@ void pop_screen()
         screen *newscr = stack_top(screen_stack);
 
         newscr->focus = true;
-        publish(screen_changed_publisher);
         wgetch(newscr->win); /* remove character from input queue */
         SCREEN_REFRESH(newscr);
     }
@@ -214,7 +216,6 @@ void push_screen(screen *newscr)
     }
     newscr->focus = true;
     stack_push(screen_stack, newscr);
-    publish(screen_changed_publisher);
     SCREEN_REFRESH(newscr);
 }
 
