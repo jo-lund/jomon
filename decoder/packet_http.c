@@ -6,19 +6,22 @@
 
 #define MAX_HTTP_LINE 4096
 
-static bool parse_http(char *buf, uint16_t len, struct http_info *http);
-static bool parse_http_header(char **str, unsigned int *len, list_t **header);
+static enum http_state {
+    FIELD,
+    VAL,
+    EOL
+} state;
 
-bool handle_http(unsigned char *buffer, struct application_info *info, uint16_t len)
+static bool parse_http(unsigned char *buf, uint16_t len, struct http_info *http);
+static bool parse_http_header(unsigned char **str, unsigned int *len, list_t **header);
+
+packet_error handle_http(unsigned char *buffer, uint16_t len, struct application_info *info)
 {
-    bool error;
-
     info->http = malloc(sizeof(struct http_info));
-    error = parse_http((char *) buffer, len, info->http);
-    if (error) {
-        free(info->http);
+    if (!parse_http(buffer, len, info->http)) {
+        return HTTP_ERR;
     }
-    return error;
+    return NO_ERR;
 }
 
 /*
@@ -26,9 +29,9 @@ bool handle_http(unsigned char *buffer, struct application_info *info, uint16_t 
  *
  * Returns false if there is an error.
  */
-bool parse_http(char *buffer, uint16_t len, struct http_info *http)
+bool parse_http(unsigned char *buffer, uint16_t len, struct http_info *http)
 {
-    char *ptr;
+    unsigned char *ptr;
     char line[MAX_HTTP_LINE];
     bool is_http = false;
     int i;
@@ -60,7 +63,7 @@ bool parse_http(char *buffer, uint16_t len, struct http_info *http)
     unsigned int header_len;
 
     http->header = list_init();
-    n -= i;
+    n -= (i + 2); /* subtract i + CRLF */
     header_len = n;
     is_http = parse_http_header(&ptr, &header_len, &http->header);
 
@@ -86,20 +89,14 @@ bool parse_http(char *buffer, uint16_t len, struct http_info *http)
  *
  * Returns the result of the operation.
  */
-bool parse_http_header(char **str, unsigned int *len, list_t **header)
+bool parse_http_header(unsigned char **str, unsigned int *len, list_t **header)
 {
     int i, j;
     bool eoh = false;
     bool is_http = true;
-    char *ptr = *str;
+    unsigned char *ptr = *str;
     char line[MAX_HTTP_LINE];
     int n = *len;
-
-    static enum http_state {
-        FIELD,
-        VAL,
-        EOL
-    } state;
 
     for (i = 0; i < n && !eoh && is_http; i += j) {
         int c = 0;
@@ -109,6 +106,7 @@ bool parse_http_header(char **str, unsigned int *len, list_t **header)
         for (j = 0; !is_http && !eoh && isascii(*ptr) && j + i < n; j++, ptr++) {
             if (c > MAX_HTTP_LINE) {
                 *len = i + j;
+                *str = ptr;
                 return false;
             }
             switch (state) {
@@ -117,17 +115,12 @@ bool parse_http_header(char **str, unsigned int *len, list_t **header)
                     state = VAL;
                     line[c++] = *ptr;
                 } else if (*ptr == '\r') {
-                    *len = i + j;
-                    return false;
+                    state = EOL;
                 } else {
                     line[c++] = *ptr;
                 }
                 break;
             case VAL:
-                if (*ptr == ':') {
-                    *len = i + j;
-                    return false;
-                }
                 if (*ptr == '\r') {
                     state = EOL;
                 } else {
@@ -137,14 +130,16 @@ bool parse_http_header(char **str, unsigned int *len, list_t **header)
             case EOL:
                 if (*ptr != '\n') {
                     *len = i + j;
+                    *str = ptr;
                     return false;
                 }
-                line[c] = '\0';
-                list_push_back(*header, strdup(line));
-                if (j == 1) {  /* end of header fields */
-                    *len = i + j;
+                if (j == 1) { /* end of header fields */
+                    *len = i + j + 1;
+                    *str = ptr + 1;
                     return true;
                 } else {
+                    line[c] = '\0';
+                    list_push_back(*header, strdup(line));
                     is_http = true;
                 }
                 break;
@@ -152,6 +147,7 @@ bool parse_http_header(char **str, unsigned int *len, list_t **header)
         }
     }
     *len = i;
+    *str = ptr;
     return false;
 }
 

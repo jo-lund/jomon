@@ -215,6 +215,8 @@ packet_error check_port(unsigned char *buffer, int n, struct application_info *a
     case MDNS:
     case LLMNR:
         return handle_dns(buffer, n, adu);
+    case HTTP:
+        return handle_http(buffer, n, adu);
     case NBNS:
         return handle_nbns(buffer, n, adu);
     case NBDS:
