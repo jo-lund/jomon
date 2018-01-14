@@ -4,6 +4,7 @@
 #include "../interface.h"
 #include "../decoder/decoder.h"
 #include "help_screen.h"
+#include "menu.h"
 #include <string.h>
 #include <unistd.h>
 #ifdef __linux__
@@ -13,6 +14,7 @@
 
 #define MAX_NAME 128
 
+extern main_menu *menu;
 static const char *devpath = "/proc/net/dev";
 static const char *statuspath = "/proc/self/status";
 static const char *mempath = "/proc/meminfo";
@@ -116,6 +118,7 @@ void stat_screen_free(screen *s)
 
 void stat_screen_refresh(screen *s)
 {
+    wbkgd(s->win, get_theme_colour(BACKGROUND));
     screen_refresh(s);
     memset(&rx, 0, sizeof(linkdef));
     memset(&tx, 0, sizeof(linkdef));
@@ -143,11 +146,13 @@ void stat_screen_get_input(screen *s)
         if (!(scr = screen_cache_get(HELP_SCREEN))) {
             scr = help_screen_create();
             screen_cache_insert(HELP_SCREEN, scr);
-            help_screen_render();
         }
         push_screen(scr);
         break;
     }
+    case KEY_F(2):
+        push_screen((screen *) menu);
+        break;
     case 'p':
         show_packet_stats = !show_packet_stats;
         stat_screen_print();
@@ -457,6 +462,7 @@ void print_status()
     int colour = get_theme_colour(STATUS_BUTTON);
 
     werase(status);
+    wbkgd(status, get_theme_colour(BACKGROUND));
     mvwprintw(status, 0, 0, "F1");
     printat(status, -1, -1, colour, "%-11s", "Help");
     wprintw(status, "F2");

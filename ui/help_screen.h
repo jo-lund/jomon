@@ -6,7 +6,4 @@
 /* Create the help screen */
 screen *help_screen_create();
 
-/* Render the help screen */
-void help_screen_render();
-
 #endif

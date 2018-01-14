@@ -54,15 +54,28 @@ inline void *stack_top(_stack_t *stack)
     return NULL;
 }
 
+inline void *stack_get(_stack_t *stack, unsigned int i)
+{
+    if (i < stack->size) {
+        return stack->buf[i].data;
+    }
+    return NULL;
+}
+
 inline void stack_clear(_stack_t *stack)
 {
     stack->size = 0;
     stack->top = 0;
 }
 
-bool stack_empty(_stack_t *stack)
+inline bool stack_empty(_stack_t *stack)
 {
     return stack->top == 0;
+}
+
+inline unsigned int stack_size(_stack_t *stack)
+{
+    return stack->top;
 }
 
 void stack_free(_stack_t *stack, stack_deallocate func)

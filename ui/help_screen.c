@@ -1,13 +1,16 @@
 #include "help_screen.h"
 
 static void help_screen_get_input(screen *s);
+static void help_screen_render();
+static void help_screen_refresh(screen *s);
 
 screen *help_screen_create()
 {
     screen *s;
     static screen_operations op;
 
-    op = SCREEN_OPS(.screen_get_input = help_screen_get_input);
+    op = SCREEN_OPS(.screen_get_input = help_screen_get_input,
+                    .screen_refresh = help_screen_refresh);
     s = screen_create(&op);
     return s;
 }
@@ -17,6 +20,13 @@ void help_screen_get_input(screen *s)
     pop_screen(s);
 }
 
+void help_screen_refresh(screen *s)
+{
+    help_screen_render();
+    touchwin(s->win);
+    wrefresh(s->win);
+}
+
 void help_screen_render()
 {
     int y = 0;
@@ -24,6 +34,7 @@ void help_screen_render()
     int hdrcol = get_theme_colour(HEADER_TXT);
     int subcol = get_theme_colour(SUBHEADER_TXT);
 
+    wbkgd(win, get_theme_colour(BACKGROUND));
     wprintw(win, "Monitor 0.0.1 (c) 2017 John Olav Lund");
     mvwprintw(win, ++y, 0, "");
     mvwprintw(win, ++y, 0, "When a packet scan is active you can enter interactive mode " \

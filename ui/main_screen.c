@@ -20,6 +20,7 @@
 #include "main_screen.h"
 #include "hexdump.h"
 #include "help_screen.h"
+#include "menu.h"
 
 #define HEADER_HEIGHT 4
 #define NUM_COLS_SCROLL 4
@@ -38,6 +39,7 @@ enum views {
 extern vector_t *packets;
 extern main_context ctx;
 extern WINDOW *status;
+extern main_menu *menu;
 bool selected[NUM_LAYERS]; // TODO: need to handle this differently
 bool numeric = true;
 static bool interactive = false;
@@ -125,12 +127,6 @@ void main_screen_init(screen *s)
     nodelay(ms->base.win, TRUE); /* input functions must be non-blocking */
     keypad(ms->base.win, TRUE);
     scrollok(ms->base.win, TRUE);
-    wbkgd(ms->base.win, get_theme_colour(BACKGROUND));
-    wbkgd(ms->header, get_theme_colour(BACKGROUND));
-
-    // TODO: move to a proper render function
-    print_header(ms);
-    print_status(ms);
 }
 
 void main_screen_free(screen *s)
@@ -175,6 +171,8 @@ void main_screen_refresh(screen *s)
 
     ms = (main_screen *) s;
     getmaxyx(ms->base.win, my, mx);
+    wbkgd(ms->base.win, get_theme_colour(BACKGROUND));
+    wbkgd(ms->header, get_theme_colour(BACKGROUND));
     touchwin(ms->base.win);
     touchwin(status);
     touchwin(ms->header);
@@ -183,10 +181,13 @@ void main_screen_refresh(screen *s)
     wnoutrefresh(status);
     doupdate();
     if (ms->subwindow.win) {
+        wbkgd(ms->subwindow.win, get_theme_colour(BACKGROUND));
         prefresh(ms->subwindow.win, 0, 0, GET_SCRY(ms->subwindow.top), 0,
                  GET_SCRY(my) - 1, mx);
     }
+    print_header(ms);
     print_status(ms);
+
 }
 
 void create_load_dialogue()
@@ -479,12 +480,12 @@ void main_screen_get_input(screen *s)
             screen *s = help_screen_create();
 
             screen_cache_insert(HELP_SCREEN, s);
-            help_screen_render();
             push_screen(s);
         }
         break;
     }
-    case KEY_F(2):
+   case KEY_F(2):
+        push_screen((screen *) menu);
         break;
     case KEY_F(3):
     {

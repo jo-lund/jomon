@@ -6,9 +6,9 @@
 #include "dialogue.h"
 #include "../vector.h"
 #include "../stack.h"
+#include "menu.h"
 #include <string.h>
 
-#define NUM_THEMES 3
 #define NUM_COLOURS 8
 
 #define COLOUR_IDX(f, b) ((b == -1) ? (f) + 1 : (b) + 1 + ((f) + 1) * NUM_COLOURS)
@@ -16,10 +16,12 @@
 extern vector_t *packets;
 extern main_context ctx;
 WINDOW *status;
+main_menu *menu;
 static struct screen *screen_cache[NUM_SCREENS];
 static _stack_t *screen_stack;
 static int theme;
 static void init_colours();
+static void change_theme(int i);
 
 static int themes[NUM_THEMES][NUM_ELEMENTS] = {
     [DEFAULT] = {
@@ -85,7 +87,6 @@ void init_ncurses()
     screen_stack = stack_init(NUM_SCREENS);
     getmaxyx(stdscr, my, mx);
     status = newwin(STATUS_HEIGHT, mx, my - STATUS_HEIGHT, 0);
-    wbkgd(status, get_theme_colour(BACKGROUND));
     ms = main_screen_create();
     screen_cache_insert(MAIN_SCREEN, (screen *) ms);
     push_screen((screen *) ms);
@@ -95,6 +96,8 @@ void init_ncurses()
         screen_cache_insert(STAT_SCREEN, s);
         push_screen(s);
     }
+    menu = main_menu_create();
+    menu->handler = change_theme;
 }
 
 void end_ncurses()
@@ -120,7 +123,6 @@ void screen_init(screen *s)
 
     getmaxyx(stdscr, my, mx);
     s->win = newwin(my, mx, 0, 0);
-    wbkgd(s->win, get_theme_colour(BACKGROUND));
 }
 
 void screen_free(screen *s)
@@ -299,4 +301,17 @@ void init_colours()
 inline int get_theme_colour(enum elements elem)
 {
     return themes[theme][elem];
+}
+
+void change_theme(int i)
+{
+    screen *s;
+    screen *prev;
+
+    /* refresh the top screen (menu) and the one behind */
+    theme = i;
+    s = stack_top(screen_stack);
+    prev = stack_get(screen_stack, stack_size(screen_stack) - 2);
+    SCREEN_REFRESH(prev);
+    SCREEN_REFRESH(s);
 }

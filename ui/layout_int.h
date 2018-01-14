@@ -6,6 +6,7 @@
 
 #define KEY_ESC 27
 #define STATUS_HEIGHT 1
+#define NUM_THEMES 3
 
 enum colour_themes {
     DEFAULT,
