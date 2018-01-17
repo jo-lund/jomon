@@ -4,6 +4,6 @@
 #include "layout_int.h"
 
 screen *stat_screen_create();
-void stat_screen_print();
+void stat_screen_print(screen *s);
 
 #endif

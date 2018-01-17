@@ -122,7 +122,7 @@ void stat_screen_refresh(screen *s)
     screen_refresh(s);
     memset(&rx, 0, sizeof(linkdef));
     memset(&tx, 0, sizeof(linkdef));
-    stat_screen_print();
+    stat_screen_print(s);
     print_status();
     alarm(1);
 }
@@ -155,7 +155,7 @@ void stat_screen_get_input(screen *s)
         break;
     case 'p':
         show_packet_stats = !show_packet_stats;
-        stat_screen_print();
+        stat_screen_print(s);
         break;
     case 'v':
         stat_page = (stat_page + 1) % NUM_PAGES;
@@ -163,7 +163,7 @@ void stat_screen_get_input(screen *s)
             memset(&rx, 0, sizeof(linkdef));
             memset(&tx, 0, sizeof(linkdef));
         }
-        stat_screen_print();
+        stat_screen_print(s);
         break;
     case 'q':
     case KEY_F(10):
@@ -174,27 +174,23 @@ void stat_screen_get_input(screen *s)
     }
 }
 
-void stat_screen_print()
+void stat_screen_print(screen *s)
 {
-    screen *s = screen_cache_get(STAT_SCREEN);
-
-    if (s && s->focus) {
-        werase(s->win);
-        switch (stat_page) {
-        case NET_STAT:
-            print_netstat();
-            break;
-        case HW_STAT:
-            print_hwstat();
-            break;
-        default:
-            break;
-        }
-        wnoutrefresh(s->win);
-        touchwin(status);
-        wnoutrefresh(status);
-        doupdate();
+    werase(s->win);
+    switch (stat_page) {
+    case NET_STAT:
+        print_netstat();
+        break;
+    case HW_STAT:
+        print_hwstat();
+        break;
+    default:
+        break;
     }
+    wnoutrefresh(s->win);
+    touchwin(status);
+    wnoutrefresh(status);
+    doupdate();
 }
 
 void init_stat()

@@ -62,7 +62,7 @@ static void scroll_column(main_screen *ms, int scrollx, int num_lines);
 static void scroll_window(main_screen *ms);
 static int print_lines(main_screen *ms, int from, int to, int y);
 static void print_header(main_screen *ms);
-static void print_status(main_screen *ms);
+static void print_status();
 static void print_selected_packet(main_screen *ms);
 static void print_protocol_information(main_screen *ms, struct packet *p, int lineno);
 static void goto_line(main_screen *ms, int c);
@@ -176,17 +176,24 @@ void main_screen_refresh(screen *s)
     touchwin(ms->base.win);
     touchwin(status);
     touchwin(ms->header);
+    if (interactive) {
+        show_selectionbar(ms, ms->base.win, ms->selectionbar - ms->top, A_NORMAL);
+    }
     wnoutrefresh(ms->base.win);
     wnoutrefresh(ms->header);
     wnoutrefresh(status);
     doupdate();
     if (ms->subwindow.win) {
+        struct packet *p;
+
         wbkgd(ms->subwindow.win, get_theme_colour(BACKGROUND));
+        p = vector_get_data(packets, ms->main_line.line_number + ms->top);
+        print_protocol_information(ms, p, ms->main_line.line_number + ms->top);
         prefresh(ms->subwindow.win, 0, 0, GET_SCRY(ms->subwindow.top), 0,
                  GET_SCRY(my) - 1, mx);
     }
     print_header(ms);
-    print_status(ms);
+    print_status();
 
 }
 
@@ -258,7 +265,7 @@ void load_handle_ok(void *file)
             pop_screen();
             SCREEN_FREE((screen *) pd);
             print_header(ms);
-            print_status(ms);
+            print_status();
             print_file(ms);
         } else {
             pop_screen();
@@ -283,7 +290,7 @@ void load_handle_cancel(void *d)
         ms = (main_screen *) screen_cache_get(MAIN_SCREEN);
         main_screen_clear(ms);
         print_header(ms);
-        print_status(ms);
+        print_status();
         wrefresh(ms->base.win);
         decode_error = false;
     }
@@ -496,7 +503,7 @@ void main_screen_get_input(screen *s)
             ctx.capturing = true;
             wrefresh(ms->base.win);
             print_header(ms);
-            print_status(ms);
+            print_status();
             start_scan();
         }
         break;
@@ -508,7 +515,7 @@ void main_screen_get_input(screen *s)
             }
             stop_scan();
             ctx.capturing = false;
-            print_status(ms);
+            print_status();
         }
         break;
     case KEY_F(5):
@@ -532,7 +539,7 @@ void main_screen_get_input(screen *s)
             }
             print_protocol_information(ms, p, ms->main_line.line_number + ms->top);
         }
-        print_status(ms);
+        print_status();
         break;
     case 'g':
         if (!interactive) return;
@@ -544,7 +551,7 @@ void main_screen_get_input(screen *s)
         } else {
             curs_set(0);
             werase(status);
-            print_status(ms);
+            print_status();
         }
         wrefresh(status);
         break;
@@ -609,13 +616,14 @@ void print_header(main_screen *ms)
     wrefresh(ms->header);
 }
 
-void print_status(main_screen *ms)
+void print_status()
 {
     uid_t euid = geteuid();
     int colour = get_theme_colour(STATUS_BUTTON);
     int disabled = get_theme_colour(DISABLE);
 
     werase(status);
+    wbkgd(status, get_theme_colour(BACKGROUND));
     mvwprintw(status, 0, 0, "F1");
     printat(status, -1, -1, colour, "%-11s", "Help");
     wprintw(status, "F2");
@@ -708,11 +716,11 @@ void goto_line(main_screen *ms, int c)
         werase(status);
         input_mode = false;
         num = 0;
-        print_status(ms);
+        print_status();
     } else if (c == KEY_ESC) {
         curs_set(0);
         werase(status);
-        print_status(ms);
+        print_status();
         num = 0;
         input_mode = false;
     }

@@ -272,12 +272,17 @@ void handle_input()
 
 void layout(enum event ev)
 {
+    screen *s;
+
     switch (ev) {
     case NEW_PACKET:
         print_packet(vector_back(packets));
         break;
     case ALARM:
-        stat_screen_print();
+        s = screen_cache_get(STAT_SCREEN);
+        if (s && s->focus) {
+            stat_screen_print(s);
+        }
         break;
     default:
         break;
