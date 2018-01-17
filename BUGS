@@ -12,3 +12,5 @@
   packet being inspected.
 - Switching view mode when a packet covers the entire screen causes the remaining
   lines in the hexdump to all show at the bottom line.
+- Sometimes I get a crash when freeing packets in icmp.pcap
+- Display errors when opening the SNAP subheader in cdp.pcap, packet 53
