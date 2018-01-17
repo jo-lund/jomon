@@ -34,6 +34,7 @@ void help_screen_render()
     int hdrcol = get_theme_colour(HEADER_TXT);
     int subcol = get_theme_colour(SUBHEADER_TXT);
 
+    werase(win);
     wbkgd(win, get_theme_colour(BACKGROUND));
     wprintw(win, "Monitor 0.0.1 (c) 2017 John Olav Lund");
     mvwprintw(win, ++y, 0, "");

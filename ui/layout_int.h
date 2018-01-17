@@ -144,6 +144,9 @@ void pop_screen();
 /* Return whether the screen stack is empty or not */
 bool screen_stack_empty();
 
+/* Get the screen behind the topmost screen */
+screen *screen_stack_prev();
+
 /*
  * When the scrollok option is enabled ncurses will wrap long lines at the
  * bottom of the screen. This function will print without line wrapping.

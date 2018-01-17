@@ -123,6 +123,7 @@ void main_screen_init(screen *s)
     ms->lvw = NULL;
     ms->header = newwin(HEADER_HEIGHT, mx, 0, 0);
     ms->base.win = newwin(my - HEADER_HEIGHT - STATUS_HEIGHT, mx, HEADER_HEIGHT, 0);
+    ms->base.focus = false;
     memset(&ms->subwindow, 0, sizeof(ms->subwindow));
     nodelay(ms->base.win, TRUE); /* input functions must be non-blocking */
     keypad(ms->base.win, TRUE);
@@ -180,8 +181,6 @@ void main_screen_refresh(screen *s)
         show_selectionbar(ms, ms->base.win, ms->selectionbar - ms->top, A_NORMAL);
     }
     wnoutrefresh(ms->base.win);
-    wnoutrefresh(ms->header);
-    wnoutrefresh(status);
     doupdate();
     if (ms->subwindow.win) {
         struct packet *p;
@@ -194,7 +193,6 @@ void main_screen_refresh(screen *s)
     }
     print_header(ms);
     print_status();
-
 }
 
 void create_load_dialogue()

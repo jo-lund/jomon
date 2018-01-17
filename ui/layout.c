@@ -22,6 +22,7 @@ static _stack_t *screen_stack;
 static int theme;
 static void init_colours();
 static void change_theme(int i);
+static void change_display(int i);
 
 static int themes[NUM_THEMES][NUM_ELEMENTS] = {
     [DEFAULT] = {
@@ -71,6 +72,21 @@ static int themes[NUM_THEMES][NUM_ELEMENTS] = {
     }
 };
 
+static char *menu_themes[] = {
+    "Default",
+    "Light",
+    "Dark"
+};
+static char *menu_display[] = {
+    "Megabytes",
+    "Kilobytes",
+    "Bytes",
+    "Mbit/s",
+    "Kbit/s",
+    "MB/s",
+    "kB/s"
+};
+
 void init_ncurses()
 {
     main_screen *ms;
@@ -97,7 +113,9 @@ void init_ncurses()
         push_screen(s);
     }
     menu = main_menu_create();
-    menu->handler = change_theme;
+    main_menu_add_options(menu, "Themes", menu_themes, 3, change_theme, 5, 12, my - 6, 0);
+    main_menu_add_options(menu, "Display", menu_display, 7, change_display, 9, 14, my - 10, 12);
+    menu->cur = list_begin(menu->opt);
 }
 
 void end_ncurses()
@@ -232,6 +250,11 @@ inline bool screen_stack_empty()
     return stack_empty(screen_stack);
 }
 
+screen *screen_stack_prev()
+{
+    return stack_get(screen_stack, stack_size(screen_stack) - 2);
+}
+
 void printat(WINDOW *win, int y, int x, int attrs, const char *fmt, ...)
 {
     char buf[MAXLINE];
@@ -319,4 +342,9 @@ void change_theme(int i)
     prev = stack_get(screen_stack, stack_size(screen_stack) - 2);
     SCREEN_REFRESH(prev);
     SCREEN_REFRESH(s);
+}
+
+void change_display(int i)
+{
+
 }
