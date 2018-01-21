@@ -63,8 +63,8 @@ rbtree_t *rbtree_init()
 void rbtree_free(rbtree_t *tree)
 {
     free_nodes(tree, tree->root);
-    free(tree);
     free(tree->nil);
+    free(tree);
 }
 
 void rbtree_insert(rbtree_t *tree, void *key, void *data, rbtree_compare fn)
@@ -286,7 +286,7 @@ void remove_fixup(rbtree_t *tree, rbtree_node_t *x)
 }
 
 /*
- * A left rotation swaps the parent with its right node while preserving the
+ * A left rotation swaps the parent with its right child while preserving the
  * inorder property of the tree
  */
 void left_rotate(rbtree_t *tree, rbtree_node_t *p)
@@ -313,7 +313,7 @@ void left_rotate(rbtree_t *tree, rbtree_node_t *p)
 }
 
 /*
- * A right rotation swaps the parent with its left node while preserving the
+ * A right rotation swaps the parent with its left child while preserving the
  * inorder property of the tree
  */
 void right_rotate(rbtree_t *tree, rbtree_node_t *p)
@@ -385,6 +385,22 @@ inline void *rbtree_get_key(const rbtree_node_t *node)
 inline void *rbtree_get_data(const rbtree_node_t *node)
 {
     return node->data;
+}
+
+void *rbtree_data(rbtree_t *tree, void *key, rbtree_compare fn)
+{
+    rbtree_node_t *n = tree->root;
+
+    while (n != tree->nil) {
+        if (fn(key, n->key) < 0) {
+            n = n->left;
+        } else if (fn(key, n->key) > 0) {
+            n = n->right;
+        } else {
+            return n->data;
+        }
+    }
+    return NULL;
 }
 
 void free_nodes(rbtree_t *tree, rbtree_node_t *n)
