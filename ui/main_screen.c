@@ -144,12 +144,12 @@ void main_screen_update(main_screen *ms, char *buf)
 {
     int my;
 
-    my = getmaxy(ms->base.win);
-    if (!interactive || (interactive && ms->outy < my)) {
-        scroll_window(ms);
-        printnlw(ms->base.win, buf, strlen(buf), ms->outy, 0, ms->scrollx);
-        ms->outy++;
-        if (ms->base.focus) {
+    if (ms->base.focus) {
+        my = getmaxy(ms->base.win);
+        if (!interactive || (interactive && ms->outy < my)) {
+            scroll_window(ms);
+            printnlw(ms->base.win, buf, strlen(buf), ms->outy, 0, ms->scrollx);
+            ms->outy++;
             wrefresh(ms->base.win);
         }
     }
@@ -175,13 +175,28 @@ void main_screen_refresh(screen *s)
     wbkgd(ms->base.win, get_theme_colour(BACKGROUND));
     wbkgd(ms->header, get_theme_colour(BACKGROUND));
     touchwin(ms->base.win);
-    touchwin(status);
-    touchwin(ms->header);
+
+    /* re-render the whole screen when capturing */
+    if (ms->outy >= my && ctx.capturing) {
+        goto_end(ms);
+    } else if (ctx.capturing) {
+        int c = vector_size(packets) - 1;
+
+        werase(ms->base.win);
+        for (int i = c; i >= 0; i--) {
+            struct packet *p;
+            char buffer[MAXLINE];
+
+            p = vector_get_data(packets, i);
+            write_to_buf(buffer, MAXLINE, p);
+            printnlw(ms->base.win, buffer, strlen(buffer), i, 0, ms->scrollx);
+        }
+        ms->outy = c + 1;
+    }
     if (interactive) {
         show_selectionbar(ms, ms->base.win, ms->selectionbar - ms->top, A_NORMAL);
     }
-    wnoutrefresh(ms->base.win);
-    doupdate();
+    wrefresh(ms->base.win);
     if (ms->subwindow.win) {
         struct packet *p;
 

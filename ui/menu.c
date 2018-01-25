@@ -106,7 +106,8 @@ void main_menu_refresh(screen *s)
         main_menu_print(s);
         menu->update = false;
     }
-    SCREEN_REFRESH(prev);
+    touchwin(prev->win);
+    wnoutrefresh(prev->win);
     show_selectionbar(focused->content, focused->i);
     werase(status);
     touchwin(status);
