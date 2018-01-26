@@ -43,6 +43,7 @@ typedef struct {
     unsigned long buffers;
     unsigned long cached;
     unsigned int vm_rss;
+    unsigned int vm_size;
     int pid;
     int num_cpu;
     char cpu_name[MAX_NAME];
@@ -61,6 +62,15 @@ enum page {
 };
 
 #define NUM_PAGES 2
+
+#define GET_VALUE(buf, i, s, l, val)            \
+    do {                                        \
+        i += l;                                 \
+        while (isspace(buf[i])) {               \
+            i++;                                \
+        }                                       \
+        sscanf(buf + i, s, &val);               \
+    } while (0);
 
 extern main_context ctx;
 extern WINDOW *status;
@@ -291,25 +301,27 @@ void print_hwstat()
     read_hwstat();
     printat(s->win, y, 0, hdrcol, "Memory and CPU statistics");
     mvwprintw(s->win, ++y, 0, "");
-    printat(s->win, ++y, 0, subcol, "%20s", "Total memory");
+    printat(s->win, ++y, 0, subcol, "%18s", "Total memory");
     wprintw(s->win, ": %8lu kB", hw.total_ram);
-    printat(s->win, ++y, 0, subcol, "%20s", "Memory used");
+    printat(s->win, ++y, 0, subcol, "%18s", "Memory used");
     wprintw(s->win, ": %8lu kB", hw.total_ram - hw.free_ram);
     printat(s->win, -1, -1, subcol, "%10s", "Buffers");
     wprintw(s->win, ": %6lu kB", hw.buffers);
     printat(s->win, -1, -1, subcol, "%8s", "Cache");
     wprintw(s->win, ": %8lu kB", hw.cached);
     mvwprintw(s->win, ++y, 0, "");
-    printat(s->win, ++y, 0, subcol, "%20s", "Process memory (RSS)");
-    wprintw(s->win, ": %8lu kB", hw.vm_rss);
-    printat(s->win, -1, -1, subcol, "%6s", "Pid");
-    wprintw(s->win, ": %d", hw.pid);
+    printat(s->win, ++y, 0, subcol, "%18s", "Pid");
+    wprintw(s->win, ":  %d", hw.pid);
+    printat(s->win, ++y, 0, subcol, "%18s", "Resident set size");
+    wprintw(s->win, ":  %lu kB", hw.vm_rss);
+    printat(s->win, y, 34, subcol, "Virtual memory size");
+    wprintw(s->win, ":  %lu kB", hw.vm_size);
     mvwprintw(s->win, ++y, 0, "");
     if (cpustat[0][0].idle != 0 && cpustat[0][1].idle != 0) {
         for (int i = 0; i < hw.num_cpu; i++) {
             idle = cpustat[i][!cpuidx].idle - cpustat[i][cpuidx].idle;
-            printat(s->win, ++y, 0, subcol, "CPU%d idle", i);
-            wprintw(s->win, ": %5d %%", idle);
+            printat(s->win, ++y, 0, subcol, " CPU%d idle", i);
+            wprintw(s->win, ": %4d %%", idle);
         }
     }
 }
@@ -359,29 +371,13 @@ bool read_hwstat()
         int i = 0;
 
         if (strncmp(buf, "MemTotal:", 9) == 0) {
-            i += 9;
-            while (isspace(buf[i])) {
-                i++;
-            }
-            sscanf(buf + i, "%lu", &hw.total_ram);
+            GET_VALUE(buf, i, "%lu", 9, hw.total_ram);
         } else if (strncmp(buf, "MemFree:", 8) == 0) {
-            i += 8;
-            while (isspace(buf[i])) {
-                i++;
-            }
-            sscanf(buf + i, "%lu", &hw.free_ram);
+            GET_VALUE(buf, i, "%lu", 8, hw.free_ram);
         } else if (strncmp(buf, "Buffers:", 8) == 0) {
-            i += 8;
-            while (isspace(buf[i])) {
-                i++;
-            }
-            sscanf(buf + i, "%lu", &hw.buffers);
+            GET_VALUE(buf, i, "%lu", 8, hw.buffers);
         } else if (strncmp(buf, "Cached:", 7) == 0) {
-            i += 7;
-            while (isspace(buf[i])) {
-                i++;
-            }
-            sscanf(buf + i, "%lu", &hw.cached);
+            GET_VALUE(buf, i, "%lu", 7, hw.cached);
         }
     }
     fclose(fp);
@@ -394,18 +390,11 @@ bool read_hwstat()
         int i = 0;
 
         if (strncmp(buf, "Pid:", 4) == 0) {
-            i += 4;
-            while (isspace(buf[i])) {
-                i++;
-            }
-            sscanf(buf + i, "%u", &hw.pid);
-        }
-        if (strncmp(buf, "VmRSS:", 6) == 0) {
-            i += 6;
-            while (isspace(buf[i])) {
-                i++;
-            }
-            sscanf(buf + i, "%u", &hw.vm_rss);
+            GET_VALUE(buf, i, "%d", 4, hw.pid);
+        } else if (strncmp(buf, "VmRSS:", 6) == 0) {
+            GET_VALUE(buf, i, "%u", 6, hw.vm_rss);
+        } else if (strncmp(buf, "VmSize:", 7) == 0) {
+            GET_VALUE(buf, i, "%u", 7, hw.vm_size);
         }
     }
     fclose(fp);
