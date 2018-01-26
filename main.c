@@ -24,6 +24,8 @@
 #include "file_pcap.h"
 #include "ui/protocols.h"
 
+#define TABLE_SIZE 65536
+
 struct sockaddr_in *local_addr;
 bool statistics = false;
 vector_t *packets;
@@ -219,7 +221,7 @@ void init_structures()
 
     /* Initialize table to store packets */
     if (use_ncurses || load_file) {
-        packets = vector_init(1000);
+        packets = vector_init(TABLE_SIZE);
     }
 }
 

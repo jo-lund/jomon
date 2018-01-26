@@ -28,16 +28,14 @@ vector_t *vector_init(int sz)
 
 void vector_push_back(vector_t *vector, void *data)
 {
-    if (data) {
-        if (vector->c >= vector->size) {
-            item_t *newbuf;
+    if (vector->c >= vector->size) {
+        item_t *newbuf;
 
-            newbuf = (item_t *) realloc(vector->buf, vector->size * sizeof(struct item) * FACTOR);
-            vector->buf = newbuf;
-            vector->size = vector->size * FACTOR;
-        }
-        vector->buf[vector->c++].data = data;
+        newbuf = (item_t *) realloc(vector->buf, vector->size * sizeof(struct item) * FACTOR);
+        vector->buf = newbuf;
+        vector->size = vector->size * FACTOR;
     }
+    vector->buf[vector->c++].data = data;
 }
 
 inline void vector_pop_back(vector_t *vector, vector_deallocate func)
