@@ -169,19 +169,20 @@ void main_screen_refresh(screen *s)
 {
     int my, mx;
     main_screen *ms;
+    int c;
 
     ms = (main_screen *) s;
     getmaxyx(ms->base.win, my, mx);
     wbkgd(ms->base.win, get_theme_colour(BACKGROUND));
     wbkgd(ms->header, get_theme_colour(BACKGROUND));
     touchwin(ms->base.win);
+    c = vector_size(packets) - 1;
 
     /* re-render the whole screen when capturing */
-    if (ms->outy >= my && ctx.capturing) {
+    if (!interactive && (ms->outy >= my || c >= my) && ctx.capturing) {
         goto_end(ms);
+        ms->outy = my;
     } else if (ctx.capturing) {
-        int c = vector_size(packets) - 1;
-
         werase(ms->base.win);
         for (int i = c; i >= 0; i--) {
             struct packet *p;
