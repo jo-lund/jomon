@@ -42,6 +42,7 @@ extern WINDOW *status;
 extern main_menu *menu;
 bool selected[NUM_LAYERS]; // TODO: need to handle this differently
 bool numeric = true;
+int hexmode = HEXMODE_NORMAL;
 static bool interactive = false;
 static bool input_mode = false;
 static int view_mode = DECODED_VIEW;
