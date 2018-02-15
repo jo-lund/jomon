@@ -6,14 +6,14 @@
 struct http_info {
     char *start_line;
     list_t *header;
-    char *data;
+    unsigned char *data;
     unsigned int len;
 };
 
 struct application_info;
 
 /* internal to the decoder */
-bool handle_http(unsigned char *buffer, struct application_info *info, uint16_t len);
+packet_error handle_http(unsigned char *buffer, uint16_t len, struct application_info *info);
 void free_http_packet(struct http_info *http);
 
 #endif

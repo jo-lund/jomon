@@ -44,7 +44,6 @@ bool selected[NUM_LAYERS]; // TODO: need to handle this differently
 bool numeric = true;
 static bool interactive = false;
 static bool input_mode = false;
-static int hexmode = HEXMODE_NORMAL;
 static int view_mode = DECODED_VIEW;
 static label_dialogue *ld = NULL;
 static file_dialogue *fd = NULL;

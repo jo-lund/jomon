@@ -15,70 +15,73 @@
 #define RED 0
 #define BLACK 1
 
-typedef struct node {
-    int key; /* this should be made generic */
+struct rbtree_node {
+    void *key;
+    void *data;
     uint8_t colour;
-    struct node *parent;
-    struct node *left;
-    struct node *right;
-} node_t;
-
-struct rbtree {
-    node_t *root;
+    struct rbtree_node *parent;
+    struct rbtree_node *left;
+    struct rbtree_node *right;
 };
 
-#define INIT_NODE(n, p, k)                        \
+struct rbtree {
+    rbtree_node_t *root;
+    rbtree_node_t *nil; /* sentinel node */
+    rbtree_deallocate free_key;
+    rbtree_deallocate free_data;
+};
+
+#define INIT_NODE(n, p, k, d)                     \
     do {                                          \
-        n = malloc(sizeof(node_t));               \
+        n = malloc(sizeof(struct rbtree_node));   \
         n->key = k;                               \
+        n->data = d;                              \
         n->colour = RED;                          \
-        n->left = nil;                            \
-        n->right = nil;                           \
+        n->left = tree->nil;                      \
+        n->right = tree->nil;                     \
         n->parent = p;                            \
     } while (0)
 
-static node_t *insert_node(rbtree_t *tree, int key);
-static void remove_fixup(rbtree_t *tree, node_t *x);
-static void left_rotate(rbtree_t *tree, node_t *n);
-static void right_rotate(rbtree_t *tree, node_t *n);
-static node_t *get_minimum(node_t *n);
-static node_t *get_successor(node_t *n);
-static void free_nodes(node_t *n);
-
-static node_t *nil; /* sentinel node */
+static rbtree_node_t *insert_node(rbtree_t *tree, void *key, void *data, rbtree_compare fn);
+static void remove_fixup(rbtree_t *tree, rbtree_node_t *x);
+static void left_rotate(rbtree_t *tree, rbtree_node_t *n);
+static void right_rotate(rbtree_t *tree, rbtree_node_t *n);
+static rbtree_node_t *get_minimum(rbtree_t *tree, rbtree_node_t *n);
+static rbtree_node_t *get_successor(rbtree_t *tree, rbtree_node_t *n);
+static void free_nodes(rbtree_t *tree, rbtree_node_t *n);
 
 rbtree_t *rbtree_init()
 {
-    rbtree_t *tree = malloc(sizeof(rbtree_t));
+    rbtree_t *tree = calloc(1, sizeof(struct rbtree));
 
-    INIT_NODE(nil, NULL, -1);
-    tree->root = nil;
-    nil->colour = BLACK;
+    INIT_NODE(tree->nil, NULL, NULL, NULL);
+    tree->root = tree->nil;
+    tree->nil->colour = BLACK;
     return tree;
 }
 
 void rbtree_free(rbtree_t *tree)
 {
-    free_nodes(tree->root);
+    free_nodes(tree, tree->root);
+    free(tree->nil);
     free(tree);
-    free(nil);
 }
 
-void rbtree_insert(rbtree_t *tree, int key)
+void rbtree_insert(rbtree_t *tree, void *key, void *data, rbtree_compare fn)
 {
-    if (tree->root == nil) {
-        INIT_NODE(tree->root, nil, key);
+    if (tree->root == tree->nil) {
+        INIT_NODE(tree->root, tree->nil, key, data);
     } else {
-        node_t *x;
+        rbtree_node_t *x;
 
-        x = insert_node(tree, key);
-        if (x == nil) return;
+        x = insert_node(tree, key, data, fn);
+        if (x == tree->nil) return;
         while (x != tree->root && x->parent->colour == RED) {
             if (x->parent == x->parent->parent->left) { /* parent is a left child */
-                node_t *y = x->parent->parent->right; /* the parent's sibling */
+                rbtree_node_t *y = x->parent->parent->right; /* the parent's sibling */
 
                 /* case 1: x's parent and the parent's sibling are both red */
-                if (y != nil && y->colour == RED) {
+                if (y != tree->nil && y->colour == RED) {
                     x->parent->colour = BLACK;
                     y->colour = BLACK;
                     x->parent->parent->colour = RED;
@@ -95,10 +98,10 @@ void rbtree_insert(rbtree_t *tree, int key)
                     right_rotate(tree, x->parent->parent);
                 }
             } else { /* parent is a right child */
-                node_t *y = x->parent->parent->left;
+                rbtree_node_t *y = x->parent->parent->left;
 
                 /* case 1: x's parent and the parent's sibling are both red */
-                if (y != nil && y->colour == RED) {
+                if (y != tree->nil && y->colour == RED) {
                     x->parent->colour = BLACK;
                     y->colour = BLACK;
                     x->parent->parent->colour = RED;
@@ -120,25 +123,25 @@ void rbtree_insert(rbtree_t *tree, int key)
     tree->root->colour = BLACK;
 }
 
-node_t *insert_node(rbtree_t *tree, int key)
+rbtree_node_t *insert_node(rbtree_t *tree, void *key, void *data, rbtree_compare fn)
 {
-    node_t *n = tree->root;
+    rbtree_node_t *n = tree->root;
 
-    while (n != nil) {
-        if (key < n->key) {
-            if (n->left == nil) {
-                struct node *x;
+    while (n != tree->nil) {
+        if (fn(key, n->key) < 0) {
+            if (n->left == tree->nil) {
+                rbtree_node_t *x;
 
-                INIT_NODE(x, n, key);
+                INIT_NODE(x, n, key, data);
                 n->left = x;
                 return x;
             }
             n = n->left;
-        } else if (key > n->key) {
-            if (n->right == nil) {
-                struct node *x;
+        } else if (fn(key, n->key) > 0) {
+            if (n->right == tree->nil) {
+                rbtree_node_t *x;
 
-                INIT_NODE(x, n, key);
+                INIT_NODE(x, n, key, data);
                 n->right = x;
                 return x;
             }
@@ -147,32 +150,32 @@ node_t *insert_node(rbtree_t *tree, int key)
             break;
         }
     }
-    return nil;
+    return tree->nil;
 }
 
-void rbtree_remove(rbtree_t *tree, int key)
+void rbtree_remove(rbtree_t *tree, void *key, rbtree_compare fn)
 {
-    node_t *z;
+    rbtree_node_t *z;
 
     z = tree->root;
     while (z) {
-        if (key < z->key) {
+        if (fn(key, z->key) < 0)  {
             z = z->left;
-        } else if (key > z->key) {
+        } else if (fn(key, z->key) > 0) {
             z = z->right;
         } else {
-            node_t *y;
-            node_t *x;
+            rbtree_node_t *y;
+            rbtree_node_t *x;
 
             /* get the node to splice out */
-            if (z->left == nil || z->right == nil) {
+            if (z->left == tree->nil || z->right == tree->nil) {
                 y = z;
             } else {
-                y = get_successor(z);
+                y = get_successor(tree, z);
             }
 
             /* x is set to the non-NULL child of y or nil if y has no children */
-            if (y->left != nil) {
+            if (y->left != tree->nil) {
                 x = y->left;
             } else {
                 x = y->right;
@@ -180,7 +183,7 @@ void rbtree_remove(rbtree_t *tree, int key)
             x->parent = y->parent;
 
             /* splice out y */
-            if (y->parent == nil) {
+            if (y->parent == tree->nil) {
                 tree->root = x;
             } else if (y == y->parent->left) {
                 y->parent->left = x;
@@ -194,6 +197,12 @@ void rbtree_remove(rbtree_t *tree, int key)
             /* if the deleted node is red, we still have a red-black tree */
             if (y->colour == BLACK) {
                 remove_fixup(tree, x);
+            }
+            if (tree->free_key) {
+                tree->free_key(y->key);
+            }
+            if (tree->free_data) {
+                tree->free_data(y->data);
             }
             free(y);
             break;
@@ -211,11 +220,11 @@ void rbtree_remove(rbtree_t *tree, int key)
  * have one too few black nodes than does a path from y to a leaf node that
  * doesn't go through the "spliced-in child".
  */
-void remove_fixup(rbtree_t *tree, node_t *x)
+void remove_fixup(rbtree_t *tree, rbtree_node_t *x)
 {
     while (x != tree->root && x->colour == BLACK) {
         if (x == x->parent->left) {
-            node_t *w; /* x's sibling */
+            rbtree_node_t *w; /* x's sibling */
 
             /* x's parent will have two children because of property 4 */
             w = x->parent->right;
@@ -244,7 +253,7 @@ void remove_fixup(rbtree_t *tree, node_t *x)
                 x = tree->root;
             }
         } else { /* x is a right child */
-            node_t *w; /* x's sibling */
+            rbtree_node_t *w; /* x's sibling */
 
             w = x->parent->left;
             if (w->colour == RED) { /* case 1: x's sibling is red */
@@ -277,21 +286,21 @@ void remove_fixup(rbtree_t *tree, node_t *x)
 }
 
 /*
- * A left rotation swaps the parent with its right node while preserving the
+ * A left rotation swaps the parent with its right child while preserving the
  * inorder property of the tree
  */
-void left_rotate(rbtree_t *tree, node_t *p)
+void left_rotate(rbtree_t *tree, rbtree_node_t *p)
 {
-    node_t *c;
-    node_t *gp;
+    rbtree_node_t *c;
+    rbtree_node_t *gp;
 
     c = p->right;
     gp = p->parent;
     p->right = c->left;
-    if (c->left != nil) {
+    if (c->left != tree->nil) {
         c->left->parent = p;
     }
-    if (gp == nil) {
+    if (gp == tree->nil) {
         tree->root = c;
     } else if (gp->left == p) {
         gp->left = c;
@@ -304,21 +313,21 @@ void left_rotate(rbtree_t *tree, node_t *p)
 }
 
 /*
- * A right rotation swaps the parent with its left node while preserving the
+ * A right rotation swaps the parent with its left child while preserving the
  * inorder property of the tree
  */
-void right_rotate(rbtree_t *tree, node_t *p)
+void right_rotate(rbtree_t *tree, rbtree_node_t *p)
 {
-    node_t *c;
-    node_t *gp;
+    rbtree_node_t *c;
+    rbtree_node_t *gp;
 
     c = p->left;
     gp = p->parent;
     p->left = c->right;
-    if (c->right != nil) {
+    if (c->right != tree->nil) {
         c->right->parent = p;
     }
-    if (gp == nil) {
+    if (gp == tree->nil) {
         tree->root = c;
     } else if (gp->left == p) {
         gp->left = c;
@@ -331,33 +340,90 @@ void right_rotate(rbtree_t *tree, node_t *p)
 }
 
 /* Get the node with the smallest key greater than n->key */
-node_t *get_successor(node_t *n)
+rbtree_node_t *get_successor(rbtree_t *tree, rbtree_node_t *n)
 {
-    if (n->right != nil) {
-        return get_minimum(n->right);
+    if (n->right != tree->nil) {
+        return get_minimum(tree, n->right);
     }
-    node_t *p = n->parent;
+    rbtree_node_t *p = n->parent;
 
-    while (p != nil && n == p->right) {
+    while (p != tree->nil && n == p->right) {
         n = p;
         p = p->parent;
     }
     return p;
 }
 
-node_t *get_minimum(node_t *n)
+rbtree_node_t *get_minimum(rbtree_t *tree, rbtree_node_t *n)
 {
-    while (n->left != nil) {
+    while (n->left != tree->nil) {
         n = n->left;
     }
     return n;
 }
 
-void free_nodes(node_t *n)
+const rbtree_node_t *rbtree_first(rbtree_t *tree)
 {
-    if (n == nil) return;
+    return get_minimum(tree, tree->root);
+}
 
-    free_nodes(n->left);
-    free_nodes(n->right);
+const rbtree_node_t *rbtree_next(rbtree_t *tree, const rbtree_node_t *node)
+{
+    rbtree_node_t *s = get_successor(tree, (rbtree_node_t *) node);
+
+    if (s == tree->nil) {
+        return NULL;
+    }
+    return s;
+}
+
+inline void *rbtree_get_key(const rbtree_node_t *node)
+{
+    return node->key;
+}
+
+inline void *rbtree_get_data(const rbtree_node_t *node)
+{
+    return node->data;
+}
+
+void *rbtree_data(rbtree_t *tree, void *key, rbtree_compare fn)
+{
+    rbtree_node_t *n = tree->root;
+
+    while (n != tree->nil) {
+        if (fn(key, n->key) < 0) {
+            n = n->left;
+        } else if (fn(key, n->key) > 0) {
+            n = n->right;
+        } else {
+            return n->data;
+        }
+    }
+    return NULL;
+}
+
+void free_nodes(rbtree_t *tree, rbtree_node_t *n)
+{
+    if (n == tree->nil) return;
+
+    free_nodes(tree, n->left);
+    free_nodes(tree, n->right);
+    if (tree->free_key) {
+        tree->free_key(n->key);
+    }
+    if (tree->free_data) {
+        tree->free_data(n->data);
+    }
     free(n);
+}
+
+inline void rbtree_set_free_key(rbtree_t *tree, rbtree_deallocate fn)
+{
+    tree->free_key = fn;
+}
+
+inline void rbtree_set_free_data(rbtree_t *tree, rbtree_deallocate fn)
+{
+    tree->free_data = fn;
 }

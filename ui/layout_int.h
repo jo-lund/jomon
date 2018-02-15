@@ -55,6 +55,7 @@ enum layer {
     SMB_FLAGS,
     SNMP_PDU,
     SNMP_VARS,
+    HTTP_DATA,
     SUBLAYER,
     NUM_LAYERS
 };

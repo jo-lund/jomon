@@ -93,6 +93,12 @@ packet_error handle_ipv4(unsigned char *buffer, int n, struct eth_info *eth)
         eth->ip->length > n) { /* total length greater than packet length */
         return IPv4_ERR;
     }
+    if (n > eth->ip->length) {
+        /* The packet has been padded in order to contain the minimum number of
+           bytes. The padded bytes should be ignored. */
+        n = eth->ip->length;
+    }
+
     eth->ip->id = ntohs(ip->id);
     eth->ip->foffset = ntohs(ip->frag_off);
     eth->ip->ttl = ip->ttl;

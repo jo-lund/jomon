@@ -36,6 +36,7 @@
         PRINT_INFO(buffer, n, fmt, ## __VA_ARGS__);             \
     } while (0)
 
+extern int hexmode;
 static void print_error(char *buf, int size, struct packet *p);
 static void print_arp(char *buf, int n, struct arp_info *info, uint32_t num, struct timeval *t);
 static void print_llc(char *buf, int n, struct eth_info *eth, uint32_t num, struct timeval *t);
@@ -351,23 +352,23 @@ void print_tcp(char *buf, int n, struct tcp *tcp)
         PRINT_INFO(buf, n, "Source port: %d  Destination port: %d", tcp->src_port,
                    tcp->dst_port);
         PRINT_INFO(buf, n, "  Flags:");
-        if (tcp->urg) {
-            PRINT_INFO(buf, n, " URG");
-        }
-        if (tcp->ack) {
-            PRINT_INFO(buf, n, " ACK");
-        }
-        if (tcp->psh) {
-            PRINT_INFO(buf, n, " PSH");
-        }
-        if (tcp->rst) {
-            PRINT_INFO(buf, n, " RST");
+        if (tcp->fin) {
+            PRINT_INFO(buf, n, " FIN");
         }
         if (tcp->syn) {
             PRINT_INFO(buf, n, " SYN");
         }
-        if (tcp->fin) {
-            PRINT_INFO(buf, n, " FIN");
+        if (tcp->rst) {
+            PRINT_INFO(buf, n, " RST");
+        }
+        if (tcp->psh) {
+            PRINT_INFO(buf, n, " PSH");
+        }
+        if (tcp->ack) {
+            PRINT_INFO(buf, n, " ACK");
+        }
+        if (tcp->urg) {
+            PRINT_INFO(buf, n, " URG");
         }
         PRINT_INFO(buf, n, "  seq: %u  ack: %u  win: %u", tcp->seq_num, tcp->ack_num, tcp->window);
         break;
@@ -982,7 +983,7 @@ void add_pim_register(list_view *lw, list_view_header *header, struct pim_info *
     if (pim->reg->data) {
         list_view_header *w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Data");
 
-        add_hexdump(lw, w, HEXMODE_NORMAL, pim->reg->data, pim->reg->data_len);
+        add_hexdump(lw, w, hexmode, pim->reg->data, pim->reg->data_len);
     }
 }
 
@@ -1678,6 +1679,20 @@ void add_ssdp_information(list_view *lw, list_view_header *header, list_t *ssdp)
 
 void add_http_information(list_view *lw, list_view_header *header, struct http_info *http)
 {
+    const node_t *n;
+
+    ADD_TEXT_ELEMENT(lw, header, "%s", http->start_line);
+    n = list_begin(http->header);
+    while (n) {
+        ADD_TEXT_ELEMENT(lw, header, "%s", (char *) list_data(n));
+        n = list_next(n);
+    }
+    if (http->len) {
+        list_view_header *hdr;
+
+        hdr = ADD_HEADER(lw, "Data", selected[HTTP_DATA], HTTP_DATA);
+        add_hexdump(lw, hdr, hexmode, http->data, http->len);
+    }
 }
 
 void add_snmp_information(list_view *lw, list_view_header *header, struct snmp_info *snmp)
