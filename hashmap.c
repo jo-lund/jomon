@@ -130,7 +130,7 @@ struct hash_elem *find_elem(hash_map_t *map, void *key)
 
     while (map->table[i] != NULL && map->table[i]->hash_val != (unsigned int) ~0
            && j < map->buckets) {
-        if (map->comp(map->table[i], key) == 0) {
+        if (map->comp(map->table[i]->key, key) == 0) {
             return map->table[i];
         }
         i = (i + 1) & (map->buckets - 1);
