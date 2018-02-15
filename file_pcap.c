@@ -44,6 +44,9 @@ static enum file_error read_header(unsigned char *buf, size_t len);
 static enum file_error errno_file_error(int err);
 static void write_header(unsigned char *buf);
 static int write_data(unsigned char *buf, unsigned int len, struct packet *p);
+static uint32_t get_linktype(pcap_hdr_t *header);
+static uint16_t get_major_version(pcap_hdr_t *header);
+static uint16_t get_minor_version(pcap_hdr_t *header);
 
 FILE *open_file(const char *path, const char *mode, enum file_error *err)
 {
@@ -99,10 +102,10 @@ enum file_error read_header(unsigned char *buf, size_t len)
     } else {
         return FORMAT_ERROR;
     }
-    if (file_header->network != LINKTYPE_ETHERNET) {
+    if (get_linktype(file_header) != LINKTYPE_ETHERNET) {
         return LINK_ERROR;
     }
-    if (file_header->version_major != 2 || file_header->version_minor != 4) {
+    if (get_major_version(file_header) != 2 || get_minor_version(file_header) != 4) {
         return VERSION_ERROR;
     }
     return NO_ERROR;
@@ -131,8 +134,8 @@ int read_buf(unsigned char *buf, size_t len)
         }
         buf += sizeof(pcaprec_hdr_t);
         n -= sizeof(pcaprec_hdr_t);
-        t.tv_sec = pkt_hdr->ts_sec;
-        t.tv_usec = pkt_hdr->ts_usec;
+        t.tv_sec = swap_bytes ? ntohl(pkt_hdr->ts_sec) : pkt_hdr->ts_sec;
+        t.tv_usec = swap_bytes ? ntohl(pkt_hdr->ts_usec) : pkt_hdr->ts_usec;
         if (!pkt_handler(buf, pkt_len, &t)) {
             return -1;
         }
@@ -240,4 +243,19 @@ char *get_file_error(enum file_error err)
     default:
         return "";
     }
+}
+
+inline uint32_t get_linktype(pcap_hdr_t *header)
+{
+    return swap_bytes ? ntohl(header->network) : header->network;
+}
+
+inline uint16_t get_major_version(pcap_hdr_t *header)
+{
+    return swap_bytes ? ntohs(header->version_major) : header->version_major;
+}
+
+inline uint16_t get_minor_version(pcap_hdr_t *header)
+{
+    return swap_bytes ? ntohs(header->version_minor) : header->version_minor;
 }
