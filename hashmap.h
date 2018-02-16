@@ -16,10 +16,36 @@ typedef unsigned int (*hash_fn)(const void *key);
  */
 typedef int (*hash_map_compare)(const void *, const void *);
 
+typedef struct hash_map_iterator {
+    void *key;
+    void *data;
+} hash_map_iterator;
+
+/* Initializes hash map */
 hash_map_t *hash_map_init(unsigned int size, hash_fn h, hash_map_compare fn);
+
+/* Inserts element with specified key in hash map */
 bool hash_map_insert(hash_map_t *map, void *key, void *data);
+
+/* Removes element with specified key */
 void hash_map_remove(hash_map_t *map, void *key);
+
+/* Returns element with the specified key */
 void *hash_map_get(hash_map_t *map, void *key);
+
+/* Returns the number of elements in the hash map */
+unsigned int hash_map_size(hash_map_t *map);
+
+/* Returns an iterator to the beginning of the hash map */
+const hash_map_iterator *hash_map_first(hash_map_t *map);
+
+/* Returns the next iterator */
+const hash_map_iterator *hash_map_next(hash_map_t *map);
+
+/* Clears the content of the hash map */
+void hash_map_clear(hash_map_t *map);
+
+/* Frees all memory used by hash map */
 void hash_map_free(hash_map_t *map);
 
 /*

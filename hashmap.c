@@ -3,10 +3,10 @@
 #include <string.h>
 
 struct hash_elem {
-    unsigned int hash_val;
-    unsigned int probe_count;
     void *key;
     void *data;
+    unsigned int hash_val;
+    unsigned int probe_count;
 };
 
 struct hash_map {
@@ -17,12 +17,14 @@ struct hash_map {
     hash_map_deallocate free_data;
     unsigned int count;
     unsigned int buckets;
+    unsigned int idx;
 };
 
 static inline unsigned int clp2(unsigned int x);
 static void insert_elem(struct hash_elem **tbl, unsigned int size,
-                        unsigned int i, void *key, void *data);
+                        unsigned int hash_val, void *key, void *data);
 static struct hash_elem *find_elem(hash_map_t *map, void *key);
+static const hash_map_iterator *get_next_iterator(hash_map_t *map);
 
 hash_map_t *hash_map_init(unsigned int size, hash_fn h, hash_map_compare fn)
 {
@@ -36,6 +38,7 @@ hash_map_t *hash_map_init(unsigned int size, hash_fn h, hash_map_compare fn)
     map->free_key = NULL;
     map->free_data = NULL;
     map->count = 0;
+    map->idx = 0;
     return map;
 }
 
@@ -94,6 +97,42 @@ void *hash_map_get(hash_map_t *map, void *key)
     return NULL;
 }
 
+inline unsigned int hash_map_size(hash_map_t *map)
+{
+    return map->count;
+}
+
+const hash_map_iterator *hash_map_first(hash_map_t *map)
+{
+    map->idx = 0;
+    return get_next_iterator(map);
+}
+
+const hash_map_iterator *hash_map_next(hash_map_t *map)
+{
+    if (map->idx >= map->buckets) {
+        return NULL;
+    }
+    map->idx++;
+    return get_next_iterator(map);
+}
+
+void hash_map_clear(hash_map_t *map)
+{
+    for (int i = 0; i < map->buckets; i++) {
+        if (map->table[i] != NULL && map->table[i]->hash_val != (unsigned int) ~0) {
+            if (map->free_key) {
+                map->free_key(map->table[i]->key);
+            }
+            if (map->free_data) {
+                map->free_data(map->table[i]->data);
+            }
+            map->table[i]->hash_val = ~0;
+        }
+    }
+    map->count = 0;
+}
+
 void hash_map_set_free_key(hash_map_t *map, hash_map_deallocate fn)
 {
     map->free_key = fn;
@@ -139,17 +178,21 @@ struct hash_elem *find_elem(hash_map_t *map, void *key)
     return NULL;
 }
 
-void insert_elem(struct hash_elem **tbl, unsigned int size, unsigned int i,
+void insert_elem(struct hash_elem **tbl, unsigned int size, unsigned int hash_val,
                  void *key, void *data)
 {
+    unsigned int i = hash_val;
+
     /* use linear probing to find an empty bucket */
     while (tbl[i] != NULL && tbl[i]->hash_val != (unsigned int) ~0) {
         i = (i + 1) & (size - 1);
     }
-    tbl[i] = malloc(sizeof(struct hash_elem));
+    if (!tbl[i]) {
+        tbl[i] = malloc(sizeof(struct hash_elem));
+    }
     tbl[i]->key = key;
     tbl[i]->data = data;
-    tbl[i]->hash_val = i;
+    tbl[i]->hash_val = hash_val;
 }
 
 /* Computes the least power of two greater than or equal to x */
@@ -162,4 +205,15 @@ inline unsigned int clp2(unsigned int x)
     x = x | (x >> 8);
     x = x | (x >> 16);
     return x + 1;
+}
+
+const hash_map_iterator *get_next_iterator(hash_map_t *map)
+{
+    while (map->table[map->idx] == NULL ||
+           map->table[map->idx]->hash_val == (unsigned int) ~0) {
+        if (++map->idx >= map->buckets) {
+            return NULL;
+        }
+    }
+    return (const hash_map_iterator *) map->table[map->idx];
 }
