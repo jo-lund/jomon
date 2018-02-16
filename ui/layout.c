@@ -77,6 +77,7 @@ static char *menu_themes[] = {
     "Light",
     "Dark"
 };
+
 static char *menu_display[] = {
     "Megabytes",
     "Kilobytes",
@@ -224,11 +225,17 @@ void pop_screen()
     screen *oldscr = stack_pop(screen_stack);
 
     oldscr->focus = false;
+    if (oldscr->op->screen_lost_focus) {
+        SCREEN_LOST_FOCUS(oldscr);
+    }
     if (!stack_empty(screen_stack)) {
         screen *newscr = stack_top(screen_stack);
 
         newscr->focus = true;
         wgetch(newscr->win); /* remove character from input queue */
+        if (newscr->op->screen_got_focus) {
+            SCREEN_GOT_FOCUS(newscr);
+        }
         SCREEN_REFRESH(newscr);
     }
 }
@@ -239,9 +246,15 @@ void push_screen(screen *newscr)
 
     if (oldscr) {
         oldscr->focus = false;
+        if (oldscr->op->screen_lost_focus) {
+            SCREEN_LOST_FOCUS(oldscr);
+        }
     }
     newscr->focus = true;
     stack_push(screen_stack, newscr);
+    if (newscr->op->screen_got_focus) {
+        SCREEN_GOT_FOCUS(newscr);
+    }
     SCREEN_REFRESH(newscr);
 }
 

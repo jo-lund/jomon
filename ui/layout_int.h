@@ -79,6 +79,8 @@ enum screen_type {
 #define SCREEN_FREE(o) ((o)->op->screen_free(o))
 #define SCREEN_REFRESH(o) ((o)->op->screen_refresh(o))
 #define SCREEN_GET_INPUT(o) ((o)->op->screen_get_input(o))
+#define SCREEN_GOT_FOCUS(o) ((o)->op->screen_got_focus(o))
+#define SCREEN_LOST_FOCUS(o) ((o)->op->screen_lost_focus(o))
 
 #define SCREEN_DEFAULTS .screen_init = screen_init, \
         .screen_free = screen_free,                 \
@@ -98,6 +100,8 @@ typedef struct screen_operations {
     void (*screen_free)(screen *s);
     void (*screen_refresh)(screen *s);
     void (*screen_get_input)(screen *s);
+    void (*screen_got_focus)(screen *s);
+    void (*screen_lost_focus)(screen *s);
 } screen_operations;
 
 typedef struct {
@@ -105,7 +109,6 @@ typedef struct {
     WINDOW *win;
 } container;
 
-extern publisher_t *screen_changed_publisher;
 extern bool selected[NUM_LAYERS];
 
 /* Create a screen object */
