@@ -40,7 +40,10 @@ unsigned int hash_map_size(hash_map_t *map);
 const hash_map_iterator *hash_map_first(hash_map_t *map);
 
 /* Returns the next iterator */
-const hash_map_iterator *hash_map_next(hash_map_t *map);
+const hash_map_iterator *hash_map_next(hash_map_t *map, const hash_map_iterator *it);
+
+/* Returns the iterator with the specified key */
+const hash_map_iterator *hash_map_get_it(hash_map_t *map, void *key);
 
 /* Clears the content of the hash map */
 void hash_map_clear(hash_map_t *map);
