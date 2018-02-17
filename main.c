@@ -20,6 +20,7 @@
 #include "interface.h"
 #include "ui/layout.h"
 #include "decoder/packet.h"
+#include "decoder/tcp_analyzer.h"
 #include "vector.h"
 #include "file_pcap.h"
 #include "ui/protocols.h"
@@ -85,6 +86,7 @@ int main(int argc, char **argv)
 
 #ifdef __linux__
     init_structures();
+    analyzer_init();
     if (!ctx.device && !(ctx.device = get_default_interface())) {
         err_quit("Cannot find active network device");
     }
@@ -162,6 +164,7 @@ void finish()
     if (sockfd > 0) {
         close(sockfd);
     }
+    analyzer_free();
     exit(0);
 }
 

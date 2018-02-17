@@ -2,6 +2,7 @@
 #include <string.h>
 #include "packet_tcp.h"
 #include "packet_ip.h"
+#include "tcp_analyzer.h"
 
 static struct packet_flags tcp_flags[] = {
     { "Reserved", 3, NULL },
@@ -78,7 +79,7 @@ static void free_options(void *data);
  *            the urgent data. This field is only be interpreted in segments with
  *            the URG control bit set.
  */
-packet_error handle_tcp(unsigned char *buffer, int n, struct tcp *info)
+packet_error handle_tcp(unsigned char *buffer, int n, struct tcp *info, struct eth_info *eth)
 {
     struct tcphdr *tcp;
     packet_error error;
@@ -120,6 +121,8 @@ packet_error handle_tcp(unsigned char *buffer, int n, struct tcp *info)
     } else {
         info->options = NULL;
     }
+
+    analyzer_check_stream(eth);
 
     /* only check port if there is a payload */
     if (payload_len > 0) {

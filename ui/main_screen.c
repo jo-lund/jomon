@@ -21,6 +21,7 @@
 #include "hexdump.h"
 #include "help_screen.h"
 #include "menu.h"
+#include "connection_screen.h"
 
 #define HEADER_HEIGHT 4
 #define NUM_COLS_SCROLL 4
@@ -54,6 +55,9 @@ static char load_filepath[MAXPATH + 1] = { 0 };
 static bool decode_error = false;
 static chtype original_line[MAXLINE];
 
+static void main_screen_init(screen *s);
+static void main_screen_refresh(screen *s);
+static void main_screen_clear(main_screen *ms);
 static bool check_line(main_screen *ms);
 static void handle_keydown(main_screen *ms, int num_lines);
 static void handle_keyup(main_screen *ms, int num_lines);
@@ -182,7 +186,7 @@ void main_screen_refresh(screen *s)
     if (!interactive && (ms->outy >= my || c >= my) && ctx.capturing) {
         goto_end(ms);
         ms->outy = my;
-    } else if (ctx.capturing) {
+    } else if (ctx.capturing && c < my) {
         werase(ms->base.win);
         for (int i = c; i >= 0; i--) {
             struct packet *p;
@@ -580,6 +584,20 @@ void main_screen_get_input(screen *s)
 
             screen_cache_insert(STAT_SCREEN, s);
             push_screen(s);
+        }
+        break;
+    }
+    case 'c': // TEMP
+    {
+        screen *scr = screen_cache_get(CONNECTION_SCREEN);
+
+        if (scr) {
+            push_screen(scr);
+        } else {
+            connection_screen *s = connection_screen_create();
+
+            screen_cache_insert(CONNECTION_SCREEN, (screen *) s);
+            push_screen((screen *) s);
         }
         break;
     }
