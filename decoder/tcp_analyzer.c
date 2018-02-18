@@ -52,13 +52,15 @@ void analyzer_check_stream(const struct eth_info *eth)
         endp.dst_port = tcp->dst_port;
         conn = hash_map_get(connection_table, &endp);
         if (conn) {
+            if (tcp->rst) {
+                conn->state = RESET;
+                publish1(conn_changed_publisher, conn);
+                return;
+            }
             switch (conn->state) {
             case SYN_SENT:
                 if (tcp->syn && tcp->ack) {
                     conn->state = SYN_RCVD;
-                    publish1(conn_changed_publisher, conn);
-                } else if (tcp->rst) {
-                    conn->state = RESET;
                     publish1(conn_changed_publisher, conn);
                 }
                 break;
@@ -66,17 +68,11 @@ void analyzer_check_stream(const struct eth_info *eth)
                 if (tcp->ack) {
                     conn->state = ESTABLISHED;
                     publish1(conn_changed_publisher, conn);
-                } else if (tcp->rst) {
-                    conn->state = RESET;
-                    publish1(conn_changed_publisher, conn);
                 }
                 break;
             case ESTABLISHED:
                 if (tcp->fin) {
                     conn->state = CLOSE_WAIT;
-                    publish1(conn_changed_publisher, conn);
-                } else if (tcp->rst) {
-                    conn->state = RESET;
                     publish1(conn_changed_publisher, conn);
                 }
                 break;

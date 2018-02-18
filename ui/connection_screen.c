@@ -6,19 +6,22 @@
 #include <arpa/inet.h>
 #include "connection_screen.h"
 #include "help_screen.h"
+#include "menu.h"
 #include "../decoder/tcp_analyzer.h"
 #include "../misc.h"
 
 extern WINDOW *status;
+extern main_menu *menu;
 
 static void connection_screen_init(screen *s);
 static void connection_screen_refresh(screen *s);
 static void connection_screen_get_input(screen *s);
-static void connection_screen_got_focus();
-static void connection_screen_lost_focus();
-static void render_screen(connection_screen *cs);
+static void connection_screen_got_focus(screen *s __attribute__((unused)));
+static void connection_screen_lost_focus(screen *s __attribute__((unused)));
+static void connection_screen_render(connection_screen *cs);
 static void update_connection(void *data);
-static void print_connections(connection_screen *cs);
+static void print_all_connections(connection_screen *cs);
+static void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int y);
 static void print_conn_header(connection_screen *cs);
 static void print_status();
 
@@ -69,25 +72,32 @@ void connection_screen_free(screen *s)
     free(cs);
 }
 
-void connection_screen_got_focus()
+void connection_screen_got_focus(screen *s __attribute__((unused)))
 {
     analyzer_subscribe(update_connection);
 }
 
-void connection_screen_lost_focus()
+void connection_screen_lost_focus(screen *s __attribute__((unused)))
 {
     analyzer_unsubscribe(update_connection);
 }
 
 void connection_screen_refresh(screen *s)
 {
-    render_screen((connection_screen *) s);
+    connection_screen *cs = (connection_screen *) s;
+
+    werase(s->win);
+    list_clear(cs->screen_buf, NULL);
+    cs->y = 0;
+    wbkgd(s->win, get_theme_colour(BACKGROUND));
+    wbkgd(cs->header, get_theme_colour(BACKGROUND));
+    connection_screen_render(cs);
 }
 
 void connection_screen_get_input(screen *s)
 {
-    int c = wgetch(s->win);
     connection_screen *cs = (connection_screen *) s;
+    int c = wgetch(cs->base.win);
 
     switch (c) {
     case 'x':
@@ -96,19 +106,26 @@ void connection_screen_get_input(screen *s)
         pop_screen();
         break;
     case KEY_F(1):
+        push_screen(screen_cache_get(HELP_SCREEN));
+        break;
+    case KEY_F(2):
+        push_screen((screen *) menu);
+        break;
+    case KEY_UP:
     {
-        screen *scr;
+        struct tcp_connection_v4 *data = list_front(cs->screen_buf);
+        const hash_map_iterator *it = hash_map_get_it(cs->sessions, data->endp);
 
-        if (!(scr = screen_cache_get(HELP_SCREEN))) {
-            scr = help_screen_create();
-            screen_cache_insert(HELP_SCREEN, scr);
+        it = hash_map_prev(cs->sessions, it);
+        if (it) {
+            list_push_front(cs->screen_buf, it->data);
+            list_pop_back(cs->screen_buf, NULL);
+            wscrl(cs->base.win, -1);
+            print_connection(cs, it->data, 0);
+            wrefresh(cs->base.win);
         }
-        push_screen(scr);
         break;
     }
-    // TODO: Handle scrolling
-    case KEY_UP:
-        break;
     case KEY_DOWN:
     {
         struct tcp_connection_v4 *data = list_back(cs->screen_buf);
@@ -116,19 +133,25 @@ void connection_screen_get_input(screen *s)
 
         it = hash_map_next(cs->sessions, it);
         if (it) {
-
+            list_pop_front(cs->screen_buf, NULL);
+            list_push_back(cs->screen_buf, it->data);
+            wscrl(cs->base.win, 1);
+            print_connection(cs, it->data, cs->y - 1);
+            wrefresh(cs->base.win);
         }
         break;
     }
+    case 'q':
+    case KEY_F(10):
+        finish();
+        break;
     default:
         break;
     }
 }
 
-void render_screen(connection_screen *cs)
+void connection_screen_render(connection_screen *cs)
 {
-    int y = 0;
-
     touchwin(cs->header);
     touchwin(cs->base.win);
     print_conn_header(cs);
@@ -136,17 +159,16 @@ void render_screen(connection_screen *cs)
         const hash_map_iterator *it = hash_map_first(cs->sessions);
 
         while (it) {
-            if (y < cs->lines) {
+            if (cs->y < cs->lines) {
                 list_push_back(cs->screen_buf, it->data);
+                cs->y++;
             } else {
                 break;
             }
-            y++;
             it = hash_map_next(cs->sessions, it);
         }
     }
-    cs->y = y + 1;
-    print_connections(cs);
+    print_all_connections(cs);
     print_status();
 }
 
@@ -170,9 +192,10 @@ void update_connection(void *data)
         }
         if (!found) {
             list_push_back(cs->screen_buf, conn);
+            cs->y++;
         }
     }
-    print_connections(cs);
+    print_all_connections(cs);
 }
 
 void print_conn_header(connection_screen *cs)
@@ -188,27 +211,39 @@ void print_conn_header(connection_screen *cs)
     wrefresh(cs->header);
 }
 
-void print_connections(connection_screen *cs)
+void print_all_connections(connection_screen *cs)
 {
     int y = 0;
     const node_t *n = list_begin(cs->screen_buf);
 
     while (n) {
-        char buf[MAXLINE];
-        char srcaddr[INET_ADDRSTRLEN];
-        char dstaddr[INET_ADDRSTRLEN];
-        struct tcp_connection_v4 *conn = list_data(n);
-
-        inet_ntop(AF_INET, &conn->endp->src, srcaddr, sizeof(srcaddr));
-        inet_ntop(AF_INET, &conn->endp->dst, dstaddr, sizeof(dstaddr));
-        snprintf(buf, MAXLINE, "%s:%d <=> %s:%d", srcaddr, conn->endp->src_port,
-                 dstaddr, conn->endp->dst_port);
-        mvwprintw(cs->base.win, y, 0, "%s", buf);
-        mvwprintw(cs->base.win, y++, CONN_WIDTH, "%s",
-                  analyzer_get_connection_state(conn->state));
+        print_connection(cs, list_data(n), y);
+        y++;
         n = list_next(n);
     }
     wrefresh(cs->base.win);
+}
+
+void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int y)
+{
+    char buf[MAXLINE];
+    char srcaddr[INET_ADDRSTRLEN];
+    char dstaddr[INET_ADDRSTRLEN];
+
+    inet_ntop(AF_INET, &conn->endp->src, srcaddr, sizeof(srcaddr));
+    inet_ntop(AF_INET, &conn->endp->dst, dstaddr, sizeof(dstaddr));
+    snprintf(buf, MAXLINE, "%s:%d <=> %s:%d", srcaddr, conn->endp->src_port,
+             dstaddr, conn->endp->dst_port);
+    if (conn->state != ESTABLISHED && conn->state != SYN_SENT &&
+        conn->state != SYN_RCVD) {
+        printat(cs->base.win, y, 0, get_theme_colour(DISABLE), "%s", buf);
+        printat(cs->base.win, y, CONN_WIDTH, get_theme_colour(DISABLE),
+                "%s", analyzer_get_connection_state(conn->state));
+    } else {
+        mvwprintw(cs->base.win, y, 0, "%s", buf);
+        mvwprintw(cs->base.win, y, CONN_WIDTH, "%s",
+                  analyzer_get_connection_state(conn->state));
+    }
 }
 
 void print_status()

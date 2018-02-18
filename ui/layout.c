@@ -4,6 +4,7 @@
 #include "main_screen.h"
 #include "stat_screen.h"
 #include "help_screen.h"
+#include "connection_screen.h"
 #include "dialogue.h"
 #include "../vector.h"
 #include "../stack.h"
@@ -348,6 +349,7 @@ void create_screens()
         push_screen(s);
     }
     screen_cache_insert(HELP_SCREEN, (screen *) help_screen_create());
+    screen_cache_insert(CONNECTION_SCREEN, (screen *) connection_screen_create());
 }
 
 void change_theme(int i)

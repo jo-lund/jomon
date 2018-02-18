@@ -422,12 +422,37 @@ void main_screen_get_input(screen *s)
     my = getmaxy(ms->base.win);
     c = wgetch(ms->base.win);
     switch (c) {
+    case 'c':
+        push_screen(screen_cache_get(CONNECTION_SCREEN));
+        break;
+    case 'g':
+        if (!interactive) return;
+        input_mode = !input_mode;
+        if (input_mode) {
+            werase(status);
+            mvwprintw(status, 0, 0, "Go to line: ");
+            curs_set(1);
+        } else {
+            curs_set(0);
+            werase(status);
+            print_status();
+        }
+        wrefresh(status);
+        break;
+    case 'h':
+        hexmode = (hexmode + 1) % HEXMODES;
+        if (ms->subwindow.win) {
+            struct packet *p;
+
+            p = vector_get_data(packets, ms->main_line.line_number + ms->top);
+            if (view_mode == DECODED_VIEW) {
+                add_elements(ms, p);
+            }
+            print_protocol_information(ms, p, ms->main_line.line_number + ms->top);
+        }
+        break;
     case 'i':
         main_screen_set_interactive(ms, !interactive);
-        break;
-    case KEY_F(10):
-    case 'q':
-        finish();
         break;
     case 'n':
         numeric = !numeric;
@@ -546,48 +571,12 @@ void main_screen_get_input(screen *s)
         }
         print_status();
         break;
-    case 'g':
-        if (!interactive) return;
-        input_mode = !input_mode;
-        if (input_mode) {
-            werase(status);
-            mvwprintw(status, 0, 0, "Go to line: ");
-            curs_set(1);
-        } else {
-            curs_set(0);
-            werase(status);
-            print_status();
-        }
-        wrefresh(status);
+    case KEY_F(10):
+    case 'q':
+        finish();
         break;
     case 's':
         push_screen(screen_cache_get(STAT_SCREEN));
-        break;
-    case 'c': // TEMP
-    {
-        screen *scr = screen_cache_get(CONNECTION_SCREEN);
-
-        if (scr) {
-            push_screen(scr);
-        } else {
-            connection_screen *s = connection_screen_create();
-
-            screen_cache_insert(CONNECTION_SCREEN, (screen *) s);
-            push_screen((screen *) s);
-        }
-        break;
-    }
-    case 'h':
-        hexmode = (hexmode + 1) % HEXMODES;
-        if (ms->subwindow.win) {
-            struct packet *p;
-
-            p = vector_get_data(packets, ms->main_line.line_number + ms->top);
-            if (view_mode == DECODED_VIEW) {
-                add_elements(ms, p);
-            }
-            print_protocol_information(ms, p, ms->main_line.line_number + ms->top);
-        }
         break;
     default:
         if (input_mode) {
