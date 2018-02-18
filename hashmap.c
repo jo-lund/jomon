@@ -24,6 +24,7 @@ static void insert_elem(struct hash_elem **tbl, unsigned int size,
                         unsigned int hash_val, void *key, void *data);
 static struct hash_elem *find_elem(hash_map_t *map, void *key);
 static const hash_map_iterator *get_next_iterator(hash_map_t *map, unsigned int i);
+static const hash_map_iterator *get_prev_iterator(hash_map_t *map, unsigned int i);
 
 hash_map_t *hash_map_init(unsigned int size, hash_fn h, hash_map_compare fn)
 {
@@ -114,6 +115,17 @@ const hash_map_iterator *hash_map_next(hash_map_t *map, const hash_map_iterator 
         return NULL;
     }
     return get_next_iterator(map, idx);
+}
+
+const hash_map_iterator *hash_map_prev(hash_map_t *map, const hash_map_iterator *it)
+{
+    struct hash_elem *elem = (struct hash_elem *) it;
+    unsigned int idx = (elem->hash_val + elem->probe_count - 1) & (map->buckets - 1);
+
+    if (idx <= 0) {
+        return NULL;
+    }
+    return get_prev_iterator(map, idx);
 }
 
 const hash_map_iterator *hash_map_get_it(hash_map_t *map, void *key)
@@ -224,6 +236,17 @@ const hash_map_iterator *get_next_iterator(hash_map_t *map, unsigned int i)
     while (map->table[i] == NULL ||
            map->table[i]->hash_val == (unsigned int) ~0) {
         if (++i >= map->buckets) {
+            return NULL;
+        }
+    }
+    return (const hash_map_iterator *) map->table[i];
+}
+
+const hash_map_iterator *get_prev_iterator(hash_map_t *map, unsigned int i)
+{
+    while (map->table[i] == NULL ||
+           map->table[i]->hash_val == (unsigned int) ~0) {
+        if (--i <= 0) {
             return NULL;
         }
     }

@@ -42,6 +42,9 @@ const hash_map_iterator *hash_map_first(hash_map_t *map);
 /* Returns the next iterator */
 const hash_map_iterator *hash_map_next(hash_map_t *map, const hash_map_iterator *it);
 
+/* Returns the previous iterator */
+const hash_map_iterator *hash_map_prev(hash_map_t *map, const hash_map_iterator *it);
+
 /* Returns the iterator with the specified key */
 const hash_map_iterator *hash_map_get_it(hash_map_t *map, void *key);
 
