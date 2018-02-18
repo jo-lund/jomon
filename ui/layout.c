@@ -3,6 +3,7 @@
 #include "protocols.h"
 #include "main_screen.h"
 #include "stat_screen.h"
+#include "help_screen.h"
 #include "dialogue.h"
 #include "../vector.h"
 #include "../stack.h"
@@ -21,6 +22,7 @@ static struct screen *screen_cache[NUM_SCREENS];
 static _stack_t *screen_stack;
 static int theme;
 static void init_colours();
+static void create_screens();
 static void change_theme(int i);
 static void change_display(int i);
 
@@ -90,7 +92,6 @@ static char *menu_display[] = {
 
 void init_ncurses()
 {
-    main_screen *ms;
     int mx, my;
 
     initscr(); /* initialize curses mode */
@@ -104,15 +105,7 @@ void init_ncurses()
     screen_stack = stack_init(NUM_SCREENS);
     getmaxyx(stdscr, my, mx);
     status = newwin(STATUS_HEIGHT, mx, my - STATUS_HEIGHT, 0);
-    ms = main_screen_create();
-    screen_cache_insert(MAIN_SCREEN, (screen *) ms);
-    push_screen((screen *) ms);
-    if (ctx.show_statistics) {
-        screen *s = stat_screen_create();
-
-        screen_cache_insert(STAT_SCREEN, s);
-        push_screen(s);
-    }
+    create_screens();
     menu = main_menu_create();
     main_menu_add_options(menu, "Themes", menu_themes, 3, change_theme, 5, 12, my - 6, 0);
     main_menu_add_options(menu, "Display", menu_display, 7, change_display, 9, 14, my - 10, 12);
@@ -327,11 +320,8 @@ void layout(enum event ev)
 
 void init_colours()
 {
-    /* colours on default background */
     for (int i = 0; i < NUM_COLOURS; i++) {
-        init_pair(i + 1, i, -1);
-    }
-    for (int i = 0; i < NUM_COLOURS; i++) {
+        init_pair(i + 1, i, -1); /* colours on default background */
         for (int j = 0; j < NUM_COLOURS; j++) {
             init_pair(j + 1 + ((i + 1) * NUM_COLOURS), i, j);
         }
@@ -342,6 +332,22 @@ void init_colours()
 inline int get_theme_colour(enum elements elem)
 {
     return themes[theme][elem];
+}
+
+void create_screens()
+{
+    main_screen *ms;
+    screen *s;
+
+    ms = main_screen_create();
+    screen_cache_insert(MAIN_SCREEN, (screen *) ms);
+    push_screen((screen *) ms);
+    s = stat_screen_create();
+    screen_cache_insert(STAT_SCREEN, s);
+    if (ctx.show_statistics) {
+        push_screen(s);
+    }
+    screen_cache_insert(HELP_SCREEN, (screen *) help_screen_create());
 }
 
 void change_theme(int i)

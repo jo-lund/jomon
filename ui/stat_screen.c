@@ -3,7 +3,6 @@
 #include "../misc.h"
 #include "../interface.h"
 #include "../decoder/decoder.h"
-#include "help_screen.h"
 #include "menu.h"
 #include <string.h>
 #include <unistd.h>
@@ -149,17 +148,9 @@ void stat_screen_get_input(screen *s)
         pop_screen();
         break;
     case KEY_F(1):
-    {
-        screen *scr;
-
         alarm(0);
-        if (!(scr = screen_cache_get(HELP_SCREEN))) {
-            scr = help_screen_create();
-            screen_cache_insert(HELP_SCREEN, scr);
-        }
-        push_screen(scr);
+        push_screen(screen_cache_get(HELP_SCREEN));
         break;
-    }
     case KEY_F(2):
         push_screen((screen *) menu);
         break;
