@@ -14,12 +14,10 @@
 #include "../stack.h"
 #include "../file_pcap.h"
 #include "layout_int.h"
-#include "stat_screen.h"
 #include "../signal.h"
 #include "dialogue.h"
 #include "main_screen.h"
 #include "hexdump.h"
-#include "help_screen.h"
 #include "menu.h"
 #include "connection_screen.h"
 
@@ -496,19 +494,8 @@ void main_screen_get_input(screen *s)
         }
         break;
     case KEY_F(1):
-    {
-        screen *scr = screen_cache_get(HELP_SCREEN);
-
-        if (scr) {
-            push_screen(scr);
-        } else {
-            screen *s = help_screen_create();
-
-            screen_cache_insert(HELP_SCREEN, s);
-            push_screen(s);
-        }
+        push_screen(screen_cache_get(HELP_SCREEN));
         break;
-    }
    case KEY_F(2):
         push_screen((screen *) menu);
         break;
@@ -574,19 +561,8 @@ void main_screen_get_input(screen *s)
         wrefresh(status);
         break;
     case 's':
-    {
-        screen *scr = screen_cache_get(STAT_SCREEN);
-
-        if (scr) {
-            push_screen(scr);
-        } else {
-            screen *s = stat_screen_create();
-
-            screen_cache_insert(STAT_SCREEN, s);
-            push_screen(s);
-        }
+        push_screen(screen_cache_get(STAT_SCREEN));
         break;
-    }
     case 'c': // TEMP
     {
         screen *scr = screen_cache_get(CONNECTION_SCREEN);

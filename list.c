@@ -13,10 +13,10 @@ typedef struct list {
     int size;
 } list_t;
 
-#define INIT_NODE(n)                             \
+#define INIT_NODE(n, d)                          \
     do {                                         \
         n = malloc(sizeof(node_t));              \
-        n->data = data;                          \
+        n->data = d;                             \
         n->next = NULL;                          \
         n->prev = NULL;                          \
     } while (0);
@@ -36,12 +36,12 @@ list_t *list_init()
 void list_push_front(list_t *list, void *data)
 {
     if (!list->head) {
-        INIT_NODE(list->head);
+        INIT_NODE(list->head, data);
         list->tail = list->head;
     } else {
         node_t *node;
 
-        INIT_NODE(node);
+        INIT_NODE(node, data);
         list->head->prev = node;
         node->next = list->head;
         list->head = node;
@@ -52,12 +52,12 @@ void list_push_front(list_t *list, void *data)
 void list_push_back(list_t *list, void *data)
 {
     if (!list->head) {
-        INIT_NODE(list->head);
+        INIT_NODE(list->head, data);
         list->tail = list->head;
     } else {
         node_t *node;
 
-        INIT_NODE(node);
+        INIT_NODE(node, data);
         list->tail->next = node;
         node->prev = list->tail;
         list->tail = node;
@@ -75,7 +75,7 @@ void list_insert(list_t *list, void *data, int i)
         node_t *n;
         node_t *node;
 
-        INIT_NODE(node);
+        INIT_NODE(node, data);
         n = (node_t *) list_ith(list, i);
         n->prev->next = node;
         node->prev = n->prev;
