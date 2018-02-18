@@ -57,10 +57,9 @@ typedef struct {
 
 enum page {
     NET_STAT,
-    HW_STAT
+    HW_STAT,
+    NUM_PAGES
 };
-
-#define NUM_PAGES 2
 
 #define GET_VALUE(buf, i, s, l, val)            \
     do {                                        \
@@ -94,12 +93,16 @@ static void stat_screen_init(screen *s);
 static void stat_screen_get_input(screen *s);
 static void stat_screen_refresh(screen *s);
 static void print_status();
+static void stat_screen_got_focus();
+static void stat_screen_lost_focus();
 
 static screen_operations ssop = {
     .screen_init = stat_screen_init,
     .screen_free = stat_screen_free,
     .screen_refresh = stat_screen_refresh,
-    .screen_get_input = stat_screen_get_input
+    .screen_get_input = stat_screen_get_input,
+    .screen_got_focus = stat_screen_got_focus,
+    .screen_lost_focus = stat_screen_lost_focus,
 };
 
 screen *stat_screen_create()
@@ -131,9 +134,21 @@ void stat_screen_refresh(screen *s)
     screen_refresh(s);
     memset(&rx, 0, sizeof(linkdef));
     memset(&tx, 0, sizeof(linkdef));
+    for (int i = 0; i < hw.num_cpu; i++) {
+        memset(cpustat[i], 0 , 2 * sizeof(cputime));
+    }
     stat_screen_print(s);
     print_status();
+}
+
+void stat_screen_got_focus()
+{
     alarm(1);
+}
+
+void stat_screen_lost_focus()
+{
+    alarm(0);
 }
 
 void stat_screen_get_input(screen *s)
@@ -144,11 +159,9 @@ void stat_screen_get_input(screen *s)
     case 'x':
     case KEY_ESC:
     case KEY_F(3):
-        alarm(0);
         pop_screen();
         break;
     case KEY_F(1):
-        alarm(0);
         push_screen(screen_cache_get(HELP_SCREEN));
         break;
     case KEY_F(2):
@@ -160,9 +173,18 @@ void stat_screen_get_input(screen *s)
         break;
     case 'v':
         stat_page = (stat_page + 1) % NUM_PAGES;
-        if (stat_page == NET_STAT) {
+        switch (stat_page) {
+        case NET_STAT:
             memset(&rx, 0, sizeof(linkdef));
             memset(&tx, 0, sizeof(linkdef));
+            break;
+        case HW_STAT:
+            for (int i = 0; i < hw.num_cpu; i++) {
+                memset(cpustat[i], 0 , 2 * sizeof(cputime));
+            }
+            break;
+        default:
+            break;
         }
         stat_screen_print(s);
         break;
@@ -188,10 +210,6 @@ void stat_screen_print(screen *s)
     default:
         break;
     }
-    wnoutrefresh(s->win);
-    touchwin(status);
-    wnoutrefresh(status);
-    doupdate();
 }
 
 void init_stat()
@@ -279,6 +297,10 @@ void print_netstat()
             }
         }
     }
+    wnoutrefresh(s->win);
+    touchwin(status);
+    wnoutrefresh(status);
+    doupdate();
 }
 
 void print_hwstat()
@@ -315,6 +337,10 @@ void print_hwstat()
             wprintw(s->win, ": %4d %%", idle);
         }
     }
+    wnoutrefresh(s->win);
+    touchwin(status);
+    wnoutrefresh(status);
+    doupdate();
 }
 
 bool read_netstat()
