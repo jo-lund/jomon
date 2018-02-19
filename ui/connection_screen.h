@@ -8,7 +8,6 @@
 typedef struct {
     screen base;
     WINDOW *header;
-    int top;
     int y;
     int lines;
     list_t *screen_buf;

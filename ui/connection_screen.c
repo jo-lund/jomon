@@ -53,7 +53,6 @@ void connection_screen_init(screen *s)
     cs->header = newwin(CONN_HEADER, mx, 0, 0);
     cs->base.win = newwin(my - CONN_HEADER - STATUS_HEIGHT, mx, CONN_HEADER, 0);
     cs->y = 0;
-    cs->top = 0;;
     cs->lines = my - CONN_HEADER - STATUS_HEIGHT;
     cs->screen_buf = list_init();
     cs->sessions = analyzer_get_sessions();
@@ -87,6 +86,7 @@ void connection_screen_refresh(screen *s)
     connection_screen *cs = (connection_screen *) s;
 
     werase(s->win);
+    werase(cs->header);
     list_clear(cs->screen_buf, NULL);
     cs->y = 0;
     wbkgd(s->win, get_theme_colour(BACKGROUND));

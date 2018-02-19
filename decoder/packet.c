@@ -20,6 +20,7 @@
 #include "packet_ssdp.h"
 #include "packet_nbds.h"
 #include "packet_snmp.h"
+#include "tcp_analyzer.h"
 
 /* this needs to be in the same order as enum protocols, see packet.h */
 struct packet_statistics pstat[] = {
@@ -252,6 +253,7 @@ void clear_statistics()
         pstat[i].num_packets = 0;
         pstat[i].num_bytes = 0;
     }
+    analyzer_clear();
 }
 
 inline uint16_t get_packet_size(struct packet *p)

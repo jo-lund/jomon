@@ -60,8 +60,6 @@ enum layer {
     NUM_LAYERS
 };
 
-#define NUM_SCREENS 6 /* see enum screen_type */
-
 enum screen_type {
     MAIN_SCREEN,
     HELP_SCREEN,
@@ -69,7 +67,8 @@ enum screen_type {
     CONNECTION_SCREEN,
     LABEL_DIALOGUE,
     FILE_DIALOGUE,
-    PROGRESS_DIALOGUE
+    PROGRESS_DIALOGUE,
+    NUM_SCREENS
 };
 
 /*

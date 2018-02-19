@@ -144,8 +144,14 @@ char *analyzer_get_connection_state(enum connection_state state)
     }
 }
 
+void analyzer_clear()
+{
+    hash_map_clear(connection_table);
+}
+
 void analyzer_free()
 {
     hash_map_free(connection_table);
     publisher_free(conn_changed_publisher);
+    connection_table = NULL;
 }

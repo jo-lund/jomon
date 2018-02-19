@@ -33,6 +33,7 @@ hash_map_t *analyzer_get_sessions();
 void analyzer_subscribe(publisher_fn1 fn);
 void analyzer_unsubscribe(publisher_fn1 fn);
 char *analyzer_get_connection_state(enum connection_state);
+void analyzer_clear();
 void analyzer_free();
 
 #endif
