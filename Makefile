@@ -8,8 +8,7 @@ CXX := g++
 CFLAGS += -g -std=gnu99
 CXXFLAGS += -Wno-write-strings
 CPPFLAGS += -Wall -Wextra -Wno-override-init $(addprefix -I,$(incdir))
-LIBS += -lmenu -lncurses
-TESTS = util_test
+LIBS += -lncurses
 
 sources = $(wildcard *.c decoder/*.c ui/*.c)
 objects = $(patsubst %.c,$(BUILDDIR)/%.o,$(sources))
