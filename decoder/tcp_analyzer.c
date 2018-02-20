@@ -10,8 +10,13 @@ static publisher_t *conn_changed_publisher;
 static unsigned int hash_v4(const void *key)
 {
     struct tcp_endpoint_v4 *endp = (struct tcp_endpoint_v4 *) key;
+    unsigned int hash = 2166136261;
+    unsigned int val = endp->src + endp->dst + endp->src_port + endp->dst_port;
 
-    return endp->src + endp->dst + endp->src_port + endp->dst_port;
+    for (int i = 0; i < 4; i++) {
+        hash = (hash ^ ((val >> (8 * i)) & 0xff)) * 16777619;
+    }
+    return hash;
 }
 
 static int compare_tcp_v4(const void *t1, const void *t2)
