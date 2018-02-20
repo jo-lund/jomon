@@ -177,25 +177,30 @@ void update_connection(void *data)
     struct tcp_connection_v4 *conn = (struct tcp_connection_v4 *) data;
     bool found = false;
     connection_screen *cs = (connection_screen *) screen_cache_get(CONNECTION_SCREEN);
+    int y = 0;
+    const node_t *n = list_begin(cs->screen_buf);
 
-    werase(cs->base.win); // TODO: Use wclrtoeol instead of erasing the entire screen
+    werase(cs->header);
     print_conn_header(cs);
-    if (list_size(cs->screen_buf) < cs->lines) {
-        const node_t *n = list_begin(cs->screen_buf);
-
-        while (n) {
-            if (list_data(n) == conn) {
-                found = true;
-                break;
-            }
-            n = list_next(n);
+    while (n) {
+        if (list_data(n) == conn) {
+            found = true;
+            break;
         }
-        if (!found) {
-            list_push_back(cs->screen_buf, conn);
-            cs->y++;
-        }
+        n = list_next(n);
+        y++;
     }
-    print_all_connections(cs);
+    if (list_size(cs->screen_buf) < cs->lines && !found) {
+        list_push_back(cs->screen_buf, conn);
+        print_connection(cs, conn, cs->y);
+        cs->y++;
+        wrefresh(cs->base.win);
+    } else if (found) {
+        wmove(cs->base.win, y, 0);
+        wclrtoeol(cs->base.win);
+        print_connection(cs, conn, y);
+        wrefresh(cs->base.win);
+    }
 }
 
 void print_conn_header(connection_screen *cs)
