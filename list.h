@@ -64,8 +64,8 @@ int list_size(list_t *list);
 /*
  * Clears the list
  *
- * If func is specified memory for the nodes and data are deallocated but not
- * the list_t structure. To free all memory associated with list use list_free.
+ * If func is specified memory for data is deallocated but not the list_t
+ * structure. To free all memory associated with list use list_free.
  */
 list_t *list_clear(list_t *list, list_deallocate func);
 

@@ -218,8 +218,8 @@ list_t *list_clear(list_t *list, list_deallocate func)
         n = n->next;
         if (func) {
             func(tmp->data);
-            free(tmp);
         }
+        free(tmp);
     }
     list->head = NULL;
     list->tail = NULL;
