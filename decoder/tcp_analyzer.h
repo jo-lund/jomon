@@ -4,6 +4,7 @@
 #include "packet_ethernet.h"
 #include "../hashmap.h"
 #include "../signal.h"
+#include "../list.h"
 
 enum connection_state {
     SYN_SENT,
@@ -25,6 +26,7 @@ struct tcp_endpoint_v4 {
 struct tcp_connection_v4 {
     struct tcp_endpoint_v4 *endp;
     enum connection_state state;
+    list_t *packets;
 };
 
 void analyzer_init();

@@ -1,4 +1,6 @@
 #define CONN_WIDTH 46
+#define STATE_WIDTH 14
+#define PACKET_WIDTH 8
 #define CONN_HEADER 3
 #define STATUS_HEIGHT 1
 
@@ -8,7 +10,9 @@
 #include "help_screen.h"
 #include "menu.h"
 #include "../decoder/tcp_analyzer.h"
+#include "../decoder/packet.h"
 #include "../misc.h"
+#include "../util.h"
 
 extern WINDOW *status;
 extern main_menu *menu;
@@ -212,6 +216,8 @@ void print_conn_header(connection_screen *cs)
     y += 2;
     mvwprintw(cs->header, y, 0, "Connection");
     mvwprintw(cs->header, y, CONN_WIDTH, "State");
+    mvwprintw(cs->header, y, CONN_WIDTH + STATE_WIDTH, "Packets");
+    mvwprintw(cs->header, y, CONN_WIDTH + STATE_WIDTH + PACKET_WIDTH, "Bytes");
     mvwchgat(cs->header, y, 0, -1, A_STANDOUT, 0, NULL);
     wrefresh(cs->header);
 }
@@ -234,20 +240,36 @@ void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int
     char buf[MAXLINE];
     char srcaddr[INET_ADDRSTRLEN];
     char dstaddr[INET_ADDRSTRLEN];
+    uint32_t bytes = 0;
+    const node_t *n = list_begin(conn->packets);
 
     inet_ntop(AF_INET, &conn->endp->src, srcaddr, sizeof(srcaddr));
     inet_ntop(AF_INET, &conn->endp->dst, dstaddr, sizeof(dstaddr));
     snprintf(buf, MAXLINE, "%s:%d <=> %s:%d", srcaddr, conn->endp->src_port,
              dstaddr, conn->endp->dst_port);
+    while (n) {
+        struct packet *p = list_data(n);
+
+        bytes += get_packet_size(p);
+        n = list_next(n);
+    }
     if (conn->state != ESTABLISHED && conn->state != SYN_SENT &&
         conn->state != SYN_RCVD) {
         printat(cs->base.win, y, 0, get_theme_colour(DISABLE), "%s", buf);
         printat(cs->base.win, y, CONN_WIDTH, get_theme_colour(DISABLE),
                 "%s", analyzer_get_connection_state(conn->state));
+        printat(cs->base.win, y, CONN_WIDTH + STATE_WIDTH, get_theme_colour(DISABLE),
+                "%d", list_size(conn->packets));
+        printat(cs->base.win, y, CONN_WIDTH + STATE_WIDTH + PACKET_WIDTH,
+                get_theme_colour(DISABLE), "%s", format_bytes(bytes, buf, MAXLINE));
     } else {
         mvwprintw(cs->base.win, y, 0, "%s", buf);
         mvwprintw(cs->base.win, y, CONN_WIDTH, "%s",
                   analyzer_get_connection_state(conn->state));
+        mvwprintw(cs->base.win, y, CONN_WIDTH + STATE_WIDTH, "%d",
+                  list_size(conn->packets));
+        mvwprintw(cs->base.win, y, CONN_WIDTH + STATE_WIDTH + PACKET_WIDTH, "%s",
+                  format_bytes(bytes, buf, MAXLINE));
     }
 }
 

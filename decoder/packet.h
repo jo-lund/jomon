@@ -4,8 +4,21 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include "../list.h"
 #include "packet_ethernet.h"
+
+/*
+ * Subtracts the offset of a structure's member from its address to get the
+ * address of the containing structure.
+ *
+ * ptr    - The pointer to the member
+ * type   - The type of the struct this is embedded in
+ * member - The name of the member within the struct
+ */
+#define CONTAINER_OF(ptr, type, member) ({                        \
+            const typeof(((type *) 0)->member) *_mptr = (ptr);    \
+            (type *) ((char *) _mptr - offsetof(type, member));})
 
 struct packet_flags {
     char *str;     /* flag description */
@@ -43,7 +56,7 @@ struct packet_statistics {
 extern struct packet_statistics pstat[];
 
 enum port {
-    DNS = 53,   /* Domain Name Service */
+    DNS = 53,   /* Domain Name System */
     HTTP = 80,  /* Hypertext Transfer Protocol */
     /*
      * NetBIOS is used for SMB/CIFS-based Windows file sharing. SMB can now run
