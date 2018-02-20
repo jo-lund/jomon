@@ -21,6 +21,12 @@ typedef struct hash_map_iterator {
     void *data;
 } hash_map_iterator;
 
+typedef struct hash_map_stat {
+    unsigned int lpc; /* longest probe count */
+    double avgpc;     /* average probe count */
+    double load;      /* load factor */
+} hash_map_stat_t;
+
 /* Initializes hash map */
 hash_map_t *hash_map_init(unsigned int size, hash_fn h, hash_map_compare fn);
 
@@ -65,5 +71,8 @@ void hash_map_set_free_key(hash_map_t *map, hash_map_deallocate fn);
  * data. The data will be freed on removal and when calling hash_map_free.
  */
 void hash_map_set_free_data(hash_map_t *map, hash_map_deallocate fn);
+
+/* Get hash map statistics */
+hash_map_stat_t hash_map_get_stat(hash_map_t *map);
 
 #endif

@@ -43,8 +43,6 @@ hash_map_t *hash_map_init(unsigned int size, hash_fn h, hash_map_compare fn)
 
 bool hash_map_insert(hash_map_t *map, void *key, void *data)
 {
-    unsigned int i;
-
     /* do not allow duplicate keys */
     if (find_elem(map, key)) return false;
 
@@ -66,8 +64,7 @@ bool hash_map_insert(hash_map_t *map, void *key, void *data)
         free(map->table);
         map->table = tbl;
     }
-    i = map->hash(key) & (map->buckets - 1);
-    insert_elem(map->table, map->buckets, i, key, data);
+    insert_elem(map->table, map->buckets, map->hash(key), key, data);
     map->count++;
     return true;
 }
@@ -202,7 +199,7 @@ struct hash_elem *find_elem(hash_map_t *map, void *key)
 void insert_elem(struct hash_elem **tbl, unsigned int size, unsigned int hash_val,
                  void *key, void *data)
 {
-    unsigned int i = hash_val;
+    unsigned int i = hash_val & (size - 1);
     unsigned int pc = 0;
 
     /* use linear probing to find an empty bucket */
@@ -251,4 +248,23 @@ const hash_map_iterator *get_prev_iterator(hash_map_t *map, unsigned int i)
         }
     }
     return (const hash_map_iterator *) map->table[i];
+}
+
+hash_map_stat_t hash_map_get_stat(hash_map_t *map)
+{
+    hash_map_stat_t stat;
+    unsigned int pcc = 0;
+
+    stat.lpc = 0;
+    for (unsigned int i = 0; i < map->buckets; i++) {
+        if (map->table[i] != NULL && map->table[i]->hash_val != (unsigned int) ~0) {
+            if (stat.lpc < map->table[i]->probe_count) {
+                stat.lpc = map->table[i]->probe_count;
+            }
+            pcc += map->table[i]->probe_count;
+        }
+    }
+    stat.avgpc = (double) pcc / map->count;
+    stat.load = (double) map->count / map->buckets;
+    return stat;
 }
