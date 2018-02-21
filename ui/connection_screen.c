@@ -1,9 +1,3 @@
-#define CONN_WIDTH 46
-#define STATE_WIDTH 14
-#define PACKET_WIDTH 8
-#define CONN_HEADER 3
-#define STATUS_HEIGHT 1
-
 #include <stdlib.h>
 #include <arpa/inet.h>
 #include "connection_screen.h"
@@ -13,6 +7,12 @@
 #include "../decoder/packet.h"
 #include "../misc.h"
 #include "../util.h"
+
+#define CONN_WIDTH 46
+#define STATE_WIDTH 14
+#define PACKET_WIDTH 8
+#define CONN_HEADER 3
+#define STATUS_HEIGHT 1
 
 extern WINDOW *status;
 extern main_menu *menu;
@@ -28,6 +28,7 @@ static void print_all_connections(connection_screen *cs);
 static void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int y);
 static void print_conn_header(connection_screen *cs);
 static void print_status();
+static void scroll_page(connection_screen *cs, int num_lines);
 
 static screen_operations csop = {
     .screen_init = connection_screen_init,
@@ -101,7 +102,8 @@ void connection_screen_refresh(screen *s)
 void connection_screen_get_input(screen *s)
 {
     connection_screen *cs = (connection_screen *) s;
-    int c = wgetch(cs->base.win);
+    int c = wgetch(s->win);
+    int my = getmaxy(s->win);
 
     switch (c) {
     case 'x':
@@ -145,6 +147,14 @@ void connection_screen_get_input(screen *s)
         }
         break;
     }
+    case ' ':
+    case KEY_NPAGE:
+        scroll_page(cs, my);
+        break;
+    case 'b':
+    case KEY_PPAGE:
+        scroll_page(cs, -my);
+        break;
     case 'q':
     case KEY_F(10):
         finish();
@@ -288,4 +298,39 @@ void print_status()
     wprintw(status, "F10");
     printat(status, -1, -1, colour, "%-11s", "Quit");
     wrefresh(status);
+}
+
+void scroll_page(connection_screen *cs, int num_lines)
+{
+    int i = abs(num_lines);
+
+    if (hash_map_size(cs->sessions) <= (unsigned) i) return;
+
+    if (num_lines > 0) { /* scroll down */
+        struct tcp_connection_v4 *data = list_back(cs->screen_buf);
+        const hash_map_iterator *it = hash_map_get_it(cs->sessions, data->endp);
+
+        it = hash_map_next(cs->sessions, it);
+        while (it && i > 0) {
+            list_pop_front(cs->screen_buf, NULL);
+            list_push_back(cs->screen_buf, it->data);
+            it = hash_map_next(cs->sessions, it);
+            i--;
+        }
+    } else { /* scroll up */
+        struct tcp_connection_v4 *data = list_front(cs->screen_buf);
+        const hash_map_iterator *it = hash_map_get_it(cs->sessions, data->endp);
+
+        it = hash_map_prev(cs->sessions, it);
+        while (it && i > 0) {
+            list_push_front(cs->screen_buf, it->data);
+            list_pop_back(cs->screen_buf, NULL);
+            it = hash_map_prev(cs->sessions, it);
+            i--;
+        }
+    }
+    if (i != abs(num_lines)) {
+        werase(cs->base.win);
+        print_all_connections(cs);
+    }
 }
