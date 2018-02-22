@@ -105,12 +105,9 @@ packet_error handle_dns(unsigned char *buffer, int n, struct application_info *i
     for (int i = 0, j = 4; i < 4; i++, j += 2) {
         info->dns->section_count[i] = ptr[j] << 8 | ptr[j + 1];
     }
+    info->dns->question = NULL;
     info->dns->record = NULL;
     if (!info->dns->qr) {  /* DNS query */
-        if (info->dns->rcode != 0) { /* RCODE will be zero */
-            return DNS_ERR;
-        }
-
         /*
          * ARCOUNT will typically be 0, 1, or 2, depending on whether EDNS0
          * (RFC 2671) or TSIG (RFC 2845) are used
