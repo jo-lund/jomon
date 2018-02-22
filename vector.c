@@ -76,8 +76,8 @@ inline void *vector_data(vector_t *vector)
 
 void vector_clear(vector_t *vector, vector_deallocate func)
 {
-    for (unsigned int i = 0; i < vector->c; i++) {
-        if (func) {
+    if (func) {
+        for (unsigned int i = 0; i < vector->c; i++) {
             func(vector->buf[i].data);
         }
     }

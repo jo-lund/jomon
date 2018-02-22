@@ -91,7 +91,7 @@ void analyzer_check_stream(const struct eth_info *ethp)
             default:
                 break;
             }
-            publish1(conn_changed_publisher, conn);
+            publish2(conn_changed_publisher, conn, NULL);
         } else if (!tcp->fin) {
             struct tcp_connection_v4 *new_conn;
             struct tcp_endpoint_v4 *new_endp;
@@ -109,7 +109,7 @@ void analyzer_check_stream(const struct eth_info *ethp)
                 new_conn->state = ESTABLISHED;
             }
             hash_map_insert(connection_table, new_endp, new_conn);
-            publish1(conn_changed_publisher, new_conn);
+            publish2(conn_changed_publisher, new_conn, (void *) 0x1);
         }
     }
 }
@@ -119,14 +119,14 @@ hash_map_t *analyzer_get_sessions()
     return connection_table;
 }
 
-void analyzer_subscribe(publisher_fn1 fn)
+void analyzer_subscribe(analyzer_conn_fn fn)
 {
-    add_subscription1(conn_changed_publisher, fn);
+    add_subscription2(conn_changed_publisher, (publisher_fn2) fn);
 }
 
-void analyzer_unsubscribe(publisher_fn1 fn)
+void analyzer_unsubscribe(analyzer_conn_fn fn)
 {
-    remove_subscription1(conn_changed_publisher, fn);
+    remove_subscription2(conn_changed_publisher, (publisher_fn2) fn);
 }
 
 char *analyzer_get_connection_state(enum connection_state state)

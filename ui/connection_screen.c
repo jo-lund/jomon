@@ -23,7 +23,7 @@ static void connection_screen_get_input(screen *s);
 static void connection_screen_got_focus(screen *s __attribute__((unused)));
 static void connection_screen_lost_focus(screen *s __attribute__((unused)));
 static void connection_screen_render(connection_screen *cs);
-static void update_connection(void *data);
+static void update_connection(struct tcp_connection_v4 *c, bool new_connection);
 static void print_all_connections(connection_screen *cs);
 static void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int y);
 static void print_conn_header(connection_screen *cs);
@@ -57,10 +57,10 @@ void connection_screen_init(screen *s)
     getmaxyx(stdscr, my, mx);
     cs->header = newwin(CONN_HEADER, mx, 0, 0);
     cs->base.win = newwin(my - CONN_HEADER - STATUS_HEIGHT, mx, CONN_HEADER, 0);
+    cs->top = 0;
     cs->y = 0;
     cs->lines = my - CONN_HEADER - STATUS_HEIGHT;
-    cs->screen_buf = list_init();
-    cs->sessions = analyzer_get_sessions();
+    cs->screen_buf = vector_init(1024);
     scrollok(cs->base.win, TRUE);
     nodelay(cs->base.win, TRUE);
     keypad(cs->base.win, TRUE);
@@ -72,7 +72,7 @@ void connection_screen_free(screen *s)
 
     delwin(cs->header);
     delwin(s->win);
-    list_free(cs->screen_buf, NULL);
+    vector_free(cs->screen_buf, NULL);
     free(cs);
 }
 
@@ -92,8 +92,9 @@ void connection_screen_refresh(screen *s)
 
     werase(s->win);
     werase(cs->header);
-    list_clear(cs->screen_buf, NULL);
+    cs->top = 0;
     cs->y = 0;
+    vector_clear(cs->screen_buf, NULL);
     wbkgd(s->win, get_theme_colour(BACKGROUND));
     wbkgd(cs->header, get_theme_colour(BACKGROUND));
     connection_screen_render(cs);
@@ -118,35 +119,22 @@ void connection_screen_get_input(screen *s)
         push_screen((screen *) menu);
         break;
     case KEY_UP:
-    {
-        struct tcp_connection_v4 *data = list_front(cs->screen_buf);
-        const hash_map_iterator *it = hash_map_get_it(cs->sessions, data->endp);
-
-        it = hash_map_prev(cs->sessions, it);
-        if (it) {
-            list_push_front(cs->screen_buf, it->data);
-            list_pop_back(cs->screen_buf, NULL);
-            wscrl(cs->base.win, -1);
-            print_connection(cs, it->data, 0);
+        if (cs->top > 0) {
+            cs->top--;
+            wscrl(s->win, -1);
+            print_connection(cs, vector_get_data(cs->screen_buf, cs->top), 0);
             wrefresh(cs->base.win);
         }
         break;
-    }
     case KEY_DOWN:
-    {
-        struct tcp_connection_v4 *data = list_back(cs->screen_buf);
-        const hash_map_iterator *it = hash_map_get_it(cs->sessions, data->endp);
-
-        it = hash_map_next(cs->sessions, it);
-        if (it) {
-            list_pop_front(cs->screen_buf, NULL);
-            list_push_back(cs->screen_buf, it->data);
-            wscrl(cs->base.win, 1);
-            print_connection(cs, it->data, cs->y - 1);
+        if (cs->top + cs->lines < vector_size(cs->screen_buf)) {
+            cs->top++;
+            wscrl(s->win, 1);
+            print_connection(cs, vector_get_data(cs->screen_buf, cs->top + cs->lines - 1),
+                             cs->lines - 1);
             wrefresh(cs->base.win);
         }
         break;
-    }
     case ' ':
     case KEY_NPAGE:
         scroll_page(cs, my);
@@ -166,54 +154,50 @@ void connection_screen_get_input(screen *s)
 
 void connection_screen_render(connection_screen *cs)
 {
+    hash_map_t *sessions = analyzer_get_sessions();
+
+    if (hash_map_size(sessions)) {
+        const hash_map_iterator *it = hash_map_first(sessions);
+
+        while (it) {
+            vector_push_back(cs->screen_buf, it->data);
+            it = hash_map_next(sessions, it);
+        }
+    }
     touchwin(cs->header);
     touchwin(cs->base.win);
     print_conn_header(cs);
-    if (hash_map_size(cs->sessions)) {
-        const hash_map_iterator *it = hash_map_first(cs->sessions);
-
-        while (it) {
-            if (cs->y < cs->lines) {
-                list_push_back(cs->screen_buf, it->data);
-                cs->y++;
-            } else {
-                break;
-            }
-            it = hash_map_next(cs->sessions, it);
-        }
-    }
     print_all_connections(cs);
     print_status();
 }
 
-void update_connection(void *data)
+void update_connection(struct tcp_connection_v4 *c, bool new_connection)
 {
-    struct tcp_connection_v4 *conn = (struct tcp_connection_v4 *) data;
-    bool found = false;
+    struct tcp_connection_v4 *conn = (struct tcp_connection_v4 *) c;
     connection_screen *cs = (connection_screen *) screen_cache_get(CONNECTION_SCREEN);
-    int y = 0;
-    const node_t *n = list_begin(cs->screen_buf);
 
     werase(cs->header);
     print_conn_header(cs);
-    while (n) {
-        if (list_data(n) == conn) {
-            found = true;
-            break;
+    if (new_connection) {
+        vector_push_back(cs->screen_buf, conn);
+        if (vector_size(cs->screen_buf) < cs->lines) {
+            print_connection(cs, conn, cs->y);
+            cs->y++;
+            wrefresh(cs->base.win);
         }
-        n = list_next(n);
-        y++;
-    }
-    if (list_size(cs->screen_buf) < cs->lines && !found) {
-        list_push_back(cs->screen_buf, conn);
-        print_connection(cs, conn, cs->y);
-        cs->y++;
-        wrefresh(cs->base.win);
-    } else if (found) {
-        wmove(cs->base.win, y, 0);
-        wclrtoeol(cs->base.win);
-        print_connection(cs, conn, y);
-        wrefresh(cs->base.win);
+    } else {
+        int y = 0;
+
+        while (y < cs->lines && cs->top + y < vector_size(cs->screen_buf)) {
+            if (vector_get_data(cs->screen_buf, cs->top + y) == conn) {
+                wmove(cs->base.win, y, 0);
+                wclrtoeol(cs->base.win);
+                print_connection(cs, conn, y);
+                wrefresh(cs->base.win);
+                break;
+            }
+            y++;
+        }
     }
 }
 
@@ -222,7 +206,7 @@ void print_conn_header(connection_screen *cs)
     int y = 0;
 
     printat(cs->header, y, 0, get_theme_colour(HEADER_TXT), "TCP sessions");
-    wprintw(cs->header,  ": %d", hash_map_size(cs->sessions));
+    wprintw(cs->header,  ": %d", vector_size(cs->screen_buf));
     y += 2;
     mvwprintw(cs->header, y, 0, "Connection");
     mvwprintw(cs->header, y, CONN_WIDTH, "State");
@@ -234,13 +218,12 @@ void print_conn_header(connection_screen *cs)
 
 void print_all_connections(connection_screen *cs)
 {
-    int y = 0;
-    const node_t *n = list_begin(cs->screen_buf);
+    int i = cs->top;
 
-    while (n) {
-        print_connection(cs, list_data(n), y);
-        y++;
-        n = list_next(n);
+    while (cs->y < cs->lines && i < vector_size(cs->screen_buf)) {
+        print_connection(cs, vector_get_data(cs->screen_buf, i), cs->y);
+        cs->y++;
+        i++;
     }
     wrefresh(cs->base.win);
 }
@@ -304,32 +287,21 @@ void scroll_page(connection_screen *cs, int num_lines)
 {
     int i = abs(num_lines);
 
-    if (hash_map_size(cs->sessions) <= (unsigned) i) return;
+    if (vector_size(cs->screen_buf) <= i) return;
 
     if (num_lines > 0) { /* scroll down */
-        struct tcp_connection_v4 *data = list_back(cs->screen_buf);
-        const hash_map_iterator *it = hash_map_get_it(cs->sessions, data->endp);
-
-        it = hash_map_next(cs->sessions, it);
-        while (it && i > 0) {
-            list_pop_front(cs->screen_buf, NULL);
-            list_push_back(cs->screen_buf, it->data);
-            it = hash_map_next(cs->sessions, it);
+        while (i > 0 && cs->top + cs->lines < vector_size(cs->screen_buf)) {
+            cs->top++;
             i--;
         }
     } else { /* scroll up */
-        struct tcp_connection_v4 *data = list_front(cs->screen_buf);
-        const hash_map_iterator *it = hash_map_get_it(cs->sessions, data->endp);
-
-        it = hash_map_prev(cs->sessions, it);
-        while (it && i > 0) {
-            list_push_front(cs->screen_buf, it->data);
-            list_pop_back(cs->screen_buf, NULL);
-            it = hash_map_prev(cs->sessions, it);
+        while (i > 0 && cs->top > 0) {
+            cs->top--;
             i--;
         }
     }
     if (i != abs(num_lines)) {
+        cs->y = 0;
         werase(cs->base.win);
         print_all_connections(cs);
     }
