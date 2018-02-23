@@ -14,9 +14,8 @@ typedef struct main_menu {
 } main_menu;
 
 main_menu *main_menu_create();
-void main_menu_add_options(main_menu *menu, char *header, char **opts, int num_opts,
-                           menu_handler fn, int rows, int cols, int begy, int begx);
-
+void main_menu_add_options(main_menu *menu, char *header, char **opts,
+                           int num_opts, menu_handler fn);
 void main_menu_free(screen *s);
 
 #endif

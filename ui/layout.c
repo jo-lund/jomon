@@ -26,6 +26,7 @@ static void init_colours();
 static void create_screens();
 static void change_theme(int i);
 static void change_display(int i);
+static void change_window(int i);
 
 static int themes[NUM_THEMES][NUM_ELEMENTS] = {
     [DEFAULT] = {
@@ -41,7 +42,9 @@ static int themes[NUM_THEMES][NUM_ELEMENTS] = {
         [DISABLE]       = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, -1)) | A_BOLD,
         [FOCUS]         = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_CYAN)),
         [SELECTIONBAR]  = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_CYAN)),
-        [BACKGROUND]    = COLOR_PAIR(COLOUR_IDX(-1, -1))
+        [BACKGROUND]    = COLOR_PAIR(COLOUR_IDX(-1, -1)),
+        [MENU_BACKGROUND] = COLOR_PAIR(COLOUR_IDX(COLOR_WHITE, COLOR_CYAN)),
+        [MENU_SELECTIONBAR] = COLOR_PAIR(COLOUR_IDX(COLOR_WHITE, COLOR_BLACK))
     },
     [LIGHT] = {
         [HEADER]        = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_GREEN)),
@@ -56,7 +59,9 @@ static int themes[NUM_THEMES][NUM_ELEMENTS] = {
         [DISABLE]       = COLOR_PAIR(COLOUR_IDX(COLOR_WHITE, COLOR_WHITE)) | A_BOLD,
         [FOCUS]         = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_CYAN)),
         [SELECTIONBAR]  = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_CYAN)),
-        [BACKGROUND]    = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_WHITE))
+        [BACKGROUND]    = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_WHITE)),
+        [MENU_BACKGROUND] = COLOR_PAIR(COLOUR_IDX(COLOR_WHITE, COLOR_BLACK)),
+        [MENU_SELECTIONBAR] = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_CYAN))
     },
     [DARK] = {
         [HEADER]        = COLOR_PAIR(COLOUR_IDX(COLOR_WHITE, COLOR_MAGENTA)),
@@ -71,7 +76,9 @@ static int themes[NUM_THEMES][NUM_ELEMENTS] = {
         [DISABLE]       = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_BLACK)) | A_BOLD,
         [FOCUS]         = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_CYAN)),
         [SELECTIONBAR]  = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_CYAN)),
-        [BACKGROUND]    = COLOR_PAIR(COLOUR_IDX(COLOR_WHITE, COLOR_BLACK))
+        [BACKGROUND]    = COLOR_PAIR(COLOUR_IDX(COLOR_WHITE, COLOR_BLACK)),
+        [MENU_BACKGROUND] = COLOR_PAIR(COLOUR_IDX(COLOR_WHITE, COLOR_CYAN)),
+        [MENU_SELECTIONBAR] = COLOR_PAIR(COLOUR_IDX(COLOR_WHITE, COLOR_BLACK))
     }
 };
 
@@ -82,13 +89,16 @@ static char *menu_themes[] = {
 };
 
 static char *menu_display[] = {
-    "Megabytes",
-    "Kilobytes",
-    "Bytes",
     "Mbit/s",
     "Kbit/s",
     "MB/s",
     "kB/s"
+};
+
+static char *menu_windows[] = {
+    "Packets",
+    "Statistics",
+    "TCP Connections"
 };
 
 void init_ncurses()
@@ -108,8 +118,9 @@ void init_ncurses()
     status = newwin(STATUS_HEIGHT, mx, my - STATUS_HEIGHT, 0);
     create_screens();
     menu = main_menu_create();
-    main_menu_add_options(menu, "Themes", menu_themes, 3, change_theme, 5, 12, my - 6, 0);
-    main_menu_add_options(menu, "Display", menu_display, 7, change_display, 9, 14, my - 10, 12);
+    main_menu_add_options(menu, "Themes", menu_themes, 3, change_theme);
+    main_menu_add_options(menu, "Display", menu_display, 4, change_display);
+    main_menu_add_options(menu, "Windows", menu_windows, 3, change_window);
     menu->cur = list_begin(menu->opt);
 }
 
@@ -366,6 +377,11 @@ void change_theme(int i)
 }
 
 void change_display(int i)
+{
+
+}
+
+void change_window(int i)
 {
 
 }

@@ -28,6 +28,8 @@ enum elements {
     FOCUS,
     SELECTIONBAR,
     BACKGROUND,
+    MENU_BACKGROUND,
+    MENU_SELECTIONBAR,
     NUM_ELEMENTS
 };
 
