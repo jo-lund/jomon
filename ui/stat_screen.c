@@ -1,15 +1,16 @@
-#include "stat_screen.h"
-#include "layout_int.h"
-#include "../misc.h"
-#include "../interface.h"
-#include "../decoder/decoder.h"
-#include "menu.h"
 #include <string.h>
 #include <unistd.h>
 #ifdef __linux__
 #include <linux/wireless.h>
 #endif
 #include <ctype.h>
+#include "stat_screen.h"
+#include "layout_int.h"
+#include "../misc.h"
+#include "../interface.h"
+#include "../decoder/decoder.h"
+#include "menu.h"
+#include "../util.h"
 
 #define MAX_NAME 128
 
@@ -81,6 +82,7 @@ static cputime **cpustat;
 static int cpuidx = 0;
 static bool show_packet_stats = true;
 static enum page stat_page;
+static bool formatted_output = true;
 
 static bool read_hwstat();
 static bool read_netstat();
@@ -167,11 +169,15 @@ void stat_screen_get_input(screen *s)
     case KEY_F(2):
         push_screen((screen *) menu);
         break;
-    case 'p':
-        show_packet_stats = !show_packet_stats;
+    case 'e':
+        formatted_output = !formatted_output;
         stat_screen_print(s);
         break;
     case 'v':
+        show_packet_stats = !show_packet_stats;
+        stat_screen_print(s);
+        break;
+    case 'p':
         stat_page = (stat_page + 1) % NUM_PAGES;
         switch (stat_page) {
         case NET_STAT:
@@ -285,6 +291,8 @@ void print_netstat()
         wprintw(s->win, ": %8d dBm", (int8_t) iwstat.qual.noise);
     }
     if (show_packet_stats) {
+        char buf[16];
+
         mvwprintw(s->win, ++y, 0, "");
         if (pstat[0].num_packets) {
             printat(s->win, ++y, 0, subcol, "%23s %12s", "Packets", "Bytes");
@@ -292,7 +300,12 @@ void print_netstat()
                 if (pstat[i].num_packets) {
                     printat(s->win, ++y, 0, subcol, "%13s", pstat[i].protocol);
                     wprintw(s->win, ": %8u", pstat[i].num_packets);
-                    wprintw(s->win, "%13llu", pstat[i].num_bytes);
+                    if (formatted_output) {
+                        wprintw(s->win, "%13s",
+                                format_bytes(pstat[i].num_bytes, buf, 16));
+                    } else {
+                        wprintw(s->win, "%13llu", pstat[i].num_bytes);
+                    }
                 }
             }
         }

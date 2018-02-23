@@ -53,6 +53,8 @@ void help_screen_render()
     wprintw(win, ": Enter interactive mode");
     printat(win, ++y, 0, subcol, "%12s", "s");
     wprintw(win, ": Show statistics screen");
+    printat(win, ++y, 0, subcol, "%12s", "c");
+    wprintw(win, ": Show TCP connections");
     printat(win, ++y, 0, subcol, "%12s", "F2");
     wprintw(win, ": Show menu");
     printat(win, ++y, 0, subcol, "%12s", "F3");
@@ -87,8 +89,10 @@ void help_screen_render()
     wprintw(win, ": Quit interactive mode");
     mvwprintw(win, ++y, 0, "");
     printat(win, ++y, 0, hdrcol, "Statistics screen keyboard shortcuts");
+    printat(win, ++y, 0, subcol, "%12s", "e");
+    wprintw(win, ": Switch between bytes and output in human readable format");
     printat(win, ++y, 0, subcol, "%12s", "p");
-    wprintw(win, ": Show/hide packet statistics");
+    wprintw(win, ": Show network or CPU & memory statistics");
     printat(win, ++y, 0, subcol, "%12s", "Esc x");
     wprintw(win, ": Exit statistics screen");
 }
