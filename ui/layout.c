@@ -25,7 +25,7 @@ static int theme;
 static void init_colours();
 static void create_screens();
 static void change_theme(int i);
-static void change_display(int i);
+static void options(int i);
 static void change_window(int i);
 
 static int themes[NUM_THEMES][NUM_ELEMENTS] = {
@@ -88,11 +88,17 @@ static char *menu_themes[] = {
     "Dark"
 };
 
-static char *menu_display[] = {
+static char *network_rate[] = {
     "Mbit/s",
     "Kbit/s",
     "MB/s",
     "kB/s"
+};
+
+static char *name_resolution[] = {
+    "Show TCP/UDP service names",
+    "Use captured DNS data for reverse name resolution",
+    "Reverse DNS lookups (Sends out DNS requests)"
 };
 
 static char *menu_windows[] = {
@@ -101,9 +107,15 @@ static char *menu_windows[] = {
     "TCP Connections"
 };
 
+static char *menu_options[] = {
+    "Name resolution",
+    "Network rate display"
+};
+
 void init_ncurses()
 {
     int mx, my;
+    option_menu *om;
 
     initscr(); /* initialize curses mode */
     cbreak(); /* disable line buffering */
@@ -118,10 +130,12 @@ void init_ncurses()
     status = newwin(STATUS_HEIGHT, mx, my - STATUS_HEIGHT, 0);
     create_screens();
     menu = main_menu_create();
-    main_menu_add_options(menu, "Themes", menu_themes, 3, change_theme);
-    main_menu_add_options(menu, "Display", menu_display, 4, change_display);
-    main_menu_add_options(menu, "Windows", menu_windows, 3, change_window);
-    menu->cur = list_begin(menu->opt);
+    main_menu_add_options(menu, MENU_NORMAL, "Themes", menu_themes, 3, change_theme);
+    om = main_menu_add_options(menu, MENU_NORMAL, "Options", menu_options, 2, NULL);
+    main_menu_add_suboptions(om, MENU_MULTI_SELECT, 0, name_resolution, 3, options);
+    main_menu_add_suboptions(om, MENU_SINGLE_SELECT, 1, network_rate, 4, options);
+    main_menu_add_options(menu, MENU_NORMAL, "Windows", menu_windows, 3, change_window);
+    menu->current = list_begin(menu->opt);
 }
 
 void end_ncurses()
@@ -376,12 +390,12 @@ void change_theme(int i)
     SCREEN_REFRESH(s);
 }
 
-void change_display(int i)
+void change_window(int i)
 {
 
 }
 
-void change_window(int i)
+void options(int i)
 {
 
 }
