@@ -5,12 +5,18 @@
 #include "menu.h"
 #include "../decoder/tcp_analyzer.h"
 #include "../decoder/packet.h"
+#include "../decoder/packet_ip.h"
 #include "../misc.h"
 #include "../util.h"
 
-#define CONN_WIDTH 46
+#define ADDR_WIDTH 17
+#define PORT_WIDTH 10
+#define CONN_WIDTH 2 * ADDR_WIDTH + 2 * PORT_WIDTH
 #define STATE_WIDTH 14
 #define PACKET_WIDTH 8
+#define BYTES_WIDTH 14
+#define TOTAL_WIDTH CONN_WIDTH + STATE_WIDTH + PACKET_WIDTH + BYTES_WIDTH
+#define AB_WIDTH TOTAL_WIDTH + 2 * PACKET_WIDTH + BYTES_WIDTH
 #define CONN_HEADER 3
 #define STATUS_HEIGHT 1
 
@@ -205,13 +211,20 @@ void print_conn_header(connection_screen *cs)
 {
     int y = 0;
 
-    printat(cs->header, y, 0, get_theme_colour(HEADER_TXT), "TCP sessions");
+    printat(cs->header, y, 0, get_theme_colour(HEADER_TXT), "TCP connections");
     wprintw(cs->header,  ": %d", vector_size(cs->screen_buf));
     y += 2;
-    mvwprintw(cs->header, y, 0, "Connection");
+    mvwprintw(cs->header, y, 0, "IP address A");
+    mvwprintw(cs->header, y, ADDR_WIDTH, "Port A");
+    mvwprintw(cs->header, y, ADDR_WIDTH + PORT_WIDTH, "IP address B");
+    mvwprintw(cs->header, y, 2 * ADDR_WIDTH + PORT_WIDTH, "Port B");
     mvwprintw(cs->header, y, CONN_WIDTH, "State");
     mvwprintw(cs->header, y, CONN_WIDTH + STATE_WIDTH, "Packets");
     mvwprintw(cs->header, y, CONN_WIDTH + STATE_WIDTH + PACKET_WIDTH, "Bytes");
+    mvwprintw(cs->header, y, TOTAL_WIDTH, "Packets A -> B");
+    mvwprintw(cs->header, y, TOTAL_WIDTH + 2 * PACKET_WIDTH, "Bytes A -> B");
+    mvwprintw(cs->header, y, AB_WIDTH, "Packets B -> A");
+    mvwprintw(cs->header, y, AB_WIDTH + 2 * PACKET_WIDTH, "Bytes B -> A");
     mvwchgat(cs->header, y, 0, -1, A_STANDOUT, 0, NULL);
     wrefresh(cs->header);
 }
@@ -234,15 +247,31 @@ void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int
     char srcaddr[INET_ADDRSTRLEN];
     char dstaddr[INET_ADDRSTRLEN];
     uint32_t bytes = 0;
+    uint32_t addra = 0;
+    uint32_t addrb = 0;
+    uint32_t bytes_atob = 0;
+    uint32_t bytes_btoa = 0;
+    uint32_t packets_atob = 0;
+    uint32_t packets_btoa = 0;
     const node_t *n = list_begin(conn->packets);
+    struct packet *p;
 
     inet_ntop(AF_INET, &conn->endp->src, srcaddr, sizeof(srcaddr));
     inet_ntop(AF_INET, &conn->endp->dst, dstaddr, sizeof(dstaddr));
-    snprintf(buf, MAXLINE, "%s:%d <=> %s:%d", srcaddr, conn->endp->src_port,
-             dstaddr, conn->endp->dst_port);
+    snprintf(buf, MAXLINE, "%-*s%-*d%-*s%d", ADDR_WIDTH, srcaddr, PORT_WIDTH,
+             conn->endp->src_port, ADDR_WIDTH, dstaddr, conn->endp->dst_port);
+    p = list_data(n);
+    addra = p->eth.ip->src;
+    addrb = p->eth.ip->dst;
     while (n) {
-        struct packet *p = list_data(n);
-
+        p = list_data(n);
+        if (addra == p->eth.ip->src) {
+            bytes_atob += get_packet_size(p);
+            packets_atob++;
+        } else if (addrb == p->eth.ip->src) {
+            bytes_btoa += get_packet_size(p);
+            packets_btoa++;
+        }
         bytes += get_packet_size(p);
         n = list_next(n);
     }
@@ -255,6 +284,14 @@ void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int
                 "%d", list_size(conn->packets));
         printat(cs->base.win, y, CONN_WIDTH + STATE_WIDTH + PACKET_WIDTH,
                 get_theme_colour(DISABLE), "%s", format_bytes(bytes, buf, MAXLINE));
+        printat(cs->base.win, y, TOTAL_WIDTH, get_theme_colour(DISABLE),
+                "%d", packets_atob);
+        printat(cs->base.win, y, TOTAL_WIDTH + 2 * PACKET_WIDTH, get_theme_colour(DISABLE),
+                "%s", format_bytes(bytes_atob, buf, MAXLINE));
+        printat(cs->base.win, y, AB_WIDTH, get_theme_colour(DISABLE),
+                "%d", packets_btoa);
+        printat(cs->base.win, y, AB_WIDTH + 2 * PACKET_WIDTH, get_theme_colour(DISABLE),
+                "%s", format_bytes(bytes_btoa, buf, MAXLINE));
     } else {
         mvwprintw(cs->base.win, y, 0, "%s", buf);
         mvwprintw(cs->base.win, y, CONN_WIDTH, "%s",
@@ -263,6 +300,12 @@ void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int
                   list_size(conn->packets));
         mvwprintw(cs->base.win, y, CONN_WIDTH + STATE_WIDTH + PACKET_WIDTH, "%s",
                   format_bytes(bytes, buf, MAXLINE));
+        mvwprintw(cs->base.win, y, TOTAL_WIDTH, "%d", packets_atob);
+        mvwprintw(cs->base.win, y, TOTAL_WIDTH + 2 * PACKET_WIDTH, "%s",
+                  format_bytes(bytes_atob, buf, MAXLINE));
+        mvwprintw(cs->base.win, y, AB_WIDTH, "%d", packets_btoa);
+        mvwprintw(cs->base.win, y, AB_WIDTH + 2 * PACKET_WIDTH, "%s",
+                  format_bytes(bytes_btoa, buf, MAXLINE));
     }
 }
 
