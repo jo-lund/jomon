@@ -15,6 +15,7 @@
 #include <poll.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <getopt.h>
 #include "misc.h"
 #include "error.h"
 #include "interface.h"
@@ -44,15 +45,25 @@ static void print_help(char *prg);
 static void init_socket(char *device);
 static void init_structures();
 static void run();
-static void sig_alarm(int signo);
-static void sig_int(int signo);
+static void sig_alarm(int signo __attribute__((unused)));
+static void sig_int(int signo __attribute__((unused)));
 
 int main(int argc, char **argv)
 {
     char *prg_name = argv[0];
     int opt;
+    int idx;
+    static struct option long_options[] = {
+        { "interface", required_argument, 0, 'i' },
+        { "help", no_argument, 0, 'h' },
+        { "list-interfaces", no_argument, 0, 'l' },
+        { "statistics", no_argument, 0, 's' },
+        { "verbose", no_argument, 0, 'v' },
+        { 0, 0, 0, 0}
+    };
 
-    while ((opt = getopt(argc, argv, "i:r:lhvpst")) != -1) {
+    while ((opt = getopt_long(argc, argv, "i:r:hlpstv",
+                              long_options, &idx)) != -1) {
         switch (opt) {
         case 'i':
             ctx.device = strdup(optarg);
@@ -64,18 +75,18 @@ int main(int argc, char **argv)
         case 'p':
             promiscuous = true;
             break;
-        case 'v':
-            verbose = true;
-            break;
-        case 's':
-            ctx.show_statistics = true;
-            break;
         case 'r':
             strcpy(ctx.filename, optarg);
             load_file = true;
             break;
+        case 's':
+            ctx.show_statistics = true;
+            break;
         case 't':
             use_ncurses = false;
+            break;
+        case 'v':
+            verbose = true;
             break;
         case 'h':
         default:
@@ -131,24 +142,24 @@ int main(int argc, char **argv)
 
 void print_help(char *prg)
 {
-    printf("Usage: %s [-lvhpst] [-i interface] [-r path]\n", prg);
+    printf("Usage: %s [-lvhpstG] [-i interface] [-r path]\n", prg);
     printf("Options:\n");
-    printf("     -i  Specify network interface\n");
-    printf("     -l  List available interfaces\n");
-    printf("     -p  Use promiscuous mode\n");
-    printf("     -s  Show statistics page\n");
-    printf("     -v  Print verbose information\n");
-    printf("     -r  Read file in pcap format\n");
-    printf("     -t  Use normal text output, i.e. don't use ncurses\n");
-    printf("     -h  Print this help summary\n");
+    printf("     -i, --interface        Specify network interface\n");
+    printf("     -l, --list-interfaces  List available interfaces\n");
+    printf("     -p                     Use promiscuous mode\n");
+    printf("     -r                     Read file in pcap format\n");
+    printf("     -s, --statistics       Show statistics page\n");
+    printf("     -t                     Use normal text output, i.e. don't use ncurses\n");
+    printf("     -v, --verbose          Print verbose information\n");
+    printf("     -h                     Print this help summary\n");
 }
 
-void sig_alarm(int signo)
+void sig_alarm(int signo __attribute__((unused)))
 {
     signal_flag = 1;
 }
 
-void sig_int(int signo)
+void sig_int(int signo __attribute__((unused)))
 {
     finish();
 }
