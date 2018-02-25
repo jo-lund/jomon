@@ -431,26 +431,10 @@ void print_dns(char *buf, int n, struct dns_info *dns, uint16_t type)
             break;
         }
     } else {
-        switch (dns->rcode) {
-        case DNS_FORMAT_ERROR:
-            PRINT_INFO(buf, n, "Response: format error");
-            return;
-        case DNS_SERVER_FAILURE:
-            PRINT_INFO(buf, n, "Response: server failure");
-            return;
-        case DNS_NAME_ERROR:
-            PRINT_INFO(buf, n, "Response: name error");
-            return;
-        case DNS_NOT_IMPLEMENTED:
-            PRINT_INFO(buf, n, "Response: request not supported");
-            return;
-        case DNS_REFUSED:
-            PRINT_INFO(buf, n, "Response: operation refused");
-            return;
-        case DNS_NO_ERROR:
-        default:
+        if (dns->rcode == DNS_NO_ERROR) {
             PRINT_INFO(buf, n, "Response: ");
-            break;
+        } else {
+            PRINT_INFO(buf, n, "Response: %s ", get_dns_rcode(dns->rcode));
         }
 
         // TODO: Need to print the proper name for all values.
@@ -1290,6 +1274,9 @@ void add_dns_information(list_view *lw, list_view_header *header,
     /* number of resource records */
     for (int i = 1; i < 4; i++) {
         records += dns->section_count[i];
+    }
+    if (dns->length) {
+        ADD_TEXT_ELEMENT(lw, header, "Length: %u", dns->length);
     }
     ADD_TEXT_ELEMENT(lw, header, "ID: 0x%x", dns->id);
     ADD_TEXT_ELEMENT(lw, header, "QR: %d (%s)", dns->qr, dns->qr ? "DNS Response" : "DNS Query");

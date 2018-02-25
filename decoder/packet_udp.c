@@ -35,7 +35,7 @@ packet_error handle_udp(unsigned char *buffer, int n, struct udp_info *info)
     for (int i = 0; i < 2; i++) {
         info->data.utype = *((uint16_t *) info + i);
         error = check_port(buffer + UDP_HDR_LEN, n - UDP_HDR_LEN, &info->data,
-                           info->data.utype);
+                           info->data.utype, false);
         if (error != UNK_PROTOCOL) {
             return error;
         }

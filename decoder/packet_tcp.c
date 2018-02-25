@@ -129,7 +129,7 @@ packet_error handle_tcp(unsigned char *buffer, int n, struct tcp *info, struct e
         for (int i = 0; i < 2; i++) {
             info->data.utype = *((uint16_t *) info + i);
             error = check_port(buffer + info->offset * 4, payload_len, &info->data,
-                               info->data.utype);
+                               info->data.utype, true);
             if (error != UNK_PROTOCOL) {
                 return error;
             }

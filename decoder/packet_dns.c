@@ -80,7 +80,8 @@ static void free_opt_rr(void *data);
  * ARCOUNT: an unsigned 16 bit integer specifying the number of
  *          resource records in the additional records section.
  */
-packet_error handle_dns(unsigned char *buffer, int n, struct application_info *info)
+packet_error handle_dns(unsigned char *buffer, int n,
+                        struct application_info *info, bool is_tcp)
 {
     unsigned char *ptr = buffer;
     int plen = n;
@@ -88,6 +89,17 @@ packet_error handle_dns(unsigned char *buffer, int n, struct application_info *i
 
     if (n < DNS_HDRLEN) return DNS_ERR;
     info->dns = malloc(sizeof(struct dns_info));
+
+    /*
+     * According to RFC 1035, messages sent over TCP are prefixed with a two
+     * byte length field
+     */
+    if (is_tcp) {
+        info->dns->length = get_uint16be(ptr);
+        ptr += 2;
+    } else {
+        info->dns->length = 0;
+    }
     info->dns->id = ptr[0] << 8 | ptr[1];
     info->dns->qr = (ptr[2] & 0x80) >> 7;
     info->dns->opcode = (ptr[2] & 0x78) >> 3;
@@ -500,6 +512,16 @@ char *get_dns_rcode(uint8_t rcode)
         return "Operation refused";
     case DNS_NO_ERROR:
         return "No error condition";
+    case DNS_YXDOMAIN:
+        return "Name exists when it should not";
+    case DNS_YXRRSET:
+        return "RRset exists when it should not";
+    case DNS_NXRRSET:
+        return "RRset that should exist does not";
+    case DNS_NOTAUTH:
+        return "Not authoritative";
+    case DNS_NOTZONE:
+        return "Name not contained in zone";
     default:
         return "";
     }
@@ -530,6 +552,8 @@ char *get_dns_type(uint16_t type)
         return "SRV";
     case DNS_TYPE_OPT:
         return "OPT";
+    case DNS_QTYPE_AXFR:
+        return "AXFR";
     case DNS_QTYPE_STAR:
         return "*";
     default:
@@ -562,6 +586,8 @@ char *get_dns_type_extended(uint16_t type)
         return "SRV (service location)";
     case DNS_TYPE_OPT:
         return "OPT (Option pseudo record)";
+    case DNS_QTYPE_AXFR:
+        return "AXFR (zone transfer)";
     case DNS_QTYPE_STAR:
         return "* (all records)";
     default:

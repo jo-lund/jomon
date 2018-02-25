@@ -209,13 +209,13 @@ void free_protocol_data(struct application_info *adu)
  * ephemeral port or the port is not yet supported.
  */
 packet_error check_port(unsigned char *buffer, int n, struct application_info *adu,
-                        uint16_t port)
+                        uint16_t port, bool is_tcp)
 {
     switch (port) {
     case DNS:
     case MDNS:
     case LLMNR:
-        return handle_dns(buffer, n, adu);
+        return handle_dns(buffer, n, adu, is_tcp);
     case HTTP:
         return handle_http(buffer, n, adu);
     case NBNS:

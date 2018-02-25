@@ -20,6 +20,13 @@
 #define DNS_NAME_ERROR 3       /* the domain name referenced in the query does not exist */
 #define DNS_NOT_IMPLEMENTED 4  /* name server does not support the requested kind of query */
 #define DNS_REFUSED 5          /* name server refuses to perform the specified operation */
+#define DNS_YXDOMAIN 6         /* some name that ought not to exist, does exist */
+#define DNS_YXRRSET 7          /* some RRset that ought not to exist, does exist */
+#define DNS_NXRRSET 8          /* some RRset that ought to exist, does not exist */
+#define DNS_NOTAUTH 9          /* the server is not authoritative for the zone named
+                                  in the Zone Section */
+#define DNS_NOTZONE 10         /* a name used in the Prerequisite or Update Section
+                                  is not within the one denoted by the Zone Section */
 
 /* DNS types */
 #define DNS_TYPE_A 1       /* a host address */
@@ -131,6 +138,7 @@ struct llmnr_flags {
 
 // TODO: Clean up this structure
 struct dns_info {
+    uint16_t length; /* used by messages sent over TCP */
     uint16_t id; /* A 16 bit identifier */
     unsigned int qr     : 1; /* 0 DNS query, 1 DNS response */
     unsigned int opcode : 4; /* specifies the kind of query in the message */
@@ -277,7 +285,8 @@ list_t *parse_dns_options(struct dns_resource_record *rr);
 void free_dns_options(list_t *opt);
 
 /* internal to the decoder */
-packet_error handle_dns(unsigned char *buffer, int n, struct application_info *info);
+packet_error handle_dns(unsigned char *buffer, int n,
+                        struct application_info *info, bool is_tcp);
 int parse_dns_name(unsigned char *buffer, int n, unsigned char *ptr, char name[]);
 void free_dns_packet(struct dns_info *dns);
 
