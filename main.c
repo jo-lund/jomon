@@ -39,6 +39,7 @@ static bool promiscuous = false;
 static bool verbose = false;
 static bool load_file = false;
 static bool fd_changed = false;
+static const char *geoip_path = "/usr/share/GeoIP/GeoIPCity.dat";
 
 bool on_packet(unsigned char *buffer, uint32_t n, struct timeval *t);
 static void print_help(char *prg);
@@ -57,14 +58,18 @@ int main(int argc, char **argv)
         { "interface", required_argument, 0, 'i' },
         { "help", no_argument, 0, 'h' },
         { "list-interfaces", no_argument, 0, 'l' },
+        { "no-geoip", no_argument, 0, 'G' },
         { "statistics", no_argument, 0, 's' },
         { "verbose", no_argument, 0, 'v' },
         { 0, 0, 0, 0}
     };
 
-    while ((opt = getopt_long(argc, argv, "i:r:hlpstv",
+    while ((opt = getopt_long(argc, argv, "i:r:Ghlpstv",
                               long_options, &idx)) != -1) {
         switch (opt) {
+        case 'G':
+            ctx.nogeoip = true;
+            break;
         case 'i':
             ctx.device = strdup(optarg);
             break;
@@ -103,6 +108,9 @@ int main(int argc, char **argv)
     }
     local_addr = malloc(sizeof (struct sockaddr_in));
     get_local_address(ctx.device, (struct sockaddr *) local_addr);
+    if (!ctx.nogeoip) {
+        ctx.gi = GeoIP_open(geoip_path, GEOIP_INDEX_CACHE);
+    }
     if (load_file) {
         enum file_error err;
         FILE *fp;
@@ -144,6 +152,7 @@ void print_help(char *prg)
 {
     printf("Usage: %s [-lvhpstG] [-i interface] [-r path]\n", prg);
     printf("Options:\n");
+    printf("     -G, --no-geoip         Don't use GeoIP information\n");
     printf("     -i, --interface        Specify network interface\n");
     printf("     -l, --list-interfaces  List available interfaces\n");
     printf("     -p                     Use promiscuous mode\n");
@@ -176,6 +185,9 @@ void finish()
         close(sockfd);
     }
     analyzer_free();
+    if (ctx.gi) {
+        GeoIP_delete(ctx.gi);
+    }
     exit(0);
 }
 

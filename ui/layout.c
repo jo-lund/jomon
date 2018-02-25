@@ -16,7 +16,6 @@
 #define COLOUR_IDX(f, b) ((b == -1) ? (f) + 1 : (b) + 1 + ((f) + 1) * NUM_COLOURS)
 
 extern vector_t *packets;
-extern main_context ctx;
 WINDOW *status;
 main_menu *menu;
 static struct screen *screen_cache[NUM_SCREENS];

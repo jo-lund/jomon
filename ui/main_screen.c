@@ -36,7 +36,6 @@ enum views {
 #define NUM_VIEWS 2
 
 extern vector_t *packets;
-extern main_context ctx;
 extern WINDOW *status;
 extern main_menu *menu;
 bool selected[NUM_LAYERS]; // TODO: need to handle this differently

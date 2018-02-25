@@ -9,6 +9,7 @@
 #include <netinet/ip.h>
 #include <stdbool.h>
 #include <limits.h>
+#include <GeoIP.h>
 
 /*
  * Only a portion of each packet is passed by the kernel to the application, this
@@ -36,6 +37,8 @@ typedef struct {
     char filename[MAXPATH + 1];
     bool capturing;
     bool show_statistics;
+    bool nogeoip;
+    GeoIP *gi;
 } main_context;
 
 enum event {
@@ -44,6 +47,7 @@ enum event {
 };
 
 extern struct sockaddr_in *local_addr;
+extern main_context ctx;
 
 void finish();
 void stop_scan();

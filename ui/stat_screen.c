@@ -14,13 +14,6 @@
 
 #define MAX_NAME 128
 
-extern main_menu *menu;
-static const char *devpath = "/proc/net/dev";
-static const char *statuspath = "/proc/self/status";
-static const char *mempath = "/proc/meminfo";
-static const char *cpupath = "/proc/cpuinfo";
-static const char *statpath = "/proc/stat";
-
 /* RX/TX variables read from /proc/net/dev */
 typedef struct {
     unsigned long tot_bytes;
@@ -71,8 +64,14 @@ enum page {
         sscanf(buf + i, s, &val);               \
     } while (0);
 
-extern main_context ctx;
 extern WINDOW *status;
+extern main_menu *menu;
+
+static const char *devpath = "/proc/net/dev";
+static const char *statuspath = "/proc/self/status";
+static const char *mempath = "/proc/meminfo";
+static const char *cpupath = "/proc/cpuinfo";
+static const char *statpath = "/proc/stat";
 
 // TODO: Make a stat_screen struct
 static linkdef rx; /* data received */

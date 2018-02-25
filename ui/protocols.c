@@ -5,6 +5,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
+#include <GeoIPCity.h>
 #include "layout.h"
 #include "layout_int.h"
 #include "protocols.h"
@@ -784,8 +785,21 @@ void add_ipv4_information(list_view *lw, list_view_header *header, struct ipv4_i
     ADD_TEXT_ELEMENT(lw, header,"Checksum: %u", ip->checksum);
     inet_ntop(AF_INET, &ip->src, src, INET_ADDRSTRLEN);
     inet_ntop(AF_INET, &ip->dst, dst, INET_ADDRSTRLEN);
-    ADD_TEXT_ELEMENT(lw, header,"Source IP address: %s", src);
-    ADD_TEXT_ELEMENT(lw, header,"Destination IP address: %s", dst);
+    if (ctx.nogeoip) {
+        ADD_TEXT_ELEMENT(lw, header,"Source IP address: %s", src);
+        ADD_TEXT_ELEMENT(lw, header,"Destination IP address: %s", dst);
+    } else {
+        GeoIPRecord *src_record = GeoIP_record_by_addr(ctx.gi, src);
+        GeoIPRecord *dst_record = GeoIP_record_by_addr(ctx.gi, dst);
+        char buf[MAXLINE];
+
+        ADD_TEXT_ELEMENT(lw, header,"Source IP address: %s (GeoIP: %s)",
+                         src, get_location(src_record, buf, MAXLINE));
+        ADD_TEXT_ELEMENT(lw, header,"Destination IP address: %s (GeoIP: %s)",
+                         dst, get_location(dst_record, buf, MAXLINE));
+        if (src_record) GeoIPRecord_delete(src_record);
+        if (dst_record) GeoIPRecord_delete(dst_record);
+    }
 }
 
 void add_ipv6_information(list_view *lw, list_view_header *header, struct ipv6_info *ip)

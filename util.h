@@ -2,6 +2,7 @@
 #define UTIL_H
 
 #include <stdint.h>
+#include <GeoIPCity.h>
 #include "list.h"
 
 struct arp_info;
@@ -80,5 +81,8 @@ uint32_t get_uint32le(const unsigned char *buf);
 
 /* Transforms the bytes to a human readable format, e.g. "1K", "42M" etc. */
 char *format_bytes(int bytes, char *buf, int len);
+
+/* Returns the city and country name from a GeoIPRecord, if available */
+char *get_location(GeoIPRecord *record, char *buf, int len);
 
 #endif
