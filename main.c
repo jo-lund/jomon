@@ -108,8 +108,8 @@ int main(int argc, char **argv)
     }
     local_addr = malloc(sizeof (struct sockaddr_in));
     get_local_address(ctx.device, (struct sockaddr *) local_addr);
-    if (!ctx.nogeoip) {
-        ctx.gi = GeoIP_open(geoip_path, GEOIP_INDEX_CACHE);
+    if (!ctx.nogeoip && !(ctx.gi = GeoIP_open(geoip_path, GEOIP_INDEX_CACHE))) {
+        exit(1);
     }
     if (load_file) {
         enum file_error err;
