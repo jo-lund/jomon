@@ -38,14 +38,12 @@ char *strtolower(char *str);
 
 /*
  * Converts seconds to number of days, hours, minutes and seconds
- * TODO: use localtime & strftime
  */
 struct tm_t get_time(uint32_t num_secs);
 
 /*
  * Converts the tm_t struct to a string of the form:
  * "x days, x hours, x minutes, x seconds"
- * TODO: use localtime & strftime
  */
 void time_ntop(struct tm_t *time, char *result, int len);
 
@@ -54,6 +52,12 @@ char *format_timeval(struct timeval *t, char *buf, int n);
 
 /* TODO: format should be made configurable */
 char *format_timespec(struct timespec *t, char *buf, int n);
+
+/*
+ * Converts number of milliseconds since midnight UT to a string representation
+ * in the form h:m:s.ms
+ */
+char *get_time_from_ms_ut(uint32_t ms, char *buf, int n);
 
 /* Find index of the first character 'c' in string. Return -1 if not found */
 int str_find_first(const char *str, char c);

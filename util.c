@@ -135,6 +135,23 @@ char *format_timespec(struct timespec *t, char *buf, int n)
     return buf;
 }
 
+char *get_time_from_ms_ut(uint32_t ms, char *buf, int n)
+{
+    div_t val;
+    int hours, mins, secs, msecs;
+
+    val = div(ms, 60 * 60 * 1000);
+    hours = val.quot;
+    val = div(val.rem, 60 * 1000);
+    mins = val.quot;
+    val = div(val.rem, 1000);
+    secs = val.quot;
+    msecs = val.rem;
+    snprintf(buf, n, "%02d:%02d:%02d.%03d", hours, mins, secs, msecs);
+    return buf;
+}
+
+// TODO: Clean this up
 struct tm_t get_time(uint32_t num_secs)
 {
     struct tm_t t;

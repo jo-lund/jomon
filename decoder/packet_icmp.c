@@ -4,21 +4,6 @@
 
 #define ICMP_HDR_LEN 8
 
-/*
- * ICMP message format:
- *
- * 0                   1                   2                   3
- * 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |     Type      |     Code      |          Checksum             |
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |                             unused                            |
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |      Internet Header + 64 bits of Original Data Datagram      |
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *
- * The ICMP header is 8 bytes.
- */
 packet_error handle_icmp(unsigned char *buffer, int n, struct icmp_info *info)
 {
     if (n < ICMP_HDR_LEN) return ICMP_ERR;
@@ -36,7 +21,22 @@ packet_error handle_icmp(unsigned char *buffer, int n, struct icmp_info *info)
         info->echo.id = ntohs(icmp->icmp_id);
         info->echo.seq_num = ntohs(icmp->icmp_seq);
         break;
-    case ICMP_DEST_UNREACH:
+    case ICMP_REDIRECT:
+        info->gateway = icmp->icmp_gwaddr.s_addr;
+        break;
+    case ICMP_TIMESTAMP:
+    case ICMP_TIMESTAMPREPLY:
+        info->echo.id = ntohs(icmp->icmp_id);
+        info->echo.seq_num = ntohs(icmp->icmp_seq);
+        info->timestamp.originate = ntohl(icmp->icmp_otime);
+        info->timestamp.receive = ntohl(icmp->icmp_rtime);
+        info->timestamp.transmit = ntohl(icmp->icmp_ttime);
+        break;
+    case ICMP_ADDRESS:
+    case ICMP_ADDRESSREPLY:
+        info->echo.id = ntohs(icmp->icmp_id);
+        info->echo.seq_num = ntohs(icmp->icmp_seq);
+        info->addr_mask = icmp->icmp_mask;
         break;
     default:
         break;
@@ -100,6 +100,22 @@ char *get_icmp_dest_unreach_code(uint8_t code)
         return "Precedence violation";
     case ICMP_PREC_CUTOFF:
         return "Precedence cut off";
+    default:
+        return "";
+    }
+}
+
+char *get_icmp_redirect_code(uint8_t code)
+{
+    switch (code) {
+    case ICMP_REDIR_NET:
+        return "Redirect for the network";
+    case ICMP_REDIR_HOST:
+        return "Redirect for the host";
+    case ICMP_REDIR_NETTOS:
+        return "Redirect for the type of service and network";
+    case ICMP_REDIR_HOSTTOS:
+        return "Redirect for the type of service and host";
     default:
         return "";
     }

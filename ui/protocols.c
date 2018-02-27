@@ -276,21 +276,52 @@ void print_ipv6(char *buf, int n, struct ipv6_info *ip, uint32_t num, struct tim
     }
 }
 
-void print_icmp(char *buf, int n, struct icmp_info *info)
+void print_icmp(char *buf, int n, struct icmp_info *icmp)
 {
+    char org[32];
+    char rcvd[32];
+    char xmit[32];
+    char addr[INET_ADDRSTRLEN];
+
     PRINT_PROTOCOL(buf, n, "ICMP");
-    switch (info->type) {
+    switch (icmp->type) {
     case ICMP_ECHOREPLY:
-        PRINT_INFO(buf, n, "Echo reply:   id = 0x%x  seq = %d", info->echo.id, info->echo.seq_num);
+        PRINT_INFO(buf, n, "Echo reply:   id = 0x%x  seq = %d", icmp->echo.id, icmp->echo.seq_num);
         break;
     case ICMP_ECHO:
-        PRINT_INFO(buf, n, "Echo request: id = 0x%x  seq = %d", info->echo.id, info->echo.seq_num);
+        PRINT_INFO(buf, n, "Echo request: id = 0x%x  seq = %d", icmp->echo.id, icmp->echo.seq_num);
         break;
     case ICMP_DEST_UNREACH:
-        PRINT_INFO(buf, n, "%s", get_icmp_dest_unreach_code(info->code));
+        PRINT_INFO(buf, n, "%s", get_icmp_dest_unreach_code(icmp->code));
+        break;
+    case ICMP_REDIRECT:
+        inet_ntop(AF_INET, &icmp->gateway, addr, INET_ADDRSTRLEN);
+        PRINT_INFO(buf, n, "Redirect to %s", addr);
+        break;
+    case ICMP_TIMESTAMP:
+        PRINT_INFO(buf, n, "Timestamp request: id = 0x%x  seq = %d, originate = %s, receive = %s, transmit = %s",
+                   icmp->echo.id, icmp->echo.seq_num, get_time_from_ms_ut(icmp->timestamp.originate, org, 32),
+                   get_time_from_ms_ut(icmp->timestamp.receive, rcvd, 32),
+                   get_time_from_ms_ut(icmp->timestamp.transmit, xmit, 32));
+        break;
+    case ICMP_TIMESTAMPREPLY:
+        PRINT_INFO(buf, n, "Timestamp reply  : id = 0x%x  seq = %d, originate = %s, receive = %s, transmit = %s",
+                   icmp->echo.id, icmp->echo.seq_num, get_time_from_ms_ut(icmp->timestamp.originate, org, 32),
+                   get_time_from_ms_ut(icmp->timestamp.receive, rcvd, 32),
+                   get_time_from_ms_ut(icmp->timestamp.transmit, xmit, 32));
+        break;
+    case ICMP_ADDRESS:
+        inet_ntop(AF_INET, &icmp->addr_mask, addr, INET_ADDRSTRLEN);
+        PRINT_INFO(buf, n, "Address mask request: id = 0x%x  seq = %d, mask = %s",
+                   icmp->echo.id, icmp->echo.seq_num, addr);
+        break;
+    case ICMP_ADDRESSREPLY:
+        inet_ntop(AF_INET, &icmp->addr_mask, addr, INET_ADDRSTRLEN);
+        PRINT_INFO(buf, n, "Address mask reply:   id = 0x%x  seq = %d, mask = %s",
+                   icmp->echo.id, icmp->echo.seq_num, addr);
         break;
     default:
-        PRINT_INFO(buf, n, "Type: %d", info->type);
+        PRINT_INFO(buf, n, "%s", get_icmp_type(icmp->type));
         break;
     }
 }
@@ -827,22 +858,54 @@ void add_ipv6_information(list_view *lw, list_view_header *header, struct ipv6_i
 
 void add_icmp_information(list_view *lw, list_view_header *header, struct icmp_info *icmp)
 {
+    char addr[INET_ADDRSTRLEN];
+    char time[32];
+
     ADD_TEXT_ELEMENT(lw, header, "Type: %d (%s)", icmp->type, get_icmp_type(icmp->type));
     switch (icmp->type) {
     case ICMP_ECHOREPLY:
     case ICMP_ECHO:
         ADD_TEXT_ELEMENT(lw, header, "Code: %d", icmp->code);
+        ADD_TEXT_ELEMENT(lw, header, "Checksum: %d", icmp->checksum);
+        ADD_TEXT_ELEMENT(lw, header, "Identifier: 0x%x", icmp->echo.id);
+        ADD_TEXT_ELEMENT(lw, header, "Sequence number: %d", icmp->echo.seq_num);
         break;
     case ICMP_DEST_UNREACH:
         ADD_TEXT_ELEMENT(lw, header, "Code: %d (%s)", icmp->code, get_icmp_dest_unreach_code(icmp->code));
+        ADD_TEXT_ELEMENT(lw, header, "Checksum: %d", icmp->checksum);
         break;
-    default:
+    case ICMP_REDIRECT:
+        inet_ntop(AF_INET, &icmp->gateway, addr, INET_ADDRSTRLEN);
+        ADD_TEXT_ELEMENT(lw, header, "Code: %d (%s)", icmp->code, get_icmp_redirect_code(icmp->code));
+        ADD_TEXT_ELEMENT(lw, header, "Checksum: %d", icmp->checksum);
+        ADD_TEXT_ELEMENT(lw, header, "Gateway: %s", addr);
         break;
-    }
-    ADD_TEXT_ELEMENT(lw, header, "Checksum: %d", icmp->checksum);
-    if (icmp->type == ICMP_ECHOREPLY || icmp->type == ICMP_ECHO) {
+    case ICMP_TIMESTAMP:
+    case ICMP_TIMESTAMPREPLY:
+        ADD_TEXT_ELEMENT(lw, header, "Code: %d", icmp->code);
+        ADD_TEXT_ELEMENT(lw, header, "Checksum: %d", icmp->checksum);
         ADD_TEXT_ELEMENT(lw, header, "Identifier: 0x%x", icmp->echo.id);
         ADD_TEXT_ELEMENT(lw, header, "Sequence number: %d", icmp->echo.seq_num);
+        ADD_TEXT_ELEMENT(lw, header, "Originate timestamp: %s",
+                         get_time_from_ms_ut(icmp->timestamp.originate, time, 32));
+        ADD_TEXT_ELEMENT(lw, header, "Receive timestamp: %s",
+                         get_time_from_ms_ut(icmp->timestamp.receive, time, 32));
+        ADD_TEXT_ELEMENT(lw, header, "Tramsmit timestamp: %s",
+                         get_time_from_ms_ut(icmp->timestamp.transmit, time, 32));
+        break;
+    case ICMP_ADDRESS:
+    case ICMP_ADDRESSREPLY:
+        inet_ntop(AF_INET, &icmp->addr_mask, addr, INET_ADDRSTRLEN);
+        ADD_TEXT_ELEMENT(lw, header, "Code: %d", icmp->code);
+        ADD_TEXT_ELEMENT(lw, header, "Checksum: %d", icmp->checksum);
+        ADD_TEXT_ELEMENT(lw, header, "Identifier: 0x%x", icmp->echo.id);
+        ADD_TEXT_ELEMENT(lw, header, "Sequence number: %d", icmp->echo.seq_num);
+        ADD_TEXT_ELEMENT(lw, header, "Address mask: %s", addr);
+        break;
+    default:
+        ADD_TEXT_ELEMENT(lw, header, "Code: %d", icmp->code);
+        ADD_TEXT_ELEMENT(lw, header, "Checksum: %d", icmp->checksum);
+        break;
     }
 }
 
