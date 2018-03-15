@@ -46,8 +46,6 @@
 - Implement injecting packets on the network (e.g. to query server response time,
   test the network's ability to handle high traffic volume, etc.
 - Implement a logging mechanism that can print out debug messages to file/stdout
-- Use getopt_long in order to support long options. See pg_dump for an example
-  on how to implement this.
 - Make a ring buffer to store the data read from a pcap file. Then I don't need
   to shift the data when consuming frames.
 - Use an initial guess for the buffer size when listing interfaces and increase

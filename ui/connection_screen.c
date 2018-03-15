@@ -223,8 +223,8 @@ void print_conn_header(connection_screen *cs)
     mvwprintw(cs->header, y, CONN_WIDTH + STATE_WIDTH + PACKET_WIDTH, "Bytes");
     mvwprintw(cs->header, y, TOTAL_WIDTH, "Packets A -> B");
     mvwprintw(cs->header, y, TOTAL_WIDTH + 2 * PACKET_WIDTH, "Bytes A -> B");
-    mvwprintw(cs->header, y, AB_WIDTH, "Packets B -> A");
-    mvwprintw(cs->header, y, AB_WIDTH + 2 * PACKET_WIDTH, "Bytes B -> A");
+    mvwprintw(cs->header, y, AB_WIDTH, "Packets A <- B");
+    mvwprintw(cs->header, y, AB_WIDTH + 2 * PACKET_WIDTH, "Bytes A <- B");
     mvwchgat(cs->header, y, 0, -1, A_STANDOUT, 0, NULL);
     wrefresh(cs->header);
 }
