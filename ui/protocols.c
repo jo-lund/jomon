@@ -451,7 +451,6 @@ void print_dns(char *buf, int n, struct dns_info *dns, uint16_t type)
             if (dns->question) {
                 PRINT_INFO(buf, n, "Standard query: ");
                 PRINT_INFO(buf, n, "%s ", dns->question[0].qname);
-                PRINT_INFO(buf, n, "%s ", get_dns_class(GET_MDNS_RRCLASS(dns->question[0].qclass)));
                 PRINT_INFO(buf, n, "%s", get_dns_type(dns->question[0].qtype));
             }
             break;
@@ -468,13 +467,12 @@ void print_dns(char *buf, int n, struct dns_info *dns, uint16_t type)
         } else {
             PRINT_INFO(buf, n, "Response: %s ", get_dns_rcode(dns->rcode));
         }
-
-        // TODO: Need to print the proper name for all values.
+        if (dns->question) {
+            PRINT_INFO(buf, n, "%s ", dns->question[0].qname);
+        }
         if (dns->record) {
-            PRINT_INFO(buf, n, "%s ", dns->record[0].name);
-            PRINT_INFO(buf, n, "%s ", get_dns_class(GET_MDNS_RRCLASS(dns->record[0].rrclass)));
-            PRINT_INFO(buf, n, "%s ", get_dns_type(dns->record[0].type));
             for (unsigned int i = 0; i < dns->section_count[ANCOUNT]; i++) {
+                PRINT_INFO(buf, n, "%s ", get_dns_type(dns->record[i].type));
                 print_dns_record(dns, i, buf, n, dns->record[i].type);
                 PRINT_INFO(buf, n, " ");
             }
@@ -1374,7 +1372,7 @@ void add_dns_information(list_view *lw, list_view_header *header,
         list_view_header *hdr;
 
         hdr = ADD_SUB_HEADER(lw, header, selected[SUBLAYER], SUBLAYER, "Questions");
-        for (int i = 0; i < dns->section_count[QDCOUNT]; i++) {
+        for (unsigned int i = 0; i < dns->section_count[QDCOUNT]; i++) {
             ADD_TEXT_ELEMENT(lw, hdr, "QNAME: %s, QTYPE: %s, QCLASS: %s",
                              dns->question[i].qname, get_dns_type_extended(dns->question[i].qtype),
                              get_dns_class_extended(GET_MDNS_RRCLASS(dns->question[i].qclass)));
