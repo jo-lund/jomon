@@ -42,7 +42,7 @@ packet_error handle_nbds(unsigned char *buffer, int n, struct application_info *
     unsigned char *ptr;
 
     ptr = buffer;
-    adu->nbds = malloc(sizeof(struct nbds_info));
+    adu->nbds = mempool_pealloc(sizeof(struct nbds_info));
     adu->nbds->msg_type = ptr[0];
     adu->nbds->flags = ptr[1];
     adu->nbds->dgm_id = get_uint16be(ptr + 2);
@@ -91,7 +91,7 @@ bool parse_datagram(unsigned char *buffer, int n, unsigned char **data,
     uint16_t len;
     int name_len;
 
-    dgm = calloc(1, sizeof(struct nbds_datagram));
+    dgm = mempool_pealloc(sizeof(struct nbds_datagram));
     adu->nbds->msg.dgm = dgm;
     dgm->dgm_length = get_uint16be(ptr);
     dgm->packet_offset = get_uint16be(ptr + 2);
@@ -109,7 +109,7 @@ bool parse_datagram(unsigned char *buffer, int n, unsigned char **data,
     len += name_len;
     ptr += name_len;
     if (dgm->dgm_length > len) {
-        dgm->smb = malloc(sizeof(struct smb_info));
+        dgm->smb = mempool_pealloc(sizeof(struct smb_info));
         handle_smb(ptr, dgm->dgm_length - len, dgm->smb);
     }
     *data = ptr;

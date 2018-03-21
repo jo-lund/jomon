@@ -34,7 +34,7 @@ packet_error handle_arp(unsigned char *buffer, int n, struct eth_info *eth)
     pstat[PROT_ARP].num_packets++;
     pstat[PROT_ARP].num_bytes += n;
     arp_header = (struct ether_arp *) buffer;
-    eth->arp = malloc(sizeof(struct arp_info));
+    eth->arp = mempool_pealloc(sizeof(struct arp_info));
     memcpy(eth->arp->sip, arp_header->arp_spa, 4); /* sender protocol address */
     memcpy(eth->arp->tip, arp_header->arp_tpa, 4); /* target protocol address */
     memcpy(eth->arp->sha, arp_header->arp_sha, ETH_ALEN); /* sender hardware address */

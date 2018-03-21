@@ -36,7 +36,7 @@ static bool parse_http_header(unsigned char **str, unsigned int *len, list_t **h
 
 packet_error handle_http(unsigned char *buffer, uint16_t len, struct application_info *info)
 {
-    info->http = calloc(1, sizeof(struct http_info));
+    info->http = mempool_pealloc(sizeof(struct http_info));
     if (!parse_http(buffer, len, info->http)) {
         return UNK_PROTOCOL;
     }
@@ -67,7 +67,7 @@ bool parse_http(unsigned char *buffer, uint16_t len, struct http_info *http)
     /* copy message body */
     if (is_http) {
         if (n) {
-            http->data = malloc(n);
+            http->data = mempool_pealloc(n);
             memcpy(http->data, ptr, n);
             http->len = n;
         }

@@ -56,7 +56,7 @@ bool handle_ethernet(unsigned char *buffer, int n, struct packet *p)
     p->eth.ethertype = ntohs(eth_header->h_proto);
 
     /* store the original frame in data */
-    p->eth.data = malloc(n);
+    p->eth.data = mempool_pealloc(n);
     memcpy(p->eth.data, buffer, n);
 
     /* Ethernet 802.3 frame */
@@ -65,7 +65,7 @@ bool handle_ethernet(unsigned char *buffer, int n, struct packet *p)
 
         ptr = buffer + ETH_HLEN;
         p->eth.payload_len = p->eth.ethertype;
-        p->eth.llc = calloc(1, sizeof(struct eth_802_llc));
+        p->eth.llc = mempool_pealloc(sizeof(struct eth_802_llc));
         p->eth.llc->dsap = ptr[0];
         p->eth.llc->ssap = ptr[1];
         p->eth.llc->control = ptr[2];
@@ -76,7 +76,7 @@ bool handle_ethernet(unsigned char *buffer, int n, struct packet *p)
                                 p->eth.llc);
         } else if (p->eth.llc->dsap == 0xaa && p->eth.llc->ssap == 0xaa) {
             /* SNAP extension */
-            p->eth.llc->snap = malloc(sizeof(struct snap_info));
+            p->eth.llc->snap = mempool_pealloc(sizeof(struct snap_info));
             ptr += LLC_HDR_LEN;
             memcpy(p->eth.llc->snap->oui, ptr, 3);
             ptr += 3; /* skip first 3 bytes of 802.2 SNAP */

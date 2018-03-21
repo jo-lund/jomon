@@ -52,7 +52,7 @@ size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet 
     struct cmsghdr *cmsg;
     struct timeval *val;
 
-    *p = calloc(1, sizeof(struct packet));
+    *p = mempool_pealloc(sizeof(struct packet));
     (*p)->ptype = UNKNOWN;
     iov.iov_base = buffer;
     iov.iov_len = len;
@@ -85,7 +85,7 @@ size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet 
 
 bool decode_packet(unsigned char *buffer, size_t len, struct packet **p)
 {
-    *p = calloc(1, sizeof(struct packet));
+    *p = mempool_pealloc(sizeof(struct packet));
     (*p)->ptype = UNKNOWN;
     if (!handle_ethernet(buffer, len, *p)) {
         free_packet(*p);
@@ -98,107 +98,7 @@ bool decode_packet(unsigned char *buffer, size_t len, struct packet **p)
 
 void free_packet(void *data)
 {
-    struct packet *p = (struct packet *) data;
-
-    if (p->eth.ethertype <= ETH_802_3_MAX) {
-        free_ethernet802_3_frame(&p->eth);
-    } else {
-        switch (p->eth.ethertype) {
-        case ETH_P_IP:
-            if (p->eth.ip) {
-                switch (p->eth.ip->protocol) {
-                case IPPROTO_UDP:
-                    free_protocol_data(&p->eth.ip->udp.data);
-                    break;
-                case IPPROTO_TCP:
-                    free_protocol_data(&p->eth.ip->tcp.data);
-                    if (p->eth.ip->tcp.options) {
-                        free(p->eth.ip->tcp.options);
-                    }
-                    break;
-                case IPPROTO_PIM:
-                    free_pim_packet(&p->eth.ip->pim);
-                    break;
-                case IPPROTO_ICMP:
-                case IPPROTO_IGMP:
-                    break;
-                default:
-                    break;
-                }
-                free(p->eth.ip);
-            }
-            break;
-        case ETH_P_IPV6:
-            if (p->eth.ipv6) {
-                switch (p->eth.ipv6->next_header) {
-                case IPPROTO_UDP:
-                    free_protocol_data(&p->eth.ipv6->udp.data);
-                    break;
-                case IPPROTO_TCP:
-                    free_protocol_data(&p->eth.ipv6->tcp.data);
-                    if (p->eth.ipv6->tcp.options) {
-                        free(p->eth.ipv6->tcp.options);
-                    }
-                    break;
-                case IPPROTO_PIM:
-                    free_pim_packet(&p->eth.ipv6->pim);
-                    break;
-                case IPPROTO_ICMP:
-                case IPPROTO_IGMP:
-                    break;
-                default:
-                    break;
-                }
-                free(p->eth.ipv6);
-            }
-            break;
-        case ETH_P_ARP:
-            if (p->eth.arp) {
-                free(p->eth.arp);
-            }
-            break;
-        default:
-            break;
-        }
-    }
-    if (p->eth.data) {
-        free(p->eth.data);
-    }
-    free(p);
-}
-
-void free_protocol_data(struct application_info *adu)
-{
-    switch (adu->utype) {
-    case DNS:
-        free_dns_packet(adu->dns);
-        break;
-    case NBNS:
-        if (adu->nbns) {
-            if (adu->nbns->record) {
-                free(adu->nbns->record);
-            }
-            free(adu->nbns);
-        }
-        break;
-    case NBDS:
-        free_nbds_packet(adu->nbds);
-        break;
-    case SSDP:
-        if (adu->ssdp) {
-            list_free(adu->ssdp, free);
-        }
-        break;
-    case HTTP:
-        free_http_packet(adu->http);
-        break;
-    case SNMP:
-    case SNMPTRAP:
-        free_snmp_packet(adu->snmp);
-        break;
-    default:
-        break;
-    }
+    mempool_pefree();
 }
 
 /*

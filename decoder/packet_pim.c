@@ -50,7 +50,7 @@ packet_error parse_pim_message(unsigned char *buffer, int n, struct pim_info *pi
 {
     switch (pim->type) {
     case PIM_HELLO:
-        pim->hello = malloc(n);
+        pim->hello = mempool_pealloc(n);
         pim->len = n;
         memcpy(pim->hello, buffer, n);
         return NO_ERR;
@@ -78,7 +78,7 @@ packet_error parse_join_prune(unsigned char *buffer, int n, struct pim_info *pim
 {
     if (n < 4) return PIM_ERR;
 
-    pim->jpg = malloc(sizeof(struct pim_join_prune));
+    pim->jpg = mempool_pealloc(sizeof(struct pim_join_prune));
     if (!parse_unicast_address(&buffer, &n, &pim->jpg->neighbour)) {
         return PIM_ERR;
     }
@@ -89,7 +89,7 @@ packet_error parse_join_prune(unsigned char *buffer, int n, struct pim_info *pim
         return PIM_ERR;
     }
     pim->jpg->holdtime = buffer[1] << 8 | buffer[2];
-    pim->jpg->groups = calloc(pim->jpg->num_groups, sizeof(*pim->jpg->groups));
+    pim->jpg->groups = mempool_pealloc(pim->jpg->num_groups * sizeof(*pim->jpg->groups));
     buffer += 3;
     n -= 3;
     for (int i = 0; i < pim->jpg->num_groups; i++) {
@@ -107,11 +107,11 @@ packet_error parse_join_prune(unsigned char *buffer, int n, struct pim_info *pim
             return PIM_ERR;
         }
         if (pim->jpg->groups[i].num_joined_src) {
-            pim->jpg->groups[i].joined_src = calloc(pim->jpg->groups[i].num_joined_src,
+            pim->jpg->groups[i].joined_src = mempool_pealloc(pim->jpg->groups[i].num_joined_src *
                                                     sizeof(struct pim_source_addr));
         }
         if (pim->jpg->groups[i].num_pruned_src) {
-            pim->jpg->groups[i].pruned_src = calloc(pim->jpg->groups[i].num_pruned_src,
+            pim->jpg->groups[i].pruned_src = mempool_pealloc(pim->jpg->groups[i].num_pruned_src *
                                                     sizeof(struct pim_source_addr));
         }
         buffer += 4;
@@ -133,14 +133,14 @@ packet_error parse_register_msg(unsigned char *buffer, int n, struct pim_info *p
 {
     if (n < 4) return PIM_ERR;
 
-    pim->reg = malloc(sizeof(struct pim_register));
+    pim->reg = mempool_pealloc(sizeof(struct pim_register));
     pim->reg->border = (buffer[0] & 0x80) >> 7; /* Deprecated. Should be zero */
     pim->reg->null = (buffer[0] & 0x40) >> 6;
     buffer += 4;
     n -= 4;
     if (n > 0) {
         pim->reg->data_len = n;
-        pim->reg->data = malloc(pim->reg->data_len);
+        pim->reg->data = mempool_pealloc(pim->reg->data_len);
         memcpy(pim->reg->data, buffer, pim->reg->data_len);
     } else {
         pim->reg->data = NULL;
@@ -151,7 +151,7 @@ packet_error parse_register_msg(unsigned char *buffer, int n, struct pim_info *p
 
 packet_error parse_register_stop(unsigned char *buffer, int n, struct pim_info *pim)
 {
-    pim->reg_stop = malloc(sizeof(struct pim_register_stop));
+    pim->reg_stop = mempool_pealloc(sizeof(struct pim_register_stop));
     if (!parse_grp_address(&buffer, &n, &pim->reg_stop->gaddr)) {
         return PIM_ERR;
     }
@@ -163,7 +163,7 @@ packet_error parse_register_stop(unsigned char *buffer, int n, struct pim_info *
 
 packet_error parse_assert_msg(unsigned char *buffer, int n, struct pim_info *pim)
 {
-    pim->assert = malloc(sizeof(struct pim_assert));
+    pim->assert = mempool_pealloc(sizeof(struct pim_assert));
     if (!parse_grp_address(&buffer, &n, &pim->assert->gaddr)) {
         return PIM_ERR;
     }
@@ -180,7 +180,7 @@ packet_error parse_bootstrap(unsigned char *buffer, int n, struct pim_info *pim)
 {
     if (n < 4) return PIM_ERR;
 
-    pim->bootstrap = malloc(sizeof(struct pim_bootstrap));
+    pim->bootstrap = mempool_pealloc(sizeof(struct pim_bootstrap));
     pim->bootstrap->tag = buffer[0] << 8 | buffer[1];
     pim->bootstrap->hash_len = buffer[2];
     pim->bootstrap->priority = buffer[3];
@@ -195,7 +195,7 @@ packet_error parse_bootstrap(unsigned char *buffer, int n, struct pim_info *pim)
      * calculating it based on the message length and the number of RPs in each
      * group. For now we only support 1 group
      */
-    pim->bootstrap->groups = calloc(1, sizeof(*pim->bootstrap->groups));
+    pim->bootstrap->groups = mempool_pealloc(sizeof(*pim->bootstrap->groups));
     if (!parse_grp_address(&buffer, &n, &pim->bootstrap->groups->gaddr)) {
         return PIM_ERR;
     }
@@ -209,7 +209,7 @@ packet_error parse_bootstrap(unsigned char *buffer, int n, struct pim_info *pim)
     }
     buffer += 2;
     pim->bootstrap->groups->rps =
-        calloc(pim->bootstrap->groups->frag_rp_count, sizeof(*pim->bootstrap->groups->rps));
+        mempool_pealloc(pim->bootstrap->groups->frag_rp_count * sizeof(*pim->bootstrap->groups->rps));
     for (int i = 0; i < pim->bootstrap->groups->frag_rp_count; i++) {
         if (!parse_unicast_address(&buffer, &n, &pim->bootstrap->groups->rps->rp_addr)) {
             return PIM_ERR;
@@ -225,7 +225,7 @@ packet_error parse_bootstrap(unsigned char *buffer, int n, struct pim_info *pim)
 
 packet_error parse_candidate_rp(unsigned char *buffer, int n, struct pim_info *pim)
 {
-    pim->candidate = malloc(sizeof(struct pim_candidate_rp_advertisement));
+    pim->candidate = mempool_pealloc(sizeof(struct pim_candidate_rp_advertisement));
     pim->candidate->prefix_count = buffer[0];
     if (pim->candidate->prefix_count > n - 4) {
         return PIM_ERR;
@@ -239,7 +239,7 @@ packet_error parse_candidate_rp(unsigned char *buffer, int n, struct pim_info *p
     if (!parse_unicast_address(&buffer, &n, &pim->candidate->rp_addr)) {
         return PIM_ERR;
     }
-    pim->candidate->gaddrs = calloc(pim->candidate->prefix_count,
+    pim->candidate->gaddrs = mempool_pealloc(pim->candidate->prefix_count *
                                     sizeof(struct pim_group_addr));
     for (int i = 0; i < pim->candidate->prefix_count; i++) {
         if (!parse_grp_address(&buffer, &n, &pim->candidate->gaddrs[i])) {

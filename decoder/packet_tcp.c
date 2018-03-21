@@ -116,7 +116,7 @@ packet_error handle_tcp(unsigned char *buffer, int n, struct tcp *info, struct e
         uint8_t options_len;
 
         options_len = (info->offset - 5) * 4;
-        info->options = malloc(options_len);
+        info->options = mempool_pealloc(options_len);
         memcpy(info->options, buffer + 20, options_len);
     } else {
         info->options = NULL;

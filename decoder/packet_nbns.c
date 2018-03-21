@@ -56,7 +56,7 @@ packet_error handle_nbns(unsigned char *buffer, int n, struct application_info *
     unsigned char *ptr = buffer;
     int plen = n;
 
-    info->nbns = malloc(sizeof(struct nbns_info));
+    info->nbns = mempool_pealloc(sizeof(struct nbns_info));
     info->nbns->id = ptr[0] << 8 | ptr[1];
     info->nbns->opcode = (ptr[2] & 0x78) >> 3;
     info->nbns->aa = (ptr[2] & 0x04) >> 2;
@@ -89,7 +89,7 @@ packet_error handle_nbns(unsigned char *buffer, int n, struct application_info *
         while (i < 4) {
             num_records += info->nbns->section_count[i++];
         }
-        info->nbns->record = malloc(num_records * sizeof(struct nbns_rr));
+        info->nbns->record = mempool_pealloc(num_records * sizeof(struct nbns_rr));
         for (int j = 0; j < num_records; j++) {
             int len = parse_nbns_record(j, buffer, n, &ptr, plen, info->nbns);
 
@@ -123,7 +123,7 @@ packet_error handle_nbns(unsigned char *buffer, int n, struct application_info *
             return NBNS_ERR;
         }
         if (info->nbns->section_count[ARCOUNT]) {
-            info->nbns->record = malloc(info->nbns->section_count[ARCOUNT] *
+            info->nbns->record = mempool_pealloc(info->nbns->section_count[ARCOUNT] *
                                         sizeof(struct nbns_rr));
             for (int i = 0; i < info->nbns->section_count[ARCOUNT]; i++) {
                 int len = parse_nbns_record(i, buffer, n, &ptr, plen, info->nbns);

@@ -88,7 +88,7 @@ packet_error handle_dns(unsigned char *buffer, int n,
     int num_records = 0;
 
     if (n < DNS_HDRLEN) return DNS_ERR;
-    info->dns = malloc(sizeof(struct dns_info));
+    info->dns = mempool_pealloc(sizeof(struct dns_info));
 
     /*
      * According to RFC 1035, messages sent over TCP are prefixed with a two
@@ -149,7 +149,7 @@ packet_error handle_dns(unsigned char *buffer, int n,
         return DNS_ERR;
     }
     if (num_records) {
-        info->dns->record = malloc(num_records * sizeof(struct dns_resource_record));
+        info->dns->record = mempool_pealloc(num_records * sizeof(struct dns_resource_record));
         for (int i = 0; i < num_records; i++) {
             int len = parse_dns_record(i, buffer, n, &ptr, plen, info->dns);
 
@@ -174,7 +174,7 @@ int parse_dns_question(unsigned char *buffer, int n, unsigned char **data,
     if (dns->section_count[QDCOUNT] > dlen) {
         return -1;
     }
-    dns->question = malloc(dns->section_count[QDCOUNT] *
+    dns->question = mempool_pealloc(dns->section_count[QDCOUNT] *
                            sizeof(struct dns_question));
     for (unsigned int i = 0; i < dns->section_count[QDCOUNT]; i++) {
         if ((len = parse_dns_name(buffer, n, ptr, dns->question[i].qname)) == -1) {
@@ -284,7 +284,7 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
             struct dns_txt_rr *rr;
             int len = 0;
 
-            rr = malloc(sizeof(struct dns_txt_rr));
+            rr = mempool_pealloc(sizeof(struct dns_txt_rr));
             rr->txt = parse_dns_txt(&ptr);
             if (rr->txt) {
                 len = strlen(rr->txt);
@@ -322,7 +322,7 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
     case DNS_TYPE_OPT:
         dns->record[i].rdata.opt.rdlen = rdlen;
         if (rdlen) {
-            dns->record[i].rdata.opt.data = malloc(rdlen);
+            dns->record[i].rdata.opt.data = mempool_pealloc(rdlen);
             memcpy(dns->record[i].rdata.opt.data, ptr, rdlen);
             ptr += rdlen;
         }

@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include "../list.h"
 #include "packet_ethernet.h"
+#include "../alloc.h"
 
 /*
  * Subtracts the offset of a structure's member from its address to get the

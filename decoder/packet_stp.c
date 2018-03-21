@@ -33,7 +33,7 @@ packet_error handle_stp(unsigned char *buffer, uint16_t n, struct eth_802_llc *l
 
     pstat[PROT_STP].num_packets++;
     pstat[PROT_STP].num_bytes += n;
-    llc->bpdu = malloc(sizeof(struct stp_info));
+    llc->bpdu = mempool_pealloc(sizeof(struct stp_info));
     llc->bpdu->protocol_id = protocol_id;
     llc->bpdu->version = buffer[2];
     llc->bpdu->type = buffer[3];

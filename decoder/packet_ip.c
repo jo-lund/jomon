@@ -76,7 +76,7 @@ packet_error handle_ipv4(unsigned char *buffer, int n, struct eth_info *eth)
 
     pstat[PROT_IPv4].num_packets++;
     pstat[PROT_IPv4].num_bytes += n;
-    eth->ip = calloc(1, sizeof(struct ipv4_info));
+    eth->ip = mempool_pealloc(sizeof(struct ipv4_info));
     eth->ip->src = ip->saddr;
     eth->ip->dst = ip->daddr;
     eth->ip->version = ip->version;
@@ -172,7 +172,7 @@ packet_error handle_ipv6(unsigned char *buffer, int n, struct eth_info *eth)
     pstat[PROT_IPv6].num_packets++;
     pstat[PROT_IPv6].num_bytes += n;
     ip6 = (struct ip6_hdr *) buffer;
-    eth->ipv6 = calloc(1, sizeof(struct ipv6_info));
+    eth->ipv6 = mempool_pealloc(sizeof(struct ipv6_info));
     eth->ipv6->version = ip6->ip6_vfc >> 4;
     eth->ipv6->tc = ip6->ip6_vfc & 0x0f;
     eth->ipv6->flow_label = ntohl(ip6->ip6_flow);

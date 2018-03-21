@@ -25,6 +25,7 @@
 #include "vector.h"
 #include "file_pcap.h"
 #include "ui/protocols.h"
+#include "alloc.h"
 
 #define TABLE_SIZE 65536
 
@@ -102,6 +103,7 @@ int main(int argc, char **argv)
 
 #ifdef __linux__
     init_structures();
+    mempool_init();
     analyzer_init();
     if (!ctx.device && !(ctx.device = get_default_interface())) {
         err_quit("Cannot find active network device");
@@ -177,7 +179,8 @@ void finish()
 {
     if (use_ncurses) {
         end_ncurses();
-        vector_free(packets, free_packet);
+        vector_free(packets, NULL);
+        free_packet(NULL);
     }
     free(ctx.device);
     free(local_addr);
@@ -307,7 +310,8 @@ void stop_scan()
 void start_scan()
 {
     clear_statistics();
-    vector_clear(packets, free_packet);
+    vector_clear(packets, NULL);
+    free_packet(NULL);
     init_socket(ctx.device);
     fd_changed = true;
 }
