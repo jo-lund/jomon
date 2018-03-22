@@ -322,8 +322,7 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
     case DNS_TYPE_OPT:
         dns->record[i].rdata.opt.rdlen = rdlen;
         if (rdlen) {
-            dns->record[i].rdata.opt.data = mempool_pealloc(rdlen);
-            memcpy(dns->record[i].rdata.opt.data, ptr, rdlen);
+            dns->record[i].rdata.opt.data = mempool_pecopy(ptr, rdlen);
             ptr += rdlen;
         }
         break;
@@ -425,9 +424,7 @@ char *parse_dns_txt(unsigned char **data)
 
     len = *ptr++;
     if (len) {
-        txt = malloc(len + 1);
-        memcpy(txt, ptr, len);
-        txt[len] = '\0';
+        txt = mempool_pecopy0(ptr, len);
         ptr += len;
     }
     *data = ptr;

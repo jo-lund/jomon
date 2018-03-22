@@ -56,8 +56,7 @@ bool handle_ethernet(unsigned char *buffer, int n, struct packet *p)
     p->eth.ethertype = ntohs(eth_header->h_proto);
 
     /* store the original frame in data */
-    p->eth.data = mempool_pealloc(n);
-    memcpy(p->eth.data, buffer, n);
+    p->eth.data = mempool_pecopy(buffer, n);
 
     /* Ethernet 802.3 frame */
     if (p->eth.ethertype <= ETH_802_3_MAX) {

@@ -38,7 +38,6 @@ static int compare_tcp_v4(const void *t1, const void *t2)
 void analyzer_init()
 {
     connection_table = hash_map_init(TBLSZ, hash_v4, compare_tcp_v4);
-    hash_map_set_free_key(connection_table, free);
     hash_map_set_free_data(connection_table, free_data);
     conn_changed_publisher = publisher_init();
 }
@@ -96,12 +95,10 @@ void analyzer_check_stream(const struct eth_info *ethp)
             struct tcp_connection_v4 *new_conn;
             struct tcp_endpoint_v4 *new_endp;
 
-            new_endp = malloc(sizeof(struct tcp_endpoint_v4));
-            *new_endp = endp;
-            new_conn = malloc(sizeof(struct tcp_connection_v4));
+            new_endp = mempool_pecopy(&endp, sizeof(struct tcp_endpoint_v4));
+            new_conn = mempool_pealloc(sizeof(struct tcp_connection_v4));
             new_conn->endp = new_endp;
             new_conn->packets = list_init();
-
             list_push_back(new_conn->packets, p);
             if (tcp->syn) {
                 new_conn->state = tcp->ack ? SYN_RCVD : SYN_SENT;
@@ -166,5 +163,4 @@ void free_data(void *ptr)
     struct tcp_connection_v4 *conn = (struct tcp_connection_v4 *) ptr;
 
     list_free(conn->packets, NULL);
-    free(conn);
 }

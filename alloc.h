@@ -10,6 +10,9 @@ void *mempool_pealloc(int size);
 /* Deallocates all memory in the long-lived pool */
 void mempool_pefree();
 
+void *mempool_pecopy(void *addr, int size);
+void *mempool_pecopy0(void *addr, int size);
+
 /* Allocates memory for short-lived storage */
 void *mempool_shalloc(int size);
 

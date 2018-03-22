@@ -32,7 +32,7 @@ static char *request_method[] = {
 static bool parse_http(unsigned char *buf, uint16_t len, struct http_info *http);
 static bool parse_start_line(unsigned char **str, unsigned int *len, struct http_info *http);
 static bool check_method(char *token);
-static bool parse_http_header(unsigned char **str, unsigned int *len, list_t **header);
+static bool parse_http_header(unsigned char **str, unsigned int *len, list_t *header);
 
 packet_error handle_http(unsigned char *buffer, uint16_t len, struct application_info *info)
 {
@@ -62,14 +62,15 @@ bool parse_http(unsigned char *buffer, uint16_t len, struct http_info *http)
 
     /* parse header fields */
     http->header = list_init();
-    is_http = parse_http_header(&ptr, &n, &http->header);
+    is_http = parse_http_header(&ptr, &n, http->header);
 
     /* copy message body */
     if (is_http) {
         if (n) {
-            http->data = mempool_pealloc(n);
-            memcpy(http->data, ptr, n);
+            http->data = mempool_pecopy(ptr, n);
             http->len = n;
+        } else {
+            http->len = 0;
         }
         pstat[PROT_HTTP].num_packets++;
         pstat[PROT_HTTP].num_bytes += len;
@@ -103,8 +104,7 @@ bool parse_start_line(unsigned char **str, unsigned int *len, struct http_info *
                 if (*ptr == '\r') {
                     if (*++ptr == '\n') {
                         ptr++;
-                        line[i] = '\0';
-                        http->start_line = strdup(line);
+                        http->start_line = mempool_pecopy0(line, i);
                         *len -= (i + 2); /* start_line + CRLF */
                         *str = ptr;
                         return true;
@@ -150,7 +150,7 @@ bool check_method(char *token)
  *
  * Returns the result of the operation.
  */
-bool parse_http_header(unsigned char **str, unsigned int *len, list_t **header)
+bool parse_http_header(unsigned char **str, unsigned int *len, list_t *header)
 {
     int i, j;
     bool eoh = false;
@@ -200,8 +200,7 @@ bool parse_http_header(unsigned char **str, unsigned int *len, list_t **header)
                     *str = ptr + 1;
                     return true;
                 } else {
-                    line[c] = '\0';
-                    list_push_back(*header, strdup(line));
+                    list_push_back(header, mempool_pecopy0(line, c));
                     is_http = true;
                 }
                 break;
