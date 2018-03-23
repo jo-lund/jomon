@@ -151,6 +151,7 @@ label_dialogue *label_dialogue_create(char *title, char *label, button_action ac
 void label_dialogue_free(screen *s)
 {
     delwin(s->win);
+    button_free(((label_dialogue *) s)->ok);
     free((label_dialogue *) s);
 }
 
