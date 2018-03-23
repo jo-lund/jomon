@@ -279,7 +279,7 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
     {
         int j = 0;
 
-        dns->record[i].rdata.txt = list_init();
+        dns->record[i].rdata.txt = list_init(mempool_pealloc);
         while (j < rdlen) {
             struct dns_txt_rr *rr;
             int len = 0;
@@ -447,7 +447,7 @@ list_t *parse_dns_options(struct dns_resource_record *rr)
     int length;
     unsigned char *ptr;
 
-    opt = list_init();
+    opt = list_init(NULL);
     length = rr->rdata.opt.rdlen;
     ptr = rr->rdata.opt.data;
     while (length > 0) {

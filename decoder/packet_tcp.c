@@ -143,7 +143,7 @@ list_t *parse_tcp_options(unsigned char *data, int len)
 {
     list_t *options;
 
-    options = list_init();
+    options = list_init(NULL);
 
     /* the data is based on a tag-length-value encoding scheme */
     while (len) {
@@ -181,7 +181,7 @@ list_t *parse_tcp_options(unsigned char *data, int len)
             struct tcp_sack_block *b;
 
             data++; /* skip length field */
-            opt->sack = list_init();
+            opt->sack = list_init(NULL);
             while (num_blocks--) {
                 b = malloc(sizeof(struct tcp_sack_block));
                 b->left_edge = data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3];

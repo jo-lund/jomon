@@ -180,7 +180,6 @@ void finish()
     if (use_ncurses) {
         end_ncurses();
         vector_free(packets, NULL);
-        free_packet(NULL);
     }
     free(ctx.device);
     free(local_addr);
@@ -188,6 +187,7 @@ void finish()
         close(sockfd);
     }
     analyzer_free();
+    mempool_free();
     if (ctx.gi) {
         GeoIP_delete(ctx.gi);
     }

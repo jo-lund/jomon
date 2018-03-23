@@ -127,7 +127,7 @@ void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_a
     enum hex_state state = HD_ETHERNET;
     enum hex_state prev_state = state;
 
-    protocols = list_init();
+    protocols = list_init(NULL);
     list_push_back(protocols, enum2str(state));
 
     if (mode == HEXMODE_WIDE) {

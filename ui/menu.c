@@ -64,7 +64,7 @@ main_menu *main_menu_create()
     menu->base.win = newwin(1, mx, my - 1, 0);
     menu->base.focus = false;
     menu->update = true;
-    menu->opt = list_init();
+    menu->opt = list_init(NULL);
     return menu;
 }
 
@@ -121,7 +121,7 @@ option_menu *main_menu_add_suboptions(option_menu *om, menu_type type, int sub_i
     sub->handler = fn;
     box(sub->frame, 0, 0);
     if (!om->subopts) {
-        om->subopts = list_init();
+        om->subopts = list_init(NULL);
     }
     nodelay(sub->frame, TRUE);
     keypad(sub->frame, TRUE);

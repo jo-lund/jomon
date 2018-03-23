@@ -171,7 +171,7 @@ list_t *parse_variables(unsigned char *buffer, int n)
     unsigned char *ptr = buffer;
     list_t *varbind_list;
 
-    varbind_list = list_init();
+    varbind_list = list_init(mempool_pealloc);
     if ((n = parse_value(&ptr, n, &class, &tag, NULL)) == -1) {
         list_free(varbind_list, free_snmp_varbind);
         return NULL;

@@ -5,13 +5,14 @@ typedef struct node node_t;
 typedef struct list list_t;
 
 typedef void (*list_deallocate)(void *);
+typedef void *(*list_allocate)(int);
 
 /*
  * Initializes list.
  *
  * Allocates resources for list that needs to be freed with list_free
  */
-list_t *list_init();
+list_t *list_init(list_allocate func);
 
 /* Inserts element at the front */
 void list_push_front(list_t *list, void *data);

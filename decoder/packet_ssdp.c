@@ -24,7 +24,7 @@ packet_error handle_ssdp(unsigned char *buffer, int n, struct application_info *
 
     pstat[PROT_SSDP].num_packets++;
     pstat[PROT_SSDP].num_bytes += n;
-    ssdp_fields = list_init();
+    ssdp_fields = list_init(mempool_pealloc);
     parse_ssdp((char *) buffer, n, ssdp_fields);
     info->ssdp = ssdp_fields;
     return NO_ERR;
@@ -48,7 +48,7 @@ void parse_ssdp(char *str, int n, list_t *msg_header)
     while (token) {
         char *field;
 
-        field = strdup(token);
+        field = mempool_pecopy0(token, strlen(token));
         list_push_back(msg_header, field);
         token = strtok(NULL, "\r\n");
     }

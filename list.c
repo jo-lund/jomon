@@ -10,38 +10,44 @@ typedef struct node {
 typedef struct list {
     node_t *head;
     node_t *tail;
+    list_allocate alloc;
     int size;
 } list_t;
 
-#define INIT_NODE(n, d)                          \
+#define INIT_NODE(l, n, d)                       \
     do {                                         \
-        n = malloc(sizeof(node_t));              \
+        n = l->alloc(sizeof(node_t));            \
         n->data = d;                             \
         n->next = NULL;                          \
         n->prev = NULL;                          \
     } while (0);
 
-list_t *list_init()
+list_t *list_init(list_allocate func)
 {
     list_t *list;
 
-    list = malloc(sizeof(list_t));
+    if (func) {
+        list = func(sizeof(list_t));
+        list->alloc = func;
+    } else {
+        list = malloc(sizeof(list_t));
+        list->alloc = (void *(*)(int)) malloc;
+    }
     list->head = NULL;
     list->tail = NULL;
     list->size = 0;
-
     return list;
 }
 
 void list_push_front(list_t *list, void *data)
 {
     if (!list->head) {
-        INIT_NODE(list->head, data);
+        INIT_NODE(list, list->head, data);
         list->tail = list->head;
     } else {
         node_t *node;
 
-        INIT_NODE(node, data);
+        INIT_NODE(list, node, data);
         list->head->prev = node;
         node->next = list->head;
         list->head = node;
@@ -52,12 +58,12 @@ void list_push_front(list_t *list, void *data)
 void list_push_back(list_t *list, void *data)
 {
     if (!list->head) {
-        INIT_NODE(list->head, data);
+        INIT_NODE(list, list->head, data);
         list->tail = list->head;
     } else {
         node_t *node;
 
-        INIT_NODE(node, data);
+        INIT_NODE(list, node, data);
         list->tail->next = node;
         node->prev = list->tail;
         list->tail = node;
@@ -75,7 +81,7 @@ void list_insert(list_t *list, void *data, int i)
         node_t *n;
         node_t *node;
 
-        INIT_NODE(node, data);
+        INIT_NODE(list, node, data);
         n = (node_t *) list_ith(list, i);
         n->prev->next = node;
         node->prev = n->prev;

@@ -40,7 +40,7 @@ list_view *create_list_view()
     widget->get_expanded = get_expanded;
     widget->get_data = get_data;
     widget->get_attribute = get_attribute;
-    widget->widgets = list_init();
+    widget->widgets = list_init(NULL);
     widget->num_elements = 0;
     widget->size = 0;
 
@@ -144,7 +144,7 @@ list_view_item *add_text_element(list_view *this, list_view_header *header, char
     va_end(ap);
     w = create_item(buf, A_NORMAL, TEXT);
     if (!header->subwidgets) {
-        header->subwidgets = list_init();
+        header->subwidgets = list_init(NULL);
     } else {
         list_view_header *p;
 
@@ -174,7 +174,7 @@ list_view_header *add_sub_header(list_view *this, list_view_header *header, bool
     h = create_header(buf, expanded, data, A_BOLD);
     h->parent = header;
     if (!header->subwidgets) {
-        header->subwidgets = list_init();
+        header->subwidgets = list_init(NULL);
     } else {
         list_view_header *p;
 
