@@ -288,6 +288,5 @@ void free_dns_options(list_t *opt);
 packet_error handle_dns(unsigned char *buffer, int n,
                         struct application_info *info, bool is_tcp);
 int parse_dns_name(unsigned char *buffer, int n, unsigned char *ptr, char name[]);
-void free_dns_packet(struct dns_info *dns);
 
 #endif

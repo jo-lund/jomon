@@ -28,7 +28,6 @@ static int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char *
 static int parse_dns_question(unsigned char *buffer, int n, unsigned char **data,
                               int dlen, struct dns_info *dns);
 static char *parse_dns_txt(unsigned char **data);
-static void free_txt_rr(void *data);
 static void free_opt_rr(void *data);
 
 /*
@@ -431,16 +430,6 @@ char *parse_dns_txt(unsigned char **data)
     return txt;
 }
 
-void free_txt_rr(void *data)
-{
-    struct dns_txt_rr *rr = (struct dns_txt_rr *) data;
-
-    if (rr->txt) {
-        free(rr->txt);
-    }
-    free(rr);
-}
-
 list_t *parse_dns_options(struct dns_resource_record *rr)
 {
     list_t *opt;
@@ -655,33 +644,4 @@ struct packet_flags *get_llmnr_flags()
 int get_llmnr_flags_size()
 {
     return sizeof(llmnr_flags) / sizeof(struct packet_flags);
-}
-
-void free_dns_packet(struct dns_info *dns)
-{
-    if (dns) {
-        if (dns->question) {
-            free(dns->question);
-        }
-        if (dns->record) {
-            switch (dns->record->type) {
-            case DNS_TYPE_HINFO:
-                free(dns->record->rdata.hinfo.cpu);
-                free(dns->record->rdata.hinfo.os);
-                break;
-            case DNS_TYPE_TXT:
-                list_free(dns->record->rdata.txt, free_txt_rr);
-                break;
-            case DNS_TYPE_OPT:
-                if (dns->record->rdata.opt.rdlen) {
-                    free(dns->record->rdata.opt.data);
-                }
-                break;
-            default:
-                break;
-            }
-            free(dns->record);
-        }
-        free(dns);
-    }
 }

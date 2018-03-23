@@ -135,15 +135,3 @@ uint32_t get_eth802_oui(struct snap_info *snap)
 {
     return snap->oui[0] << 16 | snap->oui[1] << 8 | snap->oui[2];
 }
-
-void free_ethernet802_3_frame(struct eth_info *eth)
-{
-    if (!eth || !eth->llc) return;
-
-    if (eth->llc->dsap == 0xaa && eth->llc->ssap == 0xaa) {
-        free(eth->llc->snap);
-    } else if (eth->llc->dsap == 0x42 && eth->llc->ssap == 0x42) {
-        free(eth->llc->bpdu);
-    }
-    free(eth->llc);
-}

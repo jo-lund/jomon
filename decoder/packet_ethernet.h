@@ -60,6 +60,5 @@ char *get_ethernet_type(uint16_t ethertype);
 
 /* Should be internal to the decoder */
 bool handle_ethernet(unsigned char *buffer, int n, struct packet *p);
-void free_ethernet802_3_frame(struct eth_info *eth);
 
 #endif

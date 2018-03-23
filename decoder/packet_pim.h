@@ -260,6 +260,5 @@ char *get_pim_address(uint8_t family, pim_addr *addr);
 
 /* internal to the decoder */
 packet_error handle_pim(unsigned char *buffer, int n, struct pim_info *pim);
-void free_pim_packet(struct pim_info *pim);
 
 #endif

@@ -37,7 +37,6 @@ static packet_error parse_pdu(unsigned char *buffer, int n, struct snmp_info *sn
 static list_t *parse_variables(unsigned char *buffer, int n);
 static int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag,
                        snmp_value *value);
-static void free_snmp_varbind(void *data);
 
 /*
  * SNMP messages use a tag-length-value encoding scheme (Basic Encoding Rules).
@@ -173,7 +172,6 @@ list_t *parse_variables(unsigned char *buffer, int n)
 
     varbind_list = list_init(mempool_pealloc);
     if ((n = parse_value(&ptr, n, &class, &tag, NULL)) == -1) {
-        list_free(varbind_list, free_snmp_varbind);
         return NULL;
     }
     if (tag == SNMP_SEQUENCE_TAG) {
@@ -182,13 +180,11 @@ list_t *parse_variables(unsigned char *buffer, int n)
             int val_len;
 
             if ((val_len = parse_value(&ptr, n, &class, &tag, &val)) == -1) {
-                list_free(varbind_list, free_snmp_varbind);
                 return NULL;
             }
             n -= val_len;
             if (tag == SNMP_SEQUENCE_TAG && n > 0) {
                 if ((val_len = parse_value(&ptr, n, &class, &tag, &val)) == -1) {
-                    list_free(varbind_list, free);
                     return NULL;
                 }
                 n -= val_len;
@@ -198,7 +194,6 @@ list_t *parse_variables(unsigned char *buffer, int n)
                     var = mempool_pealloc(sizeof(struct snmp_varbind));
                     var->object_name = val.pval;
                     if ((val_len = parse_value(&ptr, n, &class, &tag, &val)) == -1) {
-                        list_free(varbind_list, free_snmp_varbind);
                         return NULL;
                     }
                     n -= val_len;
@@ -428,47 +423,4 @@ char *get_snmp_trap_type(struct snmp_trap *pdu)
     default:
         return NULL;
     }
-}
-
-void free_snmp_varbind(void *data)
-{
-    struct snmp_varbind *var = (struct snmp_varbind *) data;
-
-    if (var->type == SNMP_OCTET_STRING_TAG || var->type == SNMP_OBJECT_ID_TAG) {
-        if (var->object_syntax.pval) {
-            free(var->object_syntax.pval);
-        }
-    }
-    free(var);
-}
-
-void free_snmp_packet(struct snmp_info *snmp)
-{
-    if (!snmp) return;
-
-    if (snmp->community) {
-        free(snmp->community);
-    }
-    switch (snmp->pdu_type) {
-    case SNMP_GET_REQUEST:
-    case SNMP_GET_NEXT_REQUEST:
-    case SNMP_SET_REQUEST:
-    case SNMP_GET_RESPONSE:
-        if (snmp->pdu) {
-            list_free(snmp->pdu->varbind_list, free_snmp_varbind);
-            free(snmp->pdu);
-        }
-        break;
-    case SNMP_TRAP:
-        if (snmp->trap) {
-            free(snmp->trap->enterprise);
-            free(snmp->trap->agent_addr);
-            list_free(snmp->trap->varbind_list, free_snmp_varbind);
-            free(snmp->trap);
-        }
-        break;
-    default:
-        break;
-    }
-    free(snmp);
 }

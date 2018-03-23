@@ -128,20 +128,23 @@ struct packet {
 
 /*
  * Get a packet from the network interface card. Will allocate enough memory
- * for packet, which needs to be freed with free_packet.
+ * for packet, which needs to be freed with free_packets.
  */
 size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet **p);
 
 /*
  * Decodes the data in buffer and stores a pointer to the decoded packet, which
- * has to be freed by calling free_packet.
+ * has to be freed by calling free_packets.
  *
  * Returns true if decoding succeeded, else false.
  */
 bool decode_packet(unsigned char *buffer, size_t n, struct packet **p);
 
-/* Free the memory allocated for packet */
-void free_packet(void *packet);
+/*
+ * Frees data and everything allocated more recently than data. To free the
+ * whole pool, i.e. all the packets, use NULL as argument.
+ */
+void free_packets(void *data);
 
 /* Return a pointer to the application payload */
 unsigned char *get_adu_payload(struct packet *p);

@@ -28,10 +28,14 @@ inline void *mempool_pealloc(int size)
     return obstack_alloc(&global_pool, size);
 }
 
-inline void mempool_pefree()
+inline void mempool_pefree(void *ptr)
 {
-    obstack_free(&global_pool, globptr);
-    globptr = obstack_alloc(&global_pool, sizeof(int));
+    if (ptr) {
+        obstack_free(&global_pool, ptr);
+    } else {
+        obstack_free(&global_pool, globptr);
+        globptr = obstack_alloc(&global_pool, sizeof(int));
+    }
 }
 
 inline void *mempool_pecopy(void *addr, int size)

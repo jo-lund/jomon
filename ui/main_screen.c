@@ -261,7 +261,7 @@ void load_handle_ok(void *file)
         snprintf(title, MAXLINE, " Loading %s ", filename);
         clear_statistics();
         vector_clear(packets, NULL);
-        free_packet(NULL);
+        free_packets(NULL);
         lstat((const char *) file, buf);
         pd = progress_dialogue_create(title, buf->st_size);
         push_screen((screen *) pd);

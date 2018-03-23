@@ -290,7 +290,7 @@ void run()
 
                     write_to_buf(buf, MAXLINE, p);
                     printf("%s\n", buf);
-                    free_packet(p);
+                    free_packets(p);
                 }
             }
         }
@@ -311,7 +311,7 @@ void start_scan()
 {
     clear_statistics();
     vector_clear(packets, NULL);
-    free_packet(NULL);
+    free_packets(NULL);
     init_socket(ctx.device);
     fd_changed = true;
 }

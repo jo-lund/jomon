@@ -116,19 +116,6 @@ bool parse_datagram(unsigned char *buffer, int n, unsigned char **data,
     return true;
 }
 
-void free_nbds_packet(struct nbds_info *nbds)
-{
-    if (nbds) {
-        if (nbds->msg_type == NBDS_DIRECT_UNIQUE ||
-            nbds->msg_type == NBDS_DIRECT_GROUP ||
-            nbds->msg_type == NBDS_BROADCAST) {
-            free(nbds->msg.dgm->smb);
-            free(nbds->msg.dgm);
-        }
-        free(nbds);
-    }
-}
-
 struct packet_flags *get_nbds_flags()
 {
     return nbds_flags;

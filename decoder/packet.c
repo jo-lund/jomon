@@ -42,8 +42,6 @@ struct packet_statistics pstat[] = {
     { "SNMP", 0, 0 }
 };
 
-static void free_protocol_data(struct application_info *info);
-
 size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet **p)
 {
     struct mmsghdr msg;
@@ -63,11 +61,11 @@ size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet 
     msg.msg_hdr.msg_controllen = 64;
 
     if (recvmmsg(sockfd, &msg, 1, 0, NULL) == -1) {
-        free(*p);
+        free_packets(*p);
         err_sys("recvmmsg error");
     }
     if (!handle_ethernet(buffer, msg.msg_len, *p)) {
-        free_packet(*p);
+        free_packets(*p);
         return 0;
     }
     for (cmsg = CMSG_FIRSTHDR(&msg.msg_hdr); cmsg != NULL;
@@ -88,7 +86,7 @@ bool decode_packet(unsigned char *buffer, size_t len, struct packet **p)
     *p = mempool_pealloc(sizeof(struct packet));
     (*p)->ptype = UNKNOWN;
     if (!handle_ethernet(buffer, len, *p)) {
-        free_packet(*p);
+        free_packets(*p);
         return false;
     }
     (*p)->num = ++pstat[0].num_packets;
@@ -96,9 +94,9 @@ bool decode_packet(unsigned char *buffer, size_t len, struct packet **p)
     return true;
 }
 
-void free_packet(void *data)
+void free_packets(void *data)
 {
-    mempool_pefree();
+    mempool_pefree(data);
 }
 
 /*
