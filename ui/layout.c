@@ -140,6 +140,7 @@ void init_ncurses()
 void end_ncurses()
 {
     screen_cache_clear();
+    main_menu_free((screen *) menu);
     delwin(status);
     endwin();
 }

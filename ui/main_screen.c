@@ -138,6 +138,9 @@ void main_screen_free(screen *s)
     delwin(ms->subwindow.win);
     delwin(ms->header);
     delwin(ms->base.win);
+    if (ms->lvw) {
+        free_list_view(ms->lvw);
+    }
     free(ms);
 }
 
