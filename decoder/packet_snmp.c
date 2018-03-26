@@ -221,9 +221,9 @@ list_t *parse_variables(unsigned char *buffer, int n)
 
 int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag, snmp_value *value)
 {
-    int len = 0;
+    unsigned int len = 0;
     unsigned char *ptr = *data;
-    int len_num_octets = 0;
+    unsigned int len_num_octets = 0;
 
     /*
      * For low-tag-number form (tags 0 - 30), the first two bits specify the
@@ -233,17 +233,19 @@ int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag, snmp_
     *class = (*ptr & 0xc0) >> 6;
     *tag = *ptr & 0x1f;
     ptr++;
-    if (*ptr & 0x80) { /* long form */
+    if (*ptr & 0x80) { /* long form - for lengths between 0 and 2^1008 - 1 */
         len_num_octets = *ptr & 0x7f;
-        if (len_num_octets <= 4) {
-            for (int i = 0; i < len_num_octets; i++) {
+        if (len_num_octets <= 4) { /* ignore length greater than 2^32 */
+            for (unsigned int i = 0; i < len_num_octets; i++) {
                 len = len << 8 | *++ptr;
             }
+        } else {
+            return -1;
         }
     } else { /* short form */
         len = *ptr;
     }
-    if (len > n) {
+    if (len > (unsigned int) n) {
         return -1;
     }
     ptr++; /* skip (last) length byte */
@@ -255,7 +257,7 @@ int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag, snmp_
             int j = 0;
 
             value->pval = mempool_pealloc(INET_ADDRSTRLEN);
-            for (int i = 0; i < len; i++) {
+            for (unsigned int i = 0; i < len; i++) {
                 j += snprintf(value->pval + j, INET_ADDRSTRLEN - j, "%d.", *ptr++);
             }
             break;
@@ -277,7 +279,7 @@ int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag, snmp_
         switch (*tag) {
         case SNMP_INTEGER_TAG:
             value->ival = 0;
-            for (int i = 0; i < len; i++) {
+            for (unsigned int i = 0; i < len; i++) {
                 value->ival = value->ival << 8 | *ptr++;
             }
             /* add tag and length bytes */
@@ -301,7 +303,7 @@ int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag, snmp_
             if (len > 0) {
                 char val[MAX_OID_LEN];
                 unsigned int i = 0;
-                int j = 0;
+                unsigned int j = 0;
                 char c;
 
                 /*
