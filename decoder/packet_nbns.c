@@ -104,10 +104,11 @@ packet_error handle_nbns(unsigned char *buffer, int n, struct application_info *
             return NBNS_ERR;
         }
         ptr += DNS_HDRLEN;
+        plen -= DNS_HDRLEN;
 
         /* QUESTION section */
         char name[DNS_NAMELEN];
-        int len = parse_dns_name(buffer, n, ptr, name);
+        int len = parse_dns_name(buffer, n, ptr, plen, name);
 
         if (len == -1) return NBNS_ERR;
         ptr += len;
@@ -116,7 +117,7 @@ packet_error handle_nbns(unsigned char *buffer, int n, struct application_info *
         info->nbns->question.qtype = ptr[0] << 8 | ptr[1];
         info->nbns->question.qclass = ptr[2] << 8 | ptr[3];
         ptr += 4; /* skip qtype and qclass */
-        len -= 4;
+        plen -= 4;
 
         /* Additional records section */
         if (info->nbns->section_count[ARCOUNT] > n) {
@@ -167,7 +168,7 @@ int parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **data,
     char name[DNS_NAMELEN];
     int len;
 
-    len = parse_dns_name(buffer, n, ptr, name);
+    len = parse_dns_name(buffer, n, ptr, dlen, name);
     if (len == -1) return -1;
     ptr += len;
     decode_nbns_name(nbns->record[i].rrname, name);
@@ -197,7 +198,7 @@ int parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **data,
     case NBNS_NS:
     {
         char name[DNS_NAMELEN];
-        int name_len = parse_dns_name(buffer, n, ptr, name);
+        int name_len = parse_dns_name(buffer, n, ptr, dlen, name);
 
         if (name_len == -1) return -1;
         ptr += name_len;
