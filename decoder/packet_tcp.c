@@ -146,7 +146,7 @@ list_t *parse_tcp_options(unsigned char *data, int len)
     options = list_init(NULL);
 
     /* the data is based on a tag-length-value encoding scheme */
-    while (len) {
+    while (len > 0) {
         struct tcp_options *opt = malloc(sizeof(struct tcp_options));
 
         opt->option_kind = *data;
@@ -156,6 +156,7 @@ list_t *parse_tcp_options(unsigned char *data, int len)
             free(opt);
             return options;
         case TCP_OPT_NOP:
+            opt->option_length = 1; /* NOP only contains the kind byte */
             break;
         case TCP_OPT_MSS:
             data++; /* skip length field */
@@ -194,8 +195,8 @@ list_t *parse_tcp_options(unsigned char *data, int len)
         case TCP_OPT_TIMESTAMP:
             data++; /* skip length field */
             if (opt->option_length == 10) {
-                opt->ts_val = data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3];
-                opt->ts_ecr = data[4] << 24 | data[5] << 16 | data[6] << 8 | data[7];
+                opt->ts.ts_val = data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3];
+                opt->ts.ts_ecr = data[4] << 24 | data[5] << 16 | data[6] << 8 | data[7];
             }
             data += opt->option_length - 2;
             break;

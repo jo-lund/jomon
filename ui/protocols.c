@@ -1317,8 +1317,8 @@ void add_tcp_options(list_view *lw, list_view_header *header, struct tcp *tcp)
             w = ADD_SUB_HEADER(lw, h, false, SUBLAYER, "Timestamp");
             ADD_TEXT_ELEMENT(lw, w, "Option kind: %u", opt->option_kind);
             ADD_TEXT_ELEMENT(lw, w, "Option length: %u", opt->option_length);
-            ADD_TEXT_ELEMENT(lw, w, "Timestamp value: %u", opt->ts_val);
-            ADD_TEXT_ELEMENT(lw, w, "Timestamp echo reply: %u", opt->ts_ecr);
+            ADD_TEXT_ELEMENT(lw, w, "Timestamp value: %u", opt->ts.ts_val);
+            ADD_TEXT_ELEMENT(lw, w, "Timestamp echo reply: %u", opt->ts.ts_ecr);
             break;
         default:
             break;

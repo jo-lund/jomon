@@ -54,8 +54,10 @@ struct tcp_options {
         bool sack_permitted; /* may be sent in a SYN by a TCP that has been extended to
                               * receive the SACK option once the connection has opened */
         list_t *sack;    /* list of sack blocks */
-        uint32_t ts_val; /* timestamp value */
-        uint32_t ts_ecr; /* timestamp echo reply */
+        struct {
+            uint32_t ts_val; /* timestamp value */
+            uint32_t ts_ecr; /* timestamp echo reply */
+        } ts;
     };
 };
 
