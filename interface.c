@@ -6,7 +6,6 @@
 #ifdef __linux__
 #include <net/if_arp.h>
 #include <netpacket/packet.h>
-#include <linux/wireless.h>
 #endif
 #include <string.h>
 #include <stdio.h>
@@ -320,4 +319,25 @@ bool get_iw_range(char *dev, struct iw_range *iwrange)
     }
     close(sockfd);
     return true;
+}
+
+void set_iw_mode(char *dev, int mode)
+{
+    int sockfd;
+    struct iwreq iw;
+
+    strncpy(iw.ifr_ifrn.ifrn_name, dev, IFNAMSIZ);
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
+        err_sys("socket error");
+    }
+    if (ioctl(sockfd, SIOCGIWMODE, &iw) == -1) {
+        close(sockfd);
+        err_sys("ioctl error");
+    }
+    iw.u.mode = mode;
+    if (ioctl(sockfd, SIOCSIWMODE, &iw) == -1) {
+        close(sockfd);
+        err_sys("ioctl error");
+    }
+    close(sockfd);
 }
