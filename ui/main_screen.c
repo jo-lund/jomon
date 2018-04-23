@@ -215,6 +215,13 @@ void main_screen_refresh(screen *s)
     print_status();
 }
 
+void main_screen_refresh_pad(main_screen *ms)
+{
+    if (ms->subwindow.win) {
+        refresh_pad(ms, 0, ms->scrollx);
+    }
+}
+
 void create_load_dialogue()
 {
     if (!fd) {

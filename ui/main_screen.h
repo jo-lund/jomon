@@ -50,4 +50,7 @@ void main_screen_set_interactive(main_screen *ms, bool interactive_mode);
 /* print the buffer to main screen */
 void main_screen_update(main_screen *ms, char *buf);
 
+/* refresh the entire pad */
+void main_screen_refresh_pad(main_screen *ms);
+
 #endif

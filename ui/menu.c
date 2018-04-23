@@ -2,6 +2,7 @@
 #include <string.h>
 #include "menu.h"
 #include "layout_int.h"
+#include "main_screen.h"
 
 extern WINDOW *status;
 
@@ -208,6 +209,9 @@ void main_menu_refresh(screen *s)
     }
     touchwin(prev->win);
     wnoutrefresh(prev->win);
+    if (screen_cache_get(MAIN_SCREEN) == prev) {
+        main_screen_refresh_pad((main_screen *) prev);
+    }
     show_selectionbar(focused->content, focused->i);
     mvwchgat(focused->wheader, 0, 0, -1, A_NORMAL,
              PAIR_NUMBER(get_theme_colour(MENU_SELECTIONBAR)), NULL);
@@ -272,9 +276,14 @@ void main_menu_get_input(screen *s)
             main_menu_refresh(s);
             break;
         }
+        pop_screen(s);
+        break;
     case KEY_F(2):
     case KEY_F(10):
     case 'q':
+        if (focused->is_suboption) {
+            focused->focus = false;
+        }
         pop_screen(s);
         break;
     case KEY_DOWN:
