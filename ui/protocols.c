@@ -1471,6 +1471,13 @@ void add_dns_record(list_view *lw, list_view_header *w, struct dns_info *dns, in
     case DNS_TYPE_OPT:
         add_dns_opt(lw, w, dns, i);
         break;
+    case DNS_TYPE_NSEC:
+        ADD_TEXT_ELEMENT(lw, w, "Next domain name: %s", dns->record[i].rdata.nsec.nd_name);
+        for (unsigned int j = 0; j < dns->record[i].rdata.nsec.num_types; j++) {
+            ADD_TEXT_ELEMENT(lw, w, "Type in bitmap: %s",
+                             get_dns_type_extended(dns->record[i].rdata.nsec.types[j]));
+        }
+        break;
     default:
         break;
     }

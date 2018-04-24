@@ -7,13 +7,14 @@
 
 #define DNS_PTR_LEN 2
 
-// TODO: add support for rfc2535
 static struct packet_flags dns_flags[] = {
     { "Authoritative answer", 1, NULL },
     { "Truncation", 1, NULL },
     { "Recursion desired", 1, NULL },
     { "Recursion available", 1, NULL },
-    { "Reserved", 3, NULL }
+    { "Reserved", 1, NULL },
+    { "Authentic data", 1, NULL },
+    { "Checking disabled", 1, NULL }
 };
 
 static struct packet_flags llmnr_flags[] = {
@@ -24,11 +25,13 @@ static struct packet_flags llmnr_flags[] = {
 };
 
 static int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
-                            int dlen, struct dns_info *dns);
+                             int dlen, struct dns_info *dns);
 static int parse_dns_question(unsigned char *buffer, int n, unsigned char **data,
                               int dlen, struct dns_info *dns);
 static char *parse_dns_txt(unsigned char **data);
 static void free_opt_rr(void *data);
+static bool parse_type_bitmaps(unsigned char **data, uint16_t rdlen,
+                               struct dns_resource_record *record);
 
 /*
  * Handle DNS messages. Will return false if not DNS.
@@ -53,7 +56,7 @@ static void free_opt_rr(void *data);
  * +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
  * |                      ID                       |
  * +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
- * |QR|   Opcode  |AA|TC|RD|RA|   Z    |   RCODE   |
+ * |QR|   Opcode  |AA|TC|RD|RA| Z|AD|CD|   RCODE   |
  * +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
  * |                    QDCOUNT                    |
  * +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
@@ -111,6 +114,8 @@ packet_error handle_dns(unsigned char *buffer, int n,
         info->dns->dns_flags.tc = (ptr[2] & 0x02) >> 1;
         info->dns->dns_flags.rd = ptr[2] & 0x01;
         info->dns->dns_flags.ra = (ptr[3] & 0x80) >> 7;
+        info->dns->dns_flags.ad = (ptr[3] & 0x20) >> 5;
+        info->dns->dns_flags.cd = (ptr[3] & 0x10) >> 4;
     }
     info->dns->rcode = ptr[3] & 0x0f;
     for (int i = 0, j = 4; i < 4; i++, j += 2) {
@@ -325,6 +330,16 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
             ptr += rdlen;
         }
         break;
+    case DNS_TYPE_NSEC:
+    {
+        int name_len;
+
+        name_len = parse_dns_name(buffer, n, ptr, dlen, dns->record[i].rdata.nsec.nd_name);
+        if (name_len == -1) return -1;
+        ptr += name_len;
+        if (!parse_type_bitmaps(&ptr, rdlen - name_len, &dns->record[i])) return -1;
+        break;
+    }
     default:
         ptr += rdlen;
         break;
@@ -473,6 +488,50 @@ void free_opt_rr(void *data)
     free(rr);
 }
 
+/*
+ * The RR type space is split into 256 window blocks, each representing
+ * the low-order 8 bits of the 16-bit RR type space. Each block that
+ * has at least one active RR type is encoded using a single octet
+ * window number (from 0 to 255), a single octet bitmap length (from 1
+ * to 32) indicating the number of octets used for the window block's
+ * bitmap, and up to 32 octets (256 bits) of bitmap.
+ */
+bool parse_type_bitmaps(unsigned char **data, uint16_t rdlen,
+                        struct dns_resource_record *record)
+{
+    unsigned char *ptr = *data;
+    unsigned int i = 0;
+    uint8_t winnum;
+    uint8_t maplen;
+
+    record->rdata.nsec.num_types = 0;
+    while (i < rdlen) {
+        winnum = ptr[i];
+        maplen = ptr[i + 1];
+        if (maplen > rdlen) {
+            mempool_pefree(mempool_pefinish());
+            return false;
+        }
+        ptr += 2;
+        i += 2;
+        for (unsigned int j = 0; j < maplen; j++) {
+            for (unsigned int k = 0; k < 8; k++) {
+                if (ptr[j] & (1 << (7 - k))) {
+                    uint16_t type = winnum * 256 + k + (8 * j);
+
+                    mempool_pegrow(&type, sizeof(uint16_t));
+                    record->rdata.nsec.num_types++;
+                }
+            }
+        }
+        i += maplen;
+        ptr += maplen;
+    }
+    record->rdata.nsec.types = mempool_pefinish();
+    *data = ptr;
+    return true;
+}
+
 char *get_dns_opcode(uint8_t opcode)
 {
     switch (opcode) {
@@ -542,6 +601,14 @@ char *get_dns_type(uint16_t type)
         return "SRV";
     case DNS_TYPE_OPT:
         return "OPT";
+    case DNS_TYPE_DS:
+        return "DS";
+    case DNS_TYPE_RRSIG:
+        return "RRSIG";
+    case DNS_TYPE_NSEC:
+        return "NSEC";
+    case DNS_TYPE_DNSKEY:
+        return "DNSKEY";
     case DNS_QTYPE_AXFR:
         return "AXFR";
     case DNS_QTYPE_STAR:
@@ -575,7 +642,9 @@ char *get_dns_type_extended(uint16_t type)
     case DNS_TYPE_SRV:
         return "SRV (service location)";
     case DNS_TYPE_OPT:
-        return "OPT (Option pseudo record)";
+        return "OPT (option pseudo record)";
+    case DNS_TYPE_NSEC:
+        return "NSEC (next secure record)";
     case DNS_QTYPE_AXFR:
         return "AXFR (zone transfer)";
     case DNS_QTYPE_STAR:

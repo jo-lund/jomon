@@ -48,6 +48,12 @@
 #define DNS_TYPE_AAAA 28   /* a host IPv6 address */
 #define DNS_TYPE_SRV 33    /* generalized service location */
 #define DNS_TYPE_OPT 41    /* a pseudo record type needed to support EDNS */
+#define DNS_TYPE_DS 43     /* refers to a DNSKEY RR */
+#define DNS_TYPE_RRSIG 46  /* digital signatures */
+#define DNS_TYPE_NSEC 47   /* the next owner name that contains authoritative data
+                              or a delegation point NS RRset, and the set of RR types
+                              present at the NSEC RR's owner name */
+#define DNS_TYPE_DNSKEY 48 /* DNS public key */
 #define DNS_QTYPE_AXFR 252   /* a request for a transfer of an entire zone */
 #define DNS_QTYPE_MAILB 253  /* a request for mailbox-related records (MB, MG or MR) */
 #define DNS_QTYPE_MAILA 254  /* a request for mail agent RRs (Obsolete - see MX) */
@@ -128,6 +134,12 @@ struct dns_flags {
                             to pursue the query recursively */
     unsigned int ra : 1; /* recursion avilable - denotes whether recursive query
                             support is available in the name server */
+    unsigned int ad : 1; /* authenticate data - indicates in a response that all
+                            the data included in the answer and authority portion
+                            of the response has been authenticated by the server */
+    unsigned int cd : 1; /* checking disabled - indicates in a query that pending
+                            (non-authenticated data is acceptable by the resolver
+                            sending the query */
 };
 
 struct llmnr_flags {
@@ -251,6 +263,11 @@ struct dns_info {
                 unsigned char *data;
             } opt;
 
+            struct {
+                char nd_name[DNS_NAMELEN]; /* next domain name */
+                uint16_t *types;
+                uint16_t num_types;
+            } nsec;
         } rdata;
     } *record;
 };

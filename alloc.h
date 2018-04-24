@@ -25,6 +25,23 @@ void *mempool_pecopy(void *addr, int size);
  */
 void *mempool_pecopy0(void *addr, int size);
 
+/*
+ * Grow an object sequentially by adding 'size' bytes to the object and copying
+ * the contents from data. Using this you don't need to know how much data will
+ * be put into the object until you come to the end of it.
+ *
+ * It is necessay to explicitly say when an object is finished by calling
+ * mempool_pefinish.
+ */
+void mempool_pegrow(void *data, int size);
+
+/*
+ * Finish growing the object and return the address of the allocated object.
+ * Once the object is finished, the pool is available for ordinary allocation or
+ * for growing another object.
+ */
+void *mempool_pefinish();
+
 /* Allocates memory for short-lived storage */
 void *mempool_shalloc(int size);
 

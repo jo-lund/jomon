@@ -48,6 +48,16 @@ inline void *mempool_pecopy0(void *addr, int size)
     return obstack_copy0(&global_pool, addr, size);
 }
 
+inline void mempool_pegrow(void *data, int size)
+{
+    obstack_grow(&global_pool, data, size);
+}
+
+inline void *mempool_pefinish()
+{
+    return obstack_finish(&global_pool);
+}
+
 inline void *mempool_shalloc(int size)
 {
     return obstack_alloc(&request_pool, size);
