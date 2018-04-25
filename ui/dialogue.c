@@ -407,9 +407,9 @@ void file_dialogue_handle_enter(struct file_dialogue *this)
             } else {
                 pop_screen();
                 this->ok->action(this->path);
+                return;
             }
         }
-        curs_set(0);
         this->has_focus = FS_LIST;
         break;
     }
