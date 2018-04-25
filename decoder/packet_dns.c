@@ -512,11 +512,10 @@ bool parse_type_bitmaps(unsigned char **data, uint16_t rdlen,
             mempool_pefree(mempool_pefinish());
             return false;
         }
-        ptr += 2;
         i += 2;
         for (unsigned int j = 0; j < maplen; j++) {
             for (unsigned int k = 0; k < 8; k++) {
-                if (ptr[j] & (1 << (7 - k))) {
+                if (ptr[i + j] & (1 << (7 - k))) {
                     uint16_t type = winnum * 256 + k + (8 * j);
 
                     mempool_pegrow(&type, sizeof(uint16_t));
@@ -525,8 +524,8 @@ bool parse_type_bitmaps(unsigned char **data, uint16_t rdlen,
             }
         }
         i += maplen;
-        ptr += maplen;
     }
+    ptr += i;
     record->rdata.nsec.types = mempool_pefinish();
     *data = ptr;
     return true;
