@@ -9,6 +9,8 @@
 #include "../util.h"
 
 #define FORMAT_BUF_LEN 7
+#define FILE_INPUT_TEXT "Filename: "
+#define FILE_INPUT_TEXTLEN 10
 
 struct file_info {
     char *name;
@@ -31,7 +33,8 @@ static void file_dialogue_render(file_dialogue *this);
 static void file_dialogue_populate(file_dialogue *this, char *path);
 static void file_dialogue_get_input(screen *s);
 static void file_dialogue_print(struct file_dialogue *this, struct file_info *info, int i);
-static void file_dialogue_update_input(struct file_dialogue *this, char *path);
+static void file_dialogue_update_input(struct file_dialogue *this);
+static void file_dialogue_update_dir(struct file_dialogue *this, char *path);
 static void file_dialogue_handle_enter(struct file_dialogue *this);
 static void file_dialogue_update_focus(struct file_dialogue *this);
 static void file_dialogue_handle_keydown(struct file_dialogue *this);
@@ -197,15 +200,17 @@ file_dialogue *file_dialogue_create(char *title, enum file_selection_type type,
     getmaxyx(((screen *) fd)->win, my, mx);
     fd->list_height = my - 10;
     fd->list.win = derwin(((screen *) fd)->win, fd->list_height, mx - 15, 3, 7);
-    fd->input.win = derwin(((screen *) fd)->win, 1, mx - 15, fd->list_height + 4, 7);
+    fd->dir.win = derwin(((screen *) fd)->win, 1, mx - 15, fd->list_height + 4, 7);
+    fd->input.win = derwin(((screen *) fd)->win, 1, mx - 15, fd->list_height + 6, 7);
     fd->i = 0;
     fd->num_files = 0;
     fd->top = 0;
     fd->has_focus = FS_LIST;
     fd->files = vector_init(10);
-    fd->ok = button_create((screen *) fd, ok, NULL, "Ok", my - 4, 7);
-    fd->cancel = button_create((screen *) fd, cancel, NULL, "Cancel", my - 4, mx - 20);
+    fd->ok = button_create((screen *) fd, ok, NULL, "Ok", my - 2, 7);
+    fd->cancel = button_create((screen *) fd, cancel, NULL, "Cancel", my - 2, mx - 20);
     strncpy(fd->path, path, MAXPATH);
+    snprintcat(fd->path, MAXPATH, "/");
     scrollok(fd->list.win, TRUE);
     nodelay(fd->list.win, TRUE);
     keypad(fd->list.win, TRUE);
@@ -220,6 +225,7 @@ void file_dialogue_free(screen *s)
 
         delwin(s->win);
         delwin(fd->list.win);
+        delwin(fd->dir.win);
         delwin(fd->input.win);
         vector_free(fd->files, free_data);
         button_free(fd->ok);
@@ -236,12 +242,15 @@ void file_dialogue_render(file_dialogue *this)
     scr = (screen *) this;
     DIALOGUE_RENDER((dialogue *) this);
     wbkgd(this->list.win, get_theme_colour(FD_LIST_BKGD));
+    wbkgd(this->dir.win, get_theme_colour(FD_INPUT_BKGD));
     wbkgd(this->input.win, get_theme_colour(FD_INPUT_BKGD));
     w = getmaxx(scr->win) - 13;
     printat(scr->win, 2, 8, A_BOLD, "Name");
     printat(scr->win, 2, w, A_BOLD, "Size");
     mvwchgat(scr->win, 2, 7, w - 2, A_NORMAL, PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
+    wprintw(this->input.win, FILE_INPUT_TEXT);
     file_dialogue_populate(this, this->path);
+    file_dialogue_update_dir(this, this->path);
     BUTTON_RENDER(this->ok);
     BUTTON_RENDER(this->cancel);
     wrefresh(this->list.win);
@@ -304,7 +313,6 @@ void file_dialogue_populate(file_dialogue *this, char *path)
             info = (struct file_info *) vector_get_data(this->files, i);
             file_dialogue_print(this, info, i);
         }
-        file_dialogue_update_input(this, this->path);
         show_selectionbar(this, this->i);
         closedir(dir);
     }
@@ -329,6 +337,29 @@ void file_dialogue_get_input(screen *s)
     case KEY_DOWN:
         file_dialogue_handle_keydown(fd);
         break;
+    case KEY_LEFT:
+        if (fd->has_focus == FS_INPUT) {
+            int y, x;
+
+            getyx(fd->input.win, y, x);
+            if (x > FILE_INPUT_TEXTLEN) {
+                wmove(fd->input.win, y, --x);
+                wrefresh(fd->input.win);
+            }
+        }
+        break;
+    case KEY_RIGHT:
+        if (fd->has_focus == FS_INPUT) {
+            int y, x, maxx;
+
+            getyx(fd->input.win, y, x);
+            maxx = getmaxx(fd->input.win);
+            if (x < maxx) {
+                wmove(fd->input.win, y, ++x);
+                wrefresh(fd->input.win);
+            }
+        }
+        break;
     case KEY_ENTER:
     case '\n':
         file_dialogue_handle_enter(fd);
@@ -342,7 +373,7 @@ void file_dialogue_get_input(screen *s)
             int y, x;
 
             getyx(fd->input.win, y, x);
-            if (x > 0) {
+            if (x > FILE_INPUT_TEXTLEN) {
                 int n;
 
                 n = strlen(fd->path);
@@ -377,13 +408,18 @@ void file_dialogue_handle_enter(struct file_dialogue *this)
                 get_directory_part(this->path); /* remove ".." */
                 if (strcmp(this->path, "/") != 0) {
                     get_directory_part(this->path); /* go up dir */
+                    snprintcat(this->path, MAXPATH, "/");
                 }
+            } else {
+                snprintcat(this->path, MAXPATH, "%s/", info->name);
             }
             werase(this->list.win);
             this->top = 0;
             file_dialogue_populate(this, this->path);
             wrefresh(this->list.win);
+            file_dialogue_update_dir(this, this->path);
         } else {
+            snprintcat(this->path, MAXPATH, "%s", info->name);
             pop_screen();
             this->ok->action(this->path);
         }
@@ -399,12 +435,7 @@ void file_dialogue_handle_enter(struct file_dialogue *this)
                 this->path[n - 1] = '\0';
             }
             lstat(this->path, buf);
-            if (S_ISDIR(buf->st_mode)) {
-                werase(this->list.win);
-                this->top = 0;
-                file_dialogue_populate(this, this->path);
-                wrefresh(this->list.win);
-            } else {
+            if (!S_ISDIR(buf->st_mode)) {
                 pop_screen();
                 this->ok->action(this->path);
                 return;
@@ -442,15 +473,30 @@ void file_dialogue_print(struct file_dialogue *this, struct file_info *info, int
     }
 }
 
-void file_dialogue_update_input(struct file_dialogue *this, char *path)
+void file_dialogue_update_input(struct file_dialogue *this)
 {
     struct file_info *info;
 
     info = (struct file_info *) vector_get_data(this->files, this->i);
-    snprintcat(path, MAXPATH, "/%s", info->name);
-    werase(this->input.win);
-    waddstr(this->input.win, path);
+    wmove(this->input.win, 0, FILE_INPUT_TEXTLEN);
+    wclrtoeol(this->input.win);
+    if (!S_ISDIR(info->stat->st_mode)) {
+        waddstr(this->input.win, info->name);
+    }
     wrefresh(this->input.win);
+
+}
+
+void file_dialogue_update_dir(struct file_dialogue *this, char *path)
+{
+    struct file_info *info;
+
+    info = (struct file_info *) vector_get_data(this->files, this->i);
+    if (S_ISDIR(info->stat->st_mode)) {
+        werase(this->dir.win);
+        waddstr(this->dir.win, path);
+        wrefresh(this->dir.win);
+    }
 }
 
 void file_dialogue_update_focus(struct file_dialogue *this)
@@ -468,7 +514,7 @@ void file_dialogue_update_focus(struct file_dialogue *this)
         wrefresh(((screen *) this)->win);
         break;
     case FS_INPUT:
-        wmove(((screen *) this)->win, this->list_height + 4, strlen(this->path) + 7);
+        wmove(((screen *) this)->win, this->list_height + 6, strlen(FILE_INPUT_TEXT) + 7);
         curs_set(1);
         remove_selectionbar(this, this->i - this->top);
         wrefresh(this->input.win);
@@ -501,18 +547,15 @@ void file_dialogue_handle_keydown(struct file_dialogue *this)
             this->i++;
             this->top++;
             file_dialogue_print(this, vector_get_data(this->files, this->i), this->list_height - 1);
-            file_dialogue_update_input(this, get_directory_part(this->path));
+            file_dialogue_update_input(this);
             show_selectionbar(this, this->list_height - 1);
         } else if (this->i < this->num_files - 1) {
             remove_selectionbar(this, this->i - this->top);
             show_selectionbar(this, this->i - this->top + 1);
             this->i++;
-            file_dialogue_update_input(this, get_directory_part(this->path));
+            file_dialogue_update_input(this);
         }
         wrefresh(this->list.win);
-    } else if (this->has_focus == FS_INPUT && this->i < this->num_files - 1) {
-        this->i++;
-        file_dialogue_update_input(this, get_directory_part(this->path));
     }
 }
 
@@ -527,16 +570,13 @@ void file_dialogue_handle_keyup(struct file_dialogue *this)
             this->top--;
             this->i--;
             file_dialogue_print(this, vector_get_data(this->files, this->i), 0);
-            file_dialogue_update_input(this, get_directory_part(this->path));
+            file_dialogue_update_input(this);
         } else {
             this->i--;
-            file_dialogue_update_input(this, get_directory_part(this->path));
+            file_dialogue_update_input(this);
         }
         show_selectionbar(this, this->i - this->top);
         wrefresh(this->list.win);
-    } else if (this->has_focus == FS_INPUT && this->i > 0) {
-        this->i--;
-        file_dialogue_update_input(this, get_directory_part(this->path));
     }
 }
 

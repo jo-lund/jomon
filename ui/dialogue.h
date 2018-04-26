@@ -40,6 +40,7 @@ enum file_selection_type {
 typedef struct file_dialogue {
     dialogue dialogue_base;
     container list;
+    container dir;
     container input;
     char path[MAXPATH + 1];
     int i;
