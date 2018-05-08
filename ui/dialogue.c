@@ -385,6 +385,21 @@ void file_dialogue_get_input(screen *s)
             }
         }
         break;
+    case KEY_DC:
+        if (fd->has_focus == FS_INPUT) {
+            int y, x;
+            int len = 0;
+            char buf[MAXPATH];
+
+            getyx(fd->input.win, y, x);
+            winnstr(fd->input.win, buf, MAXPATH);
+            len = strlen(buf);
+            if (x < FILE_INPUT_TEXTLEN + len) {
+                wdelch(fd->input.win);
+                wrefresh(fd->input.win);
+            }
+        }
+        break;
     default:
         if (fd->has_focus == FS_INPUT && isprint(c)) {
             snprintcat(fd->path, MAXPATH, "%c", c);
@@ -514,7 +529,7 @@ void file_dialogue_update_focus(struct file_dialogue *this)
         wrefresh(((screen *) this)->win);
         break;
     case FS_INPUT:
-        wmove(((screen *) this)->win, this->list_height + 6, strlen(FILE_INPUT_TEXT) + 7);
+        wmove(((screen *) this)->win, this->list_height + 6, FILE_INPUT_TEXTLEN + 7);
         curs_set(1);
         remove_selectionbar(this, this->i - this->top);
         wrefresh(this->input.win);
