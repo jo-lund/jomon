@@ -793,6 +793,7 @@ void add_ipv4_information(list_view *lw, list_view_header *header, struct ipv4_i
     } else {
         snprintcat(buf, MAXLINE, " Not ECN-Capable");
     }
+    ADD_TEXT_ELEMENT(lw, header, "%s", buf);
     ADD_TEXT_ELEMENT(lw, header, "Total length: %u", ip->length);
     ADD_TEXT_ELEMENT(lw, header, "Identification: 0x%x (%u)", ip->id, ip->id);
     snprintf(buf, MAXLINE, "Flags 0x%x ", flags);
