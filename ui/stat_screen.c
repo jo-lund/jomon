@@ -35,8 +35,8 @@ typedef struct {
     unsigned long free_ram;
     unsigned long buffers;
     unsigned long cached;
-    unsigned int vm_rss;
-    unsigned int vm_size;
+    unsigned long vm_rss;
+    unsigned long vm_size;
     int pid;
     int num_cpu;
     char cpu_name[MAX_NAME];
@@ -421,9 +421,9 @@ bool read_hwstat()
         if (strncmp(buf, "Pid:", 4) == 0) {
             GET_VALUE(buf, i, "%d", 4, hw.pid);
         } else if (strncmp(buf, "VmRSS:", 6) == 0) {
-            GET_VALUE(buf, i, "%u", 6, hw.vm_rss);
+            GET_VALUE(buf, i, "%lu", 6, hw.vm_rss);
         } else if (strncmp(buf, "VmSize:", 7) == 0) {
-            GET_VALUE(buf, i, "%u", 7, hw.vm_size);
+            GET_VALUE(buf, i, "%lu", 7, hw.vm_size);
         }
     }
     fclose(fp);
