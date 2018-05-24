@@ -9,6 +9,7 @@
 #define DIALOGUE_SET_TITLE(o, d, t) ((o)->dialogue_set_title(d, t))
 #define DIALOGUE_RENDER(o) ((o)->dialogue_render(o))
 #define PROGRESS_DIALOGUE_UPDATE(o, n) ((o)->progress_dialogue_update(o, n))
+#define LABEL_DIALOGUE_SET_ACTION(o, a, p) ((o)->label_dialogue_set_action(o, a, p))
 
 typedef struct dialogue {
     screen screen_base;
@@ -27,6 +28,10 @@ typedef struct label_dialogue {
     dialogue dialogue_base;
     char *label;
     button *ok;
+
+    /* set the action to be performed on button press */
+    void (*label_dialogue_set_action)(struct label_dialogue *ld, button_action act,
+                                      void *arg);
 } label_dialogue;
 
 struct stat;
@@ -71,7 +76,7 @@ dialogue *dialogue_create(char *title);
 /* free the memory associated with dialogue */
 void dialogue_free(screen *s);
 
-/* Create a new label dialogue. It needs to be freed with 'label_dialogue_free' */
+/* Create a new label dialogue. It needs to be freed by calling label_dialogue_free. */
 label_dialogue *label_dialogue_create(char *title, char *label, button_action act, void *arg);
 
 /* free the memory associated with label dialogue */

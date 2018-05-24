@@ -29,6 +29,7 @@ static void dialogue_set_title(dialogue *this, char *title);
 static void dialogue_render(dialogue *this);
 static void label_dialogue_render(label_dialogue *this);
 static void label_dialogue_get_input(screen *s);
+static void label_dialogue_set_action(label_dialogue *ld, button_action act, void *arg);
 static void file_dialogue_render(file_dialogue *this);
 static void file_dialogue_populate(file_dialogue *this, char *path);
 static void file_dialogue_get_input(screen *s);
@@ -139,12 +140,13 @@ label_dialogue *label_dialogue_create(char *title, char *label, button_action ac
     getmaxyx(stdscr, my, mx);
     ld = malloc(sizeof(label_dialogue));
     op = SCREEN_OPS(.screen_free = label_dialogue_free,
-                     .screen_get_input = label_dialogue_get_input);
+                    .screen_get_input = label_dialogue_get_input);
     ld->dialogue_base.screen_base.op = &op;
     dialogue_init((dialogue *) ld, title, my / 5, mx / 6 + 10);
     ld->label = label;
     ld->ok = button_create((screen *) ld, act, arg, "Ok", ((dialogue *) ld)->height - 5,
                            (((dialogue *) ld)->width - 12) / 2);
+    ld->label_dialogue_set_action = label_dialogue_set_action;
     keypad(((screen *) ld)->win, TRUE);
     BUTTON_SET_FOCUS(ld->ok, true);
     label_dialogue_render(ld);
@@ -165,6 +167,11 @@ void label_dialogue_render(label_dialogue *this)
     mvwprintw(((screen *) this)->win, 5, 4, "%s", this->label);
 }
 
+void label_dialogue_set_action(label_dialogue *ld, button_action act, void *arg)
+{
+    ld->ok->button_set_action(ld->ok, act, arg);
+}
+
 void label_dialogue_get_input(screen *s)
 {
      int c;
@@ -177,7 +184,9 @@ void label_dialogue_get_input(screen *s)
      case '\n':
      case KEY_ESC:
          pop_screen();
-         ld->ok->action(ld->ok->argument);
+         if (ld->ok->action) {
+             ld->ok->action(ld->ok->argument);
+         }
          break;
      default:
          break;
@@ -444,17 +453,9 @@ void file_dialogue_handle_enter(struct file_dialogue *this)
         int n = strlen(this->path);
 
         if (n > 0) {
-            struct stat buf[sizeof(struct stat)];
-
-            if (this->path[n - 1] == '/') {
-                this->path[n - 1] = '\0';
-            }
-            lstat(this->path, buf);
-            if (!S_ISDIR(buf->st_mode)) {
-                pop_screen();
-                this->ok->action(this->path);
-                return;
-            }
+            pop_screen();
+            this->ok->action(this->path);
+            return;
         }
         this->has_focus = FS_LIST;
         break;

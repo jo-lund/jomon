@@ -259,7 +259,10 @@ void load_handle_ok(void *file)
     enum file_error err;
     FILE *fp;
 
-    if ((fp = open_file((const char *) file, "r", &err)) == NULL) {
+    /* don't allow filenames containing ".." */
+    if (strstr((const char *) file, "..")) {
+        create_file_error_dialogue(ACCESS_ERROR, create_load_dialogue);
+    } else if ((fp = open_file((const char *) file, "r", &err)) == NULL) {
         create_file_error_dialogue(err, create_load_dialogue);
     } else {
         struct stat buf[sizeof(struct stat)];
