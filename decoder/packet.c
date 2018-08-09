@@ -154,7 +154,7 @@ void clear_statistics()
     analyzer_clear();
 }
 
-inline uint16_t get_packet_size(struct packet *p)
+uint16_t get_packet_size(struct packet *p)
 {
     return p->eth.payload_len + ETH_HLEN;
 }

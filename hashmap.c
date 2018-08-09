@@ -93,7 +93,7 @@ void *hash_map_get(hash_map_t *map, void *key)
     return NULL;
 }
 
-inline unsigned int hash_map_size(hash_map_t *map)
+unsigned int hash_map_size(hash_map_t *map)
 {
     return map->count;
 }

@@ -44,9 +44,9 @@ static enum file_error read_header(unsigned char *buf, size_t len);
 static enum file_error errno_file_error(int err);
 static void write_header(unsigned char *buf);
 static int write_data(unsigned char *buf, unsigned int len, struct packet *p);
-static uint32_t get_linktype(pcap_hdr_t *header);
-static uint16_t get_major_version(pcap_hdr_t *header);
-static uint16_t get_minor_version(pcap_hdr_t *header);
+static inline uint32_t get_linktype(pcap_hdr_t *header);
+static inline uint16_t get_major_version(pcap_hdr_t *header);
+static inline uint16_t get_minor_version(pcap_hdr_t *header);
 
 FILE *open_file(const char *path, const char *mode, enum file_error *err)
 {

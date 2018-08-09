@@ -149,7 +149,7 @@ void list_remove(list_t *list, void *data, list_deallocate func)
     }
 }
 
-inline void *list_data(const node_t *n)
+void *list_data(const node_t *n)
 {
     if (n) {
         return n->data;
@@ -157,7 +157,7 @@ inline void *list_data(const node_t *n)
     return NULL;
 }
 
-inline void *list_back(list_t *list)
+void *list_back(list_t *list)
 {
     if (list->tail) {
         return list->tail->data;
@@ -165,7 +165,7 @@ inline void *list_back(list_t *list)
     return NULL;
 }
 
-inline void *list_front(list_t *list)
+void *list_front(list_t *list)
 {
     if (list->head) {
         return list->head->data;
@@ -173,12 +173,12 @@ inline void *list_front(list_t *list)
     return NULL;
 }
 
-inline const node_t *list_begin(list_t *list)
+const node_t *list_begin(list_t *list)
 {
     return list->head;
 }
 
-inline const node_t *list_end(list_t *list)
+const node_t *list_end(list_t *list)
 {
     return list->tail;
 }
@@ -193,7 +193,7 @@ const node_t *list_ith(list_t *list, int index)
     return n;
 }
 
-inline const node_t *list_prev(const node_t *n)
+const node_t *list_prev(const node_t *n)
 {
     if (n) {
         return n->prev;
@@ -201,7 +201,7 @@ inline const node_t *list_prev(const node_t *n)
     return NULL;
 }
 
-inline const node_t *list_next(const node_t *n)
+const node_t *list_next(const node_t *n)
 {
     if (n) {
         return n->next;
@@ -209,7 +209,7 @@ inline const node_t *list_next(const node_t *n)
     return NULL;
 }
 
-inline int list_size(list_t *list)
+int list_size(list_t *list)
 {
     return list->size;
 }

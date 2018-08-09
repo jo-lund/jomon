@@ -71,22 +71,40 @@ char *get_directory_part(char *path);
 /* Given a file with full path name, return the file part */
 char *get_file_part(char *path);
 
-/* Extracts a 16 bits integer in big endian format from buf */
-uint16_t get_uint16be(const unsigned char *buf);
-
-/* Extracts a 32 bits integer in big endian format from buf */
-uint32_t get_uint32be(const unsigned char *buf);
-
-/* Extracts a 16 bits integer in little endian format from buf */
-uint16_t get_uint16le(const unsigned char *buf);
-
-/* Extracts a 32 bits integer in little endian format from buf */
-uint32_t get_uint32le(const unsigned char *buf);
-
 /* Transforms the bytes to a human readable format, e.g. "1K", "42M" etc. */
 char *format_bytes(int bytes, char *buf, int len);
 
 /* Returns the city and country name from a GeoIPRecord, if available */
 char *get_location(GeoIPRecord *record, char *buf, int len);
+
+/* Extracts a 16 bits integer in big endian format from buf */
+static inline uint16_t get_uint16be(const unsigned char *buf)
+{
+    return (uint16_t) buf[0] << 8 | (uint16_t) buf[1];
+}
+
+/* Extracts a 32 bits integer in big endian format from buf */
+static inline uint32_t get_uint32be(const unsigned char *buf)
+{
+    return (uint32_t) buf[0] << 24 |
+           (uint32_t) buf[1] << 16 |
+           (uint32_t) buf[2] << 8 |
+           (uint32_t) buf[3];
+}
+
+/* Extracts a 16 bits integer in little endian format from buf */
+static inline uint16_t get_uint16le(const unsigned char *buf)
+{
+    return (uint16_t) buf[1] << 8 | (uint16_t) buf[0];
+}
+
+/* Extracts a 32 bits integer in little endian format from buf */
+static inline uint32_t get_uint32le(const unsigned char *buf)
+{
+    return (uint32_t) buf[3] << 24 |
+           (uint32_t) buf[2] << 16 |
+           (uint32_t) buf[1] << 8 |
+           (uint32_t) buf[0];
+}
 
 #endif

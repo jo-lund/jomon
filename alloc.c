@@ -23,12 +23,12 @@ void mempool_init()
     globptr = obstack_alloc(&global_pool, sizeof(int));
 }
 
-inline void *mempool_pealloc(int size)
+void *mempool_pealloc(int size)
 {
     return obstack_alloc(&global_pool, size);
 }
 
-inline void mempool_pefree(void *ptr)
+void mempool_pefree(void *ptr)
 {
     if (ptr) {
         obstack_free(&global_pool, ptr);
@@ -38,32 +38,32 @@ inline void mempool_pefree(void *ptr)
     }
 }
 
-inline void *mempool_pecopy(void *addr, int size)
+void *mempool_pecopy(void *addr, int size)
 {
     return obstack_copy(&global_pool, addr, size);
 }
 
-inline void *mempool_pecopy0(void *addr, int size)
+void *mempool_pecopy0(void *addr, int size)
 {
     return obstack_copy0(&global_pool, addr, size);
 }
 
-inline void mempool_pegrow(void *data, int size)
+void mempool_pegrow(void *data, int size)
 {
     obstack_grow(&global_pool, data, size);
 }
 
-inline void *mempool_pefinish()
+void *mempool_pefinish()
 {
     return obstack_finish(&global_pool);
 }
 
-inline void *mempool_shalloc(int size)
+void *mempool_shalloc(int size)
 {
     return obstack_alloc(&request_pool, size);
 }
 
-inline void mempool_shfree(void *ptr)
+void mempool_shfree(void *ptr)
 {
     obstack_free(&request_pool, ptr);
 }

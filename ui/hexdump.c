@@ -92,7 +92,7 @@ static enum hex_state get_next_state(enum hex_state cur_state, struct packet *p)
 static void print_char(WINDOW *win, char *buf, enum hex_state *state, struct packet *p, int i, int j, bool update);
 static void print_state(WINDOW *win, char *buf, enum hex_state state);
 static enum hex_state str2enum(char *state);
-static char *enum2str(enum hex_state state);
+static inline char *enum2str(enum hex_state state);
 
 void add_hexdump(list_view *lw, list_view_header *header, enum hexmode mode, unsigned char *payload, uint16_t len)
 {

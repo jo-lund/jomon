@@ -277,7 +277,7 @@ void push_screen(screen *newscr)
     SCREEN_REFRESH(newscr);
 }
 
-inline bool screen_stack_empty()
+bool screen_stack_empty()
 {
     return stack_empty(screen_stack);
 }
@@ -355,7 +355,7 @@ void init_colours()
     theme = DEFAULT;
 }
 
-inline int get_theme_colour(enum elements elem)
+int get_theme_colour(enum elements elem)
 {
     return themes[theme][elem];
 }

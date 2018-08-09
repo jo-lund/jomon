@@ -379,12 +379,12 @@ const rbtree_node_t *rbtree_next(rbtree_t *tree, const rbtree_node_t *node)
     return s;
 }
 
-inline void *rbtree_get_key(const rbtree_node_t *node)
+void *rbtree_get_key(const rbtree_node_t *node)
 {
     return node->key;
 }
 
-inline void *rbtree_get_data(const rbtree_node_t *node)
+void *rbtree_get_data(const rbtree_node_t *node)
 {
     return node->data;
 }
@@ -420,12 +420,12 @@ void free_nodes(rbtree_t *tree, rbtree_node_t *n)
     free(n);
 }
 
-inline void rbtree_set_free_key(rbtree_t *tree, rbtree_deallocate fn)
+void rbtree_set_free_key(rbtree_t *tree, rbtree_deallocate fn)
 {
     tree->free_key = fn;
 }
 
-inline void rbtree_set_free_data(rbtree_t *tree, rbtree_deallocate fn)
+void rbtree_set_free_data(rbtree_t *tree, rbtree_deallocate fn)
 {
     tree->free_data = fn;
 }

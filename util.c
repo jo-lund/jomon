@@ -221,32 +221,6 @@ char *get_file_part(char *path)
     return path;
 }
 
-inline uint16_t get_uint16be(const unsigned char *buf)
-{
-    return (uint16_t) buf[0] << 8 | (uint16_t) buf[1];
-}
-
-inline uint32_t get_uint32be(const unsigned char *buf)
-{
-    return (uint32_t) buf[0] << 24 |
-           (uint32_t) buf[1] << 16 |
-           (uint32_t) buf[2] << 8 |
-           (uint32_t) buf[3];
-}
-
-inline uint16_t get_uint16le(const unsigned char *buf)
-{
-    return (uint16_t) buf[1] << 8 | (uint16_t) buf[0];
-}
-
-inline uint32_t get_uint32le(const unsigned char *buf)
-{
-    return (uint32_t) buf[3] << 24 |
-           (uint32_t) buf[2] << 16 |
-           (uint32_t) buf[1] << 8 |
-           (uint32_t) buf[0];
-}
-
 char *format_bytes(int bytes, char *buf, int len)
 {
     static const char *format[] = { "", "K", "M", "G", "T" };

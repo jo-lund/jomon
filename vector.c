@@ -38,7 +38,7 @@ void vector_push_back(vector_t *vector, void *data)
     vector->buf[vector->c++].data = data;
 }
 
-inline void vector_pop_back(vector_t *vector, vector_deallocate func)
+void vector_pop_back(vector_t *vector, vector_deallocate func)
 {
     if (vector->c) {
         if (func) {
@@ -48,7 +48,7 @@ inline void vector_pop_back(vector_t *vector, vector_deallocate func)
     }
 }
 
-inline void *vector_back(vector_t *vector)
+void *vector_back(vector_t *vector)
 {
     if (vector->c) {
         return vector->buf[vector->c - 1].data;
@@ -56,7 +56,7 @@ inline void *vector_back(vector_t *vector)
     return NULL;
 }
 
-inline void *vector_get_data(vector_t *vector, int i)
+void *vector_get_data(vector_t *vector, int i)
 {
     if (i < vector->c) {
         return vector->buf[i].data;
@@ -64,12 +64,12 @@ inline void *vector_get_data(vector_t *vector, int i)
     return NULL;
 }
 
-inline int vector_size(vector_t *vector)
+int vector_size(vector_t *vector)
 {
     return vector->c;
 }
 
-inline void *vector_data(vector_t *vector)
+void *vector_data(vector_t *vector)
 {
     return (void *) vector->buf;
 }
