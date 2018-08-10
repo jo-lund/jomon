@@ -1072,10 +1072,10 @@ void print_selected_packet(main_screen *ms)
             /* update the selection status of the selectable subwindow line */
             screen_line = ms->selectionbar - ms->top;
             subline = screen_line - ms->subwindow.top;
-            data = GET_DATA(ms->lvw, subline);
-            SET_EXPANDED(ms->lvw, subline, !GET_EXPANDED(ms->lvw, subline));
+            data = LV_GET_DATA(ms->lvw, subline);
+            LV_SET_EXPANDED(ms->lvw, subline, !LV_GET_EXPANDED(ms->lvw, subline));
             if (data >= 0 && data < NUM_LAYERS) {
-                selected[data] = GET_EXPANDED(ms->lvw, subline);
+                selected[data] = LV_GET_EXPANDED(ms->lvw, subline);
             }
             p = vector_get_data(packets, prev_selection);
             print_protocol_information(ms, p, prev_selection);
@@ -1121,51 +1121,51 @@ void add_elements(main_screen *ms, struct packet *p)
 
     /* inspect packet and add packet headers as elements to the list view */
     if (p->eth.ethertype <= ETH_802_3_MAX) {
-        header = ADD_HEADER(ms->lvw, "Ethernet 802.3", selected[ETHERNET_LAYER], ETHERNET_LAYER);
+        header = LV_ADD_HEADER(ms->lvw, "Ethernet 802.3", selected[ETHERNET_LAYER], ETHERNET_LAYER);
     } else {
-        header = ADD_HEADER(ms->lvw, "Ethernet II", selected[ETHERNET_LAYER], ETHERNET_LAYER);
+        header = LV_ADD_HEADER(ms->lvw, "Ethernet II", selected[ETHERNET_LAYER], ETHERNET_LAYER);
     }
     add_ethernet_information(ms->lvw, header, p);
     if (p->perr == ARP_ERR || p->perr == IPv4_ERR || p->perr == IPv6_ERR) {
-        header = ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
+        header = LV_ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
         add_hexdump(ms->lvw, header, hexmode, p->eth.data + ETH_HLEN, p->eth.payload_len);
     } else {
         if (p->eth.ethertype == ETH_P_ARP) {
-            header = ADD_HEADER(ms->lvw, "Address Resolution Protocol (ARP)", selected[ARP], ARP);
+            header = LV_ADD_HEADER(ms->lvw, "Address Resolution Protocol (ARP)", selected[ARP], ARP);
             add_arp_information(ms->lvw, header, p);
         } else if (p->eth.ethertype == ETH_P_IP) {
-            header = ADD_HEADER(ms->lvw, "Internet Protocol (IPv4)", selected[IP], IP);
+            header = LV_ADD_HEADER(ms->lvw, "Internet Protocol (IPv4)", selected[IP], IP);
             add_ipv4_information(ms->lvw, header, p->eth.ip);
             add_transport_elements(ms, p);
         } else if (p->eth.ethertype == ETH_P_IPV6) {
-            header = ADD_HEADER(ms->lvw, "Internet Protocol (IPv6)", selected[IP], IP);
+            header = LV_ADD_HEADER(ms->lvw, "Internet Protocol (IPv6)", selected[IP], IP);
             add_ipv6_information(ms->lvw, header, p->eth.ipv6);
             add_transport_elements(ms, p);
         } else if (p->eth.ethertype <= ETH_802_3_MAX) {
-            header = ADD_HEADER(ms->lvw, "Logical Link Control (LLC)", selected[LLC], LLC);
+            header = LV_ADD_HEADER(ms->lvw, "Logical Link Control (LLC)", selected[LLC], LLC);
             add_llc_information(ms->lvw, header, p);
             if (p->perr == STP_ERR) {
-                header = ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
+                header = LV_ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
                 add_hexdump(ms->lvw, header, hexmode, p->eth.data + ETH_HLEN + LLC_HDR_LEN, LLC_PAYLOAD_LEN(p));
             } else {
                 switch (get_eth802_type(p->eth.llc)) {
                 case ETH_802_STP:
-                    header = ADD_HEADER(ms->lvw, "Spanning Tree Protocol (STP)", selected[STP], STP);
+                    header = LV_ADD_HEADER(ms->lvw, "Spanning Tree Protocol (STP)", selected[STP], STP);
                     add_stp_information(ms->lvw, header, p);
                     break;
                 case ETH_802_SNAP:
-                    header = ADD_HEADER(ms->lvw, "Subnetwork Access Protocol (SNAP)", selected[SNAP], SNAP);
+                    header = LV_ADD_HEADER(ms->lvw, "Subnetwork Access Protocol (SNAP)", selected[SNAP], SNAP);
                     add_snap_information(ms->lvw, header, p);
                     break;
                 default:
-                    header = ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
+                    header = LV_ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
                     add_hexdump(ms->lvw, header, hexmode, p->eth.data + ETH_HLEN + LLC_HDR_LEN,
                                 LLC_PAYLOAD_LEN(p));
                     break;
                 }
             }
         } else { /* unknown network layer protocol */
-            header = ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
+            header = LV_ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
             add_hexdump(ms->lvw, header, hexmode, p->eth.data + ETH_HLEN, p->eth.payload_len);
         }
     }
@@ -1178,7 +1178,7 @@ void add_transport_elements(main_screen *ms, struct packet *p)
 
     if (p->perr == TCP_ERR || p->perr == UDP_ERR || p->perr == ICMP_ERR ||
         p->perr == IGMP_ERR || p->perr == PIM_ERR) {
-        header = ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
+        header = LV_ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
         add_hexdump(ms->lvw, header, hexmode, get_ip_payload(p), IP_PAYLOAD_LEN(p));
     } else {
         switch (protocol) {
@@ -1186,7 +1186,7 @@ void add_transport_elements(main_screen *ms, struct packet *p)
         {
             uint16_t len = TCP_PAYLOAD_LEN(p);
 
-            header = ADD_HEADER(ms->lvw, "Transmission Control Protocol (TCP)",
+            header = LV_ADD_HEADER(ms->lvw, "Transmission Control Protocol (TCP)",
                                 selected[TRANSPORT], TRANSPORT);
             if (p->eth.ethertype == ETH_P_IP) {
                 add_tcp_information(ms->lvw, header, &p->eth.ip->tcp);
@@ -1205,7 +1205,7 @@ void add_transport_elements(main_screen *ms, struct packet *p)
         {
             uint16_t len = UDP_PAYLOAD_LEN(p);
 
-            header = ADD_HEADER(ms->lvw, "User Datagram Protocol (UDP)", selected[TRANSPORT], TRANSPORT);
+            header = LV_ADD_HEADER(ms->lvw, "User Datagram Protocol (UDP)", selected[TRANSPORT], TRANSPORT);
             if (p->eth.ethertype == ETH_P_IP) {
                 add_udp_information(ms->lvw, header, &p->eth.ip->udp);
                 if (len < p->eth.payload_len) {
@@ -1221,12 +1221,12 @@ void add_transport_elements(main_screen *ms, struct packet *p)
         }
         case IPPROTO_ICMP:
             if (p->eth.ethertype == ETH_P_IP) {
-                header = ADD_HEADER(ms->lvw, "Internet Control Message Protocol (ICMP)", selected[ICMP], ICMP);
+                header = LV_ADD_HEADER(ms->lvw, "Internet Control Message Protocol (ICMP)", selected[ICMP], ICMP);
                 add_icmp_information(ms->lvw, header, &p->eth.ip->icmp);
             }
             break;
         case IPPROTO_IGMP:
-            header = ADD_HEADER(ms->lvw, "Internet Group Management Protocol (IGMP)", selected[IGMP], IGMP);
+            header = LV_ADD_HEADER(ms->lvw, "Internet Group Management Protocol (IGMP)", selected[IGMP], IGMP);
             if (p->eth.ethertype == ETH_P_IP) {
                 add_igmp_information(ms->lvw, header, &p->eth.ip->igmp);
             } else {
@@ -1234,7 +1234,7 @@ void add_transport_elements(main_screen *ms, struct packet *p)
             }
             break;
         case IPPROTO_PIM:
-            header = ADD_HEADER(ms->lvw, "Protocol Independent Multicast (PIM)", selected[PIM], PIM);
+            header = LV_ADD_HEADER(ms->lvw, "Protocol Independent Multicast (PIM)", selected[PIM], PIM);
             if (p->eth.ethertype == ETH_P_IP) {
                 add_pim_information(ms->lvw, header, &p->eth.ip->pim);
             } else {
@@ -1247,7 +1247,7 @@ void add_transport_elements(main_screen *ms, struct packet *p)
             uint16_t len = IP_PAYLOAD_LEN(p);
 
             if (len < p->eth.payload_len) {
-                header = ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
+                header = LV_ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
                 add_hexdump(ms->lvw, header, hexmode, get_ip_payload(p), len);
             }
         }
@@ -1260,7 +1260,7 @@ void add_app_elements(main_screen *ms, struct packet *p, struct application_info
     list_view_header *header;
 
     if (p->perr != NO_ERR && len > 0) {
-        header = ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
+        header = LV_ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
         add_hexdump(ms->lvw, header, hexmode, get_adu_payload(p), len);
         return;
     }
@@ -1269,33 +1269,33 @@ void add_app_elements(main_screen *ms, struct packet *p, struct application_info
     case DNS:
     case MDNS:
     case LLMNR:
-        header = ADD_HEADER(ms->lvw, "Domain Name System (DNS)", selected[APPLICATION], APPLICATION);
+        header = LV_ADD_HEADER(ms->lvw, "Domain Name System (DNS)", selected[APPLICATION], APPLICATION);
         add_dns_information(ms->lvw, header, adu->dns, adu->utype);
         break;
     case NBNS:
-        header = ADD_HEADER(ms->lvw, "NetBIOS Name Service (NBNS)", selected[APPLICATION], APPLICATION);
+        header = LV_ADD_HEADER(ms->lvw, "NetBIOS Name Service (NBNS)", selected[APPLICATION], APPLICATION);
         add_nbns_information(ms->lvw, header, adu->nbns);
         break;
     case NBDS:
-        header = ADD_HEADER(ms->lvw, "NetBIOS Datagram Service (NBDS)", selected[APPLICATION], APPLICATION);
+        header = LV_ADD_HEADER(ms->lvw, "NetBIOS Datagram Service (NBDS)", selected[APPLICATION], APPLICATION);
         add_nbds_information(ms->lvw, header, adu->nbds);
         break;
     case HTTP:
-        header = ADD_HEADER(ms->lvw, "Hypertext Transfer Protocol (HTTP)", selected[APPLICATION], APPLICATION);
+        header = LV_ADD_HEADER(ms->lvw, "Hypertext Transfer Protocol (HTTP)", selected[APPLICATION], APPLICATION);
         add_http_information(ms->lvw, header, adu->http);
         break;
     case SSDP:
-        header = ADD_HEADER(ms->lvw, "Simple Service Discovery Protocol (SSDP)", selected[APPLICATION], APPLICATION);
+        header = LV_ADD_HEADER(ms->lvw, "Simple Service Discovery Protocol (SSDP)", selected[APPLICATION], APPLICATION);
         add_ssdp_information(ms->lvw, header, adu->ssdp);
         break;
     case SNMP:
     case SNMPTRAP:
-        header = ADD_HEADER(ms->lvw, "Simple Network Management Protocol (SNMP)", selected[APPLICATION], APPLICATION);
+        header = LV_ADD_HEADER(ms->lvw, "Simple Network Management Protocol (SNMP)", selected[APPLICATION], APPLICATION);
         add_snmp_information(ms->lvw, header, adu->snmp);
         break;
     default:
         if (len) {
-            header = ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
+            header = LV_ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
             add_hexdump(ms->lvw, header, hexmode, get_adu_payload(p), len);
         }
         break;
@@ -1313,10 +1313,10 @@ void print_protocol_information(main_screen *ms, struct packet *p, int lineno)
         int subline;
 
         create_subwindow(ms, ms->lvw->size + 1, lineno);
-        RENDER(ms->lvw, ms->subwindow.win, ms->scrollx);
+        LV_RENDER(ms->lvw, ms->subwindow.win, ms->scrollx);
         subline = ms->selectionbar - ms->top - ms->subwindow.top;
         if (inside_subwindow(ms)) {
-            show_selectionbar(ms, ms->subwindow.win, subline, GET_ATTR(ms->lvw, subline));
+            show_selectionbar(ms, ms->subwindow.win, subline, LV_GET_ATTR(ms->lvw, subline));
         }
         refresh_pad(ms, 0, ms->scrollx);
     } else {
@@ -1450,23 +1450,23 @@ void handle_selectionbar(main_screen *ms, int c)
          if (screen_line == ms->subwindow.top + ms->subwindow.num_lines) {
              remove_selectionbar(ms, ms->base.win, screen_line, A_NORMAL);
          } else {
-             remove_selectionbar(ms, ms->subwindow.win, subline, ms->lvw ? GET_ATTR(ms->lvw, subline) : A_NORMAL);
+             remove_selectionbar(ms, ms->subwindow.win, subline, ms->lvw ? LV_GET_ATTR(ms->lvw, subline) : A_NORMAL);
          }
          if (subline == 0) {
              show_selectionbar(ms, ms->base.win, screen_line - 1, A_NORMAL);
          } else {
-             show_selectionbar(ms, ms->subwindow.win, subline - 1, ms->lvw ? GET_ATTR(ms->lvw, subline - 1) : A_NORMAL);
+             show_selectionbar(ms, ms->subwindow.win, subline - 1, ms->lvw ? LV_GET_ATTR(ms->lvw, subline - 1) : A_NORMAL);
          }
      } else if (c == KEY_DOWN) {
          if (subline == -1) {
              remove_selectionbar(ms, ms->base.win, screen_line, A_NORMAL);
          } else {
-             remove_selectionbar(ms, ms->subwindow.win, subline, ms->lvw ? GET_ATTR(ms->lvw, subline) : A_NORMAL);
+             remove_selectionbar(ms, ms->subwindow.win, subline, ms->lvw ? LV_GET_ATTR(ms->lvw, subline) : A_NORMAL);
          }
          if (screen_line + 1 == ms->subwindow.top + ms->subwindow.num_lines) {
              show_selectionbar(ms, ms->base.win, screen_line + 1, A_NORMAL);
          } else {
-             show_selectionbar(ms, ms->subwindow.win, subline + 1, ms->lvw ? GET_ATTR(ms->lvw, subline + 1) : A_NORMAL);
+             show_selectionbar(ms, ms->subwindow.win, subline + 1, ms->lvw ? LV_GET_ATTR(ms->lvw, subline + 1) : A_NORMAL);
          }
      }
 }

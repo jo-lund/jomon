@@ -10,16 +10,16 @@
  * Convenience macros that will call the functions defined in list_view.
  * The first argument, 'o', is a pointer to the list_view.
  */
-#define ADD_HEADER(o, text, expanded, data) (o)->add_header(o, text, expanded, data)
-#define ADD_SUB_HEADER(o, w, expanded, data, text, ...)             \
+#define LV_ADD_HEADER(o, text, expanded, data) (o)->add_header(o, text, expanded, data)
+#define LV_ADD_SUB_HEADER(o, w, expanded, data, text, ...)             \
     (o)->add_sub_header(o, w, expanded, data, text, ## __VA_ARGS__)
-#define ADD_TEXT_ELEMENT(o, h, text, ...)               \
+#define LV_ADD_TEXT_ELEMENT(o, h, text, ...)               \
     (o)->add_text_element(o, h, text, ## __VA_ARGS__)
-#define SET_EXPANDED(o, i, expanded) (o)->set_expanded(o, i, expanded)
-#define GET_EXPANDED(o, i) (o)->get_expanded(o, i)
-#define GET_DATA(o, i) (o)->get_data(o, i)
-#define GET_ATTR(o, i) (o)->get_attribute(o, i)
-#define RENDER(o, win, s) (o)->render(o, win, s)
+#define LV_SET_EXPANDED(o, i, expanded) (o)->set_expanded(o, i, expanded)
+#define LV_GET_EXPANDED(o, i) (o)->get_expanded(o, i)
+#define LV_GET_DATA(o, i) (o)->get_data(o, i)
+#define LV_GET_ATTR(o, i) (o)->get_attribute(o, i)
+#define LV_RENDER(o, win, s) (o)->render(o, win, s)
 
 typedef struct {
     char *txt;

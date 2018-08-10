@@ -145,7 +145,7 @@ void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_a
     if (arg->type == HD_LIST_VIEW) {
         list_view_item *item;
 
-        item = ADD_TEXT_ELEMENT(arg->h_arg.lvw, arg->h_arg.header, "%s", buf);
+        item = LV_ADD_TEXT_ELEMENT(arg->h_arg.lvw, arg->h_arg.header, "%s", buf);
         item->attr = A_BOLD;
     } else {
         printat(arg->h_arg.win, arg->h_arg.y, arg->h_arg.x, A_BOLD, "%s", buf);
@@ -176,7 +176,7 @@ void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_a
             }
         }
         if (arg->type == HD_LIST_VIEW) {
-            ADD_TEXT_ELEMENT(arg->h_arg.lvw, arg->h_arg.header, "%s", buf);
+            LV_ADD_TEXT_ELEMENT(arg->h_arg.lvw, arg->h_arg.header, "%s", buf);
         } else {
             int i = 0;
             int x = arg->h_arg.x;
