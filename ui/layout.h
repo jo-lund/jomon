@@ -7,10 +7,10 @@ extern bool numeric;
 struct packet;
 
 /* initialize ncurses and create the screen layout */
-void init_ncurses();
+void ncurses_init();
 
 /* end ncurses mode */
-void end_ncurses();
+void ncurses_end();
 
 void layout(enum event ev);
 void handle_input();

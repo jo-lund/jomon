@@ -21,7 +21,7 @@ main_menu *menu;
 static struct screen *screen_cache[NUM_SCREENS];
 static _stack_t *screen_stack;
 static int theme;
-static void init_colours();
+static void colours_init();
 static void create_screens();
 static void change_theme(int i);
 static void options(int i);
@@ -111,7 +111,7 @@ static char *menu_options[] = {
     "Network rate display"
 };
 
-void init_ncurses()
+void ncurses_init()
 {
     int mx, my;
     option_menu *om;
@@ -120,9 +120,7 @@ void init_ncurses()
     cbreak(); /* disable line buffering */
     noecho();
     curs_set(0);
-    use_default_colors();
-    start_color();
-    init_colours();
+    colours_init();
     set_escdelay(25); /* set escdelay to 25 ms */
     screen_stack = stack_init(NUM_SCREENS);
     getmaxyx(stdscr, my, mx);
@@ -137,7 +135,7 @@ void init_ncurses()
     menu->current = list_begin(menu->opt);
 }
 
-void end_ncurses()
+void ncurses_end()
 {
     screen_cache_clear();
     main_menu_free((screen *) menu);
@@ -344,8 +342,10 @@ void layout(enum event ev)
     }
 }
 
-void init_colours()
+void colours_init()
 {
+    use_default_colors();
+    start_color();
     for (int i = 0; i < NUM_COLOURS; i++) {
         init_pair(i + 1, i, -1); /* colours on default background */
         for (int j = 0; j < NUM_COLOURS; j++) {

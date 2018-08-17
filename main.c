@@ -44,8 +44,8 @@ static const char *geoip_path = "/usr/share/GeoIP/GeoIPCity.dat";
 
 bool on_packet(unsigned char *buffer, uint32_t n, struct timeval *t);
 static void print_help(char *prg);
-static void init_socket(char *device);
-static void init_structures();
+static void socket_init(char *device);
+static void structures_init();
 static void run();
 static void sig_alarm(int signo __attribute__((unused)));
 static void sig_int(int signo __attribute__((unused)));
@@ -102,7 +102,7 @@ int main(int argc, char **argv)
     }
 
 #ifdef __linux__
-    init_structures();
+    structures_init();
     mempool_init();
     analyzer_init();
     if (!ctx.device && !(ctx.device = get_default_interface())) {
@@ -127,7 +127,7 @@ int main(int argc, char **argv)
         }
         fclose(fp);
         if (use_ncurses) {
-            init_ncurses(&ctx);
+            ncurses_init(&ctx);
             print_file();
         } else {
             for (int i = 0; i < vector_size(packets); i++) {
@@ -140,9 +140,9 @@ int main(int argc, char **argv)
         }
     } else {
         ctx.capturing = true;
-        init_socket(ctx.device);
+        socket_init(ctx.device);
         if (use_ncurses) {
-            init_ncurses(&ctx);
+            ncurses_init(&ctx);
         }
     }
     run();
@@ -178,7 +178,7 @@ void sig_int(int signo __attribute__((unused)))
 void finish()
 {
     if (use_ncurses) {
-        end_ncurses();
+        ncurses_end();
         vector_free(packets, NULL);
     }
     free(ctx.device);
@@ -195,7 +195,7 @@ void finish()
 }
 
 /* Initialize device and prepare for reading */
-void init_socket(char *device)
+void socket_init(char *device)
 {
     int flag;
     int n = 1;
@@ -230,7 +230,7 @@ void init_socket(char *device)
     }
 }
 
-void init_structures()
+void structures_init()
 {
     struct sigaction act;
 
@@ -312,7 +312,7 @@ void start_scan()
     clear_statistics();
     vector_clear(packets, NULL);
     free_packets(NULL);
-    init_socket(ctx.device);
+    socket_init(ctx.device);
     fd_changed = true;
 }
 
