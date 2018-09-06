@@ -18,15 +18,13 @@ static void parse_ssdp(char *str, int n, list_t *msg_header);
  * Responses to such search requests are sent via unicast addressing to the
  * originating address and port number of the multicast request.
  */
-packet_error handle_ssdp(unsigned char *buffer, int n, struct application_info *info)
+packet_error handle_ssdp(unsigned char *buffer, int n, struct application_info *adu)
 {
-    list_t *ssdp_fields;
-
+    adu->ssdp = mempool_pealloc(sizeof(struct ssdp_info));
     pstat[PROT_SSDP].num_packets++;
     pstat[PROT_SSDP].num_bytes += n;
-    ssdp_fields = list_init(mempool_pealloc);
-    parse_ssdp((char *) buffer, n, ssdp_fields);
-    info->ssdp = ssdp_fields;
+    adu->ssdp->fields = list_init(mempool_pealloc);
+    parse_ssdp((char *) buffer, n, adu->ssdp->fields);
     return NO_ERR;
 }
 

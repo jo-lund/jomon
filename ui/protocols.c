@@ -53,7 +53,7 @@ static void print_dns_record(struct dns_info *info, int i, char *buf, int n, uin
 static void print_nbns(char *buf, int n, struct nbns_info *nbns);
 static void print_nbns_record(struct nbns_info *info, int i, char *buf, int n);
 static void print_nbds(char *buf, int n, struct nbds_info *nbds);
-static void print_ssdp(char *buf, int n, list_t *ssdp);
+static void print_ssdp(char *buf, int n, struct ssdp_info *ssdp);
 static void print_http(char *buf, int n, struct http_info *http);
 static void print_snmp(char *buf, int n, struct snmp_info *snmp);
 static void print_imap(char *buf, int n, struct imap_info *imap);
@@ -540,12 +540,12 @@ void print_nbds(char *buf, int n, struct nbds_info *nbds)
     }
 }
 
-void print_ssdp(char *buf, int n, list_t *ssdp)
+void print_ssdp(char *buf, int n, struct ssdp_info *ssdp)
 {
     const node_t *node;
 
     PRINT_PROTOCOL(buf, n, "SSDP");
-    node = list_begin(ssdp);
+    node = list_begin(ssdp->fields);
     if (node) {
         PRINT_INFO(buf, n, (char *) list_data(node));
     }
@@ -1748,11 +1748,11 @@ void add_smb_information(list_view *lw, list_view_header *header, struct smb_inf
     LV_ADD_TEXT_ELEMENT(lw, header, "Multiplex identifier: %d", smb->mid);
 }
 
-void add_ssdp_information(list_view *lw, list_view_header *header, list_t *ssdp)
+void add_ssdp_information(list_view *lw, list_view_header *header, struct ssdp_info *ssdp)
 {
     const node_t *n;
 
-    n = list_begin(ssdp);
+    n = list_begin(ssdp->fields);
     while (n) {
         LV_ADD_TEXT_ELEMENT(lw, header, "%s", (char *) list_data(n));
         n = list_next(n);

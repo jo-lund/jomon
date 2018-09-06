@@ -15,5 +15,6 @@
 #include "packet_snmp.h"
 #include "packet_smb.h"
 #include "packet_imap.h"
+#include "packet_ssdp.h"
 
 #endif

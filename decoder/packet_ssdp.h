@@ -5,6 +5,10 @@
 #include <stdint.h>
 #include "packet.h"
 
+struct ssdp_info {
+    list_t *fields;
+};
+
 struct application_info;
 
 /* internal to the decoder */

@@ -114,7 +114,7 @@ struct application_info {
         struct http_info *http;
         struct snmp_info *snmp;
         struct imap_info *imap;
-        list_t *ssdp;
+        struct ssdp_info *ssdp;
     };
 };
 
