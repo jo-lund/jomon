@@ -56,6 +56,7 @@ static void print_nbds(char *buf, int n, struct nbds_info *nbds);
 static void print_ssdp(char *buf, int n, list_t *ssdp);
 static void print_http(char *buf, int n, struct http_info *http);
 static void print_snmp(char *buf, int n, struct snmp_info *snmp);
+static void print_imap(char *buf, int n, struct imap_info *imap);
 static void add_dns_soa(list_view *lw, list_view_header *w, struct dns_info *dns, int i);
 static void add_dns_txt(list_view *lw, list_view_header *w, struct dns_info *dns, int i);
 static void add_dns_opt(list_view *lw, list_view_header *w, struct dns_info *dns, int i);
@@ -379,6 +380,9 @@ void print_tcp(char *buf, int n, struct tcp *tcp)
     case NBNS:
         print_nbns(buf, n, tcp->data.nbns);
         break;
+    case IMAP:
+        print_imap(buf, n, tcp->data.imap);
+        break;
     default:
         PRINT_PROTOCOL(buf, n, "TCP");
         PRINT_INFO(buf, n, "Source port: %d  Destination port: %d", tcp->src_port,
@@ -551,6 +555,14 @@ void print_http(char *buf, int n, struct http_info *http)
 {
     PRINT_PROTOCOL(buf, n, "HTTP");
     PRINT_INFO(buf, n, "%s", http->start_line);
+}
+
+void print_imap(char *buf, int n, struct imap_info *imap)
+{
+    PRINT_PROTOCOL(buf, n, "IMAP");
+    if (imap->lines) {
+        PRINT_INFO(buf, n, "%s", (char *) list_front(imap->lines));
+    }
 }
 
 void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t type)
@@ -1884,6 +1896,18 @@ void add_snmp_variables(list_view *lw, list_view_header *header, list_t *vars)
             break;
         }
         n = list_next(n);
+    }
+}
+
+void add_imap_information(list_view *lw, list_view_header *header, struct imap_info *imap)
+{
+    if (imap->lines) {
+        const node_t *n = list_begin(imap->lines);
+
+        while (n) {
+            LV_ADD_TEXT_ELEMENT(lw, header, "%s", (char *) list_data(n));
+            n = list_next(n);
+        }
     }
 }
 

@@ -1293,6 +1293,10 @@ void add_app_elements(main_screen *ms, struct packet *p, struct application_info
         header = LV_ADD_HEADER(ms->lvw, "Simple Network Management Protocol (SNMP)", selected[APPLICATION], APPLICATION);
         add_snmp_information(ms->lvw, header, adu->snmp);
         break;
+    case IMAP:
+        header = LV_ADD_HEADER(ms->lvw, "Internet Message Access Protocol (IMAP)", selected[APPLICATION], APPLICATION);
+        add_imap_information(ms->lvw, header, adu->imap);
+        break;
     default:
         if (len) {
             header = LV_ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);

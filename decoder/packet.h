@@ -42,10 +42,11 @@ enum protocols {
     PROT_NBDS,
     PROT_HTTP,
     PROT_SSDP,
-    PROT_SNMP
+    PROT_SNMP,
+    PROT_IMAP
 };
 
-#define NUM_PROTOCOLS 15
+#define NUM_PROTOCOLS 16
 
 struct packet_statistics {
     char *protocol;
@@ -68,6 +69,7 @@ enum port {
     NBNS = 137,     /* NetBIOS Name Service */
     NBDS = 138,     /* NetBIOS Datagram Service */
     NBSS = 139,     /* NetBIOS Session Service */
+    IMAP = 143,     /* Internet Message Access Protocol */
     SNMP = 161,     /* Simple Network Management Protocol */
     SNMPTRAP = 162, /* Simple Network Management Protocol Trap */
     SSDP = 1900,    /* Simple Service Discovery Protocol */
@@ -99,7 +101,8 @@ typedef enum {
     HTTP_ERR,
     SSDP_ERR,
     SNMP_ERR,
-    SMB_ERR
+    SMB_ERR,
+    IMAP_ERR
 } packet_error;
 
 struct application_info {
@@ -110,6 +113,7 @@ struct application_info {
         struct nbds_info *nbds;
         struct http_info *http;
         struct snmp_info *snmp;
+        struct imap_info *imap;
         list_t *ssdp;
     };
 };

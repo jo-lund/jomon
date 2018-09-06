@@ -31,5 +31,6 @@ void add_dns_information(list_view *lw, list_view_header *header, struct dns_inf
 void add_nbns_information(list_view *lw, list_view_header *header, struct nbns_info *nbns);
 void add_nbds_information(list_view *lw, list_view_header *header, struct nbds_info *nbds);
 void add_snmp_information(list_view *lw, list_view_header *header, struct snmp_info *snmp);
+void add_imap_information(list_view *lw, list_view_header *header, struct imap_info *imap);
 
 #endif

@@ -21,6 +21,7 @@
 #include "packet_nbds.h"
 #include "packet_snmp.h"
 #include "tcp_analyzer.h"
+#include "packet_imap.h"
 
 /* this needs to be in the same order as enum protocols, see packet.h */
 struct packet_statistics pstat[] = {
@@ -39,7 +40,8 @@ struct packet_statistics pstat[] = {
     { "NBDS", 0, 0 },
     { "HTTP", 0, 0 },
     { "SSDP", 0, 0 },
-    { "SNMP", 0, 0 }
+    { "SNMP", 0, 0 },
+    { "IMAP", 0, 0 }
 };
 
 size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet **p)
@@ -125,6 +127,8 @@ packet_error check_port(unsigned char *buffer, int n, struct application_info *a
     case SNMP:
     case SNMPTRAP:
         return handle_snmp(buffer, n, adu);
+    case IMAP:
+        return handle_imap(buffer, n, adu);
     default:
         return UNK_PROTOCOL;
     }
