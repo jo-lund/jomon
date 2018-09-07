@@ -303,7 +303,7 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
     {
         int name_len;
 
-        dns->record[i].rdata.mx.preference = ptr[0] << 8 | ptr[1];
+        dns->record[i].rdata.mx.preference = get_uint16be(ptr);
         ptr += 2;
         name_len = parse_dns_name(buffer, n, ptr, dlen, dns->record[i].rdata.mx.exchange);
         if (name_len == -1) return -1;

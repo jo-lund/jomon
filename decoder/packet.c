@@ -20,8 +20,9 @@
 #include "packet_ssdp.h"
 #include "packet_nbds.h"
 #include "packet_snmp.h"
-#include "tcp_analyzer.h"
 #include "packet_imap.h"
+#include "tcp_analyzer.h"
+#include "host_analyzer.h"
 
 /* this needs to be in the same order as enum protocols, see packet.h */
 struct packet_statistics pstat[] = {
@@ -80,6 +81,7 @@ size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet 
     }
     (*p)->num = ++pstat[0].num_packets;
     pstat[0].num_bytes += msg.msg_len;
+    host_analyzer_investigate(*p);
     return msg.msg_len;
 }
 
@@ -93,6 +95,7 @@ bool decode_packet(unsigned char *buffer, size_t len, struct packet **p)
     }
     (*p)->num = ++pstat[0].num_packets;
     pstat[0].num_bytes += len;
+    host_analyzer_investigate(*p);
     return true;
 }
 
@@ -155,7 +158,7 @@ void clear_statistics()
         pstat[i].num_packets = 0;
         pstat[i].num_bytes = 0;
     }
-    analyzer_clear();
+    tcp_analyzer_clear();
 }
 
 uint16_t get_packet_size(struct packet *p)

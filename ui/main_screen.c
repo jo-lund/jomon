@@ -453,6 +453,9 @@ void main_screen_get_input(screen *s)
         wrefresh(status);
         break;
     case 'h':
+        push_screen(screen_cache_get(HOST_SCREEN));
+        break;
+    case 'm':
         hexmode = (hexmode + 1) % HEXMODES;
         if (ms->subwindow.win) {
             struct packet *p;

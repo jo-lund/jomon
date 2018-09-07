@@ -84,12 +84,12 @@ void connection_screen_free(screen *s)
 
 void connection_screen_got_focus(screen *s __attribute__((unused)))
 {
-    analyzer_subscribe(update_connection);
+    tcp_analyzer_subscribe(update_connection);
 }
 
 void connection_screen_lost_focus(screen *s __attribute__((unused)))
 {
-    analyzer_unsubscribe(update_connection);
+    tcp_analyzer_unsubscribe(update_connection);
 }
 
 void connection_screen_refresh(screen *s)
@@ -160,7 +160,7 @@ void connection_screen_get_input(screen *s)
 
 void connection_screen_render(connection_screen *cs)
 {
-    hash_map_t *sessions = analyzer_get_sessions();
+    hash_map_t *sessions = tcp_analyzer_get_sessions();
 
     if (hash_map_size(sessions)) {
         const hash_map_iterator *it = hash_map_first(sessions);
@@ -279,7 +279,7 @@ void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int
         conn->state != SYN_RCVD) {
         printat(cs->base.win, y, 0, get_theme_colour(DISABLE), "%s", buf);
         printat(cs->base.win, y, CONN_WIDTH, get_theme_colour(DISABLE),
-                "%s", analyzer_get_connection_state(conn->state));
+                "%s", tcp_analyzer_get_connection_state(conn->state));
         printat(cs->base.win, y, CONN_WIDTH + STATE_WIDTH, get_theme_colour(DISABLE),
                 "%d", list_size(conn->packets));
         printat(cs->base.win, y, CONN_WIDTH + STATE_WIDTH + PACKET_WIDTH,
@@ -295,7 +295,7 @@ void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int
     } else {
         mvwprintw(cs->base.win, y, 0, "%s", buf);
         mvwprintw(cs->base.win, y, CONN_WIDTH, "%s",
-                  analyzer_get_connection_state(conn->state));
+                  tcp_analyzer_get_connection_state(conn->state));
         mvwprintw(cs->base.win, y, CONN_WIDTH + STATE_WIDTH, "%d",
                   list_size(conn->packets));
         mvwprintw(cs->base.win, y, CONN_WIDTH + STATE_WIDTH + PACKET_WIDTH, "%s",

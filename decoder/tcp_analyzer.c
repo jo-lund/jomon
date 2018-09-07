@@ -34,13 +34,13 @@ static int compare_tcp_v4(const void *t1, const void *t2)
         (endp2->src + endp2->dst + endp2->src_port + endp2->dst_port);
 }
 
-void analyzer_init()
+void tcp_analyzer_init()
 {
     connection_table = hash_map_init(TBLSZ, hash_v4, compare_tcp_v4);
     conn_changed_publisher = publisher_init();
 }
 
-void analyzer_check_stream(const struct eth_info *ethp)
+void tcp_analyzer_check_stream(const struct eth_info *ethp)
 {
     if (!connection_table) return;
 
@@ -109,22 +109,22 @@ void analyzer_check_stream(const struct eth_info *ethp)
     }
 }
 
-hash_map_t *analyzer_get_sessions()
+hash_map_t *tcp_analyzer_get_sessions()
 {
     return connection_table;
 }
 
-void analyzer_subscribe(analyzer_conn_fn fn)
+void tcp_analyzer_subscribe(analyzer_conn_fn fn)
 {
     add_subscription2(conn_changed_publisher, (publisher_fn2) fn);
 }
 
-void analyzer_unsubscribe(analyzer_conn_fn fn)
+void tcp_analyzer_unsubscribe(analyzer_conn_fn fn)
 {
     remove_subscription2(conn_changed_publisher, (publisher_fn2) fn);
 }
 
-char *analyzer_get_connection_state(enum connection_state state)
+char *tcp_analyzer_get_connection_state(enum connection_state state)
 {
     switch (state) {
     case SYN_SENT:
@@ -144,12 +144,12 @@ char *analyzer_get_connection_state(enum connection_state state)
     }
 }
 
-void analyzer_clear()
+void tcp_analyzer_clear()
 {
     hash_map_clear(connection_table);
 }
 
-void analyzer_free()
+void tcp_analyzer_free()
 {
     hash_map_free(connection_table);
     publisher_free(conn_changed_publisher);

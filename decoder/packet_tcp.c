@@ -122,7 +122,7 @@ packet_error handle_tcp(unsigned char *buffer, int n, struct tcp *info, struct e
         info->options = NULL;
     }
 
-    analyzer_check_stream(eth);
+    tcp_analyzer_check_stream(eth);
 
     /* only check port if there is a payload */
     if (payload_len > 0) {

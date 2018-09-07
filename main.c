@@ -26,6 +26,7 @@
 #include "file_pcap.h"
 #include "ui/protocols.h"
 #include "alloc.h"
+#include "decoder/host_analyzer.h"
 
 #define TABLE_SIZE 65536
 
@@ -104,7 +105,8 @@ int main(int argc, char **argv)
 #ifdef __linux__
     structures_init();
     mempool_init();
-    analyzer_init();
+    tcp_analyzer_init();
+    host_analyzer_init();
     if (!ctx.device && !(ctx.device = get_default_interface())) {
         err_quit("Cannot find active network device");
     }
@@ -186,7 +188,8 @@ void finish()
     if (sockfd > 0) {
         close(sockfd);
     }
-    analyzer_free();
+    tcp_analyzer_free();
+    host_analyzer_free();
     mempool_free();
     if (ctx.gi) {
         GeoIP_delete(ctx.gi);

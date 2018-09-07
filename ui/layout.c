@@ -1,3 +1,4 @@
+#include <string.h>
 #include "layout.h"
 #include "layout_int.h"
 #include "protocols.h"
@@ -9,7 +10,7 @@
 #include "../vector.h"
 #include "../stack.h"
 #include "menu.h"
-#include <string.h>
+#include "host_screen.h"
 
 #define NUM_COLOURS 8
 
@@ -375,6 +376,7 @@ void create_screens()
     }
     screen_cache_insert(HELP_SCREEN, (screen *) help_screen_create());
     screen_cache_insert(CONNECTION_SCREEN, (screen *) connection_screen_create());
+    screen_cache_insert(HOST_SCREEN, (screen *) host_screen_create());
 }
 
 void change_theme(int i)
