@@ -27,7 +27,10 @@ typedef struct hash_map_stat {
     double load;      /* load factor */
 } hash_map_stat_t;
 
-/* Initializes hash map */
+/*
+ * Initializes hash map. If the hash function and/or compare function are NULL,
+ * default functions that assume the key can be used as a uint32_t are used.
+ */
 hash_map_t *hash_map_init(unsigned int size, hash_fn h, hash_map_compare fn);
 
 /* Inserts element with specified key in hash map */
@@ -38,6 +41,9 @@ void hash_map_remove(hash_map_t *map, void *key);
 
 /* Returns element with the specified key */
 void *hash_map_get(hash_map_t *map, void *key);
+
+/* Returns whether the hash_map contains an element with the specified key */
+bool hash_map_contains(hash_map_t *map, void *key);
 
 /* Returns the number of elements in the hash map */
 unsigned int hash_map_size(hash_map_t *map);
