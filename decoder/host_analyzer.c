@@ -48,6 +48,11 @@ hash_map_t *host_analyzer_get_local()
     return local_hosts;
 }
 
+hash_map_t *host_analyzer_get_remote()
+{
+    return remote_hosts;
+}
+
 void host_analyzer_subscribe(analyzer_host_fn fn)
 {
     add_subscription2(host_changed_publisher, (publisher_fn2) fn);
@@ -91,12 +96,21 @@ bool local_ip4(uint32_t addr)
 
 void insert_host(uint32_t ipaddr, uint8_t *mac)
 {
-    struct hash_map *map = local_ip4(ipaddr) ? local_hosts : remote_hosts;
+    hash_map_t *map;
+    bool local;
 
+    if (local_ip4(ipaddr)) {
+        map = local_hosts;
+        local = true;
+    } else {
+        map = remote_hosts;
+        local = false;
+    }
     if (!hash_map_contains(map, &ipaddr)) {
         struct host_info *host = mempool_pealloc(sizeof(struct host_info));
 
         host->ip4_addr = ipaddr;
+        host->local = local;
         memcpy(host->mac_addr, mac, ETH_ALEN);
         hash_map_insert(map, &ipaddr, host);
         publish2(host_changed_publisher, host, (void *) 0x1);

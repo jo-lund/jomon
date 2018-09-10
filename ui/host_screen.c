@@ -8,9 +8,20 @@
 
 #define HOST_HEADER 3
 #define ADDR_WIDTH 20
+#define MAC_WIDTH 22
+#define NAME_WIDTH 30
+#define NATION_WIDTH 20
 
 extern WINDOW *status;
 extern main_menu *menu;
+
+enum page {
+    LOCAL,
+    REMOTE,
+    NUM_PAGES
+};
+
+static enum page host_page;
 
 static void host_screen_init(screen *s);
 static void host_screen_refresh(screen *s);
@@ -54,6 +65,7 @@ void host_screen_init(screen *s)
     int my, mx;
     host_screen *hs = (host_screen *) s;
 
+    host_page = LOCAL;
     getmaxyx(stdscr, my, mx);
     hs->header = newwin(HOST_HEADER, mx, 0, 0);
     hs->base.win = newwin(my - HOST_HEADER - STATUS_HEIGHT, mx, HOST_HEADER, 0);
@@ -128,6 +140,10 @@ void host_screen_get_input(screen *s)
     case 'b':
     case KEY_PPAGE:
         break;
+    case 'p':
+        host_page = (host_page + 1) % NUM_PAGES;
+        host_screen_refresh(s);
+        break;
     case 'q':
     case KEY_F(10):
         finish();
@@ -149,7 +165,8 @@ void host_screen_lost_focus(screen *s __attribute__((unused)))
 
 void host_screen_render(host_screen *hs)
 {
-    hash_map_t *hosts = host_analyzer_get_local();
+    hash_map_t *hosts = (host_page == LOCAL) ? host_analyzer_get_local() :
+        host_analyzer_get_remote();
 
     if (hash_map_size(hosts)) {
         const hash_map_iterator *it = hash_map_first(hosts);
@@ -172,15 +189,17 @@ void update_host(struct host_info *host, bool new_host)
 {
     host_screen *hs = (host_screen *) screen_cache_get(HOST_SCREEN);
 
-    if (new_host) {
-        werase(hs->header);
-        werase(hs->base.win);
-        print_host_header(hs);
-        vector_push_back(hs->screen_buf, host);
-        qsort(vector_data(hs->screen_buf), vector_size(hs->screen_buf),
-              sizeof(struct host_info *), cmphost);
-        hs->y = 0;
-        print_all_hosts(hs);
+    if ((host_page == LOCAL && host->local) || (host_page == REMOTE && !host->local)) {
+        if (new_host) {
+            werase(hs->header);
+            werase(hs->base.win);
+            print_host_header(hs);
+            vector_push_back(hs->screen_buf, host);
+            qsort(vector_data(hs->screen_buf), vector_size(hs->screen_buf),
+                  sizeof(struct host_info *), cmphost);
+            hs->y = 0;
+            print_all_hosts(hs);
+        }
     }
 }
 
@@ -188,11 +207,22 @@ void print_host_header(host_screen *hs)
 {
     int y = 0;
 
-    printat(hs->header, y, 0, get_theme_colour(HEADER_TXT), "Local hosts");
+    if (host_page == LOCAL) {
+        printat(hs->header, y, 0, get_theme_colour(HEADER_TXT), "Local hosts");
+    } else {
+        printat(hs->header, y, 0, get_theme_colour(HEADER_TXT), "Remote hosts");
+    }
     wprintw(hs->header,  ": %d", vector_size(hs->screen_buf));
     y += 2;
     mvwprintw(hs->header, y, 0, "IP address");
     mvwprintw(hs->header, y, ADDR_WIDTH, "MAC Address");
+    if (host_page == LOCAL) {
+        mvwprintw(hs->header, y, ADDR_WIDTH + MAC_WIDTH, "Info");
+    } else {
+        mvwprintw(hs->header, y, ADDR_WIDTH + MAC_WIDTH, "Name");
+        mvwprintw(hs->header, y, ADDR_WIDTH + MAC_WIDTH + NAME_WIDTH, "Nation");
+        mvwprintw(hs->header, y, ADDR_WIDTH + MAC_WIDTH + NAME_WIDTH + NATION_WIDTH, "City");
+    }
     mvwchgat(hs->header, y, 0, -1, A_STANDOUT, 0, NULL);
     wrefresh(hs->header);
 }
