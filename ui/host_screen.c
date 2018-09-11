@@ -36,6 +36,7 @@ static void print_host_header(host_screen *hs);
 static void print_status();
 static void print_all_hosts(host_screen *hs);
 static void print_host(host_screen *hs, struct host_info *host, int y);
+static void scroll_page(host_screen *hs, int num_lines);
 
 static screen_operations hsop = {
     .screen_init = host_screen_init,
@@ -108,6 +109,7 @@ void host_screen_get_input(screen *s)
 {
     host_screen *hs = (host_screen *) s;
     int c = wgetch(s->win);
+    int my = getmaxy(s->win);
 
     switch (c) {
     case 'x':
@@ -125,6 +127,7 @@ void host_screen_get_input(screen *s)
         if (hs->top > 0) {
             hs->top--;
             wscrl(s->win, -1);
+            print_host(hs, vector_get_data(hs->screen_buf, hs->top), 0);
             wrefresh(hs->base.win);
         }
         break;
@@ -132,14 +135,18 @@ void host_screen_get_input(screen *s)
         if (hs->top + hs->lines < vector_size(hs->screen_buf)) {
             hs->top++;
             wscrl(s->win, 1);
+            print_host(hs, vector_get_data(hs->screen_buf, hs->top + hs->lines - 1),
+                       hs->lines - 1);
             wrefresh(hs->base.win);
         }
         break;
     case ' ':
     case KEY_NPAGE:
+        scroll_page(hs, my);
         break;
     case 'b':
     case KEY_PPAGE:
+        scroll_page(hs, -my);
         break;
     case 'p':
         host_page = (host_page + 1) % NUM_PAGES;
@@ -284,6 +291,30 @@ void print_host(host_screen *hs, struct host_info *host, int y)
             }
             GeoIPRecord_delete(record);
         }
+    }
+}
+
+void scroll_page(host_screen *hs, int num_lines)
+{
+    int i = abs(num_lines);
+
+    if (vector_size(hs->screen_buf) <= i) return;
+
+    if (num_lines > 0) { /* scroll down */
+        while (i > 0 && hs->top + hs->lines < vector_size(hs->screen_buf)) {
+            hs->top++;
+            i--;
+        }
+    } else { /* scroll up */
+        while (i > 0 && hs->top > 0) {
+            hs->top--;
+            i--;
+        }
+    }
+    if (i != abs(num_lines)) {
+        hs->y = 0;
+        werase(hs->base.win);
+        print_all_hosts(hs);
     }
 }
 
