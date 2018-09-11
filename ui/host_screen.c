@@ -1,15 +1,17 @@
 #include <stdlib.h>
+#include <GeoIPCity.h>
 #include "host_screen.h"
 #include "menu.h"
 #include "../misc.h"
 #include "../hashmap.h"
 #include "../decoder/host_analyzer.h"
 #include "../decoder/packet_arp.h"
+#include "../util.h"
 
 #define HOST_HEADER 3
 #define ADDR_WIDTH 20
 #define MAC_WIDTH 22
-#define NAME_WIDTH 30
+#define NAME_WIDTH 80
 #define NATION_WIDTH 20
 
 extern WINDOW *status;
@@ -106,7 +108,6 @@ void host_screen_get_input(screen *s)
 {
     host_screen *hs = (host_screen *) s;
     int c = wgetch(s->win);
-    int my = getmaxy(s->win);
 
     switch (c) {
     case 'x':
@@ -199,6 +200,19 @@ void update_host(struct host_info *host, bool new_host)
                   sizeof(struct host_info *), cmphost);
             hs->y = 0;
             print_all_hosts(hs);
+        } else {
+            int y = 0;
+
+            while (y < hs->lines && hs->top + y < vector_size(hs->screen_buf)) {
+                if (vector_get_data(hs->screen_buf, hs->top + y) == host) {
+                    wmove(hs->base.win, y, 0);
+                    wclrtoeol(hs->base.win);
+                    print_host(hs, host, y);
+                    wrefresh(hs->base.win);
+                    break;
+                }
+                y++;
+            }
         }
     }
 }
@@ -215,13 +229,13 @@ void print_host_header(host_screen *hs)
     wprintw(hs->header,  ": %d", vector_size(hs->screen_buf));
     y += 2;
     mvwprintw(hs->header, y, 0, "IP address");
-    mvwprintw(hs->header, y, ADDR_WIDTH, "MAC Address");
     if (host_page == LOCAL) {
+        mvwprintw(hs->header, y, ADDR_WIDTH, "MAC Address");
         mvwprintw(hs->header, y, ADDR_WIDTH + MAC_WIDTH, "Info");
     } else {
-        mvwprintw(hs->header, y, ADDR_WIDTH + MAC_WIDTH, "Name");
-        mvwprintw(hs->header, y, ADDR_WIDTH + MAC_WIDTH + NAME_WIDTH, "Nation");
-        mvwprintw(hs->header, y, ADDR_WIDTH + MAC_WIDTH + NAME_WIDTH + NATION_WIDTH, "City");
+        mvwprintw(hs->header, y, ADDR_WIDTH, "Name");
+        mvwprintw(hs->header, y, ADDR_WIDTH + NAME_WIDTH, "Nation");
+        mvwprintw(hs->header, y, ADDR_WIDTH + NAME_WIDTH + NATION_WIDTH, "City");
     }
     mvwchgat(hs->header, y, 0, -1, A_STANDOUT, 0, NULL);
     wrefresh(hs->header);
@@ -241,14 +255,36 @@ void print_all_hosts(host_screen *hs)
 
 void print_host(host_screen *hs, struct host_info *host, int y)
 {
-    char buf[MAXLINE];
     char addr[INET_ADDRSTRLEN];
     char mac[HW_ADDRSTRLEN];
 
     inet_ntop(AF_INET, &host->ip4_addr, addr, INET_ADDRSTRLEN);
     HW_ADDR_NTOP(mac, host->mac_addr);
-    snprintf(buf, MAXLINE, "%-*s%s", ADDR_WIDTH, addr, mac);
-    mvwprintw(hs->base.win, y, 0, "%s", buf);
+    if (host_page == LOCAL) {
+        mvwprintw(hs->base.win, y, 0, "%-*s%s", ADDR_WIDTH, addr, mac);
+        if (host->name) {
+            mvwprintw(hs->base.win, y, ADDR_WIDTH + MAC_WIDTH, "%s", host->name);
+        }
+    }
+    if (host_page == REMOTE) {
+        GeoIPRecord *record = GeoIP_record_by_addr(ctx.gi, addr);
+
+        mvwprintw(hs->base.win, y, 0, "%s", addr);
+        if (host->name) {
+            mvwprintw(hs->base.win, y, ADDR_WIDTH, "%s", host->name);
+        }
+        if (record) {
+            if (record->country_name) {
+                mvwprintw(hs->base.win, y, ADDR_WIDTH + NAME_WIDTH, "%s",
+                          record->country_name);
+            }
+            if (record->city) {
+                mvwprintw(hs->base.win, y, ADDR_WIDTH + NAME_WIDTH + NATION_WIDTH, "%s",
+                          record->city);
+            }
+            GeoIPRecord_delete(record);
+        }
+    }
 }
 
 void print_status()

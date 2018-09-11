@@ -189,7 +189,7 @@ int parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **data,
             rdlen -= 2;
             ptr += 2;
             for (int j = 0, k = 0; k < rdlen && k < MAX_NBNS_ADDR * 4 ; j++, k += 4) {
-                nbns->record[i].rdata.nb.address[j] = get_uint32be(ptr + k);
+                nbns->record[i].rdata.nb.address[j] = get_uint32le(ptr + k);
             }
             nbns->record[i].rdata.nb.num_addr = rdlen / 4;
         }
@@ -207,7 +207,7 @@ int parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **data,
     }
     case NBNS_A:
         if (rdlen == 4) {
-            nbns->record[i].rdata.nsdipaddr = get_uint32be(ptr);
+            nbns->record[i].rdata.nsdipaddr = get_uint32le(ptr);
         }
         ptr += rdlen;
         break;

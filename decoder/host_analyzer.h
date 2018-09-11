@@ -27,5 +27,6 @@ hash_map_t *host_analyzer_get_local();
 hash_map_t *host_analyzer_get_remote();
 void host_analyzer_subscribe(analyzer_host_fn fn);
 void host_analyzer_unsubscribe(analyzer_host_fn fn);
+void host_analyzer_clear();
 
 #endif

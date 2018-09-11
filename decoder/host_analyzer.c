@@ -5,6 +5,8 @@
 #include "packet.h"
 #include "packet_ip.h"
 #include "../signal.h"
+#include "packet_dns.h"
+#include "dns_cache.h"
 
 #define TBLSZ 1024
 
@@ -63,6 +65,12 @@ void host_analyzer_unsubscribe(analyzer_host_fn fn)
     remove_subscription2(host_changed_publisher, (publisher_fn2) fn);
 }
 
+void host_analyzer_clear()
+{
+    hash_map_clear(local_hosts);
+    hash_map_clear(remote_hosts);
+}
+
 void handle_ip4(struct packet *p)
 {
     // TODO: Filter out broadcast and multicast
@@ -108,11 +116,30 @@ void insert_host(uint32_t ipaddr, uint8_t *mac)
     }
     if (!hash_map_contains(map, &ipaddr)) {
         struct host_info *host = mempool_pealloc(sizeof(struct host_info));
+        char *name;
 
         host->ip4_addr = ipaddr;
         host->local = local;
-        memcpy(host->mac_addr, mac, ETH_ALEN);
+        if ((name = dns_cache_get(&host->ip4_addr))) {
+            host->name = name;
+        } else {
+            host->name = NULL;
+        }
+        if (local) {
+            memcpy(host->mac_addr, mac, ETH_ALEN);
+        }
         hash_map_insert(map, &ipaddr, host);
         publish2(host_changed_publisher, host, (void *) 0x1);
+    } else {
+        struct host_info *host = hash_map_get(map, &ipaddr);
+
+        if (!host->name) {
+            char *name = dns_cache_get(&ipaddr);
+
+            if (name) {
+                host->name = name;
+                publish2(host_changed_publisher, host, (void *) 0x0);
+            }
+        }
     }
 }

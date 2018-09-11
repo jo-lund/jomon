@@ -23,6 +23,7 @@
 #include "packet_imap.h"
 #include "tcp_analyzer.h"
 #include "host_analyzer.h"
+#include "dns_cache.h"
 
 /* this needs to be in the same order as enum protocols, see packet.h */
 struct packet_statistics pstat[] = {
@@ -159,6 +160,8 @@ void clear_statistics()
         pstat[i].num_bytes = 0;
     }
     tcp_analyzer_clear();
+    host_analyzer_clear();
+    dns_cache_clear();
 }
 
 uint16_t get_packet_size(struct packet *p)

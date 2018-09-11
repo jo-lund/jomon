@@ -4,6 +4,7 @@
 #include "packet_dns.h"
 #include "packet.h"
 #include "../util.h"
+#include "dns_cache.h"
 
 #define DNS_PTR_LEN 2
 
@@ -222,7 +223,8 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
     switch (dns->record[i].type) {
     case DNS_TYPE_A:
         if (rdlen == 4) {
-            dns->record[i].rdata.address = get_uint32be(ptr);
+            dns->record[i].rdata.address = get_uint32le(ptr);
+            dns_cache_insert(&dns->record[i].rdata.address, dns->record[i].name);
         }
         ptr += rdlen;
         break;

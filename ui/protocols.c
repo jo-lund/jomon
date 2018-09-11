@@ -571,9 +571,8 @@ void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t t
     case DNS_TYPE_A:
     {
         char addr[INET_ADDRSTRLEN];
-        uint32_t haddr = htonl(info->record[i].rdata.address);
 
-        inet_ntop(AF_INET, (struct in_addr *) &haddr, addr, sizeof(addr));
+        inet_ntop(AF_INET, (struct in_addr *) &info->record[i].rdata.address, addr, sizeof(addr));
         snprintcat(buf, n, "%s", addr);
         break;
     }
@@ -621,9 +620,8 @@ void print_nbns_record(struct nbns_info *info, int i, char *buf, int n)
         snprintcat(buf, n, "%s ", get_nbns_node_type(info->record[i].rdata.nb.ont));
         while (addrs--) {
             char addr[INET_ADDRSTRLEN];
-            uint32_t haddr = htonl(info->record[i].rdata.nb.address[0]);
 
-            inet_ntop(AF_INET, (struct in_addr *) &haddr, addr, sizeof(addr));
+            inet_ntop(AF_INET, (struct in_addr *) &info->record[i].rdata.nb.address[0], addr, sizeof(addr));
             snprintcat(buf, n, "%s ", addr);
         }
         break;
@@ -634,9 +632,8 @@ void print_nbns_record(struct nbns_info *info, int i, char *buf, int n)
     case NBNS_A:
     {
         char addr[INET_ADDRSTRLEN];
-        uint32_t haddr = htonl(info->record[i].rdata.nsdipaddr);
 
-        inet_ntop(AF_INET, (struct in_addr *) &haddr, addr, sizeof(addr));
+        inet_ntop(AF_INET, (struct in_addr *) &info->record[i].rdata.nsdipaddr, addr, sizeof(addr));
         snprintcat(buf, n, " NSD IP address: %s", addr);
         break;
     }

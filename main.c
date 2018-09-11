@@ -27,6 +27,7 @@
 #include "ui/protocols.h"
 #include "alloc.h"
 #include "decoder/host_analyzer.h"
+#include "decoder/dns_cache.h"
 
 #define TABLE_SIZE 65536
 
@@ -107,6 +108,7 @@ int main(int argc, char **argv)
     mempool_init();
     tcp_analyzer_init();
     host_analyzer_init();
+    dns_cache_init();
     if (!ctx.device && !(ctx.device = get_default_interface())) {
         err_quit("Cannot find active network device");
     }
@@ -190,6 +192,7 @@ void finish()
     }
     tcp_analyzer_free();
     host_analyzer_free();
+    dns_cache_free();
     mempool_free();
     if (ctx.gi) {
         GeoIP_delete(ctx.gi);
