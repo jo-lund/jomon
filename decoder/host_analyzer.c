@@ -90,14 +90,14 @@ void handle_ip4(struct packet *p)
 
 bool local_ip4(uint32_t addr)
 {
-    /* class A: 10.0.0.0 - 10.255.255.255 */
-    if ((addr & 0xff) == 10) return true;
+    if ((addr & 0xff) == 10 || /* class A: 10.0.0.0 - 10.255.255.255 */
+        (addr & 0xffff) == 43200) /* class C: 192.168.0.0 - 192.168.255.255 */
+        return true;
 
     /* class B: 172.16.0.0 - 172.31.255.255 */
-    if ((addr & 0xffff) >= 4268 && (addr & 0xffff) <= 8108) return true;
+    uint32_t classb = (addr & 0xff) << 8 | (addr & 0xff00) >> 8;
 
-    /* class C: 192.168.0.0 - 192.168.255.255 */
-    if ((addr & 0xffff) == 43200) return true;
+    if (classb >= 44048 && classb <= 44063) return true;
 
     return false;
 }
