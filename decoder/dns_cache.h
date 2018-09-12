@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+typedef void (*dns_cache_fn)(uint32_t *addr, char *name);
+
 /* Initializes the DNS cache.
  *
  * Resources needs to be freed with dns_cache_free().
@@ -26,5 +28,9 @@ void dns_cache_clear();
 
 /* Frees all memory used by the DNS cache */
 void dns_cache_free();
+
+void dns_cache_subscribe(dns_cache_fn fn);
+void dns_cache_unsubscribe(dns_cache_fn fn);
+
 
 #endif

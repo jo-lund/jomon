@@ -107,8 +107,8 @@ int main(int argc, char **argv)
     structures_init();
     mempool_init();
     tcp_analyzer_init();
-    host_analyzer_init();
     dns_cache_init();
+    host_analyzer_init();
     if (!ctx.device && !(ctx.device = get_default_interface())) {
         err_quit("Cannot find active network device");
     }
