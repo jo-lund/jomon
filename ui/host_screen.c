@@ -49,8 +49,10 @@ static screen_operations hsop = {
 
 static int cmphost(const void *p1, const void *p2)
 {
-    return ntohl((* (struct host_info **) p1)->ip4_addr) -
-        ntohl((* (struct host_info **) p2)->ip4_addr);
+    int64_t res = (int64_t) ntohl((* (struct host_info **) p1)->ip4_addr) -
+        (int64_t) ntohl((* (struct host_info **) p2)->ip4_addr);
+
+    return (res < 0) ? -1 : (res > 0) ? 1 : 0;
 }
 
 host_screen *host_screen_create()
