@@ -154,6 +154,12 @@ void host_screen_get_input(screen *s)
         host_page = (host_page + 1) % NUM_PAGES;
         host_screen_refresh(s);
         break;
+    case 'c':
+        screen_stack_move_to_top(screen_cache_get(CONNECTION_SCREEN));
+        break;
+    case 's':
+        screen_stack_move_to_top(screen_cache_get(STAT_SCREEN));
+        break;
     case 'q':
     case KEY_F(10):
         finish();

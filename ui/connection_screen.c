@@ -149,6 +149,12 @@ void connection_screen_get_input(screen *s)
     case KEY_PPAGE:
         scroll_page(cs, -my);
         break;
+    case 'h':
+        screen_stack_move_to_top(screen_cache_get(HOST_SCREEN));
+        break;
+    case 's':
+        screen_stack_move_to_top(screen_cache_get(STAT_SCREEN));
+        break;
     case 'q':
     case KEY_F(10):
         finish();

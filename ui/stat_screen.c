@@ -168,9 +168,15 @@ void stat_screen_get_input(screen *s)
     case KEY_F(2):
         push_screen((screen *) menu);
         break;
+    case 'c':
+        screen_stack_move_to_top(screen_cache_get(CONNECTION_SCREEN));
+        break;
     case 'e':
         formatted_output = !formatted_output;
         stat_screen_print(s);
+        break;
+    case 'h':
+        screen_stack_move_to_top(screen_cache_get(HOST_SCREEN));
         break;
     case 'v':
         show_packet_stats = !show_packet_stats;

@@ -104,7 +104,8 @@ static char *name_resolution[] = {
 static char *menu_windows[] = {
     "Packets",
     "Statistics",
-    "TCP Connections"
+    "TCP Connections",
+    "Hosts"
 };
 
 static char *menu_options[] = {
@@ -128,11 +129,11 @@ void ncurses_init()
     status = newwin(STATUS_HEIGHT, mx, my - STATUS_HEIGHT, 0);
     create_screens();
     menu = main_menu_create();
-    main_menu_add_options(menu, MENU_NORMAL, "Themes", menu_themes, 3, change_theme);
-    om = main_menu_add_options(menu, MENU_NORMAL, "Options", menu_options, 2, NULL);
-    main_menu_add_suboptions(om, MENU_MULTI_SELECT, 0, name_resolution, 3, options);
-    main_menu_add_suboptions(om, MENU_SINGLE_SELECT, 1, network_rate, 4, options);
-    main_menu_add_options(menu, MENU_NORMAL, "Windows", menu_windows, 3, change_window);
+    main_menu_add_options(menu, MENU_NORMAL, "Themes", menu_themes, sizeof(menu_themes) / sizeof(char*), change_theme);
+    om = main_menu_add_options(menu, MENU_NORMAL, "Options", menu_options, sizeof(menu_options) / sizeof(char*), NULL);
+    main_menu_add_suboptions(om, MENU_MULTI_SELECT, 0, name_resolution, sizeof(name_resolution) / sizeof(char*), options);
+    main_menu_add_suboptions(om, MENU_SINGLE_SELECT, 1, network_rate, sizeof(network_rate) / sizeof(char*), options);
+    main_menu_add_options(menu, MENU_SINGLE_SELECT, "Windows", menu_windows, sizeof(menu_windows) / sizeof(char*), change_window);
     menu->current = list_begin(menu->opt);
 }
 
@@ -284,6 +285,44 @@ bool screen_stack_empty()
 screen *screen_stack_prev()
 {
     return stack_get(screen_stack, stack_size(screen_stack) - 2);
+}
+
+static int screen_stack_find(screen *s)
+{
+    unsigned int top = stack_size(screen_stack);
+    unsigned int i = 0;
+
+    while (i < top) {
+        if (s == (screen *) stack_get(screen_stack, i)) {
+            return i;
+        }
+        i++;
+    }
+    return -1;
+}
+
+void screen_stack_move_to_top(screen *s)
+{
+    int i = screen_stack_find(s);
+
+    if (i > 0) {
+        unsigned int top = stack_size(screen_stack) - 1;
+        _stack_t *tmp;
+
+        if (top == i) return; /* screen already on top of stack */
+        tmp = stack_init(top - i);
+        while (top-- > i) {
+            stack_push(tmp, stack_pop(screen_stack));
+        }
+        stack_pop(screen_stack);
+        while (!stack_empty(tmp)) {
+            stack_push(screen_stack, stack_pop(tmp));
+        }
+        push_screen(s);
+        stack_free(tmp, NULL);
+    } else {
+        push_screen(s);
+    }
 }
 
 void printat(WINDOW *win, int y, int x, int attrs, const char *fmt, ...)

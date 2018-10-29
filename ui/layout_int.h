@@ -138,8 +138,13 @@ void free_container(container *c);
  */
 screen *screen_cache_get(enum screen_type type);
 
+/* Insert screen into screen cache */
 void screen_cache_insert(enum screen_type st, screen *s);
+
+/* Remove screen from screen cacne */
 void screen_cache_remove(enum screen_type st);
+
+/* Clear the screen cache. Will free the memory allocated for the screens. */
 void screen_cache_clear();
 
 /* Push the screen on the screen stack */
@@ -153,6 +158,12 @@ bool screen_stack_empty();
 
 /* Get the screen behind the topmost screen */
 screen *screen_stack_prev();
+
+/*
+ * Move screen to top of the screen stack. If screen is not part of the stack,
+ * this will behave as push_screen.
+ */
+void screen_stack_move_to_top(screen *s);
 
 /*
  * When the scrollok option is enabled ncurses will wrap long lines at the
