@@ -112,6 +112,9 @@ int main(int argc, char **argv)
     if (!ctx.device && !(ctx.device = get_default_interface())) {
         err_quit("Cannot find active network device");
     }
+    if (promiscuous) {
+        set_promiscuous(ctx.device, true);
+    }
     local_addr = malloc(sizeof (struct sockaddr_in));
     get_local_address(ctx.device, (struct sockaddr *) local_addr);
     if (!ctx.nogeoip && !(ctx.gi = GeoIP_open(geoip_path, GEOIP_STANDARD))) {
@@ -184,6 +187,9 @@ void finish()
     if (use_ncurses) {
         ncurses_end();
         vector_free(packets, NULL);
+    }
+    if (promiscuous) {
+        set_promiscuous(ctx.device, false);
     }
     free(ctx.device);
     free(local_addr);

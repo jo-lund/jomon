@@ -321,3 +321,25 @@ bool get_iw_range(char *dev, struct iw_range *iwrange)
     close(sockfd);
     return true;
 }
+
+void set_promiscuous(char *dev, bool enable)
+{
+    int sockfd;
+    struct ifreq ifr;
+
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
+        err_sys("socket error");
+    }
+    strncpy(ifr.ifr_name, dev, IFNAMSIZ);
+    if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) == -1) {
+        err_sys("ioctl error");
+    }
+    if (enable) {
+        ifr.ifr_flags |= IFF_PROMISC;
+    } else {
+        ifr.ifr_flags &= ~IFF_PROMISC;
+    }
+    if (ioctl(sockfd, SIOCSIFFLAGS, &ifr)) {
+        err_sys("ioctl error");
+    }
+}

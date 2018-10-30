@@ -23,4 +23,7 @@ bool get_iw_stats(char *dev, struct iw_statistics *iwstat);
 
 bool get_iw_range(char *dev, struct iw_range *iwrange);
 
+/* Enable/disable promiscuous mode */
+void set_promiscuous(char *dev, bool enable);
+
 #endif
