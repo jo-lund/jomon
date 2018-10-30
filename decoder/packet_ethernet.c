@@ -80,6 +80,7 @@ bool handle_ethernet(unsigned char *buffer, int n, struct packet *p)
             memcpy(p->eth.llc->snap->oui, ptr, 3);
             ptr += 3; /* skip first 3 bytes of 802.2 SNAP */
             p->eth.llc->snap->protocol_id = ptr[0] << 8 | ptr[1];
+            p->perr = NO_ERR;
 
             /* TODO: If OUI is 0 I need to to handle the internet protocols that
                will be layered on top of SNAP */

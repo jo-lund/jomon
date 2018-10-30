@@ -699,9 +699,9 @@ void add_llc_information(list_view *lw, list_view_header *header, struct packet 
 
 void add_snap_information(list_view *lw, list_view_header *header, struct packet *p)
 {
-    LV_ADD_TEXT_ELEMENT(lw, header, "IEEE Organizationally Unique Identifier (OUI): 0x%06x\n",
+    LV_ADD_TEXT_ELEMENT(lw, header, "IEEE Organizationally Unique Identifier (OUI): 0x%06x",
               get_eth802_oui(p->eth.llc->snap));
-    LV_ADD_TEXT_ELEMENT(lw, header, "Protocol Id: 0x%04x\n", p->eth.llc->snap->protocol_id);
+    LV_ADD_TEXT_ELEMENT(lw, header, "Protocol Id: 0x%04x", p->eth.llc->snap->protocol_id);
 }
 
 void add_arp_information(list_view *lw, list_view_header *header, struct packet *p)
