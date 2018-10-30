@@ -37,10 +37,6 @@ vector_t *packets;
 main_context ctx;
 static volatile sig_atomic_t signal_flag = 0;
 static int sockfd = -1;
-static bool use_ncurses = true;
-static bool promiscuous = false;
-static bool verbose = false;
-static bool load_file = false;
 static bool fd_changed = false;
 static const char *geoip_path = "/usr/share/GeoIP/GeoIPCity.dat";
 
@@ -67,11 +63,17 @@ int main(int argc, char **argv)
         { 0, 0, 0, 0}
     };
 
+    ctx.opt.use_ncurses = true;
+    ctx.opt.promiscuous = false;
+    ctx.opt.verbose = false;
+    ctx.opt.load_file = false;
+    ctx.opt.nogeoip = false;
+    ctx.opt.show_statistics = false;
     while ((opt = getopt_long(argc, argv, "i:r:Ghlpstv",
                               long_options, &idx)) != -1) {
         switch (opt) {
         case 'G':
-            ctx.nogeoip = true;
+            ctx.opt.nogeoip = true;
             break;
         case 'i':
             ctx.device = strdup(optarg);
@@ -81,20 +83,20 @@ int main(int argc, char **argv)
             exit(0);
             break;
         case 'p':
-            promiscuous = true;
+            ctx.opt.promiscuous = true;
             break;
         case 'r':
             strcpy(ctx.filename, optarg);
-            load_file = true;
+            ctx.opt.load_file = true;
             break;
         case 's':
-            ctx.show_statistics = true;
+            ctx.opt.show_statistics = true;
             break;
         case 't':
-            use_ncurses = false;
+            ctx.opt.use_ncurses = false;
             break;
         case 'v':
-            verbose = true;
+            ctx.opt.verbose = true;
             break;
         case 'h':
         default:
@@ -112,15 +114,15 @@ int main(int argc, char **argv)
     if (!ctx.device && !(ctx.device = get_default_interface())) {
         err_quit("Cannot find active network device");
     }
-    if (promiscuous) {
+    if (ctx.opt.promiscuous) {
         set_promiscuous(ctx.device, true);
     }
     local_addr = malloc(sizeof (struct sockaddr_in));
     get_local_address(ctx.device, (struct sockaddr *) local_addr);
-    if (!ctx.nogeoip && !(ctx.gi = GeoIP_open(geoip_path, GEOIP_STANDARD))) {
+    if (!ctx.opt.nogeoip && !(ctx.gi = GeoIP_open(geoip_path, GEOIP_STANDARD))) {
         exit(1);
     }
-    if (load_file) {
+    if (ctx.opt.load_file) {
         enum file_error err;
         FILE *fp;
 
@@ -133,7 +135,7 @@ int main(int argc, char **argv)
             err_quit("Error in %s: %s", ctx.filename, get_file_error(err));
         }
         fclose(fp);
-        if (use_ncurses) {
+        if (ctx.opt.use_ncurses) {
             ncurses_init(&ctx);
             print_file();
         } else {
@@ -148,7 +150,7 @@ int main(int argc, char **argv)
     } else {
         ctx.capturing = true;
         socket_init(ctx.device);
-        if (use_ncurses) {
+        if (ctx.opt.use_ncurses) {
             ncurses_init(&ctx);
         }
     }
@@ -184,11 +186,11 @@ void sig_int(int signo __attribute__((unused)))
 
 void finish()
 {
-    if (use_ncurses) {
+    if (ctx.opt.use_ncurses) {
         ncurses_end();
         vector_free(packets, NULL);
     }
-    if (promiscuous) {
+    if (ctx.opt.promiscuous) {
         set_promiscuous(ctx.device, false);
     }
     free(ctx.device);
@@ -261,7 +263,7 @@ void structures_init()
     }
 
     /* Initialize table to store packets */
-    if (use_ncurses || load_file) {
+    if (ctx.opt.use_ncurses || ctx.opt.load_file) {
         packets = vector_init(TABLE_SIZE);
     }
 }
@@ -294,7 +296,7 @@ void run()
 
             n = read_packet(sockfd, buffer, SNAPLEN, &p);
             if (n) {
-                if (use_ncurses) {
+                if (ctx.opt.use_ncurses) {
                     vector_push_back(packets, p);
                     layout(NEW_PACKET);
                 } else {

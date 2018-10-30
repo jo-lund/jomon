@@ -410,7 +410,7 @@ void create_screens()
     push_screen((screen *) ms);
     s = stat_screen_create();
     screen_cache_insert(STAT_SCREEN, s);
-    if (ctx.show_statistics) {
+    if (ctx.opt.show_statistics) {
         push_screen(s);
     }
     screen_cache_insert(HELP_SCREEN, (screen *) help_screen_create());

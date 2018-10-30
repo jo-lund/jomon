@@ -824,7 +824,7 @@ void add_ipv4_information(list_view *lw, list_view_header *header, struct ipv4_i
     LV_ADD_TEXT_ELEMENT(lw, header,"Checksum: %u", ip->checksum);
     inet_ntop(AF_INET, &ip->src, src, INET_ADDRSTRLEN);
     inet_ntop(AF_INET, &ip->dst, dst, INET_ADDRSTRLEN);
-    if (ctx.nogeoip) {
+    if (ctx.opt.nogeoip) {
         LV_ADD_TEXT_ELEMENT(lw, header,"Source IP address: %s", src);
         LV_ADD_TEXT_ELEMENT(lw, header,"Destination IP address: %s", dst);
     } else {

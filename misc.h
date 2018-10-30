@@ -36,8 +36,14 @@ typedef struct {
     char *device;
     char filename[MAXPATH + 1];
     bool capturing;
-    bool show_statistics;
-    bool nogeoip;
+    struct options {
+        bool show_statistics;
+        bool nogeoip;
+        bool use_ncurses;
+        bool promiscuous;
+        bool verbose;
+        bool load_file;
+    } opt;
     GeoIP *gi;
 } main_context;
 
