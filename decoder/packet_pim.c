@@ -203,11 +203,11 @@ packet_error parse_bootstrap(unsigned char *buffer, int n, struct pim_info *pim)
 
     pim->bootstrap->groups->rp_count = buffer[0];
     pim->bootstrap->groups->frag_rp_count = buffer[1];
-    n -= 2;
+    n -= 4; /* 2 bytes after frag RP Cnt are reserved */
     if (pim->bootstrap->groups->frag_rp_count > n) {
         return PIM_ERR;
     }
-    buffer += 2;
+    buffer += 4;
     pim->bootstrap->groups->rps =
         mempool_pealloc(pim->bootstrap->groups->frag_rp_count * sizeof(*pim->bootstrap->groups->rps));
     for (int i = 0; i < pim->bootstrap->groups->frag_rp_count; i++) {
