@@ -1184,11 +1184,11 @@ void add_pim_bootstrap(list_view *lw, list_view_header *header, struct pim_info 
         LV_ADD_TEXT_ELEMENT(lw, grp, "RP count: %u", pim->bootstrap->groups->rp_count);
         LV_ADD_TEXT_ELEMENT(lw, grp, "Frag RP count: %u", pim->bootstrap->groups->frag_rp_count);
         for (int i = 0; i < pim->bootstrap->groups->frag_rp_count; i++) {
-            addr = get_pim_address(pim->bootstrap->groups->rps[i].rp_addr.addr_family,
-                                   &pim->bootstrap->groups->rps[i].rp_addr.addr);
-            if (addr) {
-                LV_ADD_TEXT_ELEMENT(lw, grp, "RP address %d: %s", i, addr);
-                free(addr);
+            char *rp_addr = get_pim_address(pim->bootstrap->groups->rps[i].rp_addr.addr_family,
+                                         &pim->bootstrap->groups->rps[i].rp_addr.addr);
+            if (rp_addr) {
+                LV_ADD_TEXT_ELEMENT(lw, grp, "RP address %d: %s", i, rp_addr);
+                free(rp_addr);
             }
             LV_ADD_TEXT_ELEMENT(lw, grp, "Holdtime: %u", pim->bootstrap->groups->rps[i].holdtime);
             LV_ADD_TEXT_ELEMENT(lw, grp, "Priority: %u", pim->bootstrap->groups->rps[i].priority);
