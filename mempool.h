@@ -1,5 +1,5 @@
-#ifndef ALLOC_H
-#define ALLOC_H
+#ifndef MEMPOOL_H
+#define MEMPOOL_H
 
 /* Initializes the memory pools */
 void mempool_init();

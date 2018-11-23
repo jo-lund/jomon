@@ -1,6 +1,6 @@
 #include <obstack.h>
 #include <stdlib.h>
-#include "alloc.h"
+#include "mempool.h"
 
 #define obstack_chunk_alloc malloc
 #define obstack_chunk_free free

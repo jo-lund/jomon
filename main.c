@@ -25,7 +25,7 @@
 #include "vector.h"
 #include "file_pcap.h"
 #include "ui/protocols.h"
-#include "alloc.h"
+#include "mempool.h"
 #include "decoder/host_analyzer.h"
 #include "decoder/dns_cache.h"
 
