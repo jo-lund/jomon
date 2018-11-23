@@ -1,6 +1,8 @@
 #ifndef RBTREE_H
 #define RBTREE_H
 
+#include "alloc.h"
+
 typedef struct rbtree_node rbtree_node_t;
 typedef struct rbtree rbtree_t;
 typedef void (*rbtree_deallocate)(void *);
@@ -16,9 +18,11 @@ typedef int (*rbtree_compare)(const void *, const void *);
 /*
  * Initializes rbtree.
  *
- * Allocates resources for rbtree that needs to be freed with rbtree_free
+ * Allocates resources for rbtree that needs to be freed with rbtree_free. If
+ * allocator is specified this will be used to allocate/deallocate memory for
+ * rbtree, else the default allocator is used.
  */
-rbtree_t *rbtree_init(rbtree_compare fn);
+rbtree_t *rbtree_init(rbtree_compare fn, allocator_t *allocator);
 
 /*
  * Inserts element in the tree as long as it doesn't already have an element with

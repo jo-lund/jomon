@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include <stdlib.h>
+#include <string.h>
 #include "rbtree.h"
 
 /*
@@ -30,17 +30,17 @@ struct rbtree {
     rbtree_deallocate free_key;
     rbtree_deallocate free_data;
     rbtree_compare comp;
+    allocator_t allocator;
 };
 
-#define INIT_NODE(n, p, k, d)                     \
-    do {                                          \
-        n = malloc(sizeof(struct rbtree_node));   \
-        n->key = k;                               \
-        n->data = d;                              \
-        n->colour = RED;                          \
-        n->left = tree->nil;                      \
-        n->right = tree->nil;                     \
-        n->parent = p;                            \
+#define INIT_NODE(n, p, k, d)                   \
+    do {                                        \
+        (n)->key = k;                           \
+        (n)->data = d;                          \
+        (n)->colour = RED;                      \
+        (n)->parent = p;                        \
+        (n)->left = tree->nil;                  \
+        (n)->right = tree->nil;                 \
     } while (0)
 
 static rbtree_node_t *insert_node(rbtree_t *tree, void *key, void *data);
@@ -51,10 +51,20 @@ static rbtree_node_t *get_minimum(rbtree_t *tree, rbtree_node_t *n);
 static rbtree_node_t *get_successor(rbtree_t *tree, rbtree_node_t *n);
 static void free_nodes(rbtree_t *tree, rbtree_node_t *n);
 
-rbtree_t *rbtree_init(rbtree_compare fn)
+rbtree_t *rbtree_init(rbtree_compare fn, allocator_t *allocator)
 {
-    rbtree_t *tree = calloc(1, sizeof(struct rbtree));
+    rbtree_t *tree;
 
+    if (allocator) {
+        tree = allocator->alloc(sizeof(struct rbtree));
+        memset(tree, 0, sizeof(struct rbtree));
+        tree->allocator.alloc = allocator->alloc;
+        tree->allocator.dealloc = allocator->dealloc;
+    } else {
+        tree = calloc(1, sizeof(struct rbtree));
+        allocator_init(&tree->allocator);
+    }
+    tree->nil = tree->allocator.alloc(sizeof(struct rbtree_node));
     INIT_NODE(tree->nil, NULL, NULL, NULL);
     tree->root = tree->nil;
     tree->nil->colour = BLACK;
@@ -65,13 +75,16 @@ rbtree_t *rbtree_init(rbtree_compare fn)
 void rbtree_free(rbtree_t *tree)
 {
     free_nodes(tree, tree->root);
-    free(tree->nil);
-    free(tree);
+    if (tree->allocator.dealloc) {
+        tree->allocator.dealloc(tree->nil);
+        tree->allocator.dealloc(tree);
+    }
 }
 
 void rbtree_insert(rbtree_t *tree, void *key, void *data)
 {
     if (tree->root == tree->nil) {
+        tree->root = tree->allocator.alloc(sizeof(struct rbtree_node));
         INIT_NODE(tree->root, tree->nil, key, data);
     } else {
         rbtree_node_t *x;
@@ -134,6 +147,7 @@ rbtree_node_t *insert_node(rbtree_t *tree, void *key, void *data)
             if (n->left == tree->nil) {
                 rbtree_node_t *x;
 
+                x = tree->allocator.alloc(sizeof(struct rbtree_node));
                 INIT_NODE(x, n, key, data);
                 n->left = x;
                 return x;
@@ -143,6 +157,7 @@ rbtree_node_t *insert_node(rbtree_t *tree, void *key, void *data)
             if (n->right == tree->nil) {
                 rbtree_node_t *x;
 
+                x = tree->allocator.alloc(sizeof(struct rbtree_node));
                 INIT_NODE(x, n, key, data);
                 n->right = x;
                 return x;
@@ -206,7 +221,9 @@ void rbtree_remove(rbtree_t *tree, void *key)
             if (tree->free_data) {
                 tree->free_data(y->data);
             }
-            free(y);
+            if (tree->allocator.dealloc) {
+                tree->allocator.dealloc(y);
+            }
             break;
         }
     }
@@ -417,7 +434,9 @@ void free_nodes(rbtree_t *tree, rbtree_node_t *n)
     if (tree->free_data) {
         tree->free_data(n->data);
     }
-    free(n);
+    if (tree->allocator.dealloc) {
+        tree->allocator.dealloc(n);
+    }
 }
 
 void rbtree_set_free_key(rbtree_t *tree, rbtree_deallocate fn)
