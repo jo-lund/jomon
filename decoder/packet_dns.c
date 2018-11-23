@@ -285,7 +285,7 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
     {
         int j = 0;
 
-        dns->record[i].rdata.txt = list_init(mempool_pealloc);
+        dns->record[i].rdata.txt = list_init(&d_alloc);
         while (j < rdlen) {
             struct dns_txt_rr *rr;
             int len = 0;

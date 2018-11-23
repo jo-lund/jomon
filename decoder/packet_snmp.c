@@ -170,7 +170,7 @@ list_t *parse_variables(unsigned char *buffer, int n)
     unsigned char *ptr = buffer;
     list_t *varbind_list;
 
-    varbind_list = list_init(mempool_pealloc);
+    varbind_list = list_init(&d_alloc);
     if ((n = parse_value(&ptr, n, &class, &tag, NULL)) == -1) {
         return NULL;
     }

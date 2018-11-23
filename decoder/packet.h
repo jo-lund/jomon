@@ -8,6 +8,7 @@
 #include "../list.h"
 #include "packet_ethernet.h"
 #include "../mempool.h"
+#include "../alloc.h"
 
 /*
  * Subtracts the offset of a structure's member from its address to get the
@@ -56,6 +57,7 @@ struct packet_statistics {
 
 // TODO: move this to an internal header
 extern struct packet_statistics pstat[];
+extern allocator_t d_alloc;
 
 enum port {
     DNS = 53,   /* Domain Name System */

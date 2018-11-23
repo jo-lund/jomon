@@ -11,7 +11,7 @@ packet_error handle_imap(unsigned char *buf, int n, struct application_info *adu
     int c = 0;
 
     adu->imap = mempool_pealloc(sizeof(struct imap_info));
-    adu->imap->lines = list_init(mempool_pealloc);
+    adu->imap->lines = list_init(&d_alloc);
     while (isascii(*buf)) {
         if (c >= MAXLINE || i >= n) return IMAP_ERR;
         if (*buf == '\r') {

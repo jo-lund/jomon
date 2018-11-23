@@ -96,7 +96,7 @@ void tcp_analyzer_check_stream(const struct eth_info *ethp)
             new_endp = mempool_pecopy(&endp, sizeof(struct tcp_endpoint_v4));
             new_conn = mempool_pealloc(sizeof(struct tcp_connection_v4));
             new_conn->endp = new_endp;
-            new_conn->packets = list_init(mempool_pealloc);
+            new_conn->packets = list_init(&d_alloc);
             list_push_back(new_conn->packets, p);
             if (tcp->syn) {
                 new_conn->state = tcp->ack ? SYN_RCVD : SYN_SENT;

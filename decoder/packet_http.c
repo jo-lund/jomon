@@ -61,7 +61,7 @@ bool parse_http(unsigned char *buffer, uint16_t len, struct http_info *http)
     }
 
     /* parse header fields */
-    http->header = list_init(mempool_pealloc);
+    http->header = list_init(&d_alloc);
     is_http = parse_http_header(&ptr, &n, http->header);
 
     /* copy message body */

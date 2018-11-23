@@ -25,7 +25,7 @@
 #include "host_analyzer.h"
 #include "dns_cache.h"
 
-/* this needs to be in the same order as enum protocols, see packet.h */
+/* This needs to be in the same order as enum protocols, see packet.h */
 struct packet_statistics pstat[] = {
     { "Total", 0, 0 },
     { "ARP", 0, 0 },
@@ -44,6 +44,11 @@ struct packet_statistics pstat[] = {
     { "SSDP", 0, 0 },
     { "SNMP", 0, 0 },
     { "IMAP", 0, 0 }
+};
+
+allocator_t d_alloc = {
+    .alloc = mempool_pealloc,
+    .dealloc = NULL
 };
 
 size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet **p)

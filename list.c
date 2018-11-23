@@ -10,28 +10,28 @@ typedef struct node {
 typedef struct list {
     node_t *head;
     node_t *tail;
-    list_allocate alloc;
+    allocator_t allocator;
     int size;
 } list_t;
 
-#define INIT_NODE(l, n, d)                       \
+#define INIT_NODE(n, d)                          \
     do {                                         \
-        n = l->alloc(sizeof(node_t));            \
-        n->data = d;                             \
-        n->next = NULL;                          \
-        n->prev = NULL;                          \
-    } while (0);
+        (n)->data = d;                           \
+        (n)->next = NULL;                        \
+        (n)->prev = NULL;                        \
+    } while (0)
 
-list_t *list_init(list_allocate func)
+list_t *list_init(allocator_t *allocator)
 {
     list_t *list;
 
-    if (func) {
-        list = func(sizeof(list_t));
-        list->alloc = func;
+    if (allocator) {
+        list = allocator->alloc(sizeof(list_t));
+        list->allocator.alloc = allocator->alloc;
+        list->allocator.dealloc = allocator->dealloc;
     } else {
         list = malloc(sizeof(list_t));
-        list->alloc = (void *(*)(int)) malloc;
+        allocator_init(&list->allocator);
     }
     list->head = NULL;
     list->tail = NULL;
@@ -42,12 +42,14 @@ list_t *list_init(list_allocate func)
 void list_push_front(list_t *list, void *data)
 {
     if (!list->head) {
-        INIT_NODE(list, list->head, data);
+        list->head = list->allocator.alloc(sizeof(node_t));
+        INIT_NODE(list->head, data);
         list->tail = list->head;
     } else {
         node_t *node;
 
-        INIT_NODE(list, node, data);
+        node = list->allocator.alloc(sizeof(node_t));
+        INIT_NODE(node, data);
         list->head->prev = node;
         node->next = list->head;
         list->head = node;
@@ -58,12 +60,14 @@ void list_push_front(list_t *list, void *data)
 void list_push_back(list_t *list, void *data)
 {
     if (!list->head) {
-        INIT_NODE(list, list->head, data);
+        list->head = list->allocator.alloc(sizeof(node_t));
+        INIT_NODE(list->head, data);
         list->tail = list->head;
     } else {
         node_t *node;
 
-        INIT_NODE(list, node, data);
+        node = list->allocator.alloc(sizeof(node_t));
+        INIT_NODE(node, data);
         list->tail->next = node;
         node->prev = list->tail;
         list->tail = node;
@@ -81,7 +85,8 @@ void list_insert(list_t *list, void *data, int i)
         node_t *n;
         node_t *node;
 
-        INIT_NODE(list, node, data);
+        node = list->allocator.alloc(sizeof(node_t));
+        INIT_NODE(node, data);
         n = (node_t *) list_ith(list, i);
         n->prev->next = node;
         node->prev = n->prev;
@@ -103,7 +108,9 @@ void list_pop_front(list_t *list, list_deallocate func)
         if (func) {
             func(h->data);
         }
-        free(h);
+        if (list->allocator.dealloc) {
+            list->allocator.dealloc(h);
+        }
         list->size--;
     }
 }
@@ -120,7 +127,9 @@ void list_pop_back(list_t *list, list_deallocate func)
         if (func) {
             func(t->data);
         }
-        free(t);
+        if (list->allocator.dealloc) {
+            list->allocator.dealloc(t);
+        }
         list->size--;
     }
 }
@@ -142,7 +151,9 @@ void list_remove(list_t *list, void *data, list_deallocate func)
             if (func) {
                 func(t->data);
             }
-            free(t);
+            if (list->allocator.dealloc) {
+                list->allocator.dealloc(t);
+            }
         } else {
             n = &(*n)->next;
         }
@@ -225,17 +236,20 @@ list_t *list_clear(list_t *list, list_deallocate func)
         if (func) {
             func(tmp->data);
         }
-        free(tmp);
+        if (list->allocator.dealloc) {
+            list->allocator.dealloc(tmp);
+        }
     }
     list->head = NULL;
     list->tail = NULL;
     list->size = 0;
-
     return list;
 }
 
 void list_free(list_t *list, list_deallocate func)
 {
     list = list_clear(list, func);
-    free(list);
+    if (list->allocator.dealloc) {
+        list->allocator.dealloc(list);
+    }
 }

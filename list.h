@@ -1,18 +1,22 @@
 #ifndef LIST_H
 #define LIST_H
 
+#include "alloc.h"
+
 typedef struct node node_t;
 typedef struct list list_t;
 
+/* User-defined function to deallocate memory for the data stored in list_t */
 typedef void (*list_deallocate)(void *);
-typedef void *(*list_allocate)(int);
 
 /*
  * Initializes list.
  *
- * Allocates resources for list that needs to be freed with list_free
+ * Allocates resources for list that needs to be freed with list_free. If allocator
+ * is specified this will be used to allocate/deallocate memory for list_t, else the
+ * default allocator is used.
  */
-list_t *list_init(list_allocate func);
+list_t *list_init(allocator_t *allocator);
 
 /* Inserts element at the front */
 void list_push_front(list_t *list, void *data);
@@ -23,16 +27,13 @@ void list_push_back(list_t *list, void *data);
 /* Inserts element at position 'i' */
 void list_insert(list_t *list, void *data, int i);
 
-/* Removes element from the front and deallocates memory if func is specified */
+/* Removes element from the front and deallocates memory for it if func is specified */
 void list_pop_front(list_t *list, list_deallocate func);
 
-/* Removes element from the end and deallocates memory if func is specified */
+/* Removes element from the end and deallocates memory for it if func is specified */
 void list_pop_back(list_t *list, list_deallocate func);
 
-/*
- * Removes element from the list. If 'func' is specified it will deallocate
- * memory for data.
- */
+/* Removes element from the list and deallocates memory for it if func is specified */
 void list_remove(list_t *list, void *data, list_deallocate func);
 
 /* Returns data from front of the list */

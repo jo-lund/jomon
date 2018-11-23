@@ -23,7 +23,7 @@ packet_error handle_ssdp(unsigned char *buffer, int n, struct application_info *
     adu->ssdp = mempool_pealloc(sizeof(struct ssdp_info));
     pstat[PROT_SSDP].num_packets++;
     pstat[PROT_SSDP].num_bytes += n;
-    adu->ssdp->fields = list_init(mempool_pealloc);
+    adu->ssdp->fields = list_init(&d_alloc);
     parse_ssdp((char *) buffer, n, adu->ssdp->fields);
     return NO_ERR;
 }
