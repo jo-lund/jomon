@@ -18,6 +18,7 @@ enum elements {
     HEADER,
     HEADER_TXT,
     SUBHEADER_TXT,
+    HELP_TXT,
     STATUS_BUTTON,
     BUTTON,
     DIALOGUE_BKGD,

@@ -231,7 +231,7 @@ void print_conn_header(connection_screen *cs)
     mvwprintw(cs->header, y, TOTAL_WIDTH + 2 * PACKET_WIDTH, "Bytes A -> B");
     mvwprintw(cs->header, y, AB_WIDTH, "Packets A <- B");
     mvwprintw(cs->header, y, AB_WIDTH + 2 * PACKET_WIDTH, "Bytes A <- B");
-    mvwchgat(cs->header, y, 0, -1, A_STANDOUT, 0, NULL);
+    mvwchgat(cs->header, y, 0, -1, A_NORMAL, PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
     wrefresh(cs->header);
 }
 

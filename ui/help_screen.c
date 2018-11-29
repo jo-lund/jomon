@@ -32,7 +32,7 @@ void help_screen_render()
     int y = 0;
     WINDOW *win = screen_cache_get(HELP_SCREEN)->win;
     int hdrcol = get_theme_colour(HEADER_TXT);
-    int subcol = get_theme_colour(SUBHEADER_TXT);
+    int subcol = get_theme_colour(HELP_TXT);
 
     werase(win);
     wbkgd(win, get_theme_colour(BACKGROUND));

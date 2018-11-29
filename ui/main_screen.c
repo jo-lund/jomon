@@ -625,7 +625,7 @@ void print_header(main_screen *ms)
     mvwprintw(ms->header, y, ADDR_WIDTH + NUM_WIDTH + TIME_WIDTH, "Destination");
     mvwprintw(ms->header, y, 2 * ADDR_WIDTH + NUM_WIDTH + TIME_WIDTH, "Protocol");
     mvwprintw(ms->header, y, 2 * ADDR_WIDTH + NUM_WIDTH + TIME_WIDTH + PROT_WIDTH, "Info");
-    mvwchgat(ms->header, y, 0, -1, A_STANDOUT, 0, NULL);
+    mvwchgat(ms->header, y, 0, -1, A_NORMAL, PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
     wrefresh(ms->header);
 }
 

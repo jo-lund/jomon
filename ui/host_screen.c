@@ -252,7 +252,7 @@ void print_host_header(host_screen *hs)
         mvwprintw(hs->header, y, ADDR_WIDTH + NAME_WIDTH, "Nation");
         mvwprintw(hs->header, y, ADDR_WIDTH + NAME_WIDTH + NATION_WIDTH, "City");
     }
-    mvwchgat(hs->header, y, 0, -1, A_STANDOUT, 0, NULL);
+    mvwchgat(hs->header, y, 0, -1, A_NORMAL, PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
     wrefresh(hs->header);
 }
 
