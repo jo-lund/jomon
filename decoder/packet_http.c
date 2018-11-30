@@ -32,7 +32,12 @@ static char *request_method[] = {
 static bool parse_http(unsigned char *buf, uint16_t len, struct http_info *http);
 static bool parse_start_line(unsigned char **str, unsigned int *len, struct http_info *http);
 static bool check_method(char *token);
-static bool parse_http_header(unsigned char **str, unsigned int *len, list_t *header);
+static bool parse_http_header(unsigned char **str, unsigned int *len, rbtree_t *header);
+
+static int rbcmp(const void *d1, const void *d2)
+{
+    return strcmp((char *) d1, (char *) d2);
+}
 
 packet_error handle_http(unsigned char *buffer, uint16_t len, struct application_info *info)
 {
@@ -61,7 +66,7 @@ bool parse_http(unsigned char *buffer, uint16_t len, struct http_info *http)
     }
 
     /* parse header fields */
-    http->header = list_init(&d_alloc);
+    http->header = rbtree_init(rbcmp, &d_alloc);
     is_http = parse_http_header(&ptr, &n, http->header);
 
     /* copy message body */
@@ -150,7 +155,7 @@ bool check_method(char *token)
  *
  * Returns the result of the operation.
  */
-bool parse_http_header(unsigned char **str, unsigned int *len, list_t *header)
+bool parse_http_header(unsigned char **str, unsigned int *len, rbtree_t *header)
 {
     int i, j;
     bool eoh = false;
@@ -162,6 +167,7 @@ bool parse_http_header(unsigned char **str, unsigned int *len, list_t *header)
 
     for (i = 0; i < n && !eoh && is_http; i += j) {
         int c = 0;
+        int toklen = 0;
 
         state = FIELD;
         is_http = false;
@@ -175,6 +181,7 @@ bool parse_http_header(unsigned char **str, unsigned int *len, list_t *header)
             case FIELD:
                 if (*ptr == ':') {
                     state = VAL;
+                    toklen = c;
                     line[c++] = *ptr;
                 } else if (*ptr == '\r') {
                     state = EOL;
@@ -200,7 +207,16 @@ bool parse_http_header(unsigned char **str, unsigned int *len, list_t *header)
                     *str = ptr + 1;
                     return true;
                 } else {
-                    list_push_back(header, mempool_pecopy0(line, c));
+                    if (toklen + 1 < c) {
+                        char *key = mempool_pecopy0(line, toklen);
+                        char *data;
+
+                        while (isblank(line[toklen + 1])) {
+                             toklen++;
+                        }
+                        data = mempool_pecopy0(line + toklen + 1, c - (toklen + 1));
+                        rbtree_insert(header, key, data);
+                    }
                     is_http = true;
                 }
                 break;

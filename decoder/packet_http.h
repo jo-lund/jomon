@@ -2,10 +2,11 @@
 #define PACKET_HTTP_H
 
 #include <stdbool.h>
+#include "../rbtree.h"
 
 struct http_info {
     char *start_line;
-    list_t *header;
+    rbtree_t *header;
     unsigned char *data;
     unsigned int len;
 };

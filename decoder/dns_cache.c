@@ -44,10 +44,14 @@ void dns_cache_clear()
 
 void dns_cache_subscribe(dns_cache_fn fn)
 {
-    add_subscription2(dns_cache_publisher, (publisher_fn2) fn);
+    if (dns_cache_publisher) {
+        add_subscription2(dns_cache_publisher, (publisher_fn2) fn);
+    }
 }
 
 void dns_cache_unsubscribe(dns_cache_fn fn)
 {
-    remove_subscription2(dns_cache_publisher, (publisher_fn2) fn);
+    if (dns_cache_publisher) {
+        remove_subscription2(dns_cache_publisher, (publisher_fn2) fn);
+    }
 }

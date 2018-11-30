@@ -1758,13 +1758,13 @@ void add_ssdp_information(list_view *lw, list_view_header *header, struct ssdp_i
 
 void add_http_information(list_view *lw, list_view_header *header, struct http_info *http)
 {
-    const node_t *n;
+    const rbtree_node_t *n;
 
     LV_ADD_TEXT_ELEMENT(lw, header, "%s", http->start_line);
-    n = list_begin(http->header);
+    n = rbtree_first(http->header);
     while (n) {
-        LV_ADD_TEXT_ELEMENT(lw, header, "%s", (char *) list_data(n));
-        n = list_next(n);
+        LV_ADD_TEXT_ELEMENT(lw, header, "%s: %s", rbtree_get_key(n), rbtree_get_data(n));
+        n = rbtree_next(http->header, n);
     }
     if (http->len) {
         list_view_header *hdr;

@@ -10,6 +10,5 @@
   covers the entire screen, it is not possible to scroll up. It doesn't seem to
   take into account that the screen has been scrolled to make room for the
   packet being inspected.
-- Switching view mode when a packet covers the entire screen causes the remaining
-  lines in the hexdump to all show at the bottom line.
-- Display errors when opening the SNAP subheader in cdp.pcap, packet 53
+- Pad disappears if one inspects a packet at the last page (or first), scrolls
+  away from the pad and then hit end (or home).
