@@ -282,8 +282,11 @@ void print_host(host_screen *hs, struct host_info *host, int y)
         }
     }
     if (host_page == REMOTE) {
-        GeoIPRecord *record = GeoIP_record_by_addr(ctx.gi, addr);
+        GeoIPRecord *record = NULL;
 
+        if (ctx.gi) {
+            record = GeoIP_record_by_addr(ctx.gi, addr);
+        }
         mvwprintw(hs->base.win, y, 0, "%s", addr);
         if (host->name) {
             mvwprintw(hs->base.win, y, ADDR_WIDTH, "%s", host->name);
