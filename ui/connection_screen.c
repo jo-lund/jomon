@@ -11,14 +11,33 @@
 
 #define ADDR_WIDTH 17
 #define PORT_WIDTH 10
-#define CONN_WIDTH 2 * ADDR_WIDTH + 2 * PORT_WIDTH
 #define STATE_WIDTH 14
-#define PACKET_WIDTH 8
+#define PACKET_WIDTH 9
 #define BYTES_WIDTH 14
-#define TOTAL_WIDTH CONN_WIDTH + STATE_WIDTH + PACKET_WIDTH + BYTES_WIDTH
-#define AB_WIDTH TOTAL_WIDTH + 2 * PACKET_WIDTH + BYTES_WIDTH
+#define PACKETS_AB_WIDTH 16
+#define BYTES_AB_WIDTH 14
+#define MAX_WIDTH 20
 #define CONN_HEADER 3
 #define STATUS_HEIGHT 1
+
+enum cs_val {
+    ADDRA,
+    PORTA,
+    ADDRB,
+    PORTB,
+    STATE,
+    PACKETS,
+    BYTES,
+    PACKETS_AB,
+    BYTES_AB,
+    PACKETS_BA,
+    BYTES_BA
+};
+
+struct cs_entry {
+    uint32_t val;
+    char buf[MAX_WIDTH];
+};
 
 extern WINDOW *status;
 extern main_menu *menu;
@@ -43,6 +62,20 @@ static screen_operations csop = {
     .screen_get_input = connection_screen_get_input,
     .screen_got_focus = connection_screen_got_focus,
     .screen_lost_focus = connection_screen_lost_focus,
+};
+
+static screen_header header[] = {
+    { "IP Address A", ADDR_WIDTH },
+    { "Port A", PORT_WIDTH },
+    { "IP Address B", ADDR_WIDTH },
+    { "Port B", PORT_WIDTH },
+    { "State", STATE_WIDTH },
+    { "Packets", PACKET_WIDTH },
+    { "Bytes", BYTES_WIDTH },
+    { "Packets A -> B", PACKETS_AB_WIDTH },
+    { "Bytes A -> B", BYTES_AB_WIDTH },
+    { "Packets A <- B", PACKETS_AB_WIDTH },
+    { "Bytes A <- B", BYTES_AB_WIDTH }
 };
 
 connection_screen *connection_screen_create()
@@ -216,21 +249,15 @@ void update_connection(struct tcp_connection_v4 *c, bool new_connection)
 void print_conn_header(connection_screen *cs)
 {
     int y = 0;
+    int x = 0;
 
     printat(cs->header, y, 0, get_theme_colour(HEADER_TXT), "TCP connections");
     wprintw(cs->header,  ": %d", vector_size(cs->screen_buf));
     y += 2;
-    mvwprintw(cs->header, y, 0, "IP address A");
-    mvwprintw(cs->header, y, ADDR_WIDTH, "Port A");
-    mvwprintw(cs->header, y, ADDR_WIDTH + PORT_WIDTH, "IP address B");
-    mvwprintw(cs->header, y, 2 * ADDR_WIDTH + PORT_WIDTH, "Port B");
-    mvwprintw(cs->header, y, CONN_WIDTH, "State");
-    mvwprintw(cs->header, y, CONN_WIDTH + STATE_WIDTH, "Packets");
-    mvwprintw(cs->header, y, CONN_WIDTH + STATE_WIDTH + PACKET_WIDTH, "Bytes");
-    mvwprintw(cs->header, y, TOTAL_WIDTH, "Packets A -> B");
-    mvwprintw(cs->header, y, TOTAL_WIDTH + 2 * PACKET_WIDTH, "Bytes A -> B");
-    mvwprintw(cs->header, y, AB_WIDTH, "Packets A <- B");
-    mvwprintw(cs->header, y, AB_WIDTH + 2 * PACKET_WIDTH, "Bytes A <- B");
+    for (unsigned int i = 0; i < sizeof(header) / sizeof(header[0]); i++) {
+        mvwprintw(cs->header, y, x, header[i].txt);
+        x += header[i].width;
+    }
     mvwchgat(cs->header, y, 0, -1, A_NORMAL, PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
     wrefresh(cs->header);
 }
@@ -249,69 +276,57 @@ void print_all_connections(connection_screen *cs)
 
 void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int y)
 {
-    char buf[MAXLINE];
-    char srcaddr[INET_ADDRSTRLEN];
-    char dstaddr[INET_ADDRSTRLEN];
-    uint32_t bytes = 0;
-    uint32_t addra = 0;
-    uint32_t addrb = 0;
-    uint32_t bytes_atob = 0;
-    uint32_t bytes_btoa = 0;
-    uint32_t packets_atob = 0;
-    uint32_t packets_btoa = 0;
     const node_t *n = list_begin(conn->packets);
     struct packet *p;
+    char *state;
+    int x = 0;
+    struct cs_entry entry[11];
 
-    inet_ntop(AF_INET, &conn->endp->src, srcaddr, sizeof(srcaddr));
-    inet_ntop(AF_INET, &conn->endp->dst, dstaddr, sizeof(dstaddr));
-    snprintf(buf, MAXLINE, "%-*s%-*d%-*s%d", ADDR_WIDTH, srcaddr, PORT_WIDTH,
-             conn->endp->src_port, ADDR_WIDTH, dstaddr, conn->endp->dst_port);
+    memset(entry, 0, sizeof(entry));
+    inet_ntop(AF_INET, &conn->endp->src, entry[ADDRA].buf, INET_ADDRSTRLEN);
+    inet_ntop(AF_INET, &conn->endp->dst, entry[ADDRB].buf, INET_ADDRSTRLEN);
     p = list_data(n);
-    addra = p->eth.ip->src;
-    addrb = p->eth.ip->dst;
+    entry[ADDRA].val = p->eth.ip->src;
+    entry[ADDRB].val = p->eth.ip->dst;
     while (n) {
         p = list_data(n);
-        if (addra == p->eth.ip->src) {
-            bytes_atob += get_packet_size(p);
-            packets_atob++;
-        } else if (addrb == p->eth.ip->src) {
-            bytes_btoa += get_packet_size(p);
-            packets_btoa++;
+        if (entry[ADDRA].val == p->eth.ip->src) {
+            entry[BYTES_AB].val += get_packet_size(p);
+            entry[PACKETS_AB].val++;
+        } else if (entry[ADDRB].val == p->eth.ip->src) {
+            entry[BYTES_BA].val += get_packet_size(p);
+            entry[PACKETS_BA].val++;
         }
-        bytes += get_packet_size(p);
+        entry[BYTES].val += get_packet_size(p);
         n = list_next(n);
     }
+    state = tcp_analyzer_get_connection_state(conn->state);
+    entry[PORTA].val = conn->endp->src_port;
+    entry[PORTB].val = conn->endp->dst_port;
+    strncpy(entry[STATE].buf, state, MAX_WIDTH);
+    entry[PACKETS].val = list_size(conn->packets);
+    format_bytes(entry[BYTES].val, entry[BYTES].buf, MAX_WIDTH);
+    format_bytes(entry[BYTES_AB].val, entry[BYTES_AB].buf, MAX_WIDTH);
+    format_bytes(entry[BYTES_BA].val, entry[BYTES_BA].buf, MAX_WIDTH);
     if (conn->state != ESTABLISHED && conn->state != SYN_SENT &&
         conn->state != SYN_RCVD) {
-        printat(cs->base.win, y, 0, get_theme_colour(DISABLE), "%s", buf);
-        printat(cs->base.win, y, CONN_WIDTH, get_theme_colour(DISABLE),
-                "%s", tcp_analyzer_get_connection_state(conn->state));
-        printat(cs->base.win, y, CONN_WIDTH + STATE_WIDTH, get_theme_colour(DISABLE),
-                "%d", list_size(conn->packets));
-        printat(cs->base.win, y, CONN_WIDTH + STATE_WIDTH + PACKET_WIDTH,
-                get_theme_colour(DISABLE), "%s", format_bytes(bytes, buf, MAXLINE));
-        printat(cs->base.win, y, TOTAL_WIDTH, get_theme_colour(DISABLE),
-                "%d", packets_atob);
-        printat(cs->base.win, y, TOTAL_WIDTH + 2 * PACKET_WIDTH, get_theme_colour(DISABLE),
-                "%s", format_bytes(bytes_atob, buf, MAXLINE));
-        printat(cs->base.win, y, AB_WIDTH, get_theme_colour(DISABLE),
-                "%d", packets_btoa);
-        printat(cs->base.win, y, AB_WIDTH + 2 * PACKET_WIDTH, get_theme_colour(DISABLE),
-                "%s", format_bytes(bytes_btoa, buf, MAXLINE));
+        for (unsigned int i = 0; i < sizeof(header) / sizeof(header[0]); i++) {
+            if (i % 2 == 0) {
+                printat(cs->base.win, y, x, get_theme_colour(DISABLE), "%s", entry[i].buf);
+            } else {
+                printat(cs->base.win, y, x, get_theme_colour(DISABLE), "%d", entry[i].val);
+            }
+            x += header[i].width;
+        }
     } else {
-        mvwprintw(cs->base.win, y, 0, "%s", buf);
-        mvwprintw(cs->base.win, y, CONN_WIDTH, "%s",
-                  tcp_analyzer_get_connection_state(conn->state));
-        mvwprintw(cs->base.win, y, CONN_WIDTH + STATE_WIDTH, "%d",
-                  list_size(conn->packets));
-        mvwprintw(cs->base.win, y, CONN_WIDTH + STATE_WIDTH + PACKET_WIDTH, "%s",
-                  format_bytes(bytes, buf, MAXLINE));
-        mvwprintw(cs->base.win, y, TOTAL_WIDTH, "%d", packets_atob);
-        mvwprintw(cs->base.win, y, TOTAL_WIDTH + 2 * PACKET_WIDTH, "%s",
-                  format_bytes(bytes_atob, buf, MAXLINE));
-        mvwprintw(cs->base.win, y, AB_WIDTH, "%d", packets_btoa);
-        mvwprintw(cs->base.win, y, AB_WIDTH + 2 * PACKET_WIDTH, "%s",
-                  format_bytes(bytes_btoa, buf, MAXLINE));
+        for (unsigned int i = 0; i < sizeof(header) / sizeof(header[0]); i++) {
+            if (i % 2 == 0) {
+                mvwprintw(cs->base.win, y, x, "%s", entry[i].buf);
+            } else {
+                mvwprintw(cs->base.win, y, x, "%d", entry[i].val);
+            }
+            x += header[i].width;
+        }
     }
 }
 

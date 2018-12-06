@@ -100,6 +100,15 @@ static screen_operations msop = {
     .screen_get_input = main_screen_get_input
 };
 
+static screen_header header[] = {
+    { "Number", NUM_WIDTH },
+    { "Time", TIME_WIDTH },
+    { "Source", ADDR_WIDTH },
+    { "Destination", ADDR_WIDTH },
+    { "Protocol", PROT_WIDTH },
+    { "Info", 0 }
+};
+
 main_screen *main_screen_create()
 {
     main_screen *ms;
@@ -605,6 +614,7 @@ void main_screen_get_input(screen *s)
 void print_header(main_screen *ms)
 {
     int y = 0;
+    int x = 0;
     char addr[INET_ADDRSTRLEN];
     int txtcol = get_theme_colour(HEADER_TXT);
 
@@ -619,12 +629,10 @@ void print_header(main_screen *ms)
     printat(ms->header, ++y, 0, txtcol, "Local address");
     wprintw(ms->header, ": %s", addr);
     y += 2;
-    mvwprintw(ms->header, y, 0, "Number");
-    mvwprintw(ms->header, y, NUM_WIDTH, "Time");
-    mvwprintw(ms->header, y, NUM_WIDTH + TIME_WIDTH, "Source");
-    mvwprintw(ms->header, y, ADDR_WIDTH + NUM_WIDTH + TIME_WIDTH, "Destination");
-    mvwprintw(ms->header, y, 2 * ADDR_WIDTH + NUM_WIDTH + TIME_WIDTH, "Protocol");
-    mvwprintw(ms->header, y, 2 * ADDR_WIDTH + NUM_WIDTH + TIME_WIDTH + PROT_WIDTH, "Info");
+    for (unsigned int i = 0; i < sizeof(header) / sizeof(header[0]); i++) {
+        mvwprintw(ms->header, y, x, header[i].txt);
+        x += header[i].width;
+    }
     mvwchgat(ms->header, y, 0, -1, A_NORMAL, PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
     wrefresh(ms->header);
 }

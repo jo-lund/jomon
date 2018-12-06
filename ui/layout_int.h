@@ -109,6 +109,11 @@ typedef struct screen_operations {
 } screen_operations;
 
 typedef struct {
+    char *txt;
+    int width;
+} screen_header;
+
+typedef struct {
     bool focus;
     WINDOW *win;
 } container;
