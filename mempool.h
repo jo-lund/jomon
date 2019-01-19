@@ -5,7 +5,7 @@
 void mempool_init();
 
 /* Allocates memory for long-lived storage. The block will be uninitialized. */
-void *mempool_pealloc(int size);
+void *mempool_pealloc(size_t size);
 
 /*
  * Deallocates ptr and everything allocated in the long-lived pool more recently
@@ -43,7 +43,7 @@ void mempool_pegrow(void *data, int size);
 void *mempool_pefinish();
 
 /* Allocates memory for short-lived storage. The block will be uninitialized. */
-void *mempool_shalloc(int size);
+void *mempool_shalloc(size_t size);
 
 /*
  * Deallocates ptr and everything allocated in the short-lived pool more recently

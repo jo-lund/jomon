@@ -23,7 +23,7 @@ void mempool_init()
     globptr = obstack_alloc(&global_pool, sizeof(int));
 }
 
-void *mempool_pealloc(int size)
+void *mempool_pealloc(size_t size)
 {
     return obstack_alloc(&global_pool, size);
 }
@@ -58,7 +58,7 @@ void *mempool_pefinish()
     return obstack_finish(&global_pool);
 }
 
-void *mempool_shalloc(int size)
+void *mempool_shalloc(size_t size)
 {
     return obstack_alloc(&request_pool, size);
 }

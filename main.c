@@ -38,15 +38,12 @@ main_context ctx;
 static volatile sig_atomic_t signal_flag = 0;
 static int sockfd = -1;
 static bool fd_changed = false;
-static const char *geoip_path = "/usr/share/GeoIP/GeoIPCity.dat";
 
 bool on_packet(unsigned char *buffer, uint32_t n, struct timeval *t);
 static void print_help(char *prg);
 static void socket_init(char *device);
 static void structures_init();
 static void run();
-static void sig_alarm(int signo __attribute__((unused)));
-static void sig_int(int signo __attribute__((unused)));
 
 int main(int argc, char **argv)
 {
@@ -119,7 +116,7 @@ int main(int argc, char **argv)
     }
     local_addr = malloc(sizeof (struct sockaddr_in));
     get_local_address(ctx.device, (struct sockaddr *) local_addr);
-    if (!ctx.opt.nogeoip && !(ctx.gi = GeoIP_open(geoip_path, GEOIP_STANDARD))) {
+    if (!ctx.opt.nogeoip && !(ctx.gi = GeoIP_open(GEOIP_PATH, GEOIP_STANDARD))) {
         exit(1);
     }
     if (ctx.opt.load_file) {

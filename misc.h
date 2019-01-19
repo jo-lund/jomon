@@ -11,6 +11,8 @@
 #include <limits.h>
 #include <GeoIP.h>
 
+#define GEOIP_PATH "/usr/share/GeoIP/GeoIPCity.dat"
+
 /*
  * Only a portion of each packet is passed by the kernel to the application, this
  * size is the snapshot length or the snaplen.

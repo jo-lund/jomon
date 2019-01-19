@@ -305,7 +305,7 @@ bool parse_unicast_address(unsigned char **data, int *n, struct pim_unicast_addr
 }
 
 bool parse_address(unsigned char **data, int *n, pim_addr *addr, uint8_t family,
-                   uint8_t encoding)
+                   uint8_t encoding __attribute__((unused)))
 {
     unsigned char *ptr = *data;
 
