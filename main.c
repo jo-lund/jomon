@@ -105,9 +105,11 @@ int main(int argc, char **argv)
 #ifdef __linux__
     structures_init();
     mempool_init();
-    tcp_analyzer_init();
-    dns_cache_init();
-    host_analyzer_init();
+    if (ctx.opt.use_ncurses) {
+        tcp_analyzer_init();
+        dns_cache_init();
+        host_analyzer_init();
+    }
     if (!ctx.device && !(ctx.device = get_default_interface())) {
         err_quit("Cannot find active network device");
     }
@@ -186,6 +188,9 @@ void finish()
     if (ctx.opt.use_ncurses) {
         ncurses_end();
         vector_free(packets, NULL);
+        tcp_analyzer_free();
+        host_analyzer_free();
+        dns_cache_free();
     }
     if (ctx.opt.promiscuous) {
         set_promiscuous(ctx.device, false);
@@ -195,9 +200,6 @@ void finish()
     if (sockfd > 0) {
         close(sockfd);
     }
-    tcp_analyzer_free();
-    host_analyzer_free();
-    dns_cache_free();
     mempool_free();
     if (ctx.gi) {
         GeoIP_delete(ctx.gi);

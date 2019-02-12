@@ -22,24 +22,28 @@ void dns_cache_free()
 
 void dns_cache_insert(uint32_t *addr, char *name)
 {
-    if (hash_map_insert(dns_cache, addr, name)) {
+    if (dns_cache && hash_map_insert(dns_cache, addr, name)) {
         publish2(dns_cache_publisher, addr, name);
     }
 }
 
 void dns_cache_remove(uint32_t *addr)
 {
-    hash_map_remove(dns_cache, addr);
+    if (dns_cache) {
+        hash_map_remove(dns_cache, addr);
+    }
 }
 
 char *dns_cache_get(uint32_t *addr)
 {
-    return (char *) hash_map_get(dns_cache, addr);
+    return dns_cache ? (char *) hash_map_get(dns_cache, addr) : NULL;
 }
 
 void dns_cache_clear()
 {
-    hash_map_clear(dns_cache);
+    if (dns_cache) {
+        hash_map_clear(dns_cache);
+    }
 }
 
 void dns_cache_subscribe(dns_cache_fn fn)
