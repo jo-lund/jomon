@@ -60,6 +60,7 @@ enum layer {
     SNMP_VARS,
     HTTP_DATA,
     SUBLAYER,
+    TLS_LAYER,
     NUM_LAYERS
 };
 

@@ -58,12 +58,7 @@ enum hex_state {
     HD_UNKNOWN
 };
 
-typedef struct {
-    enum hex_state val;
-    char *str;
-} hex_conversion;
-
-static hex_conversion hex_state_val[] = {
+static struct uint_string hex_state_val[] = {
     { HD_ETHERNET, "Ethernet" },
     { HD_ARP, "ARP" },
     { HD_LLC, "LLC" },
@@ -482,7 +477,7 @@ void print_state(WINDOW *win, char *buf, enum hex_state state)
 
 enum hex_state str2enum(char *state)
 {
-    for (unsigned int i = 0; i < sizeof(hex_state_val) / sizeof(hex_conversion); i++) {
+    for (unsigned int i = 0; i < ARRAY_SIZE(hex_state_val); i++) {
         if (!strcmp(hex_state_val[i].str, state)) {
             return hex_state_val[i].val;
         }

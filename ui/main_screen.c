@@ -1308,6 +1308,10 @@ void add_app_elements(main_screen *ms, struct packet *p, struct application_info
         header = LV_ADD_HEADER(ms->lvw, "Internet Message Access Protocol (IMAP)", selected[APPLICATION], APPLICATION);
         add_imap_information(ms->lvw, header, adu->imap);
         break;
+    case TLS:
+        header = LV_ADD_HEADER(ms->lvw, "Secure Socket Layer (SSL/TLS)", selected[APPLICATION], APPLICATION);
+        add_tls_information(ms->lvw, header, adu->tls);
+        break;
     default:
         if (len) {
             header = LV_ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);

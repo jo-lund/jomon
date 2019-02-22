@@ -5,7 +5,24 @@
 #include <GeoIPCity.h>
 #include "list.h"
 
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+
 struct arp_info;
+
+struct uint_string {
+    uint32_t val;
+    char *str;
+};
+
+static inline int cmp_val(const void *c1, const void *c2)
+{
+    return ((struct uint_string *) c1)->val - ((struct uint_string *) c2)->val;
+}
+
+static inline int cmp_str(const void *c1, const void *c2)
+{
+    return strcmp(((struct uint_string *) c1)->str, ((struct uint_string *) c2)->str);
+}
 
 // TODO: remove this
 struct tm_t {
@@ -59,11 +76,8 @@ char *format_timespec(struct timespec *t, char *buf, int n);
  */
 char *get_time_from_ms_ut(uint32_t ms, char *buf, int n);
 
-/* Find index of the first character 'c' in string. Return -1 if not found */
-int str_find_first(const char *str, char c);
-
 /* Find index of the last character 'c' in string. Return -1 if not found */
-int str_find_last(const char *str, char c);
+int str_find_last(const char *str, int c);
 
 /* Given a file with full path name, return the directory part */
 char *get_directory_part(char *path);
