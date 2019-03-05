@@ -87,8 +87,11 @@ static void add_tls_handshake(list_view *lw, list_view_header *header,
                               struct tls_handshake *handshake);
 static void add_tls_client_hello(list_view *lw, list_view_header *header,
                                  struct tls_handshake_client_hello *hello);
+static void add_tls_server_hello(list_view *lw, list_view_header *header,
+                                 struct tls_handshake_server_hello *hello);
 static void add_tls_extensions(list_view *lw, list_view_header *header,
-                               struct tls_handshake_client_hello *hello);
+                               unsigned char *data, uint16_t len);
+
 
 void write_to_buf(char *buf, int size, struct packet *p)
 {
@@ -580,6 +583,7 @@ void print_tls(char *buf, int n, struct tls_info *tls)
 {
     char *version = get_tls_version(tls->version);
     char *type = get_tls_type(tls->type);
+    char records[MAXLINE];
 
     if (version) {
         PRINT_PROTOCOL(buf, n, version);
@@ -587,10 +591,20 @@ void print_tls(char *buf, int n, struct tls_info *tls)
         PRINT_PROTOCOL(buf, n, "TLS");
     }
     if (tls->type == TLS_HANDSHAKE) {
-        PRINT_INFO(buf, n, "%s", get_tls_handshake_type(tls->handshake));
+        snprintf(records, MAXLINE, "%s", get_tls_handshake_type(tls->handshake->type));
     } else {
-        PRINT_INFO(buf, n, "%s", type);
+        snprintf(records, MAXLINE, "%s", type);
     }
+    tls = tls->next;
+    while (tls) {
+        if (tls->type == TLS_HANDSHAKE) {
+            snprintcat(records, MAXLINE, ", %s", get_tls_handshake_type(tls->handshake->type));
+        } else {
+            snprintcat(records, MAXLINE, ", %s", type);
+        }
+        tls = tls->next;
+    }
+    PRINT_INFO(buf, n, "%s", records);
 }
 
 void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t type)
@@ -1938,16 +1952,23 @@ void add_imap_information(list_view *lw, list_view_header *header, struct imap_i
 
 void add_tls_information(list_view *lw, list_view_header *header, struct tls_info *tls)
 {
-    LV_ADD_TEXT_ELEMENT(lw, header, "Type: %s", get_tls_type(tls->type));
-    LV_ADD_TEXT_ELEMENT(lw, header, "Version: %s (0x%x)",
-                        get_tls_version(tls->version), tls->version);
-    LV_ADD_TEXT_ELEMENT(lw, header, "Length: %d", tls->length);
-    switch (tls->type) {
-    case TLS_HANDSHAKE:
-        add_tls_handshake(lw, header, tls->handshake);
-        break;
-    default:
-        break;
+    list_view_header *record;
+
+    while (tls) {
+        record = LV_ADD_SUB_HEADER(lw, header, selected[TLS_LAYER], TLS_LAYER,
+                                   "TLS Record: %s", get_tls_type(tls->type));
+        LV_ADD_TEXT_ELEMENT(lw, record, "Type: %s", get_tls_type(tls->type));
+        LV_ADD_TEXT_ELEMENT(lw, record, "Version: %s (0x%x)",
+                            get_tls_version(tls->version), tls->version);
+        LV_ADD_TEXT_ELEMENT(lw, record, "Length: %d", tls->length);
+        switch (tls->type) {
+        case TLS_HANDSHAKE:
+            add_tls_handshake(lw, record, tls->handshake);
+            break;
+        default:
+            break;
+        }
+        tls = tls->next;
     }
 }
 
@@ -1957,15 +1978,20 @@ void add_tls_handshake(list_view *lw, list_view_header *header,
     list_view_header *hdr;
 
     hdr = LV_ADD_SUB_HEADER(lw, header, selected[TLS_LAYER], TLS_LAYER, "Handshake");
-    LV_ADD_TEXT_ELEMENT(lw, hdr, "Type: %s", get_tls_handshake_type(handshake));
-    LV_ADD_TEXT_ELEMENT(lw, hdr, "Length: %d", handshake->length[0] << 16 |
-                        handshake->length[1] << 8 | handshake->length[2]);
-    switch (handshake->type) {
-    case TLS_CLIENT_HELLO:
-        add_tls_client_hello(lw, hdr, handshake->client_hello);
-        break;
-    default:
-        break;
+    LV_ADD_TEXT_ELEMENT(lw, hdr, "Type: %s", get_tls_handshake_type(handshake->type));
+    if (handshake->type != ENCRYPTED_HANDSHAKE_MESSAGE) {
+        LV_ADD_TEXT_ELEMENT(lw, hdr, "Length: %d", handshake->length[0] << 16 |
+                            handshake->length[1] << 8 | handshake->length[2]);
+        switch (handshake->type) {
+        case TLS_CLIENT_HELLO:
+            add_tls_client_hello(lw, hdr, handshake->client_hello);
+            break;
+        case TLS_SERVER_HELLO:
+            add_tls_server_hello(lw, hdr, handshake->server_hello);
+            break;
+        default:
+            break;
+        }
     }
 }
 
@@ -1974,7 +2000,6 @@ void add_tls_client_hello(list_view *lw, list_view_header *header,
 {
     list_view_header *hdr;
     list_view_header *sub;
-    struct tm *time;
     char buf[65];
 
     hdr = LV_ADD_SUB_HEADER(lw, header, selected[TLS_LAYER], TLS_LAYER, "Client Hello");
@@ -1997,16 +2022,40 @@ void add_tls_client_hello(list_view *lw, list_view_header *header,
                             ntohs(hello->cipher_suites[i]));
     }
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Compression length: %d", hello->compression_length);
-    add_tls_extensions(lw, hdr, hello);
+    add_tls_extensions(lw, hdr, hello->data, hello->data_len);
+}
+
+void add_tls_server_hello(list_view *lw, list_view_header *header,
+                          struct tls_handshake_server_hello *hello)
+{
+    list_view_header *hdr;
+    char buf[65];
+
+    hdr = LV_ADD_SUB_HEADER(lw, header, selected[TLS_LAYER], TLS_LAYER, "Server Hello");
+    LV_ADD_TEXT_ELEMENT(lw, hdr, "Protocol Version: %s",
+                        get_tls_version(hello->legacy_version));
+    for (int i = 0; i < 32; i++) {
+        snprintf(buf + 2 * i, 3, "%02x", hello->random_bytes[i]);
+    }
+    LV_ADD_TEXT_ELEMENT(lw, hdr, "Random bytes: %s", buf);
+    for (int i = 0; i < hello->session_length; i++) {
+        snprintf(buf + 2 * i, 3, "%02x", hello->session_id[i]);
+    }
+    LV_ADD_TEXT_ELEMENT(lw, hdr, "Session id length: %d", hello->session_length);
+    LV_ADD_TEXT_ELEMENT(lw, hdr, "Session id: %s", buf);
+    LV_ADD_TEXT_ELEMENT(lw, hdr, "Cipher suite: %s",
+                        get_tls_cipher_suite(ntohs(hello->cipher_suite)));
+    LV_ADD_TEXT_ELEMENT(lw, hdr, "Compression: %d", hello->compression_method);
+    add_tls_extensions(lw, hdr, hello->data, hello->data_len);
 }
 
 void add_tls_extensions(list_view *lw, list_view_header *header,
-                        struct tls_handshake_client_hello *hello)
+                        unsigned char *data, uint16_t len)
 {
     list_t *extensions;
     list_view_header *sub;
 
-    extensions = parse_tls_extensions(hello->data, hello->data_len);
+    extensions = parse_tls_extensions(data, len);
     if (extensions) {
         const node_t *n = list_begin(extensions);
 

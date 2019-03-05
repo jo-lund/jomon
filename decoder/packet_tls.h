@@ -5,6 +5,7 @@
 #include "packet.h"
 
 #define CHANGE_CIPHER_SPEC_TYPE 1
+#define ENCRYPTED_HANDSHAKE_MESSAGE 0xff
 
 enum content_type {
     TLS_CHANGE_CIPHER_SPEC = 20,
@@ -168,6 +169,7 @@ struct tls_handshake {
     uint8_t length[3];
     union {
         struct tls_handshake_client_hello *client_hello;
+        struct tls_handshake_server_hello *server_hello;
     };
 };
 
@@ -195,6 +197,23 @@ struct tls_handshake_client_hello {
     unsigned char *data; /* extensions */
     uint16_t data_len;
 };
+
+struct tls_handshake_server_hello {
+    uint16_t legacy_version;
+    uint8_t random_bytes[32];
+    uint8_t *session_id; /* the contents of the client's session id */
+    uint8_t session_length;
+    /* the single cipher suite selected by the server from the list in
+       ClientHello */
+    uint16_t cipher_suite;
+    /* Not used for TLS 1.3 and should be set to 0. For TLS 1.2 and below it is
+       the single compression algorithm selected by the server from the list in
+       ClientHello. */
+    uint8_t compression_method;
+    unsigned char *data; /* extensions */
+    uint16_t data_len;
+};
+
 
 /* tag-length-value encoded extension structures */
 struct tls_extension {
@@ -242,13 +261,15 @@ struct tls_info {
     /* messages, except for handshake, are encrypted and possibly compressed */
     union {
         struct tls_handshake *handshake;
+        struct tls_change_cipher_spec ccs;
         unsigned char *data;
     };
+    struct tls_info *next;
 };
 
 char *get_tls_version(uint16_t version);
 char *get_tls_type(uint8_t type);
-char *get_tls_handshake_type(struct tls_handshake *handshake);
+char *get_tls_handshake_type(uint8_t type);
 char *get_tls_cipher_suite(uint16_t suite);
 char *get_signature_scheme(uint16_t type);
 char *get_supported_group(uint16_t type);

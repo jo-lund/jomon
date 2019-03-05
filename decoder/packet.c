@@ -21,6 +21,7 @@
 #include "packet_nbds.h"
 #include "packet_snmp.h"
 #include "packet_imap.h"
+#include "packet_tls.h"
 #include "tcp_analyzer.h"
 #include "host_analyzer.h"
 #include "dns_cache.h"

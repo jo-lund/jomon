@@ -354,38 +354,66 @@ static struct uint_string cipher_suite[] = {
     { 0xD005, "TLS_ECDHE_PSK_WITH_AES_128_CCM_SHA256" }
 };
 
+enum tls_state {
+    NORMAL,
+    CCS
+};
+
 static packet_error parse_handshake(unsigned char **buf, uint16_t n,
                                     struct tls_info *tls);
 static packet_error parse_client_hello(unsigned char **buf, uint16_t n,
+                                       struct tls_handshake *handshake);
+static packet_error parse_server_hello(unsigned char **buf, uint16_t len,
                                        struct tls_handshake *handshake);
 
 packet_error handle_tls(unsigned char *buf, uint16_t n, struct application_info *adu)
 {
     if (n < TLS_HEADER_SIZE || n > TLS_MAX_SIZE) return TLS_ERR;
 
-    uint16_t record_len;
+    uint16_t data_len = 0;
+    struct tls_info **pptr;
+    enum tls_state state = NORMAL;
 
-    adu->tls = mempool_pealloc(sizeof(struct tls_info));
-    adu->tls->type = buf[0];
-    adu->tls->version = get_uint16be(buf + 1);
-    adu->tls->length = get_uint16be(buf + 3);
-    if (adu->tls->length > n) {
-        return TLS_ERR;
-    }
-    record_len = adu->tls->length;
-    buf += TLS_HEADER_SIZE;
-    record_len -= TLS_HEADER_SIZE;
-    switch (adu->tls->type) {
-    case TLS_CHANGE_CIPHER_SPEC:
-        break;
-    case TLS_ALERT:
-        break;
-    case TLS_HANDSHAKE:
-        return parse_handshake(&buf, record_len, adu->tls);
-    case TLS_APPLICATION_DATA:
-        break;
-    case TLS_HEARTBEAT:
-        break;
+    pptr = &adu->tls;
+    while (data_len < n) {
+        uint16_t record_len;
+
+        *pptr = mempool_pealloc(sizeof(struct tls_info));
+        (*pptr)->next = NULL;
+        (*pptr)->type = buf[0];
+        (*pptr)->version = get_uint16be(buf + 1);
+        (*pptr)->length = get_uint16be(buf + 3);
+        if ((*pptr)->length > n) {
+            return TLS_ERR;
+        }
+        record_len = (*pptr)->length;
+        data_len += record_len + TLS_HEADER_SIZE;
+        buf += TLS_HEADER_SIZE;
+        switch ((*pptr)->type) {
+        case TLS_CHANGE_CIPHER_SPEC:
+            (*pptr)->ccs.type = buf[0];
+            buf += record_len;
+            state = CCS;
+            break;
+        case TLS_ALERT:
+        case TLS_APPLICATION_DATA:
+        case TLS_HEARTBEAT:
+            buf += record_len;
+            break;
+        case TLS_HANDSHAKE:
+            if (state == CCS) {
+                (*pptr)->handshake = mempool_pealloc(sizeof(struct tls_handshake));
+                (*pptr)->handshake->type = ENCRYPTED_HANDSHAKE_MESSAGE;
+                buf += record_len;
+            } else {
+                parse_handshake(&buf, record_len, *pptr);
+            }
+            break;
+        default:
+            buf += record_len;
+            break;
+        }
+        pptr = &(*pptr)->next;
     }
     return NO_ERR;
 }
@@ -406,7 +434,14 @@ static packet_error parse_handshake(unsigned char **buf, uint16_t len, struct tl
     case TLS_CLIENT_HELLO:
         err = parse_client_hello(&ptr, len, tls->handshake);
         break;
+    case TLS_SERVER_HELLO:
+        err = parse_server_hello(&ptr, len, tls->handshake);
+        break;
+    case TLS_HELLO_REQUEST:
+        break;
+    case TLS_ENCRYPTED_EXTENSIONS:
     default:
+        ptr += len;
         break;
     }
     *buf = ptr;
@@ -431,14 +466,14 @@ static packet_error parse_client_hello(unsigned char **buf, uint16_t len,
     handshake->client_hello->session_id =
         mempool_pecopy(ptr + 1, handshake->client_hello->session_length);
     ptr += handshake->client_hello->session_length + 1;
-    len -= handshake->client_hello->session_length + 1;
+    len = len - (handshake->client_hello->session_length + 1);
     if ((handshake->client_hello->cipher_length = get_uint16be(ptr)) > len) {
         return TLS_ERR;
     }
     handshake->client_hello->cipher_suites =
         mempool_pecopy(ptr + 2, handshake->client_hello->cipher_length);
     ptr += handshake->client_hello->cipher_length + 2;
-    len -= handshake->client_hello->cipher_length + 2;
+    len = len - (handshake->client_hello->cipher_length + 2);
     if ((handshake->client_hello->compression_length = ptr[0]) > len) {
         return TLS_ERR;
     }
@@ -450,10 +485,43 @@ static packet_error parse_client_hello(unsigned char **buf, uint16_t len,
         handshake->client_hello->compression_methods =
             mempool_pecopy(ptr + 1, handshake->client_hello->compression_length);
         ptr += handshake->client_hello->compression_length + 1;
-        len -= (handshake->client_hello->compression_length + 1);
+        len = len - (handshake->client_hello->compression_length + 1);
     }
     handshake->client_hello->data = mempool_pecopy(ptr, len);
     handshake->client_hello->data_len = len;
+    ptr += len;
+    *buf = ptr;
+    return NO_ERR;
+}
+
+static packet_error parse_server_hello(unsigned char **buf, uint16_t len,
+                                       struct tls_handshake *handshake)
+{
+    if (len < TLS_MIN_CLIENT_HELLO) return TLS_ERR;
+
+    unsigned char *ptr = *buf;
+
+    handshake->server_hello = mempool_pealloc(sizeof(struct tls_handshake_server_hello));
+    handshake->server_hello->legacy_version = get_uint16be(ptr);
+    memcpy(handshake->server_hello->random_bytes, ptr + 2, 32);
+    ptr += 34;
+    len -= 34;
+    if ((handshake->server_hello->session_length = ptr[0]) > len) {
+        return TLS_ERR;
+    }
+    handshake->server_hello->session_id =
+        mempool_pecopy(ptr + 1, handshake->server_hello->session_length);
+    ptr += handshake->server_hello->session_length + 1;
+    len = len - (handshake->server_hello->session_length + 1);
+    handshake->server_hello->cipher_suite = get_uint16be(ptr);
+    ptr += 2;
+    len -= 2;
+    handshake->server_hello->compression_method = ptr[0];
+    ptr++;
+    len--;
+    handshake->server_hello->data = mempool_pecopy(ptr, len);
+    handshake->server_hello->data_len = len;
+    ptr += len;
     *buf = ptr;
     return NO_ERR;
 }
@@ -575,15 +643,21 @@ char *get_tls_type(uint8_t type)
     }
 }
 
-char *get_tls_handshake_type(struct tls_handshake *handshake)
+char *get_tls_handshake_type(uint8_t type)
 {
-    switch (handshake->type) {
+    switch (type) {
     case TLS_HELLO_REQUEST:
         return "Hello Request";
     case TLS_CLIENT_HELLO:
         return "Client Hello";
     case TLS_SERVER_HELLO:
         return "Server Hello";
+    case TLS_NEW_SESSION_TICKET:
+        return "New Session Ticket";
+    case TLS_END_OF_EARLY_DATA:
+        return "End of Early Data";
+    case TLS_ENCRYPTED_EXTENSIONS:
+        return "Encrypted Extensions";
     case TLS_CERTIFICATE:
         return "Certificate";
     case TLS_SERVER_KEY_EXCHANGE:
@@ -598,6 +672,12 @@ char *get_tls_handshake_type(struct tls_handshake *handshake)
         return "Client Key Exchange";
     case TLS_FINISHED:
         return "Finished";
+    case TLS_KEY_UPDATE:
+        return "Key Update";
+    case TLS_MESSAGE_HASH:
+        return "Message Hash";
+    case ENCRYPTED_HANDSHAKE_MESSAGE:
+        return "Encrypted Handshake Message";
     default:
         return NULL;
     }
