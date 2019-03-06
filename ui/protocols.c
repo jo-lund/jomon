@@ -1955,8 +1955,14 @@ void add_tls_information(list_view *lw, list_view_header *header, struct tls_inf
     list_view_header *record;
 
     while (tls) {
-        record = LV_ADD_SUB_HEADER(lw, header, selected[TLS_LAYER], TLS_LAYER,
-                                   "TLS Record: %s", get_tls_type(tls->type));
+        if (tls->type == TLS_HANDSHAKE) {
+            record = LV_ADD_SUB_HEADER(lw, header, selected[TLS_LAYER], TLS_LAYER,
+                                       "TLS Record: Handshake: %s",
+                                       get_tls_handshake_type(tls->handshake->type));
+        } else {
+            record = LV_ADD_SUB_HEADER(lw, header, selected[TLS_LAYER], TLS_LAYER,
+                                       "TLS Record: %s", get_tls_type(tls->type));
+        }
         LV_ADD_TEXT_ELEMENT(lw, record, "Type: %s", get_tls_type(tls->type));
         LV_ADD_TEXT_ELEMENT(lw, record, "Version: %s (0x%x)",
                             get_tls_version(tls->version), tls->version);
@@ -1977,7 +1983,8 @@ void add_tls_handshake(list_view *lw, list_view_header *header,
 {
     list_view_header *hdr;
 
-    hdr = LV_ADD_SUB_HEADER(lw, header, selected[TLS_LAYER], TLS_LAYER, "Handshake");
+    hdr = LV_ADD_SUB_HEADER(lw, header, selected[TLS_LAYER], TLS_LAYER, "Handshake: %s",
+                            get_tls_handshake_type(handshake->type));
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Type: %s", get_tls_handshake_type(handshake->type));
     if (handshake->type != ENCRYPTED_HANDSHAKE_MESSAGE) {
         LV_ADD_TEXT_ELEMENT(lw, hdr, "Length: %d", handshake->length[0] << 16 |
