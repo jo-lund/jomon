@@ -44,6 +44,9 @@ struct tcp {
     struct application_info data;
 };
 
+#define tcpv4_src(p) ((p)->eth.ip->tcp.src_port)
+#define tcpv4_dst(p) ((p)->eth.ip->tcp.dst_port)
+
 struct tcp_options {
     uint8_t option_kind;
     uint8_t option_length;

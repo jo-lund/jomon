@@ -36,6 +36,9 @@ struct ipv4_info {
     };
 };
 
+#define ipv4_src(p) ((p)->eth.ip->src)
+#define ipv4_dst(p) ((p)->eth.ip->dst)
+
 struct ipv6_info {
     unsigned int version : 4;
     uint8_t tc;

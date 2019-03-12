@@ -173,3 +173,12 @@ uint16_t get_packet_size(struct packet *p)
 {
     return p->eth.payload_len + ETH_HLEN;
 }
+
+bool is_tcp(struct packet *p)
+{
+    uint8_t protocol;
+
+    protocol = (p->eth.ethertype == ETH_P_IP) ?
+        p->eth.ip->protocol : p->eth.ipv6->next_header;
+    return protocol == IPPROTO_TCP;
+}
