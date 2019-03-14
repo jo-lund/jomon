@@ -216,9 +216,8 @@ void connection_screen_render(connection_screen *cs)
     print_status();
 }
 
-void update_connection(struct tcp_connection_v4 *c, bool new_connection)
+void update_connection(struct tcp_connection_v4 *conn, bool new_connection)
 {
-    struct tcp_connection_v4 *conn = (struct tcp_connection_v4 *) c;
     connection_screen *cs = (connection_screen *) screen_cache_get(CONNECTION_SCREEN);
 
     werase(cs->header);

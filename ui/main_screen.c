@@ -54,6 +54,7 @@ static bool decode_error = false;
 static chtype original_line[MAXLINE];
 static vector_t *packet_ref;
 static bool follow_stream = false;
+static struct tcp_connection_v4 *stream;
 
 static void main_screen_init(screen *s);
 static void main_screen_refresh(screen *s);
@@ -86,6 +87,7 @@ static bool read_show_progress(unsigned char *buffer, uint32_t n, struct timeval
 static void write_show_progress(int i);
 static void main_screen_get_input(screen *s);
 static void follow_tcp_stream(main_screen *ms);
+static void add_packet(struct tcp_connection_v4 *conn, bool new_connection);
 
 /* Handles subwindow layout */
 static void create_subwindow(main_screen *ms, int num_lines, int lineno);
@@ -454,6 +456,7 @@ void main_screen_get_input(screen *s)
         push_screen(screen_cache_get(CONNECTION_SCREEN));
         break;
     case 'f':
+        if (!interactive) return;
         follow_stream = !follow_stream;
         if (follow_stream) {
             follow_tcp_stream(ms);
@@ -463,11 +466,21 @@ void main_screen_get_input(screen *s)
             vector_free(packet_ref, NULL);
             packet_ref = packets;
             ms->selectionbar = selection - 1;
-            ms->top = selection - 1;
             werase(ms->base.win);
-            print_lines(ms, ms->selectionbar, ms->selectionbar + my, 0);
-            show_selectionbar(ms, ms->base.win, 0, A_NORMAL);
+            if (vector_size(packet_ref) < my) {
+                ms->outy = print_lines(ms, 0, vector_size(packet_ref), 0);
+                ms->top = 0;
+                if (interactive)
+                    show_selectionbar(ms, ms->base.win, ms->selectionbar, A_NORMAL);
+            } else {
+                ms->outy = print_lines(ms, ms->selectionbar, ms->selectionbar + my, 0);
+                ms->top = selection - 1;
+                if (interactive)
+                    show_selectionbar(ms, ms->base.win, 0, A_NORMAL);
+            }
             wrefresh(ms->base.win);
+            stream = NULL;
+            tcp_analyzer_unsubscribe(add_packet);
         }
         break;
     case 'g':
@@ -1518,11 +1531,11 @@ void follow_tcp_stream(main_screen *ms)
 {
     hash_map_t *connections = tcp_analyzer_get_sessions();
     struct packet *p = vector_get_data(packet_ref, ms->selectionbar);
-    struct tcp_connection_v4 *conn;
     struct tcp_endpoint_v4 endp;
     const node_t *n;
     char buf[MAXLINE];
     int i = 0;
+    int my = getmaxy(ms->base.win);
 
     if (!is_tcp(p)) {
         follow_stream = false;
@@ -1532,25 +1545,49 @@ void follow_tcp_stream(main_screen *ms)
     endp.dst = ipv4_dst(p);
     endp.src_port = tcpv4_src(p);
     endp.dst_port = tcpv4_dst(p);;
-    if (!(conn = hash_map_get(connections, &endp))) {
+    if (!(stream = hash_map_get(connections, &endp))) {
         endp.src = ipv4_dst(p);
         endp.dst = ipv4_src(p);
         endp.src_port = tcpv4_dst(p);
         endp.dst_port = tcpv4_src(p);;
-        conn = hash_map_get(connections, &endp);
+        stream = hash_map_get(connections, &endp);
     }
+    pd = progress_dialogue_create(" Finding stream ", list_size(stream->packets));
+    push_screen((screen *) pd);
     main_screen_clear(ms);
-    packet_ref = vector_init(list_size(conn->packets));
-    n = list_begin(conn->packets);
+    packet_ref = vector_init(list_size(stream->packets));
+    n = list_begin(stream->packets);
     while (n) {
         write_to_buf(buf, MAXLINE, list_data(n));
-        printnlw(ms->base.win, buf, strlen(buf), i, 0, ms->scrollx);
+        if (i < my) {
+            printnlw(ms->base.win, buf, strlen(buf), i, 0, ms->scrollx);
+        }
         vector_push_back(packet_ref, list_data(n));
         n = list_next(n);
         i++;
+        PROGRESS_DIALOGUE_UPDATE(pd, 1);
     }
+    pop_screen();
+    SCREEN_FREE((screen *) pd);
     ms->selectionbar = 0;
     ms->top = 0;
     main_screen_set_interactive(ms, true);
     main_screen_refresh((screen *) ms);
+    tcp_analyzer_subscribe(add_packet);
+}
+
+void add_packet(struct tcp_connection_v4 *conn, bool new_connection)
+{
+    if (new_connection) return;
+
+    if (stream == conn) {
+        vector_push_back(packet_ref, list_back(conn->packets));
+        print_packet(list_back(conn->packets));
+    }
+}
+
+// TODO: Handle this differently
+bool main_screen_handle_packet()
+{
+    return !follow_stream;
 }

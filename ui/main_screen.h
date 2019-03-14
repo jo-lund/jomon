@@ -46,6 +46,7 @@ typedef struct {
 main_screen *main_screen_create();
 void main_screen_free(screen *s);
 void main_screen_set_interactive(main_screen *ms, bool interactive_mode);
+bool main_screen_handle_packet();
 
 /* print the buffer to main screen */
 void main_screen_update(main_screen *ms, char *buf);

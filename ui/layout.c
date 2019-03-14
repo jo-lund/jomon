@@ -372,7 +372,9 @@ void layout(enum event ev)
 
     switch (ev) {
     case NEW_PACKET:
-        print_packet(vector_back(packets));
+        if (main_screen_handle_packet()) {
+            print_packet(vector_back(packets));
+        }
         break;
     case ALARM:
         s = screen_cache_get(STAT_SCREEN);

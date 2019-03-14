@@ -75,6 +75,8 @@ enum screen_type {
     NUM_SCREENS
 };
 
+struct packet;
+
 /*
  * Convenience macros that will call the functions defined in screen_operations.
  * The argument 'o' is a pointer to the screen.
@@ -182,6 +184,8 @@ void printnlw(WINDOW *win, char *str, int len, int y, int x, int scrollx);
  * start to print at the current cursor location.
  */
 void printat(WINDOW *win, int y, int x, int attrs, const char *fmt, ...);
+
+void print_packet(struct packet *p);
 
 int get_theme_colour(enum elements elem);
 
