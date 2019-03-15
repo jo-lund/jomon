@@ -182,9 +182,12 @@ uint16_t get_packet_size(struct packet *p)
 
 bool is_tcp(struct packet *p)
 {
-    uint8_t protocol;
+    uint8_t protocol = 0;
 
-    protocol = (p->eth.ethertype == ETH_P_IP) ?
-        p->eth.ip->protocol : p->eth.ipv6->next_header;
+    if (p->eth.ethertype == ETH_P_IP) {
+        protocol = p->eth.ip->protocol;
+    } else if (p->eth.ethertype == ETH_P_IPV6) {
+        protocol = p->eth.ipv6->next_header;
+    }
     return protocol == IPPROTO_TCP;
 }
