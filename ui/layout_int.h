@@ -31,6 +31,8 @@ enum elements {
     BACKGROUND,
     MENU_BACKGROUND,
     MENU_SELECTIONBAR,
+    SRC_TXT,
+    DST_TXT,
     NUM_ELEMENTS
 };
 
@@ -184,8 +186,6 @@ void printnlw(WINDOW *win, char *str, int len, int y, int x, int scrollx);
  * start to print at the current cursor location.
  */
 void printat(WINDOW *win, int y, int x, int attrs, const char *fmt, ...);
-
-void print_packet(struct packet *p);
 
 int get_theme_colour(enum elements elem);
 

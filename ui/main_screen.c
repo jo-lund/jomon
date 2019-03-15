@@ -36,6 +36,14 @@ enum views {
     NUM_VIEWS
 };
 
+enum follow_tcp_mode {
+    NORMAL,
+    ASCII,
+    HEXDUMP,
+    RAW,
+    NUM_MODES
+};
+
 extern vector_t *packets;
 extern WINDOW *status;
 extern main_menu *menu;
@@ -55,6 +63,9 @@ static chtype original_line[MAXLINE];
 static vector_t *packet_ref;
 static bool follow_stream = false;
 static struct tcp_connection_v4 *stream;
+static enum follow_tcp_mode tcp_mode = NORMAL;
+static struct subwin_info tcpwin;
+static main_screen *ms_ref;
 
 static void main_screen_init(screen *s);
 static void main_screen_refresh(screen *s);
@@ -88,6 +99,8 @@ static void write_show_progress(int i);
 static void main_screen_get_input(screen *s);
 static void follow_tcp_stream(main_screen *ms);
 static void add_packet(struct tcp_connection_v4 *conn, bool new_connection);
+static void handle_tcp_mode(main_screen *ms);
+static void print_ascii(main_screen *ms);
 
 /* Handles subwindow layout */
 static void create_subwindow(main_screen *ms, int num_lines, int lineno);
@@ -97,7 +110,7 @@ static void add_elements(main_screen *ms, struct packet *p);
 static void add_transport_elements(main_screen *ms, struct packet *p);
 static void add_app_elements(main_screen *ms, struct packet *p, struct application_info *info, uint16_t len);
 static void handle_selectionbar(main_screen *ms, int c);
-static void refresh_pad(main_screen *ms, int scrolly, int minx);
+static void refresh_pad(main_screen *ms, struct subwin_info *pad, int scrolly, int minx, bool update);
 static bool subwindow_on_screen(main_screen *ms);
 
 static screen_operations msop = {
@@ -123,6 +136,7 @@ main_screen *main_screen_create()
     ms = malloc(sizeof(main_screen));
     ms->base.op = &msop;
     main_screen_init((screen *) ms);
+    ms_ref = ms;
     return ms;
 }
 
@@ -155,6 +169,7 @@ void main_screen_free(screen *s)
     delwin(ms->subwindow.win);
     delwin(ms->header);
     delwin(ms->base.win);
+    delwin(tcpwin.win);
     if (ms->lvw) {
         free_list_view(ms->lvw);
     }
@@ -218,16 +233,17 @@ void main_screen_refresh(screen *s)
     if (interactive) {
         show_selectionbar(ms, ms->base.win, ms->selectionbar - ms->top, A_NORMAL);
     }
-    wrefresh(ms->base.win);
+    wnoutrefresh(ms->base.win);
     if (ms->subwindow.win) {
         struct packet *p;
 
         wbkgd(ms->subwindow.win, get_theme_colour(BACKGROUND));
         p = vector_get_data(packet_ref, ms->main_line.line_number + ms->top);
         print_protocol_information(ms, p, ms->main_line.line_number + ms->top);
-        prefresh(ms->subwindow.win, 0, 0, GET_SCRY(ms->subwindow.top), 0,
+        pnoutrefresh(ms->subwindow.win, 0, 0, GET_SCRY(ms->subwindow.top), 0,
                  GET_SCRY(my) - 1, mx);
     }
+    doupdate();
     print_header(ms);
     print_status();
 }
@@ -235,8 +251,39 @@ void main_screen_refresh(screen *s)
 void main_screen_refresh_pad(main_screen *ms)
 {
     if (ms->subwindow.win) {
-        refresh_pad(ms, 0, ms->scrollx);
+        refresh_pad(ms, &ms->subwindow, 0, ms->scrollx, true);
     }
+}
+
+void main_screen_print_packet(main_screen *ms, struct packet *p)
+{
+    char buf[MAXLINE];
+
+    write_to_buf(buf, MAXLINE, p);
+    main_screen_update(ms, buf);
+}
+
+void main_screen_render(main_screen *ms, bool interactive_mode)
+{
+    int my = getmaxy(ms->base.win);
+
+    if (vector_size(packet_ref) < my) {
+        ms->outy = print_lines(ms, 0, vector_size(packet_ref), 0);
+    } else {
+        ms->outy = print_lines(ms, 0, my, 0);
+    }
+    ms->top = 0;
+    if (interactive_mode) {
+        interactive = true;
+        show_selectionbar(ms, ms->base.win, ms->selectionbar, A_NORMAL);
+    }
+    main_screen_refresh((screen *) ms);
+}
+
+// TODO: Handle this differently
+bool main_screen_handle_packet()
+{
+    return !follow_stream;
 }
 
 void create_load_dialogue()
@@ -451,6 +498,11 @@ void main_screen_get_input(screen *s)
     ms = (main_screen *) s;
     my = getmaxy(ms->base.win);
     c = wgetch(ms->base.win);
+
+    /* HACK: Calling wgetch on ms->base.win causes a wrefresh */
+    if (tcpwin.win && tcp_mode != NORMAL) {
+        refresh_pad(ms, &tcpwin, 0, 0, true);
+    }
     switch (c) {
     case 'c':
         push_screen(screen_cache_get(CONNECTION_SCREEN));
@@ -463,6 +515,8 @@ void main_screen_get_input(screen *s)
         } else {
             int selection = ((struct packet *) vector_get_data(packet_ref, ms->selectionbar))->num;
 
+            delwin(tcpwin.win);
+            tcpwin.win = NULL;
             vector_free(packet_ref, NULL);
             packet_ref = packets;
             ms->selectionbar = selection - 1;
@@ -500,6 +554,9 @@ void main_screen_get_input(screen *s)
     case 'h':
         push_screen(screen_cache_get(HOST_SCREEN));
         break;
+    case 'i':
+        main_screen_set_interactive(ms, !interactive);
+        break;
     case 'm':
         hexmode = (hexmode + 1) % HEXMODES;
         if (ms->subwindow.win) {
@@ -512,11 +569,13 @@ void main_screen_get_input(screen *s)
             print_protocol_information(ms, p, ms->main_line.line_number + ms->top);
         }
         break;
-    case 'i':
-        main_screen_set_interactive(ms, !interactive);
-        break;
     case 'n':
         numeric = !numeric;
+        break;
+    case 'p':
+        if (follow_stream) {
+            handle_tcp_mode(ms);
+        }
         break;
     case KEY_UP:
         handle_keyup(ms, my);
@@ -835,8 +894,9 @@ void scroll_column(main_screen *ms, int scrollx, int num_lines)
             if (!inside_subwindow(ms)) {
                 show_selectionbar(ms, ms->base.win, ms->selectionbar - ms->top, A_NORMAL);
             }
-            wrefresh(ms->base.win);
-            refresh_pad(ms, 0, ms->scrollx);
+            wnoutrefresh(ms->base.win);
+            refresh_pad(ms, &ms->subwindow, 0, ms->scrollx, false);
+            doupdate();
         } else {
             ms->outy = print_lines(ms, ms->top, ms->top + num_lines, 0);
             show_selectionbar(ms, ms->base.win, ms->selectionbar - ms->top, A_NORMAL);
@@ -847,6 +907,13 @@ void scroll_column(main_screen *ms, int scrollx, int num_lines)
 
 void handle_keyup(main_screen *ms, int num_lines)
 {
+    if (follow_stream && tcp_mode != NORMAL) {
+        if (tcpwin.top != 0) {
+            refresh_pad(ms, &tcpwin, 1, 0, true);
+        }
+        return;
+    }
+
     if (!interactive) {
         main_screen_set_interactive(ms, true);
     }
@@ -876,10 +943,11 @@ void handle_keyup(main_screen *ms, int num_lines)
         }
         if (ms->subwindow.win) {
             if (inside_subwindow(ms)) {
-                wrefresh(ms->base.win);
+                wnoutrefresh(ms->base.win);
             }
             handle_selectionbar(ms, KEY_UP);
-            refresh_pad(ms, 1, ms->scrollx);
+            refresh_pad(ms, &ms->subwindow, 1, ms->scrollx, false);
+            doupdate();
         }
     } else if (ms->selectionbar > 0) {
         int screen_line = ms->selectionbar - ms->top;
@@ -887,7 +955,7 @@ void handle_keyup(main_screen *ms, int num_lines)
         if (ms->subwindow.win && screen_line >= ms->subwindow.top &&
             screen_line <= ms->subwindow.top + ms->subwindow.num_lines) {
             handle_selectionbar(ms, KEY_UP);
-            refresh_pad(ms, 0, ms->scrollx);
+            refresh_pad(ms, &ms->subwindow, 0, ms->scrollx, true);
         } else {
             remove_selectionbar(ms, ms->base.win, screen_line, A_NORMAL);
             show_selectionbar(ms, ms->base.win, screen_line - 1, A_NORMAL);
@@ -899,6 +967,11 @@ void handle_keyup(main_screen *ms, int num_lines)
 
 void handle_keydown(main_screen *ms, int num_lines)
 {
+    if (follow_stream && tcp_mode != NORMAL) {
+        refresh_pad(ms, &tcpwin, -1, 0, true);
+        return;
+    }
+
     if (!check_line(ms)) return;
 
     if (!interactive) {
@@ -930,10 +1003,11 @@ void handle_keydown(main_screen *ms, int num_lines)
         }
         if (ms->subwindow.win) {
             if (inside_subwindow(ms)) {
-                wrefresh(ms->base.win);
+                wnoutrefresh(ms->base.win);
             }
             handle_selectionbar(ms, KEY_DOWN);
-            refresh_pad(ms, -1, ms->scrollx);
+            refresh_pad(ms, &ms->subwindow, -1, ms->scrollx, false);
+            doupdate();
         }
     } else {
         int screen_line = ms->selectionbar - ms->top;
@@ -941,7 +1015,7 @@ void handle_keydown(main_screen *ms, int num_lines)
         if (ms->subwindow.win && screen_line + 1 >= ms->subwindow.top &&
             screen_line + 1 <= ms->subwindow.top + ms->subwindow.num_lines) {
             handle_selectionbar(ms, KEY_DOWN);
-            refresh_pad(ms, 0, ms->scrollx);
+            refresh_pad(ms, &ms->subwindow, 0, ms->scrollx, true);
         } else {
             remove_selectionbar(ms, ms->base.win, screen_line, A_NORMAL);
             show_selectionbar(ms, ms->base.win, screen_line + 1, A_NORMAL);
@@ -965,10 +1039,11 @@ void scroll_page(main_screen *ms, int num_lines)
                 ms->selectionbar = vector_size(packet_ref) - 1;
             }
             show_selectionbar(ms, ms->base.win, ms->selectionbar - ms->top, A_NORMAL);
-            wrefresh(ms->base.win);
+            wnoutrefresh(ms->base.win);
             if (ms->subwindow.win) {
-                refresh_pad(ms, 0, ms->scrollx);
+                refresh_pad(ms, &ms->subwindow, 0, ms->scrollx, false);
             }
+            doupdate();
         } else {
             int bottom = ms->top + num_lines - 1;
 
@@ -984,19 +1059,21 @@ void scroll_page(main_screen *ms, int num_lines)
                 }
                 print_lines(ms, bottom + 1, vector_size(packet_ref), vector_size(packet_ref) - scroll - ms->top);
                 show_selectionbar(ms, ms->base.win, ms->selectionbar - ms->top, A_NORMAL);
-                wrefresh(ms->base.win);
+                wnoutrefresh(ms->base.win);
                 if (ms->subwindow.win) {
-                    refresh_pad(ms, -scroll, ms->scrollx);
+                    refresh_pad(ms, &ms->subwindow, -scroll, ms->scrollx, false);
                 }
+                doupdate();
             } else {
                 ms->top += num_lines;
                 wscrl(ms->base.win, num_lines);
                 print_lines(ms, ms->top, ms->top + num_lines, 0);
                 show_selectionbar(ms, ms->base.win, ms->selectionbar - ms->top, A_NORMAL);
-                wrefresh(ms->base.win);
+                wnoutrefresh(ms->base.win);
                 if (ms->subwindow.win) {
-                    refresh_pad(ms, -num_lines, ms->scrollx);
+                    refresh_pad(ms, &ms->subwindow, -num_lines, ms->scrollx, false);
                 }
+                doupdate();
             }
         }
     } else { /* scroll page up */
@@ -1004,10 +1081,11 @@ void scroll_page(main_screen *ms, int num_lines)
             remove_selectionbar(ms, ms->base.win, ms->selectionbar, A_NORMAL);
             ms->selectionbar = 0;
             show_selectionbar(ms, ms->base.win, 0, A_NORMAL);
-            wrefresh(ms->base.win);
+            wnoutrefresh(ms->base.win);
             if (ms->subwindow.win) {
-                refresh_pad(ms, 0, ms->scrollx);
+                refresh_pad(ms, &ms->subwindow, 0, ms->scrollx, false);
             }
+            doupdate();
         } else {
             remove_selectionbar(ms, ms->base.win, ms->selectionbar - ms->top, A_NORMAL);
             ms->selectionbar += num_lines;
@@ -1018,20 +1096,22 @@ void scroll_page(main_screen *ms, int num_lines)
                 }
                 print_lines(ms, 0, -num_lines, 0);
                 show_selectionbar(ms, ms->base.win, ms->selectionbar, A_NORMAL);
-                wrefresh(ms->base.win);
+                wnoutrefresh(ms->base.win);
                 if (ms->subwindow.win) {
-                    refresh_pad(ms, ms->top, ms->scrollx);
+                    refresh_pad(ms, &ms->subwindow, ms->top, ms->scrollx, false);
                 }
+                doupdate();
                 ms->top = 0;
             } else {
                 wscrl(ms->base.win, num_lines);
                 ms->top += num_lines;
                 print_lines(ms, ms->top, ms->top - num_lines, 0);
                 show_selectionbar(ms, ms->base.win, ms->selectionbar - ms->top, A_NORMAL);
-                wrefresh(ms->base.win);
+                wnoutrefresh(ms->base.win);
                 if (ms->subwindow.win) {
-                    refresh_pad(ms, -num_lines, ms->scrollx);
+                    refresh_pad(ms, &ms->subwindow, -num_lines, ms->scrollx, false);
                 }
+                doupdate();
             }
         }
     }
@@ -1374,7 +1454,7 @@ void print_protocol_information(main_screen *ms, struct packet *p, int lineno)
         if (inside_subwindow(ms)) {
             show_selectionbar(ms, ms->subwindow.win, subline, LV_GET_ATTR(ms->lvw, subline));
         }
-        refresh_pad(ms, 0, ms->scrollx);
+        refresh_pad(ms, &ms->subwindow, 0, ms->scrollx, true);
     } else {
         int subline;
         int num_lines = (hexmode == HEXMODE_NORMAL) ? (p->eth.payload_len + ETH_HLEN) / 16 + 3 :
@@ -1390,7 +1470,7 @@ void print_protocol_information(main_screen *ms, struct packet *p, int lineno)
         if (inside_subwindow(ms)) {
             show_selectionbar(ms, ms->subwindow.win, subline, A_NORMAL);
         }
-        refresh_pad(ms, 0, ms->scrollx);
+        refresh_pad(ms, &ms->subwindow, 0, ms->scrollx, true);
     }
 }
 
@@ -1483,17 +1563,25 @@ bool subwindow_on_screen(main_screen *ms)
  * 'minx' is the x-coordinate that decides where to start showing information within
  * the pad.
  */
-void refresh_pad(main_screen *ms, int scrolly, int minx)
+void refresh_pad(main_screen *ms, struct subwin_info *pad, int scrolly, int minx, bool update)
 {
     int my, mx;
 
     getmaxyx(ms->base.win, my, mx);
-    ms->subwindow.top += scrolly;
+    pad->top += scrolly;
     ms->main_line.line_number += scrolly;
-    if (ms->subwindow.top <= 0) {
-        prefresh(ms->subwindow.win, abs(ms->subwindow.top), minx, GET_SCRY(0), 0, GET_SCRY(my) - 1, mx);
+    if (pad->top <= 0) {
+        if (update) {
+            prefresh(pad->win, abs(pad->top), minx, GET_SCRY(0), 0, GET_SCRY(my) - 1, mx);
+        } else {
+            pnoutrefresh(pad->win, abs(pad->top), minx, GET_SCRY(0), 0, GET_SCRY(my) - 1, mx);
+        }
     } else {
-        prefresh(ms->subwindow.win, 0, minx, GET_SCRY(ms->subwindow.top), 0, GET_SCRY(my) - 1, mx);
+        if (update) {
+            prefresh(pad->win, 0, minx, GET_SCRY(pad->top), 0, GET_SCRY(my) - 1, mx);
+        } else {
+            pnoutrefresh(pad->win, 0, minx, GET_SCRY(pad->top), 0, GET_SCRY(my) - 1, mx);
+        }
     }
 }
 
@@ -1576,18 +1664,119 @@ void follow_tcp_stream(main_screen *ms)
     tcp_analyzer_subscribe(add_packet);
 }
 
+void handle_tcp_mode(main_screen *ms)
+{
+    tcp_mode = (tcp_mode + 1) % NUM_MODES;
+    switch (tcp_mode) {
+    case NORMAL:
+        werase(ms->header);
+        main_screen_render(ms, interactive);
+        break;
+    case ASCII:
+        print_ascii(ms);
+        break;
+    case HEXDUMP:
+        break;
+    case RAW:
+        break;
+    default:
+        break;
+    }
+}
+
+void print_ascii(main_screen *ms)
+{
+    int col;
+    uint32_t cli_addr = 0;
+    uint16_t cli_port = 0;
+    uint32_t cli_bytes = 0;
+    uint32_t srv_addr = 0;
+    uint16_t srv_port = 0;
+    uint32_t srv_bytes = 0;
+    int cli_packets = 0;
+    int srv_packets = 0;
+    int txtcol = get_theme_colour(HEADER_TXT);
+    char addr[INET_ADDRSTRLEN];
+    int my, mx;
+    char buf[64];
+
+    getmaxyx(ms->base.win, my, mx);
+    werase(ms->header);
+    werase(ms->base.win);
+    if (tcpwin.win == NULL) {
+        uint32_t len = 0;
+
+        for (int i = 0; i < vector_size(packet_ref); i++) {
+            struct packet *p = vector_get_data(packet_ref, i);
+
+            len += TCP_PAYLOAD_LEN(p);
+        }
+        tcpwin.win = newpad(len / mx + 3 + vector_size(packet_ref) * 2, mx);
+    }
+
+    for (int i = 0; i < vector_size(packet_ref); i++) {
+        struct packet *p = vector_get_data(packet_ref, i);
+        unsigned char *payload = get_adu_payload(p);
+        uint16_t len = TCP_PAYLOAD_LEN(p);
+
+        if (i == 0) {
+            cli_addr = ipv4_src(p);
+            cli_port = tcpv4_src(p);
+        }
+        if (len == 0) continue;
+        if (cli_addr == ipv4_src(p) && cli_port == tcpv4_src(p)) {
+            col = get_theme_colour(SRC_TXT);
+            cli_packets++;
+            cli_bytes += len;
+        } else {
+            col = get_theme_colour(DST_TXT);
+            srv_packets++;
+            srv_bytes += len;
+            if (srv_addr == 0) {
+                srv_addr = ipv4_src(p);
+                srv_port = tcpv4_src(p);
+            }
+        }
+        wattron(tcpwin.win, col);
+        wprintw(tcpwin.win, "Packet %d\n", p->num);
+        for (int j = 0; j < len; j++) {
+            if (isprint(payload[j])) {
+                waddch(tcpwin.win, payload[j]);
+            } else {
+                waddch(tcpwin.win, '.');
+            }
+        }
+        wattroff(tcpwin.win, col);
+        waddstr(tcpwin.win, "\n\n");
+    }
+    inet_ntop(AF_INET, &cli_addr, addr, sizeof(addr));
+    printat(ms->header, 0, 0, txtcol, "Client address");
+    wprintw(ms->header, ": %s:%d", addr, ntohs(cli_port));
+    printat(ms->header, 0, 38, txtcol, "packets");
+    wprintw(ms->header, ": %d", cli_packets);
+    printat(ms->header, 0, 55, txtcol, "bytes");
+    format_bytes(cli_bytes, buf, 64);
+    wprintw(ms->header, ": %s", buf);
+    inet_ntop(AF_INET, &srv_addr, addr, sizeof(addr));
+    printat(ms->header, 1, 0, txtcol, "Server address");
+    wprintw(ms->header, ": %s:%d", addr, ntohs(srv_port));
+    printat(ms->header, 1, 38, txtcol, "packets");
+    wprintw(ms->header, ": %d", srv_packets);
+    printat(ms->header, 1, 55, txtcol, "bytes");
+    format_bytes(srv_bytes, buf, 64);
+    wprintw(ms->header, ": %s", buf);
+    mvwchgat(ms->header, 3, 0, -1, A_NORMAL, PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
+    wnoutrefresh(ms->header);
+    pnoutrefresh(tcpwin.win, 0, 0, HEADER_HEIGHT, 0, GET_SCRY(my) - 1, mx);
+    doupdate();
+}
+
 void add_packet(struct tcp_connection_v4 *conn, bool new_connection)
 {
     if (new_connection) return;
 
     if (stream == conn) {
         vector_push_back(packet_ref, list_back(conn->packets));
-        print_packet(list_back(conn->packets));
+        main_screen_print_packet(ms_ref, list_back(conn->packets));
     }
-}
-
-// TODO: Handle this differently
-bool main_screen_handle_packet()
-{
-    return !follow_stream;
 }
