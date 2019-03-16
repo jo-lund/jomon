@@ -97,7 +97,7 @@ static void remove_selectionbar(main_screen *ms, WINDOW *win, int line, uint32_t
 static bool read_show_progress(unsigned char *buffer, uint32_t n, struct timeval *t);
 static void write_show_progress(int i);
 static void main_screen_get_input(screen *s);
-static void follow_tcp_stream(main_screen *ms);
+static void follow_tcp_stream(main_screen *ms, bool follow);
 static void add_packet(struct tcp_connection_v4 *conn, bool new_connection);
 static void handle_tcp_mode(main_screen *ms);
 static void print_ascii(main_screen *ms);
@@ -240,18 +240,24 @@ void main_screen_refresh(screen *s)
         wbkgd(ms->subwindow.win, get_theme_colour(BACKGROUND));
         p = vector_get_data(packet_ref, ms->main_line.line_number + ms->top);
         print_protocol_information(ms, p, ms->main_line.line_number + ms->top);
-        pnoutrefresh(ms->subwindow.win, 0, 0, GET_SCRY(ms->subwindow.top), 0,
-                 GET_SCRY(my) - 1, mx);
+        refresh_pad(ms, &ms->subwindow.win, 0, 0, false);
     }
-    doupdate();
+    if (follow_stream && tcp_mode != NORMAL) {
+        refresh_pad(ms, &tcpwin.win, 0, 0, false);
+    }
     print_header(ms);
     print_status();
+    wnoutrefresh(ms->header);
+    wnoutrefresh(status);
+    doupdate();
 }
 
 void main_screen_refresh_pad(main_screen *ms)
 {
     if (ms->subwindow.win) {
         refresh_pad(ms, &ms->subwindow, 0, ms->scrollx, true);
+    } else if (tcpwin.win && tcp_mode != NORMAL) {
+        refresh_pad(ms, &tcpwin, 0, ms->scrollx, true);
     }
 }
 
@@ -357,8 +363,6 @@ void load_handle_ok(void *file)
             }
             pop_screen();
             SCREEN_FREE((screen *) pd);
-            print_header(ms);
-            print_status();
             print_file(ms);
         } else {
             pop_screen();
@@ -384,7 +388,10 @@ void load_handle_cancel(void *d)
         main_screen_clear(ms);
         print_header(ms);
         print_status();
-        wrefresh(ms->base.win);
+        wnoutrefresh(ms->header);
+        wnoutrefresh(status);
+        wnoutrefresh(ms->base.win);
+        doupdate();
         decode_error = false;
     }
 }
@@ -510,32 +517,7 @@ void main_screen_get_input(screen *s)
     case 'f':
         if (!interactive) return;
         follow_stream = !follow_stream;
-        if (follow_stream) {
-            follow_tcp_stream(ms);
-        } else {
-            int selection = ((struct packet *) vector_get_data(packet_ref, ms->selectionbar))->num;
-
-            delwin(tcpwin.win);
-            tcpwin.win = NULL;
-            vector_free(packet_ref, NULL);
-            packet_ref = packets;
-            ms->selectionbar = selection - 1;
-            werase(ms->base.win);
-            if (vector_size(packet_ref) < my) {
-                ms->outy = print_lines(ms, 0, vector_size(packet_ref), 0);
-                ms->top = 0;
-                if (interactive)
-                    show_selectionbar(ms, ms->base.win, ms->selectionbar, A_NORMAL);
-            } else {
-                ms->outy = print_lines(ms, ms->selectionbar, ms->selectionbar + my, 0);
-                ms->top = selection - 1;
-                if (interactive)
-                    show_selectionbar(ms, ms->base.win, 0, A_NORMAL);
-            }
-            wrefresh(ms->base.win);
-            stream = NULL;
-            tcp_analyzer_unsubscribe(add_packet);
-        }
+        follow_tcp_stream(ms, follow_stream);
         break;
     case 'g':
         if (!interactive) return;
@@ -634,7 +616,7 @@ void main_screen_get_input(screen *s)
     case KEY_F(1):
         push_screen(screen_cache_get(HELP_SCREEN));
         break;
-   case KEY_F(2):
+    case KEY_F(2):
         push_screen((screen *) menu);
         break;
     case KEY_F(3):
@@ -644,9 +626,12 @@ void main_screen_get_input(screen *s)
         if (!ctx.capturing && euid == 0) {
             main_screen_clear(ms);
             ctx.capturing = true;
-            wrefresh(ms->base.win);
             print_header(ms);
             print_status();
+            wnoutrefresh(ms->base.win);
+            wnoutrefresh(ms->header);
+            wnoutrefresh(status);
+            doupdate();
             start_scan();
         }
         break;
@@ -659,6 +644,7 @@ void main_screen_get_input(screen *s)
             stop_scan();
             ctx.capturing = false;
             print_status();
+            wrefresh(status);
         }
         break;
     case KEY_F(5):
@@ -683,6 +669,7 @@ void main_screen_get_input(screen *s)
             print_protocol_information(ms, p, ms->main_line.line_number + ms->top);
         }
         print_status();
+        wrefresh(status);
         break;
     case KEY_F(10):
     case 'q':
@@ -701,28 +688,81 @@ void main_screen_get_input(screen *s)
 
 void print_header(main_screen *ms)
 {
-    int y = 0;
-    int x = 0;
-    char addr[INET_ADDRSTRLEN];
-    int txtcol = get_theme_colour(HEADER_TXT);
+    werase(ms->header);
+    if (follow_stream) {
+        uint32_t cli_addr = 0;
+        uint16_t cli_port = 0;
+        uint32_t cli_bytes = 0;
+        uint32_t srv_addr = 0;
+        uint16_t srv_port = 0;
+        uint32_t srv_bytes = 0;
+        int cli_packets = 0;
+        int srv_packets = 0;
+        int txtcol = get_theme_colour(HEADER_TXT);
+        char addr[INET_ADDRSTRLEN];
+        char buf[64];
 
-    if (ctx.filename[0]) {
-        printat(ms->header, y, 0, txtcol, "Filename");
-        wprintw(ms->header, ": %s", ctx.filename);
+        for (int i = 0; i < vector_size(packet_ref); i++) {
+            struct packet *p = vector_get_data(packet_ref, i);
+            uint16_t len = TCP_PAYLOAD_LEN(p);
+
+            if (i == 0) {
+                cli_addr = ipv4_src(p);
+                cli_port = tcpv4_src(p);
+            }
+            if (len == 0) continue;
+            if (cli_addr == ipv4_src(p) && cli_port == tcpv4_src(p)) {
+                cli_packets++;
+                cli_bytes += len;
+            } else {
+                srv_packets++;
+                srv_bytes += len;
+                if (srv_addr == 0) {
+                    srv_addr = ipv4_src(p);
+                    srv_port = tcpv4_src(p);
+                }
+            }
+        }
+        inet_ntop(AF_INET, &cli_addr, addr, sizeof(addr));
+        printat(ms->header, 0, 0, txtcol, "Client address");
+        wprintw(ms->header, ": %s:%d", addr, ntohs(cli_port));
+        printat(ms->header, 0, 38, txtcol, "packets");
+        wprintw(ms->header, ": %d", cli_packets);
+        printat(ms->header, 0, 55, txtcol, "bytes");
+        format_bytes(cli_bytes, buf, 64);
+        wprintw(ms->header, ": %s", buf);
+        inet_ntop(AF_INET, &srv_addr, addr, sizeof(addr));
+        printat(ms->header, 1, 0, txtcol, "Server address");
+        wprintw(ms->header, ": %s:%d", addr, ntohs(srv_port));
+        printat(ms->header, 1, 38, txtcol, "packets");
+        wprintw(ms->header, ": %d", srv_packets);
+        printat(ms->header, 1, 55, txtcol, "bytes");
+        format_bytes(srv_bytes, buf, 64);
+        wprintw(ms->header, ": %s", buf);
+        mvwchgat(ms->header, 3, 0, -1, A_NORMAL, PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
     } else {
-        printat(ms->header, y, 0, txtcol, "Device");
-        wprintw(ms->header, ": %s", ctx.device);
+        int y = 0;
+        int x = 0;
+        char addr[INET_ADDRSTRLEN];
+        int txtcol = get_theme_colour(HEADER_TXT);
+
+        if (ctx.filename[0]) {
+            printat(ms->header, y, 0, txtcol, "Filename");
+            wprintw(ms->header, ": %s", ctx.filename);
+        } else {
+            printat(ms->header, y, 0, txtcol, "Device");
+            wprintw(ms->header, ": %s", ctx.device);
+        }
+        inet_ntop(AF_INET, &local_addr->sin_addr, addr, sizeof(addr));
+        printat(ms->header, ++y, 0, txtcol, "Local address");
+        wprintw(ms->header, ": %s", addr);
+        y += 2;
+        for (unsigned int i = 0; i < sizeof(header) / sizeof(header[0]); i++) {
+            mvwprintw(ms->header, y, x, header[i].txt);
+            x += header[i].width;
+        }
+        mvwchgat(ms->header, y, 0, -1, A_NORMAL, PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
     }
-    inet_ntop(AF_INET, &local_addr->sin_addr, addr, sizeof(addr));
-    printat(ms->header, ++y, 0, txtcol, "Local address");
-    wprintw(ms->header, ": %s", addr);
-    y += 2;
-    for (unsigned int i = 0; i < sizeof(header) / sizeof(header[0]); i++) {
-        mvwprintw(ms->header, y, x, header[i].txt);
-        x += header[i].width;
-    }
-    mvwchgat(ms->header, y, 0, -1, A_NORMAL, PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
-    wrefresh(ms->header);
 }
 
 void print_status()
@@ -771,7 +811,6 @@ void print_status()
     }
     wprintw(status, "F10");
     printat(status, -1, -1, colour, "%-11s", "Quit");
-    wrefresh(status);
 }
 
 void goto_line(main_screen *ms, int c)
@@ -1031,6 +1070,10 @@ void scroll_page(main_screen *ms, int num_lines)
         main_screen_set_interactive(ms, true);
     }
     if (num_lines > 0) { /* scroll page down */
+        if (follow_stream && tcp_mode != NORMAL) {
+            refresh_pad(ms, &tcpwin, -num_lines, 0, true);
+            return;
+        }
         if (vector_size(packet_ref) <= num_lines) {
             remove_selectionbar(ms, ms->base.win, ms->selectionbar - ms->top, A_NORMAL);
             if (ms->subwindow.win) {
@@ -1077,6 +1120,14 @@ void scroll_page(main_screen *ms, int num_lines)
             }
         }
     } else { /* scroll page up */
+        if (follow_stream && tcp_mode != NORMAL) {
+            if (tcpwin.top - num_lines > 0) {
+                refresh_pad(ms, &tcpwin, -tcpwin.top, 0, true);
+            } else {
+                refresh_pad(ms, &tcpwin, -num_lines, 0, true);
+            }
+            return;
+        }
         if (vector_size(packet_ref) <= abs(num_lines) || ms->top == 0) {
             remove_selectionbar(ms, ms->base.win, ms->selectionbar, A_NORMAL);
             ms->selectionbar = 0;
@@ -1319,7 +1370,7 @@ void add_transport_elements(main_screen *ms, struct packet *p)
             uint16_t len = TCP_PAYLOAD_LEN(p);
 
             header = LV_ADD_HEADER(ms->lvw, "Transmission Control Protocol (TCP)",
-                                selected[TRANSPORT], TRANSPORT);
+                                   selected[TRANSPORT], TRANSPORT);
             if (p->eth.ethertype == ETH_P_IP) {
                 add_tcp_information(ms->lvw, header, &p->eth.ip->tcp);
                 if (len < p->eth.payload_len) {
@@ -1587,81 +1638,113 @@ void refresh_pad(main_screen *ms, struct subwin_info *pad, int scrolly, int minx
 
 void handle_selectionbar(main_screen *ms, int c)
 {
-     int screen_line = ms->selectionbar - ms->top;
-     int subline = screen_line - ms->subwindow.top;
+    int screen_line = ms->selectionbar - ms->top;
+    int subline = screen_line - ms->subwindow.top;
 
-     if (c == KEY_UP) {
-         if (screen_line == ms->subwindow.top + ms->subwindow.num_lines) {
-             remove_selectionbar(ms, ms->base.win, screen_line, A_NORMAL);
-         } else {
-             remove_selectionbar(ms, ms->subwindow.win, subline, ms->lvw ? LV_GET_ATTR(ms->lvw, subline) : A_NORMAL);
-         }
-         if (subline == 0) {
-             show_selectionbar(ms, ms->base.win, screen_line - 1, A_NORMAL);
-         } else {
-             show_selectionbar(ms, ms->subwindow.win, subline - 1, ms->lvw ? LV_GET_ATTR(ms->lvw, subline - 1) : A_NORMAL);
-         }
-     } else if (c == KEY_DOWN) {
-         if (subline == -1) {
-             remove_selectionbar(ms, ms->base.win, screen_line, A_NORMAL);
-         } else {
-             remove_selectionbar(ms, ms->subwindow.win, subline, ms->lvw ? LV_GET_ATTR(ms->lvw, subline) : A_NORMAL);
-         }
-         if (screen_line + 1 == ms->subwindow.top + ms->subwindow.num_lines) {
-             show_selectionbar(ms, ms->base.win, screen_line + 1, A_NORMAL);
-         } else {
-             show_selectionbar(ms, ms->subwindow.win, subline + 1, ms->lvw ? LV_GET_ATTR(ms->lvw, subline + 1) : A_NORMAL);
-         }
-     }
+    if (c == KEY_UP) {
+        if (screen_line == ms->subwindow.top + ms->subwindow.num_lines) {
+            remove_selectionbar(ms, ms->base.win, screen_line, A_NORMAL);
+        } else {
+            remove_selectionbar(ms, ms->subwindow.win, subline, ms->lvw ? LV_GET_ATTR(ms->lvw, subline) : A_NORMAL);
+        }
+        if (subline == 0) {
+            show_selectionbar(ms, ms->base.win, screen_line - 1, A_NORMAL);
+        } else {
+            show_selectionbar(ms, ms->subwindow.win, subline - 1, ms->lvw ? LV_GET_ATTR(ms->lvw, subline - 1) : A_NORMAL);
+        }
+    } else if (c == KEY_DOWN) {
+        if (subline == -1) {
+            remove_selectionbar(ms, ms->base.win, screen_line, A_NORMAL);
+        } else {
+            remove_selectionbar(ms, ms->subwindow.win, subline, ms->lvw ? LV_GET_ATTR(ms->lvw, subline) : A_NORMAL);
+        }
+        if (screen_line + 1 == ms->subwindow.top + ms->subwindow.num_lines) {
+            show_selectionbar(ms, ms->base.win, screen_line + 1, A_NORMAL);
+        } else {
+            show_selectionbar(ms, ms->subwindow.win, subline + 1, ms->lvw ? LV_GET_ATTR(ms->lvw, subline + 1) : A_NORMAL);
+        }
+    }
 }
 
-void follow_tcp_stream(main_screen *ms)
+void follow_tcp_stream(main_screen *ms, bool follow)
 {
-    hash_map_t *connections = tcp_analyzer_get_sessions();
-    struct packet *p = vector_get_data(packet_ref, ms->selectionbar);
-    struct tcp_endpoint_v4 endp;
-    const node_t *n;
-    char buf[MAXLINE];
-    int i = 0;
-    int my = getmaxy(ms->base.win);
+    if (follow) {
+        hash_map_t *connections = tcp_analyzer_get_sessions();
+        struct packet *p = vector_get_data(packet_ref, ms->selectionbar);
+        struct tcp_endpoint_v4 endp;
+        const node_t *n;
+        char buf[MAXLINE];
+        int i = 0;
+        int my = getmaxy(ms->base.win);
 
-    if (!is_tcp(p)) {
-        follow_stream = false;
-        return;
-    }
-    endp.src = ipv4_src(p);
-    endp.dst = ipv4_dst(p);
-    endp.src_port = tcpv4_src(p);
-    endp.dst_port = tcpv4_dst(p);;
-    if (!(stream = hash_map_get(connections, &endp))) {
-        endp.src = ipv4_dst(p);
-        endp.dst = ipv4_src(p);
-        endp.src_port = tcpv4_dst(p);
-        endp.dst_port = tcpv4_src(p);;
-        stream = hash_map_get(connections, &endp);
-    }
-    pd = progress_dialogue_create(" Finding stream ", list_size(stream->packets));
-    push_screen((screen *) pd);
-    main_screen_clear(ms);
-    packet_ref = vector_init(list_size(stream->packets));
-    n = list_begin(stream->packets);
-    while (n) {
-        write_to_buf(buf, MAXLINE, list_data(n));
-        if (i < my) {
-            printnlw(ms->base.win, buf, strlen(buf), i, 0, ms->scrollx);
+        if (!is_tcp(p)) {
+            follow_stream = false;
+            return;
         }
-        vector_push_back(packet_ref, list_data(n));
-        n = list_next(n);
-        i++;
-        PROGRESS_DIALOGUE_UPDATE(pd, 1);
+        endp.src = ipv4_src(p);
+        endp.dst = ipv4_dst(p);
+        endp.src_port = tcpv4_src(p);
+        endp.dst_port = tcpv4_dst(p);;
+        if (!(stream = hash_map_get(connections, &endp))) {
+            endp.src = ipv4_dst(p);
+            endp.dst = ipv4_src(p);
+            endp.src_port = tcpv4_dst(p);
+            endp.dst_port = tcpv4_src(p);;
+            stream = hash_map_get(connections, &endp);
+        }
+        pd = progress_dialogue_create(" Finding stream ", list_size(stream->packets));
+        push_screen((screen *) pd);
+        main_screen_clear(ms);
+        packet_ref = vector_init(list_size(stream->packets));
+        n = list_begin(stream->packets);
+        while (n) {
+            write_to_buf(buf, MAXLINE, list_data(n));
+            if (i < my) {
+                printnlw(ms->base.win, buf, strlen(buf), i, 0, ms->scrollx);
+            }
+            vector_push_back(packet_ref, list_data(n));
+            n = list_next(n);
+            i++;
+            PROGRESS_DIALOGUE_UPDATE(pd, 1);
+        }
+        pop_screen();
+        SCREEN_FREE((screen *) pd);
+        ms->selectionbar = 0;
+        ms->top = 0;
+        main_screen_set_interactive(ms, true);
+        main_screen_refresh((screen *) ms);
+        tcp_analyzer_subscribe(add_packet);
+    } else {
+        int selection = ((struct packet *) vector_get_data(packet_ref, ms->selectionbar))->num;
+        int my = getmaxy(ms->base.win);
+
+        delwin(tcpwin.win);
+        tcpwin.win = NULL;
+        tcpwin.top = 0;
+        vector_free(packet_ref, NULL);
+        packet_ref = packets;
+        ms->selectionbar = selection - 1;
+        werase(ms->base.win);
+        if (vector_size(packet_ref) < my) {
+            ms->outy = print_lines(ms, 0, vector_size(packet_ref), 0);
+            ms->top = 0;
+            if (interactive)
+                show_selectionbar(ms, ms->base.win, ms->selectionbar, A_NORMAL);
+        } else {
+            ms->outy = print_lines(ms, ms->selectionbar, ms->selectionbar + my, 0);
+            ms->top = selection - 1;
+            if (interactive)
+                show_selectionbar(ms, ms->base.win, 0, A_NORMAL);
+        }
+        werase(ms->header);
+        print_header(ms);
+        wnoutrefresh(ms->base.win);
+        wnoutrefresh(ms->header);
+        doupdate();
+        stream = NULL;
+        tcp_analyzer_unsubscribe(add_packet);
+        tcp_mode = NORMAL;
     }
-    pop_screen();
-    SCREEN_FREE((screen *) pd);
-    ms->selectionbar = 0;
-    ms->top = 0;
-    main_screen_set_interactive(ms, true);
-    main_screen_refresh((screen *) ms);
-    tcp_analyzer_subscribe(add_packet);
 }
 
 void handle_tcp_mode(main_screen *ms)
@@ -1689,19 +1772,9 @@ void print_ascii(main_screen *ms)
     int col;
     uint32_t cli_addr = 0;
     uint16_t cli_port = 0;
-    uint32_t cli_bytes = 0;
-    uint32_t srv_addr = 0;
-    uint16_t srv_port = 0;
-    uint32_t srv_bytes = 0;
-    int cli_packets = 0;
-    int srv_packets = 0;
-    int txtcol = get_theme_colour(HEADER_TXT);
-    char addr[INET_ADDRSTRLEN];
     int my, mx;
-    char buf[64];
 
     getmaxyx(ms->base.win, my, mx);
-    werase(ms->header);
     werase(ms->base.win);
     if (tcpwin.win == NULL) {
         uint32_t len = 0;
@@ -1711,9 +1784,9 @@ void print_ascii(main_screen *ms)
 
             len += TCP_PAYLOAD_LEN(p);
         }
-        tcpwin.win = newpad(len / mx + 3 + vector_size(packet_ref) * 2, mx);
+        /* BUG: newpad will fail if the size is too big */
+        tcpwin.win = newpad(len / mx + 3 + vector_size(packet_ref) * 3, mx);
     }
-
     for (int i = 0; i < vector_size(packet_ref); i++) {
         struct packet *p = vector_get_data(packet_ref, i);
         unsigned char *payload = get_adu_payload(p);
@@ -1726,16 +1799,8 @@ void print_ascii(main_screen *ms)
         if (len == 0) continue;
         if (cli_addr == ipv4_src(p) && cli_port == tcpv4_src(p)) {
             col = get_theme_colour(SRC_TXT);
-            cli_packets++;
-            cli_bytes += len;
         } else {
             col = get_theme_colour(DST_TXT);
-            srv_packets++;
-            srv_bytes += len;
-            if (srv_addr == 0) {
-                srv_addr = ipv4_src(p);
-                srv_port = tcpv4_src(p);
-            }
         }
         wattron(tcpwin.win, col);
         wprintw(tcpwin.win, "Packet %d\n", p->num);
@@ -1749,26 +1814,7 @@ void print_ascii(main_screen *ms)
         wattroff(tcpwin.win, col);
         waddstr(tcpwin.win, "\n\n");
     }
-    inet_ntop(AF_INET, &cli_addr, addr, sizeof(addr));
-    printat(ms->header, 0, 0, txtcol, "Client address");
-    wprintw(ms->header, ": %s:%d", addr, ntohs(cli_port));
-    printat(ms->header, 0, 38, txtcol, "packets");
-    wprintw(ms->header, ": %d", cli_packets);
-    printat(ms->header, 0, 55, txtcol, "bytes");
-    format_bytes(cli_bytes, buf, 64);
-    wprintw(ms->header, ": %s", buf);
-    inet_ntop(AF_INET, &srv_addr, addr, sizeof(addr));
-    printat(ms->header, 1, 0, txtcol, "Server address");
-    wprintw(ms->header, ": %s:%d", addr, ntohs(srv_port));
-    printat(ms->header, 1, 38, txtcol, "packets");
-    wprintw(ms->header, ": %d", srv_packets);
-    printat(ms->header, 1, 55, txtcol, "bytes");
-    format_bytes(srv_bytes, buf, 64);
-    wprintw(ms->header, ": %s", buf);
-    mvwchgat(ms->header, 3, 0, -1, A_NORMAL, PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
-    wnoutrefresh(ms->header);
-    pnoutrefresh(tcpwin.win, 0, 0, HEADER_HEIGHT, 0, GET_SCRY(my) - 1, mx);
-    doupdate();
+    prefresh(tcpwin.win, 0, 0, HEADER_HEIGHT, 0, GET_SCRY(my) - 1, mx);
 }
 
 void add_packet(struct tcp_connection_v4 *conn, bool new_connection)
@@ -1777,6 +1823,8 @@ void add_packet(struct tcp_connection_v4 *conn, bool new_connection)
 
     if (stream == conn) {
         vector_push_back(packet_ref, list_back(conn->packets));
-        main_screen_print_packet(ms_ref, list_back(conn->packets));
+        if (tcp_mode == NORMAL) {
+            main_screen_print_packet(ms_ref, list_back(conn->packets));
+        }
     }
 }
