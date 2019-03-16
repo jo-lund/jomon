@@ -34,7 +34,7 @@ static char *get_active_interface(int fd, char *buffer, int len);
 
 void list_interfaces()
 {
-    struct ifaddrs *ifp;
+    struct ifaddrs *ifp, *ifhead;
     struct interface iflist[MAX_NUM_INTERFACES];
     int i;
     int c = 0;
@@ -45,6 +45,7 @@ void list_interfaces()
         err_sys("getifaddrs error");
     }
     memset(iflist, 0, sizeof(iflist));
+    ifhead = ifp;
 
     /* traverse the ifaddrs list and store the interface information in iflist */
     while (ifp) {
@@ -171,7 +172,7 @@ void list_interfaces()
         }
         printf("\n");
     }
-    freeifaddrs(ifp);
+    freeifaddrs(ifhead);
 }
 
 char *get_default_interface()
