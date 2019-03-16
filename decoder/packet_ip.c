@@ -112,7 +112,7 @@ packet_error handle_ipv4(unsigned char *buffer, int n, struct eth_info *eth)
     case IPPROTO_IGMP:
         return handle_igmp(buffer + header_len, n - header_len, &eth->ip->igmp);
     case IPPROTO_TCP:
-        return handle_tcp(buffer + header_len, n - header_len, &eth->ip->tcp, eth);
+        return handle_tcp(buffer + header_len, n - header_len, &eth->ip->tcp);
     case IPPROTO_UDP:
         return handle_udp(buffer + header_len, n - header_len, &eth->ip->udp);
     case IPPROTO_PIM:
@@ -187,7 +187,7 @@ packet_error handle_ipv6(unsigned char *buffer, int n, struct eth_info *eth)
     case IPPROTO_IGMP:
         return handle_igmp(buffer + header_len, n - header_len, &eth->ipv6->igmp);
     case IPPROTO_TCP:
-        return handle_tcp(buffer + header_len, n - header_len, &eth->ipv6->tcp, eth);
+        return handle_tcp(buffer + header_len, n - header_len, &eth->ipv6->tcp);
     case IPPROTO_UDP:
         return handle_udp(buffer + header_len, n - header_len, &eth->ipv6->udp);
     case IPPROTO_PIM:
