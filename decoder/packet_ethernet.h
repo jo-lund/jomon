@@ -54,6 +54,8 @@ struct eth_info {
     };
 };
 
+#define ethertype(p) ((p)->eth.ethertype)
+
 enum eth_802_type get_eth802_type(struct eth_802_llc *llc);
 uint32_t get_eth802_oui(struct snap_info *snap);
 char *get_ethernet_type(uint16_t ethertype);

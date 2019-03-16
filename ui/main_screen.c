@@ -23,7 +23,7 @@
 #include "../hashmap.h"
 #include "../decoder/tcp_analyzer.h"
 
-#define HEADER_HEIGHT 4
+#define HEADER_HEIGHT 5
 #define NUM_COLS_SCROLL 4
 
 /* Get the y and x screen coordinates. The argument is the main_screen coordinate */
@@ -39,7 +39,7 @@ enum views {
 enum follow_tcp_mode {
     NORMAL,
     ASCII,
-    HEXDUMP,
+    /* HEXDUMP, */
     RAW,
     NUM_MODES
 };
@@ -100,7 +100,9 @@ static void main_screen_get_input(screen *s);
 static void follow_tcp_stream(main_screen *ms, bool follow);
 static void add_packet(struct tcp_connection_v4 *conn, bool new_connection);
 static void handle_tcp_mode(main_screen *ms);
-static void print_ascii(main_screen *ms);
+static void print_tcppad(main_screen *ms, void (*print)(unsigned char *buf, uint16_t len));
+static void print_ascii(unsigned char *buf, uint16_t len);
+static void print_raw(unsigned char *buf, uint16_t len);
 
 /* Handles subwindow layout */
 static void create_subwindow(main_screen *ms, int num_lines, int lineno);
@@ -203,12 +205,12 @@ void main_screen_clear(main_screen *ms)
 
 void main_screen_refresh(screen *s)
 {
-    int my, mx;
+    int my;
     main_screen *ms;
     int c;
 
     ms = (main_screen *) s;
-    getmaxyx(ms->base.win, my, mx);
+    my = getmaxy(ms->base.win);
     wbkgd(ms->base.win, get_theme_colour(BACKGROUND));
     wbkgd(ms->header, get_theme_colour(BACKGROUND));
     touchwin(ms->base.win);
@@ -240,10 +242,10 @@ void main_screen_refresh(screen *s)
         wbkgd(ms->subwindow.win, get_theme_colour(BACKGROUND));
         p = vector_get_data(packet_ref, ms->main_line.line_number + ms->top);
         print_protocol_information(ms, p, ms->main_line.line_number + ms->top);
-        refresh_pad(ms, &ms->subwindow.win, 0, 0, false);
+        refresh_pad(ms, &ms->subwindow, 0, 0, false);
     }
     if (follow_stream && tcp_mode != NORMAL) {
-        refresh_pad(ms, &tcpwin.win, 0, 0, false);
+        refresh_pad(ms, &tcpwin, 0, 0, false);
     }
     print_header(ms);
     print_status();
@@ -377,7 +379,7 @@ void load_handle_ok(void *file)
     fd = NULL;
 }
 
-void load_handle_cancel(void *d)
+void load_handle_cancel(void *d __attribute__((unused)))
 {
     SCREEN_FREE((screen *) fd);
     fd = NULL;
@@ -419,7 +421,7 @@ void save_handle_ok(void *file)
     sd = NULL;
 }
 
-void save_handle_cancel(void *d)
+void save_handle_cancel(void *d __attribute__((unused)))
 {
     SCREEN_FREE((screen *) sd);
     sd = NULL;
@@ -451,7 +453,7 @@ bool read_show_progress(unsigned char *buffer, uint32_t n, struct timeval *t)
     return true;
 }
 
-void show_selectionbar(main_screen *ms, WINDOW *win, int line, uint32_t attr)
+void show_selectionbar(main_screen *ms __attribute__((unused)), WINDOW *win, int line, uint32_t attr)
 {
     mvwinchstr(win, line, 0, original_line);
     mvwchgat(win, line, 0, -1, attr, PAIR_NUMBER(get_theme_colour(SELECTIONBAR)), NULL);
@@ -726,20 +728,37 @@ void print_header(main_screen *ms)
         inet_ntop(AF_INET, &cli_addr, addr, sizeof(addr));
         printat(ms->header, 0, 0, txtcol, "Client address");
         wprintw(ms->header, ": %s:%d", addr, ntohs(cli_port));
-        printat(ms->header, 0, 38, txtcol, "packets");
+        printat(ms->header, 0, 38, txtcol, "Packets");
         wprintw(ms->header, ": %d", cli_packets);
-        printat(ms->header, 0, 55, txtcol, "bytes");
+        printat(ms->header, 0, 55, txtcol, "Bytes");
         format_bytes(cli_bytes, buf, 64);
         wprintw(ms->header, ": %s", buf);
         inet_ntop(AF_INET, &srv_addr, addr, sizeof(addr));
         printat(ms->header, 1, 0, txtcol, "Server address");
         wprintw(ms->header, ": %s:%d", addr, ntohs(srv_port));
-        printat(ms->header, 1, 38, txtcol, "packets");
+        printat(ms->header, 1, 38, txtcol, "Packets");
         wprintw(ms->header, ": %d", srv_packets);
-        printat(ms->header, 1, 55, txtcol, "bytes");
+        printat(ms->header, 1, 55, txtcol, "Bytes");
         format_bytes(srv_bytes, buf, 64);
         wprintw(ms->header, ": %s", buf);
-        mvwchgat(ms->header, 3, 0, -1, A_NORMAL, PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
+        switch (tcp_mode) {
+        case NORMAL:
+            printat(ms->header, 2, 0, txtcol, "Mode");
+            wprintw(ms->header, ": Normal");
+            break;
+        case ASCII:
+            printat(ms->header, 2, 0, txtcol, "Mode");
+            wprintw(ms->header, ": Ascii");
+            break;
+        case RAW:
+            printat(ms->header, 2, 0, txtcol, "Mode");
+            wprintw(ms->header, ": Raw");
+            break;
+        default:
+            break;
+        }
+        mvwchgat(ms->header, HEADER_HEIGHT - 1, 0, -1, A_NORMAL,
+                 PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
     } else {
         int y = 0;
         int x = 0;
@@ -756,12 +775,13 @@ void print_header(main_screen *ms)
         inet_ntop(AF_INET, &local_addr->sin_addr, addr, sizeof(addr));
         printat(ms->header, ++y, 0, txtcol, "Local address");
         wprintw(ms->header, ": %s", addr);
-        y += 2;
+        y += 3;
         for (unsigned int i = 0; i < sizeof(header) / sizeof(header[0]); i++) {
             mvwprintw(ms->header, y, x, header[i].txt);
             x += header[i].width;
         }
-        mvwchgat(ms->header, y, 0, -1, A_NORMAL, PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
+        mvwchgat(ms->header, HEADER_HEIGHT - 1, 0, -1, A_NORMAL,
+                 PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
     }
 }
 
@@ -944,7 +964,7 @@ void scroll_column(main_screen *ms, int scrollx, int num_lines)
     }
 }
 
-void handle_keyup(main_screen *ms, int num_lines)
+void handle_keyup(main_screen *ms, int num_lines __attribute__((unused)))
 {
     if (follow_stream && tcp_mode != NORMAL) {
         if (tcpwin.top != 0) {
@@ -1677,7 +1697,7 @@ void follow_tcp_stream(main_screen *ms, bool follow)
         int i = 0;
         int my = getmaxy(ms->base.win);
 
-        if (!is_tcp(p)) {
+        if (!is_tcp(p) || ethertype(p) != ETH_P_IP) {
             follow_stream = false;
             return;
         }
@@ -1750,35 +1770,38 @@ void follow_tcp_stream(main_screen *ms, bool follow)
 void handle_tcp_mode(main_screen *ms)
 {
     tcp_mode = (tcp_mode + 1) % NUM_MODES;
+
     switch (tcp_mode) {
     case NORMAL:
         werase(ms->header);
         main_screen_render(ms, interactive);
         break;
     case ASCII:
-        print_ascii(ms);
+        print_tcppad(ms, print_ascii);
         break;
-    case HEXDUMP:
-        break;
+    /* case HEXDUMP: */
+    /*     break; */
     case RAW:
+        print_tcppad(ms, print_raw);
         break;
     default:
         break;
     }
 }
 
-void print_ascii(main_screen *ms)
+void print_tcppad(main_screen *ms, void (*print)(unsigned char *buf, uint16_t len))
 {
     int col;
     uint32_t cli_addr = 0;
     uint16_t cli_port = 0;
     int my, mx;
+    uint32_t len;
 
+    print_header(ms);
     getmaxyx(ms->base.win, my, mx);
     werase(ms->base.win);
+    werase(tcpwin.win);
     if (tcpwin.win == NULL) {
-        uint32_t len = 0;
-
         for (int i = 0; i < vector_size(packet_ref); i++) {
             struct packet *p = vector_get_data(packet_ref, i);
 
@@ -1787,6 +1810,7 @@ void print_ascii(main_screen *ms)
         /* BUG: newpad will fail if the size is too big */
         tcpwin.win = newpad(len / mx + 3 + vector_size(packet_ref) * 3, mx);
     }
+    wbkgd(tcpwin.win, get_theme_colour(BACKGROUND));
     for (int i = 0; i < vector_size(packet_ref); i++) {
         struct packet *p = vector_get_data(packet_ref, i);
         unsigned char *payload = get_adu_payload(p);
@@ -1804,17 +1828,31 @@ void print_ascii(main_screen *ms)
         }
         wattron(tcpwin.win, col);
         wprintw(tcpwin.win, "Packet %d\n", p->num);
-        for (int j = 0; j < len; j++) {
-            if (isprint(payload[j])) {
-                waddch(tcpwin.win, payload[j]);
-            } else {
-                waddch(tcpwin.win, '.');
-            }
-        }
+        print(payload, len);
         wattroff(tcpwin.win, col);
         waddstr(tcpwin.win, "\n\n");
     }
-    prefresh(tcpwin.win, 0, 0, HEADER_HEIGHT, 0, GET_SCRY(my) - 1, mx);
+    wnoutrefresh(ms->header);
+    pnoutrefresh(tcpwin.win, 0, 0, HEADER_HEIGHT, 0, GET_SCRY(my) - 1, mx);
+    doupdate();
+}
+
+void print_ascii(unsigned char *buf, uint16_t len)
+{
+    for (int i = 0; i < len; i++) {
+        if (isprint(buf[i])) {
+            waddch(tcpwin.win, buf[i]);
+        } else {
+            waddch(tcpwin.win, '.');
+        }
+    }
+}
+
+void print_raw(unsigned char *buf, uint16_t len)
+{
+    for (int i = 0; i < len; i++) {
+        wprintw(tcpwin.win, "%02x", buf[i]);
+    }
 }
 
 void add_packet(struct tcp_connection_v4 *conn, bool new_connection)
