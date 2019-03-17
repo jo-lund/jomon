@@ -5,16 +5,17 @@
 
 #define SMB_HDR_LEN 32
 
-static char *smb_cmds[] =
-{ "Create directory", "Delete directory", "Open", "Create", "Close", "Flush", "Delete",
-  "Rename", "Query information", "Set information", "Read", "Write", "Lock byte range",
-  "Unlock byte range", "Create temporary", "Create new", "Check directory",
-  "Process exit", "Seek", "Lock and read", "Write and unlock", "", "", "", "", "",
-  "Read raw", "Multiplexed block read", "Multiplex block read, secondary request",
-  "Write raw","Multiplexed block write", "Multiplex block write, secondary request",
-  "Raw block write, final response", "Query server", "Set an extended set of file attributes",
-  "Get an extended set of file attributes", "Lock multiple byte ranges",
-  "Transaction" };
+static char *smb_cmds[] = {
+    "Create directory", "Delete directory", "Open", "Create", "Close", "Flush", "Delete",
+    "Rename", "Query information", "Set information", "Read", "Write", "Lock byte range",
+    "Unlock byte range", "Create temporary", "Create new", "Check directory",
+    "Process exit", "Seek", "Lock and read", "Write and unlock", "", "", "", "", "",
+    "Read raw", "Multiplexed block read", "Multiplex block read, secondary request",
+    "Write raw","Multiplexed block write", "Multiplex block write, secondary request",
+    "Raw block write, final response", "Query server", "Set an extended set of file attributes",
+    "Get an extended set of file attributes", "Lock multiple byte ranges",
+    "Transaction"
+};
 
 static struct packet_flags smb_flags[] = {
     { "Reply", 1, NULL },

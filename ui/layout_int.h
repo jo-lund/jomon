@@ -31,6 +31,8 @@ enum elements {
     BACKGROUND,
     MENU_BACKGROUND,
     MENU_SELECTIONBAR,
+    SRC_TXT,
+    DST_TXT,
     NUM_ELEMENTS
 };
 
@@ -75,6 +77,8 @@ enum screen_type {
     PROGRESS_DIALOGUE,
     NUM_SCREENS
 };
+
+struct packet;
 
 /*
  * Convenience macros that will call the functions defined in screen_operations.

@@ -46,9 +46,11 @@ typedef struct {
 main_screen *main_screen_create();
 void main_screen_free(screen *s);
 void main_screen_set_interactive(main_screen *ms, bool interactive_mode);
+void main_screen_render(main_screen *ms, bool interactive_mode);
+void main_screen_print_packet(main_screen *ms, struct packet *p);
 
-/* print the buffer to main screen */
-void main_screen_update(main_screen *ms, char *buf);
+/* Return whether the main_screen is ready to process a new packet or not */
+bool main_screen_handle_packet();
 
 /* refresh the entire pad */
 void main_screen_refresh_pad(main_screen *ms);

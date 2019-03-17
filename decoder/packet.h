@@ -163,6 +163,8 @@ void clear_statistics();
 
 uint16_t get_packet_size(struct packet *p);
 
+bool is_tcp(struct packet *p);
+
 /* Should be internal to the decoder */
 packet_error check_port(unsigned char *buffer, int n, struct application_info *adu,
                         uint16_t port, bool is_tcp);

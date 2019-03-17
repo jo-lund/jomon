@@ -79,7 +79,7 @@ static void free_options(void *data);
  *            the urgent data. This field is only be interpreted in segments with
  *            the URG control bit set.
  */
-packet_error handle_tcp(unsigned char *buffer, int n, struct tcp *info, struct eth_info *eth)
+packet_error handle_tcp(unsigned char *buffer, int n, struct tcp *info)
 {
     struct tcphdr *tcp;
     packet_error error;
@@ -121,8 +121,6 @@ packet_error handle_tcp(unsigned char *buffer, int n, struct tcp *info, struct e
     } else {
         info->options = NULL;
     }
-
-    tcp_analyzer_check_stream(eth);
 
     /* only check port if there is a payload */
     if (payload_len > 0) {

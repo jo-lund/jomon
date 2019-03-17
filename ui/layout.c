@@ -45,7 +45,9 @@ static int themes[NUM_THEMES][NUM_ELEMENTS] = {
         [SELECTIONBAR]  = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_CYAN)),
         [BACKGROUND]    = COLOR_PAIR(COLOUR_IDX(-1, -1)),
         [MENU_BACKGROUND] = COLOR_PAIR(COLOUR_IDX(COLOR_WHITE, COLOR_CYAN)),
-        [MENU_SELECTIONBAR] = COLOR_PAIR(COLOUR_IDX(COLOR_WHITE, COLOR_BLACK))
+        [MENU_SELECTIONBAR] = COLOR_PAIR(COLOUR_IDX(COLOR_WHITE, COLOR_BLACK)),
+        [SRC_TXT]       = COLOR_PAIR(COLOUR_IDX(COLOR_MAGENTA, -1)) | A_BOLD,
+        [DST_TXT]       = COLOR_PAIR(COLOUR_IDX(COLOR_BLUE, -1)) | A_BOLD
     },
     [LIGHT] = {
         [HEADER]        = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_GREEN)),
@@ -63,7 +65,9 @@ static int themes[NUM_THEMES][NUM_ELEMENTS] = {
         [SELECTIONBAR]  = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_CYAN)),
         [BACKGROUND]    = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_WHITE)),
         [MENU_BACKGROUND] = COLOR_PAIR(COLOUR_IDX(COLOR_WHITE, COLOR_BLACK)),
-        [MENU_SELECTIONBAR] = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_CYAN))
+        [MENU_SELECTIONBAR] = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_CYAN)),
+        [SRC_TXT]       = COLOR_PAIR(COLOUR_IDX(COLOR_RED, COLOR_WHITE)),
+        [DST_TXT]       = COLOR_PAIR(COLOUR_IDX(COLOR_BLUE, COLOR_WHITE)) | A_BOLD
     },
     [DARK] = {
         [HEADER]        = COLOR_PAIR(COLOUR_IDX(COLOR_WHITE, COLOR_MAGENTA)),
@@ -81,7 +85,9 @@ static int themes[NUM_THEMES][NUM_ELEMENTS] = {
         [SELECTIONBAR]  = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_CYAN)),
         [BACKGROUND]    = COLOR_PAIR(COLOUR_IDX(COLOR_WHITE, COLOR_BLACK)),
         [MENU_BACKGROUND] = COLOR_PAIR(COLOUR_IDX(COLOR_WHITE, COLOR_CYAN)),
-        [MENU_SELECTIONBAR] = COLOR_PAIR(COLOUR_IDX(COLOR_WHITE, COLOR_BLACK))
+        [MENU_SELECTIONBAR] = COLOR_PAIR(COLOUR_IDX(COLOR_WHITE, COLOR_BLACK)),
+        [SRC_TXT]       = COLOR_PAIR(COLOUR_IDX(COLOR_RED, COLOR_BLACK)),
+        [DST_TXT]       = COLOR_PAIR(COLOUR_IDX(COLOR_BLUE, COLOR_BLACK)) | A_BOLD
     }
 };
 
@@ -224,22 +230,9 @@ void screen_cache_clear()
     }
 }
 
-void print_packet(struct packet *p)
-{
-    char buf[MAXLINE];
-
-    write_to_buf(buf, MAXLINE, p);
-    main_screen_update((main_screen *) screen_cache[MAIN_SCREEN], buf);
-}
-
 void print_file()
 {
-    int my = getmaxy(screen_cache[MAIN_SCREEN]->win);
-
-    for (int i = 0; i < vector_size(packets) && i < my; i++) {
-        print_packet(vector_get_data(packets, i));
-    }
-    main_screen_set_interactive((main_screen *) screen_cache[MAIN_SCREEN], true);
+    main_screen_render((main_screen *) screen_cache[MAIN_SCREEN], true);
 }
 
 void pop_screen()
@@ -372,7 +365,10 @@ void layout(enum event ev)
 
     switch (ev) {
     case NEW_PACKET:
-        print_packet(vector_back(packets));
+        if (main_screen_handle_packet()) {
+            main_screen_print_packet((main_screen *) screen_cache[MAIN_SCREEN],
+                                     vector_back(packets));
+        }
         break;
     case ALARM:
         s = screen_cache_get(STAT_SCREEN);

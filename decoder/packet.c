@@ -88,6 +88,9 @@ size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet 
     }
     (*p)->num = ++pstat[0].num_packets;
     pstat[0].num_bytes += msg.msg_len;
+    if (is_tcp(*p)) {
+        tcp_analyzer_check_stream(*p);
+    }
     host_analyzer_investigate(*p);
     return msg.msg_len;
 }
@@ -102,6 +105,9 @@ bool decode_packet(unsigned char *buffer, size_t len, struct packet **p)
     }
     (*p)->num = ++pstat[0].num_packets;
     pstat[0].num_bytes += len;
+    if (is_tcp(*p)) {
+        tcp_analyzer_check_stream(*p);
+    }
     host_analyzer_investigate(*p);
     return true;
 }
@@ -175,4 +181,16 @@ void clear_statistics()
 uint16_t get_packet_size(struct packet *p)
 {
     return p->eth.payload_len + ETH_HLEN;
+}
+
+bool is_tcp(struct packet *p)
+{
+    uint8_t protocol = 0;
+
+    if (p->eth.ethertype == ETH_P_IP) {
+        protocol = p->eth.ip->protocol;
+    } else if (p->eth.ethertype == ETH_P_IPV6) {
+        protocol = p->eth.ipv6->next_header;
+    }
+    return protocol == IPPROTO_TCP;
 }

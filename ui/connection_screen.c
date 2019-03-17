@@ -216,9 +216,8 @@ void connection_screen_render(connection_screen *cs)
     print_status();
 }
 
-void update_connection(struct tcp_connection_v4 *c, bool new_connection)
+void update_connection(struct tcp_connection_v4 *conn, bool new_connection)
 {
-    struct tcp_connection_v4 *conn = (struct tcp_connection_v4 *) c;
     connection_screen *cs = (connection_screen *) screen_cache_get(CONNECTION_SCREEN);
 
     werase(cs->header);
@@ -286,14 +285,17 @@ void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int
     inet_ntop(AF_INET, &conn->endp->src, entry[ADDRA].buf, INET_ADDRSTRLEN);
     inet_ntop(AF_INET, &conn->endp->dst, entry[ADDRB].buf, INET_ADDRSTRLEN);
     p = list_data(n);
-    entry[ADDRA].val = p->eth.ip->src;
-    entry[ADDRB].val = p->eth.ip->dst;
+    entry[ADDRA].val = conn->endp->src;
+    entry[PORTA].val = conn->endp->src_port;
+    entry[ADDRB].val = conn->endp->dst;
+    entry[PORTB].val = conn->endp->dst_port;
     while (n) {
         p = list_data(n);
-        if (entry[ADDRA].val == p->eth.ip->src) {
+        if (entry[ADDRA].val == ipv4_src(p) && entry[PORTA].val == tcpv4_src(p)) {
             entry[BYTES_AB].val += get_packet_size(p);
             entry[PACKETS_AB].val++;
-        } else if (entry[ADDRB].val == p->eth.ip->src) {
+        } else if (entry[ADDRB].val == ipv4_src(p) &&
+                   entry[PORTB].val == tcpv4_src(p)) {
             entry[BYTES_BA].val += get_packet_size(p);
             entry[PACKETS_BA].val++;
         }
@@ -301,8 +303,6 @@ void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int
         n = list_next(n);
     }
     state = tcp_analyzer_get_connection_state(conn->state);
-    entry[PORTA].val = conn->endp->src_port;
-    entry[PORTB].val = conn->endp->dst_port;
     strncpy(entry[STATE].buf, state, MAX_WIDTH);
     entry[PACKETS].val = list_size(conn->packets);
     format_bytes(entry[BYTES].val, entry[BYTES].buf, MAX_WIDTH);

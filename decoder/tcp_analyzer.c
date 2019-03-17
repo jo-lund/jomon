@@ -40,20 +40,19 @@ void tcp_analyzer_init()
     conn_changed_publisher = publisher_init();
 }
 
-void tcp_analyzer_check_stream(const struct eth_info *ethp)
+void tcp_analyzer_check_stream(const struct packet *p)
 {
     if (!connection_table) return;
 
-    if (ethp->ethertype == ETH_P_IP) {
-        struct tcp *tcp = &ethp->ip->tcp;
-        struct packet *p = CONTAINER_OF(ethp, struct packet, eth);
+    if (p->eth.ethertype == ETH_P_IP) {
+        struct tcp *tcp = &p->eth.ip->tcp;
         struct tcp_connection_v4 *conn;
         struct tcp_endpoint_v4 endp;
 
-        endp.src = ethp->ip->src;
-        endp.dst = ethp->ip->dst;
-        endp.src_port = tcp->src_port;
-        endp.dst_port = tcp->dst_port;
+        endp.src = ipv4_src(p);
+        endp.dst = ipv4_dst(p);
+        endp.src_port = tcpv4_src(p);
+        endp.dst_port = tcpv4_dst(p);
         conn = hash_map_get(connection_table, &endp);
         if (conn) {
             list_push_back(conn->packets, p);
