@@ -373,6 +373,7 @@ packet_error handle_tls(unsigned char *buf, uint16_t n, struct application_info 
     uint16_t data_len = 0;
     struct tls_info **pptr;
     enum tls_state state = NORMAL;
+    int i = 0;
 
     pptr = &adu->tls;
     while (data_len < n) {
@@ -384,7 +385,14 @@ packet_error handle_tls(unsigned char *buf, uint16_t n, struct application_info 
         (*pptr)->version = get_uint16be(buf + 1);
         (*pptr)->length = get_uint16be(buf + 3);
         if ((*pptr)->length > n) {
-            return TLS_ERR;
+             /* TODO: Need to support TCP reassembly */
+            if (i == 0) {
+                return UNK_PROTOCOL;
+            } else {
+                mempool_pefree(*pptr);
+                *pptr = NULL;
+                return NO_ERR;
+            }
         }
         record_len = (*pptr)->length;
         data_len += record_len + TLS_HEADER_SIZE;
@@ -414,6 +422,7 @@ packet_error handle_tls(unsigned char *buf, uint16_t n, struct application_info 
             break;
         }
         pptr = &(*pptr)->next;
+        i++;
     }
     return NO_ERR;
 }
