@@ -1751,8 +1751,11 @@ void follow_tcp_stream(main_screen *ms, bool follow)
             if (interactive)
                 show_selectionbar(ms, ms->base.win, ms->selectionbar, A_NORMAL);
         } else {
+            if (vector_size(packet_ref) - ms->selectionbar < my) {
+                ms->selectionbar -= my - (vector_size(packet_ref) - ms->selectionbar);
+            }
             ms->outy = print_lines(ms, ms->selectionbar, ms->selectionbar + my, 0);
-            ms->top = selection - 1;
+            ms->top = ms->selectionbar;
             if (interactive)
                 show_selectionbar(ms, ms->base.win, 0, A_NORMAL);
         }
