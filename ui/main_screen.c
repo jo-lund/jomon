@@ -727,7 +727,7 @@ void print_header(main_screen *ms)
         }
         inet_ntop(AF_INET, &cli_addr, addr, sizeof(addr));
         printat(ms->header, 0, 0, txtcol, "Client address");
-        wprintw(ms->header, ": %s:%d", addr, ntohs(cli_port));
+        wprintw(ms->header, ": %s:%d", addr, cli_port);
         printat(ms->header, 0, 38, txtcol, "Packets");
         wprintw(ms->header, ": %d", cli_packets);
         printat(ms->header, 0, 55, txtcol, "Bytes");
@@ -735,7 +735,7 @@ void print_header(main_screen *ms)
         wprintw(ms->header, ": %s", buf);
         inet_ntop(AF_INET, &srv_addr, addr, sizeof(addr));
         printat(ms->header, 1, 0, txtcol, "Server address");
-        wprintw(ms->header, ": %s:%d", addr, ntohs(srv_port));
+        wprintw(ms->header, ": %s:%d", addr, srv_port);
         printat(ms->header, 1, 38, txtcol, "Packets");
         wprintw(ms->header, ": %d", srv_packets);
         printat(ms->header, 1, 55, txtcol, "Bytes");
