@@ -216,6 +216,9 @@ int parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **data,
         uint8_t num_names;
 
         num_names = ptr[0];
+        if (num_names > MAX_NBNS_NAMES) {
+            num_names = MAX_NBNS_NAMES;
+        }
         ptr++;
         for (int j = 0; j < num_names; j++) {
             memcpy(nbns->record[i].rdata.nbstat[j].node_name, ptr, NBNS_NAMELEN);
