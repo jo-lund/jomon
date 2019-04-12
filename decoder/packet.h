@@ -74,6 +74,7 @@ enum port {
     IMAP = 143,     /* Internet Message Access Protocol */
     SNMP = 161,     /* Simple Network Management Protocol */
     SNMPTRAP = 162, /* Simple Network Management Protocol Trap */
+    TLS = 443,      /* Transport Layer Security (HTTPS) */
     SSDP = 1900,    /* Simple Service Discovery Protocol */
     MDNS = 5353,    /* Multicast DNS */
     LLMNR = 5355    /* Link-Local Multicast Name Resolution */
@@ -104,7 +105,8 @@ typedef enum {
     SSDP_ERR,
     SNMP_ERR,
     SMB_ERR,
-    IMAP_ERR
+    IMAP_ERR,
+    TLS_ERR
 } packet_error;
 
 struct application_info {
@@ -117,6 +119,7 @@ struct application_info {
         struct snmp_info *snmp;
         struct imap_info *imap;
         struct ssdp_info *ssdp;
+        struct tls_info *tls;
     };
 };
 

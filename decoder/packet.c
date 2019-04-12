@@ -21,6 +21,7 @@
 #include "packet_nbds.h"
 #include "packet_snmp.h"
 #include "packet_imap.h"
+#include "packet_tls.h"
 #include "tcp_analyzer.h"
 #include "host_analyzer.h"
 #include "dns_cache.h"
@@ -137,13 +138,15 @@ packet_error check_port(unsigned char *buffer, int n, struct application_info *a
         return handle_nbns(buffer, n, adu);
     case NBDS:
         return handle_nbds(buffer, n, adu);
-    case SSDP:
-        return handle_ssdp(buffer, n, adu);
+    case IMAP:
+        return handle_imap(buffer, n, adu);
     case SNMP:
     case SNMPTRAP:
         return handle_snmp(buffer, n, adu);
-    case IMAP:
-        return handle_imap(buffer, n, adu);
+    case TLS:
+        return handle_tls(buffer, n, adu);
+    case SSDP:
+        return handle_ssdp(buffer, n, adu);
     default:
         return UNK_PROTOCOL;
     }

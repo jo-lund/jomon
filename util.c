@@ -91,19 +91,7 @@ char *strtolower(char *str)
     return str;
 }
 
-int str_find_first(const char *str, char c)
-{
-    int len = strlen(str);
-
-    for (int i = 0; i < len; i++) {
-        if (str[i] == c) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-int str_find_last(const char *str, char c)
+int str_find_last(const char *str, int c)
 {
     int len = strlen(str);
 
@@ -131,7 +119,6 @@ char *format_timespec(struct timespec *t, char *buf, int n)
 
     time = localtime(&t->tv_sec);
     strftime(buf, n - 1, "%T", time);
-    strcat(buf, "\0");
     return buf;
 }
 

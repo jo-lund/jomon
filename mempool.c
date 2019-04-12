@@ -10,17 +10,19 @@ static struct obstack global_pool;  /* pool for long-lived memory */
 static struct obstack request_pool; /* pool for short-lived memory */
 
 /* When the argument to obstack_free is a NULL pointer, the result is an
-   uninitialized obstack. globptr will be a pointer to a first dummy object on
+   uninitialized obstack. xx_globptr will be a pointer to a first dummy object on
    the obstack, and this is used as an argument to obstack_free in order to free
    all memory in the obstack and keep it valid for further allocations. */
-static int *globptr;
+static int *pe_globptr;
+static int *sh_globptr;
 
 void mempool_init()
 {
     obstack_init(&global_pool);
-    obstack_init(&request_pool);
+    obstack_init(&request_pool); /* will use the default chunk size of 4096 bytes */
     obstack_chunk_size(&global_pool) = CHUNK_SIZE;
-    globptr = obstack_alloc(&global_pool, sizeof(int));
+    pe_globptr = obstack_alloc(&global_pool, sizeof(int));
+    sh_globptr = obstack_alloc(&request_pool, sizeof(int));
 }
 
 void *mempool_pealloc(size_t size)
@@ -33,8 +35,8 @@ void mempool_pefree(void *ptr)
     if (ptr) {
         obstack_free(&global_pool, ptr);
     } else {
-        obstack_free(&global_pool, globptr);
-        globptr = obstack_alloc(&global_pool, sizeof(int));
+        obstack_free(&global_pool, pe_globptr);
+        pe_globptr = obstack_alloc(&global_pool, sizeof(int));
     }
 }
 
@@ -63,9 +65,19 @@ void *mempool_shalloc(size_t size)
     return obstack_alloc(&request_pool, size);
 }
 
+void *mempool_shcopy(void *addr, int size)
+{
+    return obstack_copy(&request_pool, addr, size);
+}
+
 void mempool_shfree(void *ptr)
 {
-    obstack_free(&request_pool, ptr);
+    if (ptr) {
+        obstack_free(&request_pool, ptr);
+    } else {
+        obstack_free(&request_pool, sh_globptr);
+        sh_globptr = obstack_alloc(&request_pool, sizeof(int));
+    }
 }
 
 void mempool_free()
