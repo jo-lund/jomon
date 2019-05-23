@@ -36,27 +36,29 @@ void help_screen_render()
 
     werase(win);
     wbkgd(win, get_theme_colour(BACKGROUND));
-    wprintw(win, "Monitor 0.0.1 (c) 2017 John Olav Lund");
+    wprintw(win, "Monitor 0.0.1 (c) 2014-2019 John Olav Lund");
     mvwprintw(win, ++y, 0, "");
-    mvwprintw(win, ++y, 0, "When a packet scan is active you can enter interactive mode " \
-              "by pressing \'i\'. In interactive mode the packet scan will continue in the " \
+    mvwprintw(win, ++y, 0, "When a packet scan is active you can enter interactive mode "
+              "by pressing \'i\'. In interactive mode the packet scan will continue in the "
               "background.");
     mvwprintw(win, ++y, 0, "");
     printat(win, ++y, 0, hdrcol, "General keyboard shortcuts");
+    printat(win, ++y, 0, subcol, "%12s", "s");
+    wprintw(win, ": Show statistics");
+    printat(win, ++y, 0, subcol, "%12s", "c");
+    wprintw(win, ": Show TCP connections");
+    printat(win, ++y, 0, subcol, "%12s", "h");
+    wprintw(win, ": Show hosts");
     printat(win, ++y, 0, subcol, "%12s", "F1");
     wprintw(win, ": Show help");
+    printat(win, ++y, 0, subcol, "%12s", "F2");
+    wprintw(win, ": Show menu");
     printat(win, ++y, 0, subcol, "%12s", "F10 q");
     wprintw(win, ": Quit");
     mvwprintw(win, ++y, 0, "");
     printat(win, ++y, 0, hdrcol, "Main screen keyboard shortcuts");
     printat(win, ++y, 0, subcol, "%12s", "i");
     wprintw(win, ": Enter interactive mode");
-    printat(win, ++y, 0, subcol, "%12s", "s");
-    wprintw(win, ": Show statistics screen");
-    printat(win, ++y, 0, subcol, "%12s", "c");
-    wprintw(win, ": Show TCP connections");
-    printat(win, ++y, 0, subcol, "%12s", "F2");
-    wprintw(win, ": Show menu");
     printat(win, ++y, 0, subcol, "%12s", "F3");
     wprintw(win, ": Start packet scan");
     printat(win, ++y, 0, subcol, "%12s", "F4");
@@ -77,9 +79,11 @@ void help_screen_render()
     wprintw(win, ": Scroll page up");
     printat(win, ++y, 0, subcol, "%12s", "Home End");
     wprintw(win, ": Go to first/last page");
+    printat(win, ++y, 0, subcol, "%12s", "f");
+    wprintw(win, ": Follow TCP stream");
     printat(win, ++y, 0, subcol, "%12s", "g");
     wprintw(win, ": Go to line");
-    printat(win, ++y, 0, subcol, "%12s", "h");
+    printat(win, ++y, 0, subcol, "%12s", "m");
     wprintw(win, ": Change hexdump mode");
     printat(win, ++y, 0, subcol, "%12s", "Enter");
     wprintw(win, ": Inspect packet");
@@ -93,6 +97,8 @@ void help_screen_render()
     wprintw(win, ": Switch between bytes and output in human readable format");
     printat(win, ++y, 0, subcol, "%12s", "p");
     wprintw(win, ": Show network or CPU & memory statistics");
-    printat(win, ++y, 0, subcol, "%12s", "Esc x");
+    printat(win, ++y, 0, subcol, "%12s", "v");
+    wprintw(win, ": Show/hide packet statistics");
+    printat(win, ++y, 0, subcol, "%12s", "Esc x F3");
     wprintw(win, ": Exit statistics screen");
 }
