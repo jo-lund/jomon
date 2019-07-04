@@ -2,13 +2,18 @@
 - Resizing of window causes problems with layout.
 - If you go to a line (with "go to line") on the current screen and the selection
   line is on bolded text, the text will disappear.
-- Sometimes when refreshing the screen the selection bar will have "gaps". Seems
-  to be present if there are long lines without any characters. I suspect this
-  has something to do with not calling touchwin on the main screen before
-  refreshing the subwindow.
 - If you are on the first page and inspect a packet (on line 2 and greater) that
   covers the entire screen, it is not possible to scroll up. It doesn't seem to
   take into account that the screen has been scrolled to make room for the
   packet being inspected.
 - Pad disappears if one inspects a packet at the last page (or first), scrolls
   away from the pad and then hit end (or home).
+- Errors with inspecting subheaders when the pad is bigger than the screen.
+- If an element is removed from the hash table I need to check the probe count
+  to see if an element should be relocated to the now empty bucket. If this is
+  not done the element that hashes to the same value as the element that is
+  removed will never be found (because when an empty element is encountered
+  during a search, the search assumes no element with that hash exists).
+- Follow TCP mode: Seems to be an error in reporting number of packets (and
+  bytes?) in the header when following a TCP stream. It will not include all
+  the packets.
