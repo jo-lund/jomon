@@ -47,6 +47,7 @@ typedef struct {
         bool load_file;
     } opt;
     GeoIP *gi;
+    struct sockaddr_in *local_addr;
 } main_context;
 
 enum event {
@@ -54,7 +55,6 @@ enum event {
     ALARM
 };
 
-extern struct sockaddr_in *local_addr;
 extern main_context ctx;
 
 void finish();

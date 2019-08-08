@@ -31,7 +31,6 @@
 
 #define TABLE_SIZE 65536
 
-struct sockaddr_in *local_addr;
 bool statistics = false;
 vector_t *packets;
 main_context ctx;
@@ -116,8 +115,8 @@ int main(int argc, char **argv)
     if (ctx.opt.promiscuous) {
         set_promiscuous(ctx.device, true);
     }
-    local_addr = malloc(sizeof (struct sockaddr_in));
-    get_local_address(ctx.device, (struct sockaddr *) local_addr);
+    ctx.local_addr = malloc(sizeof (struct sockaddr_in));
+    get_local_address(ctx.device, (struct sockaddr *) ctx.local_addr);
     if (!ctx.opt.nogeoip && !(ctx.gi = GeoIP_open(GEOIP_PATH, GEOIP_STANDARD))) {
         exit(1);
     }
@@ -196,7 +195,7 @@ void finish()
         set_promiscuous(ctx.device, false);
     }
     free(ctx.device);
-    free(local_addr);
+    free(ctx.local_addr);
     if (sockfd > 0) {
         close(sockfd);
     }

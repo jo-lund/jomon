@@ -772,7 +772,7 @@ void print_header(main_screen *ms)
             printat(ms->header, y, 0, txtcol, "Device");
             wprintw(ms->header, ": %s", ctx.device);
         }
-        inet_ntop(AF_INET, &local_addr->sin_addr, addr, sizeof(addr));
+        inet_ntop(AF_INET, &ctx.local_addr->sin_addr, addr, sizeof(addr));
         printat(ms->header, ++y, 0, txtcol, "Local address");
         wprintw(ms->header, ": %s", addr);
         y += 3;
