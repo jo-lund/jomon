@@ -9,11 +9,6 @@
 - Pad disappears if one inspects a packet at the last page (or first), scrolls
   away from the pad and then hit end (or home).
 - Errors with inspecting subheaders when the pad is bigger than the screen.
-- If an element is removed from the hash table I need to check the probe count
-  to see if an element should be relocated to the now empty bucket. If this is
-  not done the element that hashes to the same value as the element that is
-  removed will never be found (because when an empty element is encountered
-  during a search, the search assumes no element with that hash exists).
 - Follow TCP mode: Seems to be an error in reporting number of packets (and
   bytes?) in the header when following a TCP stream. It will not include all
   the packets.

@@ -93,8 +93,18 @@ bool hash_map_insert(hash_map_t *map, void *key, void *data)
 
 void hash_map_remove(hash_map_t *map, void *key)
 {
-    struct hash_elem *elem = find_elem(map, key);
+    struct hash_elem *elem = NULL;
+    unsigned int i = map->hash(key) & (map->buckets - 1);
+    unsigned int j = 0;
 
+    while (map->table[i].hash_val != (unsigned int) ~0 && j < map->buckets) {
+        if (map->comp(map->table[i].key, key) == 0) {
+            elem = &map->table[i];
+            break;
+        }
+        i = (i + 1) & (map->buckets - 1);
+        j++;
+    }
     if (elem) {
         if (map->free_key) {
             map->free_key(elem->key);
@@ -104,6 +114,19 @@ void hash_map_remove(hash_map_t *map, void *key)
         }
         elem->hash_val = ~0;
         map->count--;
+        i = (i + 1) & (map->buckets - 1);
+        j++;
+
+        /* re-insert every item after 'i' until we encounter a free slot */
+        while (map->table[i].hash_val != (unsigned int) ~0 && j < map->buckets) {
+            unsigned int hash = map->table[i].hash_val;
+
+            map->table[i].hash_val = ~0;
+            insert_elem(map->table, map->buckets, hash, map->table[i].key,
+                        map->table[i].data);
+            i = (i + 1) & (map->buckets - 1);
+            j++;
+        }
     }
 }
 
