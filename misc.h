@@ -48,6 +48,7 @@ typedef struct {
     } opt;
     GeoIP *gi;
     struct sockaddr_in *local_addr;
+    unsigned char mac[ETHER_ADDR_LEN];
 } main_context;
 
 enum event {

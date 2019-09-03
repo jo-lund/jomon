@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <unistd.h>
+#include <net/ethernet.h>
 #include "interface.h"
 #include "error.h"
 
@@ -278,6 +279,23 @@ void get_local_address(char *dev, struct sockaddr *addr)
         err_sys("ioctl error");
     }
     memcpy(addr, &ifr.ifr_addr, sizeof(*addr));
+    close(sockfd);
+}
+
+void get_local_mac(char *dev, unsigned char *mac)
+{
+    struct ifreq ifr;
+    int sockfd;
+
+    strncpy(ifr.ifr_name, dev, sizeof(ifr.ifr_name));
+    ifr.ifr_addr.sa_family = AF_INET;
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
+        err_sys("socket error");
+    }
+    if (ioctl(sockfd, SIOCGIFHWADDR, &ifr) == -1) {
+        err_sys("ioctl error");
+    }
+    memcpy(mac, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN);
     close(sockfd);
 }
 

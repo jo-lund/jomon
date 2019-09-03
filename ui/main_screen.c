@@ -764,6 +764,7 @@ void print_header(main_screen *ms)
         int x = 0;
         char addr[INET_ADDRSTRLEN];
         int txtcol = get_theme_colour(HEADER_TXT);
+        char mac[HW_ADDRSTRLEN];
 
         if (ctx.filename[0]) {
             printat(ms->header, y, 0, txtcol, "Filename");
@@ -773,8 +774,11 @@ void print_header(main_screen *ms)
             wprintw(ms->header, ": %s", ctx.device);
         }
         inet_ntop(AF_INET, &ctx.local_addr->sin_addr, addr, sizeof(addr));
-        printat(ms->header, ++y, 0, txtcol, "Local address");
+        printat(ms->header, ++y, 0, txtcol, "IPv4 address");
         wprintw(ms->header, ": %s", addr);
+        HW_ADDR_NTOP(mac, ctx.mac);
+        printat(ms->header, ++y, 0, txtcol, "MAC");
+        wprintw(ms->header, ": %s", mac);
         y += 3;
         for (unsigned int i = 0; i < sizeof(header) / sizeof(header[0]); i++) {
             mvwprintw(ms->header, y, x, header[i].txt);

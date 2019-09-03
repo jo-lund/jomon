@@ -31,7 +31,6 @@
 
 #define TABLE_SIZE 65536
 
-bool statistics = false;
 vector_t *packets;
 main_context ctx;
 static volatile sig_atomic_t signal_flag = 0;
@@ -117,6 +116,7 @@ int main(int argc, char **argv)
     }
     ctx.local_addr = malloc(sizeof (struct sockaddr_in));
     get_local_address(ctx.device, (struct sockaddr *) ctx.local_addr);
+    get_local_mac(ctx.device, ctx.mac);
     if (!ctx.opt.nogeoip && !(ctx.gi = GeoIP_open(GEOIP_PATH, GEOIP_STANDARD))) {
         exit(1);
     }

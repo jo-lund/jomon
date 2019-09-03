@@ -18,6 +18,9 @@ int get_interface_index(char *dev);
 /* get the local IP address */
 void get_local_address(char *dev, struct sockaddr *addr);
 
+/* get the local MAC address */
+void get_local_mac(char *dev, unsigned char *mac);
+
 /* get wireless statistics */
 bool get_iw_stats(char *dev, struct iw_statistics *iwstat);
 
