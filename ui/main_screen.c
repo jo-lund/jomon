@@ -779,8 +779,8 @@ void print_header(main_screen *ms)
         HW_ADDR_NTOP(mac, ctx.mac);
         printat(ms->header, ++y, 0, txtcol, "MAC");
         wprintw(ms->header, ": %s", mac);
-        y += 3;
-        for (unsigned int i = 0; i < sizeof(header) / sizeof(header[0]); i++) {
+        y += 2;
+        for (unsigned int i = 0; i < ARRAY_SIZE(header); i++) {
             mvwprintw(ms->header, y, x, header[i].txt);
             x += header[i].width;
         }
