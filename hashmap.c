@@ -10,12 +10,12 @@ struct hash_elem {
     unsigned int probe_count;
 };
 
-struct hash_map {
+struct hashmap {
     struct hash_elem *table;
     hash_fn hash;
-    hash_map_compare comp;
-    hash_map_deallocate free_key;
-    hash_map_deallocate free_data;
+    hashmap_compare comp;
+    hashmap_deallocate free_key;
+    hashmap_deallocate free_data;
     unsigned int count;
     unsigned int buckets;
 };
@@ -23,9 +23,9 @@ struct hash_map {
 static inline unsigned int clp2(unsigned int x);
 static void insert_elem(struct hash_elem *tbl, unsigned int size,
                         unsigned int hash_val, void *key, void *data);
-static struct hash_elem *find_elem(hash_map_t *map, void *key);
-static const hash_map_iterator *get_next_iterator(hash_map_t *map, unsigned int i);
-static const hash_map_iterator *get_prev_iterator(hash_map_t *map, unsigned int i);
+static struct hash_elem *find_elem(hashmap_t *map, void *key);
+static const hashmap_iterator *get_next_iterator(hashmap_t *map, unsigned int i);
+static const hashmap_iterator *get_prev_iterator(hashmap_t *map, unsigned int i);
 
 static inline unsigned int default_hash(const void *key)
 {
@@ -43,11 +43,11 @@ static inline int default_compare(const void *e1, const void *e2)
     return *(uint32_t *) e1 - *(uint32_t *) e2;
 }
 
-hash_map_t *hash_map_init(unsigned int size, hash_fn h, hash_map_compare fn)
+hashmap_t *hashmap_init(unsigned int size, hash_fn h, hashmap_compare fn)
 {
-    hash_map_t *map;
+    hashmap_t *map;
 
-    map = malloc(sizeof(hash_map_t));
+    map = malloc(sizeof(hashmap_t));
     map->buckets = clp2(size); /* set the size to a power of 2 */
     map->table = malloc(map->buckets * sizeof(struct hash_elem));
     for (unsigned int i = 0; i < map->buckets; i++) {
@@ -61,7 +61,7 @@ hash_map_t *hash_map_init(unsigned int size, hash_fn h, hash_map_compare fn)
     return map;
 }
 
-bool hash_map_insert(hash_map_t *map, void *key, void *data)
+bool hashmap_insert(hashmap_t *map, void *key, void *data)
 {
     /* do not allow duplicate keys */
     if (find_elem(map, key)) return false;
@@ -91,7 +91,7 @@ bool hash_map_insert(hash_map_t *map, void *key, void *data)
     return true;
 }
 
-void hash_map_remove(hash_map_t *map, void *key)
+void hashmap_remove(hashmap_t *map, void *key)
 {
     struct hash_elem *elem = NULL;
     unsigned int i = map->hash(key) & (map->buckets - 1);
@@ -130,7 +130,7 @@ void hash_map_remove(hash_map_t *map, void *key)
     }
 }
 
-void *hash_map_get(hash_map_t *map, void *key)
+void *hashmap_get(hashmap_t *map, void *key)
 {
     struct hash_elem *elem = find_elem(map, key);
 
@@ -138,22 +138,22 @@ void *hash_map_get(hash_map_t *map, void *key)
     return NULL;
 }
 
-bool hash_map_contains(hash_map_t *map, void *key)
+bool hashmap_contains(hashmap_t *map, void *key)
 {
     return find_elem(map, key);
 }
 
-unsigned int hash_map_size(hash_map_t *map)
+unsigned int hashmap_size(hashmap_t *map)
 {
     return map->count;
 }
 
-const hash_map_iterator *hash_map_first(hash_map_t *map)
+const hashmap_iterator *hashmap_first(hashmap_t *map)
 {
     return get_next_iterator(map, 0);
 }
 
-const hash_map_iterator *hash_map_next(hash_map_t *map, const hash_map_iterator *it)
+const hashmap_iterator *hashmap_next(hashmap_t *map, const hashmap_iterator *it)
 {
     struct hash_elem *elem = (struct hash_elem *) it;
     unsigned int idx = (elem->hash_val + elem->probe_count + 1) & (map->buckets - 1);
@@ -164,7 +164,7 @@ const hash_map_iterator *hash_map_next(hash_map_t *map, const hash_map_iterator 
     return get_next_iterator(map, idx);
 }
 
-const hash_map_iterator *hash_map_prev(hash_map_t *map, const hash_map_iterator *it)
+const hashmap_iterator *hashmap_prev(hashmap_t *map, const hashmap_iterator *it)
 {
     struct hash_elem *elem = (struct hash_elem *) it;
     unsigned int idx = (elem->hash_val + elem->probe_count - 1) & (map->buckets - 1);
@@ -175,17 +175,17 @@ const hash_map_iterator *hash_map_prev(hash_map_t *map, const hash_map_iterator 
     return get_prev_iterator(map, idx);
 }
 
-const hash_map_iterator *hash_map_get_it(hash_map_t *map, void *key)
+const hashmap_iterator *hashmap_get_it(hashmap_t *map, void *key)
 {
     struct hash_elem *elem = find_elem(map, key);
 
     if (elem) {
-        return (const hash_map_iterator *) elem;
+        return (const hashmap_iterator *) elem;
     }
     return NULL;
 }
 
-void hash_map_clear(hash_map_t *map)
+void hashmap_clear(hashmap_t *map)
 {
     for (unsigned int i = 0; i < map->buckets; i++) {
         if (map->table[i].hash_val != (unsigned int) ~0) {
@@ -201,17 +201,17 @@ void hash_map_clear(hash_map_t *map)
     map->count = 0;
 }
 
-void hash_map_set_free_key(hash_map_t *map, hash_map_deallocate fn)
+void hashmap_set_free_key(hashmap_t *map, hashmap_deallocate fn)
 {
     map->free_key = fn;
 }
 
-void hash_map_set_free_data(hash_map_t *map, hash_map_deallocate fn)
+void hashmap_set_free_data(hashmap_t *map, hashmap_deallocate fn)
 {
     map->free_data = fn;
 }
 
-void hash_map_free(hash_map_t *map)
+void hashmap_free(hashmap_t *map)
 {
     for (unsigned int i = 0; i < map->buckets; i++) {
         if (map->table[i].hash_val != (unsigned int) ~0) {
@@ -227,7 +227,7 @@ void hash_map_free(hash_map_t *map)
     free(map);
 }
 
-struct hash_elem *find_elem(hash_map_t *map, void *key)
+struct hash_elem *find_elem(hashmap_t *map, void *key)
 {
     unsigned int i = map->hash(key) & (map->buckets - 1);
     unsigned int j = 0;
@@ -271,29 +271,29 @@ inline unsigned int clp2(unsigned int x)
     return x + 1;
 }
 
-const hash_map_iterator *get_next_iterator(hash_map_t *map, unsigned int i)
+const hashmap_iterator *get_next_iterator(hashmap_t *map, unsigned int i)
 {
     while (map->table[i].hash_val == (unsigned int) ~0) {
         if (++i >= map->buckets) {
             return NULL;
         }
     }
-    return (const hash_map_iterator *) &map->table[i];
+    return (const hashmap_iterator *) &map->table[i];
 }
 
-const hash_map_iterator *get_prev_iterator(hash_map_t *map, unsigned int i)
+const hashmap_iterator *get_prev_iterator(hashmap_t *map, unsigned int i)
 {
     while (map->table[i].hash_val == (unsigned int) ~0) {
         if (--i <= 0) {
             return NULL;
         }
     }
-    return (const hash_map_iterator *) &map->table[i];
+    return (const hashmap_iterator *) &map->table[i];
 }
 
-hash_map_stat_t hash_map_get_stat(hash_map_t *map)
+hashmap_stat_t hashmap_get_stat(hashmap_t *map)
 {
-    hash_map_stat_t stat;
+    hashmap_stat_t stat;
     unsigned int pcc = 0;
 
     stat.lpc = 0;

@@ -4,7 +4,7 @@
 
 #define TBLSZ 64 * 1024
 
-static hash_map_t *connection_table = NULL;
+static hashmap_t *connection_table = NULL;
 static publisher_t *conn_changed_publisher;
 
 static unsigned int hash_v4(const void *key)
@@ -36,7 +36,7 @@ static int compare_tcp_v4(const void *t1, const void *t2)
 
 void tcp_analyzer_init()
 {
-    connection_table = hash_map_init(TBLSZ, hash_v4, compare_tcp_v4);
+    connection_table = hashmap_init(TBLSZ, hash_v4, compare_tcp_v4);
     conn_changed_publisher = publisher_init();
 }
 
@@ -53,7 +53,7 @@ void tcp_analyzer_check_stream(const struct packet *p)
         endp.dst = ipv4_dst(p);
         endp.src_port = tcpv4_src(p);
         endp.dst_port = tcpv4_dst(p);
-        conn = hash_map_get(connection_table, &endp);
+        conn = hashmap_get(connection_table, &endp);
         if (conn) {
             list_push_back(conn->packets, p);
             if (tcp->rst) {
@@ -102,13 +102,13 @@ void tcp_analyzer_check_stream(const struct packet *p)
             } else { /* already established session */
                 new_conn->state = ESTABLISHED;
             }
-            hash_map_insert(connection_table, new_endp, new_conn);
+            hashmap_insert(connection_table, new_endp, new_conn);
             publish2(conn_changed_publisher, new_conn, (void *) 0x1);
         }
     }
 }
 
-hash_map_t *tcp_analyzer_get_sessions()
+hashmap_t *tcp_analyzer_get_sessions()
 {
     return connection_table;
 }
@@ -145,12 +145,12 @@ char *tcp_analyzer_get_connection_state(enum connection_state state)
 
 void tcp_analyzer_clear()
 {
-    hash_map_clear(connection_table);
+    hashmap_clear(connection_table);
 }
 
 void tcp_analyzer_free()
 {
-    hash_map_free(connection_table);
+    hashmap_free(connection_table);
     publisher_free(conn_changed_publisher);
     connection_table = NULL;
 }

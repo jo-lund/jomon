@@ -1702,7 +1702,7 @@ void handle_selectionbar(main_screen *ms, int c)
 void follow_tcp_stream(main_screen *ms, bool follow)
 {
     if (follow) {
-        hash_map_t *connections = tcp_analyzer_get_sessions();
+        hashmap_t *connections = tcp_analyzer_get_sessions();
         struct packet *p = vector_get_data(packet_ref, ms->selectionbar);
         struct tcp_endpoint_v4 endp;
         const node_t *n;
@@ -1718,12 +1718,12 @@ void follow_tcp_stream(main_screen *ms, bool follow)
         endp.dst = ipv4_dst(p);
         endp.src_port = tcpv4_src(p);
         endp.dst_port = tcpv4_dst(p);;
-        if (!(stream = hash_map_get(connections, &endp))) {
+        if (!(stream = hashmap_get(connections, &endp))) {
             endp.src = ipv4_dst(p);
             endp.dst = ipv4_src(p);
             endp.src_port = tcpv4_dst(p);
             endp.dst_port = tcpv4_src(p);;
-            stream = hash_map_get(connections, &endp);
+            stream = hashmap_get(connections, &endp);
         }
         pd = progress_dialogue_create(" Finding stream ", list_size(stream->packets));
         push_screen((screen *) pd);

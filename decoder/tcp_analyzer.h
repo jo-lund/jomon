@@ -37,7 +37,7 @@ typedef void (*analyzer_conn_fn)(struct tcp_connection_v4 *, bool);
 
 void tcp_analyzer_init();
 void tcp_analyzer_check_stream(const struct packet *p);
-hash_map_t *tcp_analyzer_get_sessions();
+hashmap_t *tcp_analyzer_get_sessions();
 void tcp_analyzer_subscribe(analyzer_conn_fn fn);
 void tcp_analyzer_unsubscribe(analyzer_conn_fn fn);
 char *tcp_analyzer_get_connection_state(enum connection_state);

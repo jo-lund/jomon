@@ -199,14 +199,14 @@ void connection_screen_get_input(screen *s)
 
 void connection_screen_render(connection_screen *cs)
 {
-    hash_map_t *sessions = tcp_analyzer_get_sessions();
+    hashmap_t *sessions = tcp_analyzer_get_sessions();
 
-    if (hash_map_size(sessions)) {
-        const hash_map_iterator *it = hash_map_first(sessions);
+    if (hashmap_size(sessions)) {
+        const hashmap_iterator *it = hashmap_first(sessions);
 
         while (it) {
             vector_push_back(cs->screen_buf, it->data);
-            it = hash_map_next(sessions, it);
+            it = hashmap_next(sessions, it);
         }
     }
     touchwin(cs->header);

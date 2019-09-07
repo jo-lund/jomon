@@ -10,8 +10,8 @@
 
 #define TBLSZ 1024
 
-static hash_map_t *local_hosts;
-static hash_map_t *remote_hosts;
+static hashmap_t *local_hosts;
+static hashmap_t *remote_hosts;
 static publisher_t *host_changed_publisher;
 
 static void handle_ip4(struct packet *p);
@@ -21,16 +21,16 @@ static void update_host(uint32_t *addr, char *name);
 
 void host_analyzer_init()
 {
-    local_hosts = hash_map_init(TBLSZ, NULL, NULL);
-    remote_hosts = hash_map_init(TBLSZ, NULL, NULL);
+    local_hosts = hashmap_init(TBLSZ, NULL, NULL);
+    remote_hosts = hashmap_init(TBLSZ, NULL, NULL);
     host_changed_publisher = publisher_init();
     dns_cache_subscribe(update_host);
 }
 
 void host_analyzer_free()
 {
-    hash_map_free(local_hosts);
-    hash_map_free(remote_hosts);
+    hashmap_free(local_hosts);
+    hashmap_free(remote_hosts);
     publisher_free(host_changed_publisher);
     dns_cache_unsubscribe(update_host);
 }
@@ -48,12 +48,12 @@ void host_analyzer_investigate(struct packet *p)
     }
 }
 
-hash_map_t *host_analyzer_get_local()
+hashmap_t *host_analyzer_get_local()
 {
     return local_hosts;
 }
 
-hash_map_t *host_analyzer_get_remote()
+hashmap_t *host_analyzer_get_remote()
 {
     return remote_hosts;
 }
@@ -70,8 +70,8 @@ void host_analyzer_unsubscribe(analyzer_host_fn fn)
 
 void host_analyzer_clear()
 {
-    hash_map_clear(local_hosts);
-    hash_map_clear(remote_hosts);
+    hashmap_clear(local_hosts);
+    hashmap_clear(remote_hosts);
 }
 
 void handle_ip4(struct packet *p)
@@ -107,7 +107,7 @@ bool local_ip4(uint32_t addr)
 
 void insert_host(uint32_t *addr, uint8_t *mac)
 {
-    hash_map_t *map;
+    hashmap_t *map;
     bool local;
 
     if (local_ip4(*addr)) {
@@ -117,7 +117,7 @@ void insert_host(uint32_t *addr, uint8_t *mac)
         map = remote_hosts;
         local = false;
     }
-    if (!hash_map_contains(map, addr)) {
+    if (!hashmap_contains(map, addr)) {
         struct host_info *host = mempool_pealloc(sizeof(struct host_info));
         char *name;
 
@@ -131,15 +131,15 @@ void insert_host(uint32_t *addr, uint8_t *mac)
         if (local) {
             memcpy(host->mac_addr, mac, ETH_ALEN);
         }
-        hash_map_insert(map, addr, host);
+        hashmap_insert(map, addr, host);
         publish2(host_changed_publisher, host, (void *) 0x1);
     }
 }
 
 void update_host(uint32_t *addr, char *name)
 {
-    hash_map_t *map = local_ip4(*addr) ? local_hosts : remote_hosts;
-    struct host_info *host = hash_map_get(map, addr);
+    hashmap_t *map = local_ip4(*addr) ? local_hosts : remote_hosts;
+    struct host_info *host = hashmap_get(map, addr);
 
     if (host && !host->name) {
         host->name = name;

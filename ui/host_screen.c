@@ -181,15 +181,15 @@ void host_screen_lost_focus(screen *s __attribute__((unused)))
 
 void host_screen_render(host_screen *hs)
 {
-    hash_map_t *hosts = (host_page == LOCAL) ? host_analyzer_get_local() :
+    hashmap_t *hosts = (host_page == LOCAL) ? host_analyzer_get_local() :
         host_analyzer_get_remote();
 
-    if (hash_map_size(hosts)) {
-        const hash_map_iterator *it = hash_map_first(hosts);
+    if (hashmap_size(hosts)) {
+        const hashmap_iterator *it = hashmap_first(hosts);
 
         while (it) {
             vector_push_back(hs->screen_buf, it->data);
-            it = hash_map_next(hosts, it);
+            it = hashmap_next(hosts, it);
         }
         qsort(vector_data(hs->screen_buf), vector_size(hs->screen_buf),
               sizeof(struct host_info *), cmphost);

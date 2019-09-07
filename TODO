@@ -3,29 +3,14 @@
      based on TCP. Also need to print a better view of TCP packets, i.e. the one
      line of information on the main screen.
   2. Implement packet filtering based on BPF.
-  3. Improve memory efficiency. Need to remove malloc calls from the packet
-     parser and instead use a different memory allocation scheme. One possibility
-     is to implement something akin to explicit regions, which are preallocated
-     with a certain size and get more when needed.
-  4. Port Independent Protocol Identification
+  3. Port Independent Protocol Identification
      Need to be able to identify application layer protocols without relying on
      the TCP or UDP port number.
-  5. Use PACKET_MMAP to remove "read" system calls (prevents copying data from
+  4. Use PACKET_MMAP to remove "read" system calls (prevents copying data from
      kernel to user space.
 
 
 * GENERAL
-- Write a DNS cache to improve performance when getting host names. On Linux
-  there is no OS level DNS caching in the resolver.
-  (see http://stackoverflow.com/questions/11020027/dns-caching-in-linux)
-  This means implementing my own hash table. The difficulty here is in how long
-  the resource records (RR) should be cached (DNS ttl variable). Have to include
-  a timer.
-- Should be possible to detect hostnames without sending out any reverse DNS
-  lookup, i.e have a passive network sniffer. Could use the information stored in
-  the DNS cache to print the names related to the IP addresses that have been
-  found based on the traffic.
-- Improve memory efficiency. Maybe possible to use explicit regions?
 - Implement possiblity to make a text search for a specific pattern. Should also
   include regex search (possible to use PCRE). Difficult to implement when
   everything is stored in compressed form. Could be based on BPF, i.e only make
@@ -123,22 +108,6 @@
 - No need to call the base render functions for the derived functions. The base
   function should only be called one time and does not need to be updated again
   when the derived class changes.
-- The handling of colours need to be improved. The colour pairs can be stored in
-  an array, and it should be easy to retrieve the correct colour for the
-  specific element.
-
-  Another interesting solution is to add themes, e.g. dark/light theme and store
-  the colours for the respective theme in an hash table.
-  Elements to be defined that use colours (COLOR_BLACK in ncurses is actually grey):
-  - hexdump: hd_ethernet, hd_network, hd_transport, hd_default
-  - header: Filename/device/address (green | bold on default)
-  - status: buttons (black on cyan)
-  - button: background (black on cyan / black on white)
-  - stat screen: title (green | bold on default), headers: (cyan | bold on default)
-  - dialogue: background (white on black)
-  - file dialogue: list background (cyan on default), input background (black on white)
-  - general: greyed out text
-
 - statusbar should be made into a container. It can have as argument an array
   (or some other structure) that it uses to populate the container and prints
   the buttons etc. When a new screen is pushed the statusbar needs to be updated
