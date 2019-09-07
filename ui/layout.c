@@ -11,6 +11,7 @@
 #include "../stack.h"
 #include "menu.h"
 #include "host_screen.h"
+#include "../util.h"
 
 #define NUM_COLOURS 8
 
@@ -26,7 +27,6 @@ static void colours_init();
 static void create_screens();
 static void change_theme(int i);
 static void options(int i);
-static void change_window(int i);
 
 static int themes[NUM_THEMES][NUM_ELEMENTS] = {
     [DEFAULT] = {
@@ -110,13 +110,6 @@ static char *name_resolution[] = {
     "Reverse DNS lookups (Sends out DNS requests)"
 };
 
-static char *menu_windows[] = {
-    "Packets",
-    "Statistics",
-    "TCP Connections",
-    "Hosts"
-};
-
 static char *menu_options[] = {
     "Name resolution",
     "Network rate display"
@@ -138,11 +131,10 @@ void ncurses_init()
     status = newwin(STATUS_HEIGHT, mx, my - STATUS_HEIGHT, 0);
     create_screens();
     menu = main_menu_create();
-    main_menu_add_options(menu, MENU_NORMAL, "Themes", menu_themes, sizeof(menu_themes) / sizeof(char*), change_theme);
-    om = main_menu_add_options(menu, MENU_NORMAL, "Options", menu_options, sizeof(menu_options) / sizeof(char*), NULL);
-    main_menu_add_suboptions(om, MENU_MULTI_SELECT, 0, name_resolution, sizeof(name_resolution) / sizeof(char*), options);
-    main_menu_add_suboptions(om, MENU_SINGLE_SELECT, 1, network_rate, sizeof(network_rate) / sizeof(char*), options);
-    main_menu_add_options(menu, MENU_SINGLE_SELECT, "Windows", menu_windows, sizeof(menu_windows) / sizeof(char*), change_window);
+    main_menu_add_options(menu, MENU_NORMAL, "Themes", menu_themes, ARRAY_SIZE(menu_themes), change_theme);
+    om = main_menu_add_options(menu, MENU_NORMAL, "Options", menu_options, ARRAY_SIZE(menu_options), NULL);
+    main_menu_add_suboptions(om, MENU_MULTI_SELECT, 0, name_resolution, ARRAY_SIZE(name_resolution), options);
+    main_menu_add_suboptions(om, MENU_SINGLE_SELECT, 1, network_rate, ARRAY_SIZE(network_rate), options);
     menu->current = list_begin(menu->opt);
 }
 
@@ -428,11 +420,6 @@ void change_theme(int i)
     prev = stack_get(screen_stack, stack_size(screen_stack) - 2);
     SCREEN_REFRESH(prev);
     SCREEN_REFRESH(s);
-}
-
-void change_window(int i)
-{
-
 }
 
 void options(int i)
