@@ -109,7 +109,7 @@ static bool read_show_progress(unsigned char *buffer, uint32_t n, struct timeval
 static void write_show_progress(int i);
 static void follow_tcp_stream(main_screen *ms, bool follow);
 static void add_packet(struct tcp_connection_v4 *conn, bool new_connection);
-static void handle_tcp_mode(main_screen *ms);
+static void change_tcp_mode(main_screen *ms);
 static void buffer_tcppage(main_screen *ms, int (*buffer_fn)
                           (unsigned char *buf, int len, struct tcp_page_attr *attr, int pidx, int mx));
 static int buffer_ascii(unsigned char *buf, int len, struct tcp_page_attr *attr, int pidx, int mx);
@@ -360,7 +360,7 @@ void main_screen_get_input(screen *s)
     case 'p':
         if (follow_stream) {
             tcp_mode = (tcp_mode + 1) % NUM_MODES;
-            handle_tcp_mode(ms);
+            change_tcp_mode(ms);
         }
         break;
     case KEY_UP:
@@ -986,7 +986,7 @@ void handle_keyup(main_screen *ms, int num_lines __attribute__((unused)))
         wscrl(ms->base.win, -1);
         if (tcp_page.top > 0)
             tcp_page.top--;
-        handle_tcp_mode(ms);
+        print_tcppage(ms);
         wrefresh(ms->base.win);
         return;
     }
@@ -1047,7 +1047,7 @@ void handle_keydown(main_screen *ms, int num_lines)
     if (follow_stream && tcp_mode != NORMAL) {
         wscrl(ms->base.win, 1);
         tcp_page.top++;
-        handle_tcp_mode(ms);
+        print_tcppage(ms);
         wrefresh(ms->base.win);
         return;
     }
@@ -1782,8 +1782,9 @@ void follow_tcp_stream(main_screen *ms, bool follow)
     }
 }
 
-void handle_tcp_mode(main_screen *ms)
+void change_tcp_mode(main_screen *ms)
 {
+    tcp_page.top = 0;
     vector_clear(tcp_page.buf, free_tcp_attr);
     switch (tcp_mode) {
     case NORMAL:
@@ -1811,7 +1812,10 @@ void buffer_tcppage(main_screen *ms, int (*buffer_fn)
     char buf[MAXLINE];
     uint32_t cli_addr = 0;
     uint16_t cli_port = 0;
+    progress_dialogue *pd;
 
+    pd = progress_dialogue_create(" Reading packets ", vector_size(packet_ref));
+    push_screen((screen *) pd);
     mx = getmaxx(ms->base.win) - 1;
     for (int i = 0; i < vector_size(packet_ref); i++) {
         struct packet *p = vector_get_data(packet_ref, i);
@@ -1822,6 +1826,7 @@ void buffer_tcppage(main_screen *ms, int (*buffer_fn)
         int col;
         struct tcp_page_attr *attr;
 
+        PROGRESS_DIALOGUE_UPDATE(pd, 1);
         if (i == 0) {
             cli_addr = ipv4_src(p);
             cli_port = tcpv4_src(p);
@@ -1851,6 +1856,8 @@ void buffer_tcppage(main_screen *ms, int (*buffer_fn)
             n -= k;
         }
     }
+    pop_screen();
+    SCREEN_FREE((screen *) pd);
 }
 
 int buffer_ascii(unsigned char *payload, int len, struct tcp_page_attr *attr, int pidx, int mx)
