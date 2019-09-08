@@ -58,8 +58,10 @@ size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet 
     struct iovec iov;
     unsigned char data[64];
     struct cmsghdr *cmsg;
-    struct timeval *val = NULL;
+    struct timeval *val;
 
+    *p = mempool_pealloc(sizeof(struct packet));
+    (*p)->ptype = UNKNOWN;
     iov.iov_base = buffer;
     iov.iov_len = len;
     memset(&msg, 0, sizeof(struct mmsghdr));
@@ -67,20 +69,29 @@ size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet 
     msg.msg_hdr.msg_iovlen = 1;
     msg.msg_hdr.msg_control = data;
     msg.msg_hdr.msg_controllen = 64;
+
     if (recvmmsg(sockfd, &msg, 1, 0, NULL) == -1) {
+        free_packets(*p);
         err_sys("recvmmsg error");
+    }
+    if (!handle_ethernet(buffer, msg.msg_len, *p)) {
+        free_packets(*p);
+        return 0;
     }
     for (cmsg = CMSG_FIRSTHDR(&msg.msg_hdr); cmsg != NULL;
          cmsg = CMSG_NXTHDR(&msg.msg_hdr, cmsg)) {
         if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SO_TIMESTAMP) {
             val = (struct timeval *) CMSG_DATA(cmsg);
+            (*p)->time = *val;
             break;
         }
     }
-    if (!decode_packet(buffer, msg.msg_len, p)) {
-        return 0;
+    (*p)->num = ++pstat[0].num_packets;
+    pstat[0].num_bytes += msg.msg_len;
+    if (is_tcp(*p)) {
+        tcp_analyzer_check_stream(*p);
     }
-    (*p)->time = *val;
+    host_analyzer_investigate(*p);
     return msg.msg_len;
 }
 
