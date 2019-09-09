@@ -12,7 +12,7 @@
 #include "../vector.h"
 #include "../decoder/decoder.h"
 #include "../stack.h"
-#include "../file_pcap.h"
+#include "../file.h"
 #include "layout_int.h"
 #include "../signal.h"
 #include "dialogue.h"
@@ -258,6 +258,9 @@ void main_screen_refresh(screen *s)
         print_protocol_information(ms, p, ms->main_line.line_number + ms->top);
         refresh_pad(ms, &ms->subwindow, 0, 0, false);
     }
+    if (follow_stream && tcp_mode != NORMAL) {
+        print_tcppage(ms);
+    }
     print_header(ms);
     print_status();
     wnoutrefresh(ms->header);
@@ -318,7 +321,8 @@ void main_screen_get_input(screen *s)
         push_screen(screen_cache_get(CONNECTION_SCREEN));
         break;
     case 'f':
-        if (!interactive) return;
+        if (!interactive || inside_subwindow(ms))
+            return;
         follow_stream = !follow_stream;
         follow_tcp_stream(ms, follow_stream);
         break;
@@ -505,11 +509,30 @@ void create_load_dialogue()
 void create_save_dialogue()
 {
     if (!sd) {
+        char *info;
+
         if (load_filepath[0] == 0) {
             getcwd(load_filepath, MAXPATH);
         }
-        sd = file_dialogue_create(" Save capture file ", FS_SAVE, load_filepath,
-                                  save_handle_ok, save_handle_cancel);
+        if (follow_stream) {
+            switch (tcp_mode) {
+            case NORMAL:
+                info = " Save TCP stream as pcap ";
+                break;
+            case ASCII:
+                info = " Save as ascii ";
+                break;
+            case RAW:
+                info = " Save as raw ";
+                break;
+            default:
+                break;
+            }
+        } else {
+            info = " Save as pcap ";
+        }
+        sd = file_dialogue_create(info, FS_SAVE, load_filepath, save_handle_ok,
+                                  save_handle_cancel);
         push_screen((screen *) sd);
     }
 }
@@ -606,9 +629,27 @@ void save_handle_ok(void *file)
 
         get_file_part(file);
         snprintf(title, MAXLINE, " Saving %s ", (char *) file);
-        pd = progress_dialogue_create(title, pstat[0].num_bytes);
-        push_screen((screen *) pd);
-        write_file(fp, packet_ref, write_show_progress);
+        if (follow_stream) {
+            pd = progress_dialogue_create(title, vector_size(packet_ref));
+            push_screen((screen *) pd);
+            switch (tcp_mode) {
+            case NORMAL:
+                write_pcap(fp, packet_ref, write_show_progress);
+                break;
+            case ASCII:
+                write_ascii(fp, packet_ref, write_show_progress);
+                break;
+            case RAW:
+                write_raw(fp, packet_ref, write_show_progress);
+                break;
+            default:
+                break;
+            }
+        } else {
+            pd = progress_dialogue_create(title, pstat[0].num_bytes);
+            push_screen((screen *) pd);
+            write_pcap(fp, packet_ref, write_show_progress);
+        }
         pop_screen();
         SCREEN_FREE((screen *) pd);
         fclose(fp);
@@ -1806,7 +1847,7 @@ void change_tcp_mode(main_screen *ms)
 }
 
 void buffer_tcppage(main_screen *ms, int (*buffer_fn)
-                   (unsigned char *buf, int len, struct tcp_page_attr *attr, int pidx, int mx))
+                    (unsigned char *buf, int len, struct tcp_page_attr *attr, int pidx, int mx))
 {
     int mx;
     char buf[MAXLINE];

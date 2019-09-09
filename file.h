@@ -24,6 +24,9 @@ enum file_error {
  */
 FILE *open_file(const char *path, const char *mode, enum file_error *err);
 
+/* Get a string representing the error */
+char *get_file_error(enum file_error err);
+
 /*
  * Read file in pcap format. 'packet_handler' is a callback function that will
  * be called for each packet in the file. The callback function takes three
@@ -34,10 +37,14 @@ FILE *open_file(const char *path, const char *mode, enum file_error *err);
  */
 enum file_error read_file(FILE *fp, packet_handler f);
 
-/* Write packets to file */
-void write_file(FILE *fp, vector_t *packets, progress_update f);
+/* Write packets to file in pcap format */
+void write_pcap(FILE *fp, vector_t *packets, progress_update fn);
 
-/* Get a string representing the error */
-char *get_file_error(enum file_error err);
+/* Write packets to file in ascii */
+void write_ascii(FILE *fp, vector_t *packets, progress_update fn);
+
+/* Write the raw bytes in packets to file */
+void write_raw(FILE *fp, vector_t *packets, progress_update fn);
+
 
 #endif

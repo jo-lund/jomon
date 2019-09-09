@@ -5,9 +5,9 @@
 #include <string.h>
 #include <limits.h>
 #include <errno.h>
-#include "file_pcap.h"
+#include "file.h"
 #include "misc.h"
-#include "decoder/packet.h"
+#include "decoder/decoder.h"
 
 #define BUFSIZE 128 * 1024
 #define LINKTYPE_ETHERNET 1
@@ -146,7 +146,7 @@ int read_buf(unsigned char *buf, size_t len)
     return 0;
 }
 
-void write_file(FILE *fp, vector_t *packets, progress_update f)
+void write_pcap(FILE *fp, vector_t *packets, progress_update fn)
 {
     int bufidx = 0;
     unsigned char buf[BUFSIZE];
@@ -165,7 +165,7 @@ void write_file(FILE *fp, vector_t *packets, progress_update f)
         } else {
             bufidx += n;
         }
-        f(get_packet_size(p));
+        fn(get_packet_size(p));
     }
     if (bufidx) {
         fwrite(buf, sizeof(unsigned char), bufidx, fp);
@@ -258,4 +258,34 @@ inline uint16_t get_major_version(pcap_hdr_t *header)
 inline uint16_t get_minor_version(pcap_hdr_t *header)
 {
     return swap_bytes ? ntohs(header->version_minor) : header->version_minor;
+}
+
+void write_ascii(FILE *fp, vector_t *packets, progress_update fn)
+{
+    for (int i = 0; i < vector_size(packets); i++) {
+        struct packet *p = vector_get_data(packets, i);
+        unsigned char *payload = get_adu_payload(p);
+        uint16_t len = TCP_PAYLOAD_LEN(p);
+
+        for (int j = 0; j < len; j++) {
+            if (isprint(payload[j]) || isspace(payload[j])) {
+                fputc(payload[j], fp);
+            } else {
+                fputc('.', fp);
+            }
+        }
+        fn(1);
+    }
+}
+
+void write_raw(FILE *fp, vector_t *packets, progress_update fn)
+{
+    for (int i = 0; i < vector_size(packets); i++) {
+        struct packet *p = vector_get_data(packets, i);
+        unsigned char *payload = get_adu_payload(p);
+        uint16_t len = TCP_PAYLOAD_LEN(p);
+
+        fwrite(payload, sizeof(unsigned char), len, fp);
+        fn(1);
+    }
 }

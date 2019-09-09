@@ -23,7 +23,7 @@
 #include "decoder/packet.h"
 #include "decoder/tcp_analyzer.h"
 #include "vector.h"
-#include "file_pcap.h"
+#include "file.h"
 #include "ui/protocols.h"
 #include "mempool.h"
 #include "decoder/host_analyzer.h"
