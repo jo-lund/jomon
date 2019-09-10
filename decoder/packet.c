@@ -157,9 +157,9 @@ unsigned char *get_adu_payload(struct packet *p)
     uint8_t protocol;
 
     protocol = (p->eth.ethertype == ETH_P_IP) ?
-        p->eth.ip->protocol : p->eth.ipv6->next_header;
+        p->eth.ipv4->protocol : p->eth.ipv6->next_header;
     if (protocol == IPPROTO_TCP) {
-        return get_ip_payload(p) + p->eth.ip->tcp.offset * 4;
+        return get_ip_payload(p) + p->eth.ipv4->tcp.offset * 4;
     }
     if (protocol == IPPROTO_UDP) {
         return get_ip_payload(p) + UDP_HDR_LEN;
@@ -188,7 +188,7 @@ bool is_tcp(struct packet *p)
     uint8_t protocol = 0;
 
     if (p->eth.ethertype == ETH_P_IP) {
-        protocol = p->eth.ip->protocol;
+        protocol = p->eth.ipv4->protocol;
     } else if (p->eth.ethertype == ETH_P_IPV6) {
         protocol = p->eth.ipv6->next_header;
     }

@@ -49,7 +49,7 @@ struct eth_info {
     union {
         struct eth_802_llc *llc;
         struct arp_info *arp;
-        struct ipv4_info *ip;
+        struct ipv4_info *ipv4;
         struct ipv6_info *ipv6;
     };
 };

@@ -45,7 +45,7 @@ void tcp_analyzer_check_stream(const struct packet *p)
     if (!connection_table) return;
 
     if (p->eth.ethertype == ETH_P_IP) {
-        struct tcp *tcp = &p->eth.ip->tcp;
+        struct tcp *tcp = &p->eth.ipv4->tcp;
         struct tcp_connection_v4 *conn;
         struct tcp_endpoint_v4 endp;
 

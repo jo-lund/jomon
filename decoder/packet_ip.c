@@ -76,47 +76,47 @@ packet_error handle_ipv4(unsigned char *buffer, int n, struct eth_info *eth)
 
     pstat[PROT_IPv4].num_packets++;
     pstat[PROT_IPv4].num_bytes += n;
-    eth->ip = mempool_pealloc(sizeof(struct ipv4_info));
-    eth->ip->src = ip->saddr;
-    eth->ip->dst = ip->daddr;
-    eth->ip->version = ip->version;
-    eth->ip->ihl = ip->ihl;
+    eth->ipv4 = mempool_pealloc(sizeof(struct ipv4_info));
+    eth->ipv4->src = ip->saddr;
+    eth->ipv4->dst = ip->daddr;
+    eth->ipv4->version = ip->version;
+    eth->ipv4->ihl = ip->ihl;
     header_len = ip->ihl * 4;
 
     /* Originally defined as type of service, but now defined as differentiated
        services code point and explicit congestion control */
-    eth->ip->dscp = (ip->tos & 0xfc) >> 2;
-    eth->ip->ecn = ip->tos & 0x03;
+    eth->ipv4->dscp = (ip->tos & 0xfc) >> 2;
+    eth->ipv4->ecn = ip->tos & 0x03;
 
-    eth->ip->length = ntohs(ip->tot_len);
-    if (eth->ip->length < header_len || /* total length less than header length */
-        eth->ip->length > n) { /* total length greater than packet length */
+    eth->ipv4->length = ntohs(ip->tot_len);
+    if (eth->ipv4->length < header_len || /* total length less than header length */
+        eth->ipv4->length > n) { /* total length greater than packet length */
         return IPv4_ERR;
     }
 
     /* The packet has been padded in order to contain the minimum number of by
        bytes. The padded bytes should be ignored. */
-    if (n > eth->ip->length) {
-        n = eth->ip->length;
+    if (n > eth->ipv4->length) {
+        n = eth->ipv4->length;
     }
 
-    eth->ip->id = ntohs(ip->id);
-    eth->ip->foffset = ntohs(ip->frag_off);
-    eth->ip->ttl = ip->ttl;
-    eth->ip->protocol = ip->protocol;
-    eth->ip->checksum = ntohs(ip->check);
+    eth->ipv4->id = ntohs(ip->id);
+    eth->ipv4->foffset = ntohs(ip->frag_off);
+    eth->ipv4->ttl = ip->ttl;
+    eth->ipv4->protocol = ip->protocol;
+    eth->ipv4->checksum = ntohs(ip->check);
 
     switch (ip->protocol) {
     case IPPROTO_ICMP:
-        return handle_icmp(buffer + header_len, n - header_len, &eth->ip->icmp);
+        return handle_icmp(buffer + header_len, n - header_len, &eth->ipv4->icmp);
     case IPPROTO_IGMP:
-        return handle_igmp(buffer + header_len, n - header_len, &eth->ip->igmp);
+        return handle_igmp(buffer + header_len, n - header_len, &eth->ipv4->igmp);
     case IPPROTO_TCP:
-        return handle_tcp(buffer + header_len, n - header_len, &eth->ip->tcp);
+        return handle_tcp(buffer + header_len, n - header_len, &eth->ipv4->tcp);
     case IPPROTO_UDP:
-        return handle_udp(buffer + header_len, n - header_len, &eth->ip->udp);
+        return handle_udp(buffer + header_len, n - header_len, &eth->ipv4->udp);
     case IPPROTO_PIM:
-        return handle_pim(buffer + header_len, n - header_len, &eth->ip->pim);
+        return handle_pim(buffer + header_len, n - header_len, &eth->ipv4->pim);
     default:
         return NO_ERR;
     }
@@ -242,7 +242,7 @@ char *get_ip_transport_protocol(uint8_t protocol)
 unsigned char *get_ip_payload(struct packet *p)
 {
     if (p->eth.ethertype == ETH_P_IP) {
-        return p->eth.data + ETH_HLEN + p->eth.ip->ihl * 4;
+        return p->eth.data + ETH_HLEN + p->eth.ipv4->ihl * 4;
     }
     if (p->eth.ethertype == ETH_P_IPV6) {
         return p->eth.data + ETH_HLEN + sizeof(struct ip6_hdr);

@@ -8,7 +8,7 @@
 #include "packet_pim.h"
 
 #define IP_PAYLOAD_LEN(p) ((p)->eth.ethertype == ETH_P_IP) ?    \
-    ((p)->eth.ip->length - (p)->eth.ip->ihl * 4) :              \
+    ((p)->eth.ipv4->length - (p)->eth.ipv4->ihl * 4) :              \
     ((p)->eth.ipv6->payload_len)
 
 #define IPV6_FIXED_HEADER_LEN 40
@@ -36,8 +36,8 @@ struct ipv4_info {
     };
 };
 
-#define ipv4_src(p) ((p)->eth.ip->src)
-#define ipv4_dst(p) ((p)->eth.ip->dst)
+#define ipv4_src(p) ((p)->eth.ipv4->src)
+#define ipv4_dst(p) ((p)->eth.ipv4->dst)
 
 struct ipv6_info {
     unsigned int version : 4;

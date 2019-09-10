@@ -267,7 +267,7 @@ check_state:
         waddch(win, buf[i] | LIGHT_BLUE);
         break;
     case HD_IP:
-        if (j >= ETH_HLEN + p->eth.ip->ihl * 4) {
+        if (j >= ETH_HLEN + p->eth.ipv4->ihl * 4) {
             *state = get_next_state(*state, p);
             if (update) {
                 list_push_back(protocols, enum2str(*state));
@@ -289,7 +289,7 @@ check_state:
         break;
     case HD_UDP:
         if (p->eth.ethertype == ETH_P_IP) {
-            if (j >= ETH_HLEN + p->eth.ip->ihl * 4 + UDP_HDR_LEN) {
+            if (j >= ETH_HLEN + p->eth.ipv4->ihl * 4 + UDP_HDR_LEN) {
                 *state = get_next_state(*state, p);
                 if (update) {
                     list_push_back(protocols, enum2str(*state));
@@ -309,7 +309,7 @@ check_state:
         break;
     case HD_TCP:
         if (p->eth.ethertype == ETH_P_IP) {
-            if (j >= ETH_HLEN + p->eth.ip->ihl * 4 + TCP_HDR_LEN(p)) {
+            if (j >= ETH_HLEN + p->eth.ipv4->ihl * 4 + TCP_HDR_LEN(p)) {
                 *state = get_next_state(*state, p);
                 if (update) {
                     list_push_back(protocols, enum2str(*state));
@@ -379,7 +379,7 @@ enum hex_state get_next_state(enum hex_state cur_state, struct packet *p)
         uint8_t protocol;
 
         if (p->eth.ethertype == ETH_P_IP) {
-            protocol = p->eth.ip->protocol;
+            protocol = p->eth.ipv4->protocol;
         } else {
             protocol = p->eth.ipv6->next_header;
         }
@@ -412,14 +412,14 @@ enum hex_state get_next_state(enum hex_state cur_state, struct packet *p)
         struct application_info *adu;
 
         if (p->eth.ethertype == ETH_P_IP) {
-            protocol = p->eth.ip->protocol;
+            protocol = p->eth.ipv4->protocol;
         } else {
             protocol = p->eth.ipv6->next_header;
         }
         if (protocol == IPPROTO_UDP) {
-            adu = &p->eth.ip->udp.data;
+            adu = &p->eth.ipv4->udp.data;
         } else {
-            adu = &p->eth.ip->tcp.data;
+            adu = &p->eth.ipv4->tcp.data;
         }
 
         switch (adu->utype) {

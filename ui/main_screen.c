@@ -1390,7 +1390,7 @@ void add_elements(main_screen *ms, struct packet *p)
             add_arp_information(ms->lvw, header, p);
         } else if (p->eth.ethertype == ETH_P_IP) {
             header = LV_ADD_HEADER(ms->lvw, "Internet Protocol (IPv4)", selected[IP], IP);
-            add_ipv4_information(ms->lvw, header, p->eth.ip);
+            add_ipv4_information(ms->lvw, header, p->eth.ipv4);
             add_transport_elements(ms, p);
         } else if (p->eth.ethertype == ETH_P_IPV6) {
             header = LV_ADD_HEADER(ms->lvw, "Internet Protocol (IPv6)", selected[IP], IP);
@@ -1429,7 +1429,7 @@ void add_elements(main_screen *ms, struct packet *p)
 void add_transport_elements(main_screen *ms, struct packet *p)
 {
     list_view_header *header;
-    uint8_t protocol = (p->eth.ethertype == ETH_P_IP) ? p->eth.ip->protocol : p->eth.ipv6->next_header;
+    uint8_t protocol = (p->eth.ethertype == ETH_P_IP) ? p->eth.ipv4->protocol : p->eth.ipv6->next_header;
 
     if (p->perr == TCP_ERR || p->perr == UDP_ERR || p->perr == ICMP_ERR ||
         p->perr == IGMP_ERR || p->perr == PIM_ERR) {
@@ -1444,9 +1444,9 @@ void add_transport_elements(main_screen *ms, struct packet *p)
             header = LV_ADD_HEADER(ms->lvw, "Transmission Control Protocol (TCP)",
                                    selected[TRANSPORT], TRANSPORT);
             if (p->eth.ethertype == ETH_P_IP) {
-                add_tcp_information(ms->lvw, header, &p->eth.ip->tcp);
+                add_tcp_information(ms->lvw, header, &p->eth.ipv4->tcp);
                 if (len < p->eth.payload_len) {
-                    add_app_elements(ms, p, &p->eth.ip->tcp.data, len);
+                    add_app_elements(ms, p, &p->eth.ipv4->tcp.data, len);
                 }
             } else {
                 add_tcp_information(ms->lvw, header, &p->eth.ipv6->tcp);
@@ -1462,9 +1462,9 @@ void add_transport_elements(main_screen *ms, struct packet *p)
 
             header = LV_ADD_HEADER(ms->lvw, "User Datagram Protocol (UDP)", selected[TRANSPORT], TRANSPORT);
             if (p->eth.ethertype == ETH_P_IP) {
-                add_udp_information(ms->lvw, header, &p->eth.ip->udp);
+                add_udp_information(ms->lvw, header, &p->eth.ipv4->udp);
                 if (len < p->eth.payload_len) {
-                    add_app_elements(ms, p, &p->eth.ip->udp.data, len);
+                    add_app_elements(ms, p, &p->eth.ipv4->udp.data, len);
                 }
             } else {
                 add_udp_information(ms->lvw, header, &p->eth.ipv6->udp);
@@ -1477,13 +1477,13 @@ void add_transport_elements(main_screen *ms, struct packet *p)
         case IPPROTO_ICMP:
             if (p->eth.ethertype == ETH_P_IP) {
                 header = LV_ADD_HEADER(ms->lvw, "Internet Control Message Protocol (ICMP)", selected[ICMP], ICMP);
-                add_icmp_information(ms->lvw, header, &p->eth.ip->icmp);
+                add_icmp_information(ms->lvw, header, &p->eth.ipv4->icmp);
             }
             break;
         case IPPROTO_IGMP:
             header = LV_ADD_HEADER(ms->lvw, "Internet Group Management Protocol (IGMP)", selected[IGMP], IGMP);
             if (p->eth.ethertype == ETH_P_IP) {
-                add_igmp_information(ms->lvw, header, &p->eth.ip->igmp);
+                add_igmp_information(ms->lvw, header, &p->eth.ipv4->igmp);
             } else {
                 add_igmp_information(ms->lvw, header, &p->eth.ipv6->igmp);
             }
@@ -1491,7 +1491,7 @@ void add_transport_elements(main_screen *ms, struct packet *p)
         case IPPROTO_PIM:
             header = LV_ADD_HEADER(ms->lvw, "Protocol Independent Multicast (PIM)", selected[PIM], PIM);
             if (p->eth.ethertype == ETH_P_IP) {
-                add_pim_information(ms->lvw, header, &p->eth.ip->pim);
+                add_pim_information(ms->lvw, header, &p->eth.ipv4->pim);
             } else {
                 add_pim_information(ms->lvw, header, &p->eth.ipv6->pim);
             }

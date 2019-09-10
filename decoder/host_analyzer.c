@@ -77,11 +77,11 @@ void host_analyzer_clear()
 void handle_ip4(struct packet *p)
 {
     // TODO: Filter out broadcast and multicast
-    insert_host(&p->eth.ip->src, p->eth.mac_src);
-    insert_host(&p->eth.ip->dst, p->eth.mac_dst);
+    insert_host(&p->eth.ipv4->src, p->eth.mac_src);
+    insert_host(&p->eth.ipv4->dst, p->eth.mac_dst);
 
     // TODO: Inspect packet
-    switch (p->eth.ip->protocol) {
+    switch (p->eth.ipv4->protocol) {
     case IPPROTO_TCP:
         break;
     case IPPROTO_UDP:

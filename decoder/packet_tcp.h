@@ -15,12 +15,12 @@
 
 #define TCP_PAYLOAD_LEN(p)                                              \
     (((p)->eth.ethertype == ETH_P_IP) ?                                 \
-     ((p)->eth.ip->length - (p)->eth.ip->ihl * 4 - (p)->eth.ip->tcp.offset * 4) : \
+     ((p)->eth.ipv4->length - (p)->eth.ipv4->ihl * 4 - (p)->eth.ipv4->tcp.offset * 4) : \
      ((p)->eth.ipv6->payload_len - (p)->eth.ipv6->tcp.offset * 4))
 
 #define TCP_HDR_LEN(p)                                                  \
     (((p)->eth.ethertype == ETH_P_IP) ?                                 \
-     ((p)->eth.ip->tcp.offset * 4) : ((p)->eth.ipv6->tcp.offset * 4))
+     ((p)->eth.ipv4->tcp.offset * 4) : ((p)->eth.ipv6->tcp.offset * 4))
 
 struct tcp {
     uint16_t src_port;
@@ -44,8 +44,8 @@ struct tcp {
     struct application_info data;
 };
 
-#define tcpv4_src(p) ((p)->eth.ip->tcp.src_port)
-#define tcpv4_dst(p) ((p)->eth.ip->tcp.dst_port)
+#define tcpv4_src(p) ((p)->eth.ipv4->tcp.src_port)
+#define tcpv4_dst(p) ((p)->eth.ipv4->tcp.dst_port)
 
 struct tcp_options {
     uint8_t option_kind;
