@@ -511,7 +511,7 @@ void create_load_dialogue()
 void create_save_dialogue()
 {
     if (!sd) {
-        char *info;
+        char *info = " Save as pcap ";
 
         if (load_filepath[0] == 0) {
             getcwd(load_filepath, MAXPATH);
@@ -530,8 +530,6 @@ void create_save_dialogue()
             default:
                 break;
             }
-        } else {
-            info = " Save as pcap ";
         }
         sd = file_dialogue_create(info, FS_SAVE, load_filepath, save_handle_ok,
                                   save_handle_cancel);
