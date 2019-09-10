@@ -374,10 +374,12 @@ void main_screen_get_input(screen *s)
         handle_keydown(ms, my);
         break;
     case KEY_LEFT:
-        scroll_column(ms, -NUM_COLS_SCROLL, my);
+        if (!follow_stream || tcp_mode == NORMAL)
+            scroll_column(ms, -NUM_COLS_SCROLL, my);
         break;
     case KEY_RIGHT:
-        scroll_column(ms, NUM_COLS_SCROLL, my);
+        if (!follow_stream || tcp_mode == NORMAL)
+            scroll_column(ms, NUM_COLS_SCROLL, my);
         break;
     case KEY_ENTER:
     case '\n':
