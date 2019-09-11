@@ -16,6 +16,17 @@ struct arp_info {
     uint16_t op;           /* ARP opcode */
 };
 
+#define get_arp(p) ((p)->eth.arp)
+#define arp_sip(p) get_arp(p)->sip
+#define arp_tip(p) get_arp(p)->tip
+#define arp_sha(p) get_arp(p)->sha
+#define arp_tha(p) get_arp(p)->tha
+#define arp_hwtype(p) get_arp(p)->ht
+#define arp_hwsize(p) get_arp(p)->hs
+#define arp_ptype(p) get_arp(p)->pt
+#define arp_psize(p) get_arp(p)->ps
+#define arp_opcode(p) get_arp(p)->op
+
 struct eth_info;
 
 packet_error handle_arp(unsigned char *buffer, int n, struct eth_info *info);

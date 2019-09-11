@@ -753,15 +753,15 @@ void add_arp_information(list_view *lw, list_view_header *header, struct packet 
     char sha[HW_ADDRSTRLEN];
     char tha[HW_ADDRSTRLEN];
 
-    HW_ADDR_NTOP(sha, p->eth.arp->sha);
-    HW_ADDR_NTOP(tha, p->eth.arp->tha);
-    inet_ntop(AF_INET, p->eth.arp->sip, sip, INET_ADDRSTRLEN);
-    inet_ntop(AF_INET, p->eth.arp->tip, tip, INET_ADDRSTRLEN);
-    LV_ADD_TEXT_ELEMENT(lw, header, "Hardware type: %d (%s)", p->eth.arp->ht, get_arp_hardware_type(p->eth.arp->ht));
-    LV_ADD_TEXT_ELEMENT(lw, header, "Protocol type: 0x%x (%s)", p->eth.arp->pt, get_arp_protocol_type(p->eth.arp->pt));
-    LV_ADD_TEXT_ELEMENT(lw, header, "Hardware size: %d", p->eth.arp->hs);
-    LV_ADD_TEXT_ELEMENT(lw, header, "Protocol size: %d", p->eth.arp->ps);
-    LV_ADD_TEXT_ELEMENT(lw, header, "Opcode: %d (%s)", p->eth.arp->op, get_arp_opcode(p->eth.arp->op));
+    HW_ADDR_NTOP(sha, arp_sha(p));
+    HW_ADDR_NTOP(tha, arp_tha(p));
+    inet_ntop(AF_INET, arp_sip(p), sip, INET_ADDRSTRLEN);
+    inet_ntop(AF_INET, arp_tip(p), tip, INET_ADDRSTRLEN);
+    LV_ADD_TEXT_ELEMENT(lw, header, "Hardware type: %d (%s)", arp_hwtype(p), get_arp_hardware_type(p->eth.arp->ht));
+    LV_ADD_TEXT_ELEMENT(lw, header, "Protocol type: 0x%x (%s)", arp_ptype(p), get_arp_protocol_type(p->eth.arp->pt));
+    LV_ADD_TEXT_ELEMENT(lw, header, "Hardware size: %d", arp_hwsize(p));
+    LV_ADD_TEXT_ELEMENT(lw, header, "Protocol size: %d", arp_psize(p));
+    LV_ADD_TEXT_ELEMENT(lw, header, "Opcode: %d (%s)", arp_opcode(p), get_arp_opcode(arp_opcode(p)));
     LV_ADD_TEXT_ELEMENT(lw, header, "");
     LV_ADD_TEXT_ELEMENT(lw, header, "Sender IP: %-15s  HW: %s", sip, sha);
     LV_ADD_TEXT_ELEMENT(lw, header, "Target IP: %-15s  HW: %s", tip, tha);

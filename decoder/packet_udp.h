@@ -16,6 +16,11 @@ struct udp_info {
     struct application_info data;
 };
 
+#define get_udp(p, v) ((p)->eth.ip##v->udp)
+#define udp_src(p, v) get_udp(p, v).src_port
+#define udp_dst(p, v) get_udp(p, v).dst_port
+#define udp_data(p, v) get_udp(p, v).data
+
 /* internal to the decoder */
 packet_error handle_udp(unsigned char *buffer, int n, struct udp_info *info);
 

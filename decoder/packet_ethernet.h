@@ -55,6 +55,10 @@ struct eth_info {
 };
 
 #define ethertype(p) ((p)->eth.ethertype)
+#define eth_src(p) ((p)->eth.mac_src)
+#define eth_dst(p) ((p)->eth.mac_dst)
+#define get_llc(p) ((p)->eth.llc)
+
 
 enum eth_802_type get_eth802_type(struct eth_802_llc *llc);
 uint32_t get_eth802_oui(struct snap_info *snap);

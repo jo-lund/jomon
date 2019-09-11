@@ -291,11 +291,11 @@ void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int
     entry[PORTB].val = conn->endp->dst_port;
     while (n) {
         p = list_data(n);
-        if (entry[ADDRA].val == ipv4_src(p) && entry[PORTA].val == tcpv4_src(p)) {
+        if (entry[ADDRA].val == ipv4_src(p) && entry[PORTA].val == tcp_src(p, v4)) {
             entry[BYTES_AB].val += get_packet_size(p);
             entry[PACKETS_AB].val++;
         } else if (entry[ADDRB].val == ipv4_src(p) &&
-                   entry[PORTB].val == tcpv4_src(p)) {
+                   entry[PORTB].val == tcp_src(p, v4)) {
             entry[BYTES_BA].val += get_packet_size(p);
             entry[PACKETS_BA].val++;
         }

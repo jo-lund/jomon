@@ -28,6 +28,8 @@ struct icmp_info {
     };
 };
 
+#define get_icmp(p, v) ((p)->eth.ip##v->icmp)
+
 struct ipv4_info;
 
 packet_error handle_icmp(unsigned char *buffer, int n, struct icmp_info *info);

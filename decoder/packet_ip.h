@@ -36,8 +36,10 @@ struct ipv4_info {
     };
 };
 
-#define ipv4_src(p) ((p)->eth.ipv4->src)
-#define ipv4_dst(p) ((p)->eth.ipv4->dst)
+#define get_ipv4(p) ((p)->eth.ipv4)
+#define ipv4_src(p) get_ipv4(p)->src
+#define ipv4_dst(p) get_ipv4(p)->dst
+#define ipv4_protocol(p) get_ipv4(p)->protocol
 
 struct ipv6_info {
     unsigned int version : 4;
@@ -55,6 +57,10 @@ struct ipv6_info {
         struct pim_info pim;
     };
 };
+
+#define get_ipv6(p) ((p)->eth.ipv6)
+#define ipv6_src(p) get_ipv6(p)->src
+#define ipv6_dst(p) get_ipv6(p)->dst
 
 char *get_ip_dscp(uint8_t dscp);
 char *get_ip_transport_protocol(uint8_t protocol);

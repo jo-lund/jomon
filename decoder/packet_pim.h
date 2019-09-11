@@ -248,6 +248,8 @@ struct pim_info {
     };
 };
 
+#define get_pim(p, v) ((p)->eth.ip##v->pim)
+
 char *get_pim_message_type(uint8_t type);
 list_t *parse_hello_options(struct pim_info *pim);
 

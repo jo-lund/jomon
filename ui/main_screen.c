@@ -757,11 +757,11 @@ void print_header(main_screen *ms)
 
             if (i == 0) {
                 cli_addr = ipv4_src(p);
-                cli_port = tcpv4_src(p);
+                cli_port = tcp_src(p, v4);
                 srv_addr = ipv4_dst(p);
-                srv_port = tcpv4_dst(p);
+                srv_port = tcp_dst(p, v4);
             }
-            if (cli_addr == ipv4_src(p) && cli_port == tcpv4_src(p)) {
+            if (cli_addr == ipv4_src(p) && cli_port == tcp_src(p, v4)) {
                 cli_packets++;
                 cli_bytes += len;
             } else {
@@ -1757,13 +1757,13 @@ void follow_tcp_stream(main_screen *ms, bool follow)
         }
         endp.src = ipv4_src(p);
         endp.dst = ipv4_dst(p);
-        endp.src_port = tcpv4_src(p);
-        endp.dst_port = tcpv4_dst(p);;
+        endp.src_port = tcp_src(p, v4);
+        endp.dst_port = tcp_dst(p, v4);
         if (!(stream = hashmap_get(connections, &endp))) {
             endp.src = ipv4_dst(p);
             endp.dst = ipv4_src(p);
-            endp.src_port = tcpv4_dst(p);
-            endp.dst_port = tcpv4_src(p);;
+            endp.src_port = tcp_dst(p, v4);
+            endp.dst_port = tcp_src(p, v4);
             stream = hashmap_get(connections, &endp);
         }
         pd = progress_dialogue_create(" Finding stream ", list_size(stream->packets));
@@ -1870,9 +1870,9 @@ void buffer_tcppage(main_screen *ms, int (*buffer_fn)
         PROGRESS_DIALOGUE_UPDATE(pd, 1);
         if (i == 0) {
             cli_addr = ipv4_src(p);
-            cli_port = tcpv4_src(p);
+            cli_port = tcp_src(p, v4);
         }
-        if (cli_addr == ipv4_src(p) && cli_port == tcpv4_src(p)) {
+        if (cli_addr == ipv4_src(p) && cli_port == tcp_src(p, v4)) {
             col = get_theme_colour(SRC_TXT);
         } else {
             col = get_theme_colour(DST_TXT);
