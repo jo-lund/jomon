@@ -103,7 +103,7 @@ void write_to_buf(char *buf, int size, struct packet *p)
             print_arp(buf, size, p->eth.arp, p->num, &p->time);
             break;
         case ETH_P_IP:
-            print_ip(buf, size, p->eth.ip, p->num, &p->time);
+            print_ip(buf, size, p->eth.ipv4, p->num, &p->time);
             break;
         case ETH_P_IPV6:
             print_ipv6(buf, size, p->eth.ipv6, p->num, &p->time);
