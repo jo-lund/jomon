@@ -367,6 +367,15 @@ void main_screen_get_input(screen *s)
             change_tcp_mode(ms);
         }
         break;
+    case 'P':
+        if (follow_stream) {
+            if (tcp_mode == NORMAL)
+                tcp_mode = RAW;
+            else
+                tcp_mode = (tcp_mode - 1) % NUM_MODES;
+            change_tcp_mode(ms);
+        }
+        break;
     case KEY_UP:
         handle_keyup(ms, my);
         break;
