@@ -49,6 +49,8 @@ void help_screen_render()
     wprintw(win, ": Show TCP connections");
     printat(win, ++y, 0, subcol, "%12s", "h");
     wprintw(win, ": Show hosts");
+    printat(win, ++y, 0, subcol, "%12s", "p/P");
+    wprintw(win, ": Switch to next/previous page (where applicable)");
     printat(win, ++y, 0, subcol, "%12s", "F1");
     wprintw(win, ": Show help");
     printat(win, ++y, 0, subcol, "%12s", "F2");

@@ -5,6 +5,7 @@
 #include <string.h>
 #include <limits.h>
 #include <errno.h>
+#include <ctype.h>
 #include "file.h"
 #include "misc.h"
 #include "decoder/decoder.h"

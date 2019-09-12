@@ -205,7 +205,7 @@ void print_ip(char *buf, int n, struct ipv4_info *ip, uint32_t num, struct timev
     PRINT_NUMBER(buf, n, num);
     PRINT_TIME(buf, n, time);
     if (!numeric && (ip->protocol != IPPROTO_UDP ||
-                     (ip->protocol == IPPROTO_UDP && ip->udp.data.dns->qr == -1))) {
+                     (ip->protocol == IPPROTO_UDP && ip->udp->data.dns->qr == -1))) {
         char sname[HOSTNAMELEN];
         char dname[HOSTNAMELEN];
 
@@ -226,19 +226,19 @@ void print_ip(char *buf, int n, struct ipv4_info *ip, uint32_t num, struct timev
     }
     switch (ip->protocol) {
     case IPPROTO_ICMP:
-        print_icmp(buf, n, &ip->icmp);
+        print_icmp(buf, n, ip->icmp);
         break;
     case IPPROTO_IGMP:
-        print_igmp(buf, n, &ip->igmp);
+        print_igmp(buf, n, ip->igmp);
         break;
     case IPPROTO_TCP:
-        print_tcp(buf, n, &ip->tcp);
+        print_tcp(buf, n, ip->tcp);
         break;
     case IPPROTO_UDP:
-        print_udp(buf, n, &ip->udp);
+        print_udp(buf, n, ip->udp);
         break;
     case IPPROTO_PIM:
-        print_pim(buf, n, &ip->pim);
+        print_pim(buf, n, ip->pim);
         break;
     default:
     {
@@ -270,16 +270,16 @@ void print_ipv6(char *buf, int n, struct ipv6_info *ip, uint32_t num, struct tim
 
     switch (ip->next_header) {
     case IPPROTO_IGMP:
-        print_igmp(buf, n, &ip->igmp);
+        print_igmp(buf, n, ip->igmp);
         break;
     case IPPROTO_TCP:
-        print_tcp(buf, n, &ip->tcp);
+        print_tcp(buf, n, ip->tcp);
         break;
     case IPPROTO_UDP:
-        print_udp(buf, n, &ip->udp);
+        print_udp(buf, n, ip->udp);
         break;
     case IPPROTO_PIM:
-        print_pim(buf, n, &ip->pim);
+        print_pim(buf, n, ip->pim);
         break;
     default:
         PRINT_PROTOCOL(buf, n, "IPv6");

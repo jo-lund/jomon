@@ -45,7 +45,7 @@ void tcp_analyzer_check_stream(const struct packet *p)
     if (!connection_table) return;
 
     if (p->eth.ethertype == ETH_P_IP) {
-        struct tcp *tcp = &get_tcp(p, v4);
+        struct tcp *tcp = get_tcp(p, v4);
         struct tcp_connection_v4 *conn;
         struct tcp_endpoint_v4 endp;
 
@@ -55,7 +55,7 @@ void tcp_analyzer_check_stream(const struct packet *p)
         endp.dst_port = tcp_dst(p, v4);
         conn = hashmap_get(connection_table, &endp);
         if (conn) {
-            list_push_back(conn->packets, p);
+            list_push_back(conn->packets, (struct packet *) p);
             if (tcp->rst) {
                 conn->state = RESET;
             }

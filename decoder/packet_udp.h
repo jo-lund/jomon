@@ -6,7 +6,7 @@
 #define UDP_HDR_LEN 8
 
 #define UDP_PAYLOAD_LEN(p) ((p)->eth.ethertype == ETH_P_IP) ?           \
-    ((p)->eth.ipv4->udp.len - UDP_HDR_LEN) : ((p)->eth.ipv6->udp.len - UDP_HDR_LEN)
+    ((p)->eth.ipv4->udp->len - UDP_HDR_LEN) : ((p)->eth.ipv6->udp->len - UDP_HDR_LEN)
 
 struct udp_info {
     uint16_t src_port;
@@ -17,9 +17,9 @@ struct udp_info {
 };
 
 #define get_udp(p, v) ((p)->eth.ip##v->udp)
-#define udp_src(p, v) get_udp(p, v).src_port
-#define udp_dst(p, v) get_udp(p, v).dst_port
-#define udp_data(p, v) get_udp(p, v).data
+#define udp_src(p, v) get_udp(p, v)->src_port
+#define udp_dst(p, v) get_udp(p, v)->dst_port
+#define udp_data(p, v) get_udp(p, v)->data
 
 /* internal to the decoder */
 packet_error handle_udp(unsigned char *buffer, int n, struct udp_info *info);

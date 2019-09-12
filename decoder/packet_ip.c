@@ -108,15 +108,20 @@ packet_error handle_ipv4(unsigned char *buffer, int n, struct eth_info *eth)
 
     switch (ip->protocol) {
     case IPPROTO_ICMP:
-        return handle_icmp(buffer + header_len, n - header_len, &eth->ipv4->icmp);
+        eth->ipv4->icmp = mempool_pealloc(sizeof(struct icmp_info));
+        return handle_icmp(buffer + header_len, n - header_len, eth->ipv4->icmp);
     case IPPROTO_IGMP:
-        return handle_igmp(buffer + header_len, n - header_len, &eth->ipv4->igmp);
+        eth->ipv4->igmp = mempool_pealloc(sizeof(struct igmp_info));
+        return handle_igmp(buffer + header_len, n - header_len, eth->ipv4->igmp);
     case IPPROTO_TCP:
-        return handle_tcp(buffer + header_len, n - header_len, &eth->ipv4->tcp);
+        eth->ipv4->tcp = mempool_pealloc(sizeof(struct tcp));
+        return handle_tcp(buffer + header_len, n - header_len, eth->ipv4->tcp);
     case IPPROTO_UDP:
-        return handle_udp(buffer + header_len, n - header_len, &eth->ipv4->udp);
+        eth->ipv4->udp = mempool_pealloc(sizeof(struct udp_info));
+        return handle_udp(buffer + header_len, n - header_len, eth->ipv4->udp);
     case IPPROTO_PIM:
-        return handle_pim(buffer + header_len, n - header_len, &eth->ipv4->pim);
+        eth->ipv4->pim = mempool_pealloc(sizeof(struct pim_info));
+        return handle_pim(buffer + header_len, n - header_len, eth->ipv4->pim);
     default:
         return NO_ERR;
     }
@@ -185,13 +190,17 @@ packet_error handle_ipv6(unsigned char *buffer, int n, struct eth_info *eth)
     // TODO: Handle IPv6 extension headers and errors
     switch (eth->ipv6->next_header) {
     case IPPROTO_IGMP:
-        return handle_igmp(buffer + header_len, n - header_len, &eth->ipv6->igmp);
+        eth->ipv6->igmp = mempool_pealloc(sizeof(struct igmp_info));
+        return handle_igmp(buffer + header_len, n - header_len, eth->ipv6->igmp);
     case IPPROTO_TCP:
-        return handle_tcp(buffer + header_len, n - header_len, &eth->ipv6->tcp);
+        eth->ipv6->tcp = mempool_pealloc(sizeof(struct tcp));
+        return handle_tcp(buffer + header_len, n - header_len, eth->ipv6->tcp);
     case IPPROTO_UDP:
-        return handle_udp(buffer + header_len, n - header_len, &eth->ipv6->udp);
+        eth->ipv6->udp = mempool_pealloc(sizeof(struct udp_info));
+        return handle_udp(buffer + header_len, n - header_len, eth->ipv6->udp);
     case IPPROTO_PIM:
-        return handle_pim(buffer + header_len, n - header_len, &eth->ipv6->pim);
+        eth->ipv6->pim = mempool_pealloc(sizeof(struct pim_info));
+        return handle_pim(buffer + header_len, n - header_len, eth->ipv6->pim);
     case IPPROTO_ICMPV6:
     default:
         break;

@@ -154,15 +154,16 @@ packet_error check_port(unsigned char *buffer, int n, struct application_info *a
 
 unsigned char *get_adu_payload(struct packet *p)
 {
-    uint8_t protocol;
-
-    protocol = (p->eth.ethertype == ETH_P_IP) ?
-        p->eth.ipv4->protocol : p->eth.ipv6->next_header;
-    if (protocol == IPPROTO_TCP) {
-        return get_ip_payload(p) + p->eth.ipv4->tcp.offset * 4;
-    }
-    if (protocol == IPPROTO_UDP) {
-        return get_ip_payload(p) + UDP_HDR_LEN;
+    if (ethertype(p) == ETH_P_IP) {
+        if (ipv4_protocol(p) == IPPROTO_TCP)
+            return get_ip_payload(p) + p->eth.ipv4->tcp->offset * 4;
+        else if (ipv4_protocol(p) == IPPROTO_UDP)
+            return get_ip_payload(p) + UDP_HDR_LEN;
+    } else {
+        if (ipv6_protocol(p) == IPPROTO_TCP)
+            return get_ip_payload(p) + p->eth.ipv6->tcp->offset * 4;
+        else if (ipv6_protocol(p) == IPPROTO_UDP)
+            return get_ip_payload(p) + UDP_HDR_LEN;
     }
     return NULL;
 }

@@ -408,20 +408,19 @@ enum hex_state get_next_state(enum hex_state cur_state, struct packet *p)
     case HD_UDP:
     case HD_TCP:
     {
-        uint8_t protocol;
         struct application_info *adu;
 
-        if (p->eth.ethertype == ETH_P_IP) {
-            protocol = p->eth.ipv4->protocol;
+        if (ethertype(p) == ETH_P_IP) {
+            if (ipv4_protocol(p) == IPPROTO_UDP)
+                adu = &udp_data(p, v4);
+            else if (ipv4_protocol(p) == IPPROTO_TCP)
+                adu = &tcp_data(p, v4);
         } else {
-            protocol = p->eth.ipv6->next_header;
+            if (ipv6_protocol(p) == IPPROTO_UDP)
+                adu = &udp_data(p, v6);
+            else if (ipv6_protocol(p) == IPPROTO_TCP)
+                adu = &tcp_data(p, v6);
         }
-        if (protocol == IPPROTO_UDP) {
-            adu = &p->eth.ipv4->udp.data;
-        } else {
-            adu = &p->eth.ipv4->tcp.data;
-        }
-
         switch (adu->utype) {
         case DNS:
         case MDNS:

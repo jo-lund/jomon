@@ -13,7 +13,6 @@
 
 #define IPV6_FIXED_HEADER_LEN 40
 
-// TODO: Improve the structure of this
 struct ipv4_info {
     unsigned int version : 4;
     unsigned int ihl     : 4; /* Internet Header Length */
@@ -28,11 +27,11 @@ struct ipv4_info {
     uint32_t src;
     uint32_t dst;
     union {
-        struct udp_info udp;
-        struct tcp tcp;
-        struct igmp_info igmp;
-        struct icmp_info icmp;
-        struct pim_info pim;
+        struct udp_info *udp;
+        struct tcp *tcp;
+        struct igmp_info *igmp;
+        struct icmp_info *icmp;
+        struct pim_info *pim;
     };
 };
 
@@ -51,16 +50,17 @@ struct ipv6_info {
     uint8_t src[16];
     uint8_t dst[16];
     union {
-        struct udp_info udp;
-        struct tcp tcp;
-        struct igmp_info igmp;
-        struct pim_info pim;
+        struct udp_info *udp;
+        struct tcp *tcp;
+        struct igmp_info *igmp;
+        struct pim_info *pim;
     };
 };
 
 #define get_ipv6(p) ((p)->eth.ipv6)
 #define ipv6_src(p) get_ipv6(p)->src
 #define ipv6_dst(p) get_ipv6(p)->dst
+#define ipv6_protocol(p) get_ipv6(p)->next_header
 
 char *get_ip_dscp(uint8_t dscp);
 char *get_ip_transport_protocol(uint8_t protocol);
