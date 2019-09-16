@@ -27,9 +27,8 @@
 #define NUM_COLS_SCROLL 4
 #define TCP_PAGE_SIZE 1000
 
-/* Get the y and x screen coordinates. The argument is the main_screen coordinate */
+/* Get the y screen coordinate. The argument is the main_screen coordinate */
 #define GET_SCRY(y) ((y) + HEADER_HEIGHT)
-#define GET_SCRX(x) (x)
 
 enum views {
     DECODED_VIEW,
@@ -45,7 +44,7 @@ enum follow_tcp_mode {
 };
 
 struct tcp_page {
-    uint32_t top;
+    int top;
     vector_t *buf;
 };
 
@@ -759,6 +758,7 @@ void print_header(main_screen *ms)
         int txtcol = get_theme_colour(HEADER_TXT);
         char addr[INET_ADDRSTRLEN];
         char buf[64];
+        int x = 0;
 
         for (int i = 0; i < vector_size(packet_ref); i++) {
             struct packet *p = vector_get_data(packet_ref, i);
@@ -819,6 +819,10 @@ void print_header(main_screen *ms)
             break;
         default:
             break;
+        }
+        for (unsigned int i = 0; i < ARRAY_SIZE(header); i++) {
+            mvwprintw(ms->header, 4, x, header[i].txt);
+            x += header[i].width;
         }
         mvwchgat(ms->header, HEADER_HEIGHT - 1, 0, -1, A_NORMAL,
                  PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
@@ -1160,6 +1164,15 @@ void scroll_page(main_screen *ms, int num_lines)
     if (!interactive) {
         main_screen_set_interactive(ms, true);
     }
+    if (follow_stream && tcp_mode != NORMAL) {
+        tcp_page.top += num_lines;
+        if (tcp_page.top < 0)
+            tcp_page.top = 0;
+        print_tcppage(ms);
+        wrefresh(ms->base.win);
+        return;
+    }
+
     if (num_lines > 0) { /* scroll page down */
         if (vector_size(packet_ref) <= num_lines) {
             remove_selectionbar(ms, ms->base.win, ms->selectionbar - ms->top, A_NORMAL);

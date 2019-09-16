@@ -25,6 +25,7 @@ static _stack_t *screen_stack;
 static int theme;
 static void colours_init();
 static void create_screens();
+static void create_menu();
 static void change_theme(int i);
 static void options(int i);
 
@@ -118,7 +119,6 @@ static char *menu_options[] = {
 void ncurses_init()
 {
     int mx, my;
-    option_menu *om;
 
     initscr(); /* initialize curses mode */
     cbreak(); /* disable line buffering */
@@ -130,12 +130,7 @@ void ncurses_init()
     getmaxyx(stdscr, my, mx);
     status = newwin(STATUS_HEIGHT, mx, my - STATUS_HEIGHT, 0);
     create_screens();
-    menu = main_menu_create();
-    main_menu_add_options(menu, MENU_NORMAL, "Themes", menu_themes, ARRAY_SIZE(menu_themes), change_theme);
-    om = main_menu_add_options(menu, MENU_NORMAL, "Options", menu_options, ARRAY_SIZE(menu_options), NULL);
-    main_menu_add_suboptions(om, MENU_MULTI_SELECT, 0, name_resolution, ARRAY_SIZE(name_resolution), options);
-    main_menu_add_suboptions(om, MENU_SINGLE_SELECT, 1, network_rate, ARRAY_SIZE(network_rate), options);
-    menu->current = list_begin(menu->opt);
+    create_menu();
 }
 
 void ncurses_end()
@@ -407,6 +402,18 @@ void create_screens()
     screen_cache_insert(HELP_SCREEN, (screen *) help_screen_create());
     screen_cache_insert(CONNECTION_SCREEN, (screen *) connection_screen_create());
     screen_cache_insert(HOST_SCREEN, (screen *) host_screen_create());
+}
+
+void create_menu()
+{
+    option_menu *om;
+
+    menu = main_menu_create();
+    main_menu_add_options(menu, MENU_NORMAL, "Themes", menu_themes, ARRAY_SIZE(menu_themes), change_theme);
+    om = main_menu_add_options(menu, MENU_NORMAL, "Options", menu_options, ARRAY_SIZE(menu_options), NULL);
+    main_menu_add_suboptions(om, MENU_MULTI_SELECT, 0, name_resolution, ARRAY_SIZE(name_resolution), options);
+    main_menu_add_suboptions(om, MENU_SINGLE_SELECT, 1, network_rate, ARRAY_SIZE(network_rate), options);
+    menu->current = list_begin(menu->opt);
 }
 
 void change_theme(int i)
