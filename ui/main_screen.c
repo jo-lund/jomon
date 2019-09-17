@@ -314,7 +314,10 @@ void main_screen_get_input(screen *s)
     ms = (main_screen *) s;
     my = getmaxy(ms->base.win);
     c = wgetch(ms->base.win);
-
+    if (input_mode) {
+        goto_line(ms, c);
+        return;
+    }
     switch (c) {
     case 'c':
         push_screen(screen_cache_get(CONNECTION_SCREEN));
@@ -497,9 +500,6 @@ void main_screen_get_input(screen *s)
         push_screen(screen_cache_get(STAT_SCREEN));
         break;
     default:
-        if (input_mode) {
-            goto_line(ms, c);
-        }
         break;
     }
 }
