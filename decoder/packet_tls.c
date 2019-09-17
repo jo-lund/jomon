@@ -414,7 +414,9 @@ packet_error handle_tls(unsigned char *buf, uint16_t n, struct application_info 
                 (*pptr)->handshake->type = ENCRYPTED_HANDSHAKE_MESSAGE;
                 buf += record_len;
             } else {
-                parse_handshake(&buf, record_len, *pptr);
+                // BUG: Need to handle this properly
+                if (parse_handshake(&buf, record_len, *pptr) != NO_ERR)
+                    return TLS_ERR;
             }
             break;
         default:
