@@ -425,13 +425,7 @@ void main_screen_get_input(screen *s)
         break;
     case KEY_END:
         if (interactive) {
-            if (ms->outy >= my) {
-                goto_end(ms);
-            }
-            remove_selectionbar(ms, ms->base.win, ms->selectionbar - ms->top, A_NORMAL);
-            ms->selectionbar = vector_size(packet_ref) - 1;
-            show_selectionbar(ms, ms->base.win, ms->selectionbar - ms->top, A_NORMAL);
-            wrefresh(ms->base.win);
+            goto_end(ms);
         }
         break;
     case KEY_F(1):
@@ -967,33 +961,50 @@ void goto_line(main_screen *ms, int c)
 
 void goto_home(main_screen *ms)
 {
-    int my = getmaxy(ms->base.win);
+    if (follow_stream && tcp_mode != NORMAL) {
+        tcp_page.top = 0;
+        print_tcppage(ms);
+    } else {
+        int my = getmaxy(ms->base.win);
 
-    werase(ms->base.win);
-    print_lines(ms, 0, my, 0);
-    ms->selectionbar = 0;
-    ms->top = 0;
-    show_selectionbar(ms, ms->base.win, 0, A_NORMAL);
-    wrefresh(ms->base.win);
+        werase(ms->base.win);
+        print_lines(ms, 0, my, 0);
+        ms->selectionbar = 0;
+        ms->top = 0;
+        show_selectionbar(ms, ms->base.win, 0, A_NORMAL);
+        wrefresh(ms->base.win);
+    }
 }
 
 void goto_end(main_screen *ms)
 {
-    int c = vector_size(packet_ref) - 1;
     int my = getmaxy(ms->base.win);
 
-    werase(ms->base.win);
+    if (follow_stream && tcp_mode != NORMAL) {
+        if (vector_size(tcp_page.buf) > my) {
+            tcp_page.top = vector_size(tcp_page.buf) - 1 - my;
+            print_tcppage(ms);
+        }
+    } else if (ms->outy >= my) {
+        int c = vector_size(packet_ref) - 1;
 
-    /* print the new lines stored in vector from bottom to top of screen */
-    for (int i = my - 1; i >= 0; i--, c--) {
-        struct packet *p;
-        char buffer[MAXLINE];
+        werase(ms->base.win);
 
-        p = vector_get_data(packet_ref, c);
-        write_to_buf(buffer, MAXLINE, p);
-        printnlw(ms->base.win, buffer, strlen(buffer), i, 0, ms->scrollx);
+        /* print the new lines stored in vector from bottom to top of screen */
+        for (int i = my - 1; i >= 0; i--, c--) {
+            struct packet *p;
+            char buffer[MAXLINE];
+
+            p = vector_get_data(packet_ref, c);
+            write_to_buf(buffer, MAXLINE, p);
+            printnlw(ms->base.win, buffer, strlen(buffer), i, 0, ms->scrollx);
+        }
+        ms->top = c + 1;
+        remove_selectionbar(ms, ms->base.win, ms->selectionbar - ms->top, A_NORMAL);
+        ms->selectionbar = vector_size(packet_ref) - 1;
+        show_selectionbar(ms, ms->base.win, ms->selectionbar - ms->top, A_NORMAL);
+        wrefresh(ms->base.win);
     }
-    ms->top = c + 1;
 }
 
 /*
@@ -1972,7 +1983,7 @@ void print_tcppage(main_screen *ms)
     print_header(ms);
     werase(ms->base.win);
     my = getmaxy(ms->base.win);
-    while ((unsigned) i < my + tcp_page.top && i < vector_size(tcp_page.buf)) {
+    while (i < my + tcp_page.top && i < vector_size(tcp_page.buf)) {
         attr = vector_get_data(tcp_page.buf, i);
         wattron(ms->base.win, attr->col);
         waddstr(ms->base.win, attr->line);
