@@ -468,7 +468,7 @@ void main_screen_get_input(screen *s)
         }
         break;
     case KEY_F(6):
-        if (!ctx.capturing) {
+        if (!ctx.capturing && !follow_stream) {
             create_load_dialogue();
         }
         break;
@@ -880,7 +880,7 @@ void print_status()
         wprintw(status, "F5");
         printat(status, -1, -1, colour, "%-11s", "Save");
     }
-    if (ctx.capturing) {
+    if (ctx.capturing || follow_stream) {
         printat(status, -1, -1, disabled, "F6");
         printat(status, -1, -1, colour, "%-11s", "Load");
     } else {
@@ -1844,15 +1844,12 @@ void follow_tcp_stream(main_screen *ms, bool follow)
                 show_selectionbar(ms, ms->base.win, 0, A_NORMAL);
         }
         werase(ms->header);
-        print_header(ms);
-        wnoutrefresh(ms->base.win);
-        wnoutrefresh(ms->header);
-        doupdate();
         stream = NULL;
         tcp_analyzer_unsubscribe(add_packet);
         tcp_mode = NORMAL;
         vector_clear(tcp_page.buf, free_tcp_attr);
         tcp_page.top = 0;
+        main_screen_refresh(ms);
     }
 }
 
