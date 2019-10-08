@@ -115,6 +115,7 @@ static int buffer_ascii(unsigned char *buf, int len, struct tcp_page_attr *attr,
 static int buffer_raw(unsigned char *buf, int len, struct tcp_page_attr *attr, int pidx, int mx);
 static void print_tcppage(main_screen *ms);
 static void free_tcp_attr(void *arg);
+static void print_packets(main_screen *ms);
 
 /* Handles subwindow layout */
 static void create_subwindow(main_screen *ms, int num_lines, int lineno);
@@ -231,7 +232,7 @@ void main_screen_refresh(screen *s)
 
     /* re-render the whole screen when capturing */
     if (!interactive && (ms->outy >= my || c >= my) && ctx.capturing) {
-        goto_end(ms);
+        print_packets(ms);
         ms->outy = my;
     } else if (ctx.capturing && c < my) {
         werase(ms->base.win);
@@ -986,25 +987,31 @@ void goto_end(main_screen *ms)
             print_tcppage(ms);
         }
     } else if (ms->outy >= my) {
-        int c = vector_size(packet_ref) - 1;
-
-        werase(ms->base.win);
-
-        /* print the new lines stored in vector from bottom to top of screen */
-        for (int i = my - 1; i >= 0; i--, c--) {
-            struct packet *p;
-            char buffer[MAXLINE];
-
-            p = vector_get_data(packet_ref, c);
-            write_to_buf(buffer, MAXLINE, p);
-            printnlw(ms->base.win, buffer, strlen(buffer), i, 0, ms->scrollx);
-        }
-        ms->top = c + 1;
+        print_packets(ms);
         remove_selectionbar(ms, ms->base.win, ms->selectionbar - ms->top, A_NORMAL);
         ms->selectionbar = vector_size(packet_ref) - 1;
         show_selectionbar(ms, ms->base.win, ms->selectionbar - ms->top, A_NORMAL);
         wrefresh(ms->base.win);
     }
+}
+
+void print_packets(main_screen *ms)
+{
+    int c = vector_size(packet_ref) - 1;
+    int my = getmaxy(ms->base.win);
+
+    werase(ms->base.win);
+
+    /* print the new lines stored in vector from bottom to top of screen */
+    for (int i = my - 1; i >= 0; i--, c--) {
+        struct packet *p;
+        char buffer[MAXLINE];
+
+        p = vector_get_data(packet_ref, c);
+        write_to_buf(buffer, MAXLINE, p);
+        printnlw(ms->base.win, buffer, strlen(buffer), i, 0, ms->scrollx);
+    }
+    ms->top = c + 1;
 }
 
 /*
@@ -1289,7 +1296,7 @@ void main_screen_set_interactive(main_screen *ms, bool interactive_mode)
             ms->main_line.selected = false;
         }
         if (ms->outy >= my && ctx.capturing) {
-            goto_end(ms);
+            print_packets(ms);
         } else {
             remove_selectionbar(ms, ms->base.win, ms->selectionbar - ms->top, A_NORMAL);
         }
@@ -1849,7 +1856,7 @@ void follow_tcp_stream(main_screen *ms, bool follow)
         tcp_mode = NORMAL;
         vector_clear(tcp_page.buf, free_tcp_attr);
         tcp_page.top = 0;
-        main_screen_refresh(ms);
+        main_screen_refresh((screen *) ms);
     }
 }
 
