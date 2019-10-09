@@ -59,7 +59,7 @@ int main(int argc, char **argv)
     };
 
     ctx.opt.use_ncurses = true;
-    ctx.opt.promiscuous = false;
+    ctx.opt.nopromiscuous = false;
     ctx.opt.verbose = false;
     ctx.opt.load_file = false;
     ctx.opt.nogeoip = false;
@@ -78,7 +78,7 @@ int main(int argc, char **argv)
             exit(0);
             break;
         case 'p':
-            ctx.opt.promiscuous = true;
+            ctx.opt.nopromiscuous = true;
             break;
         case 'r':
             strcpy(ctx.filename, optarg);
@@ -111,7 +111,7 @@ int main(int argc, char **argv)
     if (!ctx.device && !(ctx.device = get_default_interface())) {
         err_quit("Cannot find active network device");
     }
-    if (ctx.opt.promiscuous) {
+    if (!ctx.opt.nopromiscuous) {
         set_promiscuous(ctx.device, true);
     }
     ctx.local_addr = malloc(sizeof (struct sockaddr_in));
@@ -164,7 +164,7 @@ void print_help(char *prg)
     printf("     -G, --no-geoip         Don't use GeoIP information\n");
     printf("     -i, --interface        Specify network interface\n");
     printf("     -l, --list-interfaces  List available interfaces\n");
-    printf("     -p                     Use promiscuous mode\n");
+    printf("     -p                     Don't put the interface into promiscuous mode\n");
     printf("     -r                     Read file in pcap format\n");
     printf("     -s, --statistics       Show statistics page\n");
     printf("     -t                     Use normal text output, i.e. don't use ncurses\n");
@@ -191,7 +191,7 @@ void finish()
         host_analyzer_free();
         dns_cache_free();
     }
-    if (ctx.opt.promiscuous) {
+    if (!ctx.opt.nopromiscuous) {
         set_promiscuous(ctx.device, false);
     }
     free(ctx.device);

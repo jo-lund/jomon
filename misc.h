@@ -42,7 +42,7 @@ typedef struct {
         bool show_statistics;
         bool nogeoip;
         bool use_ncurses;
-        bool promiscuous;
+        bool nopromiscuous;
         bool verbose;
         bool load_file;
     } opt;
