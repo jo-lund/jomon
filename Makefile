@@ -3,9 +3,10 @@ incdir := decoder ui
 BUILDDIR := build
 TARGETDIR := bin
 
+STRIP := strip
 CC := gcc
 CXX := g++
-CFLAGS += -std=gnu99
+CFLAGS += -std=gnu11
 CXXFLAGS += -Wno-write-strings
 CPPFLAGS += -Wall -Wextra -Wno-override-init $(addprefix -I,$(incdir))
 LIBS += -lncurses -lGeoIP
@@ -19,6 +20,7 @@ debug : monitor
 
 release : CFLAGS += -O2
 release : monitor
+	@$(STRIP) --strip-all --remove-section .comment $(TARGETDIR)/monitor
 
 monitor : $(objects)
 	@mkdir -p $(TARGETDIR)
