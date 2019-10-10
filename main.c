@@ -36,6 +36,8 @@ main_context ctx;
 static volatile sig_atomic_t signal_flag = 0;
 static int sockfd = -1;
 static bool fd_changed = false;
+static bool promiscuous = false;
+static bool ncurses_initialized = false;
 
 bool on_packet(unsigned char *buffer, uint32_t n, struct timeval *t);
 static void print_help(char *prg);
@@ -113,6 +115,7 @@ int main(int argc, char **argv)
     }
     if (!ctx.opt.nopromiscuous && !ctx.opt.load_file) {
         set_promiscuous(ctx.device, true);
+        promiscuous = true;
     }
     ctx.local_addr = malloc(sizeof (struct sockaddr_in));
     get_local_address(ctx.device, (struct sockaddr *) ctx.local_addr);
@@ -135,6 +138,7 @@ int main(int argc, char **argv)
         fclose(fp);
         if (ctx.opt.use_ncurses) {
             ncurses_init(&ctx);
+            ncurses_initialized = true;
             print_file();
         } else {
             for (int i = 0; i < vector_size(packets); i++) {
@@ -143,17 +147,18 @@ int main(int argc, char **argv)
                 write_to_buf(buf, MAXLINE, vector_get_data(packets, i));
                 printf("%s\n", buf);
             }
-            finish();
+            finish(0);
         }
     } else {
         ctx.capturing = true;
         socket_init(ctx.device);
         if (ctx.opt.use_ncurses) {
             ncurses_init(&ctx);
+            ncurses_initialized = true;
         }
     }
     run();
-    finish();
+    finish(0);
 #endif
 }
 
@@ -179,19 +184,19 @@ void sig_alarm(int signo __attribute__((unused)))
 
 void sig_int(int signo __attribute__((unused)))
 {
-    finish();
+    finish(1);
 }
 
-void finish()
+void finish(int status)
 {
-    if (ctx.opt.use_ncurses) {
+    if (ncurses_initialized) {
         ncurses_end();
         vector_free(packets, NULL);
         tcp_analyzer_free();
         host_analyzer_free();
         dns_cache_free();
     }
-    if (!ctx.opt.nopromiscuous && !ctx.opt.load_file) {
+    if (promiscuous) {
         set_promiscuous(ctx.device, false);
     }
     free(ctx.device);
@@ -203,7 +208,7 @@ void finish()
     if (ctx.gi) {
         GeoIP_delete(ctx.gi);
     }
-    exit(0);
+    exit(status);
 }
 
 /* Initialize device and prepare for reading */

@@ -162,7 +162,7 @@ void host_screen_get_input(screen *s)
         break;
     case 'q':
     case KEY_F(10):
-        finish();
+        finish(0);
         break;
     default:
         break;

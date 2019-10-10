@@ -489,7 +489,7 @@ void main_screen_get_input(screen *s)
         break;
     case KEY_F(10):
     case 'q':
-        finish();
+        finish(0);
         break;
     case 's':
         push_screen(screen_cache_get(STAT_SCREEN));

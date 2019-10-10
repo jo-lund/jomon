@@ -58,7 +58,7 @@ enum event {
 
 extern main_context ctx;
 
-void finish();
+void finish(int status);
 void stop_scan();
 void start_scan();
 
