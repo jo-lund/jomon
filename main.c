@@ -111,7 +111,7 @@ int main(int argc, char **argv)
     if (!ctx.device && !(ctx.device = get_default_interface())) {
         err_quit("Cannot find active network device");
     }
-    if (!ctx.opt.nopromiscuous) {
+    if (!ctx.opt.nopromiscuous && !ctx.opt.load_file) {
         set_promiscuous(ctx.device, true);
     }
     ctx.local_addr = malloc(sizeof (struct sockaddr_in));
@@ -191,7 +191,7 @@ void finish()
         host_analyzer_free();
         dns_cache_free();
     }
-    if (!ctx.opt.nopromiscuous) {
+    if (!ctx.opt.nopromiscuous && !ctx.opt.load_file) {
         set_promiscuous(ctx.device, false);
     }
     free(ctx.device);
