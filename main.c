@@ -28,6 +28,7 @@
 #include "mempool.h"
 #include "decoder/host_analyzer.h"
 #include "decoder/dns_cache.h"
+#include "attributes.h"
 
 #define TABLE_SIZE 65536
 
@@ -177,12 +178,12 @@ void print_help(char *prg)
     printf("     -h                     Print this help summary\n");
 }
 
-void sig_alarm(int signo __attribute__((unused)))
+void sig_alarm(int signo UNUSED)
 {
     signal_flag = 1;
 }
 
-void sig_int(int signo __attribute__((unused)))
+void sig_int(int signo UNUSED)
 {
     finish(1);
 }

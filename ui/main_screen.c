@@ -22,6 +22,7 @@
 #include "connection_screen.h"
 #include "../hashmap.h"
 #include "../decoder/tcp_analyzer.h"
+#include "../attributes.h"
 
 #define HEADER_HEIGHT 5
 #define NUM_COLS_SCROLL 4
@@ -601,7 +602,7 @@ void load_handle_ok(void *file)
     fd = NULL;
 }
 
-void load_handle_cancel(void *d __attribute__((unused)))
+void load_handle_cancel(void *d UNUSED)
 {
     SCREEN_FREE((screen *) fd);
     fd = NULL;
@@ -661,7 +662,7 @@ void save_handle_ok(void *file)
     sd = NULL;
 }
 
-void save_handle_cancel(void *d __attribute__((unused)))
+void save_handle_cancel(void *d UNUSED)
 {
     SCREEN_FREE((screen *) sd);
     sd = NULL;
@@ -693,7 +694,7 @@ bool read_show_progress(unsigned char *buffer, uint32_t n, struct timeval *t)
     return true;
 }
 
-void show_selectionbar(main_screen *ms __attribute__((unused)), WINDOW *win, int line, uint32_t attr)
+void show_selectionbar(main_screen *ms UNUSED, WINDOW *win, int line, uint32_t attr)
 {
     mvwinchstr(win, line, 0, original_line);
     mvwchgat(win, line, 0, -1, attr, PAIR_NUMBER(get_theme_colour(SELECTIONBAR)), NULL);
@@ -1052,7 +1053,7 @@ void scroll_column(main_screen *ms, int scrollx, int num_lines)
     }
 }
 
-void handle_keyup(main_screen *ms, int num_lines __attribute__((unused)))
+void handle_keyup(main_screen *ms, int num_lines UNUSED)
 {
     if (follow_stream && tcp_mode != NORMAL) {
         wscrl(ms->base.win, -1);

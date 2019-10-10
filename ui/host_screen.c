@@ -7,6 +7,7 @@
 #include "../decoder/host_analyzer.h"
 #include "../decoder/packet_arp.h"
 #include "../util.h"
+#include "../attributes.h"
 
 #define HOST_HEADER 3
 #define ADDR_WIDTH 20
@@ -169,12 +170,12 @@ void host_screen_get_input(screen *s)
     }
 }
 
-void host_screen_got_focus(screen *s __attribute__((unused)))
+void host_screen_got_focus(screen *s UNUSED)
 {
     host_analyzer_subscribe(update_host);
 }
 
-void host_screen_lost_focus(screen *s __attribute__((unused)))
+void host_screen_lost_focus(screen *s UNUSED)
 {
     host_analyzer_unsubscribe(update_host);
 }

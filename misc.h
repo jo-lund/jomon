@@ -10,6 +10,7 @@
 #include <stdbool.h>
 #include <limits.h>
 #include <GeoIP.h>
+#include "attributes.h"
 
 #define GEOIP_PATH "/usr/share/GeoIP/GeoIPCity.dat"
 
@@ -58,7 +59,7 @@ enum event {
 
 extern main_context ctx;
 
-void finish(int status);
+void finish(int status) NORETURN;
 void stop_scan();
 void start_scan();
 

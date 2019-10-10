@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <arpa/inet.h>
+#include "../attributes.h"
 
 #define PIM_HEADER_LEN 4
 
@@ -305,7 +306,7 @@ bool parse_unicast_address(unsigned char **data, int *n, struct pim_unicast_addr
 }
 
 bool parse_address(unsigned char **data, int *n, pim_addr *addr, uint8_t family,
-                   uint8_t encoding __attribute__((unused)))
+                   uint8_t encoding UNUSED)
 {
     unsigned char *ptr = *data;
 

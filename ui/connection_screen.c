@@ -8,6 +8,7 @@
 #include "../decoder/packet_ip.h"
 #include "../misc.h"
 #include "../util.h"
+#include "../attributes.h"
 
 #define ADDR_WIDTH 17
 #define PORT_WIDTH 10
@@ -45,8 +46,8 @@ extern main_menu *menu;
 static void connection_screen_init(screen *s);
 static void connection_screen_refresh(screen *s);
 static void connection_screen_get_input(screen *s);
-static void connection_screen_got_focus(screen *s __attribute__((unused)));
-static void connection_screen_lost_focus(screen *s __attribute__((unused)));
+static void connection_screen_got_focus(screen *s UNUSED);
+static void connection_screen_lost_focus(screen *s UNUSED);
 static void connection_screen_render(connection_screen *cs);
 static void update_connection(struct tcp_connection_v4 *c, bool new_connection);
 static void print_all_connections(connection_screen *cs);
@@ -115,12 +116,12 @@ void connection_screen_free(screen *s)
     free(cs);
 }
 
-void connection_screen_got_focus(screen *s __attribute__((unused)))
+void connection_screen_got_focus(screen *s UNUSED)
 {
     tcp_analyzer_subscribe(update_connection);
 }
 
-void connection_screen_lost_focus(screen *s __attribute__((unused)))
+void connection_screen_lost_focus(screen *s UNUSED)
 {
     tcp_analyzer_unsubscribe(update_connection);
 }
