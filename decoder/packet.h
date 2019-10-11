@@ -10,18 +10,6 @@
 #include "../mempool.h"
 #include "../alloc.h"
 
-/*
- * Subtracts the offset of a structure's member from its address to get the
- * address of the containing structure.
- *
- * ptr    - The pointer to the member
- * type   - The type of the struct this is embedded in
- * member - The name of the member within the struct
- */
-#define CONTAINER_OF(ptr, type, member) ({                        \
-            const typeof(((type *) 0)->member) *_mptr = (ptr);    \
-            (type *) ((char *) _mptr - offsetof(type, member));})
-
 struct packet_flags {
     char *str;     /* flag description */
     int width;     /* number of bits in the field */
@@ -120,6 +108,7 @@ struct application_info {
         struct imap_info *imap;
         struct ssdp_info *ssdp;
         struct tls_info *tls;
+        unsigned char *data;
     };
 };
 

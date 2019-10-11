@@ -5,6 +5,19 @@
 #include <GeoIPCity.h>
 #include "list.h"
 
+/*
+ * Subtracts the offset of a structure's member from its address to get the
+ * address of the containing structure.
+ *
+ * ptr    - The pointer to the member
+ * type   - The type of the struct this is embedded in
+ * member - The name of the member within the struct
+ */
+#define container_of(ptr, type, member) ({                        \
+            const typeof(((type *) 0)->member) *_mptr = (ptr);    \
+            (type *) ((char *) _mptr - offsetof(type, member));})
+
+
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 /* hardware address length (format aa:bb:cc:dd:ee:ff) */
@@ -38,10 +51,6 @@ struct tm_t {
     int mins;
     int secs;
 };
-
-// TODO: This should be moved to its own file. Will be used for injecting
-// packets.
-void serialize_arp(unsigned char *buf, struct arp_info *info);
 
 /*
  * Get host name from addr which is in dotted-decimal format. This will send a

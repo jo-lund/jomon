@@ -37,25 +37,6 @@ bool hextoint(unsigned char dest[], char *src)
     return true;
 }
 
-void serialize_arp(unsigned char *buf, struct arp_info *info)
-{
-    /* ARP header */
-    buf[0] = info->ht >> 8;
-    buf[1] = info->ht & 0x00ff;
-    buf[2] = info->pt >> 8;
-    buf[3] = info->pt & 0x00ff;
-    buf[4] = info->hs;
-    buf[5] = info->ps;
-    buf[6] = info->op >> 8;
-    buf[7] = info->op & 0x00ff;
-
-    /* ARP payload */
-    memcpy(buf + 8, info->sha, ETH_ALEN);
-    memcpy(buf + 14, info->sip, 4);
-    memcpy(buf + 18, info->tha, ETH_ALEN);
-    memcpy(buf + 24, info->tip, 4);
-}
-
 void gethost(uint32_t addr, char *host, int hostlen)
 {
     struct sockaddr_in saddr;
