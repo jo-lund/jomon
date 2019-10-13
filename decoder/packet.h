@@ -125,14 +125,8 @@ struct packet {
 };
 
 /*
- * Get a packet from the network interface card. Will allocate enough memory
- * for packet, which needs to be freed with free_packets.
- */
-size_t read_packet(int sockfd, unsigned char *buffer, size_t len, struct packet **p);
-
-/*
- * Decodes the data in buffer and stores a pointer to the decoded packet, which
- * has to be freed by calling free_packets.
+ * Decodes the data in buffer and stores it in struct packet, which has to be
+ * freed by calling free_packets.
  *
  * Returns true if decoding succeeded, else false.
  */

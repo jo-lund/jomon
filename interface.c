@@ -1,4 +1,5 @@
 #include <ifaddrs.h>
+#include <net/if.h>
 #ifdef MACOS
 #include <net/if_dl.h>
 #include <net/if_types.h>
@@ -22,6 +23,8 @@
 
 #define MAX_NUM_INTERFACES 16
 
+static char *get_active_interface(int fd, char *buffer, int len);
+
 struct interface {
     char *name;                    /* interface name */
     unsigned short type;           /* interface type, e.g. Ethernet, Firewire etc. */
@@ -31,7 +34,26 @@ struct interface {
     unsigned char hwaddr[8];       /* hardware address */
 };
 
-static char *get_active_interface(int fd, char *buffer, int len);
+void iface_activate(iface_handle_t *handle, char *device)
+{
+    if (!handle->active) {
+        handle->op->activate(handle, device);
+        handle->active = true;
+    }
+}
+
+void iface_close(iface_handle_t *handle)
+{
+    if (handle->active) {
+        handle->op->close(handle);
+        handle->active = false;
+    }
+}
+
+void iface_read_packet(iface_handle_t *handle)
+{
+    handle->op->read_packet(handle);
+}
 
 void list_interfaces()
 {
@@ -74,6 +96,7 @@ void list_interfaces()
         case AF_INET6:
             iflist[i].in6addr = (struct sockaddr_in6 *) ifp->ifa_addr;
             break;
+#ifdef __linux__
         case AF_PACKET:
         {
             struct sockaddr_ll *ll_addr;
@@ -84,6 +107,7 @@ void list_interfaces()
             iflist[i].addrlen = ll_addr->sll_halen;
             break;
         }
+#endif
 #ifdef MACOS
         case AF_LINK:
         {
@@ -137,10 +161,10 @@ void list_interfaces()
         case ARPHRD_IEEE1394:
             printf("IEEE1394 High Performance SerialBus\n");
             break;
+#endif
         default:
             printf("Unknown type: %d\n", iflist[i].type);
             break;
-#endif
         }
         if (iflist[i].hwaddr) {
             if (iflist[i].addrlen == 6) {

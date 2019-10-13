@@ -9,9 +9,6 @@
 #include <string.h>
 #include <signal.h>
 #include <unistd.h>
-#ifdef __linux__
-#include <netpacket/packet.h>
-#endif
 #include <poll.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -35,19 +32,19 @@
 vector_t *packets;
 main_context ctx;
 static volatile sig_atomic_t signal_flag = 0;
-static int sockfd = -1;
 static bool fd_changed = false;
 static bool promiscuous = false;
 static bool ncurses_initialized = false;
+static iface_handle_t *handle = NULL;
 
-bool on_packet(unsigned char *buffer, uint32_t n, struct timeval *t);
+bool handle_packet(unsigned char *buffer, uint32_t n, struct timeval *t);
 static void print_help(char *prg);
-static void socket_init(char *device);
 static void structures_init();
 static void run();
 
 int main(int argc, char **argv)
 {
+    unsigned char buf[SNAPLEN];
     char *prg_name = argv[0];
     int opt;
     int idx;
@@ -102,8 +99,6 @@ int main(int argc, char **argv)
             exit(0);
         }
     }
-
-#ifdef __linux__
     structures_init();
     mempool_init();
     if (ctx.opt.use_ncurses) {
@@ -132,7 +127,7 @@ int main(int argc, char **argv)
         if ((fp = open_file(ctx.filename, "r", &err)) == NULL) {
             err_sys("Error in %s", ctx.filename);
         }
-        if ((err = read_file(fp, on_packet)) != NO_ERROR) {
+        if ((err = read_file(fp, handle_packet)) != NO_ERROR) {
             fclose(fp);
             err_quit("Error in %s: %s", ctx.filename, get_file_error(err));
         }
@@ -140,6 +135,7 @@ int main(int argc, char **argv)
         if (ctx.opt.use_ncurses) {
             ncurses_init(&ctx);
             ncurses_initialized = true;
+            handle = iface_handle_create();
             print_file();
         } else {
             for (int i = 0; i < vector_size(packets); i++) {
@@ -152,7 +148,11 @@ int main(int argc, char **argv)
         }
     } else {
         ctx.capturing = true;
-        socket_init(ctx.device);
+        handle = iface_handle_create();
+        handle->buf = buf;
+        handle->len = SNAPLEN;
+        handle->on_packet = handle_packet;
+        iface_activate(handle, ctx.device);
         if (ctx.opt.use_ncurses) {
             ncurses_init(&ctx);
             ncurses_initialized = true;
@@ -160,7 +160,6 @@ int main(int argc, char **argv)
     }
     run();
     finish(0);
-#endif
 }
 
 void print_help(char *prg)
@@ -202,50 +201,16 @@ void finish(int status)
     }
     free(ctx.device);
     free(ctx.local_addr);
-    if (sockfd > 0) {
-        close(sockfd);
+    if (handle->sockfd > 0) {
+        iface_close(handle);
     }
     mempool_free();
     if (ctx.gi) {
         GeoIP_delete(ctx.gi);
     }
+    if (handle)
+        free(handle);
     exit(status);
-}
-
-/* Initialize device and prepare for reading */
-void socket_init(char *device)
-{
-    int flag;
-    int n = 1;
-    struct sockaddr_ll ll_addr; /* device independent physical layer address */
-
-    /* SOCK_RAW packet sockets include the link level header */
-    if ((sockfd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {
-        err_sys("socket error");
-    }
-
-    /* use non-blocking socket */
-    if ((flag = fcntl(sockfd, F_GETFL, 0)) == -1) {
-        err_sys("fcntl error");
-    }
-    if (fcntl(sockfd, F_SETFL, flag | O_NONBLOCK) == -1) {
-        err_sys("fcntl error");
-    }
-
-    /* get timestamps */
-    if (setsockopt(sockfd, SOL_SOCKET, SO_TIMESTAMP, &n, sizeof(n)) == -1) {
-        err_sys("setsockopt error");
-    }
-
-    memset(&ll_addr, 0, sizeof(ll_addr));
-    ll_addr.sll_family = PF_PACKET;
-    ll_addr.sll_protocol = htons(ETH_P_ALL);
-    ll_addr.sll_ifindex = get_interface_index(device);
-
-    /* only receive packets on the specified interface */
-    if (bind(sockfd, (struct sockaddr *) &ll_addr, sizeof(ll_addr)) == -1) {
-        err_sys("bind error");
-    }
 }
 
 void structures_init()
@@ -275,7 +240,7 @@ void structures_init()
 void run()
 {
     struct pollfd fds[] = {
-        { sockfd, POLLIN, 0 },
+        { handle->sockfd, POLLIN, 0 },
         { STDIN_FILENO, POLLIN, 0 }
     };
 
@@ -286,7 +251,7 @@ void run()
             alarm(1);
         }
         if (fd_changed) {
-            fds[0].fd = sockfd;
+            fds[0].fd = handle->sockfd;
             fd_changed = false;
         }
         if (poll(fds, 2, -1) == -1) {
@@ -294,23 +259,7 @@ void run()
             err_sys("poll error");
         }
         if (fds[0].revents & POLLIN) {
-            unsigned char buffer[SNAPLEN];
-            size_t n;
-            struct packet *p;
-
-            n = read_packet(sockfd, buffer, SNAPLEN, &p);
-            if (n) {
-                if (ctx.opt.use_ncurses) {
-                    vector_push_back(packets, p);
-                    layout(NEW_PACKET);
-                } else {
-                    char buf[MAXLINE];
-
-                    write_to_buf(buf, MAXLINE, p);
-                    printf("%s\n", buf);
-                    free_packets(p);
-                }
-            }
+            iface_read_packet(handle);
         }
         if (fds[1].revents & POLLIN) {
             handle_input();
@@ -320,8 +269,7 @@ void run()
 
 void stop_scan()
 {
-    close(sockfd);
-    sockfd = -1;
+    iface_close(handle);
     fd_changed = true;
 }
 
@@ -330,11 +278,11 @@ void start_scan()
     clear_statistics();
     vector_clear(packets, NULL);
     free_packets(NULL);
-    socket_init(ctx.device);
+    iface_activate(handle, ctx.device);
     fd_changed = true;
 }
 
-bool on_packet(unsigned char *buffer, uint32_t n, struct timeval *t)
+bool handle_packet(unsigned char *buffer, uint32_t n, struct timeval *t)
 {
     struct packet *p;
 
@@ -343,6 +291,19 @@ bool on_packet(unsigned char *buffer, uint32_t n, struct timeval *t)
     }
     p->time.tv_sec = t->tv_sec;
     p->time.tv_usec = t->tv_usec;
-    vector_push_back(packets, p);
+    if (ctx.capturing) {
+        if (ctx.opt.use_ncurses) {
+            vector_push_back(packets, p);
+            layout(NEW_PACKET);
+        } else {
+            char buf[MAXLINE];
+
+            write_to_buf(buf, MAXLINE, p);
+            printf("%s\n", buf);
+            free_packets(p);
+        }
+    } else {
+        vector_push_back(packets, p);
+    }
     return true;
 }

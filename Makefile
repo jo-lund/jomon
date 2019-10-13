@@ -2,7 +2,7 @@ srcdir := decoder ui
 incdir := decoder ui
 BUILDDIR := build
 TARGETDIR := bin
-
+MACHINE := $(shell uname -s)
 STRIP := strip
 CC := gcc
 CXX := g++
@@ -12,6 +12,9 @@ CPPFLAGS += -Wall -Wextra -Wno-override-init $(addprefix -I,$(incdir))
 LIBS += -lncurses -lGeoIP
 
 sources = $(wildcard *.c decoder/*.c ui/*.c)
+ifeq ($(MACHINE), Linux)
+	sources += $(wildcard linux/*.c)
+endif
 objects = $(patsubst %.c,$(BUILDDIR)/%.o,$(sources))
 
 debug : CFLAGS += -g

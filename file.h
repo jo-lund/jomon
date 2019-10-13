@@ -2,8 +2,8 @@
 #define FILE_PCAP_H
 
 #include "vector.h"
+#include "interface.h"
 
-typedef bool (*packet_handler)(unsigned char *buffer, uint32_t n, struct timeval *t);
 typedef void (*progress_update)(int i);
 
 enum file_error {
