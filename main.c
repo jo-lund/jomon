@@ -201,7 +201,7 @@ void finish(int status)
     }
     free(ctx.device);
     free(ctx.local_addr);
-    if (handle->sockfd > 0) {
+    if (handle && handle->sockfd > 0) {
         iface_close(handle);
     }
     mempool_free();
