@@ -101,6 +101,7 @@ int main(int argc, char **argv)
     }
     structures_init();
     mempool_init();
+    decoder_init();
     if (ctx.opt.use_ncurses) {
         tcp_analyzer_init();
         dns_cache_init();
@@ -210,6 +211,7 @@ void finish(int status)
     }
     if (handle)
         free(handle);
+    decoder_exit();
     exit(status);
 }
 

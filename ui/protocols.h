@@ -25,13 +25,22 @@ void add_tcp_information(list_view *lw, list_view_header *header, struct tcp *tc
 void add_icmp_information(list_view *lw, list_view_header *header, struct icmp_info *icmp);
 void add_igmp_information(list_view *lw, list_view_header *header, struct igmp_info *igmp);
 void add_pim_information(list_view *lw, list_view_header *header, struct pim_info *pim);
-void add_ssdp_information(list_view *lw, list_view_header *header, struct ssdp_info *ssdp);
-void add_http_information(list_view *lw, list_view_header *header, struct http_info *http);
-void add_dns_information(list_view *lw, list_view_header *header, struct dns_info *dns, uint16_t type);
-void add_nbns_information(list_view *lw, list_view_header *header, struct nbns_info *nbns);
-void add_nbds_information(list_view *lw, list_view_header *header, struct nbds_info *nbds);
-void add_snmp_information(list_view *lw, list_view_header *header, struct snmp_info *snmp);
-void add_imap_information(list_view *lw, list_view_header *header, struct imap_info *imap);
-void add_tls_information(list_view *lw, list_view_header *header, struct tls_info *tls);
+
+void add_dns_information(void *w, void *sw, struct application_info *adu);
+void add_nbns_information(void *w, void *sw, struct application_info *adu);
+void add_nbds_information(void *w, void *sw, struct application_info *adu);
+void add_http_information(void *w, void *sw, struct application_info *adu);
+void add_imap_information(void *w, void *sw, struct application_info *adu);
+void add_snmp_information(void *w, void *sw, struct application_info *adu);
+void add_ssdp_information(void *w, void *sw, struct application_info *adu);
+void add_tls_information(void *w, void *sw, struct application_info *adu);
+void print_dns(char *buf, int n, struct application_info *adu);
+void print_nbns(char *buf, int n, struct application_info *adu);
+void print_http(char *buf, int n, struct application_info *adu);
+void print_imap(char *buf, int n, struct application_info *adu);
+void print_snmp(char *buf, int n, struct application_info *adu);
+void print_ssdp(char *buf, int n, struct application_info *adu);
+void print_tls(char *buf, int n, struct application_info *adu);
+void print_nbds(char *buf, int n, struct application_info *adu);
 
 #endif

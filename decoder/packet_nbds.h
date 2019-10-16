@@ -71,6 +71,8 @@ int get_nbds_flags_size();
 char *get_nbds_message_type(uint8_t type);
 
 /* internal to the decoder */
-packet_error handle_nbds(unsigned char *buffer, int n, struct application_info *adu);
+void register_nbds();
+packet_error handle_nbds(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                         struct application_info *adu);
 
 #endif

@@ -33,10 +33,36 @@ typedef struct {
     };
 } snmp_value;
 
+extern void print_snmp(char *buf, int n, struct application_info *adu);
+extern void add_snmp_information(void *widget, void *subwidget, struct application_info *adu);
 static packet_error parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp);
 static list_t *parse_variables(unsigned char *buffer, int n);
 static int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag,
                        snmp_value *value);
+
+static struct protocol_info snmp_prot = {
+    .short_name = "SNMP",
+    .long_name = "Simple Network Management Protocol",
+    .port = SNMP,
+    .decode = handle_snmp,
+    .print_pdu = print_snmp,
+    .add_pdu = add_snmp_information
+};
+
+static struct protocol_info snmptrap_prot = {
+    .short_name = "SNMP",
+    .long_name = "Simple Network Management Protocol",
+    .port = SNMPTRAP,
+    .decode = handle_snmp,
+    .print_pdu = print_snmp,
+    .add_pdu = add_snmp_information
+};
+
+void register_snmp()
+{
+    register_protocol(&snmp_prot, SNMP);
+    register_protocol(&snmptrap_prot, SNMPTRAP);
+}
 
 /*
  * SNMP messages use a tag-length-value encoding scheme (Basic Encoding Rules).
@@ -44,7 +70,8 @@ static int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag
  * encodings use the definite-length form. Further, whenever permissible,
  * non-constructor encodings are used rather than constructor encodings.
  */
-packet_error handle_snmp(unsigned char *buffer, int n, struct application_info *adu)
+packet_error handle_snmp(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                         struct application_info *adu)
 {
     uint8_t class;
     uint8_t tag;
@@ -58,8 +85,8 @@ packet_error handle_snmp(unsigned char *buffer, int n, struct application_info *
         return SNMP_ERR;
     }
     if (tag == SNMP_SEQUENCE_TAG) {
-        pstat[PROT_SNMP].num_packets++;
-        pstat[PROT_SNMP].num_bytes += n;
+        pinfo->num_packets++;
+        pinfo->num_bytes += n;
         return parse_pdu(ptr, msg_len, adu->snmp);
     }
     return SNMP_ERR;

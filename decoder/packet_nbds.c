@@ -16,8 +16,26 @@ struct packet_flags nbds_flags[] = {
     { "More flag", 1, NULL }
 };
 
+
+extern void print_nbds(char *buf, int n, struct application_info *adu);
+extern void add_nbds_information(void *widget, void *subwidget, struct application_info *adu);
+
 static int parse_datagram(unsigned char *buffer, int n, unsigned char **data,
                           int dlen, struct application_info *adu);
+
+static struct protocol_info nbds_prot = {
+    .short_name = "NBDS",
+    .long_name = "NetBIOS Datagram Service",
+    .port = NBDS,
+    .decode = handle_nbds,
+    .print_pdu = print_nbds,
+    .add_pdu = add_nbds_information
+};
+
+void register_nbds()
+{
+    register_protocol(&nbds_prot, NBDS);
+}
 
 /*
  * NBDS header:
@@ -35,7 +53,8 @@ static int parse_datagram(unsigned char *buffer, int n, unsigned char **data,
  * fields. Theses fields are actually specific to messages that carry a data
  * payload: the DIRECT_UNIQUE, DIRECT_GROUP, and BROADCAST DATAGRAM messages.
  */
-packet_error handle_nbds(unsigned char *buffer, int n, struct application_info *adu)
+packet_error handle_nbds(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                         struct application_info *adu)
 {
     if (n < NBDS_HDRLEN) return NBDS_ERR;
 
@@ -78,8 +97,8 @@ packet_error handle_nbds(unsigned char *buffer, int n, struct application_info *
     default:
         break;
     }
-    pstat[PROT_NBDS].num_packets++;
-    pstat[PROT_NBDS].num_bytes += n;
+    pinfo->num_packets++;
+    pinfo->num_bytes += n;
     return NO_ERR;
 }
 

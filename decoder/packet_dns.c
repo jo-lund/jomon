@@ -25,6 +25,8 @@ static struct packet_flags llmnr_flags[] = {
     { "Reserved", 4, NULL }
 };
 
+extern void print_dns(char *buf, int n, struct application_info *adu);
+extern void add_dns_information(void *widget, void *subwidget, struct application_info *adu);
 static int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
                              int dlen, struct dns_info *dns);
 static int parse_dns_question(unsigned char *buffer, int n, unsigned char **data,
@@ -33,6 +35,40 @@ static char *parse_dns_txt(unsigned char **data);
 static void free_opt_rr(void *data);
 static bool parse_type_bitmaps(unsigned char **data, uint16_t rdlen,
                                struct dns_resource_record *record);
+
+static struct protocol_info dns_prot = {
+    .short_name = "DNS",
+    .long_name = "Domain Name System",
+    .port = DNS,
+    .decode = handle_dns,
+    .print_pdu = print_dns,
+    .add_pdu = add_dns_information
+};
+
+static struct protocol_info mdns_prot = {
+    .short_name = "MDNS",
+    .long_name = "Multicast DNS",
+    .port = MDNS,
+    .decode = handle_dns,
+    .print_pdu = print_dns,
+    .add_pdu = add_dns_information
+};
+
+static struct protocol_info llmnr_prot = {
+    .short_name = "LLMNR",
+    .long_name = "Link-Local Multicast Name Resolution",
+    .port = LLMNR,
+    .decode = handle_dns,
+    .print_pdu = print_dns,
+    .add_pdu = add_dns_information
+};
+
+void register_dns()
+{
+    register_protocol(&dns_prot, DNS);
+    register_protocol(&mdns_prot, MDNS);
+    register_protocol(&llmnr_prot, LLMNR);
+}
 
 /*
  * Handle DNS messages. Will return false if not DNS.
@@ -83,8 +119,8 @@ static bool parse_type_bitmaps(unsigned char **data, uint16_t rdlen,
  * ARCOUNT: an unsigned 16 bit integer specifying the number of
  *          resource records in the additional records section.
  */
-packet_error handle_dns(unsigned char *buffer, int n,
-                        struct application_info *info, bool is_tcp)
+packet_error handle_dns(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                        struct application_info *info)
 {
     unsigned char *ptr = buffer;
     int plen = n;
@@ -97,7 +133,7 @@ packet_error handle_dns(unsigned char *buffer, int n,
      * According to RFC 1035, messages sent over TCP are prefixed with a two
      * byte length field
      */
-    if (is_tcp) {
+    if (info->transport == TCP) {
         info->dns->length = get_uint16be(ptr);
         ptr += 2;
     } else {
@@ -164,9 +200,8 @@ packet_error handle_dns(unsigned char *buffer, int n,
             plen -= len;
         }
     }
-
-    pstat[PROT_DNS].num_packets++;
-    pstat[PROT_DNS].num_bytes += n;
+    pinfo->num_packets++;
+    pinfo->num_bytes += n;
     return NO_ERR;
 }
 

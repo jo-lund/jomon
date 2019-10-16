@@ -23,8 +23,24 @@ static struct packet_flags nbns_nb_flags[] = {
     { "Owner Node Type:", 2, nb_ont }
 };
 
+extern void print_nbns(char *buf, int n, struct application_info *adu);
+extern void add_nbns_information(void *widget, void *subwidget, struct application_info *adu);
 static int parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **data,
                              int dlen, struct nbns_info *info);
+
+static struct protocol_info nbns_prot = {
+    .short_name = "NBNS",
+    .long_name = "NetBIOS Name Service",
+    .port = NBNS,
+    .decode = handle_nbns,
+    .print_pdu = print_nbns,
+    .add_pdu = add_nbns_information
+};
+
+void register_nbns()
+{
+    register_protocol(&nbns_prot, NBNS);
+}
 
 /*
  * NBNS serves much of the same purpose as DNS, and the NetBIOS Name Service
@@ -49,7 +65,8 @@ static int parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char 
  * |AA |TC |RD |RA | 0 | 0 | B |
  * +---+---+---+---+---+---+---+
  */
-packet_error handle_nbns(unsigned char *buffer, int n, struct application_info *info)
+packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                         struct application_info *info)
 {
     if (n < DNS_HDRLEN) return NBNS_ERR;
 
@@ -134,8 +151,8 @@ packet_error handle_nbns(unsigned char *buffer, int n, struct application_info *
             }
         }
     }
-    pstat[PROT_NBNS].num_packets++;
-    pstat[PROT_NBNS].num_bytes += n;
+    pinfo->num_packets++;
+    pinfo->num_bytes += n;
     return NO_ERR;
 }
 

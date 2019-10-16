@@ -266,6 +266,25 @@ void init_stat()
     }
 }
 
+static void print_protocol_stat(struct protocol_info *pinfo, void *arg)
+{
+    int *y = arg;
+    screen *s = screen_cache_get(STAT_SCREEN);
+    int subcol = get_theme_colour(SUBHEADER_TXT);
+    char buf[16];
+
+    if (pinfo->num_packets) {
+        printat(s->win, ++*y, 0, subcol, "%13s", pinfo->short_name);
+        wprintw(s->win, ": %8u", pinfo->num_packets);
+        if (formatted_output) {
+            wprintw(s->win, "%13s",
+                    format_bytes(pinfo->num_bytes, buf, 16));
+        } else {
+            wprintw(s->win, "%13llu", pinfo->num_bytes);
+        }
+    }
+}
+
 void print_netstat()
 {
     int y = 0;
@@ -313,6 +332,7 @@ void print_netstat()
                     }
                 }
             }
+            traverse_protocols(print_protocol_stat, &y);
         }
     }
     wnoutrefresh(s->win);

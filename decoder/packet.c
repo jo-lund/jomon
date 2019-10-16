@@ -10,6 +10,7 @@
 #include <sys/types.h>
 #include "../misc.h"
 #include "../error.h"
+#include "../util.h"
 #include "packet.h"
 #include "packet_dns.h"
 #include "packet_nbns.h"
@@ -25,6 +26,7 @@
 #include "tcp_analyzer.h"
 #include "host_analyzer.h"
 #include "dns_cache.h"
+#include "register.h"
 
 /* This needs to be in the same order as enum protocols, see packet.h */
 struct packet_statistics pstat[] = {
@@ -38,19 +40,69 @@ struct packet_statistics pstat[] = {
     { "PIM", 0, 0 },
     { "TCP", 0, 0 },
     { "UDP", 0, 0 },
-    { "DNS", 0, 0 },
-    { "NBNS", 0, 0 },
-    { "NBDS", 0, 0 },
-    { "HTTP", 0, 0 },
-    { "SSDP", 0, 0 },
-    { "SNMP", 0, 0 },
-    { "IMAP", 0, 0 }
 };
 
 allocator_t d_alloc = {
     .alloc = mempool_pealloc,
     .dealloc = NULL
 };
+
+static hashmap_t *protocols;
+
+static bool filter_protocol(struct protocol_info *pinfo);
+
+static unsigned int hash(const void *key)
+{
+   unsigned int hash = 5381;
+   uintptr_t val = (uintptr_t) key;
+
+   for (unsigned int i = 0; i < 2; i++) {
+       hash = ((hash << 5) + hash) + ((val >> (i * 8)) & 0xff);
+   }
+   return hash;
+}
+
+static inline int compare(const void *e1, const void *e2)
+{
+    return (uintptr_t) e1 - (uintptr_t) e2;
+}
+
+void decoder_init()
+{
+    protocols = hashmap_init(24, hash, compare);
+    for (unsigned int i = 0; i < ARRAY_SIZE(decoder_functions); i++) {
+        decoder_functions[i]();
+    }
+}
+
+void decoder_exit()
+{
+    hashmap_free(protocols);
+}
+
+void register_protocol(struct protocol_info *pinfo, uint16_t port)
+{
+    if (pinfo)
+        hashmap_insert(protocols, (void *) (uintptr_t) port, pinfo);
+}
+
+struct protocol_info *get_protocol(uint16_t port)
+{
+    return hashmap_get(protocols, (void *) (uintptr_t) port);
+}
+
+void traverse_protocols(protocol_handler fn, void *arg)
+{
+    const hashmap_iterator *it = hashmap_first(protocols);
+    struct protocol_info *pinfo;
+
+    while (it) {
+        pinfo = it->data;
+        if (filter_protocol(pinfo))
+            fn(pinfo, arg);
+        it = hashmap_next(protocols, it);
+    }
+}
 
 bool decode_packet(unsigned char *buffer, size_t len, struct packet **p)
 {
@@ -82,31 +134,13 @@ void free_packets(void *data)
  * ephemeral port or the port is not yet supported.
  */
 packet_error check_port(unsigned char *buffer, int n, struct application_info *adu,
-                        uint16_t port, bool is_tcp)
+                        uint16_t port)
 {
-    switch (port) {
-    case DNS:
-    case MDNS:
-    case LLMNR:
-        return handle_dns(buffer, n, adu, is_tcp);
-    case HTTP:
-        return handle_http(buffer, n, adu);
-    case NBNS:
-        return handle_nbns(buffer, n, adu);
-    case NBDS:
-        return handle_nbds(buffer, n, adu);
-    case IMAP:
-        return handle_imap(buffer, n, adu);
-    case SNMP:
-    case SNMPTRAP:
-        return handle_snmp(buffer, n, adu);
-    case TLS:
-        return handle_tls(buffer, n, adu);
-    case SSDP:
-        return handle_ssdp(buffer, n, adu);
-    default:
-        return UNK_PROTOCOL;
-    }
+    struct protocol_info *pinfo = hashmap_get(protocols, (void *) (uintptr_t) port);
+
+    if (pinfo)
+        return pinfo->decode(pinfo, buffer, n, adu);
+    return UNK_PROTOCOL;
 }
 
 unsigned char *get_adu_payload(struct packet *p)
@@ -114,13 +148,29 @@ unsigned char *get_adu_payload(struct packet *p)
     if (ethertype(p) == ETH_P_IP) {
         if (ipv4_protocol(p) == IPPROTO_TCP)
             return get_ip_payload(p) + p->eth.ipv4->tcp->offset * 4;
-        else if (ipv4_protocol(p) == IPPROTO_UDP)
+        if (ipv4_protocol(p) == IPPROTO_UDP)
             return get_ip_payload(p) + UDP_HDR_LEN;
     } else {
         if (ipv6_protocol(p) == IPPROTO_TCP)
             return get_ip_payload(p) + p->eth.ipv6->tcp->offset * 4;
-        else if (ipv6_protocol(p) == IPPROTO_UDP)
+        if (ipv6_protocol(p) == IPPROTO_UDP)
             return get_ip_payload(p) + UDP_HDR_LEN;
+    }
+    return NULL;
+}
+
+struct application_info *get_adu_info(struct packet *p)
+{
+    if (ethertype(p) == ETH_P_IP) {
+        if (ipv4_protocol(p) == IPPROTO_TCP)
+            return &tcp_data(p, v4);
+        if (ipv4_protocol(p) == IPPROTO_UDP)
+            return &udp_data(p, v4);
+    } else {
+        if (ipv6_protocol(p) == IPPROTO_TCP)
+            return &tcp_data(p, v6);
+        if (ipv6_protocol(p) == IPPROTO_UDP)
+            return &udp_data(p, v6);
     }
     return NULL;
 }
@@ -151,4 +201,16 @@ bool is_tcp(struct packet *p)
         protocol = p->eth.ipv6->next_header;
     }
     return protocol == IPPROTO_TCP;
+}
+
+// TODO: Fix this
+bool filter_protocol(struct protocol_info *pinfo)
+{
+    static const enum port filter[] = { SNMPTRAP, IMAPS };
+
+    for (unsigned int i = 0; i < ARRAY_SIZE(filter); i++) {
+        if (pinfo->port == filter[i])
+            return false;
+    }
+    return true;
 }

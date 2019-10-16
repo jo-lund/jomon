@@ -359,6 +359,8 @@ enum tls_state {
     CCS
 };
 
+extern void print_tls(char *buf, int n, struct application_info *adu);
+extern void add_tls_information(void *widget, void *subwidget, struct application_info *adu);
 static packet_error parse_handshake(unsigned char **buf, uint16_t n,
                                     struct tls_info *tls);
 static packet_error parse_client_hello(unsigned char **buf, uint16_t n,
@@ -366,7 +368,32 @@ static packet_error parse_client_hello(unsigned char **buf, uint16_t n,
 static packet_error parse_server_hello(unsigned char **buf, uint16_t len,
                                        struct tls_handshake *handshake);
 
-packet_error handle_tls(unsigned char *buf, uint16_t n, struct application_info *adu)
+static struct protocol_info https_prot = {
+    .short_name = "TLS",
+    .long_name = "Transport Layer Security",
+    .port = HTTPS,
+    .decode = handle_tls,
+    .print_pdu = print_tls,
+    .add_pdu = add_tls_information
+};
+
+static struct protocol_info imaps_prot = {
+    .short_name = "TLS",
+    .long_name = "Transport Layer Security",
+    .port = IMAPS,
+    .decode = handle_tls,
+    .print_pdu = print_tls,
+    .add_pdu = add_tls_information
+};
+
+void register_tls()
+{
+    register_protocol(&https_prot, HTTPS);
+    register_protocol(&imaps_prot, IMAPS);
+}
+
+packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
+                        struct application_info *adu)
 {
     if (n < TLS_HEADER_SIZE || n > TLS_MAX_SIZE) return TLS_ERR;
 
@@ -426,6 +453,8 @@ packet_error handle_tls(unsigned char *buf, uint16_t n, struct application_info 
         pptr = &(*pptr)->next;
         i++;
     }
+    pinfo->num_packets++;
+    pinfo->num_bytes += n;
     return NO_ERR;
 }
 

@@ -29,22 +29,41 @@ static char *request_method[] = {
 
 #define NUM_METHODS sizeof(request_method) / sizeof(char *)
 
+extern void print_http(char *buf, int n, struct application_info *adu);
+extern void add_http_information(void *widget, void *subwidget, struct application_info *adu);
 static bool parse_http(unsigned char *buf, uint16_t len, struct http_info *http);
 static bool parse_start_line(unsigned char **str, unsigned int *len, struct http_info *http);
 static bool check_method(char *token);
 static bool parse_http_header(unsigned char **str, unsigned int *len, rbtree_t *header);
+
+static struct protocol_info http_prot = {
+    .short_name = "HTTP",
+    .long_name = "Hypertext Transfer Protocol",
+    .port = HTTP,
+    .decode = handle_http,
+    .print_pdu = print_http,
+    .add_pdu = add_http_information
+};
+
+void register_http()
+{
+    register_protocol(&http_prot, HTTP);
+}
 
 static int rbcmp(const void *d1, const void *d2)
 {
     return strcmp((char *) d1, (char *) d2);
 }
 
-packet_error handle_http(unsigned char *buffer, uint16_t len, struct application_info *info)
+packet_error handle_http(struct protocol_info *pinfo, unsigned char *buffer,
+                         int len, struct application_info *info)
 {
     info->http = mempool_pealloc(sizeof(struct http_info));
     if (!parse_http(buffer, len, info->http)) {
         return UNK_PROTOCOL;
     }
+    pinfo->num_packets++;
+    pinfo->num_bytes += len;
     return NO_ERR;
 }
 
@@ -77,8 +96,6 @@ bool parse_http(unsigned char *buffer, uint16_t len, struct http_info *http)
         } else {
             http->len = 0;
         }
-        pstat[PROT_HTTP].num_packets++;
-        pstat[PROT_HTTP].num_bytes += len;
     }
     return is_http;
 }

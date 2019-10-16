@@ -302,8 +302,9 @@ list_t *parse_dns_options(struct dns_resource_record *rr);
 void free_dns_options(list_t *opt);
 
 /* internal to the decoder */
-packet_error handle_dns(unsigned char *buffer, int n,
-                        struct application_info *info, bool is_tcp);
+void register_dns();
+packet_error handle_dns(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                        struct application_info *info);
 int parse_dns_name(unsigned char *buffer, int n, unsigned char *ptr, int plen, char name[]);
 
 #endif

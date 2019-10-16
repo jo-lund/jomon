@@ -57,6 +57,7 @@ struct eth_info {
 #define ethertype(p) ((p)->eth.ethertype)
 #define eth_src(p) ((p)->eth.mac_src)
 #define eth_dst(p) ((p)->eth.mac_dst)
+#define eth_len(p) ((p)->eth.payload_len)
 #define get_llc(p) ((p)->eth.llc)
 
 

@@ -4,7 +4,25 @@
 
 #define MAXLINE 2048 /* BUG: max line length? */
 
-packet_error handle_imap(unsigned char *buf, int n, struct application_info *adu)
+extern void print_imap(char *buf, int n, struct application_info *adu);
+extern void add_imap_information(void *widget, void *subwidget, struct application_info *adu);
+
+static struct protocol_info imap_prot = {
+    .short_name = "IMAP",
+    .long_name = "Internet Message Access Prorocol",
+    .port = IMAP,
+    .decode = handle_imap,
+    .print_pdu = print_imap,
+    .add_pdu = add_imap_information
+};
+
+void register_imap()
+{
+    register_protocol(&imap_prot, IMAP);
+}
+
+packet_error handle_imap(struct protocol_info *pinfo, unsigned char *buf, int n,
+                         struct application_info *adu)
 {
     char line[MAXLINE];
     int i = 0;
@@ -30,8 +48,8 @@ packet_error handle_imap(unsigned char *buf, int n, struct application_info *adu
         i++;
     }
     if (i > 1) {
-        pstat[PROT_IMAP].num_packets++;
-        pstat[PROT_IMAP].num_bytes += n;
+        pinfo->num_packets++;
+        pinfo->num_bytes += n;
         return NO_ERR;
     }
     mempool_pefree(adu->imap->lines);

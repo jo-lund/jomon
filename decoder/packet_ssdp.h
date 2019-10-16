@@ -12,6 +12,8 @@ struct ssdp_info {
 struct application_info;
 
 /* internal to the decoder */
-packet_error handle_ssdp(unsigned char *buffer, int n, struct application_info *info);
+void register_ssdp();
+packet_error handle_ssdp(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                         struct application_info *info);
 
 #endif

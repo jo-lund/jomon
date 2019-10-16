@@ -117,7 +117,9 @@ struct packet_flags *get_nbns_nb_flags();
 int get_nbns_nb_flags_size();
 
 /* internal to the decoder */
-packet_error handle_nbns(unsigned char *buffer, int n, struct application_info *info);
+void register_nbns();
+packet_error handle_nbns(struct protocol_info *pinfo,unsigned char *buffer, int n,
+                         struct application_info *info);
 void decode_nbns_name(char *dest, char *src);
 
 #endif

@@ -49,16 +49,8 @@ static void print_tcp(char *buf, int n, struct tcp *info);
 static void print_icmp(char *buf, int n, struct icmp_info *info);
 static void print_igmp(char *buf, int n, struct igmp_info *info);
 static void print_pim(char *buf, int n, struct pim_info *pim);
-static void print_dns(char *buf, int n, struct dns_info *dns, uint16_t type);
 static void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t type);
-static void print_nbns(char *buf, int n, struct nbns_info *nbns);
 static void print_nbns_record(struct nbns_info *info, int i, char *buf, int n);
-static void print_nbds(char *buf, int n, struct nbds_info *nbds);
-static void print_ssdp(char *buf, int n, struct ssdp_info *ssdp);
-static void print_http(char *buf, int n, struct http_info *http);
-static void print_snmp(char *buf, int n, struct snmp_info *snmp);
-static void print_imap(char *buf, int n, struct imap_info *imap);
-static void print_tls(char *buf, int n, struct tls_info *tls);
 static void add_dns_soa(list_view *lw, list_view_header *w, struct dns_info *dns, int i);
 static void add_dns_txt(list_view *lw, list_view_header *w, struct dns_info *dns, int i);
 static void add_dns_opt(list_view *lw, list_view_header *w, struct dns_info *dns, int i);
@@ -379,25 +371,11 @@ void print_pim(char *buf, int n, struct pim_info *pim)
 
 void print_tcp(char *buf, int n, struct tcp *tcp)
 {
-    switch (tcp->data.utype) {
-    case HTTP:
-        print_http(buf, n, tcp->data.http);
-        break;
-    case DNS:
-    case MDNS:
-    case LLMNR:
-        print_dns(buf, n, tcp->data.dns, tcp->data.utype);
-        break;
-    case IMAP:
-        print_imap(buf, n, tcp->data.imap);
-        break;
-    case NBNS:
-        print_nbns(buf, n, tcp->data.nbns);
-        break;
-    case TLS:
-        print_tls(buf, n, tcp->data.tls);
-        break;
-    default:
+    struct protocol_info *prot = get_protocol(tcp->data.utype);
+
+    if (prot)
+        prot->print_pdu(buf, n, &tcp->data);
+    else {
         PRINT_PROTOCOL(buf, n, "TCP");
         PRINT_INFO(buf, n, "Source port: %d  Destination port: %d", tcp->src_port,
                    tcp->dst_port);
@@ -421,44 +399,29 @@ void print_tcp(char *buf, int n, struct tcp *tcp)
             PRINT_INFO(buf, n, " URG");
         }
         PRINT_INFO(buf, n, "  seq: %u  ack: %u  win: %u", tcp->seq_num, tcp->ack_num, tcp->window);
-        break;
     }
 }
 
 void print_udp(char *buf, int n, struct udp_info *udp)
 {
-    switch (udp->data.utype) {
-    case DNS:
-    case MDNS:
-    case LLMNR:
-        print_dns(buf, n, udp->data.dns, udp->data.utype);
-        break;
-    case NBNS:
-        print_nbns(buf, n, udp->data.nbns);
-        break;
-    case NBDS:
-        print_nbds(buf, n, udp->data.nbds);
-        break;
-    case SSDP:
-        print_ssdp(buf, n, udp->data.ssdp);
-        break;
-    case SNMP:
-    case SNMPTRAP:
-        print_snmp(buf, n, udp->data.snmp);
-        break;
-    default:
+    struct protocol_info *prot = get_protocol(udp->data.utype);
+
+    if (prot)
+        prot->print_pdu(buf, n, &udp->data);
+    else {
         PRINT_PROTOCOL(buf, n, "UDP");
         PRINT_INFO(buf, n, "Source port: %d  Destination port: %d", udp->src_port,
                    udp->dst_port);
-        break;
     }
 }
 
-void print_dns(char *buf, int n, struct dns_info *dns, uint16_t type)
+void print_dns(char *buf, int n, struct application_info *adu)
 {
-    if (type == DNS) {
+    struct dns_info *dns = adu->dns;
+
+    if (adu->utype == DNS) {
         PRINT_PROTOCOL(buf, n, "DNS");
-    } else if (type == MDNS) {
+    } else if (adu->utype == MDNS) {
         PRINT_PROTOCOL(buf, n, "MDNS");
     } else {
         PRINT_PROTOCOL(buf, n, "LLMNR");
@@ -498,8 +461,10 @@ void print_dns(char *buf, int n, struct dns_info *dns, uint16_t type)
     }
 }
 
-void print_nbns(char *buf, int n, struct nbns_info *nbns)
+void print_nbns(char *buf, int n, struct application_info *adu)
 {
+    struct nbns_info *nbns = adu->nbns;
+
     PRINT_PROTOCOL(buf, n, "NBNS");
     if (nbns->r == 0) {
         char opcode[16];
@@ -544,8 +509,9 @@ void print_nbns(char *buf, int n, struct nbns_info *nbns)
     }
 }
 
-void print_nbds(char *buf, int n, struct nbds_info *nbds)
+void print_nbds(char *buf, int n, struct application_info *adu)
 {
+    struct nbds_info *nbds = adu->nbds;
     char *type;
 
     PRINT_PROTOCOL(buf, n, "NBDS");
@@ -554,8 +520,9 @@ void print_nbds(char *buf, int n, struct nbds_info *nbds)
     }
 }
 
-void print_ssdp(char *buf, int n, struct ssdp_info *ssdp)
+void print_ssdp(char *buf, int n, struct application_info *adu)
 {
+    struct ssdp_info *ssdp = adu->ssdp;
     const node_t *node;
 
     PRINT_PROTOCOL(buf, n, "SSDP");
@@ -565,22 +532,27 @@ void print_ssdp(char *buf, int n, struct ssdp_info *ssdp)
     }
 }
 
-void print_http(char *buf, int n, struct http_info *http)
+void print_http(char *buf, int n, struct application_info *adu)
 {
+    struct http_info *http = adu->http;
+
     PRINT_PROTOCOL(buf, n, "HTTP");
     PRINT_INFO(buf, n, "%s", http->start_line);
 }
 
-void print_imap(char *buf, int n, struct imap_info *imap)
+void print_imap(char *buf, int n, struct application_info *adu)
 {
+    struct imap_info *imap = adu->imap;
+
     PRINT_PROTOCOL(buf, n, "IMAP");
     if (imap->lines) {
         PRINT_INFO(buf, n, "%s", (char *) list_front(imap->lines));
     }
 }
 
-void print_tls(char *buf, int n, struct tls_info *tls)
+void print_tls(char *buf, int n, struct application_info *adu)
 {
+    struct tls_info *tls = adu->tls;
     char *version = get_tls_version(tls->version);
     char *type = get_tls_type(tls->type);
     char records[MAXLINE];
@@ -686,8 +658,9 @@ void print_nbns_record(struct nbns_info *info, int i, char *buf, int n)
     }
 }
 
-void print_snmp(char *buf, int n, struct snmp_info *snmp)
+void print_snmp(char *buf, int n, struct application_info *adu)
 {
+    struct snmp_info *snmp = adu->snmp;
     char *type;
     list_t *vars;
 
@@ -1380,9 +1353,12 @@ void add_tcp_options(list_view *lw, list_view_header *header, struct tcp *tcp)
     free_tcp_options(options);
 }
 
-void add_dns_information(list_view *lw, list_view_header *header,
-                         struct dns_info *dns, uint16_t type)
+void add_dns_information(void *w, void *sw, struct application_info *adu)
+
 {
+    list_view *lw = w;
+    list_view_header *header = sw;
+    struct dns_info *dns = adu->dns;
     int records = 0;
     int answers = dns->section_count[ANCOUNT];
     int authority = dns->section_count[NSCOUNT];
@@ -1390,7 +1366,7 @@ void add_dns_information(list_view *lw, list_view_header *header,
     list_view_header *hdr;
     uint16_t flags;
 
-    if (type == LLMNR) {
+    if (adu->utype == LLMNR) {
         flags = dns->llmnr_flags.c << 6 | dns->llmnr_flags.tc << 5 |
             dns->llmnr_flags.t << 4;
     } else {
@@ -1410,7 +1386,7 @@ void add_dns_information(list_view *lw, list_view_header *header,
     LV_ADD_TEXT_ELEMENT(lw, header, "Opcode: %d (%s)", dns->opcode, get_dns_opcode(dns->opcode));
 
     hdr = LV_ADD_SUB_HEADER(lw, header, selected[DNS_FLAGS], DNS_FLAGS, "Flags 0x%x", flags);
-    if (type == LLMNR) {
+    if (adu->utype == LLMNR) {
         add_flags(lw, hdr, flags, get_llmnr_flags(), get_llmnr_flags_size());
     } else {
         add_flags(lw, hdr, flags, get_dns_flags(), get_dns_flags_size());
@@ -1609,8 +1585,11 @@ void add_dns_opt(list_view *lw, list_view_header *w, struct dns_info *dns, int i
     free_dns_options(opt);
 }
 
-void add_nbns_information(list_view *lw, list_view_header *header, struct nbns_info *nbns)
+void add_nbns_information(void *w, void *sw, struct application_info *adu)
 {
+    list_view *lw = w;
+    list_view_header *header = sw;
+    struct nbns_info *nbns = adu->nbns;
     int records = 0;
     int answers = nbns->section_count[ANCOUNT];
     int authority = nbns->section_count[NSCOUNT];
@@ -1715,8 +1694,11 @@ void add_nbns_record(list_view *lw, list_view_header *w, struct nbns_info *nbns,
     }
 }
 
-void add_nbds_information(list_view *lw, list_view_header *header, struct nbds_info *nbds)
+void add_nbds_information(void *w, void *sw, struct application_info *adu)
 {
+    list_view *lw = w;
+    list_view_header *header = sw;
+    struct nbds_info *nbds = adu->nbds;
     list_view_header *hdr;
     char src_addr[INET_ADDRSTRLEN];
     char *type;
@@ -1787,8 +1769,11 @@ void add_smb_information(list_view *lw, list_view_header *header, struct smb_inf
     LV_ADD_TEXT_ELEMENT(lw, header, "Multiplex identifier: %d", smb->mid);
 }
 
-void add_ssdp_information(list_view *lw, list_view_header *header, struct ssdp_info *ssdp)
+void add_ssdp_information(void *w, void *sw, struct application_info *adu)
 {
+    list_view *lw = w;
+    list_view_header *header = sw;
+    struct ssdp_info *ssdp = adu->ssdp;
     const node_t *n;
 
     n = list_begin(ssdp->fields);
@@ -1798,8 +1783,11 @@ void add_ssdp_information(list_view *lw, list_view_header *header, struct ssdp_i
     }
 }
 
-void add_http_information(list_view *lw, list_view_header *header, struct http_info *http)
+void add_http_information(void *w, void *sw, struct application_info *adu)
 {
+    list_view *lw = w;
+    list_view_header *header = sw;
+    struct http_info *http = adu->http;
     const rbtree_node_t *n;
 
     LV_ADD_TEXT_ELEMENT(lw, header, "%s", http->start_line);
@@ -1816,8 +1804,11 @@ void add_http_information(list_view *lw, list_view_header *header, struct http_i
     }
 }
 
-void add_snmp_information(list_view *lw, list_view_header *header, struct snmp_info *snmp)
+void add_snmp_information(void *w, void *sw, struct application_info *adu)
 {
+    list_view *lw = w;
+    list_view_header *header = sw;
+    struct snmp_info *snmp = adu->snmp;
     list_view_header *hdr;
 
     LV_ADD_TEXT_ELEMENT(lw, header, "Version: %d", snmp->version);
@@ -1938,8 +1929,12 @@ void add_snmp_variables(list_view *lw, list_view_header *header, list_t *vars)
     }
 }
 
-void add_imap_information(list_view *lw, list_view_header *header, struct imap_info *imap)
+void add_imap_information(void *w, void *sw, struct application_info *adu)
 {
+    list_view *lw = w;
+    list_view_header *header = sw;
+    struct imap_info *imap = adu->imap;
+
     if (imap->lines) {
         const node_t *n = list_begin(imap->lines);
 
@@ -1950,8 +1945,11 @@ void add_imap_information(list_view *lw, list_view_header *header, struct imap_i
     }
 }
 
-void add_tls_information(list_view *lw, list_view_header *header, struct tls_info *tls)
+void add_tls_information(void *w, void *sw, struct application_info *adu)
 {
+    list_view *lw = w;
+    list_view_header *header = sw;
+    struct tls_info *tls = adu->tls;
     list_view_header *record;
 
     while (tls) {

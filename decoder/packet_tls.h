@@ -276,6 +276,8 @@ char *get_supported_group(uint16_t type);
 list_t *parse_tls_extensions(unsigned char *data, uint16_t len);
 void free_tls_extensions(list_t *extensions);
 
-packet_error handle_tls(unsigned char *buffer, uint16_t len, struct application_info *adu);
+void register_tls();
+packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buffer, int len,
+                        struct application_info *adu);
 
 #endif

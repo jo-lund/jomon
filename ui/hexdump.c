@@ -47,14 +47,9 @@ enum hex_state {
     HD_ICMP,
     HD_IGMP,
     HD_PIM,
-    HD_DNS,
-    HD_SSDP,
-    HD_NBNS,
-    HD_NBDS,
-    HD_HTTP,
+    HD_APP,
     HD_SNAP,
     HD_STP,
-    HD_SNMP,
     HD_UNKNOWN
 };
 
@@ -69,14 +64,8 @@ static struct uint_string hex_state_val[] = {
     { HD_ICMP, "ICMP" },
     { HD_IGMP, "IGMP" },
     { HD_PIM, "PIM" },
-    { HD_DNS, "DNS" },
-    { HD_SSDP, "SSDP" },
-    { HD_NBNS, "NBNS" },
-    { HD_NBDS, "NBDS" },
-    { HD_HTTP, "HTTP" },
     { HD_SNAP, "SNAP" },
     { HD_STP, "STP" },
-    { HD_SNMP, "SNMP" },
     { HD_UNKNOWN, "Data" }
 };
 
@@ -292,7 +281,10 @@ check_state:
             if (j >= ETH_HLEN + p->eth.ipv4->ihl * 4 + UDP_HDR_LEN) {
                 *state = get_next_state(*state, p);
                 if (update) {
-                    list_push_back(protocols, enum2str(*state));
+                    struct protocol_info *pinfo = get_protocol(get_adu_info(p)->utype);
+
+                    if (pinfo)
+                        list_push_back(protocols, pinfo->short_name);
                 }
                 goto check_state;
             }
@@ -300,7 +292,10 @@ check_state:
             if (j >= ETH_HLEN + IPV6_FIXED_HEADER_LEN + UDP_HDR_LEN) {
                 *state = get_next_state(*state, p);
                 if (update) {
-                    list_push_back(protocols, enum2str(*state));
+                    struct protocol_info *pinfo = get_protocol(get_adu_info(p)->utype);
+
+                    if (pinfo)
+                        list_push_back(protocols, pinfo->short_name);
                 }
                 goto check_state;
             }
@@ -310,17 +305,23 @@ check_state:
     case HD_TCP:
         if (p->eth.ethertype == ETH_P_IP) {
             if (j >= ETH_HLEN + p->eth.ipv4->ihl * 4 + TCP_HDR_LEN(p)) {
-                *state = get_next_state(*state, p);
+                *state = HD_APP;
                 if (update) {
-                    list_push_back(protocols, enum2str(*state));
+                    struct protocol_info *pinfo = get_protocol(get_adu_info(p)->utype);
+
+                    if (pinfo)
+                        list_push_back(protocols, pinfo->short_name);
                 }
                 goto check_state;
             }
         } else { /* TODO: need to check for IPV6 extension headers */
             if (j >= ETH_HLEN + IPV6_FIXED_HEADER_LEN + TCP_HDR_LEN(p)) {
-                *state = get_next_state(*state, p);
+                *state = HD_APP;
                 if (update) {
-                    list_push_back(protocols, enum2str(*state));
+                    struct protocol_info *pinfo = get_protocol(get_adu_info(p)->utype);
+
+                    if (pinfo)
+                        list_push_back(protocols, pinfo->short_name);
                 }
                 goto check_state;
             }
@@ -404,48 +405,6 @@ enum hex_state get_next_state(enum hex_state cur_state, struct packet *p)
             break;
         }
         break;
-    }
-    case HD_UDP:
-    case HD_TCP:
-    {
-        struct application_info *adu;
-
-        if (ethertype(p) == ETH_P_IP) {
-            if (ipv4_protocol(p) == IPPROTO_UDP)
-                adu = &udp_data(p, v4);
-            else if (ipv4_protocol(p) == IPPROTO_TCP)
-                adu = &tcp_data(p, v4);
-        } else {
-            if (ipv6_protocol(p) == IPPROTO_UDP)
-                adu = &udp_data(p, v6);
-            else if (ipv6_protocol(p) == IPPROTO_TCP)
-                adu = &tcp_data(p, v6);
-        }
-        switch (adu->utype) {
-        case DNS:
-        case MDNS:
-            next_state = HD_DNS;
-            break;
-        case NBNS:
-            next_state = HD_NBNS;
-            break;
-        case NBDS:
-            next_state = HD_NBDS;
-            break;
-        case HTTP:
-            next_state = HD_HTTP;
-            break;
-        case SSDP:
-            next_state = HD_SSDP;
-            break;
-        case SNMP:
-        case SNMPTRAP:
-            next_state = HD_SNMP;
-            break;
-        default:
-            next_state = HD_UNKNOWN;
-            break;
-        }
     }
     default:
         break;

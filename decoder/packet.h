@@ -10,6 +10,10 @@
 #include "../mempool.h"
 #include "../alloc.h"
 
+struct protocol_info;
+
+typedef void (*protocol_handler)(struct protocol_info *prot, void *arg);
+
 struct packet_flags {
     char *str;     /* flag description */
     int width;     /* number of bits in the field */
@@ -25,17 +29,10 @@ enum protocols {
     PROT_IGMP,
     PROT_PIM,
     PROT_TCP,
-    PROT_UDP,
-    PROT_DNS,
-    PROT_NBNS,
-    PROT_NBDS,
-    PROT_HTTP,
-    PROT_SSDP,
-    PROT_SNMP,
-    PROT_IMAP
+    PROT_UDP
 };
 
-#define NUM_PROTOCOLS 16
+#define NUM_PROTOCOLS 9
 
 struct packet_statistics {
     char *protocol;
@@ -56,16 +53,22 @@ enum port {
      * Windows system can use DNS for all the purposes for which NBNS was used
      * previously.
      */
-    NBNS = 137,     /* NetBIOS Name Service */
-    NBDS = 138,     /* NetBIOS Datagram Service */
-    NBSS = 139,     /* NetBIOS Session Service */
-    IMAP = 143,     /* Internet Message Access Protocol */
-    SNMP = 161,     /* Simple Network Management Protocol */
-    SNMPTRAP = 162, /* Simple Network Management Protocol Trap */
-    TLS = 443,      /* Transport Layer Security (HTTPS) */
-    SSDP = 1900,    /* Simple Service Discovery Protocol */
-    MDNS = 5353,    /* Multicast DNS */
-    LLMNR = 5355    /* Link-Local Multicast Name Resolution */
+    NBNS = 137,      /* NetBIOS Name Service */
+    NBDS = 138,      /* NetBIOS Datagram Service */
+    NBSS = 139,      /* NetBIOS Session Service */
+    IMAP = 143,      /* Internet Message Access Protocol */
+    SNMP = 161,      /* Simple Network Management Protocol */
+    SNMPTRAP = 162,  /* Simple Network Management Protocol Trap */
+    HTTPS = 443,     /* Transport Layer Security (HTTPS) */
+    IMAPS = 993,     /* Transport Layer Security (IMAPS) */
+    SSDP = 1900,     /* Simple Service Discovery Protocol */
+    MDNS = 5353,     /* Multicast DNS */
+    LLMNR = 5355     /* Link-Local Multicast Name Resolution */
+};
+
+enum transport {
+    TCP,
+    UDP
 };
 
 typedef enum {
@@ -98,6 +101,7 @@ typedef enum {
 } packet_error;
 
 struct application_info {
+    uint8_t transport;
     uint16_t utype; /* specifies the application layer protocol */
     union {
         struct dns_info *dns;
@@ -108,8 +112,19 @@ struct application_info {
         struct imap_info *imap;
         struct ssdp_info *ssdp;
         struct tls_info *tls;
-        unsigned char *data;
     };
+};
+
+struct protocol_info {
+    char *short_name;
+    char *long_name;
+    uint16_t port;
+    uint64_t num_bytes;
+    uint32_t num_packets;
+    packet_error (*decode)(struct protocol_info *pinfo, unsigned char *buf, int n,
+                           struct application_info *adu);
+    void (*print_pdu)(char *buf, int n, struct application_info *adu);
+    void (*add_pdu)(void *w, void *sw, struct application_info *adu);
 };
 
 /*
@@ -123,6 +138,16 @@ struct packet {
     struct timeval time;
     struct eth_info eth;
 };
+
+void decoder_init();
+
+void decoder_exit();
+
+void register_protocol(struct protocol_info *pinfo, uint16_t port);
+
+struct protocol_info *get_protocol(uint16_t port);
+
+void traverse_protocols(protocol_handler fn, void *arg);
 
 /*
  * Decodes the data in buffer and stores it in struct packet, which has to be
@@ -141,6 +166,8 @@ void free_packets(void *data);
 /* Return a pointer to the application payload */
 unsigned char *get_adu_payload(struct packet *p);
 
+struct application_info *get_adu_info(struct packet *p);
+
 /* Clear packet statistics */
 void clear_statistics();
 
@@ -150,6 +177,6 @@ bool is_tcp(struct packet *p);
 
 /* Should be internal to the decoder */
 packet_error check_port(unsigned char *buffer, int n, struct application_info *adu,
-                        uint16_t port, bool is_tcp);
+                        uint16_t port);
 
 #endif

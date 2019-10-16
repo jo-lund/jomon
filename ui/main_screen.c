@@ -1552,55 +1552,14 @@ void add_transport_elements(main_screen *ms, struct packet *p)
 void add_app_elements(main_screen *ms, struct packet *p, struct application_info *adu, uint16_t len)
 {
     list_view_header *header;
+    struct protocol_info *pinfo = get_protocol(adu->utype);
 
-    if (p->perr != NO_ERR && len > 0) {
+    if (len > 0 && (p->perr != NO_ERR || !pinfo)) {
         header = LV_ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
         add_hexdump(ms->lvw, header, hexmode, get_adu_payload(p), len);
-        return;
-    }
-
-    switch (adu->utype) {
-    case DNS:
-    case MDNS:
-    case LLMNR:
-        header = LV_ADD_HEADER(ms->lvw, "Domain Name System (DNS)", selected[APPLICATION], APPLICATION);
-        add_dns_information(ms->lvw, header, adu->dns, adu->utype);
-        break;
-    case NBNS:
-        header = LV_ADD_HEADER(ms->lvw, "NetBIOS Name Service (NBNS)", selected[APPLICATION], APPLICATION);
-        add_nbns_information(ms->lvw, header, adu->nbns);
-        break;
-    case NBDS:
-        header = LV_ADD_HEADER(ms->lvw, "NetBIOS Datagram Service (NBDS)", selected[APPLICATION], APPLICATION);
-        add_nbds_information(ms->lvw, header, adu->nbds);
-        break;
-    case HTTP:
-        header = LV_ADD_HEADER(ms->lvw, "Hypertext Transfer Protocol (HTTP)", selected[APPLICATION], APPLICATION);
-        add_http_information(ms->lvw, header, adu->http);
-        break;
-    case SSDP:
-        header = LV_ADD_HEADER(ms->lvw, "Simple Service Discovery Protocol (SSDP)", selected[APPLICATION], APPLICATION);
-        add_ssdp_information(ms->lvw, header, adu->ssdp);
-        break;
-    case SNMP:
-    case SNMPTRAP:
-        header = LV_ADD_HEADER(ms->lvw, "Simple Network Management Protocol (SNMP)", selected[APPLICATION], APPLICATION);
-        add_snmp_information(ms->lvw, header, adu->snmp);
-        break;
-    case IMAP:
-        header = LV_ADD_HEADER(ms->lvw, "Internet Message Access Protocol (IMAP)", selected[APPLICATION], APPLICATION);
-        add_imap_information(ms->lvw, header, adu->imap);
-        break;
-    case TLS:
-        header = LV_ADD_HEADER(ms->lvw, "Secure Socket Layer (SSL/TLS)", selected[APPLICATION], APPLICATION);
-        add_tls_information(ms->lvw, header, adu->tls);
-        break;
-    default:
-        if (len) {
-            header = LV_ADD_HEADER(ms->lvw, "Data", selected[APPLICATION], APPLICATION);
-            add_hexdump(ms->lvw, header, hexmode, get_adu_payload(p), len);
-        }
-        break;
+    } else if (pinfo) {
+        header = LV_ADD_HEADER(ms->lvw, pinfo->long_name, selected[APPLICATION], APPLICATION);
+        pinfo->add_pdu(ms->lvw, header, adu);
     }
 }
 
