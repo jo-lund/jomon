@@ -18,6 +18,22 @@ static struct packet_flags tcp_flags[] = {
 };
 
 static void free_options(void *data);
+extern void add_tcp_information(void *w, void *sw, void *data);
+extern void print_tcp(char *buf, int n, void *data);
+
+static struct protocol_info tcp_prot = {
+    .short_name = "TCP",
+    .long_name = "Transmission Control Protocol",
+    .port = IPPROTO_TCP,
+    .decode = handle_tcp,
+    .print_pdu = print_tcp,
+    .add_pdu = add_tcp_information
+};
+
+void register_tcp()
+{
+    register_protocol(&tcp_prot, LAYER3);
+}
 
 /*
  * TCP header
@@ -79,17 +95,27 @@ static void free_options(void *data);
  *            the urgent data. This field is only be interpreted in segments with
  *            the URG control bit set.
  */
-packet_error handle_tcp(unsigned char *buffer, int n, struct tcp *info)
+packet_error handle_tcp(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                        void *data)
 {
     struct tcphdr *tcp;
     packet_error error;
     uint16_t payload_len;
+    struct eth_info *eth = data;
+    struct tcp *info;
 
+    if (eth->ethertype == ETH_P_IP) {
+        eth->ipv4->tcp = mempool_pealloc(sizeof(struct tcp));
+        info = eth->ipv4->tcp;
+    } else {
+        eth->ipv6->tcp = mempool_pealloc(sizeof(struct tcp));
+        info = eth->ipv6->tcp;
+    }
     tcp = (struct tcphdr *) buffer;
     if (n < tcp->doff * 4) return TCP_ERR;
 
-    pstat[PROT_TCP].num_packets++;
-    pstat[PROT_TCP].num_bytes += n;
+    pinfo->num_packets++;
+    pinfo->num_bytes += n;
     info->src_port = ntohs(tcp->source);
     info->dst_port = ntohs(tcp->dest);
     info->seq_num = ntohl(tcp->seq);

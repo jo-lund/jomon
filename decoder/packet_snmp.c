@@ -33,8 +33,8 @@ typedef struct {
     };
 } snmp_value;
 
-extern void print_snmp(char *buf, int n, struct application_info *adu);
-extern void add_snmp_information(void *widget, void *subwidget, struct application_info *adu);
+extern void print_snmp(char *buf, int n, void *data);
+extern void add_snmp_information(void *widget, void *subwidget, void *data);
 static packet_error parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp);
 static list_t *parse_variables(unsigned char *buffer, int n);
 static int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag,
@@ -60,8 +60,8 @@ static struct protocol_info snmptrap_prot = {
 
 void register_snmp()
 {
-    register_protocol(&snmp_prot, SNMP);
-    register_protocol(&snmptrap_prot, SNMPTRAP);
+    register_protocol(&snmp_prot, LAYER4);
+    register_protocol(&snmptrap_prot, LAYER4);
 }
 
 /*
@@ -71,12 +71,13 @@ void register_snmp()
  * non-constructor encodings are used rather than constructor encodings.
  */
 packet_error handle_snmp(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                         struct application_info *adu)
+                         void *data)
 {
     uint8_t class;
     uint8_t tag;
     int msg_len;
     unsigned char *ptr = buffer;
+    struct application_info *adu = data;
 
     if (n < MIN_MSG) return SNMP_ERR;
 

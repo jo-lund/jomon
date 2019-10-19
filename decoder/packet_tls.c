@@ -359,8 +359,8 @@ enum tls_state {
     CCS
 };
 
-extern void print_tls(char *buf, int n, struct application_info *adu);
-extern void add_tls_information(void *widget, void *subwidget, struct application_info *adu);
+extern void print_tls(char *buf, int n, void *data);
+extern void add_tls_information(void *widget, void *subwidget, void *data);
 static packet_error parse_handshake(unsigned char **buf, uint16_t n,
                                     struct tls_info *tls);
 static packet_error parse_client_hello(unsigned char **buf, uint16_t n,
@@ -388,12 +388,12 @@ static struct protocol_info imaps_prot = {
 
 void register_tls()
 {
-    register_protocol(&https_prot, HTTPS);
-    register_protocol(&imaps_prot, IMAPS);
+    register_protocol(&https_prot, LAYER4);
+    register_protocol(&imaps_prot, LAYER4);
 }
 
 packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
-                        struct application_info *adu)
+                        void *data)
 {
     if (n < TLS_HEADER_SIZE || n > TLS_MAX_SIZE) return TLS_ERR;
 
@@ -401,6 +401,7 @@ packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
     struct tls_info **pptr;
     enum tls_state state = NORMAL;
     int i = 0;
+    struct application_info *adu = data;
 
     pptr = &adu->tls;
     while (data_len < n) {

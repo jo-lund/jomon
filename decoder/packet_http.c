@@ -29,8 +29,8 @@ static char *request_method[] = {
 
 #define NUM_METHODS sizeof(request_method) / sizeof(char *)
 
-extern void print_http(char *buf, int n, struct application_info *adu);
-extern void add_http_information(void *widget, void *subwidget, struct application_info *adu);
+extern void print_http(char *buf, int n, void *data);
+extern void add_http_information(void *widget, void *subwidget, void *data);
 static bool parse_http(unsigned char *buf, uint16_t len, struct http_info *http);
 static bool parse_start_line(unsigned char **str, unsigned int *len, struct http_info *http);
 static bool check_method(char *token);
@@ -47,7 +47,7 @@ static struct protocol_info http_prot = {
 
 void register_http()
 {
-    register_protocol(&http_prot, HTTP);
+    register_protocol(&http_prot, LAYER4);
 }
 
 static int rbcmp(const void *d1, const void *d2)
@@ -56,8 +56,10 @@ static int rbcmp(const void *d1, const void *d2)
 }
 
 packet_error handle_http(struct protocol_info *pinfo, unsigned char *buffer,
-                         int len, struct application_info *info)
+                         int len, void *data)
 {
+    struct application_info *info = data;
+
     info->http = mempool_pealloc(sizeof(struct http_info));
     if (!parse_http(buffer, len, info->http)) {
         return UNK_PROTOCOL;

@@ -10,6 +10,14 @@
 #include "../mempool.h"
 #include "../alloc.h"
 
+#define LAYER2 "l2"
+#define LAYER3 "l3"
+#define LAYER4 "l4"
+#define LAYER802_3 "l802_3"
+
+extern uint32_t total_packets;
+extern uint64_t total_bytes;
+
 struct protocol_info;
 
 typedef void (*protocol_handler)(struct protocol_info *prot, void *arg);
@@ -20,28 +28,7 @@ struct packet_flags {
     char **sflags; /* description of field indexed by bit value */
 };
 
-enum protocols {
-    PROT_ARP = 1,
-    PROT_STP,
-    PROT_IPv4,
-    PROT_IPv6,
-    PROT_ICMP,
-    PROT_IGMP,
-    PROT_PIM,
-    PROT_TCP,
-    PROT_UDP
-};
-
-#define NUM_PROTOCOLS 9
-
-struct packet_statistics {
-    char *protocol;
-    uint32_t num_packets;
-    uint64_t num_bytes;
-};
-
 // TODO: move this to an internal header
-extern struct packet_statistics pstat[];
 extern allocator_t d_alloc;
 
 enum port {
@@ -118,13 +105,13 @@ struct application_info {
 struct protocol_info {
     char *short_name;
     char *long_name;
-    uint16_t port;
+    uint16_t port; /* port number or id */
     uint64_t num_bytes;
     uint32_t num_packets;
     packet_error (*decode)(struct protocol_info *pinfo, unsigned char *buf, int n,
-                           struct application_info *adu);
-    void (*print_pdu)(char *buf, int n, struct application_info *adu);
-    void (*add_pdu)(void *w, void *sw, struct application_info *adu);
+                           void *data);
+    void (*print_pdu)(char *buf, int n, void *data);
+    void (*add_pdu)(void *w, void *sw, void *data);
 };
 
 /*
@@ -140,12 +127,9 @@ struct packet {
 };
 
 void decoder_init();
-
 void decoder_exit();
-
-void register_protocol(struct protocol_info *pinfo, uint16_t port);
-
-struct protocol_info *get_protocol(uint16_t port);
+void register_protocol(struct protocol_info *pinfo, char *layer);
+struct protocol_info *get_protocol(char *layer, uint16_t id);
 
 void traverse_protocols(protocol_handler fn, void *arg);
 

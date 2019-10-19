@@ -281,7 +281,7 @@ check_state:
             if (j >= ETH_HLEN + p->eth.ipv4->ihl * 4 + UDP_HDR_LEN) {
                 *state = get_next_state(*state, p);
                 if (update) {
-                    struct protocol_info *pinfo = get_protocol(get_adu_info(p)->utype);
+                    struct protocol_info *pinfo = get_protocol(LAYER4, get_adu_info(p)->utype);
 
                     if (pinfo)
                         list_push_back(protocols, pinfo->short_name);
@@ -292,7 +292,7 @@ check_state:
             if (j >= ETH_HLEN + IPV6_FIXED_HEADER_LEN + UDP_HDR_LEN) {
                 *state = get_next_state(*state, p);
                 if (update) {
-                    struct protocol_info *pinfo = get_protocol(get_adu_info(p)->utype);
+                    struct protocol_info *pinfo = get_protocol(LAYER4, get_adu_info(p)->utype);
 
                     if (pinfo)
                         list_push_back(protocols, pinfo->short_name);
@@ -307,7 +307,7 @@ check_state:
             if (j >= ETH_HLEN + p->eth.ipv4->ihl * 4 + TCP_HDR_LEN(p)) {
                 *state = HD_APP;
                 if (update) {
-                    struct protocol_info *pinfo = get_protocol(get_adu_info(p)->utype);
+                    struct protocol_info *pinfo = get_protocol(LAYER4, get_adu_info(p)->utype);
 
                     if (pinfo)
                         list_push_back(protocols, pinfo->short_name);
@@ -318,7 +318,7 @@ check_state:
             if (j >= ETH_HLEN + IPV6_FIXED_HEADER_LEN + TCP_HDR_LEN(p)) {
                 *state = HD_APP;
                 if (update) {
-                    struct protocol_info *pinfo = get_protocol(get_adu_info(p)->utype);
+                    struct protocol_info *pinfo = get_protocol(LAYER4, get_adu_info(p)->utype);
 
                     if (pinfo)
                         list_push_back(protocols, pinfo->short_name);

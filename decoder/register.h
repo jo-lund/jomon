@@ -6,6 +6,16 @@
 typedef void (*register_function)();
 
 static register_function decoder_functions[] = {
+    register_llc,
+    register_stp,
+    register_snap,
+    register_arp,
+    register_ip,
+    register_icmp,
+    register_igmp,
+    register_pim,
+    register_udp,
+    register_tcp,
     register_dns,
     register_nbns,
     register_nbds,

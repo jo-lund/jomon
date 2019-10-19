@@ -9,6 +9,6 @@ struct application_info;
 
 void register_imap();
 packet_error handle_imap(struct protocol_info *pinfo, unsigned char *buf, int n,
-                         struct application_info *adu);
+                         void *data);
 
 #endif

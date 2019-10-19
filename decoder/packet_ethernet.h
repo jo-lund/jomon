@@ -9,35 +9,15 @@
 #define LLC_HDR_LEN 3
 #define SNAP_HDR_LEN 5
 
+#define ETH_802_LLC 0xffff
 #define LLC_PAYLOAD_LEN(p) ((p)->eth.ethertype - LLC_HDR_LEN)
 
 struct packet;
 
 enum eth_802_type {
     ETH_802_UNKNOWN,
-    ETH_802_STP,
-    ETH_802_SNAP
-};
-
-/* 802.2 SNAP */
-struct snap_info {
-    unsigned char oui[3]; /* IEEE Organizationally Unique Identifier */
-    uint16_t protocol_id; /* If OUI is 0 the protocol ID is the Ethernet type */
-    union {
-        struct arp_info *arp;
-        struct ipv4_info *ip;
-    };
-};
-
-/* Ethernet 802.2 Logical Link Control */
-struct eth_802_llc {
-    uint8_t dsap; /* destination service access point */
-    uint8_t ssap; /* source service access point */
-    uint8_t control; /* possible to be 2 bytes? */
-    union {
-        struct snap_info *snap;
-        struct stp_info *bpdu;
-    };
+    ETH_802_STP = 0x4242,
+    ETH_802_SNAP = 0xaaaa
 };
 
 struct eth_info {
@@ -60,9 +40,6 @@ struct eth_info {
 #define eth_len(p) ((p)->eth.payload_len)
 #define get_llc(p) ((p)->eth.llc)
 
-
-enum eth_802_type get_eth802_type(struct eth_802_llc *llc);
-uint32_t get_eth802_oui(struct snap_info *snap);
 char *get_ethernet_type(uint16_t ethertype);
 
 /* Should be internal to the decoder */

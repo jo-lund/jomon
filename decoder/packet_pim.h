@@ -261,6 +261,8 @@ list_t *parse_hello_options(struct pim_info *pim);
 char *get_pim_address(uint8_t family, pim_addr *addr);
 
 /* internal to the decoder */
-packet_error handle_pim(unsigned char *buffer, int n, struct pim_info *pim);
+void register_pim();
+packet_error handle_pim(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                        void *data);
 
 #endif

@@ -4,8 +4,8 @@
 
 #define MAXLINE 2048 /* BUG: max line length? */
 
-extern void print_imap(char *buf, int n, struct application_info *adu);
-extern void add_imap_information(void *widget, void *subwidget, struct application_info *adu);
+extern void print_imap(char *buf, int n, void *data);
+extern void add_imap_information(void *widget, void *subwidget, void *data);
 
 static struct protocol_info imap_prot = {
     .short_name = "IMAP",
@@ -18,15 +18,16 @@ static struct protocol_info imap_prot = {
 
 void register_imap()
 {
-    register_protocol(&imap_prot, IMAP);
+    register_protocol(&imap_prot, LAYER4);
 }
 
 packet_error handle_imap(struct protocol_info *pinfo, unsigned char *buf, int n,
-                         struct application_info *adu)
+                         void *data)
 {
     char line[MAXLINE];
     int i = 0;
     int c = 0;
+    struct application_info *adu = data;
 
     adu->imap = mempool_pealloc(sizeof(struct imap_info));
     adu->imap->lines = list_init(&d_alloc);

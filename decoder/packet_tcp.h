@@ -84,6 +84,8 @@ struct packet_flags *get_tcp_flags();
 int get_tcp_flags_size();
 
 /* should be internal to the decoder */
-packet_error handle_tcp(unsigned char *buffer, int n, struct tcp *info);
+void register_tcp();
+packet_error handle_tcp(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                        void *data);
 
 #endif

@@ -76,7 +76,10 @@ int get_ipv4_flags_size();
 uint16_t get_ipv4_foffset(struct ipv4_info *ip);
 
 /* internal to the decoder */
-packet_error handle_ipv4(unsigned char *buffer, int n, struct eth_info *info);
-packet_error handle_ipv6(unsigned char *buffer, int n, struct eth_info *info);
+void register_ip();
+packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                         void *data);
+packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                         void *data);
 
 #endif

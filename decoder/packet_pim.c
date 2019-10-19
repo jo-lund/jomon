@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <arpa/inet.h>
 #include "../attributes.h"
+#include "packet_ip.h"
 
 #define PIM_HEADER_LEN 4
 
@@ -23,6 +24,22 @@ static bool parse_src_address(unsigned char **data, int *n, struct pim_source_ad
 static bool parse_grp_address(unsigned char **data, int *n, struct pim_group_addr *gaddr);
 static bool parse_unicast_address(unsigned char **data, int *n,
                                   struct pim_unicast_addr *uaddr);
+extern void add_pim_information(void *w, void *sw, void *data);
+extern void print_pim(char *buf, int n, void *data);
+
+static struct protocol_info pim_prot = {
+    .short_name = "PIM",
+    .long_name = "Protocol Independent Multicast",
+    .port = IPPROTO_PIM,
+    .decode = handle_pim,
+    .print_pdu = print_pim,
+    .add_pdu = add_pim_information
+};
+
+void register_pim()
+{
+    register_protocol(&pim_prot, LAYER3);
+}
 
 /*
  *
@@ -35,12 +52,23 @@ static bool parse_unicast_address(unsigned char **data, int *n,
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  */
-packet_error handle_pim(unsigned char *buffer, int n, struct pim_info *pim)
+packet_error handle_pim(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                        void *data)
 {
     if (n < PIM_HEADER_LEN) return PIM_ERR;
 
-    pstat[PROT_PIM].num_packets++;
-    pstat[PROT_PIM].num_bytes += n;
+    struct eth_info *eth = data;
+    struct pim_info *pim;
+
+    if (eth->ethertype == ETH_P_IP) {
+        eth->ipv4->pim = mempool_pealloc(sizeof(struct pim_info));
+        pim = eth->ipv4->pim;
+    } else {
+        eth->ipv6->pim = mempool_pealloc(sizeof(struct pim_info));
+        pim = eth->ipv6->pim;
+    }
+    pinfo->num_packets++;
+    pinfo->num_bytes += n;
     pim->version = (buffer[0] >> 4) & 0xf;
     pim->type = buffer[0] & 0xf;
     pim->checksum = buffer[1] << 8 | buffer[2];

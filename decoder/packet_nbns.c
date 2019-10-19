@@ -23,8 +23,8 @@ static struct packet_flags nbns_nb_flags[] = {
     { "Owner Node Type:", 2, nb_ont }
 };
 
-extern void print_nbns(char *buf, int n, struct application_info *adu);
-extern void add_nbns_information(void *widget, void *subwidget, struct application_info *adu);
+extern void print_nbns(char *buf, int n, void *data);
+extern void add_nbns_information(void *widget, void *subwidget, void *data);
 static int parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **data,
                              int dlen, struct nbns_info *info);
 
@@ -39,7 +39,7 @@ static struct protocol_info nbns_prot = {
 
 void register_nbns()
 {
-    register_protocol(&nbns_prot, NBNS);
+    register_protocol(&nbns_prot, LAYER4);
 }
 
 /*
@@ -66,12 +66,13 @@ void register_nbns()
  * +---+---+---+---+---+---+---+
  */
 packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                         struct application_info *info)
+                         void *data)
 {
     if (n < DNS_HDRLEN) return NBNS_ERR;
 
     unsigned char *ptr = buffer;
     int plen = n;
+    struct application_info *info = data;
 
     info->nbns = mempool_pealloc(sizeof(struct nbns_info));
     info->nbns->id = ptr[0] << 8 | ptr[1];

@@ -25,8 +25,8 @@ static struct packet_flags llmnr_flags[] = {
     { "Reserved", 4, NULL }
 };
 
-extern void print_dns(char *buf, int n, struct application_info *adu);
-extern void add_dns_information(void *widget, void *subwidget, struct application_info *adu);
+extern void print_dns(char *buf, int n, void *data);
+extern void add_dns_information(void *widget, void *subwidget, void *data);
 static int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
                              int dlen, struct dns_info *dns);
 static int parse_dns_question(unsigned char *buffer, int n, unsigned char **data,
@@ -65,9 +65,9 @@ static struct protocol_info llmnr_prot = {
 
 void register_dns()
 {
-    register_protocol(&dns_prot, DNS);
-    register_protocol(&mdns_prot, MDNS);
-    register_protocol(&llmnr_prot, LLMNR);
+    register_protocol(&dns_prot, LAYER4);
+    register_protocol(&mdns_prot, LAYER4);
+    register_protocol(&llmnr_prot, LAYER4);
 }
 
 /*
@@ -120,11 +120,12 @@ void register_dns()
  *          resource records in the additional records section.
  */
 packet_error handle_dns(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                        struct application_info *info)
+                        void *data)
 {
     unsigned char *ptr = buffer;
     int plen = n;
     int num_records = 0;
+    struct application_info *info = data;
 
     if (n < DNS_HDRLEN) return DNS_ERR;
     info->dns = mempool_pealloc(sizeof(struct dns_info));

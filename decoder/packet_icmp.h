@@ -32,7 +32,9 @@ struct icmp_info {
 
 struct ipv4_info;
 
-packet_error handle_icmp(unsigned char *buffer, int n, struct icmp_info *info);
+void register_icmp();
+packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                         void *data);
 char *get_icmp_dest_unreach_code(uint8_t code);
 char *get_icmp_redirect_code(uint8_t code);
 char *get_icmp_type(uint8_t type);

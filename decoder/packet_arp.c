@@ -9,6 +9,23 @@
 
 #define ARP_SIZE 28 /* size of an ARP packet (header + payload) */
 
+extern void add_arp_information(void *w, void *sw, void *data);
+extern void print_arp(char *buf, int n, void *data);
+
+static struct protocol_info arp_prot = {
+    .short_name = "ARP",
+    .long_name = "Address Resolution Protocol",
+    .port = ETH_P_ARP,
+    .decode = handle_arp,
+    .print_pdu = print_arp,
+    .add_pdu = add_arp_information
+};
+
+void register_arp()
+{
+    register_protocol(&arp_prot, LAYER2);
+}
+
 /*
  * IPv4 over Ethernet ARP packet (28 bytes)
  *
@@ -25,14 +42,16 @@
  * PS: Protocol Size, number of bytes in the requested network address
  * OP: Operation. 1 = ARP request, 2 = ARP reply, 3 = RARP request, 4 = RARP reply
  */
-packet_error handle_arp(unsigned char *buffer, int n, struct eth_info *eth)
+packet_error handle_arp(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                        void *data)
 {
     if (n < ARP_SIZE) return ARP_ERR;
 
     struct ether_arp *arp_header;
+    struct eth_info *eth = data;
 
-    pstat[PROT_ARP].num_packets++;
-    pstat[PROT_ARP].num_bytes += n;
+    pinfo->num_packets++;
+    pinfo->num_bytes += n;
     arp_header = (struct ether_arp *) buffer;
     eth->arp = mempool_pealloc(sizeof(struct arp_info));
     memcpy(eth->arp->sip, arp_header->arp_spa, 4); /* sender protocol address */

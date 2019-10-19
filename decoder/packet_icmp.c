@@ -4,14 +4,36 @@
 
 #define ICMP_HDR_LEN 8
 
-packet_error handle_icmp(unsigned char *buffer, int n, struct icmp_info *info)
+extern void add_icmp_information(void *w, void *sw, void *data);
+extern void print_icmp(char *buf, int n, void *data);
+
+static struct protocol_info icmp_prot = {
+    .short_name = "ICMP",
+    .long_name = "Internet Control Message Protocol",
+    .port = IPPROTO_ICMP,
+    .decode = handle_icmp,
+    .print_pdu = print_icmp,
+    .add_pdu = add_icmp_information
+};
+
+void register_icmp()
+{
+    register_protocol(&icmp_prot, LAYER3);
+}
+
+packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                         void *data)
 {
     if (n < ICMP_HDR_LEN) return ICMP_ERR;
 
+    struct eth_info *eth = data;
+    struct icmp_info *info;
     struct icmp *icmp = (struct icmp *) buffer;
 
-    pstat[PROT_ICMP].num_packets++;
-    pstat[PROT_ICMP].num_bytes += n;
+    eth->ipv4->icmp = mempool_pealloc(sizeof(struct icmp_info));
+    info = eth->ipv4->icmp;
+    pinfo->num_packets++;
+    pinfo->num_bytes += n;
     info->type = icmp->icmp_type;
     info->code = icmp->icmp_code;
     info->checksum = htons(icmp->icmp_cksum);

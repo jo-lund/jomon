@@ -37,32 +37,12 @@ enum elements {
 };
 
 enum layer {
-    ETHERNET_LAYER,
-    ARP,
-    LLC,
-    SNAP,
-    STP,
-    IP,
-    IGMP,
-    ICMP,
-    PIM,
-    TRANSPORT,
-    APPLICATION,
-    IPV4_FLAGS,
-    STP_FLAGS,
-    TCP_FLAGS,
-    DNS_FLAGS,
-    DNS_RECORDS,
-    NBNS_FLAGS,
-    NBNS_RECORDS,
-    NBDS_FLAGS,
-    SMB,
-    SMB_FLAGS,
-    SNMP_PDU,
-    SNMP_VARS,
-    HTTP_DATA,
-    SUBLAYER,
-    TLS_LAYER,
+    UI_LAYER1,
+    UI_LAYER2,
+    UI_LAYER3,
+    UI_LAYER4,
+    UI_SUBLAYER,
+    UI_FLAGS,
     NUM_LAYERS
 };
 

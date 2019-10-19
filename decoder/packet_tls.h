@@ -278,6 +278,6 @@ void free_tls_extensions(list_t *extensions);
 
 void register_tls();
 packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buffer, int len,
-                        struct application_info *adu);
+                        void *data);
 
 #endif

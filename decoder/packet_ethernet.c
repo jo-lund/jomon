@@ -3,6 +3,7 @@
 #include "packet_arp.h"
 #include "packet_ip.h"
 #include "packet_stp.h"
+#include "../util.h"
 
 #define MAX_PACKET_SIZE 65535
 
@@ -60,48 +61,21 @@ bool handle_ethernet(unsigned char *buffer, int n, struct packet *p)
 
     /* Ethernet 802.3 frame */
     if (p->eth.ethertype <= ETH_802_3_MAX) {
-        unsigned char *ptr;
+        struct protocol_info *pinfo;
 
-        ptr = buffer + ETH_HLEN;
         p->eth.payload_len = p->eth.ethertype;
-        p->eth.llc = mempool_pealloc(sizeof(struct eth_802_llc));
-        p->eth.llc->dsap = ptr[0];
-        p->eth.llc->ssap = ptr[1];
-        p->eth.llc->control = ptr[2];
-
-        /* Spanning Tree Protocol */
-        if (p->eth.llc->dsap == 0x42 && p->eth.llc->ssap == 0x42) {
-            p->perr = handle_stp(ptr + LLC_HDR_LEN, p->eth.ethertype - LLC_HDR_LEN,
-                                p->eth.llc);
-        } else if (p->eth.llc->dsap == 0xaa && p->eth.llc->ssap == 0xaa) {
-            /* SNAP extension */
-            p->eth.llc->snap = mempool_pealloc(sizeof(struct snap_info));
-            ptr += LLC_HDR_LEN;
-            memcpy(p->eth.llc->snap->oui, ptr, 3);
-            ptr += 3; /* skip first 3 bytes of 802.2 SNAP */
-            p->eth.llc->snap->protocol_id = ptr[0] << 8 | ptr[1];
-            p->perr = NO_ERR;
-
-            /* TODO: If OUI is 0 I need to to handle the internet protocols that
-               will be layered on top of SNAP */
-        }
-    } else { /* Ethernet II */
-        p->eth.payload_len = n - ETH_HLEN;
-        switch (p->eth.ethertype) {
-        case ETH_P_IP:
-            p->perr = handle_ipv4(buffer + ETH_HLEN, n - ETH_HLEN, &p->eth);
-            break;
-        case ETH_P_ARP:
-            p->perr = handle_arp(buffer + ETH_HLEN, n - ETH_HLEN, &p->eth);
-            break;
-        case ETH_P_IPV6:
-            p->perr = handle_ipv6(buffer + ETH_HLEN, n - ETH_HLEN, &p->eth);
-            break;
-        case ETH_P_PAE: /* TODO: not yet supported */
-        default:
+        if ((pinfo = get_protocol(LAYER802_3, ETH_802_LLC)))
+            p->perr = pinfo->decode(pinfo, buffer + ETH_HLEN, n - ETH_HLEN, &p->eth);
+        else
             p->perr = UNK_PROTOCOL;
-            break;
-        }
+    } else { /* Ethernet II */
+        struct protocol_info *pinfo;
+
+        p->eth.payload_len = n - ETH_HLEN;
+        if ((pinfo = get_protocol(LAYER2, ethertype(p))))
+            p->perr = pinfo->decode(pinfo, buffer + ETH_HLEN, n - ETH_HLEN, &p->eth);
+        else
+            p->perr = UNK_PROTOCOL;
     }
     p->ptype = ETHERNET;
     return true;
@@ -121,18 +95,4 @@ char *get_ethernet_type(uint16_t ethertype)
     default:
         return NULL;
     }
-}
-
-enum eth_802_type get_eth802_type(struct eth_802_llc *llc)
-{
-    /* DSAP and SSAP specify the upper layer protocols above LLC */
-    if (llc->ssap == 0x42 && llc->dsap == 0x42) return ETH_802_STP;
-    if (llc->ssap == 0xaa && llc->dsap == 0xaa) return ETH_802_SNAP;
-
-    return ETH_802_UNKNOWN;
-}
-
-uint32_t get_eth802_oui(struct snap_info *snap)
-{
-    return snap->oui[0] << 16 | snap->oui[1] << 8 | snap->oui[2];
 }

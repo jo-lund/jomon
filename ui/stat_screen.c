@@ -318,19 +318,15 @@ void print_netstat()
         char buf[16];
 
         mvwprintw(s->win, ++y, 0, "");
-        if (pstat[0].num_packets) {
+        if (total_packets) {
             printat(s->win, ++y, 0, subcol, "%23s %12s", "Packets", "Bytes");
-            for (int i = 0; i <= NUM_PROTOCOLS; i++) {
-                if (pstat[i].num_packets) {
-                    printat(s->win, ++y, 0, subcol, "%13s", pstat[i].protocol);
-                    wprintw(s->win, ": %8u", pstat[i].num_packets);
-                    if (formatted_output) {
-                        wprintw(s->win, "%13s",
-                                format_bytes(pstat[i].num_bytes, buf, 16));
-                    } else {
-                        wprintw(s->win, "%13llu", pstat[i].num_bytes);
-                    }
-                }
+            printat(s->win, ++y, 0, subcol, "%13s", "Total");
+            wprintw(s->win, ": %8u", total_packets);
+            if (formatted_output) {
+                wprintw(s->win, "%13s",
+                        format_bytes(total_bytes, buf, 16));
+            } else {
+                wprintw(s->win, "%13llu", total_bytes);
             }
             traverse_protocols(print_protocol_stat, &y);
         }

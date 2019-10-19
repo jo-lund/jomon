@@ -1,11 +1,29 @@
 #include <netinet/igmp.h>
 #include <stddef.h>
 #include <arpa/inet.h>
-#include "packet_icmp.h"
+#include "packet_igmp.h"
 #include "packet_ip.h"
 #include "../error.h"
 
 #define IGMP_HDR_LEN 8
+
+
+extern void add_igmp_information(void *w, void *sw, void *data);
+extern void print_igmp(char *buf, int n, void *data);
+
+static struct protocol_info igmp_prot = {
+    .short_name = "IGMP",
+    .long_name = "Internet Group Management Protocol",
+    .port = IPPROTO_IGMP,
+    .decode = handle_igmp,
+    .print_pdu = print_igmp,
+    .add_pdu = add_igmp_information
+};
+
+void register_igmp()
+{
+    register_protocol(&igmp_prot, LAYER3);
+}
 
 /*
  * IGMP message format:
@@ -46,14 +64,24 @@
  *
  * TODO: Handle IGMPv3 membership query
  */
-packet_error handle_igmp(unsigned char *buffer, int n, struct igmp_info *info)
+packet_error handle_igmp(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                         void *data)
 {
     if (n < IGMP_HDR_LEN) return IGMP_ERR;
 
     struct igmp *igmp;
+    struct eth_info *eth = data;
+    struct igmp_info *info;
 
-    pstat[PROT_IGMP].num_packets++;
-    pstat[PROT_IGMP].num_bytes += n;
+    if (eth->ethertype == ETH_P_IP) {
+        eth->ipv4->igmp = mempool_pealloc(sizeof(struct igmp_info));
+        info = eth->ipv4->igmp;
+    } else {
+        eth->ipv6->igmp = mempool_pealloc(sizeof(struct igmp_info));
+        info = eth->ipv6->igmp;
+    }
+    pinfo->num_packets++;
+    pinfo->num_bytes += n;
     igmp = (struct igmp *) buffer;
     info->type = igmp->igmp_type;
     info->max_resp_time = igmp->igmp_code;

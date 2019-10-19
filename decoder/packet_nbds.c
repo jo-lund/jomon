@@ -17,9 +17,8 @@ struct packet_flags nbds_flags[] = {
 };
 
 
-extern void print_nbds(char *buf, int n, struct application_info *adu);
-extern void add_nbds_information(void *widget, void *subwidget, struct application_info *adu);
-
+extern void print_nbds(char *buf, int n, void *data);
+extern void add_nbds_information(void *widget, void *subwidget, void *data);
 static int parse_datagram(unsigned char *buffer, int n, unsigned char **data,
                           int dlen, struct application_info *adu);
 
@@ -34,7 +33,7 @@ static struct protocol_info nbds_prot = {
 
 void register_nbds()
 {
-    register_protocol(&nbds_prot, NBDS);
+    register_protocol(&nbds_prot, LAYER4);
 }
 
 /*
@@ -54,10 +53,11 @@ void register_nbds()
  * payload: the DIRECT_UNIQUE, DIRECT_GROUP, and BROADCAST DATAGRAM messages.
  */
 packet_error handle_nbds(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                         struct application_info *adu)
+                         void *data)
 {
     if (n < NBDS_HDRLEN) return NBDS_ERR;
 
+    struct application_info *adu = data;
     unsigned char *ptr;
     int plen = n;
 

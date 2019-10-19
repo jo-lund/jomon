@@ -3,8 +3,13 @@
 #include "packet_ethernet.h"
 #include "packet_stp.h"
 #include "packet.h"
+#include "packet_llc.h"
+#include "../util.h"
 
 #define MIN_CONF_BPDU 35
+
+extern void add_stp_information(void *w, void *sw, void *data);
+extern void print_stp(char *buf, int n, void *data);
 
 static char *port_role[] = { "", "Alternate/Backup", "Root", "Designated" };
 
@@ -18,21 +23,37 @@ static struct packet_flags stp_flags[] = {
     { "Topology Change", 1, NULL }
 };
 
+static struct protocol_info stp_prot = {
+    .short_name = "STP",
+    .long_name = "Spanning Tree Protocol",
+    .port = ETH_802_STP,
+    .decode = handle_stp,
+    .print_pdu = print_stp,
+    .add_pdu = add_stp_information
+};
+
+void register_stp()
+{
+    register_protocol(&stp_prot, LAYER802_3);
+}
+
 /*
  * IEEE 802.1 Bridge Spanning Tree Protocol
  */
-packet_error handle_stp(unsigned char *buffer, uint16_t n, struct eth_802_llc *llc)
+packet_error handle_stp(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                        void *data)
 {
     /* the BPDU shall contain at least 4 bytes */
     if (n < 4) return STP_ERR;
 
+    struct eth_802_llc *llc = data;
     uint16_t protocol_id = buffer[0] << 8 | buffer[1];
 
     /* protocol id 0x00 identifies the (Rapid) Spanning Tree Protocol */
     if (!protocol_id == 0x0) return STP_ERR;
 
-    pstat[PROT_STP].num_packets++;
-    pstat[PROT_STP].num_bytes += n;
+    pinfo->num_packets++;
+    pinfo->num_bytes += n;
     llc->bpdu = mempool_pealloc(sizeof(struct stp_info));
     llc->bpdu->protocol_id = protocol_id;
     llc->bpdu->version = buffer[2];
@@ -81,5 +102,5 @@ struct packet_flags *get_stp_flags()
 
 int get_stp_flags_size()
 {
-    return sizeof(stp_flags) / sizeof(struct packet_flags);
+    return ARRAY_SIZE(stp_flags);
 }

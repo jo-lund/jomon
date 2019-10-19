@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <netinet/in.h>
+#include "packet.h"
 
 struct igmp_info {
     uint8_t type;
@@ -15,7 +16,9 @@ struct igmp_info {
 
 struct ipv4_info;
 
-packet_error handle_igmp(unsigned char *buffer, int n, struct igmp_info *info);
+void register_igmp();
+packet_error handle_igmp(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                         void *data);
 char *get_igmp_type(uint8_t type);
 
 #endif

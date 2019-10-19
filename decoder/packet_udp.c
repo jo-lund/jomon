@@ -3,6 +3,23 @@
 #include "packet_udp.h"
 #include "packet_ip.h"
 
+extern void add_udp_information(void *w, void *sw, void *data);
+extern void print_udp(char *buf, int n, void *data);
+
+static struct protocol_info udp_prot = {
+    .short_name = "UDP",
+    .long_name = "User Datagram Protocol",
+    .port = IPPROTO_UDP,
+    .decode = handle_udp,
+    .print_pdu = print_udp,
+    .add_pdu = add_udp_information
+};
+
+void register_udp()
+{
+    register_protocol(&udp_prot, LAYER3);
+}
+
 /*
  * UDP header
  *
@@ -15,15 +32,25 @@
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  */
-packet_error handle_udp(unsigned char *buffer, int n, struct udp_info *info)
+packet_error handle_udp(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                        void *data)
 {
     if (n < UDP_HDR_LEN) return UDP_ERR;
 
     struct udphdr *udp;
     packet_error error;
+    struct eth_info *eth = data;
+    struct udp_info *info;
 
-    pstat[PROT_UDP].num_packets++;
-    pstat[PROT_UDP].num_bytes += n;
+    if (eth->ethertype == ETH_P_IP) {
+        eth->ipv4->udp = mempool_pealloc(sizeof(struct udp_info));
+        info = eth->ipv4->udp;
+    } else {
+        eth->ipv6->udp = mempool_pealloc(sizeof(struct udp_info));
+        info = eth->ipv6->udp;
+    }
+    pinfo->num_packets++;
+    pinfo->num_bytes += n;
     udp = (struct udphdr *) buffer;
     info->src_port = ntohs(udp->source);
     info->dst_port = ntohs(udp->dest);

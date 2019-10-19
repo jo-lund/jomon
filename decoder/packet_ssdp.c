@@ -3,8 +3,8 @@
 #include "packet.h"
 #include "../list.h"
 
-extern void print_ssdp(char *buf, int n, struct application_info *adu);
-extern void add_ssdp_information(void *widget, void *subwidget, struct application_info *adu);
+extern void print_ssdp(char *buf, int n, void *data);
+extern void add_ssdp_information(void *widget, void *subwidget, void *data);
 static void parse_ssdp(char *str, int n, list_t *msg_header);
 
 static struct protocol_info ssdp_prot = {
@@ -18,7 +18,7 @@ static struct protocol_info ssdp_prot = {
 
 void register_ssdp()
 {
-    register_protocol(&ssdp_prot, SSDP);
+    register_protocol(&ssdp_prot, LAYER4);
 }
 
 /*
@@ -35,8 +35,10 @@ void register_ssdp()
  * originating address and port number of the multicast request.
  */
 packet_error handle_ssdp(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                         struct application_info *adu)
+                         void *data)
 {
+    struct application_info *adu = data;
+
     adu->ssdp = mempool_pealloc(sizeof(struct ssdp_info));
     pinfo->num_packets++;
     pinfo->num_bytes += n;

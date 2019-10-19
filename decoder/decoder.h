@@ -17,5 +17,7 @@
 #include "packet_imap.h"
 #include "packet_ssdp.h"
 #include "packet_tls.h"
+#include "packet_llc.h"
+#include "packet_snap.h"
 
 #endif

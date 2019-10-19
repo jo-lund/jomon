@@ -35,9 +35,13 @@ struct stp_info {
     uint8_t version1_len;
 };
 
-struct eth_802_llc;
+#define stp_type(p) ((p)->eth.llc->bpdu->type)
+#define stp_port_id(p) ((p)->eth.llc->bpdu->port_id)
+#define stp_root_pc(p) ((p)->eth.llc->bpdu->root_pc)
 
-packet_error handle_stp(unsigned char *buffer, uint16_t n, struct eth_802_llc *llc);
+void register_stp();
+packet_error handle_stp(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                        void *data);
 char *get_stp_bpdu_type(uint8_t type);
 struct packet_flags *get_stp_flags();
 int get_stp_flags_size();

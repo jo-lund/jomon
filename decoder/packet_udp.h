@@ -22,6 +22,8 @@ struct udp_info {
 #define udp_data(p, v) get_udp(p, v)->data
 
 /* internal to the decoder */
-packet_error handle_udp(unsigned char *buffer, int n, struct udp_info *info);
+void register_udp();
+packet_error handle_udp(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                        void *data);
 
 #endif

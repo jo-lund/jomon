@@ -30,11 +30,41 @@
 #define CS6 0X30
 #define CS7 0X38
 
+
+extern void add_ipv4_information(void *w, void *sw, void *data);
+extern void print_ipv4(char *buf, int n, void *data);
+extern void add_ipv6_information(void *w, void *sw, void *data);
+extern void print_ipv6(char *buf, int n, void *data);
+
 static struct packet_flags ipv4_flags[] = {
     { "Reserved", 1, NULL },
     { "Don't Fragment", 1, NULL },
     { "More Fragments", 1, NULL }
 };
+
+static struct protocol_info ipv4_prot = {
+    .short_name = "IPv4",
+    .long_name = "Internet Protocol Version 4",
+    .port = ETH_P_IP,
+    .decode = handle_ipv4,
+    .print_pdu = print_ipv4,
+    .add_pdu = add_ipv4_information
+};
+
+static struct protocol_info ipv6_prot = {
+    .short_name = "IPv6",
+    .long_name = "Internet Protocol Version 6",
+    .port = ETH_P_IPV6,
+    .decode = handle_ipv6,
+    .print_pdu = print_ipv6,
+    .add_pdu = add_ipv6_information
+};
+
+void register_ip()
+{
+    register_protocol(&ipv4_prot, LAYER2);
+    register_protocol(&ipv6_prot, LAYER2);
+}
 
 /*
  * IPv4 header
@@ -66,16 +96,18 @@ static struct packet_flags ipv4_flags[] = {
  * offset of zero.
  * Protocol: Defines the protocol used in the data portion of the packet.
  */
-packet_error handle_ipv4(unsigned char *buffer, int n, struct eth_info *eth)
+packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                         void *data)
 {
     struct iphdr *ip;
     unsigned int header_len;
+    struct eth_info *eth = data;
 
     ip = (struct iphdr *) buffer;
     if (n < ip->ihl * 4 || ip->ihl < 5) return IPv4_ERR;
 
-    pstat[PROT_IPv4].num_packets++;
-    pstat[PROT_IPv4].num_bytes += n;
+    pinfo->num_packets++;
+    pinfo->num_bytes += n;
     eth->ipv4 = mempool_pealloc(sizeof(struct ipv4_info));
     eth->ipv4->src = ip->saddr;
     eth->ipv4->dst = ip->daddr;
@@ -106,25 +138,10 @@ packet_error handle_ipv4(unsigned char *buffer, int n, struct eth_info *eth)
     eth->ipv4->protocol = ip->protocol;
     eth->ipv4->checksum = ntohs(ip->check);
 
-    switch (ip->protocol) {
-    case IPPROTO_ICMP:
-        eth->ipv4->icmp = mempool_pealloc(sizeof(struct icmp_info));
-        return handle_icmp(buffer + header_len, n - header_len, eth->ipv4->icmp);
-    case IPPROTO_IGMP:
-        eth->ipv4->igmp = mempool_pealloc(sizeof(struct igmp_info));
-        return handle_igmp(buffer + header_len, n - header_len, eth->ipv4->igmp);
-    case IPPROTO_TCP:
-        eth->ipv4->tcp = mempool_pealloc(sizeof(struct tcp));
-        return handle_tcp(buffer + header_len, n - header_len, eth->ipv4->tcp);
-    case IPPROTO_UDP:
-        eth->ipv4->udp = mempool_pealloc(sizeof(struct udp_info));
-        return handle_udp(buffer + header_len, n - header_len, eth->ipv4->udp);
-    case IPPROTO_PIM:
-        eth->ipv4->pim = mempool_pealloc(sizeof(struct pim_info));
-        return handle_pim(buffer + header_len, n - header_len, eth->ipv4->pim);
-    default:
-        return NO_ERR;
-    }
+    struct protocol_info *layer3 = get_protocol(LAYER3, eth->ipv4->protocol);
+    if (layer3)
+        return layer3->decode(layer3, buffer + header_len, n - header_len, eth);
+     return NO_ERR;
 }
 
 /*
@@ -166,16 +183,18 @@ packet_error handle_ipv4(unsigned char *buffer, int n, struct eth_info *eth)
  * Source Address:      128-bit address of the originator of the packet
  * Destination Address: 128-bit address of the intended recipient of the packet
  */
-packet_error handle_ipv6(unsigned char *buffer, int n, struct eth_info *eth)
+packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                         void *data)
 {
     struct ip6_hdr *ip6;
     unsigned int header_len;
+    struct eth_info *eth = data;
 
     header_len = sizeof(struct ip6_hdr);
     if (n < header_len) return IPv6_ERR;
 
-    pstat[PROT_IPv6].num_packets++;
-    pstat[PROT_IPv6].num_bytes += n;
+    pinfo->num_packets++;
+    pinfo->num_bytes += n;
     ip6 = (struct ip6_hdr *) buffer;
     eth->ipv6 = mempool_pealloc(sizeof(struct ipv6_info));
     eth->ipv6->version = ip6->ip6_vfc >> 4;
@@ -188,23 +207,9 @@ packet_error handle_ipv6(unsigned char *buffer, int n, struct eth_info *eth)
     memcpy(eth->ipv6->dst, ip6->ip6_dst.s6_addr, 16);
 
     // TODO: Handle IPv6 extension headers and errors
-    switch (eth->ipv6->next_header) {
-    case IPPROTO_IGMP:
-        eth->ipv6->igmp = mempool_pealloc(sizeof(struct igmp_info));
-        return handle_igmp(buffer + header_len, n - header_len, eth->ipv6->igmp);
-    case IPPROTO_TCP:
-        eth->ipv6->tcp = mempool_pealloc(sizeof(struct tcp));
-        return handle_tcp(buffer + header_len, n - header_len, eth->ipv6->tcp);
-    case IPPROTO_UDP:
-        eth->ipv6->udp = mempool_pealloc(sizeof(struct udp_info));
-        return handle_udp(buffer + header_len, n - header_len, eth->ipv6->udp);
-    case IPPROTO_PIM:
-        eth->ipv6->pim = mempool_pealloc(sizeof(struct pim_info));
-        return handle_pim(buffer + header_len, n - header_len, eth->ipv6->pim);
-    case IPPROTO_ICMPV6:
-    default:
-        break;
-    }
+    struct protocol_info *layer3 = get_protocol(LAYER3, eth->ipv6->next_header);
+    if (layer3)
+        return layer3->decode(layer3, buffer + header_len, n - header_len, eth);
     return NO_ERR;
 }
 
