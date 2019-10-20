@@ -41,7 +41,8 @@ enum layer {
     UI_LAYER2,
     UI_LAYER3,
     UI_LAYER4,
-    UI_SUBLAYER,
+    UI_SUBLAYER1,
+    UI_SUBLAYER2,
     UI_FLAGS,
     NUM_LAYERS
 };

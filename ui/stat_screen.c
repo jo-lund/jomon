@@ -254,7 +254,7 @@ void init_stat()
                 i++;
             }
             len = strlen(buf + i) - 1;
-            strncpy(hw.cpu_name, buf + i, len);
+            strncpy(hw.cpu_name, buf + i, MAX_NAME);
             hw.cpu_name[len] = '\0';
             break;
         }

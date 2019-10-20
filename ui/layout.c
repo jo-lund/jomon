@@ -292,9 +292,9 @@ void screen_stack_move_to_top(screen *s)
         unsigned int top = stack_size(screen_stack) - 1;
         _stack_t *tmp;
 
-        if (top == i) return; /* screen already on top of stack */
+        if (top == (unsigned) i) return; /* screen already on top of stack */
         tmp = stack_init(top - i);
-        while (top-- > i) {
+        while (top-- > (unsigned) i) {
             stack_push(tmp, stack_pop(screen_stack));
         }
         stack_pop(screen_stack);
@@ -429,7 +429,7 @@ void change_theme(int i)
     SCREEN_REFRESH(s);
 }
 
-void options(int i)
+void options(int i UNUSED)
 {
 
 }

@@ -193,7 +193,7 @@ void label_dialogue_get_input(screen *s)
      }
 }
 
-file_dialogue *file_dialogue_create(char *title, enum file_selection_type type,
+file_dialogue *file_dialogue_create(char *title, enum file_selection_type type UNUSED,
                                     char *path, button_action ok, button_action cancel)
 {
     file_dialogue *fd;
@@ -396,7 +396,8 @@ void file_dialogue_get_input(screen *s)
         break;
     case KEY_DC:
         if (fd->has_focus == FS_INPUT) {
-            int y, x;
+            int y UNUSED;
+            int x;
             int len = 0;
             char buf[MAXPATH];
 

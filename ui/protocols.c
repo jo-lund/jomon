@@ -1044,7 +1044,7 @@ void add_pim_hello(list_view *lw, list_view_header *header, struct pim_info *pim
     list_view_header *h;
 
     opt = parse_hello_options(pim);
-    h = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "Hello Message (%d options)", list_size(opt));
+    h = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Hello Message (%d options)", list_size(opt));
     n = list_begin(opt);
     while (n) {
         struct pim_hello *hello = list_data(n);
@@ -1056,24 +1056,24 @@ void add_pim_hello(list_view *lw, list_view_header *header, struct pim_info *pim
         case PIM_HOLDTIME:
             tm = get_time(hello->holdtime);
             time_ntop(&tm, time, 512);
-            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER, "Holdtime: %s", time);
+            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER1, "Holdtime: %s", time);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option type: %u", hello->option_type);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option length: %u", hello->option_len);
             break;
         case PIM_LAN_PRUNE_DELAY:
-            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER, "LAN Prune Delay");
+            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER1, "LAN Prune Delay");
             LV_ADD_TEXT_ELEMENT(lw, w, "Option type: %u", hello->option_type);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option length: %u", hello->option_len);
             LV_ADD_TEXT_ELEMENT(lw, w, "Propagation delay: %u ms", hello->lan_prune_delay.prop_delay);
             LV_ADD_TEXT_ELEMENT(lw, w, "Override interval: %u ms", hello->lan_prune_delay.override_interval);
             break;
         case PIM_DR_PRIORITY:
-            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER, "DR Priority: %u", hello->dr_priority);
+            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER1, "DR Priority: %u", hello->dr_priority);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option type: %u", hello->option_type);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option length: %u", hello->option_len);
             break;
         case PIM_GENERATION_ID:
-            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER, "Generation ID: %u", hello->gen_id);
+            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER1, "Generation ID: %u", hello->gen_id);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option type: %u", hello->option_type);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option length: %u", hello->option_len);
             break;
@@ -1081,7 +1081,7 @@ void add_pim_hello(list_view *lw, list_view_header *header, struct pim_info *pim
             memset(&time, 0, 512);
             tm = get_time(hello->state_refresh.interval);
             time_ntop(&tm, time, 512);
-            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER, "State Refresh Capable");
+            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER1, "State Refresh Capable");
             LV_ADD_TEXT_ELEMENT(lw, w, "Option type: %u", hello->option_type);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option length: %u", hello->option_len);
             LV_ADD_TEXT_ELEMENT(lw, w, "Version: %u", hello->state_refresh.version);
@@ -1089,7 +1089,7 @@ void add_pim_hello(list_view *lw, list_view_header *header, struct pim_info *pim
             break;
         case PIM_ADDRESS_LIST:
         default:
-            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER, "Unknown option: %u", hello->option_type);
+            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER1, "Unknown option: %u", hello->option_type);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option type: %u", hello->option_type);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option length: %u", hello->option_len);
             break;
@@ -1101,12 +1101,12 @@ void add_pim_hello(list_view *lw, list_view_header *header, struct pim_info *pim
 
 void add_pim_register(list_view *lw, list_view_header *header, struct pim_info *pim)
 {
-    list_view_header *h = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "Register Message");
+    list_view_header *h = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Register Message");
 
     LV_ADD_TEXT_ELEMENT(lw, h, "Border bit: %d", pim->reg->border);
     LV_ADD_TEXT_ELEMENT(lw, h, "Null-Register bit: %d", pim->reg->null);
     if (pim->reg->data) {
-        list_view_header *w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER, "Data");
+        list_view_header *w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER1, "Data");
 
         add_hexdump(lw, w, hexmode, pim->reg->data, pim->reg->data_len);
     }
@@ -1117,7 +1117,7 @@ void add_pim_register_stop(list_view *lw, list_view_header *header, struct pim_i
     list_view_header *h;
     char *addr;
 
-    h = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "Register-Stop Message");
+    h = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Register-Stop Message");
     addr = get_pim_address(pim->assert->gaddr.addr_family, &pim->assert->gaddr.addr);
     if (addr) {
         LV_ADD_TEXT_ELEMENT(lw, h, "Group address: %s/%d", addr, pim->assert->gaddr.mask_len);
@@ -1135,7 +1135,7 @@ void add_pim_assert(list_view *lw, list_view_header *header, struct pim_info *pi
     list_view_header *h;
     char *addr;
 
-    h = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "Assert Message");
+    h = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Assert Message");
     addr = get_pim_address(pim->assert->gaddr.addr_family, &pim->assert->gaddr.addr);
     if (addr) {
         LV_ADD_TEXT_ELEMENT(lw, h, "Group address: %s/%d", addr, pim->assert->gaddr.mask_len);
@@ -1161,13 +1161,13 @@ void add_pim_join_prune(list_view *lw, list_view_header *header, struct pim_info
 
     switch (pim->type) {
     case PIM_JOIN_PRUNE:
-        h = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "Join/Prune Message");
+        h = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Join/Prune Message");
         break;
     case PIM_GRAFT:
-        h = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "Graft Message");
+        h = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Graft Message");
         break;
     case PIM_GRAFT_ACK:
-        h = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "Graft Ack Message");
+        h = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Graft Ack Message");
         break;
     default:
         return;
@@ -1182,7 +1182,7 @@ void add_pim_join_prune(list_view *lw, list_view_header *header, struct pim_info
     time_ntop(&tm, time, 512);
     LV_ADD_TEXT_ELEMENT(lw, h, "Holdtime: %s", time);
 
-    grp = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER, "Groups (%d)", pim->jpg->num_groups);
+    grp = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER1, "Groups (%d)", pim->jpg->num_groups);
 
     for (int i = 0; i < pim->jpg->num_groups; i++) {
         list_view_header *joined;
@@ -1194,7 +1194,7 @@ void add_pim_join_prune(list_view *lw, list_view_header *header, struct pim_info
             free(addr);
         }
 
-        joined = LV_ADD_SUB_HEADER(lw, grp, false, UI_SUBLAYER, "Joined sources (%d)",
+        joined = LV_ADD_SUB_HEADER(lw, grp, false, UI_SUBLAYER1, "Joined sources (%d)",
                                 pim->jpg->groups[i].num_joined_src);
         for (int j = 0; j < pim->jpg->groups[i].num_joined_src; j++) {
             addr = get_pim_address(pim->jpg->groups[i].joined_src[j].addr_family,
@@ -1205,7 +1205,7 @@ void add_pim_join_prune(list_view *lw, list_view_header *header, struct pim_info
                 free(addr);
             }
         }
-        pruned = LV_ADD_SUB_HEADER(lw, grp, false, UI_SUBLAYER, "Pruned sources (%d)",
+        pruned = LV_ADD_SUB_HEADER(lw, grp, false, UI_SUBLAYER1, "Pruned sources (%d)",
                                 pim->jpg->groups[i].num_pruned_src);
         for (int j = 0; j < pim->jpg->groups[i].num_pruned_src; j++) {
             addr = get_pim_address(pim->jpg->groups[i].pruned_src[j].addr_family,
@@ -1225,7 +1225,7 @@ void add_pim_bootstrap(list_view *lw, list_view_header *header, struct pim_info 
     list_view_header *grp;
     char *addr;
 
-    h = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "Bootstrap Message");
+    h = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Bootstrap Message");
     LV_ADD_TEXT_ELEMENT(lw, h, "Fragment tag: 0x%x", pim->bootstrap->tag);
     LV_ADD_TEXT_ELEMENT(lw, h, "Hash mask length: %d", pim->bootstrap->hash_len);
     LV_ADD_TEXT_ELEMENT(lw, h, "BSR priority: %d", pim->bootstrap->priority);
@@ -1236,7 +1236,7 @@ void add_pim_bootstrap(list_view *lw, list_view_header *header, struct pim_info 
     }
     addr = get_pim_address(pim->bootstrap->groups->gaddr.addr_family, &pim->bootstrap->groups->gaddr.addr);
     if (addr) {
-        grp = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER, "Group %s/%d", addr, pim->bootstrap->groups->gaddr.mask_len);
+        grp = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER1, "Group %s/%d", addr, pim->bootstrap->groups->gaddr.mask_len);
         LV_ADD_TEXT_ELEMENT(lw, grp, "RP count: %u", pim->bootstrap->groups->rp_count);
         LV_ADD_TEXT_ELEMENT(lw, grp, "Frag RP count: %u", pim->bootstrap->groups->frag_rp_count);
         for (int i = 0; i < pim->bootstrap->groups->frag_rp_count; i++) {
@@ -1258,7 +1258,7 @@ void add_pim_candidate(list_view *lw, list_view_header *header, struct pim_info 
     list_view_header *h;
     char *addr;
 
-    h = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "Candidate-RP-Advertisement Message");
+    h = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Candidate-RP-Advertisement Message");
     LV_ADD_TEXT_ELEMENT(lw, h, "Prefix count: %u", pim->candidate->prefix_count);
     LV_ADD_TEXT_ELEMENT(lw, h, "Priority: %u", pim->candidate->priority);
     LV_ADD_TEXT_ELEMENT(lw, h, "Holdtime: %u", pim->candidate->holdtime);
@@ -1344,7 +1344,7 @@ void add_tcp_options(list_view *lw, list_view_header *header, struct tcp *tcp)
     list_view_header *h;
 
     options = parse_tcp_options(tcp->options, (tcp->offset - 5) * 4);
-    h = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "Options");
+    h = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Options");
     n = list_begin(options);
 
     while (n) {
@@ -1353,22 +1353,22 @@ void add_tcp_options(list_view *lw, list_view_header *header, struct tcp *tcp)
 
         switch (opt->option_kind) {
         case TCP_OPT_NOP:
-            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER, "No operation");
+            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER1, "No operation");
             LV_ADD_TEXT_ELEMENT(lw, w, "Option kind: %u", opt->option_kind);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option length: %u", opt->option_length);
             break;
         case TCP_OPT_MSS:
-            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER, "Maximum segment size: %u", opt->mss);
+            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER1, "Maximum segment size: %u", opt->mss);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option kind: %u", opt->option_kind);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option length: %u", opt->option_length);
             break;
         case TCP_OPT_WIN_SCALE:
-            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER, "Window scale: %u", opt->win_scale);
+            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER1, "Window scale: %u", opt->win_scale);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option kind: %u", opt->option_kind);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option length: %u", opt->option_length);
             break;
         case TCP_OPT_SAP:
-            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER, "Selective Acknowledgement permitted");
+            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER1, "Selective Acknowledgement permitted");
             LV_ADD_TEXT_ELEMENT(lw, w, "Option kind: %u", opt->option_kind);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option length: %u", opt->option_length);
             break;
@@ -1376,7 +1376,7 @@ void add_tcp_options(list_view *lw, list_view_header *header, struct tcp *tcp)
         {
             const node_t *n = list_begin(opt->sack);
 
-            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER, "Selective Acknowledgement");
+            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER1, "Selective Acknowledgement");
             LV_ADD_TEXT_ELEMENT(lw, w, "Option kind: %u", opt->option_kind);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option length: %u", opt->option_length);
             while (n) {
@@ -1389,7 +1389,7 @@ void add_tcp_options(list_view *lw, list_view_header *header, struct tcp *tcp)
             break;
         }
         case TCP_OPT_TIMESTAMP:
-            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER, "Timestamp");
+            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER1, "Timestamp");
             LV_ADD_TEXT_ELEMENT(lw, w, "Option kind: %u", opt->option_kind);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option length: %u", opt->option_length);
             LV_ADD_TEXT_ELEMENT(lw, w, "Timestamp value: %u", opt->ts.ts_val);
@@ -1449,7 +1449,7 @@ void add_dns_information(void *w, void *sw, struct application_info *adu)
     if (dns->section_count[QDCOUNT]) {
         list_view_header *hdr;
 
-        hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "Questions");
+        hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Questions");
         for (unsigned int i = 0; i < dns->section_count[QDCOUNT]; i++) {
             LV_ADD_TEXT_ELEMENT(lw, hdr, "QNAME: %s, QTYPE: %s, QCLASS: %s",
                              dns->question[i].qname, get_dns_type_extended(dns->question[i].qtype),
@@ -1462,21 +1462,21 @@ void add_dns_information(void *w, void *sw, struct application_info *adu)
 
         if (answers) {
             len = get_dns_max_namelen(dns->record, answers);
-            hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "Answers");
+            hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Answers");
             for (int i = 0; i < answers; i++) {
                 add_dns_record_hdr(lw, hdr, dns, i, len);
             }
         }
         if (authority) {
             len = get_dns_max_namelen(dns->record + answers, authority);
-            hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "Authoritative nameservers");
+            hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Authoritative nameservers");
             for (int i = 0; i < authority; i++) {
                 add_dns_record_hdr(lw, hdr, dns, i + answers, len);
             }
         }
         if (additional) {
             len = get_dns_max_namelen(dns->record + answers + authority, additional);
-            hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "Additional records");
+            hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Additional records");
             for (int i = 0; i < additional; i++) {
                 add_dns_record_hdr(lw, hdr, dns, i + answers + authority, len);
             }
@@ -1511,7 +1511,7 @@ void add_dns_record_hdr(list_view *lw, list_view_header *header, struct dns_info
     }
     snprintcat(buffer, MAXLINE, "%-8s", get_dns_type(dns->record[idx].type));
     print_dns_record(dns, idx, buffer, MAXLINE, dns->record[idx].type);
-    w = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "%s", buffer);
+    w = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER2], UI_SUBLAYER2, "%s", buffer);
     add_dns_record(lw, w, dns, idx, dns->record[idx].type);
 }
 
@@ -1666,7 +1666,7 @@ void add_nbns_information(void *w, void *sw, struct application_info *adu)
     if (nbns->section_count[QDCOUNT]) {
         list_view_header *hdr;
 
-        hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "Questions");
+        hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Questions");
         LV_ADD_TEXT_ELEMENT(lw, hdr, "Question name: %s, Question type: %s, Question class: IN (Internet)",
                          nbns->question.qname, get_nbns_type_extended(nbns->question.qtype));
     }
@@ -1674,19 +1674,19 @@ void add_nbns_information(void *w, void *sw, struct application_info *adu)
         list_view_header *hdr = NULL;
 
         if (answers) {
-            hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "Answers");
+            hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Answers");
             for (int i = 0; i < answers; i++) {
                 add_nbns_record_hdr(lw, hdr, nbns, i);
             }
         }
         if (authority) {
-            hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "Authoritative nameservers");
+            hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Authoritative nameservers");
             for (int i = 0; i < authority; i++) {
                 add_nbns_record_hdr(lw, hdr, nbns, i + answers);
             }
         }
         if (additional) {
-            hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "Additional records");
+            hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Additional records");
             for (int i = 0; i < additional; i++) {
                 add_nbns_record_hdr(lw, hdr, nbns, i + answers + authority);
             }
@@ -1703,7 +1703,7 @@ void add_nbns_record_hdr(list_view *lw, list_view_header *header, struct nbns_in
     snprintcat(buffer, MAXLINE, "IN\t");
     snprintcat(buffer, MAXLINE, "%s\t", get_nbns_type(nbns->record[i].rrtype));
     print_nbns_record(nbns, i, buffer, MAXLINE);
-    hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "%s", buffer);
+    hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "%s", buffer);
     add_nbns_record(lw, hdr, nbns, i, nbns->record[i].rrtype);
 }
 
@@ -1777,7 +1777,7 @@ void add_nbds_information(void *w, void *sw, struct application_info *adu)
         if (nbds->msg.dgm->smb) {
             list_view_header *hdr;
 
-            hdr = LV_ADD_HEADER(lw, "Server Message Block (SMB)", selected[UI_SUBLAYER], UI_SUBLAYER);
+            hdr = LV_ADD_HEADER(lw, "Server Message Block (SMB)", selected[UI_SUBLAYER1], UI_SUBLAYER1);
             add_smb_information(lw, hdr, nbds->msg.dgm->smb);
         }
         break;
@@ -1849,7 +1849,7 @@ void add_http_information(void *w, void *sw, struct application_info *adu)
     if (http->len) {
         list_view_header *hdr;
 
-        hdr = LV_ADD_HEADER(lw, "Data", selected[UI_SUBLAYER], UI_SUBLAYER);
+        hdr = LV_ADD_HEADER(lw, "Data", selected[UI_SUBLAYER1], UI_SUBLAYER1);
         add_hexdump(lw, hdr, hexmode, http->data, http->len);
     }
 }
@@ -1865,23 +1865,23 @@ void add_snmp_information(void *w, void *sw, struct application_info *adu)
     LV_ADD_TEXT_ELEMENT(lw, header, "Community: %s", snmp->community);
     switch (snmp->pdu_type) {
     case SNMP_GET_REQUEST:
-        hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "GetRequest");
+        hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "GetRequest");
         add_snmp_pdu(lw, hdr, snmp->pdu);
         break;
     case SNMP_GET_NEXT_REQUEST:
-        hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "GetNextRequest");
+        hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "GetNextRequest");
         add_snmp_pdu(lw, hdr, snmp->pdu);
         break;
     case SNMP_SET_REQUEST:
-        hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "SetRequest");
+        hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "SetRequest");
         add_snmp_pdu(lw, hdr, snmp->pdu);
         break;
     case SNMP_GET_RESPONSE:
-        hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "GetResponse");;
+        hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "GetResponse");;
         add_snmp_pdu(lw, hdr, snmp->pdu);
         break;
     case SNMP_TRAP:
-        hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "Trap");
+        hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Trap");
         add_snmp_trap(lw, hdr, snmp->trap);
         break;
     default:
@@ -1928,13 +1928,13 @@ void add_snmp_variables(list_view *lw, list_view_header *header, list_t *vars)
 
         switch (var->type) {
         case SNMP_INTEGER_TAG:
-            hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "%s: %d",
+            hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "%s: %d",
                                  var->object_name, var->object_syntax.ival);
             LV_ADD_TEXT_ELEMENT(lw, hdr, "Object name: %s", var->object_name);
             LV_ADD_TEXT_ELEMENT(lw, hdr, "Value: %d", var->object_syntax.ival);
             break;
         case SNMP_NULL_TAG:
-            hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "%s: null",
+            hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "%s: null",
                                  var->object_name);
             LV_ADD_TEXT_ELEMENT(lw, hdr, "Object name: %s", var->object_name);
             LV_ADD_TEXT_ELEMENT(lw, hdr, "Value: null");
@@ -1954,12 +1954,12 @@ void add_snmp_variables(list_view *lw, list_view_header *header, list_t *vars)
                 snprintf(buf + 2 * i, 512 - 2 * i, "%02x", (unsigned char) var->object_syntax.pval[i]);
             }
             if (printable) {
-                hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "%s: %s",
+                hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "%s: %s",
                                      var->object_name, var->object_syntax.pval);
                 LV_ADD_TEXT_ELEMENT(lw, hdr, "Object name: %s", var->object_name);
                 LV_ADD_TEXT_ELEMENT(lw, hdr, "Value: %s (%s)", var->object_syntax.pval, buf);
             } else {
-                hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "%s: %s",
+                hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "%s: %s",
                                      var->object_name, buf);
                 LV_ADD_TEXT_ELEMENT(lw, hdr, "Object name: %s", var->object_name);
                 LV_ADD_TEXT_ELEMENT(lw, hdr, "Value: %s", buf);
@@ -1967,7 +1967,7 @@ void add_snmp_variables(list_view *lw, list_view_header *header, list_t *vars)
             break;
         }
         case SNMP_OBJECT_ID_TAG:
-            hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "%s: %s",
+            hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "%s: %s",
                                  var->object_name, var->object_syntax.pval);
             LV_ADD_TEXT_ELEMENT(lw, hdr, "Object name: %s", var->object_name);
             LV_ADD_TEXT_ELEMENT(lw, hdr, "Value: %s", var->object_syntax.pval);
@@ -2004,11 +2004,11 @@ void add_tls_information(void *w, void *sw, struct application_info *adu)
 
     while (tls) {
         if (tls->type == TLS_HANDSHAKE) {
-            record = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER,
+            record = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1,
                                        "TLS Record: Handshake: %s",
                                        get_tls_handshake_type(tls->handshake->type));
         } else {
-            record = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER,
+            record = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1,
                                        "TLS Record: %s", get_tls_type(tls->type));
         }
         LV_ADD_TEXT_ELEMENT(lw, record, "Type: %s", get_tls_type(tls->type));
@@ -2031,7 +2031,7 @@ void add_tls_handshake(list_view *lw, list_view_header *header,
 {
     list_view_header *hdr;
 
-    hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "Handshake: %s",
+    hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Handshake: %s",
                             get_tls_handshake_type(handshake->type));
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Type: %s", get_tls_handshake_type(handshake->type));
     if (handshake->type != ENCRYPTED_HANDSHAKE_MESSAGE) {
@@ -2057,7 +2057,7 @@ void add_tls_client_hello(list_view *lw, list_view_header *header,
     list_view_header *sub;
     char buf[65];
 
-    hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "Client Hello");
+    hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Client Hello");
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Protocol Version: %s",
                         get_tls_version(hello->legacy_version));
     for (int i = 0; i < 32; i++) {
@@ -2070,7 +2070,7 @@ void add_tls_client_hello(list_view *lw, list_view_header *header,
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Session id length: %d", hello->session_length);
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Session id: %s", buf);
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Cipher suite length: %d", hello->cipher_length);
-    sub = LV_ADD_SUB_HEADER(lw, hdr, selected[UI_SUBLAYER], UI_SUBLAYER, "Ciper Suites");
+    sub = LV_ADD_SUB_HEADER(lw, hdr, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Ciper Suites");
     for (int i = 0; i < hello->cipher_length / 2; i++) {
         LV_ADD_TEXT_ELEMENT(lw, sub, "%s (0x%04x)",
                             get_tls_cipher_suite(ntohs(hello->cipher_suites[i])),
@@ -2086,7 +2086,7 @@ void add_tls_server_hello(list_view *lw, list_view_header *header,
     list_view_header *hdr;
     char buf[65];
 
-    hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER, "Server Hello");
+    hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Server Hello");
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Protocol Version: %s",
                         get_tls_version(hello->legacy_version));
     for (int i = 0; i < 32; i++) {
@@ -2122,7 +2122,7 @@ void add_tls_extensions(list_view *lw, list_view_header *header,
             {
                 char *group;
 
-                sub = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER,
+                sub = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1,
                                         "Extension: Supported groups");
                 for (int i = 0; i < ext->supported_groups.length / 2; i++) {
                     if ((group = get_supported_group(ntohs(ext->supported_groups.named_group_list[i])))) {
@@ -2135,7 +2135,7 @@ void add_tls_extensions(list_view *lw, list_view_header *header,
             {
                 char *alg;
 
-                sub = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER,
+                sub = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1,
                                         "Extension: Signature algorithms");
                 for (int i = 0; i < ext->signature_algorithms.length / 2; i++) {
                     if ((alg = get_signature_scheme(ntohs(ext->signature_algorithms.types[i])))) {
@@ -2148,7 +2148,7 @@ void add_tls_extensions(list_view *lw, list_view_header *header,
             {
                 int len = ext->supported_versions.length;
 
-                sub = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER,
+                sub = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1,
                                         "Extension: Supported version");
                 while (len > 0) {
                     LV_ADD_TEXT_ELEMENT(lw, sub, "%s",
@@ -2161,7 +2161,7 @@ void add_tls_extensions(list_view *lw, list_view_header *header,
             {
                 char *buf = malloc(ext->cookie.length * 2);
 
-                sub = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER], UI_SUBLAYER,
+                sub = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1,
                                         "Extension: Cookie");
                 for (int i = 0; i < ext->cookie.length; i++) {
                     snprintf(buf + 2 * i, 3, "%02x", ext->cookie.ptr[i]);

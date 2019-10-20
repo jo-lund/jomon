@@ -1433,7 +1433,6 @@ void add_elements(main_screen *ms, struct packet *p)
         if ((pinfo = get_protocol(LAYER802_3, ETH_802_LLC))) {
             header = LV_ADD_HEADER(ms->lvw, pinfo->long_name, selected[UI_LAYER2], UI_LAYER2);
             pinfo->add_pdu(ms->lvw, header, p);
-            return;
         } else
             goto layer2_error;
         pinfo = get_protocol(LAYER802_3, get_eth802_type(get_llc(p)));
@@ -1443,8 +1442,8 @@ void add_elements(main_screen *ms, struct packet *p)
         } else if (pinfo) {
             header = LV_ADD_HEADER(ms->lvw, pinfo->long_name, selected[UI_LAYER3], UI_LAYER3);
             pinfo->add_pdu(ms->lvw, header, p);
-            return;
         }
+        return;
     }
 layer2_error:
     header = LV_ADD_HEADER(ms->lvw, "Data", selected[UI_LAYER2], UI_LAYER2);

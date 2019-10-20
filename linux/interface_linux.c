@@ -75,7 +75,7 @@ void linux_read_packet(iface_handle_t *handle)
     struct iovec iov;
     unsigned char data[64];
     struct cmsghdr *cmsg;
-    struct timeval *val;
+    struct timeval *val = NULL;
 
     iov.iov_base = handle->buf;
     iov.iov_len = handle->len;
