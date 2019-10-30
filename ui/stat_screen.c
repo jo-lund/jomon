@@ -13,6 +13,11 @@
 #include "../util.h"
 
 #define MAX_NAME 128
+#define DEVPATH "/proc/net/dev"
+#define STATUSPATH "/proc/self/status"
+#define MEMPATH "/proc/meminfo"
+#define CPUPATH "/proc/cpuinfo"
+#define STATPATH "/proc/stat"
 
 /* RX/TX variables read from /proc/net/dev */
 typedef struct {
@@ -66,12 +71,6 @@ enum page {
 
 extern WINDOW *status;
 extern main_menu *menu;
-
-static const char *devpath = "/proc/net/dev";
-static const char *statuspath = "/proc/self/status";
-static const char *mempath = "/proc/meminfo";
-static const char *cpupath = "/proc/cpuinfo";
-static const char *statpath = "/proc/stat";
 
 // TODO: Make a stat_screen struct
 static linkdef rx; /* data received */
@@ -231,7 +230,7 @@ void init_stat()
     memset(&rx, 0, sizeof(linkdef));
     memset(&tx, 0, sizeof(linkdef));
     memset(&hw, 0, sizeof(hwstat));
-    if (!(fp = fopen(statpath, "r"))) {
+    if (!(fp = fopen(STATPATH, "r"))) {
         return;
     }
     while (fgets(buf, MAXLINE, fp)) {
@@ -242,7 +241,7 @@ void init_stat()
         }
     }
     fclose(fp);
-    if (!(fp = fopen(cpupath, "r"))) {
+    if (!(fp = fopen(CPUPATH, "r"))) {
         return;
     }
     while (fgets(buf, MAXLINE, fp)) {
@@ -383,7 +382,7 @@ bool read_netstat()
     char buf[MAXLINE];
     int n;
 
-    if (!(fp = fopen(devpath, "r"))) {
+    if (!(fp = fopen(DEVPATH, "r"))) {
         return false;
     }
     n = strlen(ctx.device);
@@ -415,7 +414,7 @@ bool read_hwstat()
     int cpu = 0;
 
     /* get memory statistics */
-    if (!(fp = fopen(mempath, "r"))) {
+    if (!(fp = fopen(MEMPATH, "r"))) {
         return false;
     }
     while (fgets(buf, MAXLINE, fp)) {
@@ -434,7 +433,7 @@ bool read_hwstat()
     fclose(fp);
 
     /* get process memory statistics */
-    if (!(fp = fopen(statuspath, "r"))) {
+    if (!(fp = fopen(STATUSPATH, "r"))) {
         return false;
     }
     while (fgets(buf, MAXLINE, fp)) {
@@ -451,7 +450,7 @@ bool read_hwstat()
     fclose(fp);
 
     /* get CPU statistics */
-    if (!(fp = fopen(statpath, "r"))) {
+    if (!(fp = fopen(STATPATH, "r"))) {
         return false;
     }
     while (fgets(buf, MAXLINE, fp)) {
