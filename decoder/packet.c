@@ -27,61 +27,32 @@
 #include "host_analyzer.h"
 #include "dns_cache.h"
 #include "register.h"
+#include "../hash.h"
 
 allocator_t d_alloc = {
     .alloc = mempool_pealloc,
     .dealloc = NULL
 };
 
-static bool filter_protocol(struct protocol_info *pinfo);
+uint32_t total_packets;
+uint64_t total_bytes;
 
 static hashmap_t *layer2;
 static hashmap_t *layer3;
 static hashmap_t *layer4;
 static hashmap_t *l802_3;
 static hashmap_t *protocols;
-uint32_t total_packets;
-uint64_t total_bytes;
+static hashmap_t *info;
 
-static unsigned int prot_hash(const void *key)
-{
-   unsigned int hash = 5381;
-   char *val = (char *) key;
-
-   while (*val != '\0') {
-       hash = ((hash << 5) + hash) + *val++;
-   }
-   return hash;
-}
-
-static inline int prot_compare(const void *e1, const void *e2)
-{
-    return strcmp((char *) e1, (char *) e2);
-}
-
-static unsigned int hash(const void *key)
-{
-   unsigned int hash = 5381;
-   uintptr_t val = (uintptr_t) key;
-
-   for (unsigned int i = 0; i < 2; i++) {
-       hash = ((hash << 5) + hash) + ((val >> (i * 8)) & 0xff);
-   }
-   return hash;
-}
-
-static inline int compare(const void *e1, const void *e2)
-{
-    return (uintptr_t) e1 - (uintptr_t) e2;
-}
 
 void decoder_init()
 {
-    protocols = hashmap_init(8, prot_hash, prot_compare);
-    l802_3 = hashmap_init(16, hash, compare);
-    layer2 = hashmap_init(16, hash, compare);
-    layer3 = hashmap_init(16, hash, compare);
-    layer4 = hashmap_init(32, hash, compare);
+    info = hashmap_init(64, hash_string, compare_string);
+    protocols = hashmap_init(8, hash_string, compare_string);
+    l802_3 = hashmap_init(16, hash_uint16, compare_uint);
+    layer2 = hashmap_init(16, hash_uint16, compare_uint);
+    layer3 = hashmap_init(16, hash_uint16, compare_uint);
+    layer4 = hashmap_init(32, hash_uint16, compare_uint);
     hashmap_insert(protocols, LAYER802_3, l802_3);
     hashmap_insert(protocols, LAYER2, layer2);
     hashmap_insert(protocols, LAYER3, layer3);
@@ -100,6 +71,7 @@ void decoder_exit()
         it = hashmap_next(protocols, it);
     }
     hashmap_free(protocols);
+    hashmap_free(info);
 }
 
 void register_protocol(struct protocol_info *pinfo, char *layer)
@@ -108,6 +80,7 @@ void register_protocol(struct protocol_info *pinfo, char *layer)
         hashmap_t *l = hashmap_get(protocols, layer);
 
         hashmap_insert(l, (void *) (uintptr_t) pinfo->port, pinfo);
+        hashmap_insert(info, pinfo->short_name, pinfo);
     }
 }
 
@@ -120,22 +93,13 @@ struct protocol_info *get_protocol(char *layer, uint16_t id)
 
 void traverse_protocols(protocol_handler fn, void *arg)
 {
-    const hashmap_iterator *pit = hashmap_first(protocols);
+    const hashmap_iterator *it = hashmap_first(info);
+    struct protocol_info *pinfo;
 
-    while (pit) {
-        const hashmap_iterator *lit;
-        struct protocol_info *pinfo;
-        hashmap_t *layer;
-
-        layer = pit->data;
-        lit = hashmap_first(layer);
-        while (lit) {
-            pinfo = lit->data;
-            if (filter_protocol(pinfo))
-                fn(pinfo, arg);
-            lit = hashmap_next(layer, lit);
-        }
-        pit = hashmap_next(protocols, pit);
+    while (it) {
+        pinfo = it->data;
+        fn(pinfo, arg);
+        it = hashmap_next(info, it);
     }
 }
 
@@ -210,6 +174,7 @@ struct application_info *get_adu_info(struct packet *p)
     return NULL;
 }
 
+
 static void clear_packet(struct protocol_info *pinfo, void *user UNUSED)
 {
     pinfo->num_bytes = 0;
@@ -241,16 +206,4 @@ bool is_tcp(struct packet *p)
         protocol = p->eth.ipv6->next_header;
     }
     return protocol == IPPROTO_TCP;
-}
-
-// TODO: Fix this
-bool filter_protocol(struct protocol_info *pinfo)
-{
-    static const enum port filter[] = { SNMPTRAP, IMAPS };
-
-    for (unsigned int i = 0; i < ARRAY_SIZE(filter); i++) {
-        if (pinfo->port == filter[i])
-            return false;
-    }
-    return true;
 }

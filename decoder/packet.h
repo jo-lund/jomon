@@ -18,10 +18,6 @@
 extern uint32_t total_packets;
 extern uint64_t total_bytes;
 
-struct protocol_info;
-
-typedef void (*protocol_handler)(struct protocol_info *prot, void *arg);
-
 struct packet_flags {
     char *str;     /* flag description */
     int width;     /* number of bits in the field */
@@ -87,6 +83,20 @@ typedef enum {
     TLS_ERR
 } packet_error;
 
+struct protocol_info {
+    char *short_name;
+    char *long_name;
+    uint16_t port; /* port number or id */
+    uint64_t num_bytes;
+    uint32_t num_packets;
+    packet_error (*decode)(struct protocol_info *pinfo, unsigned char *buf, int n,
+                           void *data);
+    void (*print_pdu)(char *buf, int n, void *data);
+    void (*add_pdu)(void *w, void *sw, void *data);
+};
+
+typedef void (*protocol_handler)(struct protocol_info *pinfo, void *arg);
+
 struct application_info {
     uint8_t transport;
     uint16_t utype; /* specifies the application layer protocol */
@@ -102,18 +112,6 @@ struct application_info {
     };
 };
 
-struct protocol_info {
-    char *short_name;
-    char *long_name;
-    uint16_t port; /* port number or id */
-    uint64_t num_bytes;
-    uint32_t num_packets;
-    packet_error (*decode)(struct protocol_info *pinfo, unsigned char *buf, int n,
-                           void *data);
-    void (*print_pdu)(char *buf, int n, void *data);
-    void (*add_pdu)(void *w, void *sw, void *data);
-};
-
 /*
  * Generic packet structure that can be used for every type of packet. For now
  * only support for Ethernet.
@@ -126,11 +124,11 @@ struct packet {
     struct eth_info eth;
 };
 
+/* TODO: move this */
 void decoder_init();
 void decoder_exit();
 void register_protocol(struct protocol_info *pinfo, char *layer);
 struct protocol_info *get_protocol(char *layer, uint16_t id);
-
 void traverse_protocols(protocol_handler fn, void *arg);
 
 /*
