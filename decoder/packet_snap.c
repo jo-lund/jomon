@@ -8,7 +8,6 @@ extern void print_snap(char *buf, int n, void *data);
 static struct protocol_info snap_prot = {
     .short_name = "SNAP",
     .long_name = "Subnetwork Access Protocol",
-    .port = ETH_802_SNAP,
     .decode = handle_snap,
     .print_pdu = print_snap,
     .add_pdu = add_snap_information
@@ -16,7 +15,7 @@ static struct protocol_info snap_prot = {
 
 void register_snap()
 {
-    register_protocol(&snap_prot, LAYER802_3);
+    register_protocol(&snap_prot, LAYER802_3, ETH_802_SNAP);
 }
 
 packet_error handle_snap(struct protocol_info *pinfo, unsigned char *buffer, int n,

@@ -31,7 +31,6 @@ static int parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char 
 static struct protocol_info nbns_prot = {
     .short_name = "NBNS",
     .long_name = "NetBIOS Name Service",
-    .port = NBNS,
     .decode = handle_nbns,
     .print_pdu = print_nbns,
     .add_pdu = add_nbns_information
@@ -39,7 +38,7 @@ static struct protocol_info nbns_prot = {
 
 void register_nbns()
 {
-    register_protocol(&nbns_prot, LAYER4);
+    register_protocol(&nbns_prot, LAYER4, NBNS);
 }
 
 /*

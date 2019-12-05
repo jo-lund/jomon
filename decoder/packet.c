@@ -74,12 +74,12 @@ void decoder_exit()
     hashmap_free(info);
 }
 
-void register_protocol(struct protocol_info *pinfo, char *layer)
+void register_protocol(struct protocol_info *pinfo, char *layer, uint16_t id)
 {
     if (pinfo) {
         hashmap_t *l = hashmap_get(protocols, layer);
 
-        hashmap_insert(l, (void *) (uintptr_t) pinfo->port, pinfo);
+        hashmap_insert(l, (void *) (uintptr_t) id, pinfo);
         hashmap_insert(info, pinfo->short_name, pinfo);
     }
 }

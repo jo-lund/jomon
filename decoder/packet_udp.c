@@ -9,7 +9,6 @@ extern void print_udp(char *buf, int n, void *data);
 static struct protocol_info udp_prot = {
     .short_name = "UDP",
     .long_name = "User Datagram Protocol",
-    .port = IPPROTO_UDP,
     .decode = handle_udp,
     .print_pdu = print_udp,
     .add_pdu = add_udp_information
@@ -17,7 +16,7 @@ static struct protocol_info udp_prot = {
 
 void register_udp()
 {
-    register_protocol(&udp_prot, LAYER3);
+    register_protocol(&udp_prot, LAYER3, IPPROTO_UDP);
 }
 
 /*

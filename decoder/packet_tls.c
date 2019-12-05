@@ -368,19 +368,9 @@ static packet_error parse_client_hello(unsigned char **buf, uint16_t n,
 static packet_error parse_server_hello(unsigned char **buf, uint16_t len,
                                        struct tls_handshake *handshake);
 
-static struct protocol_info https_prot = {
+static struct protocol_info tls_prot = {
     .short_name = "TLS",
     .long_name = "Transport Layer Security",
-    .port = HTTPS,
-    .decode = handle_tls,
-    .print_pdu = print_tls,
-    .add_pdu = add_tls_information
-};
-
-static struct protocol_info imaps_prot = {
-    .short_name = "TLS",
-    .long_name = "Transport Layer Security",
-    .port = IMAPS,
     .decode = handle_tls,
     .print_pdu = print_tls,
     .add_pdu = add_tls_information
@@ -388,8 +378,8 @@ static struct protocol_info imaps_prot = {
 
 void register_tls()
 {
-    register_protocol(&https_prot, LAYER4);
-    register_protocol(&imaps_prot, LAYER4);
+    register_protocol(&tls_prot, LAYER4, HTTPS);
+    register_protocol(&tls_prot, LAYER4, IMAPS);
 }
 
 packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,

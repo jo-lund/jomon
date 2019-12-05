@@ -86,7 +86,6 @@ typedef enum {
 struct protocol_info {
     char *short_name;
     char *long_name;
-    uint16_t port; /* port number or id */
     uint64_t num_bytes;
     uint32_t num_packets;
     packet_error (*decode)(struct protocol_info *pinfo, unsigned char *buf, int n,
@@ -127,7 +126,7 @@ struct packet {
 /* TODO: move this */
 void decoder_init();
 void decoder_exit();
-void register_protocol(struct protocol_info *pinfo, char *layer);
+void register_protocol(struct protocol_info *pinfo, char *layer, uint16_t id);
 struct protocol_info *get_protocol(char *layer, uint16_t id);
 void traverse_protocols(protocol_handler fn, void *arg);
 

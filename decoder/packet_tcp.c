@@ -24,7 +24,6 @@ extern void print_tcp(char *buf, int n, void *data);
 static struct protocol_info tcp_prot = {
     .short_name = "TCP",
     .long_name = "Transmission Control Protocol",
-    .port = IPPROTO_TCP,
     .decode = handle_tcp,
     .print_pdu = print_tcp,
     .add_pdu = add_tcp_information
@@ -32,7 +31,7 @@ static struct protocol_info tcp_prot = {
 
 void register_tcp()
 {
-    register_protocol(&tcp_prot, LAYER3);
+    register_protocol(&tcp_prot, LAYER3, IPPROTO_TCP);
 }
 
 /*

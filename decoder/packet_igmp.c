@@ -14,7 +14,6 @@ extern void print_igmp(char *buf, int n, void *data);
 static struct protocol_info igmp_prot = {
     .short_name = "IGMP",
     .long_name = "Internet Group Management Protocol",
-    .port = IPPROTO_IGMP,
     .decode = handle_igmp,
     .print_pdu = print_igmp,
     .add_pdu = add_igmp_information
@@ -22,7 +21,7 @@ static struct protocol_info igmp_prot = {
 
 void register_igmp()
 {
-    register_protocol(&igmp_prot, LAYER3);
+    register_protocol(&igmp_prot, LAYER3, IPPROTO_IGMP);
 }
 
 /*

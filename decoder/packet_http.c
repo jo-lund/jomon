@@ -39,7 +39,6 @@ static bool parse_http_header(unsigned char **str, unsigned int *len, rbtree_t *
 static struct protocol_info http_prot = {
     .short_name = "HTTP",
     .long_name = "Hypertext Transfer Protocol",
-    .port = HTTP,
     .decode = handle_http,
     .print_pdu = print_http,
     .add_pdu = add_http_information
@@ -47,7 +46,7 @@ static struct protocol_info http_prot = {
 
 void register_http()
 {
-    register_protocol(&http_prot, LAYER4);
+    register_protocol(&http_prot, LAYER4, HTTP);
 }
 
 static int rbcmp(const void *d1, const void *d2)

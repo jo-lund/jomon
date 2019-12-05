@@ -43,16 +43,6 @@ static int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag
 static struct protocol_info snmp_prot = {
     .short_name = "SNMP",
     .long_name = "Simple Network Management Protocol",
-    .port = SNMP,
-    .decode = handle_snmp,
-    .print_pdu = print_snmp,
-    .add_pdu = add_snmp_information
-};
-
-static struct protocol_info snmptrap_prot = {
-    .short_name = "SNMP",
-    .long_name = "Simple Network Management Protocol",
-    .port = SNMPTRAP,
     .decode = handle_snmp,
     .print_pdu = print_snmp,
     .add_pdu = add_snmp_information
@@ -60,8 +50,8 @@ static struct protocol_info snmptrap_prot = {
 
 void register_snmp()
 {
-    register_protocol(&snmp_prot, LAYER4);
-    register_protocol(&snmptrap_prot, LAYER4);
+    register_protocol(&snmp_prot, LAYER4, SNMP);
+    register_protocol(&snmp_prot, LAYER4, SNMPTRAP);
 }
 
 /*

@@ -10,7 +10,6 @@ extern void print_icmp(char *buf, int n, void *data);
 static struct protocol_info icmp_prot = {
     .short_name = "ICMP",
     .long_name = "Internet Control Message Protocol",
-    .port = IPPROTO_ICMP,
     .decode = handle_icmp,
     .print_pdu = print_icmp,
     .add_pdu = add_icmp_information
@@ -18,7 +17,7 @@ static struct protocol_info icmp_prot = {
 
 void register_icmp()
 {
-    register_protocol(&icmp_prot, LAYER3);
+    register_protocol(&icmp_prot, LAYER3, IPPROTO_ICMP);
 }
 
 packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buffer, int n,

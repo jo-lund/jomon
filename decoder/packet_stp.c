@@ -26,7 +26,6 @@ static struct packet_flags stp_flags[] = {
 static struct protocol_info stp_prot = {
     .short_name = "STP",
     .long_name = "Spanning Tree Protocol",
-    .port = ETH_802_STP,
     .decode = handle_stp,
     .print_pdu = print_stp,
     .add_pdu = add_stp_information
@@ -34,7 +33,7 @@ static struct protocol_info stp_prot = {
 
 void register_stp()
 {
-    register_protocol(&stp_prot, LAYER802_3);
+    register_protocol(&stp_prot, LAYER802_3, ETH_802_STP);
 }
 
 /*

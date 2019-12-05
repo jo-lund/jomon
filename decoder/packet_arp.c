@@ -15,7 +15,6 @@ extern void print_arp(char *buf, int n, void *data);
 static struct protocol_info arp_prot = {
     .short_name = "ARP",
     .long_name = "Address Resolution Protocol",
-    .port = ETH_P_ARP,
     .decode = handle_arp,
     .print_pdu = print_arp,
     .add_pdu = add_arp_information
@@ -23,7 +22,7 @@ static struct protocol_info arp_prot = {
 
 void register_arp()
 {
-    register_protocol(&arp_prot, LAYER2);
+    register_protocol(&arp_prot, LAYER2, ETH_P_ARP);
 }
 
 /*

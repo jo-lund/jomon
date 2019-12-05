@@ -10,7 +10,6 @@ static void parse_ssdp(char *str, int n, list_t *msg_header);
 static struct protocol_info ssdp_prot = {
     .short_name = "SSDP",
     .long_name = "Simple Service Discovery Protocol",
-    .port = SSDP,
     .decode = handle_ssdp,
     .print_pdu = print_ssdp,
     .add_pdu = add_ssdp_information
@@ -18,7 +17,7 @@ static struct protocol_info ssdp_prot = {
 
 void register_ssdp()
 {
-    register_protocol(&ssdp_prot, LAYER4);
+    register_protocol(&ssdp_prot, LAYER4, SSDP);
 }
 
 /*

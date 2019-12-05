@@ -6,7 +6,6 @@ extern void print_llc(char *buf, int n, void *data);
 static struct protocol_info llc_prot = {
     .short_name = "LLC",
     .long_name = "Logical Link Control",
-    .port = ETH_802_LLC,
     .decode = handle_llc,
     .print_pdu = print_llc,
     .add_pdu = add_llc_information
@@ -14,7 +13,7 @@ static struct protocol_info llc_prot = {
 
 void register_llc()
 {
-    register_protocol(&llc_prot, LAYER802_3);
+    register_protocol(&llc_prot, LAYER802_3, ETH_802_LLC);
 }
 
 packet_error handle_llc(struct protocol_info *pinfo, unsigned char *buffer, int n,

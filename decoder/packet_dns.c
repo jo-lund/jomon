@@ -39,7 +39,6 @@ static bool parse_type_bitmaps(unsigned char **data, uint16_t rdlen,
 static struct protocol_info dns_prot = {
     .short_name = "DNS",
     .long_name = "Domain Name System",
-    .port = DNS,
     .decode = handle_dns,
     .print_pdu = print_dns,
     .add_pdu = add_dns_information
@@ -48,7 +47,6 @@ static struct protocol_info dns_prot = {
 static struct protocol_info mdns_prot = {
     .short_name = "MDNS",
     .long_name = "Multicast DNS",
-    .port = MDNS,
     .decode = handle_dns,
     .print_pdu = print_dns,
     .add_pdu = add_dns_information
@@ -57,7 +55,6 @@ static struct protocol_info mdns_prot = {
 static struct protocol_info llmnr_prot = {
     .short_name = "LLMNR",
     .long_name = "Link-Local Multicast Name Resolution",
-    .port = LLMNR,
     .decode = handle_dns,
     .print_pdu = print_dns,
     .add_pdu = add_dns_information
@@ -65,9 +62,9 @@ static struct protocol_info llmnr_prot = {
 
 void register_dns()
 {
-    register_protocol(&dns_prot, LAYER4);
-    register_protocol(&mdns_prot, LAYER4);
-    register_protocol(&llmnr_prot, LAYER4);
+    register_protocol(&dns_prot, LAYER4, DNS);
+    register_protocol(&mdns_prot, LAYER4, MDNS);
+    register_protocol(&llmnr_prot, LAYER4, LLMNR);
 }
 
 /*

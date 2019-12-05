@@ -30,7 +30,6 @@ extern void print_pim(char *buf, int n, void *data);
 static struct protocol_info pim_prot = {
     .short_name = "PIM",
     .long_name = "Protocol Independent Multicast",
-    .port = IPPROTO_PIM,
     .decode = handle_pim,
     .print_pdu = print_pim,
     .add_pdu = add_pim_information
@@ -38,7 +37,7 @@ static struct protocol_info pim_prot = {
 
 void register_pim()
 {
-    register_protocol(&pim_prot, LAYER3);
+    register_protocol(&pim_prot, LAYER3, IPPROTO_PIM);
 }
 
 /*

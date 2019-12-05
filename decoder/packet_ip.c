@@ -45,7 +45,6 @@ static struct packet_flags ipv4_flags[] = {
 static struct protocol_info ipv4_prot = {
     .short_name = "IPv4",
     .long_name = "Internet Protocol Version 4",
-    .port = ETH_P_IP,
     .decode = handle_ipv4,
     .print_pdu = print_ipv4,
     .add_pdu = add_ipv4_information
@@ -54,7 +53,6 @@ static struct protocol_info ipv4_prot = {
 static struct protocol_info ipv6_prot = {
     .short_name = "IPv6",
     .long_name = "Internet Protocol Version 6",
-    .port = ETH_P_IPV6,
     .decode = handle_ipv6,
     .print_pdu = print_ipv6,
     .add_pdu = add_ipv6_information
@@ -62,8 +60,8 @@ static struct protocol_info ipv6_prot = {
 
 void register_ip()
 {
-    register_protocol(&ipv4_prot, LAYER2);
-    register_protocol(&ipv6_prot, LAYER2);
+    register_protocol(&ipv4_prot, LAYER2, ETH_P_IP);
+    register_protocol(&ipv6_prot, LAYER2, ETH_P_IPV6);
 }
 
 /*

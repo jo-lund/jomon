@@ -25,7 +25,6 @@ static int parse_datagram(unsigned char *buffer, int n, unsigned char **data,
 static struct protocol_info nbds_prot = {
     .short_name = "NBDS",
     .long_name = "NetBIOS Datagram Service",
-    .port = NBDS,
     .decode = handle_nbds,
     .print_pdu = print_nbds,
     .add_pdu = add_nbds_information
@@ -33,7 +32,7 @@ static struct protocol_info nbds_prot = {
 
 void register_nbds()
 {
-    register_protocol(&nbds_prot, LAYER4);
+    register_protocol(&nbds_prot, LAYER4, NBDS);
 }
 
 /*
