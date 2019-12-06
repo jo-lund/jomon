@@ -10,10 +10,10 @@
 #include "../mempool.h"
 #include "../alloc.h"
 
-#define LAYER2 "l2"
-#define LAYER3 "l3"
-#define LAYER4 "l4"
-#define LAYER802_3 "l802_3"
+#define LAYER802_3 0
+#define LAYER2 1
+#define LAYER3 2
+#define LAYER4 3
 
 extern uint32_t total_packets;
 extern uint64_t total_bytes;
@@ -126,8 +126,8 @@ struct packet {
 /* TODO: move this */
 void decoder_init();
 void decoder_exit();
-void register_protocol(struct protocol_info *pinfo, char *layer, uint16_t id);
-struct protocol_info *get_protocol(char *layer, uint16_t id);
+void register_protocol(struct protocol_info *pinfo, int layer, uint16_t id);
+struct protocol_info *get_protocol(int layer, uint16_t id);
 void traverse_protocols(protocol_handler fn, void *arg);
 
 /*

@@ -29,6 +29,8 @@
 #include "register.h"
 #include "../hash.h"
 
+#define NUM_LAYERS 4
+
 allocator_t d_alloc = {
     .alloc = mempool_pealloc,
     .dealloc = NULL
@@ -36,27 +38,16 @@ allocator_t d_alloc = {
 
 uint32_t total_packets;
 uint64_t total_bytes;
-
-static hashmap_t *layer2;
-static hashmap_t *layer3;
-static hashmap_t *layer4;
-static hashmap_t *l802_3;
-static hashmap_t *protocols;
 static hashmap_t *info;
-
+static hashmap_t *protocols[NUM_LAYERS];
 
 void decoder_init()
 {
     info = hashmap_init(64, hash_string, compare_string);
-    protocols = hashmap_init(8, hash_string, compare_string);
-    l802_3 = hashmap_init(16, hash_uint16, compare_uint);
-    layer2 = hashmap_init(16, hash_uint16, compare_uint);
-    layer3 = hashmap_init(16, hash_uint16, compare_uint);
-    layer4 = hashmap_init(32, hash_uint16, compare_uint);
-    hashmap_insert(protocols, LAYER802_3, l802_3);
-    hashmap_insert(protocols, LAYER2, layer2);
-    hashmap_insert(protocols, LAYER3, layer3);
-    hashmap_insert(protocols, LAYER4, layer4);
+    protocols[LAYER802_3] = hashmap_init(16, hash_uint16, compare_uint);
+    protocols[LAYER2] = hashmap_init(16, hash_uint16, compare_uint);
+    protocols[LAYER3] = hashmap_init(16, hash_uint16, compare_uint);
+    protocols[LAYER4] = hashmap_init(32, hash_uint16, compare_uint);
     for (unsigned int i = 0; i < ARRAY_SIZE(decoder_functions); i++) {
         decoder_functions[i]();
     }
@@ -64,29 +55,25 @@ void decoder_init()
 
 void decoder_exit()
 {
-    const hashmap_iterator *it = hashmap_first(protocols);
-
-    while (it) {
-        hashmap_free(it->data);
-        it = hashmap_next(protocols, it);
+    for (int i = 0; i < NUM_LAYERS; i++) {
+        hashmap_free(protocols[i]);
     }
-    hashmap_free(protocols);
     hashmap_free(info);
 }
 
-void register_protocol(struct protocol_info *pinfo, char *layer, uint16_t id)
+void register_protocol(struct protocol_info *pinfo, int layer, uint16_t id)
 {
     if (pinfo) {
-        hashmap_t *l = hashmap_get(protocols, layer);
+        hashmap_t *l = protocols[layer];
 
         hashmap_insert(l, (void *) (uintptr_t) id, pinfo);
         hashmap_insert(info, pinfo->short_name, pinfo);
     }
 }
 
-struct protocol_info *get_protocol(char *layer, uint16_t id)
+struct protocol_info *get_protocol(int layer, uint16_t id)
 {
-    hashmap_t *l = hashmap_get(protocols, layer);
+    hashmap_t *l = protocols[layer];
 
     return hashmap_get(l, (void *) (uintptr_t) id);
 }
@@ -135,7 +122,7 @@ void free_packets(void *data)
 packet_error check_port(unsigned char *buffer, int n, struct application_info *adu,
                         uint16_t port)
 {
-    struct protocol_info *pinfo = hashmap_get(layer4, (void *) (uintptr_t) port);
+    struct protocol_info *pinfo = hashmap_get(protocols[LAYER4], (void *) (uintptr_t) port);
 
     if (pinfo)
         return pinfo->decode(pinfo, buffer, n, adu);
