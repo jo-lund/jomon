@@ -126,7 +126,7 @@ struct packet {
 /* TODO: move this */
 void decoder_init();
 void decoder_exit();
-void register_protocol(struct protocol_info *pinfo, int layer, uint16_t id);
+void register_protocol(struct protocol_info *pinfo, unsigned int layer, uint16_t id);
 struct protocol_info *get_protocol(int layer, uint16_t id);
 void traverse_protocols(protocol_handler fn, void *arg);
 

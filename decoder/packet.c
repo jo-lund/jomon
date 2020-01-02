@@ -61,9 +61,9 @@ void decoder_exit()
     hashmap_free(info);
 }
 
-void register_protocol(struct protocol_info *pinfo, int layer, uint16_t id)
+void register_protocol(struct protocol_info *pinfo, unsigned int layer, uint16_t id)
 {
-    if (pinfo) {
+    if (pinfo && layer < NUM_LAYERS) {
         hashmap_t *l = protocols[layer];
 
         hashmap_insert(l, (void *) (uintptr_t) id, pinfo);
@@ -73,9 +73,12 @@ void register_protocol(struct protocol_info *pinfo, int layer, uint16_t id)
 
 struct protocol_info *get_protocol(int layer, uint16_t id)
 {
-    hashmap_t *l = protocols[layer];
+    if (layer < NUM_LAYERS) {
+        hashmap_t *l = protocols[layer];
 
-    return hashmap_get(l, (void *) (uintptr_t) id);
+        return hashmap_get(l, (void *) (uintptr_t) id);
+    }
+    return NULL;
 }
 
 void traverse_protocols(protocol_handler fn, void *arg)
@@ -100,7 +103,7 @@ bool decode_packet(unsigned char *buffer, size_t len, struct packet **p)
     }
     (*p)->num = ++total_packets;
     total_bytes += len;
-    if (is_tcp(*p)) {
+    if ((*p)->perr == NO_ERR && is_tcp(*p)) {
         tcp_analyzer_check_stream(*p);
     }
     host_analyzer_investigate(*p);
