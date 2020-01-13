@@ -28,13 +28,9 @@ struct icmp_info {
     };
 };
 
-#define get_icmp(p, v) ((p)->eth.ip##v->icmp)
-
-struct ipv4_info;
-
 void register_icmp();
 packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                         void *data);
+                         struct packet_data *pdata);
 char *get_icmp_dest_unreach_code(uint8_t code);
 char *get_icmp_redirect_code(uint8_t code);
 char *get_icmp_type(uint8_t type);

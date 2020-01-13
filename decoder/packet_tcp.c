@@ -95,24 +95,22 @@ void register_tcp()
  *            the URG control bit set.
  */
 packet_error handle_tcp(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                        void *data)
+                        struct packet_data *pdata)
 {
     struct tcphdr *tcp;
-    packet_error error;
+    packet_error error = NO_ERR;
     uint16_t payload_len;
-    struct eth_info *eth = data;
     struct tcp *info;
 
-    if (eth->ethertype == ETH_P_IP) {
-        eth->ipv4->tcp = mempool_pealloc(sizeof(struct tcp));
-        info = eth->ipv4->tcp;
-    } else {
-        eth->ipv6->tcp = mempool_pealloc(sizeof(struct tcp));
-        info = eth->ipv6->tcp;
-    }
     tcp = (struct tcphdr *) buffer;
     if (n < tcp->doff * 4) return TCP_ERR;
 
+    /* bogus header length */
+    if (tcp->doff < 5)
+        return TCP_ERR;
+
+    info = mempool_pealloc(sizeof(struct tcp));
+    pdata->data = info;
     pinfo->num_packets++;
     pinfo->num_bytes += n;
     info->src_port = ntohs(tcp->source);
@@ -130,11 +128,7 @@ packet_error handle_tcp(struct protocol_info *pinfo, unsigned char *buffer, int 
     info->checksum = ntohs(tcp->check);
     info->urg_ptr = ntohs(tcp->urg_ptr);
     payload_len = n - info->offset * 4;
-
-    /* bogus header length */
-    if (info->offset < 5) {
-        return TCP_ERR;
-    }
+    pdata->len = info->offset * 4;
 
     /* the minimum header without options is 20 bytes */
     if (info->offset > 5) {
@@ -150,17 +144,20 @@ packet_error handle_tcp(struct protocol_info *pinfo, unsigned char *buffer, int 
     /* only check port if there is a payload */
     if (payload_len > 0) {
         for (int i = 0; i < 2; i++) {
-            info->data.utype = *((uint16_t *) info + i);
-            info->data.transport = TCP;
-            error = check_port(buffer + info->offset * 4, payload_len, &info->data,
-                               info->data.utype);
+            pdata->id = *((uint16_t *) info + i);
+            pdata->next = mempool_pealloc(sizeof(struct packet_data));
+            memset(pdata->next, 0, sizeof(struct packet_data));
+            pdata->next->transport = TCP;
+            pdata->next->id = pdata->id;
+            error = check_port(buffer + info->offset * 4, payload_len, pdata->next, pdata->id);
             if (error != UNK_PROTOCOL) {
                 return error;
             }
+            mempool_pefree(pdata->next);
         }
+        pdata->next = NULL;
     }
-    info->data.utype = 0; /* unknown application protocol */
-    return NO_ERR;
+    return error;
 }
 
 list_t *parse_tcp_options(unsigned char *data, int len)
@@ -254,4 +251,25 @@ struct packet_flags *get_tcp_flags()
 int get_tcp_flags_size()
 {
     return sizeof(tcp_flags) / sizeof(struct packet_flags);
+}
+
+uint16_t get_tcp_src(const struct packet *p)
+{
+    struct packet_data *pdata = get_packet_data(p, IPPROTO_TCP);
+    struct tcp *tcp = pdata->data;
+
+    if (tcp)
+        return tcp->src_port;
+    return 0;
+}
+
+uint16_t get_tcp_dst(const struct packet *p)
+{
+    struct packet_data *pdata = get_packet_data(p, IPPROTO_TCP);
+    struct tcp *tcp = pdata->data;
+
+    if (tcp)
+        return tcp->dst_port;
+    return 0;
+
 }

@@ -44,15 +44,16 @@ void tcp_analyzer_check_stream(const struct packet *p)
 {
     if (!connection_table) return;
 
-    if (p->eth.ethertype == ETH_P_IP) {
-        struct tcp *tcp = get_tcp(p, v4);
+    if (ethertype(p) == ETH_P_IP) {
+        struct packet_data *pdata = get_packet_data(p, IPPROTO_TCP);
+        struct tcp *tcp = pdata->data;
         struct tcp_connection_v4 *conn;
         struct tcp_endpoint_v4 endp;
 
-        endp.src = ipv4_src(p);
-        endp.dst = ipv4_dst(p);
-        endp.src_port = tcp_src(p, v4);
-        endp.dst_port = tcp_dst(p, v4);
+        endp.src = get_ipv4_src(p);
+        endp.dst = get_ipv4_dst(p);
+        endp.src_port = get_tcp_src(p);
+        endp.dst_port = get_tcp_dst(p);
         conn = hashmap_get(connection_table, &endp);
         if (conn) {
             list_push_back(conn->packets, (struct packet *) p);

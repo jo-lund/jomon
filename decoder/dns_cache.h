@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-typedef void (*dns_cache_fn)(uint32_t *addr, char *name);
+typedef void (*dns_cache_fn)(uint32_t addr, char *name);
 
 /* Initializes the DNS cache.
  *
@@ -15,13 +15,13 @@ void dns_cache_init();
  *
  * TODO: Handle time to live
  */
-void dns_cache_insert(uint32_t *addr, char *name);
+void dns_cache_insert(uint32_t addr, char *name);
 
 /* Removes element from the cache */
-void dns_cache_remove(uint32_t *addr);
+void dns_cache_remove(uint32_t addr);
 
 /* Returns the name associated with the IPv4 address */
-char *dns_cache_get(uint32_t *addr);
+char *dns_cache_get(uint32_t addr);
 
 /* Clears the DNS cache */
 void dns_cache_clear();

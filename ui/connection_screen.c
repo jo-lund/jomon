@@ -292,15 +292,15 @@ void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int
     entry[PORTB].val = conn->endp->dst_port;
     while (n) {
         p = list_data(n);
-        if (entry[ADDRA].val == ipv4_src(p) && entry[PORTA].val == tcp_src(p, v4)) {
-            entry[BYTES_AB].val += get_packet_size(p);
+        if (entry[ADDRA].val == get_ipv4_src(p) && entry[PORTA].val == get_tcp_src(p)) {
+            entry[BYTES_AB].val += p->len;
             entry[PACKETS_AB].val++;
-        } else if (entry[ADDRB].val == ipv4_src(p) &&
-                   entry[PORTB].val == tcp_src(p, v4)) {
-            entry[BYTES_BA].val += get_packet_size(p);
+        } else if (entry[ADDRB].val == get_ipv4_src(p) &&
+                   entry[PORTB].val == get_tcp_src(p)) {
+            entry[BYTES_BA].val += p->len;
             entry[PACKETS_BA].val++;
         }
-        entry[BYTES].val += get_packet_size(p);
+        entry[BYTES].val += p->len;
         n = list_next(n);
     }
     state = tcp_analyzer_get_connection_state(conn->state);
@@ -311,7 +311,7 @@ void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int
     format_bytes(entry[BYTES_BA].val, entry[BYTES_BA].buf, MAX_WIDTH);
     if (conn->state != ESTABLISHED && conn->state != SYN_SENT &&
         conn->state != SYN_RCVD) {
-        for (unsigned int i = 0; i < sizeof(header) / sizeof(header[0]); i++) {
+        for (unsigned int i = 0; i < ARRAY_SIZE(header); i++) {
             if (i % 2 == 0) {
                 printat(cs->base.win, y, x, get_theme_colour(DISABLE), "%s", entry[i].buf);
             } else {
@@ -320,7 +320,7 @@ void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int
             x += header[i].width;
         }
     } else {
-        for (unsigned int i = 0; i < sizeof(header) / sizeof(header[0]); i++) {
+        for (unsigned int i = 0; i < ARRAY_SIZE(header); i++) {
             if (i % 2 == 0) {
                 mvwprintw(cs->base.win, y, x, "%s", entry[i].buf);
             } else {

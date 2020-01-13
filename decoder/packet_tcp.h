@@ -13,15 +13,6 @@
 #define TCP_OPT_SACK 5      /* selective acknowledgement */
 #define TCP_OPT_TIMESTAMP 8 /* timestamp and echo of previous timestamp */
 
-#define TCP_PAYLOAD_LEN(p)                                              \
-    (((p)->eth.ethertype == ETH_P_IP) ?                                 \
-     ((p)->eth.ipv4->length - (p)->eth.ipv4->ihl * 4 - (p)->eth.ipv4->tcp->offset * 4) : \
-     ((p)->eth.ipv6->payload_len - (p)->eth.ipv6->tcp->offset * 4))
-
-#define TCP_HDR_LEN(p)                                                  \
-    (((p)->eth.ethertype == ETH_P_IP) ?                                 \
-     ((p)->eth.ipv4->tcp->offset * 4) : ((p)->eth.ipv6->tcp->offset * 4))
-
 struct tcp {
     uint16_t src_port;
     uint16_t dst_port;
@@ -41,13 +32,7 @@ struct tcp {
     uint16_t checksum;
     uint16_t urg_ptr;
     unsigned char *options;
-    struct application_info data;
 };
-
-#define get_tcp(p, v) ((p)->eth.ip##v->tcp)
-#define tcp_src(p, v) get_tcp(p, v)->src_port
-#define tcp_dst(p, v) get_tcp(p, v)->dst_port
-#define tcp_data(p, v) get_tcp(p, v)->data
 
 struct tcp_options {
     uint8_t option_kind;
@@ -76,16 +61,17 @@ struct tcp_sack_block {
  * The list needs to be freed with 'free_tcp_options' after use.
  */
 list_t *parse_tcp_options(unsigned char *data, int len);
-
 void free_tcp_options(list_t *options);
 
 struct packet_flags *get_tcp_flags();
-
 int get_tcp_flags_size();
+
+uint16_t get_tcp_src(const struct packet *p);
+uint16_t get_tcp_dst(const struct packet *p);
 
 /* should be internal to the decoder */
 void register_tcp();
 packet_error handle_tcp(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                        void *data);
+                        struct packet_data *pdata);
 
 #endif

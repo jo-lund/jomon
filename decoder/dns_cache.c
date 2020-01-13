@@ -2,6 +2,7 @@
 #include "dns_cache.h"
 #include "../hashmap.h"
 #include "../signal.h"
+#include "../hash.h"
 
 #define CACHE_SIZE 1024
 
@@ -10,7 +11,7 @@ static publisher_t *dns_cache_publisher;
 
 void dns_cache_init()
 {
-    dns_cache = hashmap_init(CACHE_SIZE, NULL, NULL);
+    dns_cache = hashmap_init(CACHE_SIZE, hash_uint32, compare_uint);
     dns_cache_publisher = publisher_init();
 }
 
@@ -20,23 +21,23 @@ void dns_cache_free()
     publisher_free(dns_cache_publisher);
 }
 
-void dns_cache_insert(uint32_t *addr, char *name)
+void dns_cache_insert(uint32_t addr, char *name)
 {
-    if (dns_cache && hashmap_insert(dns_cache, addr, name)) {
-        publish2(dns_cache_publisher, addr, name);
+    if (dns_cache && hashmap_insert(dns_cache, (void *) (uintptr_t) addr, name)) {
+        publish2(dns_cache_publisher, (void *) (uintptr_t) addr, name);
     }
 }
 
-void dns_cache_remove(uint32_t *addr)
+void dns_cache_remove(uint32_t addr)
 {
     if (dns_cache) {
-        hashmap_remove(dns_cache, addr);
+        hashmap_remove(dns_cache, (void *) (uintptr_t) addr);
     }
 }
 
-char *dns_cache_get(uint32_t *addr)
+char *dns_cache_get(uint32_t addr)
 {
-    return dns_cache ? (char *) hashmap_get(dns_cache, addr) : NULL;
+    return dns_cache ? (char *) hashmap_get(dns_cache, (void *) (uintptr_t) addr) : NULL;
 }
 
 void dns_cache_clear()

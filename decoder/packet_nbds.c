@@ -20,7 +20,7 @@ struct packet_flags nbds_flags[] = {
 extern void print_nbds(char *buf, int n, void *data);
 extern void add_nbds_information(void *widget, void *subwidget, void *data);
 static int parse_datagram(unsigned char *buffer, int n, unsigned char **data,
-                          int dlen, struct application_info *adu);
+                          int dlen, struct nbds_info *nbds, struct packet_data *pdata);
 
 static struct protocol_info nbds_prot = {
     .short_name = "NBDS",
@@ -52,34 +52,36 @@ void register_nbds()
  * payload: the DIRECT_UNIQUE, DIRECT_GROUP, and BROADCAST DATAGRAM messages.
  */
 packet_error handle_nbds(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                         void *data)
+                         struct packet_data *pdata)
 {
     if (n < NBDS_HDRLEN) return NBDS_ERR;
 
-    struct application_info *adu = data;
+    struct nbds_info *nbds;
     unsigned char *ptr;
     int plen = n;
 
     ptr = buffer;
-    adu->nbds = mempool_pealloc(sizeof(struct nbds_info));
-    adu->nbds->msg_type = ptr[0];
-    adu->nbds->flags = ptr[1];
-    adu->nbds->dgm_id = get_uint16be(ptr + 2);
-    adu->nbds->source_ip = get_uint32le(ptr + 4);
-    adu->nbds->source_port = get_uint16be(ptr + 8);
+    nbds = mempool_pealloc(sizeof(struct nbds_info));
+    pdata->data = nbds;
+    pdata->len = n;
+    nbds->msg_type = ptr[0];
+    nbds->flags = ptr[1];
+    nbds->dgm_id = get_uint16be(ptr + 2);
+    nbds->source_ip = get_uint32le(ptr + 4);
+    nbds->source_port = get_uint16be(ptr + 8);
     ptr += NBDS_HDRLEN;
     plen -= NBDS_HDRLEN;
 
-    switch (adu->nbds->msg_type) {
+    switch (nbds->msg_type) {
     case NBDS_DIRECT_UNIQUE:
     case NBDS_DIRECT_GROUP:
     case NBDS_BROADCAST:
-        if ((plen = parse_datagram(buffer, n, &ptr, plen, adu)) == -1) {
+        if ((plen = parse_datagram(buffer, n, &ptr, plen, nbds, pdata)) == -1) {
             return NBDS_ERR;
         }
         break;
     case NBDS_ERROR:
-        adu->nbds->msg.error_code = ptr[0];
+        nbds->msg.error_code = ptr[0];
         break;
     case NBDS_QUERY_REQUEST:
     case NBDS_POSITIVE_QUERY_RESPONSE:
@@ -90,7 +92,7 @@ packet_error handle_nbds(struct protocol_info *pinfo, unsigned char *buffer, int
         if (parse_dns_name(buffer, n, ptr, plen, name) == -1) {
             return NBDS_ERR;
         }
-        decode_nbns_name(adu->nbds->msg.dest_name, name);
+        decode_nbns_name(nbds->msg.dest_name, name);
         break;
     }
     default:
@@ -102,17 +104,17 @@ packet_error handle_nbds(struct protocol_info *pinfo, unsigned char *buffer, int
 }
 
 int parse_datagram(unsigned char *buffer, int n, unsigned char **data, int dlen,
-                   struct application_info *adu)
+                   struct nbds_info *nbds, struct packet_data *pdata)
 
 {
     unsigned char *ptr = *data;
     struct nbds_datagram *dgm;
     char name[DNS_NAMELEN];
-    uint16_t len;
+    uint16_t tot_name_len;
     int name_len;
 
     dgm = mempool_pealloc(sizeof(struct nbds_datagram));
-    adu->nbds->msg.dgm = dgm;
+    nbds->msg.dgm = dgm;
     dgm->dgm_length = get_uint16be(ptr);
     dgm->packet_offset = get_uint16be(ptr + 2);
     ptr += 4;
@@ -123,17 +125,18 @@ int parse_datagram(unsigned char *buffer, int n, unsigned char **data, int dlen,
     decode_nbns_name(dgm->src_name, name);
     ptr += name_len;
     dlen -= name_len;
-    len = name_len;
+    tot_name_len = name_len;
     if ((name_len = parse_dns_name(buffer, n, ptr, dlen, name)) == -1) {
         return -1;
     }
     decode_nbns_name(dgm->dest_name, name);
-    len += name_len;
+    tot_name_len += name_len;
     ptr += name_len;
     dlen -= name_len;
-    if (dgm->dgm_length > len) {
+    pdata->len = tot_name_len + 4 + NBDS_HDRLEN;
+    if (dgm->dgm_length > tot_name_len) {
         dgm->smb = mempool_pealloc(sizeof(struct smb_info));
-        handle_smb(ptr, dgm->dgm_length - len, dgm->smb);
+        handle_smb(ptr, dgm->dgm_length - (tot_name_len - 4), dgm->smb);
     }
     *data = ptr;
     return dlen;

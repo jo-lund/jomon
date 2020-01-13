@@ -7,6 +7,7 @@
 #include "../signal.h"
 #include "packet_dns.h"
 #include "dns_cache.h"
+#include "../hash.h"
 
 #define TBLSZ 1024
 
@@ -16,13 +17,13 @@ static publisher_t *host_changed_publisher;
 
 static void handle_ip4(struct packet *p);
 static bool local_ip4(uint32_t addr);
-static void insert_host(uint32_t *addr, uint8_t *mac);
-static void update_host(uint32_t *addr, char *name);
+static void insert_host(uint32_t addr, uint8_t *mac);
+static void update_host(uint32_t addr, char *name);
 
 void host_analyzer_init()
 {
-    local_hosts = hashmap_init(TBLSZ, NULL, NULL);
-    remote_hosts = hashmap_init(TBLSZ, NULL, NULL);
+    local_hosts = hashmap_init(TBLSZ, hash_uint32, compare_uint);
+    remote_hosts = hashmap_init(TBLSZ, hash_uint32, compare_uint);
     host_changed_publisher = publisher_init();
     dns_cache_subscribe(update_host);
 }
@@ -39,7 +40,7 @@ void host_analyzer_investigate(struct packet *p)
 {
     if (!local_hosts && !remote_hosts) return;
 
-    switch (p->eth.ethertype) {
+    switch (ethertype(p)) {
     case ETH_P_IP:
         handle_ip4(p);
         break;
@@ -77,11 +78,11 @@ void host_analyzer_clear()
 void handle_ip4(struct packet *p)
 {
     // TODO: Filter out broadcast and multicast
-    insert_host(&ipv4_src(p), eth_src(p));
-    insert_host(&ipv4_dst(p), eth_dst(p));
+    insert_host(get_ipv4_src(p), eth_src(p));
+    insert_host(get_ipv4_dst(p), eth_dst(p));
 
     // TODO: Inspect packet
-    switch (ipv4_protocol(p)) {
+    switch (get_ipv4_protocol(p)) {
     case IPPROTO_TCP:
         break;
     case IPPROTO_UDP:
@@ -105,25 +106,25 @@ bool local_ip4(uint32_t addr)
     return false;
 }
 
-void insert_host(uint32_t *addr, uint8_t *mac)
+void insert_host(uint32_t addr, uint8_t *mac)
 {
     hashmap_t *map;
     bool local;
 
-    if (local_ip4(*addr)) {
+    if (local_ip4(addr)) {
         map = local_hosts;
         local = true;
     } else {
         map = remote_hosts;
         local = false;
     }
-    if (!hashmap_contains(map, addr)) {
+    if (!hashmap_contains(map, (void *) (uintptr_t) addr)) {
         struct host_info *host = mempool_pealloc(sizeof(struct host_info));
         char *name;
 
-        host->ip4_addr = *addr;
+        host->ip4_addr = addr;
         host->local = local;
-        if ((name = dns_cache_get(&host->ip4_addr))) {
+        if ((name = dns_cache_get(host->ip4_addr))) {
             host->name = name;
         } else {
             host->name = NULL;
@@ -131,15 +132,15 @@ void insert_host(uint32_t *addr, uint8_t *mac)
         if (local) {
             memcpy(host->mac_addr, mac, ETH_ALEN);
         }
-        hashmap_insert(map, addr, host);
+        hashmap_insert(map, (void *) (uintptr_t) addr, host);
         publish2(host_changed_publisher, host, (void *) 0x1);
     }
 }
 
-void update_host(uint32_t *addr, char *name)
+void update_host(uint32_t addr, char *name)
 {
-    hashmap_t *map = local_ip4(*addr) ? local_hosts : remote_hosts;
-    struct host_info *host = hashmap_get(map, addr);
+    hashmap_t *map = local_ip4(addr) ? local_hosts : remote_hosts;
+    struct host_info *host = hashmap_get(map, (void *) (uintptr_t) addr);
 
     if (host && !host->name) {
         host->name = name;

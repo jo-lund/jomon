@@ -10,12 +10,10 @@ struct snap_info {
     unsigned char *data;
 };
 
-#define snap_id(p) ((p)->eth.llc->snap->protocol_id)
-#define snap_oui(p) ((p)->eth.llc->snap->oui)
-
-uint32_t get_eth802_oui(struct snap_info *snap);
+uint32_t get_snap_oui(struct packet *p);
+uint16_t get_snap_id(struct packet *p);
 void register_snap();
 packet_error handle_snap(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                         void *data);
+                         struct packet_data *pdata);
 
 #endif

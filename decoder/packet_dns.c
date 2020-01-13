@@ -117,53 +117,55 @@ void register_dns()
  *          resource records in the additional records section.
  */
 packet_error handle_dns(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                        void *data)
+                        struct packet_data *pdata)
 {
     unsigned char *ptr = buffer;
     int plen = n;
     int num_records = 0;
-    struct application_info *info = data;
+    struct dns_info *dns;
 
     if (n < DNS_HDRLEN) return DNS_ERR;
-    info->dns = mempool_pealloc(sizeof(struct dns_info));
+    dns = mempool_pealloc(sizeof(struct dns_info));
+    pdata->data = dns;
+    pdata->len = n;
 
     /*
      * According to RFC 1035, messages sent over TCP are prefixed with a two
      * byte length field
      */
-    if (info->transport == TCP) {
-        info->dns->length = get_uint16be(ptr);
+    if (pdata->transport == IPPROTO_TCP) {
+        dns->length = get_uint16be(ptr);
         ptr += 2;
     } else {
-        info->dns->length = 0;
+        dns->length = 0;
     }
-    info->dns->id = ptr[0] << 8 | ptr[1];
-    info->dns->qr = (ptr[2] & 0x80) >> 7;
-    info->dns->opcode = (ptr[2] & 0x78) >> 3;
-    if (info->utype == LLMNR) {
-        info->dns->llmnr_flags.c = (ptr[2] & 0x04) >> 2;
-        info->dns->llmnr_flags.tc = (ptr[2] & 0x02) >> 1;
-        info->dns->llmnr_flags.t = ptr[2] & 0x01;
+    dns->id = ptr[0] << 8 | ptr[1];
+    dns->qr = (ptr[2] & 0x80) >> 7;
+    dns->opcode = (ptr[2] & 0x78) >> 3;
+    if (pdata->id == LLMNR) {
+        dns->llmnr_flags.c = (ptr[2] & 0x04) >> 2;
+        dns->llmnr_flags.tc = (ptr[2] & 0x02) >> 1;
+        dns->llmnr_flags.t = ptr[2] & 0x01;
     } else {
-        info->dns->dns_flags.aa = (ptr[2] & 0x04) >> 2;
-        info->dns->dns_flags.tc = (ptr[2] & 0x02) >> 1;
-        info->dns->dns_flags.rd = ptr[2] & 0x01;
-        info->dns->dns_flags.ra = (ptr[3] & 0x80) >> 7;
-        info->dns->dns_flags.ad = (ptr[3] & 0x20) >> 5;
-        info->dns->dns_flags.cd = (ptr[3] & 0x10) >> 4;
+        dns->dns_flags.aa = (ptr[2] & 0x04) >> 2;
+        dns->dns_flags.tc = (ptr[2] & 0x02) >> 1;
+        dns->dns_flags.rd = ptr[2] & 0x01;
+        dns->dns_flags.ra = (ptr[3] & 0x80) >> 7;
+        dns->dns_flags.ad = (ptr[3] & 0x20) >> 5;
+        dns->dns_flags.cd = (ptr[3] & 0x10) >> 4;
     }
-    info->dns->rcode = ptr[3] & 0x0f;
+    dns->rcode = ptr[3] & 0x0f;
     for (int i = 0, j = 4; i < 4; i++, j += 2) {
-        info->dns->section_count[i] = ptr[j] << 8 | ptr[j + 1];
+        dns->section_count[i] = ptr[j] << 8 | ptr[j + 1];
     }
-    info->dns->question = NULL;
-    info->dns->record = NULL;
-    if (!info->dns->qr) {  /* DNS query */
+    dns->question = NULL;
+    dns->record = NULL;
+    if (!dns->qr) {  /* DNS query */
         /*
          * ARCOUNT will typically be 0, 1, or 2, depending on whether EDNS0
          * (RFC 2671) or TSIG (RFC 2845) are used
          */
-        if (info->dns->section_count[ARCOUNT] > 2) {
+        if (dns->section_count[ARCOUNT] > 2) {
             return DNS_ERR;
         }
     }
@@ -171,8 +173,8 @@ packet_error handle_dns(struct protocol_info *pinfo, unsigned char *buffer, int 
     plen -= DNS_HDRLEN;
 
     /* QUESTION section */
-    if (info->dns->section_count[QDCOUNT] > 0) {
-        int len = parse_dns_question(buffer, n, &ptr, plen, info->dns);
+    if (dns->section_count[QDCOUNT] > 0) {
+        int len = parse_dns_question(buffer, n, &ptr, plen, dns);
 
         if (len == -1) {
             return DNS_ERR;
@@ -182,15 +184,15 @@ packet_error handle_dns(struct protocol_info *pinfo, unsigned char *buffer, int 
 
     /* Answer/Authority/Additional records sections */
     for (int i = ANCOUNT; i < 4; i++) {
-        num_records += info->dns->section_count[i];
+        num_records += dns->section_count[i];
     }
     if (num_records > n) {
         return DNS_ERR;
     }
     if (num_records) {
-        info->dns->record = mempool_pealloc(num_records * sizeof(struct dns_resource_record));
+        dns->record = mempool_pealloc(num_records * sizeof(struct dns_resource_record));
         for (int i = 0; i < num_records; i++) {
-            int len = parse_dns_record(i, buffer, n, &ptr, plen, info->dns);
+            int len = parse_dns_record(i, buffer, n, &ptr, plen, dns);
 
             if (len == -1) {
                 return DNS_ERR;
@@ -257,7 +259,7 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
     case DNS_TYPE_A:
         if (rdlen == 4) {
             dns->record[i].rdata.address = get_uint32le(ptr);
-            dns_cache_insert(&dns->record[i].rdata.address, dns->record[i].name);
+            dns_cache_insert(dns->record[i].rdata.address, dns->record[i].name);
         }
         ptr += rdlen;
         break;

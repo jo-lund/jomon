@@ -21,20 +21,22 @@ void register_imap()
 }
 
 packet_error handle_imap(struct protocol_info *pinfo, unsigned char *buf, int n,
-                         void *data)
+                         struct packet_data *pdata)
 {
     char line[MAXLINE];
     int i = 0;
     int c = 0;
-    struct application_info *adu = data;
+    struct imap_info *imap;
 
-    adu->imap = mempool_pealloc(sizeof(struct imap_info));
-    adu->imap->lines = list_init(&d_alloc);
+    imap = mempool_pealloc(sizeof(struct imap_info));
+    pdata->data = imap;
+    pdata->len = n;
+    imap->lines = list_init(&d_alloc);
     while (isascii(*buf)) {
         if (c >= MAXLINE || i >= n) return IMAP_ERR;
         if (*buf == '\r') {
             if (++i < n && *++buf == '\n') {
-                list_push_back(adu->imap->lines, mempool_pecopy0(line, c));
+                list_push_back(imap->lines, mempool_pecopy0(line, c));
                 if (i == n - 1) break;
                 i++;
                 buf++;
@@ -52,7 +54,7 @@ packet_error handle_imap(struct protocol_info *pinfo, unsigned char *buf, int n,
         pinfo->num_bytes += n;
         return NO_ERR;
     }
-    mempool_pefree(adu->imap->lines);
-    adu->imap->lines = NULL;
+    mempool_pefree(imap->lines);
+    imap->lines = NULL;
     return IMAP_ERR;
 }

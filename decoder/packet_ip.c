@@ -30,7 +30,6 @@
 #define CS6 0X30
 #define CS7 0X38
 
-
 extern void add_ipv4_information(void *w, void *sw, void *data);
 extern void print_ipv4(char *buf, int n, void *data);
 extern void add_ipv6_information(void *w, void *sw, void *data);
@@ -95,50 +94,56 @@ void register_ip()
  * Protocol: Defines the protocol used in the data portion of the packet.
  */
 packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                         void *data)
+                         struct packet_data *pdata)
 {
     struct iphdr *ip;
     unsigned int header_len;
-    struct eth_info *eth = data;
+    struct ipv4_info *ipv4;
 
     ip = (struct iphdr *) buffer;
     if (n < ip->ihl * 4 || ip->ihl < 5) return IPv4_ERR;
 
     pinfo->num_packets++;
     pinfo->num_bytes += n;
-    eth->ipv4 = mempool_pealloc(sizeof(struct ipv4_info));
-    eth->ipv4->src = ip->saddr;
-    eth->ipv4->dst = ip->daddr;
-    eth->ipv4->version = ip->version;
-    eth->ipv4->ihl = ip->ihl;
+    ipv4 = mempool_pealloc(sizeof(struct ipv4_info));
+    pdata->data = ipv4;
+    ipv4->src = ip->saddr;
+    ipv4->dst = ip->daddr;
+    ipv4->version = ip->version;
+    ipv4->ihl = ip->ihl;
     header_len = ip->ihl * 4;
+    pdata->len = header_len;
 
     /* Originally defined as type of service, but now defined as differentiated
        services code point and explicit congestion control */
-    eth->ipv4->dscp = (ip->tos & 0xfc) >> 2;
-    eth->ipv4->ecn = ip->tos & 0x03;
+    ipv4->dscp = (ip->tos & 0xfc) >> 2;
+    ipv4->ecn = ip->tos & 0x03;
 
-    eth->ipv4->length = ntohs(ip->tot_len);
-    if (eth->ipv4->length < header_len || /* total length less than header length */
-        eth->ipv4->length > n) { /* total length greater than packet length */
+    ipv4->length = ntohs(ip->tot_len);
+    if (ipv4->length < header_len || /* total length less than header length */
+        ipv4->length > n) { /* total length greater than packet length */
         return IPv4_ERR;
     }
 
     /* The packet has been padded in order to contain the minimum number of by
        bytes. The padded bytes should be ignored. */
-    if (n > eth->ipv4->length) {
-        n = eth->ipv4->length;
+    if (n > ipv4->length) {
+        n = ipv4->length;
     }
 
-    eth->ipv4->id = ntohs(ip->id);
-    eth->ipv4->foffset = ntohs(ip->frag_off);
-    eth->ipv4->ttl = ip->ttl;
-    eth->ipv4->protocol = ip->protocol;
-    eth->ipv4->checksum = ntohs(ip->check);
+    ipv4->id = ntohs(ip->id);
+    ipv4->foffset = ntohs(ip->frag_off);
+    ipv4->ttl = ip->ttl;
+    ipv4->protocol = ip->protocol;
+    ipv4->checksum = ntohs(ip->check);
+    pdata->id = ipv4->protocol;
 
-    struct protocol_info *layer3 = get_protocol(LAYER3, eth->ipv4->protocol);
-    if (layer3)
-        return layer3->decode(layer3, buffer + header_len, n - header_len, eth);
+    struct protocol_info *layer3 = get_protocol(LAYER3, ipv4->protocol);
+    if (layer3) {
+        pdata->next = mempool_pealloc(sizeof(struct packet_data));
+        memset(pdata->next, 0, sizeof(struct packet_data));
+        return layer3->decode(layer3, buffer + header_len, n - header_len, pdata->next);
+    }
      return NO_ERR;
 }
 
@@ -182,11 +187,11 @@ packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int
  * Destination Address: 128-bit address of the intended recipient of the packet
  */
 packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                         void *data)
+                         struct packet_data *pdata)
 {
     struct ip6_hdr *ip6;
     unsigned int header_len;
-    struct eth_info *eth = data;
+    struct ipv6_info *ipv6;
 
     header_len = sizeof(struct ip6_hdr);
     if (n < header_len) return IPv6_ERR;
@@ -194,20 +199,26 @@ packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int
     pinfo->num_packets++;
     pinfo->num_bytes += n;
     ip6 = (struct ip6_hdr *) buffer;
-    eth->ipv6 = mempool_pealloc(sizeof(struct ipv6_info));
-    eth->ipv6->version = ip6->ip6_vfc >> 4;
-    eth->ipv6->tc = ip6->ip6_vfc & 0x0f;
-    eth->ipv6->flow_label = ntohl(ip6->ip6_flow);
-    eth->ipv6->payload_len = ntohs(ip6->ip6_plen);
-    eth->ipv6->next_header = ip6->ip6_nxt;
-    eth->ipv6->hop_limit = ip6->ip6_hlim;
-    memcpy(eth->ipv6->src, ip6->ip6_src.s6_addr, 16);
-    memcpy(eth->ipv6->dst, ip6->ip6_dst.s6_addr, 16);
+    ipv6 = mempool_pealloc(sizeof(struct ipv6_info));
+    pdata->data = ipv6;
+    pdata->len = header_len;
+    ipv6->version = ip6->ip6_vfc >> 4;
+    ipv6->tc = ip6->ip6_vfc & 0x0f;
+    ipv6->flow_label = ntohl(ip6->ip6_flow);
+    ipv6->payload_len = ntohs(ip6->ip6_plen);
+    ipv6->next_header = ip6->ip6_nxt;
+    ipv6->hop_limit = ip6->ip6_hlim;
+    memcpy(ipv6->src, ip6->ip6_src.s6_addr, 16);
+    memcpy(ipv6->dst, ip6->ip6_dst.s6_addr, 16);
+    pdata->id = ipv6->next_header;
 
     // TODO: Handle IPv6 extension headers and errors
-    struct protocol_info *layer3 = get_protocol(LAYER3, eth->ipv6->next_header);
-    if (layer3)
-        return layer3->decode(layer3, buffer + header_len, n - header_len, eth);
+    struct protocol_info *layer3 = get_protocol(LAYER3, ipv6->next_header);
+    if (layer3) {
+        pdata->next = mempool_pealloc(sizeof(struct packet_data));
+        memset(pdata->next, 0, sizeof(struct packet_data));
+        return layer3->decode(layer3, buffer + header_len, n - header_len, pdata->next);
+    }
     return NO_ERR;
 }
 
@@ -251,17 +262,6 @@ char *get_ip_transport_protocol(uint8_t protocol)
     }
 }
 
-unsigned char *get_ip_payload(struct packet *p)
-{
-    if (p->eth.ethertype == ETH_P_IP) {
-        return p->eth.data + ETH_HLEN + p->eth.ipv4->ihl * 4;
-    }
-    if (p->eth.ethertype == ETH_P_IPV6) {
-        return p->eth.data + ETH_HLEN + sizeof(struct ip6_hdr);
-    }
-    return NULL;
-}
-
 struct packet_flags *get_ipv4_flags()
 {
     return ipv4_flags;
@@ -275,4 +275,64 @@ int get_ipv4_flags_size()
 uint16_t get_ipv4_foffset(struct ipv4_info *ip)
 {
     return ip->foffset & 0x1fff;
+}
+
+uint32_t get_ipv4_src(const struct packet *p)
+{
+    struct packet_data *pdata = get_packet_data(p, ETH_P_IP);
+    struct ipv4_info *ipv4 = pdata->data;
+
+    if (ipv4)
+        return ipv4->src;
+    return 0;
+}
+
+uint32_t get_ipv4_dst(const struct packet *p)
+{
+    struct packet_data *pdata = get_packet_data(p, ETH_P_IP);
+    struct ipv4_info *ipv4 = pdata->data;
+
+    if (ipv4)
+        return ipv4->dst;
+    return 0;
+}
+
+uint8_t get_ipv4_protocol(const struct packet *p)
+{
+    struct packet_data *pdata = get_packet_data(p, ETH_P_IP);
+    struct ipv4_info *ipv4 = pdata->data;
+
+    if (ipv4)
+        return ipv4->protocol;
+    return 0;
+}
+
+uint8_t *get_ipv6_src(const struct packet *p)
+{
+    struct packet_data *pdata = get_packet_data(p, ETH_P_IPV6);
+    struct ipv6_info *ipv6 = pdata->data;
+
+    if (ipv6)
+        return ipv6->src;
+    return NULL;
+}
+
+uint8_t *get_ipv6_dst(const struct packet *p)
+{
+    struct packet_data *pdata = get_packet_data(p, ETH_P_IPV6);
+    struct ipv6_info *ipv6 = pdata->data;
+
+    if (ipv6)
+        return ipv6->dst;
+    return NULL;
+}
+
+uint8_t get_ipv6_protocol(const struct packet *p)
+{
+    struct packet_data *pdata = get_packet_data(p, ETH_P_IPV6);
+    struct ipv6_info *ipv6 = pdata->data;
+
+    if (ipv6)
+        return ipv6->next_header;
+    return 0;
 }

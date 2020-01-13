@@ -383,7 +383,7 @@ void register_tls()
 }
 
 packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
-                        void *data)
+                        struct packet_data *pdata)
 {
     if (n < TLS_HEADER_SIZE || n > TLS_MAX_SIZE) return TLS_ERR;
 
@@ -391,9 +391,11 @@ packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
     struct tls_info **pptr;
     enum tls_state state = NORMAL;
     int i = 0;
-    struct application_info *adu = data;
+    struct tls_info *tls;
 
-    pptr = &adu->tls;
+    pinfo->num_packets++;
+    pinfo->num_bytes += n;
+    pptr = &tls;
     while (data_len < n) {
         uint16_t record_len;
 
@@ -409,6 +411,7 @@ packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
             } else {
                 mempool_pefree(*pptr);
                 *pptr = NULL;
+                pdata->data = tls;
                 return NO_ERR;
             }
         }
@@ -444,8 +447,8 @@ packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
         pptr = &(*pptr)->next;
         i++;
     }
-    pinfo->num_packets++;
-    pinfo->num_bytes += n;
+    pdata->data = tls;
+    pdata->len = n;
     return NO_ERR;
 }
 

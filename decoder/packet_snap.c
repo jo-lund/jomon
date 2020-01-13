@@ -15,26 +15,43 @@ static struct protocol_info snap_prot = {
 
 void register_snap()
 {
-    register_protocol(&snap_prot, LAYER802_3, ETH_802_SNAP);
+    register_protocol(&snap_prot, LAYER3, ETH_802_SNAP);
 }
 
 packet_error handle_snap(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                         void *data)
+                         struct packet_data *pdata)
 {
-    struct eth_802_llc *llc = data;
+    struct snap_info *snap;
 
     pinfo->num_packets++;
     pinfo->num_bytes += n;
-    llc->snap = mempool_pealloc(sizeof(struct snap_info));
-    memcpy(llc->snap->oui, buffer, 3);
+    snap = mempool_pealloc(sizeof(struct snap_info));
+    pdata->data = snap;
+    pdata->len = n;
+    memcpy(snap->oui, buffer, 3);
     buffer += 3; /* skip first 3 bytes of 802.2 SNAP */
-    llc->snap->protocol_id = get_uint16be(buffer);
+    snap->protocol_id = get_uint16be(buffer);
 
     /* TODO: handle sub-protocols */
     return NO_ERR;
 }
 
-uint32_t get_eth802_oui(struct snap_info *snap)
+uint32_t get_snap_oui(struct packet *p)
 {
-    return snap->oui[0] << 16 | snap->oui[1] << 8 | snap->oui[2];
+    struct packet_data *pdata = get_packet_data(p, ETH_802_SNAP);
+    struct snap_info *snap = pdata->data;
+
+    if (snap)
+        return snap->oui[0] << 16 | snap->oui[1] << 8 | snap->oui[2];
+    return 0;
+}
+
+uint16_t get_snap_id(struct packet *p)
+{
+    struct packet_data *pdata = get_packet_data(p, ETH_802_SNAP);
+    struct snap_info *snap = pdata->data;
+
+    if (snap)
+        return snap->protocol_id;
+    return 0;
 }

@@ -64,21 +64,16 @@ void register_igmp()
  * TODO: Handle IGMPv3 membership query
  */
 packet_error handle_igmp(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                         void *data)
+                         struct packet_data *pdata)
 {
     if (n < IGMP_HDR_LEN) return IGMP_ERR;
 
     struct igmp *igmp;
-    struct eth_info *eth = data;
     struct igmp_info *info;
 
-    if (eth->ethertype == ETH_P_IP) {
-        eth->ipv4->igmp = mempool_pealloc(sizeof(struct igmp_info));
-        info = eth->ipv4->igmp;
-    } else {
-        eth->ipv6->igmp = mempool_pealloc(sizeof(struct igmp_info));
-        info = eth->ipv6->igmp;
-    }
+    info = mempool_pealloc(sizeof(struct igmp_info));
+    pdata->data = info;
+    pdata->len = n;
     pinfo->num_packets++;
     pinfo->num_bytes += n;
     igmp = (struct igmp *) buffer;

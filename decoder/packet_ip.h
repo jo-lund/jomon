@@ -26,19 +26,7 @@ struct ipv4_info {
     uint16_t checksum;
     uint32_t src;
     uint32_t dst;
-    union {
-        struct udp_info *udp;
-        struct tcp *tcp;
-        struct igmp_info *igmp;
-        struct icmp_info *icmp;
-        struct pim_info *pim;
-    };
 };
-
-#define get_ipv4(p) ((p)->eth.ipv4)
-#define ipv4_src(p) get_ipv4(p)->src
-#define ipv4_dst(p) get_ipv4(p)->dst
-#define ipv4_protocol(p) get_ipv4(p)->protocol
 
 struct ipv6_info {
     unsigned int version : 4;
@@ -49,18 +37,7 @@ struct ipv6_info {
     uint8_t hop_limit;
     uint8_t src[16];
     uint8_t dst[16];
-    union {
-        struct udp_info *udp;
-        struct tcp *tcp;
-        struct igmp_info *igmp;
-        struct pim_info *pim;
-    };
 };
-
-#define get_ipv6(p) ((p)->eth.ipv6)
-#define ipv6_src(p) get_ipv6(p)->src
-#define ipv6_dst(p) get_ipv6(p)->dst
-#define ipv6_protocol(p) get_ipv6(p)->next_header
 
 char *get_ip_dscp(uint8_t dscp);
 char *get_ip_transport_protocol(uint8_t protocol);
@@ -75,11 +52,19 @@ int get_ipv4_flags_size();
 /* Get the IPv4 fragment offset field */
 uint16_t get_ipv4_foffset(struct ipv4_info *ip);
 
+uint32_t get_ipv4_src(const struct packet *p);
+uint32_t get_ipv4_dst(const struct packet *p);
+uint8_t get_ipv4_protocol(const struct packet *p);
+
+uint8_t *get_ipv6_src(const struct packet *p);
+uint8_t *get_ipv6_dst(const struct packet *p);
+uint8_t get_ipv6_protocol(const struct packet *p);
+
 /* internal to the decoder */
 void register_ip();
 packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                         void *data);
+                         struct packet_data *pdata);
 packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                         void *data);
+                         struct packet_data *pdata);
 
 #endif

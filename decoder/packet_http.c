@@ -55,12 +55,14 @@ static int rbcmp(const void *d1, const void *d2)
 }
 
 packet_error handle_http(struct protocol_info *pinfo, unsigned char *buffer,
-                         int len, void *data)
+                         int len, struct packet_data *pdata)
 {
-    struct application_info *info = data;
+    struct http_info *http;
 
-    info->http = mempool_pealloc(sizeof(struct http_info));
-    if (!parse_http(buffer, len, info->http)) {
+    http = mempool_pealloc(sizeof(struct http_info));
+    pdata->data = http;
+    pdata->len = len;
+    if (!parse_http(buffer, len, http)) {
         return UNK_PROTOCOL;
     }
     pinfo->num_packets++;

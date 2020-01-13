@@ -34,15 +34,17 @@ void register_ssdp()
  * originating address and port number of the multicast request.
  */
 packet_error handle_ssdp(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                         void *data)
+                         struct packet_data *pdata)
 {
-    struct application_info *adu = data;
+    struct ssdp_info *ssdp;
 
-    adu->ssdp = mempool_pealloc(sizeof(struct ssdp_info));
+    ssdp = mempool_pealloc(sizeof(struct ssdp_info));
+    pdata->data = ssdp;
+    pdata->len = n;
     pinfo->num_packets++;
     pinfo->num_bytes += n;
-    adu->ssdp->fields = list_init(&d_alloc);
-    parse_ssdp((char *) buffer, n, adu->ssdp->fields);
+    ssdp->fields = list_init(&d_alloc);
+    parse_ssdp((char *) buffer, n, ssdp->fields);
     return NO_ERR;
 }
 

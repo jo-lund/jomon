@@ -11,11 +11,9 @@ struct http_info {
     unsigned int len;
 };
 
-struct application_info;
-
 /* internal to the decoder */
 void register_http();
 packet_error handle_http(struct protocol_info *pinfo, unsigned char *buffer,
-                         int len, void *data);
+                         int len, struct packet_data *pdata);
 
 #endif

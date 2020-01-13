@@ -12,13 +12,9 @@ struct igmp_info {
     uint32_t group_addr;
 };
 
-#define get_igmp(p, v) ((p)->eth.ip##v->igmp)
-
-struct ipv4_info;
-
 void register_igmp();
 packet_error handle_igmp(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                         void *data);
+                         struct packet_data *pdata);
 char *get_igmp_type(uint8_t type);
 
 #endif

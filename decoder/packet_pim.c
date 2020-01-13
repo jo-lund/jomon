@@ -52,20 +52,15 @@ void register_pim()
  *
  */
 packet_error handle_pim(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                        void *data)
+                        struct packet_data *pdata)
 {
     if (n < PIM_HEADER_LEN) return PIM_ERR;
 
-    struct eth_info *eth = data;
     struct pim_info *pim;
 
-    if (eth->ethertype == ETH_P_IP) {
-        eth->ipv4->pim = mempool_pealloc(sizeof(struct pim_info));
-        pim = eth->ipv4->pim;
-    } else {
-        eth->ipv6->pim = mempool_pealloc(sizeof(struct pim_info));
-        pim = eth->ipv6->pim;
-    }
+    pim = mempool_pealloc(sizeof(struct pim_info));
+    pdata->data = pim;
+    pdata->len = n;
     pinfo->num_packets++;
     pinfo->num_bytes += n;
     pim->version = (buffer[0] >> 4) & 0xf;

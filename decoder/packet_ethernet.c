@@ -50,34 +50,31 @@ bool handle_ethernet(unsigned char *buffer, int n, struct packet *p)
     if (n < ETH_HLEN || n > MAX_PACKET_SIZE) return false;
 
     struct ethhdr *eth_header;
+    struct eth_info *eth;
+    struct protocol_info *pinfo;
 
     eth_header = (struct ethhdr *) buffer;
-    memcpy(p->eth.mac_src, eth_header->h_source, ETH_ALEN);
-    memcpy(p->eth.mac_dst, eth_header->h_dest, ETH_ALEN);
-    p->eth.ethertype = ntohs(eth_header->h_proto);
+    eth = mempool_pealloc(sizeof(struct eth_info));
+    memcpy(eth->mac_src, eth_header->h_source, ETH_ALEN);
+    memcpy(eth->mac_dst, eth_header->h_dest, ETH_ALEN);
+    eth->ethertype = ntohs(eth_header->h_proto);
+    p->root = mempool_pealloc(sizeof(struct packet_data));
+    p->root->data = eth;
+    p->root->len = ETH_HLEN;
 
-    /* store the original frame in data */
-    p->eth.data = mempool_pecopy(buffer, n);
-
-    /* Ethernet 802.3 frame */
-    if (p->eth.ethertype <= ETH_802_3_MAX) {
-        struct protocol_info *pinfo;
-
-        p->eth.payload_len = p->eth.ethertype;
-        if ((pinfo = get_protocol(LAYER802_3, ETH_802_LLC)))
-            p->perr = pinfo->decode(pinfo, buffer + ETH_HLEN, n - ETH_HLEN, &p->eth);
-        else
-            p->perr = UNK_PROTOCOL;
+    if (eth->ethertype <= ETH_802_3_MAX) { /* Ethernet 802.3 frame */
+        pinfo = get_protocol(LAYER2, ETH_802_LLC);
+        p->root->id = ETH_802_LLC;
     } else { /* Ethernet II */
-        struct protocol_info *pinfo;
-
-        p->eth.payload_len = n - ETH_HLEN;
-        if ((pinfo = get_protocol(LAYER2, ethertype(p))))
-            p->perr = pinfo->decode(pinfo, buffer + ETH_HLEN, n - ETH_HLEN, &p->eth);
-        else
-            p->perr = UNK_PROTOCOL;
+        pinfo = get_protocol(LAYER2, eth->ethertype);
+        p->root->id = eth->ethertype;
     }
-    p->ptype = ETHERNET;
+    if (pinfo) {
+        p->root->next = mempool_pealloc(sizeof(struct packet_data));
+        memset(p->root->next, 0, sizeof(struct packet_data));
+        p->perr = pinfo->decode(pinfo, buffer + ETH_HLEN, n - ETH_HLEN, p->root->next);
+    } else
+        p->perr = UNK_PROTOCOL;
     return true;
 }
 

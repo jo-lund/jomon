@@ -1,5 +1,6 @@
 #include <ctype.h>
 #include <string.h>
+#include <limits.h>
 #include "hexdump.h"
 #include "layout_int.h"
 #include "../decoder/decoder.h"
@@ -11,14 +12,17 @@
 #define HD_NORMAL_LEN 76
 #define HD_WIDE_LEN 75
 #define HD_ASCII_IDX 60
+#define BUFSZ 1024
 
 // TODO: Remove this and make the elements modifiable
 #define CYAN COLOR_PAIR(7)
 #define GREEN COLOR_PAIR(3)
+#define BROWN COLOR_PAIR(4)
 #define BLUE COLOR_PAIR(5)
 #define MAGENTA COLOR_PAIR(6)
 #define LIGHT_BLUE (BLUE | A_BOLD)
 #define PURPLE (MAGENTA | A_BOLD)
+#define YELLOW (BROWN | A_BOLD)
 
 typedef struct {
     int type;
@@ -36,47 +40,32 @@ typedef struct {
     } h_arg;
 } hd_args;
 
-enum hex_state {
-    HD_ETHERNET,
-    HD_ARP,
-    HD_LLC,
-    HD_IP,
-    HD_IP6,
-    HD_UDP,
-    HD_TCP,
-    HD_ICMP,
-    HD_IGMP,
-    HD_PIM,
-    HD_APP,
-    HD_SNAP,
-    HD_STP,
-    HD_UNKNOWN
+struct hd_layer {
+    char *name;
+    int layer;
 };
 
-static struct uint_string hex_state_val[] = {
-    { HD_ETHERNET, "Ethernet" },
-    { HD_ARP, "ARP" },
-    { HD_LLC, "LLC" },
-    { HD_IP, "IP" },
-    { HD_IP6, "IP6" },
-    { HD_UDP, "UDP" },
-    { HD_TCP, "TCP" },
-    { HD_ICMP, "ICMP" },
-    { HD_IGMP, "IGMP" },
-    { HD_PIM, "PIM" },
-    { HD_SNAP, "SNAP" },
-    { HD_STP, "STP" },
-    { HD_UNKNOWN, "Data" }
+static const int hd_colour[] = {
+    PURPLE,
+    CYAN | A_BOLD,
+    LIGHT_BLUE,
+    GREEN | A_BOLD,
+    YELLOW
+};
+
+struct protocol_ctx {
+    struct packet_data *pdata;
+    struct protocol_info *pinfo;
+    int layer;
+    int idx;
+    int prev_idx;
 };
 
 static list_t *protocols;
 
 static void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_args *arg);
-static enum hex_state get_next_state(enum hex_state cur_state, struct packet *p);
-static void print_char(WINDOW *win, char *buf, enum hex_state *state, struct packet *p, int i, int j, bool update);
-static void print_state(WINDOW *win, char *buf, enum hex_state state);
-static enum hex_state str2enum(char *state);
-static inline char *enum2str(enum hex_state state);
+static void print_char(WINDOW *win, char *buf, struct protocol_ctx *ctx, int i, int j, bool update);
+static void print_protocol(WINDOW *win, struct hd_layer *prot);
 
 void add_hexdump(list_view *lw, list_view_header *header, enum hexmode mode, unsigned char *payload, uint16_t len)
 {
@@ -97,33 +86,34 @@ void add_winhexdump(WINDOW *win, int y, int x, enum hexmode mode, struct packet 
     args.h_arg.p = p;
     args.h_arg.y = y;
     args.h_arg.x = x;
-    print_hexdump(mode, p->eth.data, p->eth.payload_len + ETH_HLEN, &args);
+    print_hexdump(mode, p->buf, p->len, &args);
 }
 
 void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_args *arg)
 {
-    int size = 1024;
     int num = 0;
-    char buf[size];
+    char buf[1024];
     int hexoffset;
     char *hex = "0123456789abcdef";
     char *offset = " offset ";
-    enum hex_state state = HD_ETHERNET;
-    enum hex_state prev_state = state;
+    struct protocol_ctx ctx;
+    struct hd_layer *prot = malloc(sizeof(struct hd_layer));
 
     protocols = list_init(NULL);
-    list_push_back(protocols, enum2str(state));
+    prot->name = "Ethernet";
+    prot->layer = 0;
+    list_push_back(protocols, prot);
 
     if (mode == HEXMODE_WIDE) {
         hexoffset = 64;
-        snprintf(buf, size, "%-11s%s%s%s%s", offset, hex, hex, hex, hex);
+        snprintf(buf, 1024, "%-11s%s%s%s%s", offset, hex, hex, hex, hex);
     } else {
         hexoffset = 16;
-        snprintf(buf, size, "%-11s0  1  2  3  4  5  6  7", offset);
+        snprintf(buf, BUFSZ, "%-11s0  1  2  3  4  5  6  7", offset);
         if (arg->type == HD_LIST_VIEW) {
-            snprintcat(buf, size, "   8  9  a  b  c  d  e  f  %s", hex);
+            snprintcat(buf, BUFSZ, "   8  9  a  b  c  d  e  f  %s", hex);
         } else {
-            snprintcat(buf, size, "   8  9  a  b  c  d  e  f   %s", hex);
+            snprintcat(buf, BUFSZ, "   8  9  a  b  c  d  e  f   %s", hex);
         }
     }
     if (arg->type == HD_LIST_VIEW) {
@@ -133,30 +123,34 @@ void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_a
         item->attr = A_BOLD;
     } else {
         printat(arg->h_arg.win, arg->h_arg.y, arg->h_arg.x, A_BOLD, "%s", buf);
+        ctx.pdata = arg->h_arg.p->root;
+        ctx.pinfo = NULL;
+        ctx.layer = 0;
+        ctx.idx = ctx.pdata->len;
     }
 
     while (num < len) {
-        snprintf(buf, size, "%08x  ", num);
+        snprintf(buf, BUFSZ, "%08x  ", num);
         if (mode == HEXMODE_NORMAL) {
             for (int i = num; i < num + hexoffset; i++) {
                 if (i < len) {
-                    snprintcat(buf, size, "%02x ", payload[i]);
+                    snprintcat(buf, BUFSZ, "%02x ", payload[i]);
                 } else {
-                    snprintcat(buf, size, "   ");
+                    snprintcat(buf, BUFSZ, "   ");
                 }
-                if (i % hexoffset - 7 == 0) snprintcat(buf, size, " ");
+                if (i % hexoffset - 7 == 0) snprintcat(buf, BUFSZ, " ");
             }
         }
-        snprintcat(buf, size, " ");
+        snprintcat(buf, BUFSZ, " ");
         for (int i = num; i < num + hexoffset; i++) {
             if (i < len) {
                 if (isprint(payload[i])) {
-                    snprintcat(buf, size, "%c", payload[i]);
+                    snprintcat(buf, BUFSZ, "%c", payload[i]);
                 } else {
-                    snprintcat(buf, size, ".");
+                    snprintcat(buf, BUFSZ, ".");
                 }
             } else {
-                snprintcat(buf, size, " ");
+                snprintcat(buf, BUFSZ, " ");
             }
         }
         if (arg->type == HD_LIST_VIEW) {
@@ -181,13 +175,15 @@ void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_a
                     if (isspace(buf[i])) {
                         waddch(arg->h_arg.win, buf[i]);
                     } else {
-                        print_char(arg->h_arg.win, buf, &state, arg->h_arg.p, i, j, true);
+                        print_char(arg->h_arg.win, buf, &ctx, i, j, true);
                         if (k % 2) j++;
                         k++;
                     }
                     i++;
                 }
                 j = num;
+                if (ctx.prev_idx != ctx.idx)
+                    ctx.layer--;
 
                 /* print ascii */
                 waddch(arg->h_arg.win, ACS_VLINE);
@@ -195,7 +191,7 @@ void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_a
                     if (isspace(buf[i])) {
                         waddch(arg->h_arg.win, buf[i]);
                     } else {
-                        print_char(arg->h_arg.win, buf, &prev_state, arg->h_arg.p, i, j++, false);
+                        print_char(arg->h_arg.win, buf, &ctx, i, j++, false);
                     }
                     i++;
                 }
@@ -206,7 +202,7 @@ void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_a
                     if (isspace(buf[i])) {
                         waddch(arg->h_arg.win, buf[i]);
                     } else {
-                        print_char(arg->h_arg.win, buf, &prev_state, arg->h_arg.p, i, j++, true);
+                        print_char(arg->h_arg.win, buf, &ctx, i, j++, true);
                     }
                     i++;
                 }
@@ -214,236 +210,47 @@ void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_a
 
             const node_t *n = list_begin(protocols);
             while (n) {
-                char *str;
+                struct hd_layer *prot;
 
-                str = (char *) list_data(n);
-                print_state(arg->h_arg.win, str, str2enum(str));
+                prot = (struct hd_layer *) list_data(n);
+                print_protocol(arg->h_arg.win, prot);
                 n = list_next(n);
             }
-            list_clear(protocols, NULL);
+            list_clear(protocols, free);
         }
         num += hexoffset;
     }
-    list_free(protocols, NULL);
+    list_free(protocols, free);
 }
 
-// TODO: This needs to be cleaned up
-void print_char(WINDOW *win, char *buf, enum hex_state *state, struct packet *p, int i, int j, bool update)
+void print_char(WINDOW *win, char *buf, struct protocol_ctx *ctx, int i, int j, bool update)
 {
-check_state:
-    switch (*state) {
-    case HD_ETHERNET:
-        if (j >= ETH_HLEN) {
-            *state = get_next_state(*state, p);
-            if (update) {
-                list_push_back(protocols, enum2str(*state));
-            }
-            goto check_state;
-        }
-        waddch(win, buf[i] | PURPLE);
-        break;
-    case HD_ARP:
-        waddch(win, buf[i] | GREEN | A_BOLD);
-        break;
-    case HD_LLC:
-        if (j >= ETH_HLEN + LLC_HDR_LEN) {
-            *state = get_next_state(*state, p);
-            if (update) {
-                list_push_back(protocols, enum2str(*state));
-            }
-            goto check_state;
-        }
-        waddch(win, buf[i] | LIGHT_BLUE);
-        break;
-    case HD_IP:
-        if (j >= ETH_HLEN + p->eth.ipv4->ihl * 4) {
-            *state = get_next_state(*state, p);
-            if (update) {
-                list_push_back(protocols, enum2str(*state));
-            }
-            goto check_state;
-        }
-        waddch(win, buf[i] | LIGHT_BLUE);
-        break;
-    case HD_IP6:
-        /* TDOO: should include extension headers */
-        if (j >= ETH_HLEN + IPV6_FIXED_HEADER_LEN) {
-            *state = get_next_state(*state, p);
-            if (update) {
-                list_push_back(protocols, enum2str(*state));
-            }
-            goto check_state;
-        }
-        waddch(win, buf[i] | LIGHT_BLUE);
-        break;
-    case HD_UDP:
-        if (p->eth.ethertype == ETH_P_IP) {
-            if (j >= ETH_HLEN + p->eth.ipv4->ihl * 4 + UDP_HDR_LEN) {
-                *state = get_next_state(*state, p);
-                if (update) {
-                    struct protocol_info *pinfo = get_protocol(LAYER4, get_adu_info(p)->utype);
+    if (update && j >= ctx->idx) {
+        struct hd_layer *prot = malloc(sizeof(struct hd_layer));
 
-                    if (pinfo)
-                        list_push_back(protocols, pinfo->short_name);
-                }
-                goto check_state;
-            }
-        } else { /* TODO: need to check for IPV6 extension headers */
-            if (j >= ETH_HLEN + IPV6_FIXED_HEADER_LEN + UDP_HDR_LEN) {
-                *state = get_next_state(*state, p);
-                if (update) {
-                    struct protocol_info *pinfo = get_protocol(LAYER4, get_adu_info(p)->utype);
-
-                    if (pinfo)
-                        list_push_back(protocols, pinfo->short_name);
-                }
-                goto check_state;
-            }
-        }
-        waddch(win, buf[i]);
-        break;
-    case HD_TCP:
-        if (p->eth.ethertype == ETH_P_IP) {
-            if (j >= ETH_HLEN + p->eth.ipv4->ihl * 4 + TCP_HDR_LEN(p)) {
-                *state = HD_APP;
-                if (update) {
-                    struct protocol_info *pinfo = get_protocol(LAYER4, get_adu_info(p)->utype);
-
-                    if (pinfo)
-                        list_push_back(protocols, pinfo->short_name);
-                }
-                goto check_state;
-            }
-        } else { /* TODO: need to check for IPV6 extension headers */
-            if (j >= ETH_HLEN + IPV6_FIXED_HEADER_LEN + TCP_HDR_LEN(p)) {
-                *state = HD_APP;
-                if (update) {
-                    struct protocol_info *pinfo = get_protocol(LAYER4, get_adu_info(p)->utype);
-
-                    if (pinfo)
-                        list_push_back(protocols, pinfo->short_name);
-                }
-                goto check_state;
-            }
-        }
-        waddch(win, buf[i]);
-        break;
-    default:
-        waddch(win, buf[i] | GREEN | A_BOLD);
-        break;
-    }
-}
-
-enum hex_state get_next_state(enum hex_state cur_state, struct packet *p)
-{
-    enum hex_state next_state = HD_UNKNOWN;
-
-    switch (cur_state) {
-    case HD_ETHERNET:
-        if (p->eth.ethertype <= ETH_802_3_MAX) {
-            next_state = HD_LLC;
+        if (ctx->pdata->next) {
+            ctx->pinfo = get_protocol(ctx->layer, ctx->pdata->id);
+            ctx->pdata = ctx->pdata->next;
+            ctx->prev_idx = ctx->idx;
+            ctx->idx += ctx->pdata->len;
+            ctx->layer++;
+            prot->name = ctx->pinfo->short_name;
+            prot->layer = ctx->layer;
         } else {
-            switch (p->eth.ethertype) {
-            case ETH_P_ARP:
-                next_state = HD_ARP;
-                break;
-            case ETH_P_IP:
-                next_state = HD_IP;
-                break;
-            case ETH_P_IPV6:
-                next_state = HD_IP6;
-                break;
-            default:
-                break;
-            }
+            ctx->idx = INT_MAX;
+            ctx->layer++;
+            prot->name = "Data";
+            prot->layer = ctx->layer;
         }
-        break;
-    case HD_LLC:
-    {
-        enum eth_802_type type = get_eth802_type(p->eth.llc);
-
-        switch (type) {
-        case ETH_802_STP:
-            next_state = HD_STP;
-            break;
-        case ETH_802_SNAP:
-            next_state = HD_SNAP;
-            break;
-        default:
-            break;
-        }
-        break;
+        list_push_back(protocols, prot);
+    } else if (!update && j >= ctx->prev_idx) {
+        ctx->prev_idx = ctx->idx;
+        ctx->layer++;
     }
-    case HD_IP:
-    case HD_IP6:
-    {
-        uint8_t protocol;
-
-        if (p->eth.ethertype == ETH_P_IP) {
-            protocol = p->eth.ipv4->protocol;
-        } else {
-            protocol = p->eth.ipv6->next_header;
-        }
-
-        switch (protocol) {
-        case IPPROTO_UDP:
-            next_state = HD_UDP;
-            break;
-        case IPPROTO_TCP:
-            next_state = HD_TCP;
-            break;
-        case IPPROTO_ICMP:
-            next_state = HD_ICMP;
-            break;
-        case IPPROTO_IGMP:
-            next_state = HD_IGMP;
-            break;
-        case IPPROTO_PIM:
-            next_state = HD_PIM;
-            break;
-        default:
-            break;
-        }
-        break;
-    }
-    default:
-        break;
-    }
-    return next_state;
+    waddch(win, buf[i] | hd_colour[ctx->layer]);
 }
 
-void print_state(WINDOW *win, char *buf, enum hex_state state)
+void print_protocol(WINDOW *win, struct hd_layer *prot)
 {
-    switch (state) {
-    case HD_ETHERNET:
-        printat(win, -1, -1, PURPLE, "  %s", buf);
-        break;
-    case HD_LLC:
-    case HD_IP:
-    case HD_IP6:
-        printat(win, -1, -1, LIGHT_BLUE, "  %s", buf);
-        break;
-    case HD_UDP:
-    case HD_TCP:
-        wprintw(win, "  %s", buf);
-        break;
-    default:
-        printat(win, -1, -1, GREEN | A_BOLD, "  %s", buf);
-        break;
-    }
-}
-
-enum hex_state str2enum(char *state)
-{
-    for (unsigned int i = 0; i < ARRAY_SIZE(hex_state_val); i++) {
-        if (!strcmp(hex_state_val[i].str, state)) {
-            return hex_state_val[i].val;
-        }
-    }
-    return HD_UNKNOWN;
-}
-
-inline char *enum2str(enum hex_state state)
-{
-    return hex_state_val[state].str;
+    printat(win, -1, -1, hd_colour[prot->layer], "  %s", prot->name);
 }

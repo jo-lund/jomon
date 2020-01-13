@@ -123,8 +123,6 @@ static void create_subwindow(main_screen *ms, int num_lines, int lineno);
 static void delete_subwindow(main_screen *ms);
 static bool inside_subwindow(main_screen *ms);
 static void add_elements(main_screen *ms, struct packet *p);
-static void add_transport_elements(main_screen *ms, struct packet *p);
-static void add_app_elements(main_screen *ms, struct packet *p, struct application_info *info, uint16_t len);
 static void handle_selectionbar(main_screen *ms, int c);
 static void refresh_pad(main_screen *ms, struct subwin_info *pad, int scrolly, int minx, bool update);
 static bool subwindow_on_screen(main_screen *ms);
@@ -758,15 +756,15 @@ void print_header(main_screen *ms)
 
         for (int i = 0; i < vector_size(packet_ref); i++) {
             struct packet *p = vector_get_data(packet_ref, i);
-            uint16_t len = TCP_PAYLOAD_LEN(p);
+            uint16_t len = get_adu_payload_len(p);
 
             if (i == 0) {
-                cli_addr = ipv4_src(p);
-                cli_port = tcp_src(p, v4);
-                srv_addr = ipv4_dst(p);
-                srv_port = tcp_dst(p, v4);
+                cli_addr = get_ipv4_src(p);
+                cli_port = get_tcp_src(p);
+                srv_addr = get_ipv4_dst(p);
+                srv_port = get_tcp_dst(p);
             }
-            if (cli_addr == ipv4_src(p) && cli_port == tcp_src(p, v4)) {
+            if (cli_addr == get_ipv4_src(p) && cli_port == get_tcp_src(p)) {
                 cli_packets++;
                 cli_bytes += len;
             } else {
@@ -1408,86 +1406,38 @@ void add_elements(main_screen *ms, struct packet *p)
 {
     list_view_header *header;
     struct protocol_info *pinfo;
+    struct eth_info *eth;
+    struct packet_data *pdata;
+    int i = 0;
+    int idx = 0;
 
     if (ms->lvw) {
         free_list_view(ms->lvw);
     }
     ms->lvw = create_list_view();
+    pdata = p->root;
+    eth = pdata->data;
 
     /* inspect packet and add packet headers as elements to the list view */
-    if (p->eth.ethertype <= ETH_802_3_MAX)
+    if (eth->ethertype <= ETH_802_3_MAX)
         header = LV_ADD_HEADER(ms->lvw, "Ethernet 802.3", selected[UI_LAYER1], UI_LAYER1);
     else
         header = LV_ADD_HEADER(ms->lvw, "Ethernet II", selected[UI_LAYER1], UI_LAYER1);
     add_ethernet_information(ms->lvw, header, p);
-    pinfo = get_protocol(LAYER2, ethertype(p));
-    if (p->perr == ARP_ERR || p->perr == IPv4_ERR || p->perr == IPv6_ERR)
-        goto layer2_error;
-    if (pinfo) {
-        header = LV_ADD_HEADER(ms->lvw, pinfo->long_name, selected[UI_LAYER2], UI_LAYER2);
-        pinfo->add_pdu(ms->lvw, header, p);
-        if (ethertype(p) == ETH_P_IP || ethertype(p) == ETH_P_IPV6)
-            add_transport_elements(ms, p);
-        return;
-    } else if (p->eth.ethertype <= ETH_802_3_MAX) {
-        if ((pinfo = get_protocol(LAYER802_3, ETH_802_LLC))) {
-            header = LV_ADD_HEADER(ms->lvw, pinfo->long_name, selected[UI_LAYER2], UI_LAYER2);
-            pinfo->add_pdu(ms->lvw, header, p);
-        } else
-            goto layer2_error;
-        pinfo = get_protocol(LAYER802_3, get_eth802_type(get_llc(p)));
-        if (!pinfo || p->perr == STP_ERR) {
-            header = LV_ADD_HEADER(ms->lvw, "Data", selected[UI_LAYER3], UI_LAYER3);
-            add_hexdump(ms->lvw, header, hexmode, p->eth.data + ETH_HLEN + LLC_HDR_LEN, LLC_PAYLOAD_LEN(p));
-        } else if (pinfo) {
-            header = LV_ADD_HEADER(ms->lvw, pinfo->long_name, selected[UI_LAYER3], UI_LAYER3);
-            pinfo->add_pdu(ms->lvw, header, p);
-        }
-        return;
-    }
-layer2_error:
-    header = LV_ADD_HEADER(ms->lvw, "Data", selected[UI_LAYER2], UI_LAYER2);
-    add_hexdump(ms->lvw, header, hexmode, p->eth.data + ETH_HLEN, p->eth.payload_len);
-}
-
-void add_transport_elements(main_screen *ms, struct packet *p)
-{
-    list_view_header *header;
-    uint8_t protocol = (ethertype(p) == ETH_P_IP) ? ipv4_protocol(p) : ipv6_protocol(p);
-    struct protocol_info *pinfo = get_protocol(LAYER3, protocol);
-
-    if (!pinfo || p->perr == TCP_ERR || p->perr == UDP_ERR || p->perr == ICMP_ERR ||
-        p->perr == IGMP_ERR || p->perr == PIM_ERR) {
-        header = LV_ADD_HEADER(ms->lvw, "Data", selected[UI_LAYER3], UI_LAYER3);
-        add_hexdump(ms->lvw, header, hexmode, get_ip_payload(p), IP_PAYLOAD_LEN(p));
-    } else if (pinfo) {
-        header = LV_ADD_HEADER(ms->lvw, pinfo->long_name, selected[UI_LAYER3], UI_LAYER3);
-        pinfo->add_pdu(ms->lvw, header, p);
-        if (protocol == IPPROTO_UDP) {
-            if (p->eth.ethertype == ETH_P_IP)
-                add_app_elements(ms, p, &udp_data(p, v4), UDP_PAYLOAD_LEN(p));
-            else
-                add_app_elements(ms, p, &udp_data(p, v6), UDP_PAYLOAD_LEN(p));
-        } else if (protocol == IPPROTO_TCP) {
-            if (p->eth.ethertype == ETH_P_IP)
-                add_app_elements(ms, p, &tcp_data(p, v4), TCP_PAYLOAD_LEN(p));
-            else
-                add_app_elements(ms, p, &tcp_data(p, v6), TCP_PAYLOAD_LEN(p));
+    idx += pdata->len;
+    while (pdata->next) {
+        pinfo = get_protocol(i, pdata->id);
+        pdata = pdata->next;
+        i++;
+        idx += pdata->len;
+        if (pinfo) {
+            header = LV_ADD_HEADER(ms->lvw, pinfo->long_name, selected[i], i);
+            pinfo->add_pdu(ms->lvw, header, pdata);
         }
     }
-}
-
-void add_app_elements(main_screen *ms, struct packet *p, struct application_info *adu, uint16_t len)
-{
-    list_view_header *header;
-    struct protocol_info *pinfo = get_protocol(LAYER4, adu->utype);
-
-    if (len > 0 && (p->perr != NO_ERR || !pinfo)) {
-        header = LV_ADD_HEADER(ms->lvw, "Data", selected[UI_LAYER4], UI_LAYER4);
-        add_hexdump(ms->lvw, header, hexmode, get_adu_payload(p), len);
-    } else if (pinfo) {
-        header = LV_ADD_HEADER(ms->lvw, pinfo->long_name, selected[UI_LAYER4], UI_LAYER4);
-        pinfo->add_pdu(ms->lvw, header, adu);
+    if (p->perr != NO_ERR && p->len - idx > 0) {
+        header = LV_ADD_HEADER(ms->lvw, "Data", selected[i], i);
+        add_hexdump(ms->lvw, header, hexmode, p->buf + idx, p->len - idx);
     }
 }
 
@@ -1510,8 +1460,7 @@ void print_protocol_information(main_screen *ms, struct packet *p, int lineno)
         refresh_pad(ms, &ms->subwindow, 0, ms->scrollx, true);
     } else {
         int subline;
-        int num_lines = (hexmode == HEXMODE_NORMAL) ? (p->eth.payload_len + ETH_HLEN) / 16 + 3 :
-            (p->eth.payload_len + ETH_HLEN) / 64 + 3;
+        int num_lines = (hexmode == HEXMODE_NORMAL) ? p->len / 16 + 3 : p->len / 64 + 3;
 
         if (ms->lvw) {
             free_list_view(ms->lvw);
@@ -1683,15 +1632,15 @@ void follow_tcp_stream(main_screen *ms, bool follow)
             follow_stream = false;
             return;
         }
-        endp.src = ipv4_src(p);
-        endp.dst = ipv4_dst(p);
-        endp.src_port = tcp_src(p, v4);
-        endp.dst_port = tcp_dst(p, v4);
+        endp.src = get_ipv4_src(p);
+        endp.dst = get_ipv4_dst(p);
+        endp.src_port = get_tcp_src(p);
+        endp.dst_port = get_tcp_dst(p);
         if (!(stream = hashmap_get(connections, &endp))) {
-            endp.src = ipv4_dst(p);
-            endp.dst = ipv4_src(p);
-            endp.src_port = tcp_dst(p, v4);
-            endp.dst_port = tcp_src(p, v4);
+            endp.src = get_ipv4_dst(p);
+            endp.dst = get_ipv4_src(p);
+            endp.src_port = get_tcp_dst(p);
+            endp.dst_port = get_tcp_src(p);
             stream = hashmap_get(connections, &endp);
         }
         pd = progress_dialogue_create(" Finding stream ", list_size(stream->packets));
@@ -1794,16 +1743,16 @@ void buffer_tcppage(main_screen *ms, int (*buffer_fn)
 
         PROGRESS_DIALOGUE_UPDATE(pd, 1);
         if (i == 0) {
-            cli_addr = ipv4_src(p);
-            cli_port = tcp_src(p, v4);
+            cli_addr = get_ipv4_src(p);
+            cli_port = get_tcp_src(p);
         }
-        if (cli_addr == ipv4_src(p) && cli_port == tcp_src(p, v4)) {
+        if (cli_addr == get_ipv4_src(p) && cli_port == get_tcp_src(p)) {
             col = get_theme_colour(SRC_TXT);
         } else {
             col = get_theme_colour(DST_TXT);
         }
         buf[0] = '\0';
-        len = TCP_PAYLOAD_LEN(p);
+        len = get_adu_payload_len(p);
         if (len == 0) continue;
         n = snprintcat(buf, MAXLINE, "Packet %d\n", p->num);
         attr = calloc(1, sizeof(struct tcp_page_attr));

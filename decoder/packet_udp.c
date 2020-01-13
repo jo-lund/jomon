@@ -32,22 +32,15 @@ void register_udp()
  *
  */
 packet_error handle_udp(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                        void *data)
+                        struct packet_data *pdata)
 {
     if (n < UDP_HDR_LEN) return UDP_ERR;
 
     struct udphdr *udp;
-    packet_error error;
-    struct eth_info *eth = data;
+    packet_error error = NO_ERR;
     struct udp_info *info;
 
-    if (eth->ethertype == ETH_P_IP) {
-        eth->ipv4->udp = mempool_pealloc(sizeof(struct udp_info));
-        info = eth->ipv4->udp;
-    } else {
-        eth->ipv6->udp = mempool_pealloc(sizeof(struct udp_info));
-        info = eth->ipv6->udp;
-    }
+    info = mempool_pealloc(sizeof(struct udp_info));
     pinfo->num_packets++;
     pinfo->num_bytes += n;
     udp = (struct udphdr *) buffer;
@@ -58,15 +51,20 @@ packet_error handle_udp(struct protocol_info *pinfo, unsigned char *buffer, int 
         return UDP_ERR;
     }
     info->checksum = ntohs(udp->check);
+    pdata->data = info;
+    pdata->len = UDP_HDR_LEN;
     for (int i = 0; i < 2; i++) {
-        info->data.utype = *((uint16_t *) info + i);
-        info->data.transport = UDP;
-        error = check_port(buffer + UDP_HDR_LEN, n - UDP_HDR_LEN, &info->data,
-                           info->data.utype);
+        pdata->id = *((uint16_t *) info + i);
+        pdata->next = mempool_pealloc(sizeof(struct packet_data));
+        memset(pdata->next, 0, sizeof(struct packet_data));
+        pdata->next->transport = UDP;
+        pdata->next->id = pdata->id;
+        error = check_port(buffer + UDP_HDR_LEN, n - UDP_HDR_LEN, pdata->next, pdata->id);
         if (error != UNK_PROTOCOL) {
             return error;
         }
+        mempool_pefree(pdata->next);
     }
-    info->data.utype = 0; /* unknown application protocol */
+    pdata->next = NULL;
     return error;
 }

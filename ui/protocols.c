@@ -81,17 +81,12 @@ void write_to_buf(char *buf, int size, struct packet *p)
     if (p->perr != NO_ERR && p->perr != UNK_PROTOCOL) {
         print_error(buf, size, p);
     } else {
-        struct protocol_info *pinfo = get_protocol(LAYER2, ethertype(p));
+        struct protocol_info *pinfo = get_protocol(LAYER2, p->root->id);
 
-        if (pinfo) {
+        if (pinfo)
             pinfo->print_pdu(buf, size, p);
-        } else {
-            if (ethertype(p) <= ETH_802_3_MAX) {
-                print_llc(buf, size, p);
-            } else if (p->eth.payload_len) {
-                print_error(buf, size, p);
-            }
-        }
+        else if (p->len - ETH_HLEN)
+            print_error(buf, size, p);
     }
 }
 
@@ -101,15 +96,15 @@ void print_error(char *buf, int size, struct packet *p)
     char dmac[HW_ADDRSTRLEN];
     char time[TBUFLEN];
 
-    HW_ADDR_NTOP(smac, p->eth.mac_src);
-    HW_ADDR_NTOP(dmac, p->eth.mac_dst);
+    HW_ADDR_NTOP(smac, eth_src(p));
+    HW_ADDR_NTOP(dmac, eth_dst(p));
     format_timeval(&p->time, time, TBUFLEN);
     if (p->perr != NO_ERR && p->perr != UNK_PROTOCOL) {
         PRINT_LINE(buf, size, p->num, time, smac, dmac,
-                   "ETH II", "Ethertype: 0x%x [decode error]", p->eth.ethertype);
+                   "ETH II", "Ethertype: 0x%x [decode error]", ethertype(p));
     } else { /* not yet supported */
         PRINT_LINE(buf, size, p->num, time, smac, dmac, "ETH II", "Ethertype: 0x%x",
-                   p->eth.ethertype);
+                   ethertype(p));
     }
 }
 
@@ -146,7 +141,7 @@ void print_arp(char *buf, int n, void *data)
 void print_llc(char *buf, int n, void *data)
 {
     struct packet *p = data;
-    struct protocol_info *pinfo = get_protocol(LAYER802_3, get_eth802_type(get_llc(p)));
+    struct protocol_info *pinfo = get_protocol(LAYER3, get_eth802_type(p));
     uint32_t num = p->num;
     struct timeval t = p->time;
     char time[TBUFLEN];
@@ -177,13 +172,13 @@ void print_stp(char *buf, int n, void *data)
     format_timeval(&t, time, TBUFLEN);
     HW_ADDR_NTOP(smac, eth_src(p));
     HW_ADDR_NTOP(dmac, eth_dst(p));
-    switch (stp_type(p)) {
+    switch (get_stp_type(p)) {
     case CONFIG:
         PRINT_LINE(buf, n, num, time, smac, dmac, "STP", "Configuration BPDU");
         break;
     case RST:
         PRINT_LINE(buf, n, num, time, smac, dmac, "STP", "Rapid Spanning Tree BPDU. Root Path Cost: %u  Port ID: 0x%x",
-                   stp_root_pc(p), stp_port_id(p));
+                   get_stp_root_pc(p), get_stp_port_id(p));
         break;
     case TCN:
         PRINT_LINE(buf, n, num, time, smac, dmac, "STP", "Topology Change Notification BPDU");
@@ -204,44 +199,31 @@ void print_snap(char *buf, int n, void *data)
     HW_ADDR_NTOP(smac, eth_src(p));
     HW_ADDR_NTOP(dmac, eth_dst(p));
     PRINT_LINE(buf, n, num, time, smac, dmac, "SNAP", "OUI: 0x%06x  Protocol Id: 0x%04x",
-               get_eth802_oui(get_snap(p)), snap_id(p));
+               get_snap_oui(p), get_snap_id(p));
 }
 
 void print_ipv4(char *buf, int n, void *data)
 {
     struct packet *p = data;
-    struct ipv4_info *ip = get_ipv4(p);
+    struct packet_data *pdata = get_packet_data(p, ETH_P_IP);
+    struct ipv4_info *ip = pdata->data;
     uint32_t num = p->num;
     struct timeval t = p->time;
     char time[TBUFLEN];
+    char src[INET_ADDRSTRLEN];
+    char dst[INET_ADDRSTRLEN];
 
     format_timeval(&t, time, TBUFLEN);
     PRINT_NUMBER(buf, n, num);
     PRINT_TIME(buf, n, time);
-    if (!numeric && (ip->protocol != IPPROTO_UDP ||
-                     (ip->protocol == IPPROTO_UDP && ip->udp->data.dns->qr == -1))) {
-        char sname[HOSTNAMELEN];
-        char dname[HOSTNAMELEN];
+    inet_ntop(AF_INET, &ip->src, src, INET_ADDRSTRLEN);
+    inet_ntop(AF_INET, &ip->dst, dst, INET_ADDRSTRLEN);
+    PRINT_ADDRESS(buf, n, src, dst);
 
-        /* get the host name of source and destination */
-        gethost(ip->src, sname, HOSTNAMELEN);
-        gethost(ip->dst, dname, HOSTNAMELEN);
-        // TEMP: Fix this!
-        sname[35] = '\0';
-        dname[35] = '\0';
-        PRINT_ADDRESS(buf, n, sname, dname);
-    } else {
-        char src[INET_ADDRSTRLEN];
-        char dst[INET_ADDRSTRLEN];
-
-        inet_ntop(AF_INET, &ip->src, src, INET_ADDRSTRLEN);
-        inet_ntop(AF_INET, &ip->dst, dst, INET_ADDRSTRLEN);
-        PRINT_ADDRESS(buf, n, src, dst);
-    }
     struct protocol_info *pinfo = get_protocol(LAYER3, ip->protocol);
 
-    if (pinfo)
-        pinfo->print_pdu(buf, n, p);
+    if (pinfo && pdata->next)
+        pinfo->print_pdu(buf, n, pdata->next);
     else {
         PRINT_PROTOCOL(buf, n, "IPv4");
         PRINT_INFO(buf, n, "Next header: %d", ip->protocol);
@@ -251,7 +233,8 @@ void print_ipv4(char *buf, int n, void *data)
 void print_ipv6(char *buf, int n, void *data)
 {
     struct packet *p = data;
-    struct ipv6_info *ip = get_ipv6(p);
+    struct packet_data *pdata = get_packet_data(p, ETH_P_IPV6);
+    struct ipv6_info *ip = pdata->data;
     uint32_t num = p->num;
     struct timeval t = p->time;
     char src[INET6_ADDRSTRLEN];
@@ -267,8 +250,8 @@ void print_ipv6(char *buf, int n, void *data)
 
     struct protocol_info *pinfo = get_protocol(LAYER3, ip->next_header);
 
-    if (pinfo)
-        pinfo->print_pdu(buf, n, p);
+    if (pinfo && pdata->next)
+        pinfo->print_pdu(buf, n, pdata->next);
     else {
         PRINT_PROTOCOL(buf, n, "IPv6");
         PRINT_INFO(buf, n, "Next header: %d", ip->next_header);
@@ -277,8 +260,8 @@ void print_ipv6(char *buf, int n, void *data)
 
 void print_icmp(char *buf, int n, void *data)
 {
-    struct packet *p = data;
-    struct icmp_info *icmp = get_icmp(p, v4);
+    struct packet_data *pdata = data;
+    struct icmp_info *icmp = pdata->data;
     char org[32];
     char rcvd[32];
     char xmit[32];
@@ -329,8 +312,8 @@ void print_icmp(char *buf, int n, void *data)
 
 void print_igmp(char *buf, int n, void *data)
 {
-    struct packet *p = data;
-    struct igmp_info *igmp = ethertype(p) == ETH_P_IP ? get_igmp(p, v4) : get_igmp(p, v6);
+    struct packet_data *pdata = data;
+    struct igmp_info *igmp = pdata->data;
 
     char addr[INET_ADDRSTRLEN];
 
@@ -359,8 +342,8 @@ void print_igmp(char *buf, int n, void *data)
 
 void print_pim(char *buf, int n, void *data)
 {
-    struct packet *p = data;
-    struct pim_info *pim = ethertype(p) == ETH_P_IP ? get_pim(p, v4) : get_pim(p, v6);
+    struct packet_data *pdata = data;
+    struct pim_info *pim = pdata->data;
     char *type = get_pim_message_type(pim->type);
 
     PRINT_PROTOCOL(buf, n, "PIM");
@@ -373,12 +356,12 @@ void print_pim(char *buf, int n, void *data)
 
 void print_tcp(char *buf, int n, void *data)
 {
-    struct packet *p = data;
-    struct tcp *tcp = ethertype(p) == ETH_P_IP ? get_tcp(p, v4) : get_tcp(p, v6);
-    struct protocol_info *pinfo = get_protocol(LAYER4, tcp->data.utype);
+    struct packet_data *pdata = data;
+    struct tcp *tcp = pdata->data;
+    struct protocol_info *pinfo = get_protocol(LAYER4, pdata->id);
 
-    if (pinfo)
-        pinfo->print_pdu(buf, n, &tcp->data);
+    if (pinfo && pdata->next)
+        pinfo->print_pdu(buf, n, pdata->next);
     else {
         PRINT_PROTOCOL(buf, n, "TCP");
         PRINT_INFO(buf, n, "Source port: %d  Destination port: %d", tcp->src_port,
@@ -408,12 +391,12 @@ void print_tcp(char *buf, int n, void *data)
 
 void print_udp(char *buf, int n, void *data)
 {
-    struct packet *p = data;
-    struct udp_info *udp = ethertype(p) == ETH_P_IP ? get_udp(p, v4) : get_udp(p, v6);
-    struct protocol_info *pinfo = get_protocol(LAYER4, udp->data.utype);
+    struct packet_data *pdata = data;
+    struct udp_info *udp = pdata->data;
+    struct protocol_info *pinfo = get_protocol(LAYER4, pdata->id);
 
-    if (pinfo)
-        pinfo->print_pdu(buf, n, &udp->data);
+    if (pinfo && pdata->next)
+        pinfo->print_pdu(buf, n, pdata->next);
     else {
         PRINT_PROTOCOL(buf, n, "UDP");
         PRINT_INFO(buf, n, "Source port: %d  Destination port: %d", udp->src_port,
@@ -421,13 +404,14 @@ void print_udp(char *buf, int n, void *data)
     }
 }
 
-void print_dns(char *buf, int n, struct application_info *adu)
+void print_dns(char *buf, int n, void *data)
 {
-    struct dns_info *dns = adu->dns;
+    struct packet_data *pdata = data;
+    struct dns_info *dns = pdata->data;
 
-    if (adu->utype == DNS) {
+    if (pdata->id == DNS) {
         PRINT_PROTOCOL(buf, n, "DNS");
-    } else if (adu->utype == MDNS) {
+    } else if (pdata->id == MDNS) {
         PRINT_PROTOCOL(buf, n, "MDNS");
     } else {
         PRINT_PROTOCOL(buf, n, "LLMNR");
@@ -467,9 +451,10 @@ void print_dns(char *buf, int n, struct application_info *adu)
     }
 }
 
-void print_nbns(char *buf, int n, struct application_info *adu)
+void print_nbns(char *buf, int n, void *data)
 {
-    struct nbns_info *nbns = adu->nbns;
+    struct packet_data *pdata = data;
+    struct nbns_info *nbns = pdata->data;
 
     PRINT_PROTOCOL(buf, n, "NBNS");
     if (nbns->r == 0) {
@@ -515,9 +500,10 @@ void print_nbns(char *buf, int n, struct application_info *adu)
     }
 }
 
-void print_nbds(char *buf, int n, struct application_info *adu)
+void print_nbds(char *buf, int n, void *data)
 {
-    struct nbds_info *nbds = adu->nbds;
+    struct packet_data *pdata = data;
+    struct nbds_info *nbds = pdata->data;
     char *type;
 
     PRINT_PROTOCOL(buf, n, "NBDS");
@@ -526,9 +512,10 @@ void print_nbds(char *buf, int n, struct application_info *adu)
     }
 }
 
-void print_ssdp(char *buf, int n, struct application_info *adu)
+void print_ssdp(char *buf, int n, void *data)
 {
-    struct ssdp_info *ssdp = adu->ssdp;
+    struct packet_data *pdata = data;
+    struct ssdp_info *ssdp = pdata->data;
     const node_t *node;
 
     PRINT_PROTOCOL(buf, n, "SSDP");
@@ -538,17 +525,19 @@ void print_ssdp(char *buf, int n, struct application_info *adu)
     }
 }
 
-void print_http(char *buf, int n, struct application_info *adu)
+void print_http(char *buf, int n, void *data)
 {
-    struct http_info *http = adu->http;
+    struct packet_data *pdata = data;
+    struct http_info *http = pdata->data;
 
     PRINT_PROTOCOL(buf, n, "HTTP");
     PRINT_INFO(buf, n, "%s", http->start_line);
 }
 
-void print_imap(char *buf, int n, struct application_info *adu)
+void print_imap(char *buf, int n, void *data)
 {
-    struct imap_info *imap = adu->imap;
+    struct packet_data *pdata = data;
+    struct imap_info *imap = pdata->data;
 
     PRINT_PROTOCOL(buf, n, "IMAP");
     if (imap->lines) {
@@ -556,9 +545,10 @@ void print_imap(char *buf, int n, struct application_info *adu)
     }
 }
 
-void print_tls(char *buf, int n, struct application_info *adu)
+void print_tls(char *buf, int n, void *data)
 {
-    struct tls_info *tls = adu->tls;
+    struct packet_data *pdata = data;
+    struct tls_info *tls = pdata->data;
     char *version = get_tls_version(tls->version);
     char *type = get_tls_type(tls->type);
     char records[MAXLINE];
@@ -664,9 +654,10 @@ void print_nbns_record(struct nbns_info *info, int i, char *buf, int n)
     }
 }
 
-void print_snmp(char *buf, int n, struct application_info *adu)
+void print_snmp(char *buf, int n, void *data)
 {
-    struct snmp_info *snmp = adu->snmp;
+    struct packet_data *pdata = data;
+    struct snmp_info *snmp = pdata->data;
     char *type;
     list_t *vars;
 
@@ -699,13 +690,14 @@ void add_ethernet_information(list_view *lw, list_view_header *header, struct pa
     char src[HW_ADDRSTRLEN];
     char dst[HW_ADDRSTRLEN];
     char *type;
+    struct eth_info *eth = ((struct packet_data *) p->root)->data;
 
-    HW_ADDR_NTOP(src, p->eth.mac_src);
-    HW_ADDR_NTOP(dst, p->eth.mac_dst);
+    HW_ADDR_NTOP(src, eth->mac_src);
+    HW_ADDR_NTOP(dst, eth->mac_dst);
     LV_ADD_TEXT_ELEMENT(lw, header, "MAC source: %s", src);
     LV_ADD_TEXT_ELEMENT(lw, header, "MAC destination: %s", dst);
-    snprintf(line, MAXLINE, "Ethertype: 0x%x", p->eth.ethertype);
-    if ((type = get_ethernet_type(p->eth.ethertype))) {
+    snprintf(line, MAXLINE, "Ethertype: 0x%x", eth->ethertype);
+    if ((type = get_ethernet_type(eth->ethertype))) {
         snprintcat(line, MAXLINE, " (%s)", type);
     }
     LV_ADD_TEXT_ELEMENT(lw, header, line);
@@ -715,43 +707,46 @@ void add_llc_information(void *w, void *sw, void *data)
 {
     list_view *lw = w;
     list_view_header *header = sw;
-    struct packet *p = data;
+    struct packet_data *pdata = data;
+    struct eth_802_llc *llc = pdata->data;
 
-    LV_ADD_TEXT_ELEMENT(lw, header, "Destination Service Access Point (DSAP): 0x%x", llc_dsap(p));
-    LV_ADD_TEXT_ELEMENT(lw, header, "Source Service Access Point (SSAP): 0x%x", llc_ssap(p));
-    LV_ADD_TEXT_ELEMENT(lw, header, "Control: 0x%x", llc_control(p));
+    LV_ADD_TEXT_ELEMENT(lw, header, "Destination Service Access Point (DSAP): 0x%x", llc->dsap);
+    LV_ADD_TEXT_ELEMENT(lw, header, "Source Service Access Point (SSAP): 0x%x", llc->ssap);
+    LV_ADD_TEXT_ELEMENT(lw, header, "Control: 0x%x", llc->control);
 }
 
 void add_snap_information(void *w, void *sw, void *data)
 {
     list_view *lw = w;
     list_view_header *header = sw;
-    struct packet *p = data;
+    struct packet_data *pdata = data;
+    struct snap_info *snap = pdata->data;
 
     LV_ADD_TEXT_ELEMENT(lw, header, "IEEE Organizationally Unique Identifier (OUI): 0x%06x",
-                        get_eth802_oui(get_snap(p)));
-    LV_ADD_TEXT_ELEMENT(lw, header, "Protocol Id: 0x%04x", snap_id(p));
+                        snap->oui[0] << 16 | snap->oui[1] << 8 | snap->oui[2]);
+    LV_ADD_TEXT_ELEMENT(lw, header, "Protocol Id: 0x%04x", snap->protocol_id);
 }
 
 void add_arp_information(void *w, void *sw, void *data)
 {
     list_view *lw = w;
     list_view_header *header = sw;
-    struct packet *p = data;
+    struct packet_data *pdata = data;
+    struct arp_info *arp = pdata->data;
     char sip[INET_ADDRSTRLEN];
     char tip[INET_ADDRSTRLEN];
     char sha[HW_ADDRSTRLEN];
     char tha[HW_ADDRSTRLEN];
 
-    HW_ADDR_NTOP(sha, arp_sha(p));
-    HW_ADDR_NTOP(tha, arp_tha(p));
-    inet_ntop(AF_INET, arp_sip(p), sip, INET_ADDRSTRLEN);
-    inet_ntop(AF_INET, arp_tip(p), tip, INET_ADDRSTRLEN);
-    LV_ADD_TEXT_ELEMENT(lw, header, "Hardware type: %d (%s)", arp_hwtype(p), get_arp_hardware_type(arp_hwtype(p)));
-    LV_ADD_TEXT_ELEMENT(lw, header, "Protocol type: 0x%x (%s)", arp_ptype(p), get_arp_protocol_type(arp_ptype(p)));
-    LV_ADD_TEXT_ELEMENT(lw, header, "Hardware size: %d", arp_hwsize(p));
-    LV_ADD_TEXT_ELEMENT(lw, header, "Protocol size: %d", arp_psize(p));
-    LV_ADD_TEXT_ELEMENT(lw, header, "Opcode: %d (%s)", arp_opcode(p), get_arp_opcode(arp_opcode(p)));
+    HW_ADDR_NTOP(sha, arp->sha);
+    HW_ADDR_NTOP(tha, arp->tha);
+    inet_ntop(AF_INET, arp->sip, sip, INET_ADDRSTRLEN);
+    inet_ntop(AF_INET, arp->tip, tip, INET_ADDRSTRLEN);
+    LV_ADD_TEXT_ELEMENT(lw, header, "Hardware type: %d (%s)", arp->ht, get_arp_hardware_type(arp->ht));
+    LV_ADD_TEXT_ELEMENT(lw, header, "Protocol type: 0x%x (%s)", arp->pt, get_arp_protocol_type(arp->pt));
+    LV_ADD_TEXT_ELEMENT(lw, header, "Hardware size: %d", arp->hs);
+    LV_ADD_TEXT_ELEMENT(lw, header, "Protocol size: %d", arp->ps);
+    LV_ADD_TEXT_ELEMENT(lw, header, "Opcode: %d (%s)", arp->op, get_arp_opcode(arp->op));
     LV_ADD_TEXT_ELEMENT(lw, header, "");
     LV_ADD_TEXT_ELEMENT(lw, header, "Sender IP: %-15s  HW: %s", sip, sha);
     LV_ADD_TEXT_ELEMENT(lw, header, "Target IP: %-15s  HW: %s", tip, tha);
@@ -761,12 +756,11 @@ void add_stp_information(void *w, void *sw, void *data)
 {
     list_view *lw = w;
     list_view_header *header = sw;
-    struct packet *p = data;
+    struct packet_data *pdata = data;
     uint16_t flags;
-    struct stp_info *stp;
+    struct stp_info *stp = pdata->data;;
     list_view_header *hdr;
 
-    stp = get_stp(p);
     flags = stp->tcack << 7 | stp->agreement << 6 | stp->forwarding << 5 | stp->forwarding << 4 |
         stp->port_role << 2 | stp->proposal << 1 | stp->tc;
     LV_ADD_TEXT_ELEMENT(lw, header, "Protocol Id: %d", stp->protocol_id);
@@ -812,8 +806,8 @@ void add_ipv4_information(void *w, void *sw, void *data)
 {
     list_view *lw = w;
     list_view_header *header = sw;
-    struct packet *p = data;
-    struct ipv4_info *ip = get_ipv4(p);
+    struct packet_data *pdata = data;
+    struct ipv4_info *ip = pdata->data;
     char *protocol;
     char *dscp;
     char buf[MAXLINE];
@@ -884,8 +878,8 @@ void add_ipv6_information(void *w, void *sw, void *data)
 {
     list_view *lw = w;
     list_view_header *header = sw;
-    struct packet *p = data;
-    struct ipv6_info *ip = get_ipv6(p);
+    struct packet_data *pdata = data;
+    struct ipv6_info *ip = pdata->data;
     char src[INET6_ADDRSTRLEN];
     char dst[INET6_ADDRSTRLEN];
     char *protocol;
@@ -911,8 +905,8 @@ void add_icmp_information(void *w, void *sw, void *data)
 {
     list_view *lw = w;
     list_view_header *header = sw;
-    struct packet *p = data;
-    struct icmp_info *icmp = get_icmp(p, v4);
+    struct packet_data *pdata = data;
+    struct icmp_info *icmp = pdata->data;
 
     char addr[INET_ADDRSTRLEN];
     char time[32];
@@ -969,8 +963,8 @@ void add_igmp_information(void *w, void *sw, void *data)
 {
     list_view *lw = w;
     list_view_header *header = sw;
-    struct packet *p = data;
-    struct igmp_info *igmp = ethertype(p) == ETH_P_IP ? get_igmp(p, v4) : get_igmp(p, v6);
+    struct packet_data *pdata = data;
+    struct igmp_info *igmp = pdata->data;
     char addr[INET_ADDRSTRLEN];
     char buf[MAXLINE];
     char *type;
@@ -997,8 +991,8 @@ void add_pim_information(void *w, void *sw, void *data)
 {
     list_view *lw = w;
     list_view_header *header = sw;
-    struct packet *p = data;
-    struct pim_info *pim = ethertype(p) == ETH_P_IP ? get_pim(p, v4) : get_pim(p, v6);
+    struct packet_data *pdata = data;
+    struct pim_info *pim = pdata->data;
     char *type = get_pim_message_type(pim->type);
 
     LV_ADD_TEXT_ELEMENT(lw, header, "Version: %d", pim->version);
@@ -1280,8 +1274,8 @@ void add_udp_information(void *w, void *sw, void *data)
 {
     list_view *lw = w;
     list_view_header *header = sw;
-    struct packet *p = data;
-    struct udp_info *udp = ethertype(p) == ETH_P_IP ? get_udp(p, v4) : get_udp(p, v6);
+    struct packet_data *pdata = data;
+    struct udp_info *udp = pdata->data;
 
     LV_ADD_TEXT_ELEMENT(lw, header, "Source port: %u", udp->src_port);
     LV_ADD_TEXT_ELEMENT(lw, header, "Destination port: %u", udp->dst_port);
@@ -1293,8 +1287,8 @@ void add_tcp_information(void *w, void *sw, void *data)
 {
     list_view *lw = w;
     list_view_header *header = sw;
-    struct packet *p = data;
-    struct tcp *tcp = ethertype(p) == ETH_P_IP ? get_tcp(p, v4) : get_tcp(p, v6);
+    struct packet_data *pdata = data;
+    struct tcp *tcp = pdata->data;
     int n = 32;
     char buf[n];
     list_view_header *hdr;
@@ -1403,12 +1397,13 @@ void add_tcp_options(list_view *lw, list_view_header *header, struct tcp *tcp)
     free_tcp_options(options);
 }
 
-void add_dns_information(void *w, void *sw, struct application_info *adu)
+void add_dns_information(void *w, void *sw, void *data)
 
 {
     list_view *lw = w;
     list_view_header *header = sw;
-    struct dns_info *dns = adu->dns;
+    struct packet_data *pdata = data;
+    struct dns_info *dns = pdata->data;
     int records = 0;
     int answers = dns->section_count[ANCOUNT];
     int authority = dns->section_count[NSCOUNT];
@@ -1416,7 +1411,7 @@ void add_dns_information(void *w, void *sw, struct application_info *adu)
     list_view_header *hdr;
     uint16_t flags;
 
-    if (adu->utype == LLMNR) {
+    if (pdata->id == LLMNR) {
         flags = dns->llmnr_flags.c << 6 | dns->llmnr_flags.tc << 5 |
             dns->llmnr_flags.t << 4;
     } else {
@@ -1436,7 +1431,7 @@ void add_dns_information(void *w, void *sw, struct application_info *adu)
     LV_ADD_TEXT_ELEMENT(lw, header, "Opcode: %d (%s)", dns->opcode, get_dns_opcode(dns->opcode));
 
     hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_FLAGS], UI_FLAGS, "Flags 0x%x", flags);
-    if (adu->utype == LLMNR) {
+    if (pdata->id == LLMNR) {
         add_flags(lw, hdr, flags, get_llmnr_flags(), get_llmnr_flags_size());
     } else {
         add_flags(lw, hdr, flags, get_dns_flags(), get_dns_flags_size());
@@ -1635,11 +1630,12 @@ void add_dns_opt(list_view *lw, list_view_header *w, struct dns_info *dns, int i
     free_dns_options(opt);
 }
 
-void add_nbns_information(void *w, void *sw, struct application_info *adu)
+void add_nbns_information(void *w, void *sw, void *data)
 {
     list_view *lw = w;
     list_view_header *header = sw;
-    struct nbns_info *nbns = adu->nbns;
+    struct packet_data *pdata = data;
+    struct nbns_info *nbns = pdata->data;
     int records = 0;
     int answers = nbns->section_count[ANCOUNT];
     int authority = nbns->section_count[NSCOUNT];
@@ -1744,11 +1740,12 @@ void add_nbns_record(list_view *lw, list_view_header *w, struct nbns_info *nbns,
     }
 }
 
-void add_nbds_information(void *w, void *sw, struct application_info *adu)
+void add_nbds_information(void *w, void *sw, void *data)
 {
     list_view *lw = w;
     list_view_header *header = sw;
-    struct nbds_info *nbds = adu->nbds;
+    struct packet_data *pdata = data;
+    struct nbds_info *nbds = pdata->data;
     list_view_header *hdr;
     char src_addr[INET_ADDRSTRLEN];
     char *type;
@@ -1819,11 +1816,12 @@ void add_smb_information(list_view *lw, list_view_header *header, struct smb_inf
     LV_ADD_TEXT_ELEMENT(lw, header, "Multiplex identifier: %d", smb->mid);
 }
 
-void add_ssdp_information(void *w, void *sw, struct application_info *adu)
+void add_ssdp_information(void *w, void *sw, void *data)
 {
     list_view *lw = w;
     list_view_header *header = sw;
-    struct ssdp_info *ssdp = adu->ssdp;
+    struct packet_data *pdata = data;
+    struct ssdp_info *ssdp = pdata->data;
     const node_t *n;
 
     n = list_begin(ssdp->fields);
@@ -1833,11 +1831,12 @@ void add_ssdp_information(void *w, void *sw, struct application_info *adu)
     }
 }
 
-void add_http_information(void *w, void *sw, struct application_info *adu)
+void add_http_information(void *w, void *sw, void *data)
 {
     list_view *lw = w;
     list_view_header *header = sw;
-    struct http_info *http = adu->http;
+    struct packet_data *pdata = data;
+    struct http_info *http = pdata->data;
     const rbtree_node_t *n;
 
     LV_ADD_TEXT_ELEMENT(lw, header, "%s", http->start_line);
@@ -1854,11 +1853,12 @@ void add_http_information(void *w, void *sw, struct application_info *adu)
     }
 }
 
-void add_snmp_information(void *w, void *sw, struct application_info *adu)
+void add_snmp_information(void *w, void *sw, void *data)
 {
     list_view *lw = w;
     list_view_header *header = sw;
-    struct snmp_info *snmp = adu->snmp;
+    struct packet_data *pdata = data;
+    struct snmp_info *snmp = pdata->data;
     list_view_header *hdr;
 
     LV_ADD_TEXT_ELEMENT(lw, header, "Version: %d", snmp->version);
@@ -1979,11 +1979,12 @@ void add_snmp_variables(list_view *lw, list_view_header *header, list_t *vars)
     }
 }
 
-void add_imap_information(void *w, void *sw, struct application_info *adu)
+void add_imap_information(void *w, void *sw, void *data)
 {
     list_view *lw = w;
     list_view_header *header = sw;
-    struct imap_info *imap = adu->imap;
+    struct packet_data *pdata = data;
+    struct imap_info *imap = pdata->data;
 
     if (imap->lines) {
         const node_t *n = list_begin(imap->lines);
@@ -1995,11 +1996,12 @@ void add_imap_information(void *w, void *sw, struct application_info *adu)
     }
 }
 
-void add_tls_information(void *w, void *sw, struct application_info *adu)
+void add_tls_information(void *w, void *sw, void *data)
 {
     list_view *lw = w;
     list_view_header *header = sw;
-    struct tls_info *tls = adu->tls;
+    struct packet_data *pdata = data;
+    struct tls_info *tls = pdata->data;
     list_view_header *record;
 
     while (tls) {

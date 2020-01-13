@@ -21,16 +21,16 @@ void register_icmp()
 }
 
 packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                         void *data)
+                         struct packet_data *pdata)
 {
     if (n < ICMP_HDR_LEN) return ICMP_ERR;
 
-    struct eth_info *eth = data;
     struct icmp_info *info;
     struct icmp *icmp = (struct icmp *) buffer;
 
-    eth->ipv4->icmp = mempool_pealloc(sizeof(struct icmp_info));
-    info = eth->ipv4->icmp;
+    info = mempool_pealloc(sizeof(struct icmp_info));
+    pdata->data = info;
+    pdata->len = n;
     pinfo->num_packets++;
     pinfo->num_bytes += n;
     info->type = icmp->icmp_type;

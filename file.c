@@ -166,7 +166,7 @@ void write_pcap(FILE *fp, vector_t *packets, progress_update fn)
         } else {
             bufidx += n;
         }
-        fn(get_packet_size(p));
+        fn(p->len);
     }
     if (bufidx) {
         fwrite(buf, sizeof(unsigned char), bufidx, fp);
@@ -193,7 +193,7 @@ void write_header(unsigned char *buf)
 
 int write_data(unsigned char *buf, unsigned int len, struct packet *p)
 {
-    if (get_packet_size(p) + sizeof(pcaprec_hdr_t) > len) {
+    if (p->len + sizeof(pcaprec_hdr_t) > len) {
         return 0;
     }
 
@@ -202,14 +202,13 @@ int write_data(unsigned char *buf, unsigned int len, struct packet *p)
     /* write pcap header */
     pcap_hdr.ts_sec = p->time.tv_sec;
     pcap_hdr.ts_usec = p->time.tv_usec;
-    pcap_hdr.incl_len = p->eth.payload_len + ETH_HLEN;
-    pcap_hdr.orig_len = p->eth.payload_len + ETH_HLEN;
+    pcap_hdr.incl_len = p->len;
+    pcap_hdr.orig_len = p->len;
     memcpy(buf, &pcap_hdr, sizeof(pcaprec_hdr_t));
 
     /* write packet */
-    memcpy(buf + sizeof(pcaprec_hdr_t), p->eth.data, p->eth.payload_len + ETH_HLEN);
-
-    return get_packet_size(p) + sizeof(pcaprec_hdr_t);
+    memcpy(buf + sizeof(pcaprec_hdr_t), p->buf, p->len);
+    return p->len + sizeof(pcaprec_hdr_t);
 }
 
 enum file_error errno_file_error(int err)
@@ -266,7 +265,7 @@ void write_ascii(FILE *fp, vector_t *packets, progress_update fn)
     for (int i = 0; i < vector_size(packets); i++) {
         struct packet *p = vector_get_data(packets, i);
         unsigned char *payload = get_adu_payload(p);
-        uint16_t len = TCP_PAYLOAD_LEN(p);
+        uint16_t len = get_adu_payload_len(p);
 
         for (int j = 0; j < len; j++) {
             if (isprint(payload[j]) || isspace(payload[j])) {
@@ -284,7 +283,7 @@ void write_raw(FILE *fp, vector_t *packets, progress_update fn)
     for (int i = 0; i < vector_size(packets); i++) {
         struct packet *p = vector_get_data(packets, i);
         unsigned char *payload = get_adu_payload(p);
-        uint16_t len = TCP_PAYLOAD_LEN(p);
+        uint16_t len = get_adu_payload_len(p);
 
         fwrite(payload, sizeof(unsigned char), len, fp);
         fn(1);

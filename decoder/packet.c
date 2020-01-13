@@ -29,7 +29,7 @@
 #include "register.h"
 #include "../hash.h"
 
-#define NUM_LAYERS 4
+#define NUM_LAYERS 3
 
 allocator_t d_alloc = {
     .alloc = mempool_pealloc,
@@ -44,10 +44,9 @@ static hashmap_t *protocols[NUM_LAYERS];
 void decoder_init()
 {
     info = hashmap_init(64, hash_string, compare_string);
-    protocols[LAYER802_3] = hashmap_init(16, hash_uint16, compare_uint);
-    protocols[LAYER2] = hashmap_init(16, hash_uint16, compare_uint);
-    protocols[LAYER3] = hashmap_init(16, hash_uint16, compare_uint);
-    protocols[LAYER4] = hashmap_init(32, hash_uint16, compare_uint);
+    for (int i = 0; i < NUM_LAYERS; i++) {
+        protocols[i] = hashmap_init(16, hash_uint16, compare_uint);
+    }
     for (unsigned int i = 0; i < ARRAY_SIZE(decoder_functions); i++) {
         decoder_functions[i]();
     }
@@ -96,11 +95,16 @@ void traverse_protocols(protocol_handler fn, void *arg)
 bool decode_packet(unsigned char *buffer, size_t len, struct packet **p)
 {
     *p = mempool_pealloc(sizeof(struct packet));
-    (*p)->ptype = UNKNOWN;
+
+    /* store the original frame in buf */
+    (*p)->buf = mempool_pecopy(buffer, len);
+    (*p)->len = len;
+
     if (!handle_ethernet(buffer, len, *p)) {
         free_packets(*p);
         return false;
     }
+    (*p)->ptype = ETHERNET;
     (*p)->num = ++total_packets;
     total_bytes += len;
     if ((*p)->perr == NO_ERR && is_tcp(*p)) {
@@ -122,48 +126,47 @@ void free_packets(void *data)
  * Returns the error status. This is set to "unknown protocol" if it's an
  * ephemeral port or the port is not yet supported.
  */
-packet_error check_port(unsigned char *buffer, int n, struct application_info *adu,
+packet_error check_port(unsigned char *buffer, int n, struct packet_data *p,
                         uint16_t port)
 {
     struct protocol_info *pinfo = hashmap_get(protocols[LAYER4], (void *) (uintptr_t) port);
 
     if (pinfo)
-        return pinfo->decode(pinfo, buffer, n, adu);
+        return pinfo->decode(pinfo, buffer, n, p);
     return UNK_PROTOCOL;
 }
 
 unsigned char *get_adu_payload(struct packet *p)
 {
-    if (ethertype(p) == ETH_P_IP) {
-        if (ipv4_protocol(p) == IPPROTO_TCP)
-            return get_ip_payload(p) + p->eth.ipv4->tcp->offset * 4;
-        if (ipv4_protocol(p) == IPPROTO_UDP)
-            return get_ip_payload(p) + UDP_HDR_LEN;
-    } else {
-        if (ipv6_protocol(p) == IPPROTO_TCP)
-            return get_ip_payload(p) + p->eth.ipv6->tcp->offset * 4;
-        if (ipv6_protocol(p) == IPPROTO_UDP)
-            return get_ip_payload(p) + UDP_HDR_LEN;
+    struct packet_data *pdata = p->root;
+    int i = 0;
+    int layer = 0;
+
+    while (pdata) {
+        i += pdata->len;
+        if (layer == LAYER4)
+            return p->buf + i;
+        layer++;
+        pdata = pdata->next;
     }
     return NULL;
 }
 
-struct application_info *get_adu_info(struct packet *p)
+unsigned int get_adu_payload_len(struct packet *p)
 {
-    if (ethertype(p) == ETH_P_IP) {
-        if (ipv4_protocol(p) == IPPROTO_TCP)
-            return &tcp_data(p, v4);
-        if (ipv4_protocol(p) == IPPROTO_UDP)
-            return &udp_data(p, v4);
-    } else {
-        if (ipv6_protocol(p) == IPPROTO_TCP)
-            return &tcp_data(p, v6);
-        if (ipv6_protocol(p) == IPPROTO_UDP)
-            return &udp_data(p, v6);
-    }
-    return NULL;
-}
+    struct packet_data *pdata = p->root;
+    unsigned int len = p->len;
+    int layer = 0;
 
+    while (pdata) {
+        len -= pdata->len;
+        if (layer == LAYER4)
+            return len;
+        layer++;
+        pdata = pdata->next;
+    }
+    return 0;
+}
 
 static void clear_packet(struct protocol_info *pinfo, void *user UNUSED)
 {
@@ -181,19 +184,26 @@ void clear_statistics()
     dns_cache_clear();
 }
 
-uint16_t get_packet_size(struct packet *p)
-{
-    return p->eth.payload_len + ETH_HLEN;
-}
-
 bool is_tcp(struct packet *p)
 {
-    uint8_t protocol = 0;
+    struct packet_data *pdata = p->root;
 
-    if (p->eth.ethertype == ETH_P_IP) {
-        protocol = p->eth.ipv4->protocol;
-    } else if (p->eth.ethertype == ETH_P_IPV6) {
-        protocol = p->eth.ipv6->next_header;
+    while (pdata) {
+        if (pdata->id == IPPROTO_TCP)
+            return true;
+        pdata = pdata->next;
     }
-    return protocol == IPPROTO_TCP;
+    return false;
+}
+
+struct packet_data *get_packet_data(const struct packet *p, uint16_t id)
+{
+    struct packet_data *pdata = p->root;
+
+    while (pdata) {
+        if (pdata->id == id && pdata->next)
+            return pdata->next;
+        pdata = pdata->next;
+    }
+    return NULL;
 }

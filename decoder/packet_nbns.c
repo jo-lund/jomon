@@ -65,36 +65,38 @@ void register_nbns()
  * +---+---+---+---+---+---+---+
  */
 packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                         void *data)
+                         struct packet_data *pdata)
 {
     if (n < DNS_HDRLEN) return NBNS_ERR;
 
     unsigned char *ptr = buffer;
     int plen = n;
-    struct application_info *info = data;
+    struct nbns_info *nbns;
 
-    info->nbns = mempool_pealloc(sizeof(struct nbns_info));
-    info->nbns->id = ptr[0] << 8 | ptr[1];
-    info->nbns->opcode = (ptr[2] & 0x78) >> 3;
-    info->nbns->aa = (ptr[2] & 0x04) >> 2;
-    info->nbns->tc = (ptr[2] & 0x02) >> 1;
-    info->nbns->rd = ptr[2] & 0x01;
-    info->nbns->ra = (ptr[3] & 0x80) >> 7;
-    info->nbns->broadcast = (ptr[3] & 0x10) >> 4;
-    info->nbns->rcode = ptr[3] & 0x0f;
+    nbns = mempool_pealloc(sizeof(struct nbns_info));
+    pdata->data = nbns;
+    pdata->len = n;
+    nbns->id = ptr[0] << 8 | ptr[1];
+    nbns->opcode = (ptr[2] & 0x78) >> 3;
+    nbns->aa = (ptr[2] & 0x04) >> 2;
+    nbns->tc = (ptr[2] & 0x02) >> 1;
+    nbns->rd = ptr[2] & 0x01;
+    nbns->ra = (ptr[3] & 0x80) >> 7;
+    nbns->broadcast = (ptr[3] & 0x10) >> 4;
+    nbns->rcode = ptr[3] & 0x0f;
     for (int i = 0, j = 4; i < 4; i++, j += 2) {
-        info->nbns->section_count[i] = ptr[j] << 8 | ptr[j + 1];
+        nbns->section_count[i] = ptr[j] << 8 | ptr[j + 1];
     }
-    info->nbns->record = NULL;
+    nbns->record = NULL;
 
     /*
      * the first bit in the opcode field specifies whether it is a request (0)
      * or a response (1)
      */
-    info->nbns->r = (ptr[2] & 0x80U) >> 7;
+    nbns->r = (ptr[2] & 0x80U) >> 7;
 
-    if (info->nbns->r) { /* response */
-        if (info->nbns->section_count[QDCOUNT] != 0) { /* QDCOUNT is always 0 for responses */
+    if (nbns->r) { /* response */
+        if (nbns->section_count[QDCOUNT] != 0) { /* QDCOUNT is always 0 for responses */
             return NBNS_ERR;
         }
         ptr += DNS_HDRLEN;
@@ -104,20 +106,20 @@ packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int
         int i = ANCOUNT;
         int num_records = 0;
         while (i < 4) {
-            num_records += info->nbns->section_count[i++];
+            num_records += nbns->section_count[i++];
         }
-        info->nbns->record = mempool_pealloc(num_records * sizeof(struct nbns_rr));
+        nbns->record = mempool_pealloc(num_records * sizeof(struct nbns_rr));
         for (int j = 0; j < num_records; j++) {
-            int len = parse_nbns_record(j, buffer, n, &ptr, plen, info->nbns);
+            int len = parse_nbns_record(j, buffer, n, &ptr, plen, nbns);
 
             if (len == -1) return NBNS_ERR;
             plen -= len;
         }
     } else { /* request */
-        if (info->nbns->aa) { /* authoritative answer is only to be set in responses */
+        if (nbns->aa) { /* authoritative answer is only to be set in responses */
             return NBNS_ERR;
         }
-        if (info->nbns->section_count[QDCOUNT] == 0) { /* QDCOUNT must be non-zero for requests */
+        if (nbns->section_count[QDCOUNT] == 0) { /* QDCOUNT must be non-zero for requests */
             return NBNS_ERR;
         }
         ptr += DNS_HDRLEN;
@@ -130,21 +132,21 @@ packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int
         if (len == -1) return NBNS_ERR;
         ptr += len;
         plen -= len;
-        decode_nbns_name(info->nbns->question.qname, name);
-        info->nbns->question.qtype = ptr[0] << 8 | ptr[1];
-        info->nbns->question.qclass = ptr[2] << 8 | ptr[3];
+        decode_nbns_name(nbns->question.qname, name);
+        nbns->question.qtype = ptr[0] << 8 | ptr[1];
+        nbns->question.qclass = ptr[2] << 8 | ptr[3];
         ptr += 4; /* skip qtype and qclass */
         plen -= 4;
 
         /* Additional records section */
-        if (info->nbns->section_count[ARCOUNT] > n) {
+        if (nbns->section_count[ARCOUNT] > n) {
             return NBNS_ERR;
         }
-        if (info->nbns->section_count[ARCOUNT]) {
-            info->nbns->record = mempool_pealloc(info->nbns->section_count[ARCOUNT] *
-                                        sizeof(struct nbns_rr));
-            for (int i = 0; i < info->nbns->section_count[ARCOUNT]; i++) {
-                int len = parse_nbns_record(i, buffer, n, &ptr, plen, info->nbns);
+        if (nbns->section_count[ARCOUNT]) {
+            nbns->record = mempool_pealloc(nbns->section_count[ARCOUNT] *
+                                           sizeof(struct nbns_rr));
+            for (int i = 0; i < nbns->section_count[ARCOUNT]; i++) {
+                int len = parse_nbns_record(i, buffer, n, &ptr, plen, nbns);
 
                 if (len == -1) return NBNS_ERR;
                 plen -= len;

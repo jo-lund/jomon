@@ -104,8 +104,6 @@ struct nbns_info {
     } *record;
 };
 
-struct application_info;
-
 char *get_nbns_opcode(uint8_t opcode);
 char *get_nbns_rcode(uint8_t rcode);
 char *get_nbns_type(uint16_t qtype);
@@ -119,7 +117,7 @@ int get_nbns_nb_flags_size();
 /* internal to the decoder */
 void register_nbns();
 packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                         void *data);
+                         struct packet_data *pdata);
 void decode_nbns_name(char *dest, char *src);
 
 #endif

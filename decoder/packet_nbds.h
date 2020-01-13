@@ -73,6 +73,6 @@ char *get_nbds_message_type(uint8_t type);
 /* internal to the decoder */
 void register_nbds();
 packet_error handle_nbds(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                         void *data);
+                         struct packet_data *pdata);
 
 #endif

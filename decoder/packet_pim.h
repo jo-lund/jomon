@@ -263,6 +263,6 @@ char *get_pim_address(uint8_t family, pim_addr *addr);
 /* internal to the decoder */
 void register_pim();
 packet_error handle_pim(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                        void *data);
+                        struct packet_data *pdata);
 
 #endif

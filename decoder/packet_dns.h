@@ -304,7 +304,7 @@ void free_dns_options(list_t *opt);
 /* internal to the decoder */
 void register_dns();
 packet_error handle_dns(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                        void *data);
+                        struct packet_data *pdata);
 int parse_dns_name(unsigned char *buffer, int n, unsigned char *ptr, int plen, char name[]);
 
 #endif

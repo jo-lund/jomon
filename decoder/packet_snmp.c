@@ -61,24 +61,26 @@ void register_snmp()
  * non-constructor encodings are used rather than constructor encodings.
  */
 packet_error handle_snmp(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                         void *data)
+                         struct packet_data *pdata)
 {
     uint8_t class;
     uint8_t tag;
     int msg_len;
     unsigned char *ptr = buffer;
-    struct application_info *adu = data;
+    struct snmp_info *snmp;
 
     if (n < MIN_MSG) return SNMP_ERR;
 
-    adu->snmp = mempool_pealloc(sizeof(struct snmp_info));
+    snmp = mempool_pealloc(sizeof(struct snmp_info));
+    pdata->data = snmp;
+    pdata->len = n;
     if ((msg_len = parse_value(&ptr, n, &class, &tag, NULL)) == -1) {
         return SNMP_ERR;
     }
     if (tag == SNMP_SEQUENCE_TAG) {
         pinfo->num_packets++;
         pinfo->num_bytes += n;
-        return parse_pdu(ptr, msg_len, adu->snmp);
+        return parse_pdu(ptr, msg_len, snmp);
     }
     return SNMP_ERR;
 }

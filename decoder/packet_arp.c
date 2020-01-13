@@ -42,26 +42,28 @@ void register_arp()
  * OP: Operation. 1 = ARP request, 2 = ARP reply, 3 = RARP request, 4 = RARP reply
  */
 packet_error handle_arp(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                        void *data)
+                        struct packet_data *pdata)
 {
     if (n < ARP_SIZE) return ARP_ERR;
 
     struct ether_arp *arp_header;
-    struct eth_info *eth = data;
+    struct arp_info *arp;
 
     pinfo->num_packets++;
     pinfo->num_bytes += n;
     arp_header = (struct ether_arp *) buffer;
-    eth->arp = mempool_pealloc(sizeof(struct arp_info));
-    memcpy(eth->arp->sip, arp_header->arp_spa, 4); /* sender protocol address */
-    memcpy(eth->arp->tip, arp_header->arp_tpa, 4); /* target protocol address */
-    memcpy(eth->arp->sha, arp_header->arp_sha, ETH_ALEN); /* sender hardware address */
-    memcpy(eth->arp->tha, arp_header->arp_tha, ETH_ALEN); /* target hardware address */
-    eth->arp->op = ntohs(arp_header->arp_op); /* arp opcode (command) */
-    eth->arp->ht = ntohs(arp_header->arp_hrd);
-    eth->arp->pt = ntohs(arp_header->arp_pro);
-    eth->arp->hs = arp_header->arp_hln;
-    eth->arp->ps = arp_header->arp_pln;
+    arp = mempool_pealloc(sizeof(struct arp_info));
+    memcpy(arp->sip, arp_header->arp_spa, 4); /* sender protocol address */
+    memcpy(arp->tip, arp_header->arp_tpa, 4); /* target protocol address */
+    memcpy(arp->sha, arp_header->arp_sha, ETH_ALEN); /* sender hardware address */
+    memcpy(arp->tha, arp_header->arp_tha, ETH_ALEN); /* target hardware address */
+    arp->op = ntohs(arp_header->arp_op); /* arp opcode (command) */
+    arp->ht = ntohs(arp_header->arp_hrd);
+    arp->pt = ntohs(arp_header->arp_pro);
+    arp->hs = arp_header->arp_hln;
+    arp->ps = arp_header->arp_pln;
+    pdata->data = arp;
+    pdata->len = n;
     return NO_ERR;
 }
 

@@ -23,7 +23,7 @@ static register_function decoder_functions[] = {
     register_imap,
     register_snmp,
     register_ssdp,
-    register_tls
+    register_tls,
 };
 
 #endif

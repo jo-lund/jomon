@@ -33,19 +33,19 @@ static struct protocol_info stp_prot = {
 
 void register_stp()
 {
-    register_protocol(&stp_prot, LAYER802_3, ETH_802_STP);
+    register_protocol(&stp_prot, LAYER3, ETH_802_STP);
 }
 
 /*
  * IEEE 802.1 Bridge Spanning Tree Protocol
  */
 packet_error handle_stp(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                        void *data)
+                        struct packet_data *pdata)
 {
     /* the BPDU shall contain at least 4 bytes */
     if (n < 4) return STP_ERR;
 
-    struct eth_802_llc *llc = data;
+    struct stp_info *bpdu;
     uint16_t protocol_id = buffer[0] << 8 | buffer[1];
 
     /* protocol id 0x00 identifies the (Rapid) Spanning Tree Protocol */
@@ -53,29 +53,31 @@ packet_error handle_stp(struct protocol_info *pinfo, unsigned char *buffer, int 
 
     pinfo->num_packets++;
     pinfo->num_bytes += n;
-    llc->bpdu = mempool_pealloc(sizeof(struct stp_info));
-    llc->bpdu->protocol_id = protocol_id;
-    llc->bpdu->version = buffer[2];
-    llc->bpdu->type = buffer[3];
+    bpdu = mempool_pealloc(sizeof(struct stp_info));
+    pdata->data = bpdu;
+    pdata->len = n;
+    bpdu->protocol_id = protocol_id;
+    bpdu->version = buffer[2];
+    bpdu->type = buffer[3];
 
     /* a configuration BPDU contains at least 35 bytes and RST BPDU 36 bytes */
     if (n >= MIN_CONF_BPDU) {
-        llc->bpdu->tcack = (buffer[4] & 0x80) >> 7;
-        llc->bpdu->agreement = (buffer[4] & 0x40) >> 6;
-        llc->bpdu->forwarding = (buffer[4] & 0x20) >> 5;
-        llc->bpdu->learning = (buffer[4] & 0x10) >> 4 ;
-        llc->bpdu->port_role = (buffer[4] & 0x0c) >> 2;
-        llc->bpdu->proposal = (buffer[4] & 0x02) >> 1;
-        llc->bpdu->tc = buffer[4] & 0x01;
-        memcpy(llc->bpdu->root_id, &buffer[5], 8);
-        llc->bpdu->root_pc = buffer[13] << 24 | buffer[14] << 16 | buffer[15] << 8 | buffer[16];
-        memcpy(llc->bpdu->bridge_id, &buffer[17], 8);
-        llc->bpdu->port_id = buffer[25] << 8 | buffer[26];
-        llc->bpdu->msg_age = buffer[27] << 8 | buffer[28];
-        llc->bpdu->max_age = buffer[29] << 8 | buffer[30];
-        llc->bpdu->ht = buffer[31] << 8 | buffer[32];
-        llc->bpdu->fd = buffer[33] << 8 | buffer[34];
-        if (n > MIN_CONF_BPDU) llc->bpdu->version1_len = buffer[35];
+        bpdu->tcack = (buffer[4] & 0x80) >> 7;
+        bpdu->agreement = (buffer[4] & 0x40) >> 6;
+        bpdu->forwarding = (buffer[4] & 0x20) >> 5;
+        bpdu->learning = (buffer[4] & 0x10) >> 4 ;
+        bpdu->port_role = (buffer[4] & 0x0c) >> 2;
+        bpdu->proposal = (buffer[4] & 0x02) >> 1;
+        bpdu->tc = buffer[4] & 0x01;
+        memcpy(bpdu->root_id, &buffer[5], 8);
+        bpdu->root_pc = get_uint32be(&buffer[13]);
+        memcpy(bpdu->bridge_id, &buffer[17], 8);
+        bpdu->port_id = buffer[25] << 8 | buffer[26];
+        bpdu->msg_age = buffer[27] << 8 | buffer[28];
+        bpdu->max_age = buffer[29] << 8 | buffer[30];
+        bpdu->ht = buffer[31] << 8 | buffer[32];
+        bpdu->fd = buffer[33] << 8 | buffer[34];
+        if (n > MIN_CONF_BPDU) bpdu->version1_len = buffer[35];
     }
     return NO_ERR;
 }
@@ -102,4 +104,34 @@ struct packet_flags *get_stp_flags()
 int get_stp_flags_size()
 {
     return ARRAY_SIZE(stp_flags);
+}
+
+uint8_t get_stp_type(struct packet *p)
+{
+    struct packet_data *pdata = get_packet_data(p, ETH_802_STP);
+    struct stp_info *stp = pdata->data;
+
+    if (stp)
+        return stp->type;
+    return 0;
+}
+
+uint16_t get_stp_port_id(struct packet *p)
+{
+    struct packet_data *pdata = get_packet_data(p, ETH_802_STP);
+    struct stp_info *stp = pdata->data;
+
+    if (stp)
+        return stp->port_id;
+    return 0;
+}
+
+uint32_t get_stp_root_pc(struct packet *p)
+{
+    struct packet_data *pdata = get_packet_data(p, ETH_802_STP);
+    struct stp_info *stp = pdata->data;
+
+    if (stp)
+        return stp->root_pc;
+    return 0;
 }

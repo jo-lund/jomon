@@ -87,6 +87,6 @@ char *get_snmp_trap_type(struct snmp_trap *pdu);
 
 void register_snmp();
 packet_error handle_snmp(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                         void *data);
+                         struct packet_data *pdata);
 
 #endif

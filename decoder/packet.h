@@ -10,10 +10,9 @@
 #include "../mempool.h"
 #include "../alloc.h"
 
-#define LAYER802_3 0
-#define LAYER2 1
-#define LAYER3 2
-#define LAYER4 3
+#define LAYER2 0
+#define LAYER3 1
+#define LAYER4 2
 
 extern uint32_t total_packets;
 extern uint64_t total_bytes;
@@ -43,6 +42,7 @@ enum port {
     SNMP = 161,      /* Simple Network Management Protocol */
     SNMPTRAP = 162,  /* Simple Network Management Protocol Trap */
     HTTPS = 443,     /* Transport Layer Security (HTTPS) */
+    SMB = 445,       /* Server Message Block */
     IMAPS = 993,     /* Transport Layer Security (IMAPS) */
     SSDP = 1900,     /* Simple Service Discovery Protocol */
     MDNS = 5353,     /* Multicast DNS */
@@ -83,44 +83,40 @@ typedef enum {
     TLS_ERR
 } packet_error;
 
+struct packet_data;
+
 struct protocol_info {
     char *short_name;
     char *long_name;
     uint64_t num_bytes;
     uint32_t num_packets;
     packet_error (*decode)(struct protocol_info *pinfo, unsigned char *buf, int n,
-                           void *data);
+                           struct packet_data *p);
     void (*print_pdu)(char *buf, int n, void *data);
     void (*add_pdu)(void *w, void *sw, void *data);
 };
 
 typedef void (*protocol_handler)(struct protocol_info *pinfo, void *arg);
 
-struct application_info {
-    uint8_t transport;
-    uint16_t utype; /* specifies the application layer protocol */
-    union {
-        struct dns_info *dns;
-        struct nbns_info *nbns;
-        struct nbds_info *nbds;
-        struct http_info *http;
-        struct snmp_info *snmp;
-        struct imap_info *imap;
-        struct ssdp_info *ssdp;
-        struct tls_info *tls;
-    };
-};
-
 /*
- * Generic packet structure that can be used for every type of packet. For now
- * only support for Ethernet.
+ * Generic packet structure that can be used for every type of packet.
  */
 struct packet {
     packet_type ptype;
     uint32_t num;
     packet_error perr;
     struct timeval time;
-    struct eth_info eth;
+    unsigned char *buf; /* contains the frame as seen on the network */
+    unsigned int len;
+    struct packet_data *root;
+};
+
+struct packet_data {
+    uint8_t transport;
+    uint16_t id;
+    uint16_t len;
+    void *data;
+    struct packet_data *next;
 };
 
 /* TODO: move this */
@@ -147,7 +143,7 @@ void free_packets(void *data);
 /* Return a pointer to the application payload */
 unsigned char *get_adu_payload(struct packet *p);
 
-struct application_info *get_adu_info(struct packet *p);
+unsigned int get_adu_payload_len(struct packet *p);
 
 /* Clear packet statistics */
 void clear_statistics();
@@ -156,8 +152,10 @@ uint16_t get_packet_size(struct packet *p);
 
 bool is_tcp(struct packet *p);
 
+struct packet_data *get_packet_data(const struct packet *p, uint16_t id);
+
 /* Should be internal to the decoder */
-packet_error check_port(unsigned char *buffer, int n, struct application_info *adu,
+packet_error check_port(unsigned char *buffer, int n, struct packet_data *p,
                         uint16_t port);
 
 #endif
