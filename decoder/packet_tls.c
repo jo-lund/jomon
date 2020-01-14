@@ -385,7 +385,7 @@ void register_tls()
 packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
                         struct packet_data *pdata)
 {
-    if (n < TLS_HEADER_SIZE || n > TLS_MAX_SIZE) return TLS_ERR;
+    if (n < TLS_HEADER_SIZE || n > TLS_MAX_SIZE) return DECODE_ERR;
 
     uint16_t data_len = 0;
     struct tls_info **pptr;
@@ -437,7 +437,7 @@ packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
             } else {
                 // BUG: Need to handle this properly
                 if (parse_handshake(&buf, record_len, *pptr) != NO_ERR)
-                    return TLS_ERR;
+                    return DECODE_ERR;
             }
             break;
         default:
@@ -454,7 +454,7 @@ packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
 
 static packet_error parse_handshake(unsigned char **buf, uint16_t len, struct tls_info *tls)
 {
-    if (len < TLS_HANDSHAKE_HEADER) return TLS_ERR;
+    if (len < TLS_HANDSHAKE_HEADER) return DECODE_ERR;
 
     packet_error err = NO_ERR;
     unsigned char *ptr = *buf;
@@ -485,7 +485,7 @@ static packet_error parse_handshake(unsigned char **buf, uint16_t len, struct tl
 static packet_error parse_client_hello(unsigned char **buf, uint16_t len,
                                        struct tls_handshake *handshake)
 {
-    if (len < TLS_MIN_CLIENT_HELLO) return TLS_ERR;
+    if (len < TLS_MIN_CLIENT_HELLO) return DECODE_ERR;
 
     unsigned char *ptr = *buf;
 
@@ -495,21 +495,21 @@ static packet_error parse_client_hello(unsigned char **buf, uint16_t len,
     ptr += 34;
     len -= 34;
     if ((handshake->client_hello->session_length = ptr[0]) > len) {
-        return TLS_ERR;
+        return DECODE_ERR;
     }
     handshake->client_hello->session_id =
         mempool_pecopy(ptr + 1, handshake->client_hello->session_length);
     ptr += handshake->client_hello->session_length + 1;
     len = len - (handshake->client_hello->session_length + 1);
     if ((handshake->client_hello->cipher_length = get_uint16be(ptr)) > len) {
-        return TLS_ERR;
+        return DECODE_ERR;
     }
     handshake->client_hello->cipher_suites =
         mempool_pecopy(ptr + 2, handshake->client_hello->cipher_length);
     ptr += handshake->client_hello->cipher_length + 2;
     len = len - (handshake->client_hello->cipher_length + 2);
     if ((handshake->client_hello->compression_length = ptr[0]) > len) {
-        return TLS_ERR;
+        return DECODE_ERR;
     }
     if (handshake->client_hello->compression_length == 0) {
         handshake->client_hello->compression_methods = NULL;
@@ -531,7 +531,7 @@ static packet_error parse_client_hello(unsigned char **buf, uint16_t len,
 static packet_error parse_server_hello(unsigned char **buf, uint16_t len,
                                        struct tls_handshake *handshake)
 {
-    if (len < TLS_MIN_CLIENT_HELLO) return TLS_ERR;
+    if (len < TLS_MIN_CLIENT_HELLO) return DECODE_ERR;
 
     unsigned char *ptr = *buf;
 
@@ -541,7 +541,7 @@ static packet_error parse_server_hello(unsigned char **buf, uint16_t len,
     ptr += 34;
     len -= 34;
     if ((handshake->server_hello->session_length = ptr[0]) > len) {
-        return TLS_ERR;
+        return DECODE_ERR;
     }
     handshake->server_hello->session_id =
         mempool_pecopy(ptr + 1, handshake->server_hello->session_length);

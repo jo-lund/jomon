@@ -124,7 +124,7 @@ packet_error handle_dns(struct protocol_info *pinfo, unsigned char *buffer, int 
     int num_records = 0;
     struct dns_info *dns;
 
-    if (n < DNS_HDRLEN) return DNS_ERR;
+    if (n < DNS_HDRLEN) return DECODE_ERR;
     dns = mempool_pealloc(sizeof(struct dns_info));
     pdata->data = dns;
     pdata->len = n;
@@ -166,7 +166,7 @@ packet_error handle_dns(struct protocol_info *pinfo, unsigned char *buffer, int 
          * (RFC 2671) or TSIG (RFC 2845) are used
          */
         if (dns->section_count[ARCOUNT] > 2) {
-            return DNS_ERR;
+            return DECODE_ERR;
         }
     }
     ptr += DNS_HDRLEN;
@@ -177,7 +177,7 @@ packet_error handle_dns(struct protocol_info *pinfo, unsigned char *buffer, int 
         int len = parse_dns_question(buffer, n, &ptr, plen, dns);
 
         if (len == -1) {
-            return DNS_ERR;
+            return DECODE_ERR;
         }
         plen -= len;
     }
@@ -187,7 +187,7 @@ packet_error handle_dns(struct protocol_info *pinfo, unsigned char *buffer, int 
         num_records += dns->section_count[i];
     }
     if (num_records > n) {
-        return DNS_ERR;
+        return DECODE_ERR;
     }
     if (num_records) {
         dns->record = mempool_pealloc(num_records * sizeof(struct dns_resource_record));
@@ -195,7 +195,7 @@ packet_error handle_dns(struct protocol_info *pinfo, unsigned char *buffer, int 
             int len = parse_dns_record(i, buffer, n, &ptr, plen, dns);
 
             if (len == -1) {
-                return DNS_ERR;
+                return DECODE_ERR;
             }
             plen -= len;
         }

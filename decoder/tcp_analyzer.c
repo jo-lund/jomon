@@ -42,10 +42,12 @@ void tcp_analyzer_init()
 
 void tcp_analyzer_check_stream(const struct packet *p)
 {
-    if (!connection_table) return;
+    if (!connection_table)
+        return;
 
-    if (ethertype(p) == ETH_P_IP) {
-        struct packet_data *pdata = get_packet_data(p, IPPROTO_TCP);
+    struct packet_data *pdata;
+
+    if (ethertype(p) == ETH_P_IP && (pdata = get_packet_data(p, IPPROTO_TCP))) {
         struct tcp *tcp = pdata->data;
         struct tcp_connection_v4 *conn;
         struct tcp_endpoint_v4 endp;

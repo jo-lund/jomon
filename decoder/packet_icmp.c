@@ -23,7 +23,7 @@ void register_icmp()
 packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buffer, int n,
                          struct packet_data *pdata)
 {
-    if (n < ICMP_HDR_LEN) return ICMP_ERR;
+    if (n < ICMP_HDR_LEN) return DECODE_ERR;
 
     struct icmp_info *info;
     struct icmp *icmp = (struct icmp *) buffer;

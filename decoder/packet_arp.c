@@ -44,7 +44,7 @@ void register_arp()
 packet_error handle_arp(struct protocol_info *pinfo, unsigned char *buffer, int n,
                         struct packet_data *pdata)
 {
-    if (n < ARP_SIZE) return ARP_ERR;
+    if (n < ARP_SIZE) return DECODE_ERR;
 
     struct ether_arp *arp_header;
     struct arp_info *arp;

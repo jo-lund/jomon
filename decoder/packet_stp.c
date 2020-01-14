@@ -43,13 +43,13 @@ packet_error handle_stp(struct protocol_info *pinfo, unsigned char *buffer, int 
                         struct packet_data *pdata)
 {
     /* the BPDU shall contain at least 4 bytes */
-    if (n < 4) return STP_ERR;
+    if (n < 4) return DECODE_ERR;
 
     struct stp_info *bpdu;
     uint16_t protocol_id = buffer[0] << 8 | buffer[1];
 
     /* protocol id 0x00 identifies the (Rapid) Spanning Tree Protocol */
-    if (!protocol_id == 0x0) return STP_ERR;
+    if (!protocol_id == 0x0) return DECODE_ERR;
 
     pinfo->num_packets++;
     pinfo->num_bytes += n;

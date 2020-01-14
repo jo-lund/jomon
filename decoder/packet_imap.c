@@ -33,7 +33,7 @@ packet_error handle_imap(struct protocol_info *pinfo, unsigned char *buf, int n,
     pdata->len = n;
     imap->lines = list_init(&d_alloc);
     while (isascii(*buf)) {
-        if (c >= MAXLINE || i >= n) return IMAP_ERR;
+        if (c >= MAXLINE || i >= n) return DECODE_ERR;
         if (*buf == '\r') {
             if (++i < n && *++buf == '\n') {
                 list_push_back(imap->lines, mempool_pecopy0(line, c));
@@ -43,7 +43,7 @@ packet_error handle_imap(struct protocol_info *pinfo, unsigned char *buf, int n,
                 c = 0;
                 continue;
             } else {
-                return IMAP_ERR;
+                return DECODE_ERR;
             }
         }
         line[c++] = *buf++;
@@ -56,5 +56,5 @@ packet_error handle_imap(struct protocol_info *pinfo, unsigned char *buf, int n,
     }
     mempool_pefree(imap->lines);
     imap->lines = NULL;
-    return IMAP_ERR;
+    return DECODE_ERR;
 }

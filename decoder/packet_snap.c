@@ -29,7 +29,7 @@ packet_error handle_snap(struct protocol_info *pinfo, unsigned char *buffer, int
     pdata->data = snap;
     pdata->len = n;
     memcpy(snap->oui, buffer, 3);
-    buffer += 3; /* skip first 3 bytes of 802.2 SNAP */
+    buffer += 3;
     snap->protocol_id = get_uint16be(buffer);
 
     /* TODO: handle sub-protocols */

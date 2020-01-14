@@ -101,7 +101,7 @@ packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int
     struct ipv4_info *ipv4;
 
     ip = (struct iphdr *) buffer;
-    if (n < ip->ihl * 4 || ip->ihl < 5) return IPv4_ERR;
+    if (n < ip->ihl * 4 || ip->ihl < 5) return DECODE_ERR;
 
     pinfo->num_packets++;
     pinfo->num_bytes += n;
@@ -122,7 +122,7 @@ packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int
     ipv4->length = ntohs(ip->tot_len);
     if (ipv4->length < header_len || /* total length less than header length */
         ipv4->length > n) { /* total length greater than packet length */
-        return IPv4_ERR;
+        return DECODE_ERR;
     }
 
     /* The packet has been padded in order to contain the minimum number of by
@@ -194,7 +194,7 @@ packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int
     struct ipv6_info *ipv6;
 
     header_len = sizeof(struct ip6_hdr);
-    if (n < header_len) return IPv6_ERR;
+    if (n < header_len) return DECODE_ERR;
 
     pinfo->num_packets++;
     pinfo->num_bytes += n;

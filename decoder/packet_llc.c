@@ -30,6 +30,8 @@ packet_error handle_llc(struct protocol_info *pinfo, unsigned char *buffer, int 
     llc->dsap = buffer[0];
     llc->ssap = buffer[1];
     llc->control = buffer[2];
+
+    // BUG: Can have conflicts with IP protocol ids
     if ((psub = get_protocol(LAYER3, (llc->dsap << 8) | llc->ssap))) {
         pdata->len = LLC_HDR_LEN;
         pdata->id = (llc->dsap << 8) | llc->ssap;
@@ -37,8 +39,7 @@ packet_error handle_llc(struct protocol_info *pinfo, unsigned char *buffer, int 
         memset(pdata->next, 0, sizeof(struct packet_data));
         return psub->decode(psub, buffer + LLC_HDR_LEN, n - LLC_HDR_LEN, pdata->next);
     }
-    return NO_ERR;
-
+    return UNK_PROTOCOL;
 }
 
 enum eth_802_type get_eth802_type(struct packet *p)

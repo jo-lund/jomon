@@ -103,11 +103,11 @@ packet_error handle_tcp(struct protocol_info *pinfo, unsigned char *buffer, int 
     struct tcp *info;
 
     tcp = (struct tcphdr *) buffer;
-    if (n < tcp->doff * 4) return TCP_ERR;
+    if (n < tcp->doff * 4) return DECODE_ERR;
 
     /* bogus header length */
     if (tcp->doff < 5)
-        return TCP_ERR;
+        return DECODE_ERR;
 
     info = mempool_pealloc(sizeof(struct tcp));
     pdata->data = info;
@@ -141,21 +141,14 @@ packet_error handle_tcp(struct protocol_info *pinfo, unsigned char *buffer, int 
         info->options = NULL;
     }
 
-    /* only check port if there is a payload */
     if (payload_len > 0) {
         for (int i = 0; i < 2; i++) {
             pdata->id = *((uint16_t *) info + i);
-            pdata->next = mempool_pealloc(sizeof(struct packet_data));
-            memset(pdata->next, 0, sizeof(struct packet_data));
-            pdata->next->transport = TCP;
-            pdata->next->id = pdata->id;
-            error = check_port(buffer + info->offset * 4, payload_len, pdata->next, pdata->id);
+            error = call_data_decoder(pdata, TCP, buffer + info->offset * 4, payload_len);
             if (error != UNK_PROTOCOL) {
                 return error;
             }
-            mempool_pefree(pdata->next);
         }
-        pdata->next = NULL;
     }
     return error;
 }

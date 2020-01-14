@@ -34,7 +34,7 @@ void register_udp()
 packet_error handle_udp(struct protocol_info *pinfo, unsigned char *buffer, int n,
                         struct packet_data *pdata)
 {
-    if (n < UDP_HDR_LEN) return UDP_ERR;
+    if (n < UDP_HDR_LEN) return DECODE_ERR;
 
     struct udphdr *udp;
     packet_error error = NO_ERR;
@@ -48,23 +48,17 @@ packet_error handle_udp(struct protocol_info *pinfo, unsigned char *buffer, int 
     info->dst_port = ntohs(udp->dest);
     info->len = ntohs(udp->len);
     if (info->len < UDP_HDR_LEN || info->len > n) {
-        return UDP_ERR;
+        return DECODE_ERR;
     }
     info->checksum = ntohs(udp->check);
     pdata->data = info;
     pdata->len = UDP_HDR_LEN;
     for (int i = 0; i < 2; i++) {
         pdata->id = *((uint16_t *) info + i);
-        pdata->next = mempool_pealloc(sizeof(struct packet_data));
-        memset(pdata->next, 0, sizeof(struct packet_data));
-        pdata->next->transport = UDP;
-        pdata->next->id = pdata->id;
-        error = check_port(buffer + UDP_HDR_LEN, n - UDP_HDR_LEN, pdata->next, pdata->id);
+        error = call_data_decoder(pdata, UDP, buffer + UDP_HDR_LEN, n - UDP_HDR_LEN);
         if (error != UNK_PROTOCOL) {
             return error;
         }
-        mempool_pefree(pdata->next);
     }
-    pdata->next = NULL;
     return error;
 }

@@ -61,26 +61,8 @@ typedef enum {
 
 typedef enum {
     NO_ERR,
+    DECODE_ERR,
     UNK_PROTOCOL,
-    ETH_ERR,
-    ARP_ERR,
-    STP_ERR,
-    IPv4_ERR,
-    IPv6_ERR,
-    ICMP_ERR,
-    IGMP_ERR,
-    PIM_ERR,
-    TCP_ERR,
-    UDP_ERR,
-    DNS_ERR,
-    NBNS_ERR,
-    NBDS_ERR,
-    HTTP_ERR,
-    SSDP_ERR,
-    SNMP_ERR,
-    SMB_ERR,
-    IMAP_ERR,
-    TLS_ERR
 } packet_error;
 
 struct packet_data;
@@ -155,7 +137,7 @@ bool is_tcp(struct packet *p);
 struct packet_data *get_packet_data(const struct packet *p, uint16_t id);
 
 /* Should be internal to the decoder */
-packet_error check_port(unsigned char *buffer, int n, struct packet_data *p,
-                        uint16_t port);
+packet_error call_data_decoder(struct packet_data *pdata, uint8_t transport,
+                               unsigned char *buf, int n);
 
 #endif

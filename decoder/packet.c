@@ -107,7 +107,7 @@ bool decode_packet(unsigned char *buffer, size_t len, struct packet **p)
     (*p)->ptype = ETHERNET;
     (*p)->num = ++total_packets;
     total_bytes += len;
-    if ((*p)->perr == NO_ERR && is_tcp(*p)) {
+    if ((*p)->perr == NO_ERR) {
         tcp_analyzer_check_stream(*p);
     }
     host_analyzer_investigate(*p);
@@ -119,21 +119,28 @@ void free_packets(void *data)
     mempool_pefree(data);
 }
 
-/*
- * Checks which well-known or registered port the packet originated from or is
- * addressed to.
- *
- * Returns the error status. This is set to "unknown protocol" if it's an
- * ephemeral port or the port is not yet supported.
- */
-packet_error check_port(unsigned char *buffer, int n, struct packet_data *p,
-                        uint16_t port)
+packet_error call_data_decoder(struct packet_data *pdata, uint8_t transport,
+                               unsigned char *buf, int n)
 {
-    struct protocol_info *pinfo = hashmap_get(protocols[LAYER4], (void *) (uintptr_t) port);
+    struct protocol_info *pinfo;
+    packet_error err = UNK_PROTOCOL;
 
-    if (pinfo)
-        return pinfo->decode(pinfo, buffer, n, p);
-    return UNK_PROTOCOL;
+    if (!pdata)
+        return DECODE_ERR;
+
+    if ((pinfo = get_protocol(LAYER4, pdata->id))) {
+        pdata->next = mempool_pealloc(sizeof(struct packet_data));
+        memset(pdata->next, 0, sizeof(struct packet_data));
+        pdata->next->transport = transport;
+        pdata->next->id = pdata->id;
+        if ((err = pinfo->decode(pinfo, buf, n, pdata->next)) != NO_ERR) {
+            mempool_pefree(pdata->next);
+            pdata->next = NULL;
+        }
+    } else {
+        pdata->next = NULL;
+    }
+    return err;
 }
 
 unsigned char *get_adu_payload(struct packet *p)

@@ -69,20 +69,20 @@ packet_error handle_snmp(struct protocol_info *pinfo, unsigned char *buffer, int
     unsigned char *ptr = buffer;
     struct snmp_info *snmp;
 
-    if (n < MIN_MSG) return SNMP_ERR;
+    if (n < MIN_MSG) return DECODE_ERR;
 
     snmp = mempool_pealloc(sizeof(struct snmp_info));
     pdata->data = snmp;
     pdata->len = n;
     if ((msg_len = parse_value(&ptr, n, &class, &tag, NULL)) == -1) {
-        return SNMP_ERR;
+        return DECODE_ERR;
     }
     if (tag == SNMP_SEQUENCE_TAG) {
         pinfo->num_packets++;
         pinfo->num_bytes += n;
         return parse_pdu(ptr, msg_len, snmp);
     }
-    return SNMP_ERR;
+    return DECODE_ERR;
 }
 
 /*
@@ -101,7 +101,7 @@ packet_error parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp)
 
     for (int i = 0; i < 2 && n > 0; i++) {
         if ((val_len = parse_value(&ptr, n, &class, &tag, &val[i])) == -1) {
-            return SNMP_ERR;
+            return DECODE_ERR;
         }
         n -= val_len;
     }
@@ -112,7 +112,7 @@ packet_error parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp)
 
         /* get PDU type */
         if ((n = parse_value(&ptr, n, &class, &tag, NULL)) == -1) {
-            return SNMP_ERR;
+            return DECODE_ERR;
         }
         if (n > 0 && class == CONTEXT_SPECIFIC) {
             snmp->pdu_type = tag;
@@ -129,7 +129,7 @@ packet_error parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp)
                 /* parse get/set header */
                 for (int i = 0; i < 3 && n > 0; i++) {
                     if ((val_len = parse_value(&ptr, n, &class, &tag, &val[i])) == -1) {
-                        return SNMP_ERR;
+                        return DECODE_ERR;
                     }
                     n -= val_len;
                 }
@@ -139,11 +139,11 @@ packet_error parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp)
                     snmp->pdu->error_status = val[1].ival;
                     snmp->pdu->error_index = val[2].ival;
                     if ((snmp->pdu->varbind_list = parse_variables(ptr, n)) == NULL) {
-                        return SNMP_ERR;
+                        return DECODE_ERR;
                     }
                     return NO_ERR;
                 }
-                return SNMP_ERR;
+                return DECODE_ERR;
             }
             case SNMP_TRAP:
             {
@@ -153,7 +153,7 @@ packet_error parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp)
 
                 for (int i = 0; i < 5 && n > 0; i++) {
                     if ((val_len = parse_value(&ptr, n, &class, &tag, &val[i])) == -1) {
-                        return SNMP_ERR;
+                        return DECODE_ERR;
                     }
                     n -= val_len;
                 }
@@ -165,18 +165,18 @@ packet_error parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp)
                     snmp->trap->specific_code = val[3].ival;
                     snmp->trap->timestamp = val[4].ival;
                     if ((snmp->trap->varbind_list = parse_variables(ptr, n)) == NULL) {
-                        return SNMP_ERR;
+                        return DECODE_ERR;
                     }
                     return NO_ERR;
                 }
-                return SNMP_ERR;
+                return DECODE_ERR;
             }
             default:
-                return SNMP_ERR;
+                return DECODE_ERR;
             }
         }
     }
-    return SNMP_ERR;
+    return DECODE_ERR;
 }
 
 /*

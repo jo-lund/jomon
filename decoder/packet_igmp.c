@@ -66,7 +66,7 @@ void register_igmp()
 packet_error handle_igmp(struct protocol_info *pinfo, unsigned char *buffer, int n,
                          struct packet_data *pdata)
 {
-    if (n < IGMP_HDR_LEN) return IGMP_ERR;
+    if (n < IGMP_HDR_LEN) return DECODE_ERR;
 
     struct igmp *igmp;
     struct igmp_info *info;
