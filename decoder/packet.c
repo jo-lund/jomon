@@ -107,7 +107,7 @@ bool decode_packet(unsigned char *buffer, size_t len, struct packet **p)
     (*p)->ptype = ETHERNET;
     (*p)->num = ++total_packets;
     total_bytes += len;
-    if ((*p)->perr == NO_ERR) {
+    if ((*p)->perr != DECODE_ERR) {
         tcp_analyzer_check_stream(*p);
     }
     host_analyzer_investigate(*p);

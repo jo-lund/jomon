@@ -83,9 +83,15 @@ void write_to_buf(char *buf, int size, struct packet *p)
     } else {
         struct protocol_info *pinfo = get_protocol(LAYER2, p->root->id);
 
-        if (pinfo)
+        if (pinfo) {
+            char time[TBUFLEN];
+            struct timeval t = p->time;
+
+            format_timeval(&t, time, TBUFLEN);
+            PRINT_NUMBER(buf, size, p->num);
+            PRINT_TIME(buf, size, time);
             pinfo->print_pdu(buf, size, p);
-        else if (p->len - ETH_HLEN)
+        } else if (p->len - ETH_HLEN)
             print_error(buf, size, p);
     }
 }
@@ -112,28 +118,24 @@ void print_arp(char *buf, int n, void *data)
 {
     struct packet *p = data;
     struct arp_info *arp = get_arp(p);
-    uint32_t num = p->num;
-    struct timeval t = p->time;
     char sip[INET_ADDRSTRLEN];
     char tip[INET_ADDRSTRLEN];
     char sha[HW_ADDRSTRLEN];
-    char time[TBUFLEN];
 
     inet_ntop(AF_INET, arp->sip, sip, INET_ADDRSTRLEN);
     inet_ntop(AF_INET, arp->tip, tip, INET_ADDRSTRLEN);
-    format_timeval(&t, time, TBUFLEN);
+    PRINT_ADDRESS(buf, n, sip, tip);
+    PRINT_PROTOCOL(buf, n, "ARP");
     switch (arp->op) {
     case ARPOP_REQUEST:
-        PRINT_LINE(buf, n, num, time, sip, tip, "ARP",
-                   "Request: Looking for hardware address of %s", tip);
+        PRINT_INFO(buf, n, "Request: Looking for hardware address of %s", tip);
         break;
     case ARPOP_REPLY:
         HW_ADDR_NTOP(sha, arp->sha);
-        PRINT_LINE(buf, n, num, time, sip, tip, "ARP",
-                   "Reply: %s has hardware address %s", sip, sha);
+        PRINT_INFO(buf, n, "Reply: %s has hardware address %s", sip, sha);
         break;
     default:
-        PRINT_LINE(buf, n, num, time, arp->sip, arp->tip, "ARP", "Opcode %d", arp->op);
+        PRINT_INFO(buf, n, "Opcode %d", arp->op);
         break;
     }
 }
@@ -141,86 +143,67 @@ void print_arp(char *buf, int n, void *data)
 void print_llc(char *buf, int n, void *data)
 {
     struct packet *p = data;
-    struct protocol_info *pinfo = get_protocol(LAYER3, get_eth802_type(p));
-    uint32_t num = p->num;
-    struct timeval t = p->time;
-    char time[TBUFLEN];
+    struct packet_data *pdata = p->root->next;
+    struct protocol_info *pinfo;
+    char smac[HW_ADDRSTRLEN];
+    char dmac[HW_ADDRSTRLEN];
 
+    HW_ADDR_NTOP(smac, eth_src(p));
+    HW_ADDR_NTOP(dmac, eth_dst(p));
+    PRINT_ADDRESS(buf, n, smac, dmac);
+    pinfo = get_protocol(LAYER3, pdata->id);
     if (pinfo)
-        pinfo->print_pdu(buf, n, p);
+        pinfo->print_pdu(buf, n, pdata->next);
     else {
-        char smac[HW_ADDRSTRLEN];
-        char dmac[HW_ADDRSTRLEN];
-
-        format_timeval(&t, time, TBUFLEN);
-        HW_ADDR_NTOP(smac, eth_src(p));
-        HW_ADDR_NTOP(dmac, eth_dst(p));
-        PRINT_LINE(buf, n, num, time, smac, dmac, "LLC", "SSAP: 0x%x  DSAP: 0x%x  Control: 0x%x",
+        PRINT_PROTOCOL(buf, n, "LLC");
+        PRINT_INFO(buf, n, smac, dmac, "SSAP: 0x%x  DSAP: 0x%x  Control: 0x%x",
                    llc_ssap(p), llc_dsap(p), llc_control(p));
     }
 }
 
 void print_stp(char *buf, int n, void *data)
 {
-    struct packet *p = data;
-    uint32_t num = p->num;
-    struct timeval t = p->time;
-    char time[TBUFLEN];
-    char smac[HW_ADDRSTRLEN];
-    char dmac[HW_ADDRSTRLEN];
+    struct packet_data *pdata = data;
+    struct stp_info *stp = pdata->data;
 
-    format_timeval(&t, time, TBUFLEN);
-    HW_ADDR_NTOP(smac, eth_src(p));
-    HW_ADDR_NTOP(dmac, eth_dst(p));
-    switch (get_stp_type(p)) {
+    PRINT_PROTOCOL(buf, n, "STP");
+    switch (stp->type) {
     case CONFIG:
-        PRINT_LINE(buf, n, num, time, smac, dmac, "STP", "Configuration BPDU");
+        PRINT_INFO(buf, n, "Configuration BPDU");
         break;
     case RST:
-        PRINT_LINE(buf, n, num, time, smac, dmac, "STP", "Rapid Spanning Tree BPDU. Root Path Cost: %u  Port ID: 0x%x",
-                   get_stp_root_pc(p), get_stp_port_id(p));
+        PRINT_INFO(buf, n, "Rapid Spanning Tree BPDU. Root Path Cost: %u  Port ID: 0x%x",
+                   stp->root_pc, stp->root_id);
         break;
     case TCN:
-        PRINT_LINE(buf, n, num, time, smac, dmac, "STP", "Topology Change Notification BPDU");
+        PRINT_INFO(buf, n, "Topology Change Notification BPDU");
         break;
     }
 }
 
 void print_snap(char *buf, int n, void *data)
 {
-    struct packet *p = data;
-    uint32_t num = p->num;
-    struct timeval t = p->time;
-    char time[TBUFLEN];
-    char smac[HW_ADDRSTRLEN];
-    char dmac[HW_ADDRSTRLEN];
+    struct packet_data *pdata = data;
+    struct snap_info *snap = pdata->data;
 
-    format_timeval(&t, time, TBUFLEN);
-    HW_ADDR_NTOP(smac, eth_src(p));
-    HW_ADDR_NTOP(dmac, eth_dst(p));
-    PRINT_LINE(buf, n, num, time, smac, dmac, "SNAP", "OUI: 0x%06x  Protocol Id: 0x%04x",
-               get_snap_oui(p), get_snap_id(p));
+    PRINT_PROTOCOL(buf, n, "SNAP");
+    PRINT_INFO(buf, n, "OUI: 0x%06x  Protocol Id: 0x%04x",
+               snap->oui, snap->protocol_id);
 }
 
 void print_ipv4(char *buf, int n, void *data)
 {
     struct packet *p = data;
-    struct packet_data *pdata = get_packet_data(p, ETH_P_IP);
+    struct packet_data *pdata = p->root->next;
     struct ipv4_info *ip = pdata->data;
-    uint32_t num = p->num;
-    struct timeval t = p->time;
-    char time[TBUFLEN];
     char src[INET_ADDRSTRLEN];
     char dst[INET_ADDRSTRLEN];
 
-    format_timeval(&t, time, TBUFLEN);
-    PRINT_NUMBER(buf, n, num);
-    PRINT_TIME(buf, n, time);
     inet_ntop(AF_INET, &ip->src, src, INET_ADDRSTRLEN);
     inet_ntop(AF_INET, &ip->dst, dst, INET_ADDRSTRLEN);
     PRINT_ADDRESS(buf, n, src, dst);
 
-    struct protocol_info *pinfo = get_protocol(LAYER3, ip->protocol);
+    struct protocol_info *pinfo = get_protocol(LAYER3, pdata->id);
 
     if (pinfo && pdata->next)
         pinfo->print_pdu(buf, n, pdata->next);
@@ -233,22 +216,16 @@ void print_ipv4(char *buf, int n, void *data)
 void print_ipv6(char *buf, int n, void *data)
 {
     struct packet *p = data;
-    struct packet_data *pdata = get_packet_data(p, ETH_P_IPV6);
+    struct packet_data *pdata = p->root->next;
     struct ipv6_info *ip = pdata->data;
-    uint32_t num = p->num;
-    struct timeval t = p->time;
     char src[INET6_ADDRSTRLEN];
     char dst[INET6_ADDRSTRLEN];
-    char time[TBUFLEN];
 
-    format_timeval(&t, time, TBUFLEN);
-    PRINT_NUMBER(buf, n, num);
-    PRINT_TIME(buf, n, time);
     inet_ntop(AF_INET6, ip->src, src, INET6_ADDRSTRLEN);
     inet_ntop(AF_INET6, ip->dst, dst, INET6_ADDRSTRLEN);
     PRINT_ADDRESS(buf, n, src, dst);
 
-    struct protocol_info *pinfo = get_protocol(LAYER3, ip->next_header);
+    struct protocol_info *pinfo = get_protocol(LAYER3, pdata->id);
 
     if (pinfo && pdata->next)
         pinfo->print_pdu(buf, n, pdata->next);

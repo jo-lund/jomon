@@ -44,6 +44,10 @@ packet_error handle_smb(unsigned char *buffer, int n, struct smb_info *smb)
 {
     if (n < SMB_HDR_LEN) return DECODE_ERR;
 
+    if (buffer[0] != 0xff || buffer[1] != 'S' ||
+        buffer[2] != 'M' || buffer[3] != 'B')
+        return DECODE_ERR;
+
     memcpy(smb->protocol, buffer, 4);
     smb->command = buffer[4];
     smb->status = (int32_t) get_uint32le(buffer + 5);
@@ -56,7 +60,6 @@ packet_error handle_smb(unsigned char *buffer, int n, struct smb_info *smb)
     smb->pidlow = get_uint16le(buffer + 2);
     smb->uid = get_uint16le(buffer + 4);
     smb->mid = get_uint16le(buffer + 6);
-
     return NO_ERR;
 }
 

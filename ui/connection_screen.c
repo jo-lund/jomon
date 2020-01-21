@@ -292,10 +292,10 @@ void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int
     entry[PORTB].val = conn->endp->dst_port;
     while (n) {
         p = list_data(n);
-        if (entry[ADDRA].val == get_ipv4_src(p) && entry[PORTA].val == get_tcp_src(p)) {
+        if (entry[ADDRA].val == ipv4_src(p) && entry[PORTA].val == get_tcp_src(p)) {
             entry[BYTES_AB].val += p->len;
             entry[PACKETS_AB].val++;
-        } else if (entry[ADDRB].val == get_ipv4_src(p) &&
+        } else if (entry[ADDRB].val == ipv4_src(p) &&
                    entry[PORTB].val == get_tcp_src(p)) {
             entry[BYTES_BA].val += p->len;
             entry[PACKETS_BA].val++;

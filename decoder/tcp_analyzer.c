@@ -52,8 +52,8 @@ void tcp_analyzer_check_stream(const struct packet *p)
         struct tcp_connection_v4 *conn;
         struct tcp_endpoint_v4 endp;
 
-        endp.src = get_ipv4_src(p);
-        endp.dst = get_ipv4_dst(p);
+        endp.src = ipv4_src(p);
+        endp.dst = ipv4_dst(p);
         endp.src_port = get_tcp_src(p);
         endp.dst_port = get_tcp_dst(p);
         conn = hashmap_get(connection_table, &endp);
