@@ -118,7 +118,7 @@ void insert_host(uint32_t addr, uint8_t *mac)
         map = remote_hosts;
         local = false;
     }
-    if (!hashmap_contains(map, (void *) (uintptr_t) addr)) {
+    if (!hashmap_contains(map, UINT_TO_PTR(addr))) {
         struct host_info *host = mempool_pealloc(sizeof(struct host_info));
         char *name;
 
@@ -132,18 +132,18 @@ void insert_host(uint32_t addr, uint8_t *mac)
         if (local) {
             memcpy(host->mac_addr, mac, ETH_ALEN);
         }
-        hashmap_insert(map, (void *) (uintptr_t) addr, host);
-        publish2(host_changed_publisher, host, (void *) 0x1);
+        hashmap_insert(map, UINT_TO_PTR(addr), host);
+        publish2(host_changed_publisher, host, UINT_TO_PTR(0x1));
     }
 }
 
 void update_host(uint32_t addr, char *name)
 {
     hashmap_t *map = local_ip4(addr) ? local_hosts : remote_hosts;
-    struct host_info *host = hashmap_get(map, (void *) (uintptr_t) addr);
+    struct host_info *host = hashmap_get(map, UINT_TO_PTR(addr));
 
     if (host && !host->name) {
         host->name = name;
-        publish2(host_changed_publisher, host, (void *) 0x0);
+        publish2(host_changed_publisher, host, UINT_TO_PTR(0x0));
     }
 }

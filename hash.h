@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <string.h>
+#include "util.h"
 
 static inline unsigned int hash_string(const void *key)
 {
@@ -23,7 +24,7 @@ static inline int compare_string(const void *e1, const void *e2)
 static inline unsigned int hash_uint16(const void *key)
 {
    unsigned int hash = 5381;
-   uintptr_t val = (uintptr_t) key;
+   uint16_t val = PTR_TO_UINT(key);
 
    for (unsigned int i = 0; i < 2; i++) {
        hash = ((hash << 5) + hash) + ((val >> (i * 8)) & 0xff);
@@ -34,7 +35,7 @@ static inline unsigned int hash_uint16(const void *key)
 static inline unsigned int hash_uint32(const void *key)
 {
    unsigned int hash = 5381;
-   uintptr_t val = (uintptr_t) key;
+   uint32_t val = PTR_TO_UINT(key);
 
    for (unsigned int i = 0; i < 4; i++) {
        hash = ((hash << 5) + hash) + ((val >> (i * 8)) & 0xff);
@@ -44,7 +45,7 @@ static inline unsigned int hash_uint32(const void *key)
 
 static inline int compare_uint(const void *e1, const void *e2)
 {
-    return (uintptr_t) e1 - (uintptr_t) e2;
+    return PTR_TO_UINT(e1) - PTR_TO_UINT(e2);
 }
 
 #endif

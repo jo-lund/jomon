@@ -57,14 +57,14 @@ void decoder_exit()
 void register_protocol(struct protocol_info *pinfo, uint16_t layer, uint16_t id)
 {
     if (pinfo) {
-        hashmap_insert(protocols, (void *) (uintptr_t) get_protocol_id(layer, id), pinfo);
+        hashmap_insert(protocols, UINT_TO_PTR(get_protocol_id(layer, id)), pinfo);
         hashmap_insert(info, pinfo->short_name, pinfo);
     }
 }
 
 struct protocol_info *get_protocol(uint32_t id)
 {
-    return hashmap_get(protocols, (void *) (uintptr_t) id);
+    return hashmap_get(protocols, UINT_TO_PTR(id));
 }
 
 void traverse_protocols(protocol_handler fn, void *arg)

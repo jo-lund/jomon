@@ -23,21 +23,21 @@ void dns_cache_free()
 
 void dns_cache_insert(uint32_t addr, char *name)
 {
-    if (dns_cache && hashmap_insert(dns_cache, (void *) (uintptr_t) addr, name)) {
-        publish2(dns_cache_publisher, (void *) (uintptr_t) addr, name);
+    if (dns_cache && hashmap_insert(dns_cache, UINT_TO_PTR(addr), name)) {
+        publish2(dns_cache_publisher, UINT_TO_PTR(addr), name);
     }
 }
 
 void dns_cache_remove(uint32_t addr)
 {
     if (dns_cache) {
-        hashmap_remove(dns_cache, (void *) (uintptr_t) addr);
+        hashmap_remove(dns_cache, UINT_TO_PTR(addr));
     }
 }
 
 char *dns_cache_get(uint32_t addr)
 {
-    return dns_cache ? (char *) hashmap_get(dns_cache, (void *) (uintptr_t) addr) : NULL;
+    return dns_cache ? (char *) hashmap_get(dns_cache, UINT_TO_PTR(addr)) : NULL;
 }
 
 void dns_cache_clear()
