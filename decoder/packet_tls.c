@@ -378,8 +378,8 @@ static struct protocol_info tls_prot = {
 
 void register_tls()
 {
-    register_protocol(&tls_prot, LAYER4, HTTPS);
-    register_protocol(&tls_prot, LAYER4, IMAPS);
+    register_protocol(&tls_prot, PORT, HTTPS);
+    register_protocol(&tls_prot, PORT, IMAPS);
 }
 
 packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,

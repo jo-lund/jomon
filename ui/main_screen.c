@@ -1426,11 +1426,11 @@ void add_elements(main_screen *ms, struct packet *p)
     add_ethernet_information(ms->lvw, header, p);
     idx += pdata->len;
     while (pdata->next) {
-        pinfo = get_protocol(i, pdata->id);
+        pinfo = get_protocol(pdata->id);
         pdata = pdata->next;
         i++;
         idx += pdata->len;
-        if (pinfo) {
+        if (pinfo && i < NUM_LAYERS) {
             header = LV_ADD_HEADER(ms->lvw, pinfo->long_name, selected[i], i);
             pinfo->add_pdu(ms->lvw, header, pdata);
         }

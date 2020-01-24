@@ -31,7 +31,7 @@ static struct protocol_info tcp_prot = {
 
 void register_tcp()
 {
-    register_protocol(&tcp_prot, LAYER3, IPPROTO_TCP);
+    register_protocol(&tcp_prot, IP_PROTOCOL, IPPROTO_TCP);
 }
 
 /*
@@ -143,7 +143,7 @@ packet_error handle_tcp(struct protocol_info *pinfo, unsigned char *buffer, int 
 
     if (payload_len > 0) {
         for (int i = 0; i < 2; i++) {
-            pdata->id = *((uint16_t *) info + i);
+            pdata->id = get_protocol_id(PORT, *((uint16_t *) info + i));
             error = call_data_decoder(pdata, TCP, buffer + info->offset * 4, payload_len);
             if (error != UNK_PROTOCOL) {
                 return error;
@@ -248,7 +248,7 @@ int get_tcp_flags_size()
 
 uint16_t get_tcp_src(const struct packet *p)
 {
-    struct packet_data *pdata = get_packet_data(p, IPPROTO_TCP);
+    struct packet_data *pdata = get_packet_data(p, get_protocol_id(IP_PROTOCOL, IPPROTO_TCP));
     struct tcp *tcp = pdata->data;
 
     if (tcp)
@@ -258,7 +258,7 @@ uint16_t get_tcp_src(const struct packet *p)
 
 uint16_t get_tcp_dst(const struct packet *p)
 {
-    struct packet_data *pdata = get_packet_data(p, IPPROTO_TCP);
+    struct packet_data *pdata = get_packet_data(p, get_protocol_id(IP_PROTOCOL, IPPROTO_TCP));
     struct tcp *tcp = pdata->data;
 
     if (tcp)

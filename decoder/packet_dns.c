@@ -62,9 +62,9 @@ static struct protocol_info llmnr_prot = {
 
 void register_dns()
 {
-    register_protocol(&dns_prot, LAYER4, DNS);
-    register_protocol(&mdns_prot, LAYER4, MDNS);
-    register_protocol(&llmnr_prot, LAYER4, LLMNR);
+    register_protocol(&dns_prot, PORT, DNS);
+    register_protocol(&mdns_prot, PORT, MDNS);
+    register_protocol(&llmnr_prot, PORT, LLMNR);
 }
 
 /*

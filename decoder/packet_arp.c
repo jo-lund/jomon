@@ -22,7 +22,7 @@ static struct protocol_info arp_prot = {
 
 void register_arp()
 {
-    register_protocol(&arp_prot, LAYER2, ETH_P_ARP);
+    register_protocol(&arp_prot, ETHERNET_II, ETH_P_ARP);
 }
 
 /*

@@ -46,7 +46,7 @@ static struct protocol_info http_prot = {
 
 void register_http()
 {
-    register_protocol(&http_prot, LAYER4, HTTP);
+    register_protocol(&http_prot, PORT, HTTP);
 }
 
 static int rbcmp(const void *d1, const void *d2)

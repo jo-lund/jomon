@@ -17,7 +17,7 @@ static struct protocol_info imap_prot = {
 
 void register_imap()
 {
-    register_protocol(&imap_prot, LAYER4, IMAP);
+    register_protocol(&imap_prot, PORT, IMAP);
 }
 
 packet_error handle_imap(struct protocol_info *pinfo, unsigned char *buf, int n,

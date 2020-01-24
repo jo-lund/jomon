@@ -14,7 +14,7 @@ static struct protocol_info llc_prot = {
 
 void register_llc()
 {
-    register_protocol(&llc_prot, LAYER2, ETH_802_LLC);
+    register_protocol(&llc_prot, ETH802_3, ETH_802_LLC);
 }
 
 packet_error handle_llc(struct protocol_info *pinfo, unsigned char *buffer, int n,
@@ -30,11 +30,9 @@ packet_error handle_llc(struct protocol_info *pinfo, unsigned char *buffer, int 
     llc->dsap = buffer[0];
     llc->ssap = buffer[1];
     llc->control = buffer[2];
-
-    // BUG: Can have conflicts with IP protocol ids
-    if ((psub = get_protocol(LAYER3, (llc->dsap << 8) | llc->ssap))) {
-        pdata->len = LLC_HDR_LEN;
-        pdata->id = (llc->dsap << 8) | llc->ssap;
+    pdata->len = LLC_HDR_LEN;
+    pdata->id = get_protocol_id(ETH802_3, (llc->dsap << 8) | llc->ssap);
+    if ((psub = get_protocol(pdata->id))) {
         pdata->next = mempool_pealloc(sizeof(struct packet_data));
         memset(pdata->next, 0, sizeof(struct packet_data));
         return psub->decode(psub, buffer + LLC_HDR_LEN, n - LLC_HDR_LEN, pdata->next);

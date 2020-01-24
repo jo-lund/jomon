@@ -63,11 +63,11 @@ bool handle_ethernet(unsigned char *buffer, int n, struct packet *p)
     p->root->len = ETH_HLEN;
 
     if (eth->ethertype <= ETH_802_3_MAX) { /* Ethernet 802.3 frame */
-        pinfo = get_protocol(LAYER2, ETH_802_LLC);
-        p->root->id = ETH_802_LLC;
+        p->root->id = get_protocol_id(ETH802_3, ETH_802_LLC);
+        pinfo = get_protocol(p->root->id);
     } else { /* Ethernet II */
-        pinfo = get_protocol(LAYER2, eth->ethertype);
-        p->root->id = eth->ethertype;
+        p->root->id = get_protocol_id(ETHERNET_II, eth->ethertype);
+        pinfo = get_protocol(p->root->id);
     }
     if (pinfo) {
         p->root->next = mempool_pealloc(sizeof(struct packet_data));

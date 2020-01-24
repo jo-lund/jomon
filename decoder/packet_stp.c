@@ -33,7 +33,7 @@ static struct protocol_info stp_prot = {
 
 void register_stp()
 {
-    register_protocol(&stp_prot, LAYER3, ETH_802_STP);
+    register_protocol(&stp_prot, ETH802_3, ETH_802_STP);
 }
 
 /*
@@ -49,7 +49,7 @@ packet_error handle_stp(struct protocol_info *pinfo, unsigned char *buffer, int 
     uint16_t protocol_id = buffer[0] << 8 | buffer[1];
 
     /* protocol id 0x00 identifies the (Rapid) Spanning Tree Protocol */
-    if (!protocol_id == 0x0) return DECODE_ERR;
+    if (protocol_id != 0x0) return DECODE_ERR;
 
     pinfo->num_packets++;
     pinfo->num_bytes += n;

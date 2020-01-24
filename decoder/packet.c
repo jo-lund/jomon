@@ -29,8 +29,6 @@
 #include "register.h"
 #include "../hash.h"
 
-#define NUM_LAYERS 3
-
 allocator_t d_alloc = {
     .alloc = mempool_pealloc,
     .dealloc = NULL
@@ -39,14 +37,12 @@ allocator_t d_alloc = {
 uint32_t total_packets;
 uint64_t total_bytes;
 static hashmap_t *info;
-static hashmap_t *protocols[NUM_LAYERS];
+static hashmap_t *protocols;
 
 void decoder_init()
 {
     info = hashmap_init(64, hash_string, compare_string);
-    for (int i = 0; i < NUM_LAYERS; i++) {
-        protocols[i] = hashmap_init(16, hash_uint16, compare_uint);
-    }
+    protocols = hashmap_init(64, hash_uint16, compare_uint);
     for (unsigned int i = 0; i < ARRAY_SIZE(decoder_functions); i++) {
         decoder_functions[i]();
     }
@@ -54,30 +50,21 @@ void decoder_init()
 
 void decoder_exit()
 {
-    for (int i = 0; i < NUM_LAYERS; i++) {
-        hashmap_free(protocols[i]);
-    }
+    hashmap_free(protocols);
     hashmap_free(info);
 }
 
-void register_protocol(struct protocol_info *pinfo, unsigned int layer, uint16_t id)
+void register_protocol(struct protocol_info *pinfo, uint16_t layer, uint16_t id)
 {
-    if (pinfo && layer < NUM_LAYERS) {
-        hashmap_t *l = protocols[layer];
-
-        hashmap_insert(l, (void *) (uintptr_t) id, pinfo);
+    if (pinfo) {
+        hashmap_insert(protocols, (void *) (uintptr_t) get_protocol_id(layer, id), pinfo);
         hashmap_insert(info, pinfo->short_name, pinfo);
     }
 }
 
-struct protocol_info *get_protocol(int layer, uint16_t id)
+struct protocol_info *get_protocol(uint32_t id)
 {
-    if (layer < NUM_LAYERS) {
-        hashmap_t *l = protocols[layer];
-
-        return hashmap_get(l, (void *) (uintptr_t) id);
-    }
-    return NULL;
+    return hashmap_get(protocols, (void *) (uintptr_t) id);
 }
 
 void traverse_protocols(protocol_handler fn, void *arg)
@@ -128,7 +115,7 @@ packet_error call_data_decoder(struct packet_data *pdata, uint8_t transport,
     if (!pdata)
         return DECODE_ERR;
 
-    if ((pinfo = get_protocol(LAYER4, pdata->id))) {
+    if ((pinfo = get_protocol(pdata->id))) {
         pdata->next = mempool_pealloc(sizeof(struct packet_data));
         memset(pdata->next, 0, sizeof(struct packet_data));
         pdata->next->transport = transport;
@@ -143,33 +130,31 @@ packet_error call_data_decoder(struct packet_data *pdata, uint8_t transport,
     return err;
 }
 
+// TODO: Improve this
 unsigned char *get_adu_payload(struct packet *p)
 {
     struct packet_data *pdata = p->root;
     int i = 0;
-    int layer = 0;
 
     while (pdata) {
         i += pdata->len;
-        if (layer == LAYER4)
+        if ((pdata->id >> 16) == PORT)
             return p->buf + i;
-        layer++;
         pdata = pdata->next;
     }
     return NULL;
 }
 
+// TODO: Improve this
 unsigned int get_adu_payload_len(struct packet *p)
 {
     struct packet_data *pdata = p->root;
     unsigned int len = p->len;
-    int layer = 0;
 
     while (pdata) {
         len -= pdata->len;
-        if (layer == LAYER4)
+        if ((pdata->id >> 16) == PORT)
             return len;
-        layer++;
         pdata = pdata->next;
     }
     return 0;
@@ -193,17 +178,10 @@ void clear_statistics()
 
 bool is_tcp(struct packet *p)
 {
-    struct packet_data *pdata = p->root;
-
-    while (pdata) {
-        if (pdata->id == IPPROTO_TCP)
-            return true;
-        pdata = pdata->next;
-    }
-    return false;
+    return get_packet_data(p, get_protocol_id(IP_PROTOCOL, IPPROTO_TCP)) != NULL;
 }
 
-struct packet_data *get_packet_data(const struct packet *p, uint16_t id)
+struct packet_data *get_packet_data(const struct packet *p, uint32_t id)
 {
     struct packet_data *pdata = p->root;
 

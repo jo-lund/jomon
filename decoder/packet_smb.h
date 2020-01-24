@@ -79,6 +79,9 @@ int get_smb_flags_size();
 struct packet_flags *get_smb_flags2();
 int get_smb_flags2_size();
 
-packet_error handle_smb(unsigned char *buffer, int n, struct smb_info *smb);
+/* internal */
+void register_smb();
+packet_error handle_smb(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                        struct packet_data *pdata);
 
 #endif

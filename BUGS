@@ -9,6 +9,5 @@
 - Pad disappears if one inspects a packet at the last page (or first), scrolls
   away from the pad and then hit end (or home).
 - Errors with inspecting subheaders when the pad is bigger than the screen.
-- Follow TCP mode: Seems to be an error in reporting number of packets (and
-  bytes?) in the header when following a TCP stream. It will not include all
-  the packets.
+- Some TCP flags (NS, CWR, ECE) are not stored, see e.g. cdp.pcap, packet
+  number 38.

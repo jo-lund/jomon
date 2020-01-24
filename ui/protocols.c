@@ -65,7 +65,6 @@ static void add_flags(list_view *lw, list_view_header *header, uint16_t flags, s
 static void add_snmp_pdu(list_view *lw, list_view_header *header, struct snmp_pdu *pdu);
 static void add_snmp_trap(list_view *lw, list_view_header *header, struct snmp_trap *pdu);
 static void add_snmp_variables(list_view *lw, list_view_header *header, list_t *vars);
-static void add_smb_information(list_view *lw, list_view_header *header, struct smb_info *smb);
 static void add_tls_handshake(list_view *lw, list_view_header *header,
                               struct tls_handshake *handshake);
 static void add_tls_client_hello(list_view *lw, list_view_header *header,
@@ -81,7 +80,7 @@ void write_to_buf(char *buf, int size, struct packet *p)
     if (p->perr != NO_ERR && p->perr != UNK_PROTOCOL) {
         print_error(buf, size, p);
     } else {
-        struct protocol_info *pinfo = get_protocol(LAYER2, p->root->id);
+        struct protocol_info *pinfo = get_protocol(p->root->id);
 
         if (pinfo) {
             char time[TBUFLEN];
@@ -151,7 +150,7 @@ void print_llc(char *buf, int n, void *data)
     HW_ADDR_NTOP(smac, eth_src(p));
     HW_ADDR_NTOP(dmac, eth_dst(p));
     PRINT_ADDRESS(buf, n, smac, dmac);
-    pinfo = get_protocol(LAYER3, pdata->id);
+    pinfo = get_protocol(pdata->id);
     if (pinfo)
         pinfo->print_pdu(buf, n, pdata->next);
     else {
@@ -203,7 +202,7 @@ void print_ipv4(char *buf, int n, void *data)
     inet_ntop(AF_INET, &ip->dst, dst, INET_ADDRSTRLEN);
     PRINT_ADDRESS(buf, n, src, dst);
 
-    struct protocol_info *pinfo = get_protocol(LAYER3, pdata->id);
+    struct protocol_info *pinfo = get_protocol(pdata->id);
 
     if (pinfo && pdata->next)
         pinfo->print_pdu(buf, n, pdata->next);
@@ -225,7 +224,7 @@ void print_ipv6(char *buf, int n, void *data)
     inet_ntop(AF_INET6, ip->dst, dst, INET6_ADDRSTRLEN);
     PRINT_ADDRESS(buf, n, src, dst);
 
-    struct protocol_info *pinfo = get_protocol(LAYER3, pdata->id);
+    struct protocol_info *pinfo = get_protocol(pdata->id);
 
     if (pinfo && pdata->next)
         pinfo->print_pdu(buf, n, pdata->next);
@@ -335,7 +334,7 @@ void print_tcp(char *buf, int n, void *data)
 {
     struct packet_data *pdata = data;
     struct tcp *tcp = pdata->data;
-    struct protocol_info *pinfo = get_protocol(LAYER4, pdata->id);
+    struct protocol_info *pinfo = get_protocol(pdata->id);
 
     if (pinfo && pdata->next)
         pinfo->print_pdu(buf, n, pdata->next);
@@ -370,7 +369,7 @@ void print_udp(char *buf, int n, void *data)
 {
     struct packet_data *pdata = data;
     struct udp_info *udp = pdata->data;
-    struct protocol_info *pinfo = get_protocol(LAYER4, pdata->id);
+    struct protocol_info *pinfo = get_protocol(pdata->id);
 
     if (pinfo && pdata->next)
         pinfo->print_pdu(buf, n, pdata->next);
@@ -1748,12 +1747,6 @@ void add_nbds_information(void *w, void *sw, void *data)
         LV_ADD_TEXT_ELEMENT(lw, header, "Packet offset: %u", nbds->msg.dgm->packet_offset);
         LV_ADD_TEXT_ELEMENT(lw, header, "Source name: %s", nbds->msg.dgm->src_name);
         LV_ADD_TEXT_ELEMENT(lw, header, "Destination name: %s", nbds->msg.dgm->dest_name);
-        if (nbds->msg.dgm->smb) {
-            list_view_header *hdr;
-
-            hdr = LV_ADD_HEADER(lw, "Server Message Block (SMB)", selected[UI_SUBLAYER1], UI_SUBLAYER1);
-            add_smb_information(lw, hdr, nbds->msg.dgm->smb);
-        }
         break;
     case NBDS_ERROR:
         LV_ADD_TEXT_ELEMENT(lw, header, "Error code: %u", nbds->msg.error_code);
@@ -1769,8 +1762,12 @@ void add_nbds_information(void *w, void *sw, void *data)
     }
 }
 
-void add_smb_information(list_view *lw, list_view_header *header, struct smb_info *smb)
+void add_smb_information(void *w, void *sw, void *data)
 {
+    list_view *lw = w;
+    list_view_header *header = sw;
+    struct packet_data *pdata = data;
+    struct smb_info *smb = pdata->data;
     char *cmd;
     list_view_header *hdr, *hdr2;
 

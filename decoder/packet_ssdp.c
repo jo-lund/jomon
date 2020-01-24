@@ -17,7 +17,7 @@ static struct protocol_info ssdp_prot = {
 
 void register_ssdp()
 {
-    register_protocol(&ssdp_prot, LAYER4, SSDP);
+    register_protocol(&ssdp_prot, PORT, SSDP);
 }
 
 /*

@@ -32,7 +32,7 @@ static struct protocol_info nbds_prot = {
 
 void register_nbds()
 {
-    register_protocol(&nbds_prot, LAYER4, NBDS);
+    register_protocol(&nbds_prot, PORT, NBDS);
 }
 
 /*
@@ -135,8 +135,14 @@ int parse_datagram(unsigned char *buffer, int n, unsigned char **data, int dlen,
     dlen -= name_len;
     pdata->len = tot_name_len + 4 + NBDS_HDRLEN;
     if (dgm->dgm_length > tot_name_len) {
-        dgm->smb = mempool_pealloc(sizeof(struct smb_info));
-        handle_smb(ptr, dgm->dgm_length - (tot_name_len - 4), dgm->smb);
+        struct protocol_info *pinfo;
+
+        pdata->id = get_protocol_id(PORT, SMB);
+        if ((pinfo = get_protocol(pdata->id))) {
+            pdata->next = mempool_pealloc(sizeof(struct packet_data));
+            memset(pdata->next, 0, sizeof(struct packet_data));
+            pinfo->decode(pinfo, ptr, dgm->dgm_length - (tot_name_len - 4), pdata->next);
+        }
     }
     *data = ptr;
     return dlen;

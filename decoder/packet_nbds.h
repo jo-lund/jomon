@@ -47,7 +47,6 @@ struct nbds_datagram {
                                to allow reconstruction of fragmented NetBIOS datagrams */
     char src_name[NBNS_NAMELEN];
     char dest_name[NBNS_NAMELEN];
-    struct smb_info *smb;
 };
 
 struct nbds_info {
@@ -56,7 +55,6 @@ struct nbds_info {
     uint16_t dgm_id;
     uint32_t source_ip;
     uint16_t source_port;
-
     union {
         struct nbds_datagram *dgm;
         uint8_t error_code; /* datagram error packet */

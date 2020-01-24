@@ -37,7 +37,7 @@ static struct protocol_info pim_prot = {
 
 void register_pim()
 {
-    register_protocol(&pim_prot, LAYER3, IPPROTO_PIM);
+    register_protocol(&pim_prot, IP_PROTOCOL, IPPROTO_PIM);
 }
 
 /*

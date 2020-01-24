@@ -10,9 +10,10 @@
 #include "../mempool.h"
 #include "../alloc.h"
 
-#define LAYER2 0
-#define LAYER3 1
-#define LAYER4 2
+#define ETH802_3 1
+#define ETHERNET_II 2
+#define IP_PROTOCOL 3
+#define PORT 4
 
 extern uint32_t total_packets;
 extern uint64_t total_bytes;
@@ -94,8 +95,8 @@ struct packet {
 };
 
 struct packet_data {
+    uint32_t id; /* defines the protocol used in the next packet_data */
     uint8_t transport;
-    uint16_t id;
     uint16_t len;
     void *data;
     struct packet_data *next;
@@ -104,8 +105,8 @@ struct packet_data {
 /* TODO: move this */
 void decoder_init();
 void decoder_exit();
-void register_protocol(struct protocol_info *pinfo, unsigned int layer, uint16_t id);
-struct protocol_info *get_protocol(int layer, uint16_t id);
+void register_protocol(struct protocol_info *pinfo, uint16_t layer, uint16_t id);
+struct protocol_info *get_protocol(uint32_t id);
 void traverse_protocols(protocol_handler fn, void *arg);
 
 /*
@@ -130,14 +131,18 @@ unsigned int get_adu_payload_len(struct packet *p);
 /* Clear packet statistics */
 void clear_statistics();
 
-uint16_t get_packet_size(struct packet *p);
-
 bool is_tcp(struct packet *p);
 
-struct packet_data *get_packet_data(const struct packet *p, uint16_t id);
+struct packet_data *get_packet_data(const struct packet *p, uint32_t id);
 
 /* Should be internal to the decoder */
 packet_error call_data_decoder(struct packet_data *pdata, uint8_t transport,
                                unsigned char *buf, int n);
+
+static inline uint32_t get_protocol_id(uint16_t layer, uint16_t key)
+{
+    return (layer << 16) | key;
+}
+
 
 #endif

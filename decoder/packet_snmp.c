@@ -50,8 +50,8 @@ static struct protocol_info snmp_prot = {
 
 void register_snmp()
 {
-    register_protocol(&snmp_prot, LAYER4, SNMP);
-    register_protocol(&snmp_prot, LAYER4, SNMPTRAP);
+    register_protocol(&snmp_prot, PORT, SNMP);
+    register_protocol(&snmp_prot, PORT, SNMPTRAP);
 }
 
 /*

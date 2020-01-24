@@ -19,5 +19,6 @@
 #include "packet_tls.h"
 #include "packet_llc.h"
 #include "packet_snap.h"
+#include "packet_smb.h"
 
 #endif

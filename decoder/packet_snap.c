@@ -15,7 +15,7 @@ static struct protocol_info snap_prot = {
 
 void register_snap()
 {
-    register_protocol(&snap_prot, LAYER3, ETH_802_SNAP);
+    register_protocol(&snap_prot, ETH802_3, ETH_802_SNAP);
 }
 
 packet_error handle_snap(struct protocol_info *pinfo, unsigned char *buffer, int n,

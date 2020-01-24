@@ -38,7 +38,7 @@ static struct protocol_info nbns_prot = {
 
 void register_nbns()
 {
-    register_protocol(&nbns_prot, LAYER4, NBNS);
+    register_protocol(&nbns_prot, PORT, NBNS);
 }
 
 /*

@@ -59,8 +59,8 @@ static struct protocol_info ipv6_prot = {
 
 void register_ip()
 {
-    register_protocol(&ipv4_prot, LAYER2, ETH_P_IP);
-    register_protocol(&ipv6_prot, LAYER2, ETH_P_IPV6);
+    register_protocol(&ipv4_prot, ETHERNET_II, ETH_P_IP);
+    register_protocol(&ipv6_prot, ETHERNET_II, ETH_P_IPV6);
 }
 
 /*
@@ -136,9 +136,9 @@ packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int
     ipv4->ttl = ip->ttl;
     ipv4->protocol = ip->protocol;
     ipv4->checksum = ntohs(ip->check);
-    pdata->id = ipv4->protocol;
+    pdata->id = get_protocol_id(IP_PROTOCOL, ipv4->protocol);
 
-    struct protocol_info *layer3 = get_protocol(LAYER3, ipv4->protocol);
+    struct protocol_info *layer3 = get_protocol(pdata->id);
     if (layer3) {
         pdata->next = mempool_pealloc(sizeof(struct packet_data));
         memset(pdata->next, 0, sizeof(struct packet_data));
@@ -210,10 +210,10 @@ packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int
     ipv6->hop_limit = ip6->ip6_hlim;
     memcpy(ipv6->src, ip6->ip6_src.s6_addr, 16);
     memcpy(ipv6->dst, ip6->ip6_dst.s6_addr, 16);
-    pdata->id = ipv6->next_header;
+    pdata->id = get_protocol_id(IP_PROTOCOL, ipv6->next_header);
 
     // TODO: Handle IPv6 extension headers and errors
-    struct protocol_info *layer3 = get_protocol(LAYER3, ipv6->next_header);
+    struct protocol_info *layer3 = get_protocol(pdata->id);
     if (layer3) {
         pdata->next = mempool_pealloc(sizeof(struct packet_data));
         memset(pdata->next, 0, sizeof(struct packet_data));

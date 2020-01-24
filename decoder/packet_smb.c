@@ -5,6 +5,8 @@
 
 #define SMB_HDR_LEN 32
 
+extern void add_smb_information(void *widget, void *subwidget, void *data);
+
 static char *smb_cmds[] = {
     "Create directory", "Delete directory", "Open", "Create", "Close", "Flush", "Delete",
     "Rename", "Query information", "Set information", "Read", "Write", "Lock byte range",
@@ -40,14 +42,36 @@ static struct packet_flags smb_flags2[] = {
     { "May contain long names", 1, NULL }
 };
 
-packet_error handle_smb(unsigned char *buffer, int n, struct smb_info *smb)
+static struct protocol_info smb_prot = {
+    .short_name = "SMB",
+    .long_name = "Server Message Block",
+    .decode = handle_smb,
+    .print_pdu = NULL,
+    .add_pdu = add_smb_information
+};
+
+void register_smb()
 {
-    if (n < SMB_HDR_LEN) return DECODE_ERR;
+    register_protocol(&smb_prot, PORT, SMB);
+}
+
+packet_error handle_smb(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                         struct packet_data *pdata)
+{
+    if (n < SMB_HDR_LEN)
+        return DECODE_ERR;
 
     if (buffer[0] != 0xff || buffer[1] != 'S' ||
         buffer[2] != 'M' || buffer[3] != 'B')
         return DECODE_ERR;
 
+    struct smb_info *smb;
+
+    pinfo->num_packets++;
+    pinfo->num_bytes += n;
+    smb = mempool_pealloc(sizeof(struct smb_info));
+    pdata->data = smb;
+    pdata->len = n;
     memcpy(smb->protocol, buffer, 4);
     smb->command = buffer[4];
     smb->status = (int32_t) get_uint32le(buffer + 5);
