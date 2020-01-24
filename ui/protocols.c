@@ -385,9 +385,9 @@ void print_dns(char *buf, int n, void *data)
     struct packet_data *pdata = data;
     struct dns_info *dns = pdata->data;
 
-    if (pdata->id == DNS) {
+    if (get_protocol_key(pdata->id) == DNS) {
         PRINT_PROTOCOL(buf, n, "DNS");
-    } else if (pdata->id == MDNS) {
+    } else if (get_protocol_key(pdata->id) == MDNS) {
         PRINT_PROTOCOL(buf, n, "MDNS");
     } else {
         PRINT_PROTOCOL(buf, n, "LLMNR");
@@ -1387,7 +1387,7 @@ void add_dns_information(void *w, void *sw, void *data)
     list_view_header *hdr;
     uint16_t flags;
 
-    if (pdata->id == LLMNR) {
+    if (get_protocol_key(pdata->id) == LLMNR) {
         flags = dns->llmnr_flags.c << 6 | dns->llmnr_flags.tc << 5 |
             dns->llmnr_flags.t << 4;
     } else {

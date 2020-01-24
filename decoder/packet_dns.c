@@ -142,7 +142,7 @@ packet_error handle_dns(struct protocol_info *pinfo, unsigned char *buffer, int 
     dns->id = ptr[0] << 8 | ptr[1];
     dns->qr = (ptr[2] & 0x80) >> 7;
     dns->opcode = (ptr[2] & 0x78) >> 3;
-    if (pdata->id == LLMNR) {
+    if (get_protocol_key(pdata->id) == LLMNR) {
         dns->llmnr_flags.c = (ptr[2] & 0x04) >> 2;
         dns->llmnr_flags.tc = (ptr[2] & 0x02) >> 1;
         dns->llmnr_flags.t = ptr[2] & 0x01;

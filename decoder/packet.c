@@ -138,7 +138,7 @@ unsigned char *get_adu_payload(struct packet *p)
 
     while (pdata) {
         i += pdata->len;
-        if ((pdata->id >> 16) == PORT)
+        if (get_protocol_layer(pdata->id) == PORT)
             return p->buf + i;
         pdata = pdata->next;
     }
@@ -153,7 +153,7 @@ unsigned int get_adu_payload_len(struct packet *p)
 
     while (pdata) {
         len -= pdata->len;
-        if ((pdata->id >> 16) == PORT)
+        if (get_protocol_layer(pdata->id) == PORT)
             return len;
         pdata = pdata->next;
     }
