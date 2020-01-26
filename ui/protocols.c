@@ -155,7 +155,7 @@ void print_llc(char *buf, int n, void *data)
         pinfo->print_pdu(buf, n, pdata->next);
     else {
         PRINT_PROTOCOL(buf, n, "LLC");
-        PRINT_INFO(buf, n, smac, dmac, "SSAP: 0x%x  DSAP: 0x%x  Control: 0x%x",
+        PRINT_INFO(buf, n, "SSAP: 0x%x  DSAP: 0x%x  Control: 0x%x",
                    llc_ssap(p), llc_dsap(p), llc_control(p));
     }
 }
