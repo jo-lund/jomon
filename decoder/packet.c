@@ -82,11 +82,8 @@ void traverse_protocols(protocol_handler fn, void *arg)
 bool decode_packet(unsigned char *buffer, size_t len, struct packet **p)
 {
     *p = mempool_pealloc(sizeof(struct packet));
-
-    /* store the original frame in buf */
-    (*p)->buf = mempool_pecopy(buffer, len);
+    (*p)->buf = mempool_pecopy(buffer, len); /* store the original frame in buf */
     (*p)->len = len;
-
     if (!handle_ethernet(buffer, len, *p)) {
         free_packets(*p);
         return false;
@@ -94,10 +91,6 @@ bool decode_packet(unsigned char *buffer, size_t len, struct packet **p)
     (*p)->ptype = ETHERNET;
     (*p)->num = ++total_packets;
     total_bytes += len;
-    if ((*p)->perr != DECODE_ERR) {
-        tcp_analyzer_check_stream(*p);
-    }
-    host_analyzer_investigate(*p);
     return true;
 }
 

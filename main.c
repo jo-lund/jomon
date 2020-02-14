@@ -37,7 +37,7 @@ static bool promiscuous = false;
 static bool ncurses_initialized = false;
 static iface_handle_t *handle = NULL;
 
-bool handle_packet(unsigned char *buffer, uint32_t n, struct timeval *t);
+static bool handle_packet(unsigned char *buffer, uint32_t n, struct timeval *t);
 static void print_help(char *prg);
 static void structures_init();
 static void run();
@@ -293,6 +293,10 @@ bool handle_packet(unsigned char *buffer, uint32_t n, struct timeval *t)
     }
     p->time.tv_sec = t->tv_sec;
     p->time.tv_usec = t->tv_usec;
+    if (p->perr != DECODE_ERR) {
+        tcp_analyzer_check_stream(p);
+    }
+    host_analyzer_investigate(p);
     if (ctx.capturing) {
         if (ctx.opt.use_ncurses) {
             vector_push_back(packets, p);
