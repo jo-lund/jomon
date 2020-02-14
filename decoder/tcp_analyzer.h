@@ -35,6 +35,33 @@ struct tcp_connection_v4 {
  */
 typedef void (*analyzer_conn_fn)(struct tcp_connection_v4 *, bool);
 
+static inline unsigned int hash_tcp_v4(const void *key)
+{
+    struct tcp_endpoint_v4 *endp = (struct tcp_endpoint_v4 *) key;
+    unsigned int hash = 2166136261;
+    unsigned int val = endp->src + endp->dst + endp->src_port + endp->dst_port;
+
+    for (int i = 0; i < 4; i++) {
+        hash = (hash ^ ((val >> (8 * i)) & 0xff)) * 16777619;
+    }
+    return hash;
+}
+
+static inline int compare_tcp_v4(const void *t1, const void *t2)
+{
+    struct tcp_endpoint_v4 *endp1 = (struct tcp_endpoint_v4 *) t1;
+    struct tcp_endpoint_v4 *endp2 = (struct tcp_endpoint_v4 *) t2;
+
+    if ((endp1->src == endp2->src && endp1->dst == endp2->dst &&
+         endp1->src_port == endp2->src_port && endp1->dst_port == endp2->dst_port)
+        || (endp1->src == endp2->dst && endp1->src_port == endp2->dst_port &&
+            endp1->dst == endp2->src && endp1->dst_port == endp2->src_port)) {
+        return 0;
+    }
+    return (endp1->src + endp1->dst + endp1->src_port + endp1->dst_port) -
+        (endp2->src + endp2->dst + endp2->src_port + endp2->dst_port);
+}
+
 void tcp_analyzer_init();
 void tcp_analyzer_check_stream(const struct packet *p);
 hashmap_t *tcp_analyzer_get_sessions();

@@ -26,6 +26,7 @@
 #include "decoder/host_analyzer.h"
 #include "decoder/dns_cache.h"
 #include "attributes.h"
+#include "process.h"
 
 #define TABLE_SIZE 65536
 
@@ -106,6 +107,10 @@ int main(int argc, char **argv)
         tcp_analyzer_init();
         dns_cache_init();
         host_analyzer_init();
+#ifdef __linux__
+        if (!ctx.opt.load_file)
+            process_init();
+#endif
     }
     if (!ctx.device && !(ctx.device = get_default_interface())) {
         err_quit("Cannot find active network device");
@@ -196,6 +201,10 @@ void finish(int status)
         tcp_analyzer_free();
         host_analyzer_free();
         dns_cache_free();
+#ifdef __linux__
+        if (!ctx.opt.load_file)
+            process_free();
+#endif
     }
     if (promiscuous) {
         set_promiscuous(ctx.device, false);

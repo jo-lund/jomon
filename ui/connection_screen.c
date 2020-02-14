@@ -9,6 +9,7 @@
 #include "../misc.h"
 #include "../util.h"
 #include "../attributes.h"
+#include "../process.h"
 
 #define ADDR_WIDTH 17
 #define PORT_WIDTH 10
@@ -17,6 +18,7 @@
 #define BYTES_WIDTH 14
 #define PACKETS_AB_WIDTH 16
 #define BYTES_AB_WIDTH 14
+#define PROC_WIDTH 20
 #define MAX_WIDTH 20
 #define CONN_HEADER 3
 #define STATUS_HEIGHT 1
@@ -32,12 +34,17 @@ enum cs_val {
     PACKETS_AB,
     BYTES_AB,
     PACKETS_BA,
-    BYTES_BA
+    BYTES_BA,
+    PROCESS,
+    NUM_VALS
 };
 
 struct cs_entry {
     uint32_t val;
-    char buf[MAX_WIDTH];
+    union {
+        char buf[MAX_WIDTH];
+        char *str;
+    };
 };
 
 extern WINDOW *status;
@@ -76,8 +83,11 @@ static screen_header header[] = {
     { "Packets A -> B", PACKETS_AB_WIDTH },
     { "Bytes A -> B", BYTES_AB_WIDTH },
     { "Packets A <- B", PACKETS_AB_WIDTH },
-    { "Bytes A <- B", BYTES_AB_WIDTH }
+    { "Bytes A <- B", BYTES_AB_WIDTH },
+    { "Local Process", PROC_WIDTH }
 };
+
+static unsigned int header_size;
 
 connection_screen *connection_screen_create()
 {
@@ -104,6 +114,10 @@ void connection_screen_init(screen *s)
     scrollok(cs->base.win, TRUE);
     nodelay(cs->base.win, TRUE);
     keypad(cs->base.win, TRUE);
+    if (ctx.capturing)
+        header_size = ARRAY_SIZE(header);
+    else
+        header_size = ARRAY_SIZE(header) - 1;
 }
 
 void connection_screen_free(screen *s)
@@ -254,7 +268,7 @@ void print_conn_header(connection_screen *cs)
     printat(cs->header, y, 0, get_theme_colour(HEADER_TXT), "TCP connections");
     wprintw(cs->header,  ": %d", vector_size(cs->screen_buf));
     y += 2;
-    for (unsigned int i = 0; i < sizeof(header) / sizeof(header[0]); i++) {
+    for (unsigned int i = 0; i < header_size; i++) {
         mvwprintw(cs->header, y, x, header[i].txt);
         x += header[i].width;
     }
@@ -280,7 +294,8 @@ void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int
     struct packet *p;
     char *state;
     int x = 0;
-    struct cs_entry entry[11];
+    struct cs_entry entry[NUM_VALS];
+    int attrs = 0;
 
     memset(entry, 0, sizeof(entry));
     inet_ntop(AF_INET, &conn->endp->src, entry[ADDRA].buf, INET_ADDRSTRLEN);
@@ -309,25 +324,22 @@ void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int
     format_bytes(entry[BYTES].val, entry[BYTES].buf, MAX_WIDTH);
     format_bytes(entry[BYTES_AB].val, entry[BYTES_AB].buf, MAX_WIDTH);
     format_bytes(entry[BYTES_BA].val, entry[BYTES_BA].buf, MAX_WIDTH);
+    if (ctx.capturing)
+        entry[PROCESS].str = process_get_name(conn);
     if (conn->state != ESTABLISHED && conn->state != SYN_SENT &&
-        conn->state != SYN_RCVD) {
-        for (unsigned int i = 0; i < ARRAY_SIZE(header); i++) {
-            if (i % 2 == 0) {
-                printat(cs->base.win, y, x, get_theme_colour(DISABLE), "%s", entry[i].buf);
-            } else {
-                printat(cs->base.win, y, x, get_theme_colour(DISABLE), "%d", entry[i].val);
-            }
-            x += header[i].width;
+        conn->state != SYN_RCVD)
+        attrs = get_theme_colour(DISABLE);
+    for (unsigned int i = 0; i < header_size; i++) {
+        if (i % 2 == 0) {
+            printat(cs->base.win, y, x, attrs, "%s", entry[i].buf);
+        } else {
+            if (i == PROCESS) {
+                if (entry[i].str)
+                    printat(cs->base.win, y, x, attrs, "%s", entry[i].str);
+            } else
+                printat(cs->base.win, y, x, attrs, "%d", entry[i].val);
         }
-    } else {
-        for (unsigned int i = 0; i < ARRAY_SIZE(header); i++) {
-            if (i % 2 == 0) {
-                mvwprintw(cs->base.win, y, x, "%s", entry[i].buf);
-            } else {
-                mvwprintw(cs->base.win, y, x, "%d", entry[i].val);
-            }
-            x += header[i].width;
-        }
+        x += header[i].width;
     }
 }
 
