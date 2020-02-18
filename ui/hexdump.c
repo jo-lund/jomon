@@ -97,7 +97,7 @@ void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_a
     int hexoffset;
     char *hex = "0123456789abcdef";
     char *offset = " offset ";
-    struct protocol_ctx ctx;
+    struct protocol_ctx ctx = { 0 };
     struct hd_layer *prot = malloc(sizeof(struct hd_layer));
 
     protocols = list_init(NULL);
