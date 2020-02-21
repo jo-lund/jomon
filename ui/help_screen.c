@@ -1,4 +1,5 @@
 #include "help_screen.h"
+#include "screen.h"
 
 static void help_screen_get_input(screen *s);
 static void help_screen_render();
@@ -8,10 +9,13 @@ screen *help_screen_create()
 {
     screen *s;
     static screen_operations op;
+    int my, mx;
 
     op = SCREEN_OPS(.screen_get_input = help_screen_get_input,
                     .screen_refresh = help_screen_refresh);
     s = screen_create(&op);
+    getmaxyx(stdscr, my, mx);
+    s->win = newwin(my, mx, 0, 0);
     return s;
 }
 

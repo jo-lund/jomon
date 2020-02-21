@@ -3,7 +3,9 @@
 
 #include "layout_int.h"
 
-screen *stat_screen_create();
-void stat_screen_print(screen *s);
+struct screen;
+
+struct screen *stat_screen_create();
+void stat_screen_print(struct screen *s);
 
 #endif

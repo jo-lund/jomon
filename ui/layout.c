@@ -12,6 +12,7 @@
 #include "menu.h"
 #include "host_screen.h"
 #include "../util.h"
+#include "screen.h"
 
 #define NUM_COLOURS 8
 
@@ -141,36 +142,6 @@ void ncurses_end()
     endwin();
 }
 
-screen *screen_create(screen_operations *defop)
-{
-    screen *s;
-
-    s = malloc(sizeof(screen));
-    s->op = defop;
-    SCREEN_INIT(s);
-    return s;
-}
-
-void screen_init(screen *s)
-{
-    int my, mx;
-
-    getmaxyx(stdscr, my, mx);
-    s->win = newwin(my, mx, 0, 0);
-}
-
-void screen_free(screen *s)
-{
-    delwin(s->win);
-    free(s);
-}
-
-void screen_refresh(screen *s)
-{
-    touchwin(s->win);
-    wrefresh(s->win);
-}
-
 container *create_container()
 {
     container *c = malloc(sizeof(container));
@@ -265,6 +236,11 @@ bool screen_stack_empty()
     return stack_empty(screen_stack);
 }
 
+unsigned int screen_stack_size()
+{
+    return stack_size(screen_stack);
+}
+
 screen *screen_stack_prev()
 {
     return stack_get(screen_stack, stack_size(screen_stack) - 2);
@@ -339,11 +315,7 @@ void printnlw(WINDOW *win, char *str, int len, int y, int x, int scrollx)
 
 void handle_input()
 {
-    screen *s = stack_top(screen_stack);
-
-    if (s->op->screen_get_input) {
-        SCREEN_GET_INPUT(s);
-    }
+    SCREEN_GET_INPUT((screen *) stack_top(screen_stack));
 }
 
 void layout(enum event ev)

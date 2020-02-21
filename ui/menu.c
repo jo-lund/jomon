@@ -338,6 +338,8 @@ void main_menu_get_input(screen *s)
         }
         break;
     default:
+        ungetch(c);
+        screen_get_input(s);
         break;
     }
 }

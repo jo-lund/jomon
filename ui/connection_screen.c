@@ -61,7 +61,6 @@ static void print_all_connections(connection_screen *cs);
 static void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int y);
 static void print_conn_header(connection_screen *cs);
 static void print_status();
-static void scroll_page(connection_screen *cs, int num_lines);
 
 static screen_operations csop = {
     .screen_init = connection_screen_init,
@@ -105,15 +104,18 @@ void connection_screen_init(screen *s)
     connection_screen *cs = (connection_screen *) s;
 
     getmaxyx(stdscr, my, mx);
+    s->win = newwin(my - CONN_HEADER - STATUS_HEIGHT, mx, CONN_HEADER, 0);
+    s->have_selectionbar = true;
+    s->selectionbar = 0;
+    s->show_selectionbar = false;
+    s->top = 0;
+    s->lines = getmaxy(stdscr) - CONN_HEADER - STATUS_HEIGHT;
     cs->header = newwin(CONN_HEADER, mx, 0, 0);
-    cs->base.win = newwin(my - CONN_HEADER - STATUS_HEIGHT, mx, CONN_HEADER, 0);
-    cs->top = 0;
     cs->y = 0;
-    cs->lines = my - CONN_HEADER - STATUS_HEIGHT;
     cs->screen_buf = vector_init(1024);
-    scrollok(cs->base.win, TRUE);
-    nodelay(cs->base.win, TRUE);
-    keypad(cs->base.win, TRUE);
+    scrollok(s->win, TRUE);
+    nodelay(s->win, TRUE);
+    keypad(s->win, TRUE);
     if (ctx.capturing)
         header_size = ARRAY_SIZE(header);
     else
@@ -146,7 +148,6 @@ void connection_screen_refresh(screen *s)
 
     werase(s->win);
     werase(cs->header);
-    cs->top = 0;
     cs->y = 0;
     vector_clear(cs->screen_buf, NULL);
     wbkgd(s->win, get_theme_colour(BACKGROUND));
@@ -156,58 +157,17 @@ void connection_screen_refresh(screen *s)
 
 void connection_screen_get_input(screen *s)
 {
-    connection_screen *cs = (connection_screen *) s;
     int c = wgetch(s->win);
-    int my = getmaxy(s->win);
 
     switch (c) {
-    case 'x':
-    case KEY_ESC:
-    case KEY_F(3):
-        pop_screen();
-        break;
-    case KEY_F(1):
-        push_screen(screen_cache_get(HELP_SCREEN));
-        break;
-    case KEY_F(2):
-        push_screen((screen *) menu);
-        break;
-    case KEY_UP:
-        if (cs->top > 0) {
-            cs->top--;
-            wscrl(s->win, -1);
-            print_connection(cs, vector_get_data(cs->screen_buf, cs->top), 0);
-            wrefresh(cs->base.win);
-        }
-        break;
-    case KEY_DOWN:
-        if (cs->top + cs->lines < vector_size(cs->screen_buf)) {
-            cs->top++;
-            wscrl(s->win, 1);
-            print_connection(cs, vector_get_data(cs->screen_buf, cs->top + cs->lines - 1),
-                             cs->lines - 1);
-            wrefresh(cs->base.win);
-        }
-        break;
-    case ' ':
-    case KEY_NPAGE:
-        scroll_page(cs, my);
-        break;
-    case 'b':
-    case KEY_PPAGE:
-        scroll_page(cs, -my);
-        break;
-    case 'h':
-        screen_stack_move_to_top(screen_cache_get(HOST_SCREEN));
-        break;
-    case 's':
-        screen_stack_move_to_top(screen_cache_get(STAT_SCREEN));
-        break;
-    case 'q':
-    case KEY_F(10):
-        finish(0);
+    case KEY_ENTER:
+    case '\n':
+        // List all packets for the specific connection. Make a new screen based on
+        // follow_tcp. This should be used by main_screen as well.
         break;
     default:
+        ungetch(c);
+        screen_get_input(s);
         break;
     }
 }
@@ -239,7 +199,7 @@ void update_connection(struct tcp_connection_v4 *conn, bool new_connection)
     print_conn_header(cs);
     if (new_connection) {
         vector_push_back(cs->screen_buf, conn);
-        if (vector_size(cs->screen_buf) < cs->lines) {
+        if (vector_size(cs->screen_buf) < cs->base.lines) {
             print_connection(cs, conn, cs->y);
             cs->y++;
             wrefresh(cs->base.win);
@@ -247,11 +207,14 @@ void update_connection(struct tcp_connection_v4 *conn, bool new_connection)
     } else {
         int y = 0;
 
-        while (y < cs->lines && cs->top + y < vector_size(cs->screen_buf)) {
-            if (vector_get_data(cs->screen_buf, cs->top + y) == conn) {
+        while (y < cs->base.lines && cs->base.top + y < vector_size(cs->screen_buf)) {
+            if (vector_get_data(cs->screen_buf, cs->base.top + y) == conn) {
                 wmove(cs->base.win, y, 0);
                 wclrtoeol(cs->base.win);
                 print_connection(cs, conn, y);
+                if (cs->base.show_selectionbar && y == cs->base.selectionbar)
+                    mvwchgat(cs->base.win, cs->base.selectionbar, 0, -1, A_NORMAL,
+                             PAIR_NUMBER(get_theme_colour(SELECTIONBAR)), NULL);
                 wrefresh(cs->base.win);
                 break;
             }
@@ -278,13 +241,18 @@ void print_conn_header(connection_screen *cs)
 
 void print_all_connections(connection_screen *cs)
 {
-    int i = cs->top;
+    int i = cs->base.top;
 
-    while (cs->y < cs->lines && i < vector_size(cs->screen_buf)) {
+    while (cs->y < cs->base.lines && i < vector_size(cs->screen_buf)) {
         print_connection(cs, vector_get_data(cs->screen_buf, i), cs->y);
         cs->y++;
         i++;
     }
+    if (cs->base.selectionbar >= vector_size(cs->screen_buf))
+        cs->base.selectionbar = vector_size(cs->screen_buf) - 1;
+    if (cs->base.show_selectionbar)
+        mvwchgat(cs->base.win, cs->base.selectionbar, 0, -1, A_NORMAL,
+                 PAIR_NUMBER(get_theme_colour(SELECTIONBAR)), NULL);
     wrefresh(cs->base.win);
 }
 
@@ -358,28 +326,4 @@ void print_status()
     wprintw(status, "F10");
     printat(status, -1, -1, colour, "%-11s", "Quit");
     wrefresh(status);
-}
-
-void scroll_page(connection_screen *cs, int num_lines)
-{
-    int i = abs(num_lines);
-
-    if (vector_size(cs->screen_buf) <= i) return;
-
-    if (num_lines > 0) { /* scroll down */
-        while (i > 0 && cs->top + cs->lines < vector_size(cs->screen_buf)) {
-            cs->top++;
-            i--;
-        }
-    } else { /* scroll up */
-        while (i > 0 && cs->top > 0) {
-            cs->top--;
-            i--;
-        }
-    }
-    if (i != abs(num_lines)) {
-        cs->y = 0;
-        werase(cs->base.win);
-        print_all_connections(cs);
-    }
 }

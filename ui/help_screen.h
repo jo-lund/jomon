@@ -3,7 +3,9 @@
 
 #include "layout_int.h"
 
+struct screen;
+
 /* Create the help screen */
-screen *help_screen_create();
+struct screen *help_screen_create();
 
 #endif

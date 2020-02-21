@@ -2,6 +2,7 @@
 #include <string.h>
 #include <ncurses.h>
 #include "button.h"
+#include "screen.h"
 
 static void button_set_action(button *b, button_action act, void *arg);
 static void button_render(button *b);

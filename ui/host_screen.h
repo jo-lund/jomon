@@ -3,13 +3,12 @@
 
 #include "layout_int.h"
 #include "../vector.h"
+#include "screen.h"
 
 typedef struct {
     screen base;
     WINDOW *header;
-    int top;
     int y;
-    int lines;
     vector_t *screen_buf;
 } host_screen;
 

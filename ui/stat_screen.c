@@ -11,6 +11,7 @@
 #include "../decoder/decoder.h"
 #include "menu.h"
 #include "../util.h"
+#include "screen.h"
 
 #define MAX_NAME 128
 #define DEVPATH "/proc/net/dev"
@@ -79,7 +80,6 @@ static hwstat hw;
 static cputime **cpustat;
 static int cpuidx = 0;
 static bool show_packet_stats = true;
-static enum page stat_page;
 static bool formatted_output = true;
 
 static bool read_hwstat();
@@ -112,10 +112,15 @@ screen *stat_screen_create()
 
 void stat_screen_init(screen *s)
 {
+    int my, mx;
+
     screen_init(s);
+    getmaxyx(stdscr, my, mx);
+    s->win = newwin(my, mx, 0, 0);
+    s->page = NET_STAT;
+    s->num_pages = NUM_PAGES;
     nodelay(s->win, TRUE);
     keypad(s->win, TRUE);
-    stat_page = NET_STAT;
     init_stat();
 }
 
@@ -156,53 +161,17 @@ void stat_screen_get_input(screen *s)
     int c = wgetch(s->win);
 
     switch (c) {
-    case 'x':
-    case KEY_ESC:
-    case KEY_F(3):
-        pop_screen();
-        break;
-    case KEY_F(1):
-        push_screen(screen_cache_get(HELP_SCREEN));
-        break;
-    case KEY_F(2):
-        push_screen((screen *) menu);
-        break;
-    case 'c':
-        screen_stack_move_to_top(screen_cache_get(CONNECTION_SCREEN));
-        break;
     case 'e':
         formatted_output = !formatted_output;
         stat_screen_print(s);
-        break;
-    case 'h':
-        screen_stack_move_to_top(screen_cache_get(HOST_SCREEN));
         break;
     case 'v':
         show_packet_stats = !show_packet_stats;
         stat_screen_print(s);
         break;
-    case 'p':
-        stat_page = (stat_page + 1) % NUM_PAGES;
-        switch (stat_page) {
-        case NET_STAT:
-            memset(&rx, 0, sizeof(linkdef));
-            memset(&tx, 0, sizeof(linkdef));
-            break;
-        case HW_STAT:
-            for (int i = 0; i < hw.num_cpu; i++) {
-                memset(cpustat[i], 0 , 2 * sizeof(cputime));
-            }
-            break;
-        default:
-            break;
-        }
-        stat_screen_print(s);
-        break;
-    case 'q':
-    case KEY_F(10):
-        finish(0);
-        break;
     default:
+        ungetch(c);
+        screen_get_input(s);
         break;
     }
 }
@@ -210,7 +179,7 @@ void stat_screen_get_input(screen *s)
 void stat_screen_print(screen *s)
 {
     werase(s->win);
-    switch (stat_page) {
+    switch (s->page) {
     case NET_STAT:
         print_netstat();
         break;

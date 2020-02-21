@@ -3,6 +3,7 @@
 
 #include "layout_int.h"
 #include "../list.h"
+#include "screen.h"
 
 typedef enum option_menu_type {
     MENU_NORMAL,

@@ -189,6 +189,8 @@ void label_dialogue_get_input(screen *s)
          }
          break;
      default:
+         ungetch(c);
+         screen_get_input(s);
          break;
      }
 }
@@ -415,7 +417,10 @@ void file_dialogue_get_input(screen *s)
             snprintcat(fd->path, MAXPATH, "%c", c);
             waddch(fd->input.win, c);
             wrefresh(fd->input.win);
+            break;
         }
+        ungetch(c);
+        screen_get_input(s);
         break;
     }
 }

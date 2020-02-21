@@ -2,6 +2,7 @@
 #define MAIN_SCREEN_H
 
 #include "list_view.h"
+#include "screen.h"
 
 typedef struct {
     screen base;
@@ -21,18 +22,10 @@ typedef struct {
     } subwindow;
 
     WINDOW *header;
-    int selectionbar; /* absolute index to the selection bar, [0, n), where 'n'
-                         is the total number of lines */
     list_view *lvw;
 
     /* next available line, i.e. outy - 1 is the last line printed on the screen */
     int outy;
-
-    /*
-     * Index to top of main window. The main screen will be between top + maximum
-     * number of lines of the main window, i.e. getmaxy(main_window->win).
-     */
-    int top;
 
     /*
      * the number of lines that need to be scrolled to show all the information
@@ -42,6 +35,8 @@ typedef struct {
 
     int scrollx; /* the amount scrolled on the x-axis */
 } main_screen;
+
+struct packet;
 
 main_screen *main_screen_create();
 void main_screen_free(screen *s);

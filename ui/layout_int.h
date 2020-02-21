@@ -59,45 +59,7 @@ enum screen_type {
     NUM_SCREENS
 };
 
-struct packet;
-
-/*
- * Convenience macros that will call the functions defined in screen_operations.
- * The argument 'o' is a pointer to the screen.
- */
-#define SCREEN_INIT(o) ((o)->op->screen_init(o))
-#define SCREEN_FREE(o) ((o)->op->screen_free(o))
-#define SCREEN_REFRESH(o) ((o)->op->screen_refresh(o))
-#define SCREEN_GET_INPUT(o) ((o)->op->screen_get_input(o))
-#define SCREEN_GOT_FOCUS(o) ((o)->op->screen_got_focus(o))
-#define SCREEN_LOST_FOCUS(o) ((o)->op->screen_lost_focus(o))
-
-#define SCREEN_DEFAULTS .screen_init = screen_init, \
-        .screen_free = screen_free,                 \
-        .screen_refresh = screen_refresh
-
-#define SCREEN_OPS(...) ((struct screen_operations)   \
-        { SCREEN_DEFAULTS, __VA_ARGS__ })
-
-typedef struct screen {
-    bool focus;
-    WINDOW *win;
-    struct screen_operations *op;
-} screen;
-
-typedef struct screen_operations {
-    void (*screen_init)(screen *s);
-    void (*screen_free)(screen *s);
-    void (*screen_refresh)(screen *s);
-    void (*screen_get_input)(screen *s);
-    void (*screen_got_focus)(screen *s);
-    void (*screen_lost_focus)(screen *s);
-} screen_operations;
-
-typedef struct {
-    char *txt;
-    int width;
-} screen_header;
+struct screen;
 
 typedef struct {
     bool focus;
@@ -105,18 +67,6 @@ typedef struct {
 } container;
 
 extern bool selected[NUM_LAYERS];
-
-/* Create a screen object */
-screen *screen_create(screen_operations *op);
-
-/* Default screen constructor */
-void screen_init(screen *s);
-
-/* Default screen destructor */
-void screen_free(screen *s);
-
-/* Default function called on screen refresh */
-void screen_refresh(screen *s);
 
 /* Allocates space for a new container. Needs to be freed with free_container() */
 container *create_container();
@@ -128,10 +78,10 @@ void free_container(container *c);
  * Returns the screen with the specified type. Returns NULL if the screen
  * doesn't exist.
  */
-screen *screen_cache_get(enum screen_type type);
+struct screen *screen_cache_get(enum screen_type type);
 
 /* Insert screen into screen cache */
-void screen_cache_insert(enum screen_type st, screen *s);
+void screen_cache_insert(enum screen_type st, struct screen *s);
 
 /* Remove screen from screen cacne */
 void screen_cache_remove(enum screen_type st);
@@ -140,7 +90,7 @@ void screen_cache_remove(enum screen_type st);
 void screen_cache_clear();
 
 /* Push the screen on the screen stack */
-void push_screen(screen *scr);
+void push_screen(struct screen *s);
 
 /* Pop the screen from the screen stack */
 void pop_screen();
@@ -148,14 +98,17 @@ void pop_screen();
 /* Return whether the screen stack is empty or not */
 bool screen_stack_empty();
 
+/* Return the size of the screen stack */
+unsigned int screen_stack_size();
+
 /* Get the screen behind the topmost screen */
-screen *screen_stack_prev();
+struct screen *screen_stack_prev();
 
 /*
  * Move screen to top of the screen stack. If screen is not part of the stack,
  * this will behave as push_screen.
  */
-void screen_stack_move_to_top(screen *s);
+void screen_stack_move_to_top(struct screen *s);
 
 /*
  * When the scrollok option is enabled ncurses will wrap long lines at the
