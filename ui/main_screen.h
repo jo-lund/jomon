@@ -3,8 +3,9 @@
 
 #include "list_view.h"
 #include "screen.h"
+#include "../vector.h"
 
-typedef struct {
+typedef struct main_screen {
     screen base;
 
     struct line_info {
@@ -34,18 +35,17 @@ typedef struct {
     int scrolly;
 
     int scrollx; /* the amount scrolled on the x-axis */
+    vector_t *packet_ref;
 } main_screen;
 
 struct packet;
 
 main_screen *main_screen_create();
+void main_screen_init(screen *s);
 void main_screen_free(screen *s);
 void main_screen_set_interactive(main_screen *ms, bool interactive_mode);
 void main_screen_render(main_screen *ms, bool interactive_mode);
 void main_screen_print_packet(main_screen *ms, struct packet *p);
-
-/* Return whether the main_screen is ready to process a new packet or not */
-bool main_screen_handle_packet();
 
 /* refresh the entire pad */
 void main_screen_refresh_pad(main_screen *ms);

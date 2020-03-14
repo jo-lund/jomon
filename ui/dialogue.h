@@ -5,6 +5,7 @@
 #include "button.h"
 #include "../misc.h"
 #include "../vector.h"
+#include "../file.h"
 #include "screen.h"
 
 #define DIALOGUE_SET_TITLE(o, d, t) ((o)->dialogue_set_title(d, t))
@@ -95,5 +96,8 @@ progress_dialogue *progress_dialogue_create(char *title, int size);
 
 /* Free the memory associated with progress dialogue */
 void progress_dialogue_free(screen *s);
+
+/* General dialogues */
+void create_file_error_dialogue(enum file_error err, void (*callback)());
 
 #endif

@@ -26,8 +26,9 @@ enum page {
 
 static void host_screen_init(screen *s);
 static void host_screen_refresh(screen *s);
-static void host_screen_got_focus(screen *s);
-static void host_screen_lost_focus(screen *s);
+static void host_screen_got_focus(screen *s UNUSED, screen *oldscr UNUSED);
+static void host_screen_lost_focus(screen *s UNUSED, screen *newscr UNUSED);
+static unsigned int host_screen_get_size(screen *s);
 static void host_screen_render(host_screen *hs);
 static void update_host(struct host_info *host, bool new_host);
 static void print_host_header(host_screen *hs);
@@ -42,6 +43,7 @@ static screen_operations hsop = {
     .screen_get_input = screen_get_input,
     .screen_got_focus = host_screen_got_focus,
     .screen_lost_focus = host_screen_lost_focus,
+    .screen_get_data_size = host_screen_get_size
 };
 
 static int cmphost(const void *p1, const void *p2)
@@ -67,8 +69,8 @@ void host_screen_init(screen *s)
     int my, mx;
     host_screen *hs = (host_screen *) s;
 
-    getmaxyx(stdscr, my, mx);
     screen_init(s);
+    getmaxyx(stdscr, my, mx);
     s->win = newwin(my - HOST_HEADER - STATUS_HEIGHT, mx, HOST_HEADER, 0);
     s->lines = my - HOST_HEADER - STATUS_HEIGHT;
     s->page = LOCAL;
@@ -104,14 +106,19 @@ void host_screen_refresh(screen *s)
     host_screen_render(hs);
 }
 
-void host_screen_got_focus(screen *s UNUSED)
+void host_screen_got_focus(screen *s UNUSED, screen *oldscr UNUSED)
 {
     host_analyzer_subscribe(update_host);
 }
 
-void host_screen_lost_focus(screen *s UNUSED)
+void host_screen_lost_focus(screen *s UNUSED, screen *newscr UNUSED)
 {
     host_analyzer_unsubscribe(update_host);
+}
+
+static unsigned int host_screen_get_size(screen *s)
+{
+    return vector_size(((host_screen *) s)->screen_buf);
 }
 
 void host_screen_render(host_screen *hs)
@@ -141,7 +148,7 @@ void update_host(struct host_info *host, bool new_host)
     host_screen *hs = (host_screen *) screen_cache_get(HOST_SCREEN);
 
     if ((hs->base.page == LOCAL && host->local) || (hs->base.page == REMOTE && !host->local)) {
-        if (new_host) {
+        if (new_host) { // TODO: What if a user has scrolled the screen?
             werase(hs->header);
             werase(hs->base.win);
             print_host_header(hs);

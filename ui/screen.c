@@ -9,34 +9,32 @@ extern main_menu *menu;
 static void handle_keydown(screen *s)
 {
     if (s->show_selectionbar) {
-        s->selectionbar++;
-        if (s->selectionbar == s->lines) {
-            s->top++;
-            s->selectionbar--;
-            wscrl(s->win, 1);
+        if ((unsigned int) s->selectionbar < SCREEN_GET_DATA_SIZE(s)) {
+            s->selectionbar++;
+            if (s->selectionbar - s->top == s->lines)
+                s->top++;
+            SCREEN_REFRESH(s);
         }
     } else {
-        // TODO: check data
-        s->top++;
-        wscrl(s->win, 1);
+        if ((unsigned int) s->top + s->lines < SCREEN_GET_DATA_SIZE(s)) {
+            s->top++;
+            SCREEN_REFRESH(s);
+        }
     }
-    SCREEN_REFRESH(s);
 }
 
 static void handle_keyup(screen *s)
 {
     if (s->show_selectionbar) {
-        s->selectionbar--;
-        if (s->top > 0 && s->selectionbar == -1) {
+        if (s->top > 0 && s->selectionbar == s->top) {
             s->top--;
-            s->selectionbar++;
-            wscrl(s->win, -1);
-        } else if (s->selectionbar == -1)
-            s->selectionbar = 0;
+            s->selectionbar--;
+        } else if (s->selectionbar > 0) {
+            s->selectionbar--;
+        }
     } else {
         if (s->top > 0) {
             s->top--;
-            wscrl(s->win, -1);
         }
     }
     SCREEN_REFRESH(s);
@@ -45,20 +43,24 @@ static void handle_keyup(screen *s)
 static void scroll_page(screen *s, int num_lines)
 {
     int i = abs(num_lines);
+    int c = 0;
 
-    // TODO: Check data
     if (num_lines > 0) { /* scroll down */
-        while (i > 0) {
+        while (c < i && (unsigned int) s->top + s->lines < SCREEN_GET_DATA_SIZE(s)) {
             s->top++;
-            i--;
+            c++;
         }
+        if (s->show_selectionbar)
+            s->selectionbar += c;
     } else { /* scroll up */
-        while (i > 0 && s->top > 0) {
+        while (c < i && s->top > 0) {
             s->top--;
-            i--;
+            c++;
         }
+        if (s->show_selectionbar)
+            s->selectionbar -= c;
     }
-    if (i != abs(num_lines))
+    if (c > 0)
         SCREEN_REFRESH(s);
 }
 
@@ -83,6 +85,8 @@ void screen_init(screen *s)
     s->page = 0;
     s->num_pages = 0;
     s->lines = getmaxy(stdscr);
+    s->refreshing = false;
+    s->fullscreen = true;
 }
 
 void screen_free(screen *s)
@@ -111,14 +115,17 @@ void screen_get_input(screen *s)
         screen_stack_move_to_top(screen_cache_get(HOST_SCREEN));
         break;
     case 'i':
-        if (s->have_selectionbar) {
+        if (s->have_selectionbar && SCREEN_GET_DATA_SIZE(s) > 0) {
             s->show_selectionbar = !s->show_selectionbar;
+            s->selectionbar = s->top;
             SCREEN_REFRESH(s);
         }
         break;
     case 'p':
-        s->page = (s->page + 1) % s->num_pages;
-        SCREEN_REFRESH(s);
+        if (s->num_pages > 0) {
+            s->page = (s->page + 1) % s->num_pages;
+            SCREEN_REFRESH(s);
+        }
         break;
     case 's':
         screen_stack_move_to_top(screen_cache_get(STAT_SCREEN));

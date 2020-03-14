@@ -1,4 +1,5 @@
 #include <string.h>
+#include <assert.h>
 #include "layout.h"
 #include "layout_int.h"
 #include "protocols.h"
@@ -13,6 +14,7 @@
 #include "host_screen.h"
 #include "../util.h"
 #include "screen.h"
+#include "conversation_screen.h"
 
 #define NUM_COLOURS 8
 
@@ -196,21 +198,23 @@ void print_file()
 void pop_screen()
 {
     screen *oldscr = stack_pop(screen_stack);
+    screen *newscr = stack_top(screen_stack);
 
+    assert(newscr != NULL);
     oldscr->focus = false;
     if (oldscr->op->screen_lost_focus) {
-        SCREEN_LOST_FOCUS(oldscr);
+        SCREEN_LOST_FOCUS(oldscr, newscr);
     }
-    if (!stack_empty(screen_stack)) {
-        screen *newscr = stack_top(screen_stack);
-
-        newscr->focus = true;
-        wgetch(newscr->win); /* remove character from input queue */
-        if (newscr->op->screen_got_focus) {
-            SCREEN_GOT_FOCUS(newscr);
-        }
-        SCREEN_REFRESH(newscr);
+    newscr->focus = true;
+    if (newscr->refreshing)
+        return;
+    newscr->refreshing = true;
+    wgetch(newscr->win); /* remove character from input queue */
+    if (newscr->op->screen_got_focus) {
+        SCREEN_GOT_FOCUS(newscr, oldscr);
     }
+    SCREEN_REFRESH(newscr);
+    newscr->refreshing = false;
 }
 
 void push_screen(screen *newscr)
@@ -220,15 +224,17 @@ void push_screen(screen *newscr)
     if (oldscr) {
         oldscr->focus = false;
         if (oldscr->op->screen_lost_focus) {
-            SCREEN_LOST_FOCUS(oldscr);
+            SCREEN_LOST_FOCUS(oldscr, newscr);
         }
     }
     newscr->focus = true;
+    newscr->refreshing = true;
     stack_push(screen_stack, newscr);
     if (newscr->op->screen_got_focus) {
-        SCREEN_GOT_FOCUS(newscr);
+        SCREEN_GOT_FOCUS(newscr, oldscr);
     }
     SCREEN_REFRESH(newscr);
+    newscr->refreshing = false;
 }
 
 bool screen_stack_empty()
@@ -239,6 +245,11 @@ bool screen_stack_empty()
 unsigned int screen_stack_size()
 {
     return stack_size(screen_stack);
+}
+
+screen *screen_stack_top()
+{
+    return stack_top(screen_stack);
 }
 
 screen *screen_stack_prev()
@@ -324,10 +335,8 @@ void layout(enum event ev)
 
     switch (ev) {
     case NEW_PACKET:
-        if (main_screen_handle_packet()) {
-            main_screen_print_packet((main_screen *) screen_cache[MAIN_SCREEN],
-                                     vector_back(packets));
-        }
+        main_screen_print_packet((main_screen *) screen_cache[MAIN_SCREEN],
+                                 vector_back(packets));
         break;
     case ALARM:
         s = screen_cache_get(STAT_SCREEN);
@@ -374,6 +383,7 @@ void create_screens()
     screen_cache_insert(HELP_SCREEN, (screen *) help_screen_create());
     screen_cache_insert(CONNECTION_SCREEN, (screen *) connection_screen_create());
     screen_cache_insert(HOST_SCREEN, (screen *) host_screen_create());
+    screen_cache_insert(CONVERSATION_SCREEN, (screen *) conversation_screen_create());
 }
 
 void create_menu()

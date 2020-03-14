@@ -10,6 +10,7 @@
 #include "../util.h"
 #include "../attributes.h"
 #include "../process.h"
+#include "conversation_screen.h"
 
 #define ADDR_WIDTH 17
 #define PORT_WIDTH 10
@@ -53,8 +54,9 @@ extern main_menu *menu;
 static void connection_screen_init(screen *s);
 static void connection_screen_refresh(screen *s);
 static void connection_screen_get_input(screen *s);
-static void connection_screen_got_focus(screen *s UNUSED);
-static void connection_screen_lost_focus(screen *s UNUSED);
+static void connection_screen_got_focus(screen *s UNUSED, screen *oldscr UNUSED);
+static void connection_screen_lost_focus(screen *s UNUSED, screen *newscr UNUSED);
+static unsigned int connection_screen_get_size(screen *s);
 static void connection_screen_render(connection_screen *cs);
 static void update_connection(struct tcp_connection_v4 *c, bool new_connection);
 static void print_all_connections(connection_screen *cs);
@@ -69,6 +71,7 @@ static screen_operations csop = {
     .screen_get_input = connection_screen_get_input,
     .screen_got_focus = connection_screen_got_focus,
     .screen_lost_focus = connection_screen_lost_focus,
+    .screen_get_data_size = connection_screen_get_size
 };
 
 static screen_header header[] = {
@@ -103,12 +106,10 @@ void connection_screen_init(screen *s)
     int my, mx;
     connection_screen *cs = (connection_screen *) s;
 
+    screen_init(s);
     getmaxyx(stdscr, my, mx);
     s->win = newwin(my - CONN_HEADER - STATUS_HEIGHT, mx, CONN_HEADER, 0);
     s->have_selectionbar = true;
-    s->selectionbar = 0;
-    s->show_selectionbar = false;
-    s->top = 0;
     s->lines = getmaxy(stdscr) - CONN_HEADER - STATUS_HEIGHT;
     cs->header = newwin(CONN_HEADER, mx, 0, 0);
     cs->y = 0;
@@ -132,12 +133,12 @@ void connection_screen_free(screen *s)
     free(cs);
 }
 
-void connection_screen_got_focus(screen *s UNUSED)
+void connection_screen_got_focus(screen *s UNUSED, screen *oldscr UNUSED)
 {
     tcp_analyzer_subscribe(update_connection);
 }
 
-void connection_screen_lost_focus(screen *s UNUSED)
+void connection_screen_lost_focus(screen *s UNUSED, screen *oldscr UNUSED)
 {
     tcp_analyzer_unsubscribe(update_connection);
 }
@@ -158,18 +159,41 @@ void connection_screen_refresh(screen *s)
 void connection_screen_get_input(screen *s)
 {
     int c = wgetch(s->win);
+    connection_screen *cs = (connection_screen *) s;
+    conversation_screen *cvs;
 
     switch (c) {
     case KEY_ENTER:
     case '\n':
-        // List all packets for the specific connection. Make a new screen based on
-        // follow_tcp. This should be used by main_screen as well.
+        cvs = (conversation_screen *) screen_cache_get(CONVERSATION_SCREEN);
+        cvs->stream = vector_get_data(cs->screen_buf, s->selectionbar);
+        screen_stack_move_to_top((screen *) cvs);
         break;
     default:
         ungetch(c);
         screen_get_input(s);
         break;
     }
+}
+
+static unsigned int connection_screen_get_size(screen *s)
+{
+    return vector_size(((connection_screen *) s)->screen_buf);
+}
+
+static int compare_tcp(const void *t1, const void *t2)
+{
+    struct tcp_connection_v4 *conn1 = *(struct tcp_connection_v4 **) t1;
+    struct tcp_connection_v4 *conn2 = *(struct tcp_connection_v4 **) t2;
+
+    if ((conn1->endp->src == conn2->endp->src && conn1->endp->dst == conn2->endp->dst &&
+         conn1->endp->src_port == conn2->endp->src_port && conn1->endp->dst_port == conn2->endp->dst_port)
+        || (conn1->endp->src == conn2->endp->dst && conn1->endp->src_port == conn2->endp->dst_port &&
+            conn1->endp->dst == conn2->endp->src && conn1->endp->dst_port == conn2->endp->src_port)) {
+        return 0;
+    }
+    return (conn1->endp->src + conn1->endp->dst + conn1->endp->src_port + conn1->endp->dst_port) -
+        (conn2->endp->src + conn2->endp->dst + conn2->endp->src_port + conn2->endp->dst_port);
 }
 
 void connection_screen_render(connection_screen *cs)
@@ -183,6 +207,8 @@ void connection_screen_render(connection_screen *cs)
             vector_push_back(cs->screen_buf, it->data);
             it = hashmap_next(sessions, it);
         }
+        qsort(vector_data(cs->screen_buf), vector_size(cs->screen_buf),
+              sizeof(struct tcp_connection_v4 *), compare_tcp);
     }
     touchwin(cs->header);
     touchwin(cs->base.win);
@@ -199,11 +225,11 @@ void update_connection(struct tcp_connection_v4 *conn, bool new_connection)
     print_conn_header(cs);
     if (new_connection) {
         vector_push_back(cs->screen_buf, conn);
-        if (vector_size(cs->screen_buf) < cs->base.lines) {
-            print_connection(cs, conn, cs->y);
-            cs->y++;
-            wrefresh(cs->base.win);
-        }
+        qsort(vector_data(cs->screen_buf), vector_size(cs->screen_buf),
+              sizeof(struct tcp_connection_v4 *), compare_tcp);
+        werase(cs->base.win);
+        cs->y = 0;
+        print_all_connections(cs);
     } else {
         int y = 0;
 
@@ -213,7 +239,7 @@ void update_connection(struct tcp_connection_v4 *conn, bool new_connection)
                 wclrtoeol(cs->base.win);
                 print_connection(cs, conn, y);
                 if (cs->base.show_selectionbar && y == cs->base.selectionbar)
-                    mvwchgat(cs->base.win, cs->base.selectionbar, 0, -1, A_NORMAL,
+                    mvwchgat(cs->base.win, cs->base.selectionbar - cs->base.top, 0, -1, A_NORMAL,
                              PAIR_NUMBER(get_theme_colour(SELECTIONBAR)), NULL);
                 wrefresh(cs->base.win);
                 break;
@@ -251,7 +277,7 @@ void print_all_connections(connection_screen *cs)
     if (cs->base.selectionbar >= vector_size(cs->screen_buf))
         cs->base.selectionbar = vector_size(cs->screen_buf) - 1;
     if (cs->base.show_selectionbar)
-        mvwchgat(cs->base.win, cs->base.selectionbar, 0, -1, A_NORMAL,
+        mvwchgat(cs->base.win, cs->base.selectionbar - cs->base.top, 0, -1, A_NORMAL,
                  PAIR_NUMBER(get_theme_colour(SELECTIONBAR)), NULL);
     wrefresh(cs->base.win);
 }

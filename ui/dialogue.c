@@ -91,10 +91,11 @@ void dialogue_init(dialogue *d, char *title, int height, int width)
 {
     int my, mx;
 
+    screen_init(&d->screen_base);
+    d->screen_base.fullscreen = false;
     getmaxyx(stdscr, my, mx);
     d->height = height;
     d->width = width;
-    d->screen_base.focus = false;
     d->screen_base.win = newwin(d->height, d->width, (my - d->height) / 2, (mx - d->width) / 2);
     d->title = title;
     d->dialogue_set_title = dialogue_set_title;
@@ -661,4 +662,20 @@ void progress_dialogue_render(progress_dialogue *this)
         this->idx++;
     }
     wrefresh(((screen *) this)->win);
+}
+
+static label_dialogue *ld;
+
+static void handle_file_error(void *callback)
+{
+    SCREEN_FREE((screen *) ld);
+    ld = NULL;
+    (* (void (*)()) callback)();
+}
+
+void create_file_error_dialogue(enum file_error err, void (*callback)())
+{
+    ld = label_dialogue_create(" File Error ", get_file_error(err),
+                               handle_file_error, callback);
+    push_screen((screen *) ld);
 }

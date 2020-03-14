@@ -22,37 +22,14 @@
 #include "connection_screen.h"
 #include "../hashmap.h"
 #include "../decoder/tcp_analyzer.h"
+#include "../decoder/host_analyzer.h"
 #include "../attributes.h"
-
-#define HEADER_HEIGHT 5
-#define NUM_COLS_SCROLL 4
-#define TCP_PAGE_SIZE 1000
+#include "main_screen_int.h"
+#include "conversation_screen.h"
+#include "dialogue.h"
 
 /* Get the y screen coordinate. The argument is the main_screen coordinate */
 #define GET_SCRY(y) ((y) + HEADER_HEIGHT)
-
-enum views {
-    DECODED_VIEW,
-    HEXDUMP_VIEW,
-    NUM_VIEWS
-};
-
-enum follow_tcp_mode {
-    NORMAL,
-    ASCII,
-    RAW,
-    NUM_MODES
-};
-
-struct tcp_page {
-    int top;
-    vector_t *buf;
-};
-
-struct tcp_page_attr {
-    char *line;
-    int col;
-};
 
 extern vector_t *packets;
 extern WINDOW *status;
@@ -62,65 +39,30 @@ bool numeric = true;
 int hexmode = HEXMODE_NORMAL;
 static bool input_mode = false;
 static int view_mode = DECODED_VIEW;
-static label_dialogue *ld = NULL;
-static file_dialogue *fd = NULL;
-static file_dialogue *sd = NULL;
 static progress_dialogue *pd = NULL;
-static char load_filepath[MAXPATH + 1];
 static bool decode_error = false;
 static chtype original_line[MAXLINE];
-static vector_t *packet_ref;
-static bool follow_stream = false;
-static struct tcp_connection_v4 *stream;
-static enum follow_tcp_mode tcp_mode = NORMAL;
-static struct tcp_page tcp_page;
 
-static void main_screen_init(screen *s);
-static void main_screen_refresh(screen *s);
-static void main_screen_clear(main_screen *ms);
-static void main_screen_get_input(screen *s);
 static bool check_line(main_screen *ms);
-static void handle_keydown(main_screen *ms, int num_lines);
-static void handle_keyup(main_screen *ms, int num_lines);
-static void scroll_page(main_screen *ms, int num_lines);
-static void scroll_column(main_screen *ms, int scrollx, int num_lines);
-static void scroll_window(main_screen *ms);
-static int print_lines(main_screen *ms, int from, int to, int y);
 static void print_header(main_screen *ms);
 static void print_status();
 static void print_selected_packet(main_screen *ms);
 static void print_protocol_information(main_screen *ms, struct packet *p, int lineno);
-static void goto_line(main_screen *ms, int c);
-static void goto_end(main_screen *ms);
-static void goto_home(main_screen *ms);
+static int print_lines(main_screen *ms, int from, int to, int y);
 static void create_load_dialogue();
 static void create_save_dialogue();
-static void create_file_error_dialogue(enum file_error err, void (*callback)());
-static void load_handle_ok(void *file);
-static void load_handle_cancel(void *);
-static void save_handle_ok(void *file);
-static void save_handle_cancel(void *);
-static void handle_file_error(void *callback);
+static bool read_show_progress(unsigned char *buffer, uint32_t n, struct timeval *t);
+static void print_packets(main_screen *ms);
+static void follow_tcp_stream(main_screen *ms);
 static void show_selectionbar(main_screen *ms, WINDOW *win, int line, uint32_t attr);
 static void remove_selectionbar(main_screen *ms, WINDOW *win, int line, uint32_t attr);
-static bool read_show_progress(unsigned char *buffer, uint32_t n, struct timeval *t);
-static void write_show_progress(int i);
-static void follow_tcp_stream(main_screen *ms, bool follow);
-static void add_packet(struct tcp_connection_v4 *conn, bool new_connection);
-static void change_tcp_mode(main_screen *ms);
-static void buffer_tcppage(main_screen *ms, int (*buffer_fn)
-                          (unsigned char *buf, int len, struct tcp_page_attr *attr, int pidx, int mx));
-static int buffer_ascii(unsigned char *buf, int len, struct tcp_page_attr *attr, int pidx, int mx);
-static int buffer_raw(unsigned char *buf, int len, struct tcp_page_attr *attr, int pidx, int mx);
-static void print_tcppage(main_screen *ms);
-static void free_tcp_attr(void *arg);
-static void print_packets(main_screen *ms);
+static void scroll_window(main_screen *ms);
+static void add_elements(main_screen *ms, struct packet *p);
 
 /* Handles subwindow layout */
 static void create_subwindow(main_screen *ms, int num_lines, int lineno);
 static void delete_subwindow(main_screen *ms);
 static bool inside_subwindow(main_screen *ms);
-static void add_elements(main_screen *ms, struct packet *p);
 static void handle_selectionbar(main_screen *ms, int c);
 static void refresh_pad(main_screen *ms, struct subwin_info *pad, int scrolly, int minx, bool update);
 static bool subwindow_on_screen(main_screen *ms);
@@ -130,15 +72,6 @@ static screen_operations msop = {
     .screen_free = main_screen_free,
     .screen_refresh = main_screen_refresh,
     .screen_get_input = main_screen_get_input
-};
-
-static screen_header header[] = {
-    { "Number", NUM_WIDTH },
-    { "Time", TIME_WIDTH },
-    { "Source", ADDR_WIDTH },
-    { "Destination", ADDR_WIDTH },
-    { "Protocol", PROT_WIDTH },
-    { "Info", 0 }
 };
 
 main_screen *main_screen_create()
@@ -156,12 +89,10 @@ void main_screen_init(screen *s)
     main_screen *ms = (main_screen *) s;
     int my, mx;
 
+    screen_init(s);
     getmaxyx(stdscr, my, mx);
     s->show_selectionbar = !ctx.capturing;
-    s->selectionbar = 0;
-    s->top = 0;
     s->win = newwin(my - HEADER_HEIGHT - STATUS_HEIGHT, mx, HEADER_HEIGHT, 0);
-    s->focus = false;
     ms->outy = 0;
     ms->scrolly = 0;
     ms->scrollx = 0;
@@ -171,9 +102,8 @@ void main_screen_init(screen *s)
     nodelay(s->win, TRUE); /* input functions must be non-blocking */
     keypad(s->win, TRUE);
     scrollok(s->win, TRUE);
-    packet_ref = packets;
-    memset(&tcp_page, 0, sizeof(struct tcp_page));
-    tcp_page.buf = vector_init(TCP_PAGE_SIZE);
+    ms->packet_ref = packets;
+    getcwd(load_filepath, MAXPATH);
 }
 
 void main_screen_free(screen *s)
@@ -206,12 +136,12 @@ void main_screen_update(main_screen *ms, char *buf)
 
 void main_screen_clear(main_screen *ms)
 {
-    main_screen_set_interactive(ms, false);
-    werase(ms->header);
-    werase(ms->base.win);
     ms->base.selectionbar = 0;
     ms->base.top = 0;
     ms->outy = 0;
+    main_screen_set_interactive(ms, false);
+    werase(ms->header);
+    werase(ms->base.win);
 }
 
 void main_screen_refresh(screen *s)
@@ -225,7 +155,7 @@ void main_screen_refresh(screen *s)
     wbkgd(s->win, get_theme_colour(BACKGROUND));
     wbkgd(ms->header, get_theme_colour(BACKGROUND));
     touchwin(s->win);
-    c = vector_size(packet_ref) - 1;
+    c = vector_size(ms->packet_ref) - 1;
 
     /* re-render the whole screen when capturing */
     if (!s->show_selectionbar && (ms->outy >= my || c >= my) && ctx.capturing) {
@@ -237,7 +167,7 @@ void main_screen_refresh(screen *s)
             struct packet *p;
             char buffer[MAXLINE];
 
-            p = vector_get_data(packet_ref, i);
+            p = vector_get_data(ms->packet_ref, i);
             write_to_buf(buffer, MAXLINE, p);
             printnlw(s->win, buffer, strlen(buffer), i, 0, ms->scrollx);
         }
@@ -251,12 +181,9 @@ void main_screen_refresh(screen *s)
         struct packet *p;
 
         wbkgd(ms->subwindow.win, get_theme_colour(BACKGROUND));
-        p = vector_get_data(packet_ref, ms->main_line.line_number + s->top);
+        p = vector_get_data(ms->packet_ref, ms->main_line.line_number + s->top);
         print_protocol_information(ms, p, ms->main_line.line_number + s->top);
         refresh_pad(ms, &ms->subwindow, 0, 0, false);
-    }
-    if (follow_stream && tcp_mode != NORMAL) {
-        print_tcppage(ms);
     }
     print_header(ms);
     print_status();
@@ -284,8 +211,8 @@ void main_screen_render(main_screen *ms, bool interactive_mode)
 {
     int my = getmaxy(ms->base.win);
 
-    if (vector_size(packet_ref) < my) {
-        ms->outy = print_lines(ms, 0, vector_size(packet_ref), 0);
+    if (vector_size(ms->packet_ref) < my) {
+        ms->outy = print_lines(ms, 0, vector_size(ms->packet_ref), 0);
     } else {
         ms->outy = print_lines(ms, 0, my, 0);
     }
@@ -295,12 +222,6 @@ void main_screen_render(main_screen *ms, bool interactive_mode)
         show_selectionbar(ms, ms->base.win, ms->base.selectionbar, A_NORMAL);
     }
     main_screen_refresh((screen *) ms);
-}
-
-// TODO: Handle this differently
-bool main_screen_handle_packet()
-{
-    return !follow_stream;
 }
 
 void main_screen_get_input(screen *s)
@@ -313,15 +234,13 @@ void main_screen_get_input(screen *s)
     my = getmaxy(s->win);
     c = wgetch(s->win);
     if (input_mode) {
-        goto_line(ms, c);
+        main_screen_goto_line(ms, c);
         return;
     }
     switch (c) {
     case 'f':
-        if (!s->show_selectionbar || inside_subwindow(ms))
-            return;
-        follow_stream = !follow_stream;
-        follow_tcp_stream(ms, follow_stream);
+        if (s->show_selectionbar && !inside_subwindow(ms))
+            follow_tcp_stream(ms);
         break;
     case 'g':
         if (!s->show_selectionbar)
@@ -346,7 +265,7 @@ void main_screen_get_input(screen *s)
         if (ms->subwindow.win) {
             struct packet *p;
 
-            p = vector_get_data(packet_ref, ms->main_line.line_number + s->top);
+            p = vector_get_data(ms->packet_ref, ms->main_line.line_number + s->top);
             if (view_mode == DECODED_VIEW) {
                 add_elements(ms, p);
             }
@@ -356,46 +275,29 @@ void main_screen_get_input(screen *s)
     case 'n':
         numeric = !numeric;
         break;
-    case 'p':
-        if (follow_stream) {
-            tcp_mode = (tcp_mode + 1) % NUM_MODES;
-            change_tcp_mode(ms);
-        }
-        break;
-    case 'P':
-        if (follow_stream) {
-            if (tcp_mode == NORMAL)
-                tcp_mode = RAW;
-            else
-                tcp_mode = (tcp_mode - 1) % NUM_MODES;
-            change_tcp_mode(ms);
-        }
-        break;
     case KEY_UP:
-        handle_keyup(ms, my);
+        main_screen_handle_keyup(ms, my);
         break;
     case KEY_DOWN:
-        handle_keydown(ms, my);
+        main_screen_handle_keydown(ms, my);
         break;
     case KEY_LEFT:
-        if (!follow_stream || tcp_mode == NORMAL)
-            scroll_column(ms, -NUM_COLS_SCROLL, my);
+        main_screen_scroll_column(ms, -NUM_COLS_SCROLL, my);
         break;
     case KEY_RIGHT:
-        if (!follow_stream || tcp_mode == NORMAL)
-            scroll_column(ms, NUM_COLS_SCROLL, my);
+        main_screen_scroll_column(ms, NUM_COLS_SCROLL, my);
         break;
     case KEY_ENTER:
     case '\n':
         if (input_mode) {
-            goto_line(ms, c);
+            main_screen_goto_line(ms, c);
         } else if (s->show_selectionbar) {
             print_selected_packet(ms);
         }
         break;
     case KEY_ESC:
         if (input_mode) {
-            goto_line(ms, c);
+            main_screen_goto_line(ms, c);
         } else if (ms->subwindow.win) {
             delete_subwindow(ms);
             ms->main_line.selected = false;
@@ -405,20 +307,20 @@ void main_screen_get_input(screen *s)
         break;
     case ' ':
     case KEY_NPAGE:
-        scroll_page(ms, my);
+        main_screen_scroll_page(ms, my);
         break;
     case 'b':
     case KEY_PPAGE:
-        scroll_page(ms, -my);
+        main_screen_scroll_page(ms, -my);
         break;
     case KEY_HOME:
         if (s->show_selectionbar) {
-            goto_home(ms);
+            main_screen_goto_home(ms);
         }
         break;
     case KEY_END:
         if (s->show_selectionbar) {
-            goto_end(ms);
+            main_screen_goto_end(ms);
         }
         break;
     case KEY_F(3):
@@ -450,12 +352,12 @@ void main_screen_get_input(screen *s)
         }
         break;
     case KEY_F(5):
-        if (!ctx.capturing && vector_size(packet_ref) > 0) {
+        if (!ctx.capturing && vector_size(ms->packet_ref) > 0) {
             create_save_dialogue();
         }
         break;
     case KEY_F(6):
-        if (!ctx.capturing && !follow_stream) {
+        if (!ctx.capturing) {
             create_load_dialogue();
         }
         break;
@@ -464,7 +366,7 @@ void main_screen_get_input(screen *s)
         if (ms->subwindow.win) {
             struct packet *p;
 
-            p = vector_get_data(packet_ref, ms->main_line.line_number + s->top);
+            p = vector_get_data(ms->packet_ref, ms->main_line.line_number + s->top);
             if (view_mode == DECODED_VIEW) {
                 add_elements(ms, p);
             }
@@ -482,54 +384,23 @@ void main_screen_get_input(screen *s)
 
 void create_load_dialogue()
 {
-    if (!fd) {
-        if (load_filepath[0] == 0) {
-            getcwd(load_filepath, MAXPATH);
-        }
-        fd = file_dialogue_create(" Load capture file ", FS_LOAD, load_filepath,
-                                  load_handle_ok, load_handle_cancel);
-        push_screen((screen *) fd);
+    if (!load_dialogue) {
+        load_dialogue = file_dialogue_create(" Load capture file ", FS_LOAD, load_filepath,
+                                  main_screen_load_handle_ok, main_screen_load_handle_cancel);
+        push_screen((screen *) load_dialogue);
     }
 }
 
 void create_save_dialogue()
 {
-    if (!sd) {
-        char *info = " Save as pcap ";
-
-        if (load_filepath[0] == 0) {
-            getcwd(load_filepath, MAXPATH);
-        }
-        if (follow_stream) {
-            switch (tcp_mode) {
-            case NORMAL:
-                info = " Save TCP stream as pcap ";
-                break;
-            case ASCII:
-                info = " Save as ascii ";
-                break;
-            case RAW:
-                info = " Save as raw ";
-                break;
-            default:
-                break;
-            }
-        }
-        sd = file_dialogue_create(info, FS_SAVE, load_filepath, save_handle_ok,
-                                  save_handle_cancel);
-        push_screen((screen *) sd);
+    if (!save_dialogue) {
+        save_dialogue = file_dialogue_create(" Save as pcap ", FS_SAVE, load_filepath,
+                                             main_screen_save_handle_ok, main_screen_save_handle_cancel);
+        push_screen((screen *) save_dialogue);
     }
 }
 
-void create_file_error_dialogue(enum file_error err, void (*callback)())
-{
-    char *error = get_file_error(err);
-
-    ld = label_dialogue_create(" File Error ", error, handle_file_error, callback);
-    push_screen((screen *) ld);
-}
-
-void load_handle_ok(void *file)
+void main_screen_load_handle_ok(void *file)
 {
     enum file_error err;
     FILE *fp;
@@ -543,12 +414,13 @@ void load_handle_ok(void *file)
         struct stat buf[sizeof(struct stat)];
         char filename[MAXPATH + 1];
         char title[MAXLINE];
+        main_screen *ms = (main_screen *) screen_cache_get(MAIN_SCREEN);
 
         strcpy(filename, file);
         get_file_part(filename);
         snprintf(title, MAXLINE, " Loading %s ", filename);
         clear_statistics();
-        vector_clear(packet_ref, NULL);
+        vector_clear(ms->packet_ref, NULL);
         free_packets(NULL);
         lstat((const char *) file, buf);
         pd = progress_dialogue_create(title, buf->st_size);
@@ -556,9 +428,7 @@ void load_handle_ok(void *file)
         err = read_file(fp, read_show_progress);
         if (err == NO_ERROR) {
             int i;
-            main_screen *ms;
 
-            ms = (main_screen *) screen_cache_get(MAIN_SCREEN);
             main_screen_clear(ms);
             strcpy(ctx.filename, (const char *) file);
             i = str_find_last(ctx.filename, '/');
@@ -578,14 +448,14 @@ void load_handle_ok(void *file)
         }
         fclose(fp);
     }
-    SCREEN_FREE((screen *) fd);
-    fd = NULL;
+    SCREEN_FREE((screen *) load_dialogue);
+    load_dialogue = NULL;
 }
 
-void load_handle_cancel(void *d UNUSED)
+void main_screen_load_handle_cancel(void *d UNUSED)
 {
-    SCREEN_FREE((screen *) fd);
-    fd = NULL;
+    SCREEN_FREE((screen *) load_dialogue);
+    load_dialogue = NULL;
     if (decode_error) {
         main_screen *ms;
 
@@ -601,7 +471,7 @@ void load_handle_cancel(void *d UNUSED)
     }
 }
 
-void save_handle_ok(void *file)
+void main_screen_save_handle_ok(void *file)
 {
     enum file_error err;
     FILE *fp;
@@ -610,52 +480,28 @@ void save_handle_ok(void *file)
         create_file_error_dialogue(err, create_save_dialogue);
     } else {
         char title[MAXLINE];
+        main_screen *ms = (main_screen *) screen_cache_get(MAIN_SCREEN);
 
         get_file_part(file);
         snprintf(title, MAXLINE, " Saving %s ", (char *) file);
-        if (follow_stream) {
-            pd = progress_dialogue_create(title, vector_size(packet_ref));
-            push_screen((screen *) pd);
-            switch (tcp_mode) {
-            case NORMAL:
-                write_pcap(fp, packet_ref, write_show_progress);
-                break;
-            case ASCII:
-                write_ascii(fp, packet_ref, write_show_progress);
-                break;
-            case RAW:
-                write_raw(fp, packet_ref, write_show_progress);
-                break;
-            default:
-                break;
-            }
-        } else {
-            pd = progress_dialogue_create(title, total_bytes);
-            push_screen((screen *) pd);
-            write_pcap(fp, packet_ref, write_show_progress);
-        }
+        pd = progress_dialogue_create(title, total_bytes);
+        push_screen((screen *) pd);
+        write_pcap(fp, ms->packet_ref, main_screen_write_show_progress);
         pop_screen();
         SCREEN_FREE((screen *) pd);
         fclose(fp);
     }
-    SCREEN_FREE((screen *) sd);
-    sd = NULL;
+    SCREEN_FREE((screen *) save_dialogue);
+    save_dialogue = NULL;
 }
 
-void save_handle_cancel(void *d UNUSED)
+void main_screen_save_handle_cancel(void *d UNUSED)
 {
-    SCREEN_FREE((screen *) sd);
-    sd = NULL;
+    SCREEN_FREE((screen *) save_dialogue);
+    save_dialogue = NULL;
 }
 
-void handle_file_error(void *callback)
-{
-    SCREEN_FREE((screen *) ld);
-    ld = NULL;
-    (* (void (*)()) callback)();
-}
-
-void write_show_progress(int size)
+void main_screen_write_show_progress(int size)
 {
     PROGRESS_DIALOGUE_UPDATE(pd, size);
 }
@@ -663,13 +509,18 @@ void write_show_progress(int size)
 bool read_show_progress(unsigned char *buffer, uint32_t n, struct timeval *t)
 {
     struct packet *p;
+    main_screen *ms = (main_screen *) screen_cache_get(MAIN_SCREEN);
 
     if (!decode_packet(buffer, n, &p)) {
         return false;
     }
     p->time.tv_sec = t->tv_sec;
     p->time.tv_usec = t->tv_usec;
-    vector_push_back(packet_ref, p);
+    if (p->perr != DECODE_ERR) {
+        tcp_analyzer_check_stream(p);
+    }
+    host_analyzer_investigate(p);
+    vector_push_back(ms->packet_ref, p);
     PROGRESS_DIALOGUE_UPDATE(pd, n);
     return true;
 }
@@ -721,114 +572,33 @@ void scroll_window(main_screen *ms)
 
 void print_header(main_screen *ms)
 {
+    int y = 0;
+    int x = 0;
+    char addr[INET_ADDRSTRLEN];
+    int txtcol = get_theme_colour(HEADER_TXT);
+    char mac[HW_ADDRSTRLEN];
+
     werase(ms->header);
-    if (follow_stream) {
-        uint32_t cli_addr = 0;
-        uint16_t cli_port = 0;
-        uint32_t cli_bytes = 0;
-        uint32_t srv_addr = 0;
-        uint16_t srv_port = 0;
-        uint32_t srv_bytes = 0;
-        int cli_packets = 0;
-        int srv_packets = 0;
-        int txtcol = get_theme_colour(HEADER_TXT);
-        char addr[INET_ADDRSTRLEN];
-        char buf[64];
-        int x = 0;
-
-        for (int i = 0; i < vector_size(packet_ref); i++) {
-            struct packet *p = vector_get_data(packet_ref, i);
-            uint16_t len = get_adu_payload_len(p);
-
-            if (i == 0) {
-                cli_addr = ipv4_src(p);
-                cli_port = get_tcp_src(p);
-                srv_addr = ipv4_dst(p);
-                srv_port = get_tcp_dst(p);
-            }
-            if (cli_addr == ipv4_src(p) && cli_port == get_tcp_src(p)) {
-                cli_packets++;
-                cli_bytes += len;
-            } else {
-                srv_packets++;
-                srv_bytes += len;
-            }
-        }
-        inet_ntop(AF_INET, &cli_addr, addr, sizeof(addr));
-        printat(ms->header, 0, 0, txtcol, "Client address");
-        if (tcp_mode == NORMAL) {
-            wprintw(ms->header, ": %s:%d", addr, cli_port);
-        } else {
-            printat(ms->header, -1, -1, get_theme_colour(SRC_TXT), ": %s:%d",
-                    addr, cli_port);
-        }
-        printat(ms->header, 0, 38, txtcol, "Packets");
-        wprintw(ms->header, ": %d", cli_packets);
-        printat(ms->header, 0, 55, txtcol, "Bytes");
-        format_bytes(cli_bytes, buf, 64);
-        wprintw(ms->header, ": %s", buf);
-        inet_ntop(AF_INET, &srv_addr, addr, sizeof(addr));
-        printat(ms->header, 1, 0, txtcol, "Server address");
-        if (tcp_mode == NORMAL) {
-            wprintw(ms->header, ": %s:%d", addr, srv_port);
-        } else {
-            printat(ms->header, -1, -1, get_theme_colour(DST_TXT), ": %s:%d",
-                    addr, srv_port);
-        }
-        printat(ms->header, 1, 38, txtcol, "Packets");
-        wprintw(ms->header, ": %d", srv_packets);
-        printat(ms->header, 1, 55, txtcol, "Bytes");
-        format_bytes(srv_bytes, buf, 64);
-        wprintw(ms->header, ": %s", buf);
-        switch (tcp_mode) {
-        case NORMAL:
-            printat(ms->header, 2, 0, txtcol, "Mode");
-            wprintw(ms->header, ": Normal");
-            break;
-        case ASCII:
-            printat(ms->header, 2, 0, txtcol, "Mode");
-            wprintw(ms->header, ": Ascii");
-            break;
-        case RAW:
-            printat(ms->header, 2, 0, txtcol, "Mode");
-            wprintw(ms->header, ": Raw");
-            break;
-        default:
-            break;
-        }
-        for (unsigned int i = 0; i < ARRAY_SIZE(header); i++) {
-            mvwprintw(ms->header, 4, x, header[i].txt);
-            x += header[i].width;
-        }
-        mvwchgat(ms->header, HEADER_HEIGHT - 1, 0, -1, A_NORMAL,
-                 PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
+    if (ctx.filename[0]) {
+        printat(ms->header, y, 0, txtcol, "Filename");
+        wprintw(ms->header, ": %s", ctx.filename);
     } else {
-        int y = 0;
-        int x = 0;
-        char addr[INET_ADDRSTRLEN];
-        int txtcol = get_theme_colour(HEADER_TXT);
-        char mac[HW_ADDRSTRLEN];
-        if (ctx.filename[0]) {
-            printat(ms->header, y, 0, txtcol, "Filename");
-            wprintw(ms->header, ": %s", ctx.filename);
-        } else {
-            printat(ms->header, y, 0, txtcol, "Device");
-            wprintw(ms->header, ": %s", ctx.device);
-        }
-        inet_ntop(AF_INET, &ctx.local_addr->sin_addr, addr, sizeof(addr));
-        printat(ms->header, ++y, 0, txtcol, "IPv4 address");
-        wprintw(ms->header, ": %s", addr);
-        HW_ADDR_NTOP(mac, ctx.mac);
-        printat(ms->header, ++y, 0, txtcol, "MAC");
-        wprintw(ms->header, ": %s", mac);
-        y += 2;
-        for (unsigned int i = 0; i < ARRAY_SIZE(header); i++) {
-            mvwprintw(ms->header, y, x, header[i].txt);
-            x += header[i].width;
-        }
-        mvwchgat(ms->header, HEADER_HEIGHT - 1, 0, -1, A_NORMAL,
-                 PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
+        printat(ms->header, y, 0, txtcol, "Device");
+        wprintw(ms->header, ": %s", ctx.device);
     }
+    inet_ntop(AF_INET, &ctx.local_addr->sin_addr, addr, sizeof(addr));
+    printat(ms->header, ++y, 0, txtcol, "IPv4 address");
+    wprintw(ms->header, ": %s", addr);
+    HW_ADDR_NTOP(mac, ctx.mac);
+    printat(ms->header, ++y, 0, txtcol, "MAC");
+    wprintw(ms->header, ": %s", mac);
+    y += 2;
+    for (unsigned int i = 0; i < ARRAY_SIZE(main_header); i++) {
+        mvwprintw(ms->header, y, x, main_header[i].txt);
+        x += main_header[i].width;
+    }
+    mvwchgat(ms->header, HEADER_HEIGHT - 1, 0, -1, A_NORMAL,
+             PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
 }
 
 void print_status()
@@ -836,6 +606,7 @@ void print_status()
     uid_t euid = geteuid();
     int colour = get_theme_colour(STATUS_BUTTON);
     int disabled = get_theme_colour(DISABLE);
+    main_screen *ms = (main_screen *) screen_cache_get(MAIN_SCREEN);
 
     werase(status);
     wbkgd(status, get_theme_colour(BACKGROUND));
@@ -855,14 +626,14 @@ void print_status()
         printat(status, -1, -1, disabled, "F4");
     }
     printat(status, -1, -1, colour, "%-11s", "Stop");
-    if (ctx.capturing || vector_size(packet_ref) == 0) {
+    if (ctx.capturing || vector_size(ms->packet_ref) == 0) {
         printat(status, -1, -1, disabled, "F5");
         printat(status, -1, -1, colour, "%-11s", "Save");
     } else {
         wprintw(status, "F5");
         printat(status, -1, -1, colour, "%-11s", "Save");
     }
-    if (ctx.capturing || follow_stream) {
+    if (ctx.capturing) {
         printat(status, -1, -1, disabled, "F6");
         printat(status, -1, -1, colour, "%-11s", "Load");
     } else {
@@ -879,7 +650,7 @@ void print_status()
     printat(status, -1, -1, colour, "%-11s", "Quit");
 }
 
-void goto_line(main_screen *ms, int c)
+void main_screen_goto_line(main_screen *ms, int c)
 {
     static int num = 0;
 
@@ -895,8 +666,8 @@ void goto_line(main_screen *ms, int c)
             num /= 10;
         }
     } else if (num && (c == '\n' || c == KEY_ENTER)) {
-        if ((ms->subwindow.win && num > ms->subwindow.num_lines + vector_size(packet_ref)) ||
-            (!ms->subwindow.win && num > vector_size(packet_ref))) {
+        if ((ms->subwindow.win && num > ms->subwindow.num_lines + vector_size(ms->packet_ref)) ||
+            (!ms->subwindow.win && num > vector_size(ms->packet_ref))) {
             return;
         }
 
@@ -914,9 +685,9 @@ void goto_line(main_screen *ms, int c)
         } else {
             werase(ms->base.win);
             remove_selectionbar(ms, ms->base.win, ms->base.selectionbar, A_NORMAL);
-            if (num + my - 1 > vector_size(packet_ref)) {
-                print_lines(ms, vector_size(packet_ref) - my, vector_size(packet_ref), 0);
-                ms->base.top = vector_size(packet_ref) - my;
+            if (num + my - 1 > vector_size(ms->packet_ref)) {
+                print_lines(ms, vector_size(ms->packet_ref) - my, vector_size(ms->packet_ref), 0);
+                ms->base.top = vector_size(ms->packet_ref) - my;
                 ms->base.selectionbar = num - 1;
                 show_selectionbar(ms, ms->base.win, ms->base.selectionbar - ms->base.top, A_NORMAL);
             } else {
@@ -941,36 +712,26 @@ void goto_line(main_screen *ms, int c)
     wrefresh(status);
 }
 
-void goto_home(main_screen *ms)
-{
-    if (follow_stream && tcp_mode != NORMAL) {
-        tcp_page.top = 0;
-        print_tcppage(ms);
-    } else {
-        int my = getmaxy(ms->base.win);
-
-        werase(ms->base.win);
-        print_lines(ms, 0, my, 0);
-        ms->base.selectionbar = 0;
-        ms->base.top = 0;
-        show_selectionbar(ms, ms->base.win, 0, A_NORMAL);
-        wrefresh(ms->base.win);
-    }
-}
-
-void goto_end(main_screen *ms)
+void main_screen_goto_home(main_screen *ms)
 {
     int my = getmaxy(ms->base.win);
 
-    if (follow_stream && tcp_mode != NORMAL) {
-        if (vector_size(tcp_page.buf) > my) {
-            tcp_page.top = vector_size(tcp_page.buf) - 1 - my;
-            print_tcppage(ms);
-        }
-    } else if (ms->outy >= my) {
+    werase(ms->base.win);
+    print_lines(ms, 0, my, 0);
+    ms->base.selectionbar = 0;
+    ms->base.top = 0;
+    show_selectionbar(ms, ms->base.win, 0, A_NORMAL);
+    wrefresh(ms->base.win);
+}
+
+void main_screen_goto_end(main_screen *ms)
+{
+    int my = getmaxy(ms->base.win);
+
+    if (ms->outy >= my) {
         print_packets(ms);
         remove_selectionbar(ms, ms->base.win, ms->base.selectionbar - ms->base.top, A_NORMAL);
-        ms->base.selectionbar = vector_size(packet_ref) - 1;
+        ms->base.selectionbar = vector_size(ms->packet_ref) - 1;
         show_selectionbar(ms, ms->base.win, ms->base.selectionbar - ms->base.top, A_NORMAL);
         wrefresh(ms->base.win);
     }
@@ -978,7 +739,7 @@ void goto_end(main_screen *ms)
 
 void print_packets(main_screen *ms)
 {
-    int c = vector_size(packet_ref) - 1;
+    int c = vector_size(ms->packet_ref) - 1;
     int my = getmaxy(ms->base.win);
 
     werase(ms->base.win);
@@ -988,7 +749,7 @@ void print_packets(main_screen *ms)
         struct packet *p;
         char buffer[MAXLINE];
 
-        p = vector_get_data(packet_ref, c);
+        p = vector_get_data(ms->packet_ref, c);
         write_to_buf(buffer, MAXLINE, p);
         printnlw(ms->base.win, buffer, strlen(buffer), i, 0, ms->scrollx);
     }
@@ -1006,13 +767,13 @@ bool check_line(main_screen *ms)
     if (ms->subwindow.win) {
         num_lines += ms->subwindow.num_lines;
     }
-    if (ms->base.selectionbar + ms->scrolly < vector_size(packet_ref) + num_lines - 1) {
+    if (ms->base.selectionbar + ms->scrolly < vector_size(ms->packet_ref) + num_lines - 1) {
         return true;
     }
     return false;
 }
 
-void scroll_column(main_screen *ms, int scrollx, int num_lines)
+void main_screen_scroll_column(main_screen *ms, int scrollx, int num_lines)
 {
     if ((scrollx < 0 && ms->scrollx) || scrollx > 0) {
         werase(ms->base.win);
@@ -1033,17 +794,8 @@ void scroll_column(main_screen *ms, int scrollx, int num_lines)
     }
 }
 
-void handle_keyup(main_screen *ms, int num_lines UNUSED)
+void main_screen_handle_keyup(main_screen *ms, int num_lines UNUSED)
 {
-    if (follow_stream && tcp_mode != NORMAL) {
-        wscrl(ms->base.win, -1);
-        if (tcp_page.top > 0)
-            tcp_page.top--;
-        print_tcppage(ms);
-        wrefresh(ms->base.win);
-        return;
-    }
-
     if (!ms->base.show_selectionbar) {
         main_screen_set_interactive(ms, true);
     }
@@ -1054,9 +806,9 @@ void handle_keyup(main_screen *ms, int num_lines UNUSED)
 
         ms->base.selectionbar--;
         if (ms->subwindow.win && (ms->base.selectionbar >= ms->subwindow.top + ms->base.top + ms->subwindow.num_lines)) {
-            p = vector_get_data(packet_ref, ms->base.selectionbar - ms->subwindow.num_lines + ms->scrolly);
+            p = vector_get_data(ms->packet_ref, ms->base.selectionbar - ms->subwindow.num_lines + ms->scrolly);
         } else {
-            p = vector_get_data(packet_ref, ms->base.selectionbar + ms->scrolly);
+            p = vector_get_data(ms->packet_ref, ms->base.selectionbar + ms->scrolly);
         }
         ms->base.top--;
         wscrl(ms->base.win, -1);
@@ -1095,16 +847,8 @@ void handle_keyup(main_screen *ms, int num_lines UNUSED)
     }
 }
 
-void handle_keydown(main_screen *ms, int num_lines)
+void main_screen_handle_keydown(main_screen *ms, int num_lines)
 {
-    if (follow_stream && tcp_mode != NORMAL) {
-        wscrl(ms->base.win, 1);
-        tcp_page.top++;
-        print_tcppage(ms);
-        wrefresh(ms->base.win);
-        return;
-    }
-
     if (!check_line(ms)) return;
 
     if (!ms->base.show_selectionbar) {
@@ -1117,9 +861,9 @@ void handle_keydown(main_screen *ms, int num_lines)
 
         ms->base.selectionbar++;
         if (ms->subwindow.win && (ms->base.selectionbar >= ms->subwindow.top + ms->base.top + ms->subwindow.num_lines)) {
-            p = vector_get_data(packet_ref, ms->base.selectionbar - ms->subwindow.num_lines + ms->scrolly);
+            p = vector_get_data(ms->packet_ref, ms->base.selectionbar - ms->subwindow.num_lines + ms->scrolly);
         } else {
-            p = vector_get_data(packet_ref, ms->base.selectionbar + ms->scrolly);
+            p = vector_get_data(ms->packet_ref, ms->base.selectionbar + ms->scrolly);
         }
         ms->base.top++;
         wscrl(ms->base.win, 1);
@@ -1158,27 +902,18 @@ void handle_keydown(main_screen *ms, int num_lines)
     }
 }
 
-void scroll_page(main_screen *ms, int num_lines)
+void main_screen_scroll_page(main_screen *ms, int num_lines)
 {
     if (!ms->base.show_selectionbar) {
         main_screen_set_interactive(ms, true);
     }
-    if (follow_stream && tcp_mode != NORMAL) {
-        tcp_page.top += num_lines;
-        if (tcp_page.top < 0)
-            tcp_page.top = 0;
-        print_tcppage(ms);
-        wrefresh(ms->base.win);
-        return;
-    }
-
     if (num_lines > 0) { /* scroll page down */
-        if (vector_size(packet_ref) <= num_lines) {
+        if (vector_size(ms->packet_ref) <= num_lines) {
             remove_selectionbar(ms, ms->base.win, ms->base.selectionbar - ms->base.top, A_NORMAL);
             if (ms->subwindow.win) {
-                ms->base.selectionbar = ms->subwindow.num_lines + vector_size(packet_ref) - 1;
+                ms->base.selectionbar = ms->subwindow.num_lines + vector_size(ms->packet_ref) - 1;
             } else {
-                ms->base.selectionbar = vector_size(packet_ref) - 1;
+                ms->base.selectionbar = vector_size(ms->packet_ref) - 1;
             }
             show_selectionbar(ms, ms->base.win, ms->base.selectionbar - ms->base.top, A_NORMAL);
             wnoutrefresh(ms->base.win);
@@ -1191,15 +926,15 @@ void scroll_page(main_screen *ms, int num_lines)
 
             remove_selectionbar(ms, ms->base.win, ms->base.selectionbar - ms->base.top, A_NORMAL);
             ms->base.selectionbar += num_lines;
-            if (bottom + num_lines > vector_size(packet_ref) - 1) {
-                int scroll = vector_size(packet_ref) - bottom - 1;
+            if (bottom + num_lines > vector_size(ms->packet_ref) - 1) {
+                int scroll = vector_size(ms->packet_ref) - bottom - 1;
 
                 wscrl(ms->base.win, scroll);
                 ms->base.top += scroll;
-                if (ms->base.selectionbar >= vector_size(packet_ref)) {
-                    ms->base.selectionbar = vector_size(packet_ref) - 1;
+                if (ms->base.selectionbar >= vector_size(ms->packet_ref)) {
+                    ms->base.selectionbar = vector_size(ms->packet_ref) - 1;
                 }
-                print_lines(ms, bottom + 1, vector_size(packet_ref), vector_size(packet_ref) - scroll - ms->base.top);
+                print_lines(ms, bottom + 1, vector_size(ms->packet_ref), vector_size(ms->packet_ref) - scroll - ms->base.top);
                 show_selectionbar(ms, ms->base.win, ms->base.selectionbar - ms->base.top, A_NORMAL);
                 wnoutrefresh(ms->base.win);
                 if (ms->subwindow.win) {
@@ -1219,7 +954,7 @@ void scroll_page(main_screen *ms, int num_lines)
             }
         }
     } else { /* scroll page up */
-        if (vector_size(packet_ref) <= abs(num_lines) || ms->base.top == 0) {
+        if (vector_size(ms->packet_ref) <= abs(num_lines) || ms->base.top == 0) {
             remove_selectionbar(ms, ms->base.win, ms->base.selectionbar, A_NORMAL);
             ms->base.selectionbar = 0;
             show_selectionbar(ms, ms->base.win, 0, A_NORMAL);
@@ -1261,7 +996,7 @@ void scroll_page(main_screen *ms, int num_lines)
 
 void main_screen_set_interactive(main_screen *ms, bool interactive_mode)
 {
-    if (!vector_size(packet_ref)) return;
+    if (!vector_size(ms->packet_ref)) return;
 
     if (interactive_mode) {
         ms->base.show_selectionbar = true;
@@ -1303,7 +1038,7 @@ int print_lines(main_screen *ms, int from, int to, int y)
             line <= ms->subwindow.lineno + ms->subwindow.num_lines) {
             y++;
         } else {
-            p = vector_get_data(packet_ref, from);
+            p = vector_get_data(ms->packet_ref, from);
             if (!p) break;
             write_to_buf(buffer, MAXLINE, p);
             if (ms->scrollx) {
@@ -1351,7 +1086,7 @@ void print_selected_packet(main_screen *ms)
             if (data >= 0 && data < NUM_LAYERS) {
                 selected[data] = LV_GET_EXPANDED(ms->lvw, subline);
             }
-            p = vector_get_data(packet_ref, prev_selection);
+            p = vector_get_data(ms->packet_ref, prev_selection);
             print_protocol_information(ms, p, prev_selection);
             return;
         }
@@ -1373,7 +1108,7 @@ void print_selected_packet(main_screen *ms)
         }
     }
     if (ms->main_line.selected) {
-        p = vector_get_data(packet_ref, ms->base.selectionbar + ms->scrolly);
+        p = vector_get_data(ms->packet_ref, ms->base.selectionbar + ms->scrolly);
         if (view_mode == DECODED_VIEW) {
             add_elements(ms, p);
         }
@@ -1599,244 +1334,27 @@ void handle_selectionbar(main_screen *ms, int c)
     }
 }
 
-void follow_tcp_stream(main_screen *ms, bool follow)
+static void follow_tcp_stream(main_screen *ms)
 {
-    if (follow) {
-        hashmap_t *connections = tcp_analyzer_get_sessions();
-        struct packet *p = vector_get_data(packet_ref, ms->base.selectionbar);
-        struct tcp_endpoint_v4 endp;
-        const node_t *n;
-        char buf[MAXLINE];
-        int i = 0;
-        int my = getmaxy(ms->base.win);
+    hashmap_t *connections = tcp_analyzer_get_sessions();
+    struct packet *p = vector_get_data(ms->packet_ref, ms->base.selectionbar);
+    struct tcp_connection_v4 *stream;
+    struct tcp_endpoint_v4 endp;
+    conversation_screen *cs = (conversation_screen *) screen_cache_get(CONVERSATION_SCREEN);
 
-        if (!is_tcp(p) || ethertype(p) != ETH_P_IP) {
-            follow_stream = false;
-            return;
-        }
-        endp.src = ipv4_src(p);
-        endp.dst = ipv4_dst(p);
-        endp.src_port = get_tcp_src(p);
-        endp.dst_port = get_tcp_dst(p);
-        if (!(stream = hashmap_get(connections, &endp))) {
-            endp.src = ipv4_dst(p);
-            endp.dst = ipv4_src(p);
-            endp.src_port = get_tcp_dst(p);
-            endp.dst_port = get_tcp_src(p);
-            stream = hashmap_get(connections, &endp);
-        }
-        pd = progress_dialogue_create(" Finding stream ", list_size(stream->packets));
-        push_screen((screen *) pd);
-        main_screen_clear(ms);
-        packet_ref = vector_init(list_size(stream->packets));
-        n = list_begin(stream->packets);
-        while (n) {
-            write_to_buf(buf, MAXLINE, list_data(n));
-            if (i < my) {
-                printnlw(ms->base.win, buf, strlen(buf), i, 0, ms->scrollx);
-            }
-            vector_push_back(packet_ref, list_data(n));
-            n = list_next(n);
-            i++;
-            PROGRESS_DIALOGUE_UPDATE(pd, 1);
-        }
-        pop_screen();
-        SCREEN_FREE((screen *) pd);
-        ms->base.selectionbar = 0;
-        ms->base.top = 0;
-        main_screen_set_interactive(ms, true);
-        main_screen_refresh((screen *) ms);
-        tcp_analyzer_subscribe(add_packet);
-    } else {
-        int selection = ((struct packet *) vector_get_data(packet_ref, ms->base.selectionbar))->num;
-        int my = getmaxy(ms->base.win);
-
-        vector_free(packet_ref, NULL);
-        packet_ref = packets;
-        ms->base.selectionbar = selection - 1;
-        werase(ms->base.win);
-        if (vector_size(packet_ref) < my) {
-            ms->outy = print_lines(ms, 0, vector_size(packet_ref), 0);
-            ms->base.top = 0;
-            if (ms->base.show_selectionbar)
-                show_selectionbar(ms, ms->base.win, ms->base.selectionbar, A_NORMAL);
-        } else {
-            if (vector_size(packet_ref) - ms->base.selectionbar < my) {
-                ms->base.selectionbar -= my - (vector_size(packet_ref) - ms->base.selectionbar);
-            }
-            ms->outy = print_lines(ms, ms->base.selectionbar, ms->base.selectionbar + my, 0);
-            ms->base.top = ms->base.selectionbar;
-            if (ms->base.show_selectionbar)
-                show_selectionbar(ms, ms->base.win, 0, A_NORMAL);
-        }
-        werase(ms->header);
-        stream = NULL;
-        tcp_analyzer_unsubscribe(add_packet);
-        tcp_mode = NORMAL;
-        vector_clear(tcp_page.buf, free_tcp_attr);
-        tcp_page.top = 0;
-        main_screen_refresh((screen *) ms);
-    }
-}
-
-void change_tcp_mode(main_screen *ms)
-{
-    tcp_page.top = 0;
-    vector_clear(tcp_page.buf, free_tcp_attr);
-    switch (tcp_mode) {
-    case NORMAL:
-        werase(ms->header);
-        werase(ms->base.win);
-        main_screen_render(ms, ms->base.show_selectionbar);
-        break;
-    case ASCII:
-        buffer_tcppage(ms, buffer_ascii);
-        print_tcppage(ms);
-        break;
-    case RAW:
-        buffer_tcppage(ms, buffer_raw);
-        print_tcppage(ms);
-        break;
-    default:
-        break;
-    }
-}
-
-void buffer_tcppage(main_screen *ms, int (*buffer_fn)
-                    (unsigned char *buf, int len, struct tcp_page_attr *attr, int pidx, int mx))
-{
-    int mx;
-    char buf[MAXLINE];
-    uint32_t cli_addr = 0;
-    uint16_t cli_port = 0;
-    progress_dialogue *pd;
-
-    pd = progress_dialogue_create(" Reading packets ", vector_size(packet_ref));
-    push_screen((screen *) pd);
-    mx = getmaxx(ms->base.win) - 1;
-    for (int i = 0; i < vector_size(packet_ref); i++) {
-        struct packet *p = vector_get_data(packet_ref, i);
-        unsigned char *payload = get_adu_payload(p);
-        uint16_t len;
-        int n;
-        int j = 0;
-        int col;
-        struct tcp_page_attr *attr;
-
-        PROGRESS_DIALOGUE_UPDATE(pd, 1);
-        if (i == 0) {
-            cli_addr = ipv4_src(p);
-            cli_port = get_tcp_src(p);
-        }
-        if (cli_addr == ipv4_src(p) && cli_port == get_tcp_src(p)) {
-            col = get_theme_colour(SRC_TXT);
-        } else {
-            col = get_theme_colour(DST_TXT);
-        }
-        buf[0] = '\0';
-        len = get_adu_payload_len(p);
-        if (len == 0) continue;
-        n = snprintcat(buf, MAXLINE, "Packet %d\n", p->num);
-        attr = calloc(1, sizeof(struct tcp_page_attr));
-        attr->line = malloc(n + 1);
-        strncpy(attr->line, buf, n + 1);
-        vector_push_back(tcp_page.buf, attr);
-        n = len;
-        while (n > 0) {
-            int k;
-
-            attr = malloc(sizeof(struct tcp_page_attr));
-            k = buffer_fn(payload, n, attr, j, mx);
-            attr->col = col;
-            vector_push_back(tcp_page.buf, attr);
-            j += k;
-            n -= k;
-        }
-    }
-    pop_screen();
-    SCREEN_FREE((screen *) pd);
-}
-
-int buffer_ascii(unsigned char *payload, int len, struct tcp_page_attr *attr, int pidx, int mx)
-{
-    int n;
-
-    if (len < mx) {
-        attr->line = malloc(len + 2);
-        n = len;
-    } else {
-        attr->line = malloc(mx + 2);
-        n = mx;
-    }
-    for (int i = 0; i < n; i++) {
-        if (isprint(payload[i + pidx])) {
-            attr->line[i] = payload[i + pidx];
-        } else {
-            attr->line[i] = '.';
-        }
-    }
-    attr->line[n] = '\n';
-    attr->line[n + 1] = '\0';
-    return n;
-}
-
-int buffer_raw(unsigned char *payload, int len, struct tcp_page_attr *attr, int pidx, int mx)
-{
-    int n = len;
-
-    attr->line = malloc(mx + 2);
-    for (int i = 0; i < len; i++) {
-        if (mx - 2 * i < 0) {
-            n = i;
-            break;
-        }
-        snprintf(attr->line + 2 * i, mx - 2 * i, "%02x", payload[i + pidx]);
-    }
-    strcat(attr->line, "\n");
-    return n;
-}
-
-void print_tcppage(main_screen *ms)
-{
-    int my;
-    struct tcp_page_attr *attr;
-    int i = tcp_page.top;
-
-    scrollok(ms->base.win, FALSE);
-    print_header(ms);
-    werase(ms->base.win);
-    my = getmaxy(ms->base.win);
-    while (i < my + tcp_page.top && i < vector_size(tcp_page.buf)) {
-        attr = vector_get_data(tcp_page.buf, i);
-        wattron(ms->base.win, attr->col);
-        waddstr(ms->base.win, attr->line);
-        wattroff(ms->base.win, attr->col);
-        i++;
-    }
-    wnoutrefresh(ms->header);
-    wnoutrefresh(ms->base.win);
-    doupdate();
-    scrollok(ms->base.win, TRUE);
-}
-
-void free_tcp_attr(void *arg)
-{
-    struct tcp_page_attr *attr = (struct tcp_page_attr *) arg;
-
-    free(attr->line);
-    free(attr);
-}
-
-void add_packet(struct tcp_connection_v4 *conn, bool new_connection)
-{
-    if (new_connection)
+    if (!is_tcp(p) || ethertype(p) != ETH_P_IP)
         return;
-
-    if (stream == conn) {
-        vector_push_back(packet_ref, list_back(conn->packets));
-        if (tcp_mode == NORMAL) {
-            main_screen_print_packet((main_screen *) screen_cache_get(MAIN_SCREEN),
-                                     list_back(conn->packets));
-        }
+    endp.src = ipv4_src(p);
+    endp.dst = ipv4_dst(p);
+    endp.src_port = get_tcp_src(p);
+    endp.dst_port = get_tcp_dst(p);
+    if (!(stream = hashmap_get(connections, &endp))) {
+        endp.src = ipv4_dst(p);
+        endp.dst = ipv4_src(p);
+        endp.src_port = get_tcp_dst(p);
+        endp.dst_port = get_tcp_src(p);
+        stream = hashmap_get(connections, &endp);
     }
+    cs->stream = stream;
+    screen_stack_move_to_top((screen *) cs);
 }

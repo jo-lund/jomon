@@ -53,6 +53,7 @@ enum screen_type {
     STAT_SCREEN,
     CONNECTION_SCREEN,
     HOST_SCREEN,
+    CONVERSATION_SCREEN,
     LABEL_DIALOGUE,
     FILE_DIALOGUE,
     PROGRESS_DIALOGUE,
@@ -100,6 +101,9 @@ bool screen_stack_empty();
 
 /* Return the size of the screen stack */
 unsigned int screen_stack_size();
+
+/* Get the topmost screen */
+struct screen *screen_stack_top();
 
 /* Get the screen behind the topmost screen */
 struct screen *screen_stack_prev();
