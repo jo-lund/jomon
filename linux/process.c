@@ -36,6 +36,7 @@ struct tcp_elem {
 
 static hashmap_t *inode_cache; /* processes keyed on inode */
 static hashmap_t *tcp_cache;
+static int nl_sockfd;
 
 static void load_cache();
 
@@ -221,7 +222,7 @@ static bool send_netlink_msg()
     msg.msg_namelen = sizeof(nl_addr);
     msg.msg_iov = iov;
     msg.msg_iovlen = 2;
-    return sendmsg(ctx.nl_sockfd, &msg, 0) > 0;
+    return sendmsg(nl_sockfd, &msg, 0) > 0;
 }
 
 static bool read_netlink_msg()
@@ -245,7 +246,7 @@ static bool read_netlink_msg()
     while (1) {
         ssize_t len;
 
-        while ((len = recvmsg(ctx.nl_sockfd, &msg, 0)) < 0) {
+        while ((len = recvmsg(nl_sockfd, &msg, 0)) < 0) {
             if (errno == EINTR || errno == EAGAIN)
                 continue;
         }
@@ -305,9 +306,9 @@ static bool netlink_init()
         .nl_pid = getpid()
     };
 
-    if ((ctx.nl_sockfd = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_INET_DIAG)) < 0)
+    if ((nl_sockfd = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_INET_DIAG)) < 0)
         return false;
-    bind(ctx.nl_sockfd, (struct sockaddr *) &nl_addr, sizeof(nl_addr));
+    bind(nl_sockfd, (struct sockaddr *) &nl_addr, sizeof(nl_addr));
     return true;
 }
 
@@ -347,5 +348,5 @@ void process_free()
     hashmap_free(inode_cache);
     hashmap_free(tcp_cache);
     tcp_analyzer_unsubscribe(update_cache);
-    close(ctx.nl_sockfd);
+    close(nl_sockfd);
 }
