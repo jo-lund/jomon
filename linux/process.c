@@ -3,6 +3,10 @@
 #include <ctype.h>
 #include <string.h>
 #include <unistd.h>
+#include <linux/inet_diag.h>
+#include <linux/netlink.h>
+#include <linux/sock_diag.h>
+#include <errno.h>
 #include "../process.h"
 #include "../misc.h"
 #include "../util.h"
@@ -19,22 +23,19 @@
 struct process {
     char *name;
     int pid;
-    uint16_t port;
     unsigned inode;
 };
 
-struct tcp_table {
+struct tcp_elem {
+    uint16_t lport;
+    uint16_t rport;
     uint32_t laddr;
-    uint32_t lport;
     uint32_t raddr;
-    uint32_t rport;
     uint32_t inode;
 };
 
-typedef bool (*handle_tcp_entry)(struct tcp_table *tcp, void **data);
-
-static hashmap_t *inode_cache; /* list of processes keyed on inode */
-static hashmap_t *process_cache; /* list of processes keyed on connection address */
+static hashmap_t *inode_cache; /* processes keyed on inode */
+static hashmap_t *tcp_cache;
 
 static void load_cache();
 
@@ -48,62 +49,44 @@ static void free_process(void *data)
     }
 }
 
-static bool get_name(char *name, int pid)
+/* Allocates a new string that needs to be freed by the caller */
+static char *get_name(int pid)
 {
     char cmdline[MAXPATH];
+    char tmp[1024];
     FILE *fp;
+    char *name;
+    size_t n;
 
     snprintf(cmdline, MAXPATH, "/proc/%d/cmdline", pid);
     if ((fp = fopen(cmdline, "r")) == NULL)
-        return false;
-    if (fgets(name, MAXPATH, fp) == NULL) {
+        return NULL;
+    if (fgets(tmp, MAXPATH, fp) == NULL) {
         fclose(fp);
-        return false;
+        return NULL;
     }
+    n = strlen(tmp);
+    name = malloc(n + 1);
+    strncpy(name, tmp, n);
+    name[n] = '\0';
     fclose(fp);
-    return true;
+    return name;
 }
 
-static bool init_proc(struct tcp_table *tcp, void **data)
-{
-    char name[MAXPATH];
-    struct process *pinfo = *(struct process **) data;
-
-    if (pinfo->inode == tcp->inode && get_name(name, pinfo->pid)) {
-        size_t n = strlen(name);
-
-        pinfo->name = malloc(n + 1);
-        strncpy(pinfo->name, name, n);
-        pinfo->name[n] = '\0';
-        pinfo->port = tcp->lport;
-        return true;
-    }
-    return false;
-}
-
-static bool check_conn(struct tcp_table *tcp, void **data)
-{
-    struct tcp_endpoint_v4 *endp = *(struct tcp_endpoint_v4 **) data;
-
-    if ((endp->src == tcp->laddr && endp->src_port == tcp->lport &&
-         endp->dst == tcp->raddr && endp->dst_port == tcp->rport) ||
-        (endp->dst == tcp->laddr && endp->dst_port == tcp->lport &&
-         endp->src == tcp->raddr && endp->src_port == tcp->rport)) {
-        *(uint32_t **) data = UINT_TO_PTR(tcp->inode);
-        return true;
-    }
-    return false;
-}
-
-static bool parse_tcp(handle_tcp_entry fcn, void **data)
+static bool parse_tcp()
 {
     FILE *fp;
     char buf[MAXLINE];
     unsigned int i = 0;
-    struct tcp_table tcp;
     bool ret = false;
     char laddr[64];
     char raddr[64];
+    int lport;
+    int rport;
+    uint32_t inode;
+    struct tcp_elem *tcp;
+    struct tcp_elem *old;
+    struct tcp_endpoint_v4 endp;
 
     if (!(fp = fopen(TCPPATH, "r")))
         return false;
@@ -113,18 +96,31 @@ static bool parse_tcp(handle_tcp_entry fcn, void **data)
         if (!isdigit(buf[i]))
             continue;
         if (sscanf(buf + i, "%*u: %32[A-Fa-f0-9]:%x %32[A-Fa-f0-9]:%x %*x %*u:%*u %*x:%*x %*u %*u %*u %u",
-                   laddr, &tcp.lport, raddr, &tcp.rport, &tcp.inode) != 5)
-            goto done;
+                   laddr, &lport, raddr, &rport, &inode) != 5) {
+            break;
+        }
         if (strlen(laddr) > 8 || strlen(raddr) > 8) /* TODO: support IPv6 */
             continue;
-        tcp.laddr = strtol(laddr, NULL, 16);
-        tcp.raddr = strtol(raddr, NULL, 16);
-        if (fcn(&tcp, data)) {
-            ret = true;
-            goto done;
+
+        endp.src = strtol(laddr, NULL, 16);
+        endp.dst = strtol(raddr, NULL, 16);
+        endp.src_port = lport;
+        endp.dst_port = rport;
+        old = hashmap_get(tcp_cache, &endp);
+        if (old) {
+            if (inode != old->inode)
+                hashmap_remove(tcp_cache, &endp);
+            else
+                continue;
         }
+        tcp = malloc(sizeof(*tcp));
+        tcp->laddr = strtol(laddr, NULL, 16);
+        tcp->raddr = strtol(raddr, NULL, 16);
+        tcp->lport = lport;
+        tcp->rport = rport;
+        tcp->inode = inode;
+        hashmap_insert(tcp_cache, (struct tcp_connection_v4 *) tcp, tcp);
     }
-done:
     fclose(fp);
     return ret;
 }
@@ -153,9 +149,8 @@ static void load_cache()
                 break;
             t++;
         }
-        if (*t) {
+        if (*t)
             continue;
-        }
         if (dp->d_type == DT_DIR) {
             DIR *dfd2;
             struct dirent *dp2;
@@ -185,12 +180,10 @@ static void load_cache()
                     if ((inode = strtol(slink + sn, NULL, 10)) == 0)
                         continue;
                     if (!hashmap_get(inode_cache, UINT_TO_PTR(inode))) {
-                        pinfo = malloc(sizeof(struct process));
+                        pinfo = calloc(1, sizeof(struct process));
                         pinfo->pid = strtol(dp->d_name, NULL, 10);
-                        pinfo->name = NULL;
-                        pinfo->port = 0;
                         pinfo->inode = inode;
-                        parse_tcp(init_proc, (void **) &pinfo);
+                        pinfo->name = get_name(pinfo->pid);
                         hashmap_insert(inode_cache, UINT_TO_PTR(inode), pinfo);
                     }
                 }
@@ -201,35 +194,130 @@ static void load_cache()
     closedir(dfd);
 }
 
-/* TODO: what about different network namespaces? */
+static bool send_netlink_msg()
+{
+    struct msghdr msg;
+    struct iovec iov[2];
+    struct sockaddr_nl nl_addr = {
+        .nl_family = AF_NETLINK
+    };
+    struct inet_diag_req_v2 req = {
+        .sdiag_family = AF_INET,
+        .sdiag_protocol = IPPROTO_TCP,
+        .idiag_states = 0xfff
+    };
+    struct nlmsghdr nlh = {
+        .nlmsg_type = SOCK_DIAG_BY_FAMILY,
+        .nlmsg_flags = NLM_F_DUMP | NLM_F_REQUEST,
+        .nlmsg_len = NLMSG_LENGTH(sizeof(req))
+    };
+
+    memset(&msg, 0, sizeof(msg));
+    iov[0].iov_base = (void *) &nlh;
+    iov[0].iov_len = sizeof(nlh);
+    iov[1].iov_base = (void *) &req;
+    iov[1].iov_len = sizeof(req);
+    msg.msg_name = (void*) &nl_addr;
+    msg.msg_namelen = sizeof(nl_addr);
+    msg.msg_iov = iov;
+    msg.msg_iovlen = 2;
+    return sendmsg(ctx.nl_sockfd, &msg, 0) > 0;
+}
+
+static bool read_netlink_msg()
+{
+    char buf[32768]; // TODO: Check size
+    struct inet_diag_msg *diag_msg;
+    struct sockaddr_nl nl_addr = {
+        .nl_family = AF_NETLINK
+    };
+    struct iovec iov = {
+        .iov_base = buf,
+        .iov_len = sizeof(buf)
+    };
+    struct msghdr msg = {
+        .msg_name = (void *) &nl_addr,
+        .msg_namelen = sizeof(nl_addr),
+        .msg_iov = &iov,
+        .msg_iovlen = 1
+    };
+
+    while (1) {
+        ssize_t len;
+
+        while ((len = recvmsg(ctx.nl_sockfd, &msg, 0)) < 0) {
+            if (errno == EINTR || errno == EAGAIN)
+                continue;
+        }
+        if (len < 0)
+            return false;
+        for (struct nlmsghdr *nh = (struct nlmsghdr *) buf; NLMSG_OK(nh, len);
+             nh = NLMSG_NEXT(nh, len)) {
+            struct tcp_elem *old;
+            struct tcp_endpoint_v4 endp;
+
+            if (nh->nlmsg_type == NLMSG_DONE)
+                return true;
+            if (nh->nlmsg_type == NLMSG_ERROR)
+                return false;
+            diag_msg = (struct inet_diag_msg *) NLMSG_DATA(nh);
+            endp.src = diag_msg->id.idiag_src[0];
+            endp.src_port = diag_msg->id.idiag_sport;
+            endp.dst = diag_msg->id.idiag_dst[0];
+            endp.dst_port = diag_msg->id.idiag_dport;
+            old = hashmap_get(tcp_cache, &endp);
+            if (old) {
+                if (diag_msg->idiag_inode != old->inode)
+                    hashmap_remove(tcp_cache, &endp);
+                else
+                    continue;
+            }
+            struct tcp_elem *tcp = malloc(sizeof(*tcp));
+            tcp->laddr = diag_msg->id.idiag_src[0];
+            tcp->lport = diag_msg->id.idiag_sport;
+            tcp->raddr = diag_msg->id.idiag_dst[0];
+            tcp->rport = diag_msg->id.idiag_dport;
+            tcp->inode = diag_msg->idiag_inode;
+            hashmap_insert(tcp_cache, (struct tcp_endpoint_v4 *) tcp, tcp);
+        }
+    }
+    return false;
+}
+
 static void update_cache(struct tcp_connection_v4 *conn, bool new_conn)
 {
     if (new_conn) {
-        void *data;
-        struct process *pinfo;
-
         if (conn->endp->src != ctx.local_addr->sin_addr.s_addr &&
             conn->endp->dst != ctx.local_addr->sin_addr.s_addr)
             return;
-
-        data = conn->endp;
-        if (parse_tcp(check_conn, &data)) {
-            if ((pinfo = hashmap_get(inode_cache, data)))
-                hashmap_insert(process_cache, conn->endp, pinfo);
-            else {
-                load_cache(); // TODO: Don't do this too often.
-                if ((pinfo = hashmap_get(inode_cache, data)))
-                    hashmap_insert(process_cache, conn->endp, pinfo);
-            }
+        load_cache();
+        if (!hashmap_contains(tcp_cache, conn->endp)) {
+            if (!(send_netlink_msg() && read_netlink_msg()))
+                parse_tcp();
         }
     }
+}
+
+static bool netlink_init()
+{
+    struct sockaddr_nl nl_addr = {
+        .nl_family = AF_NETLINK,
+        .nl_pid = getpid()
+    };
+
+    if ((ctx.nl_sockfd = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_INET_DIAG)) < 0)
+        return false;
+    bind(ctx.nl_sockfd, (struct sockaddr *) &nl_addr, sizeof(nl_addr));
+    return true;
 }
 
 char *process_get_name(struct tcp_connection_v4 *conn)
 {
     struct process *pinfo;
+    struct tcp_elem *tcp;
 
-    if ((pinfo = hashmap_get(process_cache, conn->endp)))
+    if ((tcp = hashmap_get(tcp_cache, conn->endp)) &&
+        (pinfo = hashmap_get(inode_cache, UINT_TO_PTR(tcp->inode))))
         return pinfo->name;
     return NULL;
 }
@@ -237,9 +325,11 @@ char *process_get_name(struct tcp_connection_v4 *conn)
 void process_init()
 {
     inode_cache = hashmap_init(SIZE, hash_uint32, compare_uint);
+    tcp_cache = hashmap_init(SIZE, hash_tcp_v4, compare_tcp_v4);
     hashmap_set_free_data(inode_cache, free_process);
-    process_cache = hashmap_init(SIZE, hash_tcp_v4, compare_tcp_v4);
+    hashmap_set_free_key(tcp_cache, free);
     tcp_analyzer_subscribe(update_cache);
+    netlink_init();
 }
 
 void process_load_cache()
@@ -250,12 +340,12 @@ void process_load_cache()
 void process_clear_cache()
 {
     hashmap_clear(inode_cache);
-    hashmap_clear(process_cache);
 }
 
 void process_free()
 {
     hashmap_free(inode_cache);
-    hashmap_free(process_cache);
+    hashmap_free(tcp_cache);
     tcp_analyzer_unsubscribe(update_cache);
+    close(ctx.nl_sockfd);
 }

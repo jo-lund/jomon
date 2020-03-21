@@ -186,14 +186,7 @@ static int compare_tcp(const void *t1, const void *t2)
     struct tcp_connection_v4 *conn1 = *(struct tcp_connection_v4 **) t1;
     struct tcp_connection_v4 *conn2 = *(struct tcp_connection_v4 **) t2;
 
-    if ((conn1->endp->src == conn2->endp->src && conn1->endp->dst == conn2->endp->dst &&
-         conn1->endp->src_port == conn2->endp->src_port && conn1->endp->dst_port == conn2->endp->dst_port)
-        || (conn1->endp->src == conn2->endp->dst && conn1->endp->src_port == conn2->endp->dst_port &&
-            conn1->endp->dst == conn2->endp->src && conn1->endp->dst_port == conn2->endp->src_port)) {
-        return 0;
-    }
-    return (conn1->endp->src + conn1->endp->dst + conn1->endp->src_port + conn1->endp->dst_port) -
-        (conn2->endp->src + conn2->endp->dst + conn2->endp->src_port + conn2->endp->dst_port);
+    return compare_tcp_v4(conn1->endp, conn2->endp);
 }
 
 void connection_screen_render(connection_screen *cs)

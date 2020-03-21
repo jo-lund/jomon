@@ -14,8 +14,8 @@
 #define TCP_OPT_TIMESTAMP 8 /* timestamp and echo of previous timestamp */
 
 struct tcp {
-    uint16_t src_port;
-    uint16_t dst_port;
+    uint16_t src_port; /* stored in network byte order */
+    uint16_t dst_port; /* stored in network byte order */
     uint32_t seq_num;
     uint32_t ack_num;
     unsigned int offset : 4;

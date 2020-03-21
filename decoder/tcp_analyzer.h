@@ -16,11 +16,12 @@ enum connection_state {
     CLOSED
 };
 
+/* stored in network byte order */
 struct tcp_endpoint_v4 {
-    uint32_t src;
-    uint32_t dst;
     uint16_t src_port;
     uint16_t dst_port;
+    uint32_t src;
+    uint32_t dst;
 };
 
 struct tcp_connection_v4 {

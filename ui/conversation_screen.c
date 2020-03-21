@@ -281,8 +281,6 @@ static void on_back(conversation_screen *cs)
     tcp_mode = NORMAL;
     vector_clear(tcp_page.buf, free_tcp_attr);
     tcp_page.top = 0;
-    if (!ctx.opt.load_file)
-        process_clear_cache();
 }
 
 static void goto_home(conversation_screen *cs)

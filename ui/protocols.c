@@ -340,8 +340,8 @@ void print_tcp(char *buf, int n, void *data)
         pinfo->print_pdu(buf, n, pdata->next);
     else {
         PRINT_PROTOCOL(buf, n, "TCP");
-        PRINT_INFO(buf, n, "Source port: %d  Destination port: %d", tcp->src_port,
-                   tcp->dst_port);
+        PRINT_INFO(buf, n, "Source port: %d  Destination port: %d",
+                   ntohs(tcp->src_port), tcp->dst_port);
         PRINT_INFO(buf, n, "  Flags:");
         if (tcp->fin) {
             PRINT_INFO(buf, n, " FIN");
@@ -361,7 +361,8 @@ void print_tcp(char *buf, int n, void *data)
         if (tcp->urg) {
             PRINT_INFO(buf, n, " URG");
         }
-        PRINT_INFO(buf, n, "  seq: %u  ack: %u  win: %u", tcp->seq_num, tcp->ack_num, tcp->window);
+        PRINT_INFO(buf, n, "  seq: %u  ack: %u  win: %u",
+                   tcp->seq_num, tcp->ack_num, tcp->window);
     }
 }
 

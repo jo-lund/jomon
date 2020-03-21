@@ -20,8 +20,8 @@ struct ipv4_info {
     uint8_t ttl;
     uint8_t protocol;
     uint16_t checksum;
-    uint32_t src;
-    uint32_t dst;
+    uint32_t src; /* stored in network byte order */
+    uint32_t dst; /* stored in network byte order */
 };
 
 #define get_ipv4(p) ((struct ipv4_info *)(p)->root->next->data)
@@ -36,8 +36,8 @@ struct ipv6_info {
     uint16_t payload_len;
     uint8_t next_header;
     uint8_t hop_limit;
-    uint8_t src[16];
-    uint8_t dst[16];
+    uint8_t src[16]; /* stored in network byte order */
+    uint8_t dst[16]; /* stored in network byte order */
 };
 
 #define get_ipv6(p) ((struct ipv6_info *)(p)->root->next->data)

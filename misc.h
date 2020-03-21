@@ -50,6 +50,7 @@ typedef struct {
     GeoIP *gi;
     struct sockaddr_in *local_addr;
     unsigned char mac[ETHER_ADDR_LEN];
+    int nl_sockfd;
 } main_context;
 
 enum event {
