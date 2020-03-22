@@ -60,6 +60,7 @@ static void conversation_screen_get_input(screen *s);
 static void conversation_screen_got_focus(screen *s, screen *oldscr);
 static void conversation_screen_lost_focus(screen *s, screen *newscr);
 static unsigned int conversation_screen_get_size(screen *s);
+static void conversation_screen_on_back(screen *s);
 static void conversation_screen_render(conversation_screen *cs);
 static void print_header(conversation_screen *cs);
 static void add_packet(struct tcp_connection_v4 *conn, bool new_connection);
@@ -75,7 +76,6 @@ static void scroll_page(conversation_screen *cs, int num_lines);
 static void goto_home(conversation_screen *cs);
 static void goto_end(conversation_screen *cs);
 static void create_save_dialogue();
-static void on_back(conversation_screen *cs);
 
 static screen_operations csop = {
     .screen_init = conversation_screen_init,
@@ -84,7 +84,8 @@ static screen_operations csop = {
     .screen_get_input = conversation_screen_get_input,
     .screen_got_focus = conversation_screen_got_focus,
     .screen_lost_focus = conversation_screen_lost_focus,
-    .screen_get_data_size = conversation_screen_get_size
+    .screen_get_data_size = conversation_screen_get_size,
+    .screen_on_back = conversation_screen_on_back
 };
 
 static void free_tcp_attr(void *arg)
@@ -169,6 +170,14 @@ void conversation_screen_lost_focus(screen *s, screen *newscr)
         vector_free(cs->base.packet_ref, NULL);
 }
 
+static void conversation_screen_on_back(screen *s)
+{
+    ((conversation_screen *) s)->stream = NULL;
+    tcp_mode = NORMAL;
+    vector_clear(tcp_page.buf, free_tcp_attr);
+    tcp_page.top = 0;
+}
+
 void conversation_screen_get_input(screen *s)
 {
     int c = 0;
@@ -208,15 +217,11 @@ void conversation_screen_get_input(screen *s)
         if (tcp_mode == NORMAL)
             main_screen_scroll_column((main_screen *) cs, NUM_COLS_SCROLL, my);
         break;
-    case 'x':
-        on_back(cs);
-        pop_screen();
-        break;
     case KEY_ESC:
         if (input_mode) {
             main_screen_goto_line((main_screen *) cs, c);
         } else {
-            on_back(cs);
+            conversation_screen_on_back(s);
             pop_screen();
         }
         break;
@@ -273,14 +278,6 @@ static void conversation_screen_render(conversation_screen *cs)
     cs->base.outy = vector_size(cs->base.packet_ref) > my ? my :
         vector_size(cs->base.packet_ref);
     main_screen_set_interactive((main_screen *) cs, true);
-}
-
-static void on_back(conversation_screen *cs)
-{
-    cs->stream = NULL;
-    tcp_mode = NORMAL;
-    vector_clear(tcp_page.buf, free_tcp_attr);
-    tcp_page.top = 0;
 }
 
 static void goto_home(conversation_screen *cs)

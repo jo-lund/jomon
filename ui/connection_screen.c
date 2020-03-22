@@ -50,13 +50,14 @@ struct cs_entry {
 
 extern WINDOW *status;
 extern main_menu *menu;
+static bool active = false;
 
 static void connection_screen_init(screen *s);
 static void connection_screen_refresh(screen *s);
 static void connection_screen_get_input(screen *s);
 static void connection_screen_got_focus(screen *s UNUSED, screen *oldscr UNUSED);
-static void connection_screen_lost_focus(screen *s UNUSED, screen *newscr UNUSED);
 static unsigned int connection_screen_get_size(screen *s);
+static void connection_screen_on_back(screen *s);
 static void connection_screen_render(connection_screen *cs);
 static void update_connection(struct tcp_connection_v4 *c, bool new_connection);
 static void print_all_connections(connection_screen *cs);
@@ -70,8 +71,8 @@ static screen_operations csop = {
     .screen_refresh = connection_screen_refresh,
     .screen_get_input = connection_screen_get_input,
     .screen_got_focus = connection_screen_got_focus,
-    .screen_lost_focus = connection_screen_lost_focus,
-    .screen_get_data_size = connection_screen_get_size
+    .screen_get_data_size = connection_screen_get_size,
+    .screen_on_back = connection_screen_on_back
 };
 
 static screen_header header[] = {
@@ -133,14 +134,29 @@ void connection_screen_free(screen *s)
     free(cs);
 }
 
-void connection_screen_got_focus(screen *s UNUSED, screen *oldscr UNUSED)
+void connection_screen_got_focus(screen *s, screen *oldscr UNUSED)
 {
-    tcp_analyzer_subscribe(update_connection);
+    if (!active) {
+        hashmap_t *sessions = tcp_analyzer_get_sessions();
+
+        if (hashmap_size(sessions)) {
+            const hashmap_iterator *it = hashmap_first(sessions);
+
+            while (it) {
+                vector_push_back(((connection_screen *) s)->screen_buf, it->data);
+                it = hashmap_next(sessions, it);
+            }
+        }
+        tcp_analyzer_subscribe(update_connection);
+        active = true;
+    }
 }
 
-void connection_screen_lost_focus(screen *s UNUSED, screen *oldscr UNUSED)
+void connection_screen_on_back(screen *s)
 {
     tcp_analyzer_unsubscribe(update_connection);
+    vector_clear(((connection_screen *) s)->screen_buf, NULL);
+    active = false;
 }
 
 void connection_screen_refresh(screen *s)
@@ -150,7 +166,6 @@ void connection_screen_refresh(screen *s)
     werase(s->win);
     werase(cs->header);
     cs->y = 0;
-    vector_clear(cs->screen_buf, NULL);
     wbkgd(s->win, get_theme_colour(BACKGROUND));
     wbkgd(cs->header, get_theme_colour(BACKGROUND));
     connection_screen_render(cs);
@@ -181,28 +196,8 @@ static unsigned int connection_screen_get_size(screen *s)
     return vector_size(((connection_screen *) s)->screen_buf);
 }
 
-static int compare_tcp(const void *t1, const void *t2)
-{
-    struct tcp_connection_v4 *conn1 = *(struct tcp_connection_v4 **) t1;
-    struct tcp_connection_v4 *conn2 = *(struct tcp_connection_v4 **) t2;
-
-    return compare_tcp_v4(conn1->endp, conn2->endp);
-}
-
 void connection_screen_render(connection_screen *cs)
 {
-    hashmap_t *sessions = tcp_analyzer_get_sessions();
-
-    if (hashmap_size(sessions)) {
-        const hashmap_iterator *it = hashmap_first(sessions);
-
-        while (it) {
-            vector_push_back(cs->screen_buf, it->data);
-            it = hashmap_next(sessions, it);
-        }
-        qsort(vector_data(cs->screen_buf), vector_size(cs->screen_buf),
-              sizeof(struct tcp_connection_v4 *), compare_tcp);
-    }
     touchwin(cs->header);
     touchwin(cs->base.win);
     print_conn_header(cs);
@@ -214,16 +209,13 @@ void update_connection(struct tcp_connection_v4 *conn, bool new_connection)
 {
     connection_screen *cs = (connection_screen *) screen_cache_get(CONNECTION_SCREEN);
 
-    werase(cs->header);
-    print_conn_header(cs);
     if (new_connection) {
         vector_push_back(cs->screen_buf, conn);
-        qsort(vector_data(cs->screen_buf), vector_size(cs->screen_buf),
-              sizeof(struct tcp_connection_v4 *), compare_tcp);
-        werase(cs->base.win);
-        cs->y = 0;
-        print_all_connections(cs);
-    } else {
+        if (cs->base.focus) {
+            werase(cs->header);
+            print_conn_header(cs);
+        }
+    } else if (cs->base.focus) {
         int y = 0;
 
         while (y < cs->base.lines && cs->base.top + y < vector_size(cs->screen_buf)) {

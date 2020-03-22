@@ -15,6 +15,7 @@
 #define SCREEN_GOT_FOCUS(o, s) ((o)->op->screen_got_focus(o, s))
 #define SCREEN_LOST_FOCUS(o, s) ((o)->op->screen_lost_focus(o, s))
 #define SCREEN_GET_DATA_SIZE(o) ((o)->op->screen_get_data_size(s))
+#define SCREEN_ON_BACK(o) ((o)->op->screen_on_back(o))
 
 #define SCREEN_DEFAULTS .screen_init = screen_init, \
         .screen_free = screen_free,                 \
@@ -48,6 +49,7 @@ typedef struct screen_operations {
     void (*screen_got_focus)(screen *s, screen *oldscr);
     void (*screen_lost_focus)(screen *s, screen *newscr);
     unsigned int (*screen_get_data_size)(screen *s);
+    void (*screen_on_back)(screen *s);
 } screen_operations;
 
 typedef struct {

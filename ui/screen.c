@@ -133,8 +133,11 @@ void screen_get_input(screen *s)
     case 'x':
     case KEY_ESC:
     case KEY_F(3):
-        if (screen_stack_size() > 1)
+        if (screen_stack_size() > 1) {
+            if (s->op->screen_on_back)
+                SCREEN_ON_BACK(s);
             pop_screen();
+        }
         break;
     case KEY_F(1):
         screen_stack_move_to_top(screen_cache_get(HELP_SCREEN));
