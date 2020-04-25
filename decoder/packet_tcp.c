@@ -245,24 +245,3 @@ int get_tcp_flags_size()
 {
     return sizeof(tcp_flags) / sizeof(struct packet_flags);
 }
-
-uint16_t get_tcp_src(const struct packet *p)
-{
-    struct packet_data *pdata = get_packet_data(p, get_protocol_id(IP_PROTOCOL, IPPROTO_TCP));
-    struct tcp *tcp = pdata->data;
-
-    if (tcp)
-        return tcp->src_port;
-    return 0;
-}
-
-uint16_t get_tcp_dst(const struct packet *p)
-{
-    struct packet_data *pdata = get_packet_data(p, get_protocol_id(IP_PROTOCOL, IPPROTO_TCP));
-    struct tcp *tcp = pdata->data;
-
-    if (tcp)
-        return tcp->dst_port;
-    return 0;
-
-}

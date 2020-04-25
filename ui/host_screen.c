@@ -9,7 +9,7 @@
 #include "../util.h"
 #include "../attributes.h"
 
-#define HOST_HEADER 3
+#define HOST_HEADER 5
 #define ADDR_WIDTH 20
 #define MAC_WIDTH 22
 #define NAME_WIDTH 80
@@ -184,7 +184,7 @@ void print_host_header(host_screen *hs)
         printat(hs->header, y, 0, get_theme_colour(HEADER_TXT), "Remote hosts");
     }
     wprintw(hs->header,  ": %d", vector_size(hs->screen_buf));
-    y += 2;
+    y += 4;
     mvwprintw(hs->header, y, 0, "IP address");
     if (hs->base.page == LOCAL) {
         mvwprintw(hs->header, y, ADDR_WIDTH, "MAC Address");

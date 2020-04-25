@@ -21,7 +21,7 @@
 #define BYTES_AB_WIDTH 14
 #define PROC_WIDTH 20
 #define MAX_WIDTH 20
-#define CONN_HEADER 3
+#define CONN_HEADER 5
 #define STATUS_HEIGHT 1
 
 enum cs_val {
@@ -241,7 +241,7 @@ void print_conn_header(connection_screen *cs)
 
     printat(cs->header, y, 0, get_theme_colour(HEADER_TXT), "TCP connections");
     wprintw(cs->header,  ": %d", vector_size(cs->screen_buf));
-    y += 2;
+    y += 4;
     for (unsigned int i = 0; i < header_size; i++) {
         mvwprintw(cs->header, y, x, header[i].txt);
         x += header[i].width;
@@ -286,11 +286,11 @@ void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int
     entry[PORTB].val = conn->endp->dst_port;
     while (n) {
         p = list_data(n);
-        if (entry[ADDRA].val == ipv4_src(p) && entry[PORTA].val == get_tcp_src(p)) {
+        if (entry[ADDRA].val == ipv4_src(p) && entry[PORTA].val == tcp_member(p, src_port)) {
             entry[BYTES_AB].val += p->len;
             entry[PACKETS_AB].val++;
         } else if (entry[ADDRB].val == ipv4_src(p) &&
-                   entry[PORTB].val == get_tcp_src(p)) {
+                   entry[PORTB].val == tcp_member(p, src_port)) {
             entry[BYTES_BA].val += p->len;
             entry[PACKETS_BA].val++;
         }

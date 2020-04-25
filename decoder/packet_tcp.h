@@ -13,6 +13,10 @@
 #define TCP_OPT_SACK 5      /* selective acknowledgement */
 #define TCP_OPT_TIMESTAMP 8 /* timestamp and echo of previous timestamp */
 
+#define tcp_member(packet, member) ({ \
+    struct packet_data *pdata = get_packet_data(packet, get_protocol_id(IP_PROTOCOL, IPPROTO_TCP)); \
+    pdata->data ? ((struct tcp *) pdata->data)->member : 0;})
+
 struct tcp {
     uint16_t src_port; /* stored in network byte order */
     uint16_t dst_port; /* stored in network byte order */
@@ -65,9 +69,6 @@ void free_tcp_options(list_t *options);
 
 struct packet_flags *get_tcp_flags();
 int get_tcp_flags_size();
-
-uint16_t get_tcp_src(const struct packet *p);
-uint16_t get_tcp_dst(const struct packet *p);
 
 /* should be internal to the decoder */
 void register_tcp();
