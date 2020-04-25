@@ -13,6 +13,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <getopt.h>
+#include <locale.h>
 #include "misc.h"
 #include "error.h"
 #include "interface.h"
@@ -59,6 +60,7 @@ int main(int argc, char **argv)
         { 0, 0, 0, 0}
     };
 
+    setlocale(LC_ALL, "");
     ctx.opt.use_ncurses = true;
     ctx.opt.nopromiscuous = false;
     ctx.opt.verbose = false;
