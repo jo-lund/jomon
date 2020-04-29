@@ -42,6 +42,9 @@ void hashmap_remove(hashmap_t *map, void *key);
 /* Returns element with the specified key */
 void *hashmap_get(hashmap_t *map, void *key);
 
+/* Returns the key stored in the hash table */
+void *hashmap_get_key(hashmap_t *map, void *key);
+
 /* Returns whether the hashmap contains an element with the specified key */
 bool hashmap_contains(hashmap_t *map, void *key);
 

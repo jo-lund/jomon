@@ -36,21 +36,11 @@ struct tcp_elem {
 
 static hashmap_t *inode_cache; /* processes keyed on inode */
 static hashmap_t *tcp_cache;
+static hashmap_t *string_table;
 static int nl_sockfd;
 
 static void load_cache();
 
-static void free_process(void *data)
-{
-    struct process *proc = data;
-
-    if (proc) {
-        free(proc->name);
-        free(proc);
-    }
-}
-
-/* Allocates a new string that needs to be freed by the caller */
 static char *get_name(int pid)
 {
     char cmdline[MAXPATH];
@@ -66,11 +56,13 @@ static char *get_name(int pid)
         fclose(fp);
         return NULL;
     }
-    n = strlen(tmp);
-    name = malloc(n + 1);
-    strncpy(name, tmp, n);
-    name[n] = '\0';
-    fclose(fp);
+    if ((name = hashmap_get_key(string_table, tmp)) == NULL) {
+        n = strlen(tmp);
+        name = malloc(n + 1);
+        strncpy(name, tmp, n);
+        name[n] = '\0';
+        hashmap_insert(string_table, name, NULL);
+    }
     return name;
 }
 
@@ -102,13 +94,11 @@ static bool parse_tcp()
         }
         if (strlen(laddr) > 8 || strlen(raddr) > 8) /* TODO: support IPv6 */
             continue;
-
         endp.src = strtol(laddr, NULL, 16);
         endp.dst = strtol(raddr, NULL, 16);
         endp.src_port = lport;
         endp.dst_port = rport;
-        old = hashmap_get(tcp_cache, &endp);
-        if (old) {
+        if ((old = hashmap_get(tcp_cache, &endp))) {
             if (inode != old->inode)
                 hashmap_remove(tcp_cache, &endp);
             else
@@ -266,8 +256,7 @@ static bool read_netlink_msg()
             endp.src_port = diag_msg->id.idiag_sport;
             endp.dst = diag_msg->id.idiag_dst[0];
             endp.dst_port = diag_msg->id.idiag_dport;
-            old = hashmap_get(tcp_cache, &endp);
-            if (old) {
+            if ((old = hashmap_get(tcp_cache, &endp))) {
                 if (diag_msg->idiag_inode != old->inode)
                     hashmap_remove(tcp_cache, &endp);
                 else
@@ -327,8 +316,10 @@ void process_init()
 {
     inode_cache = hashmap_init(SIZE, hash_uint32, compare_uint);
     tcp_cache = hashmap_init(SIZE, hash_tcp_v4, compare_tcp_v4);
-    hashmap_set_free_data(inode_cache, free_process);
+    string_table = hashmap_init(64, hash_string, compare_string);
+    hashmap_set_free_data(inode_cache, free);
     hashmap_set_free_key(tcp_cache, free);
+    hashmap_set_free_key(string_table, free);
     tcp_analyzer_subscribe(update_cache);
     netlink_init();
 }
@@ -347,6 +338,7 @@ void process_free()
 {
     hashmap_free(inode_cache);
     hashmap_free(tcp_cache);
+    hashmap_free(string_table);
     tcp_analyzer_unsubscribe(update_cache);
     close(nl_sockfd);
 }

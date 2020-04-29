@@ -134,7 +134,17 @@ void *hashmap_get(hashmap_t *map, void *key)
 {
     struct hash_elem *elem = find_elem(map, key);
 
-    if (elem) return elem->data;
+    if (elem)
+        return elem->data;
+    return NULL;
+}
+
+void *hashmap_get_key(hashmap_t *map, void *key)
+{
+    struct hash_elem *elem = find_elem(map, key);
+
+    if (elem)
+        return elem->key;
     return NULL;
 }
 
