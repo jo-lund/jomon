@@ -252,6 +252,8 @@ static bool read_netlink_msg()
             if (nh->nlmsg_type == NLMSG_ERROR)
                 return false;
             diag_msg = (struct inet_diag_msg *) NLMSG_DATA(nh);
+            if (diag_msg->idiag_inode == 0)
+                continue;
             endp.src = diag_msg->id.idiag_src[0];
             endp.src_port = diag_msg->id.idiag_sport;
             endp.dst = diag_msg->id.idiag_dst[0];
