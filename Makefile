@@ -7,7 +7,6 @@ STRIP := strip
 CC := gcc
 CXX := g++
 CFLAGS += -std=gnu11
-CXXFLAGS += -Wno-write-strings
 CPPFLAGS += -Wall -Wextra -Wno-override-init $(addprefix -I,$(incdir))
 LIBS += -lncurses -lGeoIP
 
@@ -17,12 +16,14 @@ ifeq ($(MACHINE), Linux)
 endif
 objects = $(patsubst %.c,$(BUILDDIR)/%.o,$(sources))
 
-debug : CFLAGS += -g
-debug : CPPFLAGS += -fsanitize=address -fno-omit-frame-pointer
-debug : monitor
+all : debug
 
-release : CFLAGS += -O2
-release : monitor
+debug : CFLAGS += -g -fsanitize=address -fno-omit-frame-pointer
+debug : CPPFLAGS += -DMONITOR_DEBUG
+debug : check-build monitor
+
+release : CFLAGS += -O3
+release : check-build monitor
 	@$(STRIP) --strip-all --remove-section .comment $(TARGETDIR)/monitor
 
 monitor : $(objects)
@@ -38,6 +39,10 @@ $(BUILDDIR)/%.o : %.c
 
 # Include dependency info for existing object files
 -include $(objects:.o=.d)
+
+.PHONY : check-build
+check-build :
+	@./build.sh
 
 .PHONY : clean
 clean :
