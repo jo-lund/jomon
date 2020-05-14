@@ -28,6 +28,7 @@
 #include "decoder/dns_cache.h"
 #include "attributes.h"
 #include "process.h"
+#include "debug_file.h"
 
 #define TABLE_SIZE 65536
 
@@ -105,6 +106,7 @@ int main(int argc, char **argv)
     structures_init();
     mempool_init();
     decoder_init();
+    debug_init();
     if (ctx.opt.use_ncurses) {
         tcp_analyzer_init();
         dns_cache_init();
@@ -203,6 +205,7 @@ void finish(int status)
         tcp_analyzer_free();
         host_analyzer_free();
         dns_cache_free();
+        debug_free();
 #ifdef __linux__
         if (!ctx.opt.load_file)
             process_free();
