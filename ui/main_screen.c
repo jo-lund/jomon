@@ -161,9 +161,10 @@ void main_screen_refresh(screen *s)
     if (!s->show_selectionbar && (ms->outy >= my || c >= my) && ctx.capturing) {
         print_packets(ms);
         ms->outy = my;
-    } else if (ctx.capturing && c < my) {
-        werase(s->win);
-        for (int i = c; i >= 0; i--) {
+    } else if (ctx.capturing && ms->outy > 0 && ms->outy < my) {
+        int i;
+
+        for (i = ms->outy; i < my && i <= c; i++) {
             struct packet *p;
             char buffer[MAXLINE];
 
@@ -171,7 +172,7 @@ void main_screen_refresh(screen *s)
             write_to_buf(buffer, MAXLINE, p);
             printnlw(s->win, buffer, strlen(buffer), i, 0, ms->scrollx);
         }
-        ms->outy = c + 1;
+        ms->outy = i;
     }
     if (s->show_selectionbar) {
         show_selectionbar(ms, s->win, s->selectionbar - s->top, A_NORMAL);
