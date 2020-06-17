@@ -151,7 +151,7 @@ void print_llc(char *buf, int n, void *data)
     HW_ADDR_NTOP(dmac, eth_dst(p));
     PRINT_ADDRESS(buf, n, smac, dmac);
     pinfo = get_protocol(pdata->id);
-    if (pinfo)
+    if (pinfo && pdata->next)
         pinfo->print_pdu(buf, n, pdata->next);
     else {
         PRINT_PROTOCOL(buf, n, "LLC");

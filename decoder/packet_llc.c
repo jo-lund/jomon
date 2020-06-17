@@ -32,6 +32,8 @@ packet_error handle_llc(struct protocol_info *pinfo, unsigned char *buffer, int 
     llc->control = buffer[2];
     pdata->len = LLC_HDR_LEN;
     pdata->id = get_protocol_id(ETH802_3, (llc->dsap << 8) | llc->ssap);
+    if ((llc->dsap << 8) | llc->ssap == 0xffff) /* invalid id */
+        return UNK_PROTOCOL;
     if ((psub = get_protocol(pdata->id))) {
         pdata->next = mempool_pealloc(sizeof(struct packet_data));
         memset(pdata->next, 0, sizeof(struct packet_data));
