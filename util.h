@@ -39,8 +39,6 @@
 /* extract an integer from a pointer */
 #define PTR_TO_INT(i) ((intptr_t) (i))
 
-struct arp_info;
-
 struct uint_string {
     uint32_t val;
     char *str;
@@ -119,13 +117,17 @@ char *format_bytes(int bytes, char *buf, int len);
 /* Returns the city and country name from a GeoIPRecord, if available */
 char *get_location(GeoIPRecord *record, char *buf, int len);
 
-/* Extracts a 16 bits integer in big endian format from buf */
+/*
+ * Extracts a 16 bits integer in big endian format from buf without incrementing the buffer
+ */
 static inline uint16_t get_uint16be(const unsigned char *buf)
 {
     return (uint16_t) buf[0] << 8 | (uint16_t) buf[1];
 }
 
-/* Extracts a 32 bits integer in big endian format from buf */
+/*
+ * Extracts a 32 bits integer in big endian format from buf without incrementing the buffer
+ */
 static inline uint32_t get_uint32be(const unsigned char *buf)
 {
     return (uint32_t) buf[0] << 24 |
@@ -134,19 +136,75 @@ static inline uint32_t get_uint32be(const unsigned char *buf)
            (uint32_t) buf[3];
 }
 
-/* Extracts a 16 bits integer in little endian format from buf */
+/*
+ * Extracts a 16 bits integer in little endian format from buf without incrementing the buffer
+ */
 static inline uint16_t get_uint16le(const unsigned char *buf)
 {
     return (uint16_t) buf[1] << 8 | (uint16_t) buf[0];
 }
 
-/* Extracts a 32 bits integer in little endian format from buf */
+/*
+ * Extracts a 32 bits integer in little endian format from buf without incrementing the buffer
+ */
 static inline uint32_t get_uint32le(const unsigned char *buf)
 {
     return (uint32_t) buf[3] << 24 |
            (uint32_t) buf[2] << 16 |
            (uint32_t) buf[1] << 8 |
            (uint32_t) buf[0];
+}
+
+/*
+ * Extracts a 16 bits integer in big endian format from buf and increments the buffer
+ */
+static inline uint16_t read_uint16be(unsigned char **buf)
+{
+    uint16_t val;
+
+    val = (uint16_t) *(*buf)++ << 8;
+    val |= (uint16_t) *(*buf)++;
+    return val;
+}
+
+/*
+ * Extracts a 32 bits integer in big endian format from buf and increments the buffer
+ */
+static inline uint32_t read_uint32be(unsigned char **buf)
+{
+    uint32_t val;
+
+    val = (uint32_t) *(*buf)++ << 24;
+    val |= (uint32_t) *(*buf)++ << 16;
+    val |= (uint32_t) *(*buf)++ << 8;
+    val |= (uint32_t) *(*buf)++;
+    return val;
+}
+
+/*
+ * Extracts a 16 bits integer in little endian format from buf and increments the buffer
+ */
+static inline uint16_t read_uint16le(unsigned char **buf)
+{
+    uint16_t val;
+
+    val = (uint16_t) *(*buf)++;
+    val |= (uint16_t) *(*buf)++ << 8;
+    return val;
+}
+
+/*
+ * Extracts a 32 bits integer in little endian format from buf and increments the buffer
+ */
+static inline uint32_t read_uint32le(unsigned char **buf)
+{
+    uint32_t val;
+
+    val = (uint32_t) *(*buf)++;
+    val |= (uint32_t) *(*buf)++ << 8;
+    val |= (uint32_t) *(*buf)++ << 16;
+    val |= (uint32_t) *(*buf)++ << 24;
+    return val;
 }
 
 #endif
