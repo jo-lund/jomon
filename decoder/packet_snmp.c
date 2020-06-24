@@ -199,6 +199,7 @@ list_t *parse_variables(unsigned char *buffer, int n)
             snmp_value val;
             int val_len;
 
+            memset(&val, 0, sizeof(val));
             if ((val_len = parse_value(&ptr, n, &class, &tag, &val)) == -1) {
                 return NULL;
             }
@@ -276,6 +277,8 @@ int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag, snmp_
         {
             int j = 0;
 
+            if (len != INET_ADDRSTRLEN)
+                return -1;
             value->pval = mempool_pealloc(INET_ADDRSTRLEN);
             for (unsigned int i = 0; i < len; i++) {
                 j += snprintf(value->pval + j, INET_ADDRSTRLEN - j, "%d.", *ptr++);
