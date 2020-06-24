@@ -192,7 +192,7 @@ bool parse_http_header(unsigned char **str, unsigned int *len, rbtree_t *header)
         state = FIELD;
         is_http = false;
         for (j = 0; !is_http && !eoh && isascii(*ptr) && j + i < n; j++, ptr++) {
-            if (c > MAX_HTTP_LINE) {
+            if (c > MAX_HTTP_LINE || *ptr == '\0') {
                 *len -= (i + j);
                 *str = ptr;
                 return false;
@@ -229,12 +229,13 @@ bool parse_http_header(unsigned char **str, unsigned int *len, rbtree_t *header)
                 } else {
                     if (toklen + 1 < c) {
                         char *key = mempool_pecopy0(line, toklen);
-                        char *data;
+                        char *data = NULL;
 
                         while (isblank(line[toklen + 1])) {
                              toklen++;
                         }
-                        data = mempool_pecopy0(line + toklen + 1, c - (toklen + 1));
+                        if (toklen + 1 < c)
+                            data = mempool_pecopy0(line + toklen + 1, c - (toklen + 1));
                         rbtree_insert(header, key, data);
                     }
                     is_http = true;
