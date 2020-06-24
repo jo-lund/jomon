@@ -3,6 +3,9 @@
 
 #include <stdbool.h>
 
+#define HASHMAP_FOREACH(m, i) \
+    for ((i) = hashmap_first(m); (i); (i) = hashmap_next(m, (i)))
+
 typedef struct hashmap hashmap_t;
 typedef void (*hashmap_deallocate)(void *);
 

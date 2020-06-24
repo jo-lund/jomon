@@ -21,8 +21,8 @@ struct hashmap {
 };
 
 static inline unsigned int clp2(unsigned int x);
-static void insert_elem(struct hash_elem *tbl, unsigned int size,
-                        unsigned int hash_val, void *key, void *data);
+static void insert_elem(hashmap_t *map, struct hash_elem *tbl, unsigned int size,
+                        unsigned int hash_val, void *key, void *data, bool update);
 static struct hash_elem *find_elem(hashmap_t *map, void *key);
 static const hashmap_iterator *get_next_iterator(hashmap_t *map, unsigned int i);
 static const hashmap_iterator *get_prev_iterator(hashmap_t *map, unsigned int i);
@@ -49,10 +49,7 @@ hashmap_t *hashmap_init(unsigned int size, hash_fn h, hashmap_compare fn)
 
     map = malloc(sizeof(hashmap_t));
     map->buckets = clp2(size); /* set the size to a power of 2 */
-    map->table = malloc(map->buckets * sizeof(struct hash_elem));
-    for (unsigned int i = 0; i < map->buckets; i++) {
-        map->table[i].hash_val = ~0;
-    }
+    map->table = calloc(map->buckets, sizeof(struct hash_elem));
     map->hash = h ? h : default_hash;
     map->comp = fn ? fn : default_compare;
     map->free_key = NULL;
@@ -63,8 +60,7 @@ hashmap_t *hashmap_init(unsigned int size, hash_fn h, hashmap_compare fn)
 
 bool hashmap_insert(hashmap_t *map, void *key, void *data)
 {
-    /* do not allow duplicate keys */
-    if (find_elem(map, key)) return false;
+    unsigned int hash;
 
     /* resize the table if the load factor is greater than 0.5 */
     if ((map->count + 1) > map->buckets / 2) {
@@ -72,21 +68,20 @@ bool hashmap_insert(hashmap_t *map, void *key, void *data)
         unsigned int capacity;
 
         capacity = map->buckets * 2;
-        tbl = malloc(capacity * sizeof(struct hash_elem));
-        for (unsigned int i = 0; i < capacity; i++) {
-            tbl[i].hash_val = ~0;
-        }
+        tbl = calloc(capacity, sizeof(struct hash_elem));
         for (unsigned int j = 0; j < map->buckets; j++) {
-            if (map->table[j].hash_val != (unsigned int) ~0) {
-                insert_elem(tbl, capacity, map->table[j].hash_val,
-                            map->table[j].key, map->table[j].data);
+            if (map->table[j].hash_val != 0) {
+                insert_elem(map, tbl, capacity, map->table[j].hash_val,
+                            map->table[j].key, map->table[j].data, false);
             }
         }
         map->buckets = capacity;
         free(map->table);
         map->table = tbl;
     }
-    insert_elem(map->table, map->buckets, map->hash(key), key, data);
+    if ((hash = map->hash(key)) == 0)
+        hash++;
+    insert_elem(map, map->table, map->buckets, hash, key, data, true);
     map->count++;
     return true;
 }
@@ -94,10 +89,14 @@ bool hashmap_insert(hashmap_t *map, void *key, void *data)
 void hashmap_remove(hashmap_t *map, void *key)
 {
     struct hash_elem *elem = NULL;
-    unsigned int i = map->hash(key) & (map->buckets - 1);
+    unsigned int hash = map->hash(key);
+    unsigned int i;
     unsigned int j = 0;
 
-    while (map->table[i].hash_val != (unsigned int) ~0 && j < map->buckets) {
+    if (hash == 0)
+        hash++;
+    i = hash & (map->buckets - 1);
+    while (map->table[i].hash_val != 0 && j < map->buckets) {
         if (map->comp(map->table[i].key, key) == 0) {
             elem = &map->table[i];
             break;
@@ -112,18 +111,18 @@ void hashmap_remove(hashmap_t *map, void *key)
         if (map->free_data) {
             map->free_data(elem->data);
         }
-        elem->hash_val = ~0;
+        elem->hash_val = 0;
         map->count--;
         i = (i + 1) & (map->buckets - 1);
         j++;
 
         /* re-insert every item after 'i' until we encounter a free slot */
-        while (map->table[i].hash_val != (unsigned int) ~0 && j < map->buckets) {
+        while (map->table[i].hash_val != 0 && j < map->buckets) {
             unsigned int hash = map->table[i].hash_val;
 
-            map->table[i].hash_val = ~0;
-            insert_elem(map->table, map->buckets, hash, map->table[i].key,
-                        map->table[i].data);
+            map->table[i].hash_val = 0;
+            insert_elem(map, map->table, map->buckets, hash, map->table[i].key,
+                        map->table[i].data, false);
             i = (i + 1) & (map->buckets - 1);
             j++;
         }
@@ -198,14 +197,14 @@ const hashmap_iterator *hashmap_get_it(hashmap_t *map, void *key)
 void hashmap_clear(hashmap_t *map)
 {
     for (unsigned int i = 0; i < map->buckets; i++) {
-        if (map->table[i].hash_val != (unsigned int) ~0) {
+        if (map->table[i].hash_val != 0) {
             if (map->free_key) {
                 map->free_key(map->table[i].key);
             }
             if (map->free_data) {
                 map->free_data(map->table[i].data);
             }
-            map->table[i].hash_val = ~0;
+            map->table[i].hash_val = 0;
         }
     }
     map->count = 0;
@@ -224,7 +223,7 @@ void hashmap_set_free_data(hashmap_t *map, hashmap_deallocate fn)
 void hashmap_free(hashmap_t *map)
 {
     for (unsigned int i = 0; i < map->buckets; i++) {
-        if (map->table[i].hash_val != (unsigned int) ~0) {
+        if (map->table[i].hash_val != 0) {
             if (map->free_key) {
                 map->free_key(map->table[i].key);
             }
@@ -239,29 +238,48 @@ void hashmap_free(hashmap_t *map)
 
 struct hash_elem *find_elem(hashmap_t *map, void *key)
 {
-    unsigned int i = map->hash(key) & (map->buckets - 1);
+    unsigned int i;
     unsigned int j = 0;
+    uint32_t hash;
 
-    while (map->table[i].hash_val != (unsigned int) ~0 && j < map->buckets) {
-        if (map->comp(map->table[i].key, key) == 0) {
+    if ((hash = map->hash(key)) == 0)
+        hash++;
+    i = hash & (map->buckets - 1);
+    while (map->table[i].hash_val != 0 && j < map->buckets) {
+        if (map->comp(map->table[i].key, key) == 0)
             return &map->table[i];
-        }
         i = (i + 1) & (map->buckets - 1);
         j++;
     }
     return NULL;
 }
 
-void insert_elem(struct hash_elem *tbl, unsigned int size, unsigned int hash_val,
-                 void *key, void *data)
+/* Uses linear probing to find an empty bucket */
+void insert_elem(hashmap_t *map, struct hash_elem *tbl, unsigned int size,
+                 unsigned int hash_val, void *key, void *data, bool update)
 {
     unsigned int i = hash_val & (size - 1);
     unsigned int pc = 0;
 
-    /* use linear probing to find an empty bucket */
-    while (tbl[i].hash_val != (unsigned int) ~0) {
-        i = (i + 1) & (size - 1);
-        pc++;
+    if (update) {
+        while (tbl[i].hash_val != 0) {
+            if (map->comp(tbl[i].key, key) == 0) {
+                if (map->free_key)
+                    map->free_key(tbl[i].key);
+                if (map->free_data)
+                    map->free_data(tbl[i].data);
+                tbl[i].key = key;
+                tbl[i].data = data;
+                return;
+            }
+            i = (i + 1) & (size - 1);
+            pc++;
+        }
+    } else {
+        while (tbl[i].hash_val != 0) {
+            i = (i + 1) & (size - 1);
+            pc++;
+        }
     }
     tbl[i].key = key;
     tbl[i].data = data;
@@ -283,7 +301,7 @@ inline unsigned int clp2(unsigned int x)
 
 const hashmap_iterator *get_next_iterator(hashmap_t *map, unsigned int i)
 {
-    while (map->table[i].hash_val == (unsigned int) ~0) {
+    while (map->table[i].hash_val == 0) {
         if (++i >= map->buckets) {
             return NULL;
         }
@@ -293,7 +311,7 @@ const hashmap_iterator *get_next_iterator(hashmap_t *map, unsigned int i)
 
 const hashmap_iterator *get_prev_iterator(hashmap_t *map, unsigned int i)
 {
-    while (map->table[i].hash_val == (unsigned int) ~0) {
+    while (map->table[i].hash_val == 0) {
         if (--i <= 0) {
             return NULL;
         }
@@ -304,11 +322,11 @@ const hashmap_iterator *get_prev_iterator(hashmap_t *map, unsigned int i)
 hashmap_stat_t hashmap_get_stat(hashmap_t *map)
 {
     hashmap_stat_t stat;
-    unsigned int pcc = 0;
+    uint64_t pcc = 0;
 
     stat.lpc = 0;
     for (unsigned int i = 0; i < map->buckets; i++) {
-        if (map->table[i].hash_val != (unsigned int) ~0) {
+        if (map->table[i].hash_val != 0) {
             if (stat.lpc < map->table[i].probe_count) {
                 stat.lpc = map->table[i].probe_count;
             }
