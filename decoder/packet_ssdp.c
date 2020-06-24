@@ -5,7 +5,7 @@
 
 extern void print_ssdp(char *buf, int n, void *data);
 extern void add_ssdp_information(void *widget, void *subwidget, void *data);
-static void parse_ssdp(char *str, int n, list_t *msg_header);
+static packet_error parse_ssdp(char *str, int n, list_t *msg_header);
 
 static struct protocol_info ssdp_prot = {
     .short_name = "SSDP",
@@ -44,8 +44,7 @@ packet_error handle_ssdp(struct protocol_info *pinfo, unsigned char *buffer, int
     pinfo->num_packets++;
     pinfo->num_bytes += n;
     ssdp->fields = list_init(&d_alloc);
-    parse_ssdp((char *) buffer, n, ssdp->fields);
-    return NO_ERR;
+    return parse_ssdp((char *) buffer, n, ssdp->fields);
 }
 
 /*
@@ -55,19 +54,27 @@ packet_error handle_ssdp(struct protocol_info *pinfo, unsigned char *buffer, int
  * Copies the lines delimited by CRLF, i.e. the start line and the SSDP message
  * header fields, to msg_header list.
  */
-void parse_ssdp(char *str, int n, list_t *msg_header)
+packet_error parse_ssdp(char *str, int n, list_t *msg_header)
 {
     char *token;
     char cstr[n + 1];
+    size_t len = 0;
 
     strncpy(cstr, str, n);
     cstr[n] = '\0';
     token = strtok(cstr, "\r\n");
+    len += 2;
     while (token) {
         char *field;
+        size_t toklen;
 
-        field = mempool_pecopy0(token, strlen(token));
+        toklen = strlen(token);
+        len += toklen + 2;
+        field = mempool_pecopy0(token, toklen);
         list_push_back(msg_header, field);
         token = strtok(NULL, "\r\n");
     }
+    if ((size_t) n != len)
+        return DECODE_ERR;
+    return NO_ERR;
 }
