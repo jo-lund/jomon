@@ -73,8 +73,9 @@ bool handle_ethernet(unsigned char *buffer, int n, struct packet *p)
         p->root->next = mempool_pealloc(sizeof(struct packet_data));
         memset(p->root->next, 0, sizeof(struct packet_data));
         p->perr = pinfo->decode(pinfo, buffer + ETH_HLEN, n - ETH_HLEN, p->root->next);
-    } else
+    } else {
         p->perr = UNK_PROTOCOL;
+    }
     return true;
 }
 

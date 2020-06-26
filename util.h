@@ -1,8 +1,8 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+#include <string.h>
 #include <stdint.h>
-#include <GeoIPCity.h>
 #include "list.h"
 
 /*
@@ -113,9 +113,6 @@ char *get_file_part(char *path);
 
 /* Transforms the bytes to a human readable format, e.g. "1K", "42M" etc. */
 char *format_bytes(int bytes, char *buf, int len);
-
-/* Returns the city and country name from a GeoIPRecord, if available */
-char *get_location(GeoIPRecord *record, char *buf, int len);
 
 /*
  * Extracts a 16 bits integer in big endian format from buf without incrementing the buffer

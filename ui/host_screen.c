@@ -1,5 +1,5 @@
 #include <stdlib.h>
-#include <GeoIPCity.h>
+#include <arpa/inet.h>
 #include "host_screen.h"
 #include "menu.h"
 #include "../misc.h"
@@ -8,6 +8,7 @@
 #include "../decoder/packet_arp.h"
 #include "../util.h"
 #include "../attributes.h"
+#include "../geoip.h"
 
 #define HOST_HEADER 5
 #define ADDR_WIDTH 20
@@ -223,26 +224,16 @@ void print_host(host_screen *hs, struct host_info *host, int y)
             mvwprintw(hs->base.win, y, ADDR_WIDTH + MAC_WIDTH, "%s", host->name);
         }
     } else if (hs->base.page == REMOTE) {
-        GeoIPRecord *record = NULL;
+        char *country = geoip_get_country(addr);
+        char *city = geoip_get_city(addr);
 
-        if (ctx.gi) {
-            record = GeoIP_record_by_addr(ctx.gi, addr);
-        }
         mvwprintw(hs->base.win, y, 0, "%s", addr);
-        if (host->name) {
+        if (host->name)
             mvwprintw(hs->base.win, y, ADDR_WIDTH, "%s", host->name);
-        }
-        if (record) {
-            if (record->country_name) {
-                mvwprintw(hs->base.win, y, ADDR_WIDTH + NAME_WIDTH, "%s",
-                          record->country_name);
-            }
-            if (record->city) {
-                mvwprintw(hs->base.win, y, ADDR_WIDTH + NAME_WIDTH + NATION_WIDTH, "%s",
-                          record->city);
-            }
-            GeoIPRecord_delete(record);
-        }
+        if (country)
+            mvwprintw(hs->base.win, y, ADDR_WIDTH + NAME_WIDTH, "%s", country);
+        if (city)
+            mvwprintw(hs->base.win, y, ADDR_WIDTH + NAME_WIDTH + NATION_WIDTH, "%s", city);
     }
 }
 

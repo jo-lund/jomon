@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <netinet/in.h>
 #include "packet_dns.h"
 #include "packet.h"
 #include "../util.h"

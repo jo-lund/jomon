@@ -5,7 +5,6 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
-#include <GeoIPCity.h>
 #include <time.h>
 #include "layout.h"
 #include "layout_int.h"
@@ -13,6 +12,7 @@
 #include "../util.h"
 #include "../misc.h"
 #include "hexdump.h"
+#include "../geoip.h"
 
 #define HOSTNAMELEN 255 /* maximum 255 according to rfc1035 */
 #define TBUFLEN 16
@@ -838,16 +838,12 @@ void add_ipv4_information(void *w, void *sw, void *data)
         LV_ADD_TEXT_ELEMENT(lw, header,"Source IP address: %s", src);
         LV_ADD_TEXT_ELEMENT(lw, header,"Destination IP address: %s", dst);
     } else {
-        GeoIPRecord *src_record = GeoIP_record_by_addr(ctx.gi, src);
-        GeoIPRecord *dst_record = GeoIP_record_by_addr(ctx.gi, dst);
         char buf[MAXLINE];
 
         LV_ADD_TEXT_ELEMENT(lw, header,"Source IP address: %s (GeoIP: %s)",
-                         src, get_location(src_record, buf, MAXLINE));
+                            src, geoip_get_location(src, buf, MAXLINE));
         LV_ADD_TEXT_ELEMENT(lw, header,"Destination IP address: %s (GeoIP: %s)",
-                         dst, get_location(dst_record, buf, MAXLINE));
-        if (src_record) GeoIPRecord_delete(src_record);
-        if (dst_record) GeoIPRecord_delete(dst_record);
+                         dst, geoip_get_location(dst, buf, MAXLINE));
     }
 }
 

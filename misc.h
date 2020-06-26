@@ -9,10 +9,7 @@
 #include <netinet/ip.h>
 #include <stdbool.h>
 #include <limits.h>
-#include <GeoIP.h>
 #include "attributes.h"
-
-#define GEOIP_PATH "/usr/share/GeoIP/GeoIPCity.dat"
 
 /*
  * Only a portion of each packet is passed by the kernel to the application, this
@@ -47,7 +44,6 @@ typedef struct {
         bool verbose;
         bool load_file;
     } opt;
-    GeoIP *gi;
     struct sockaddr_in *local_addr;
     unsigned char mac[ETHER_ADDR_LEN];
 } main_context;

@@ -14,17 +14,19 @@ ifeq ($(MACHINE), Linux)
 	sources += $(wildcard linux/*.c)
 endif
 objects = $(patsubst %.c,$(BUILDDIR)/%.o,$(sources))
-tests = $(wildcard $(testdir)/*.c)
-test-objs = $(patsubst %.c,%.o,$(tests))
+test-objs = $(patsubst %.c,%.o,$(wildcard $(testdir)/*.c))
 
+.PHONY : all
 all : debug
 
+.PHONY : debug
 debug : CFLAGS += -g -fsanitize=address -fno-omit-frame-pointer
 debug : CPPFLAGS += -DMONITOR_DEBUG
-debug : check-build $(TARGETDIR)/monitor
+debug : $(TARGETDIR)/monitor
 
+.PHONY : release
 release : CFLAGS += -O3
-release : check-build $(TARGETDIR)/monitor
+release : $(TARGETDIR)/monitor
 	@$(STRIP) --strip-all --remove-section .comment $(TARGETDIR)/monitor
 
 $(TARGETDIR)/monitor : $(objects)
@@ -41,15 +43,15 @@ $(BUILDDIR)/%.o : %.c
 # Include dependency info for existing object files
 -include $(objects:.o=.d)
 
-.PHONY : check-build
-check-build :
-	@./build.sh
-
 .PHONY : clean
 clean :
 	rm -rf bin
 	rm -rf build
 	rm -f $(test-objs) $(testdir)/test
+
+.PHONY : distclean
+distclean : clean
+	rm -f config.h
 
 .PHONY : tags
 tags :

@@ -210,19 +210,3 @@ char *format_bytes(int bytes, char *buf, int len)
     }
     return buf;
 }
-
-char *get_location(GeoIPRecord *record, char *buf, int len)
-{
-    if (!record) {
-        strncpy(buf, "Unknown", len);
-        return buf;
-    }
-    if (record->city && record->country_name) {
-        snprintf(buf, len, "%s, %s", record->city, record->country_name);
-    } else if (record->country_name) {
-        snprintf(buf, len, "%s", record->country_name);
-    } else {
-        strncpy(buf, "Unknown", len);
-    }
-    return buf;
-}

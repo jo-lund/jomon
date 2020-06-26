@@ -1,5 +1,14 @@
 #!/bin/bash
 
+DISABLE_GEOIP=0
+
+usage()
+{
+    echo "--disable-geoip  : Build without libGeoIP"
+    echo "-h --help        : Display help"
+    exit 0
+}
+
 check_pkgconf()
 {
     echo -n "[*] Checking for pkgconf... "
@@ -36,7 +45,6 @@ check_geoip()
 {
     echo -n "[*] Checking for libGeoIP... "
 
-    # TODO: Define a build without libGeoIP
     if ! $(pkgconf --exists geoip); then
         echo "FAIL"
         echo
@@ -49,6 +57,42 @@ check_geoip()
     echo "OK"
 }
 
+generate_config()
+{
+    echo "[*] Generating config..."
+    echo "#ifndef CONFIG_H" > config.h
+    echo "#define CONFIG_H" >> config.h
+    echo >> config.h
+
+    if [[ "$DISABLE_GEOIP" == 1 ]]; then
+        echo "#define HAVE_GEOIP 0" >> config.h
+    else
+        echo "#define HAVE_GEOIP 1" >> config.h
+    fi
+
+    echo >> config.h
+    echo "#endif" >> config.h
+}
+
+while [ $# -gt 0 ] ; do
+    case "$1" in
+	-h | --help)
+	    usage
+	    ;;
+        --disable-geoip)
+            DISABLE_GEOIP=1
+            ;;
+        *)
+            echo "Invalid option. Use -h for help"
+            exit 1;
+            ;;
+    esac
+    shift
+done
+
 check_pkgconf
 check_ncurses
-check_geoip
+if [[ "$DISABLE_GEOIP" == 0 ]]; then
+    check_geoip
+fi
+generate_config

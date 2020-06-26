@@ -29,6 +29,7 @@
 #include "attributes.h"
 #include "process.h"
 #include "debug_file.h"
+#include "geoip.h"
 
 #define TABLE_SIZE 65536
 
@@ -126,9 +127,8 @@ int main(int argc, char **argv)
     ctx.local_addr = malloc(sizeof (struct sockaddr_in));
     get_local_address(ctx.device, (struct sockaddr *) ctx.local_addr);
     get_local_mac(ctx.device, ctx.mac);
-    if (!ctx.opt.nogeoip && !(ctx.gi = GeoIP_open(GEOIP_PATH, GEOIP_STANDARD))) {
+    if (!ctx.opt.nogeoip && !geoip_init())
         exit(1);
-    }
     if (ctx.opt.load_file) {
         enum file_error err;
         FILE *fp;
@@ -220,9 +220,7 @@ void finish(int status)
         iface_close(handle);
     }
     mempool_free();
-    if (ctx.gi) {
-        GeoIP_delete(ctx.gi);
-    }
+    geoip_free();
     if (handle)
         free(handle);
     decoder_exit();
@@ -309,8 +307,8 @@ bool handle_packet(unsigned char *buffer, uint32_t n, struct timeval *t)
     p->time.tv_usec = t->tv_usec;
     if (p->perr != DECODE_ERR) {
         tcp_analyzer_check_stream(p);
+        host_analyzer_investigate(p);
     }
-    host_analyzer_investigate(p);
     if (ctx.capturing) {
         if (ctx.opt.use_ncurses) {
             vector_push_back(packets, p);

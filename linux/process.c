@@ -7,6 +7,7 @@
 #include <linux/netlink.h>
 #include <linux/sock_diag.h>
 #include <errno.h>
+#include <stdio.h>
 #include "../process.h"
 #include "../misc.h"
 #include "../util.h"
