@@ -4,6 +4,8 @@ DISABLE_GEOIP=0
 
 usage()
 {
+    echo "Usage: ./configure [option]"
+    echo ""
     echo "--disable-geoip  : Build without libGeoIP"
     echo "-h --help        : Display help"
     exit 0

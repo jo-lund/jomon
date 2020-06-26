@@ -1,3 +1,7 @@
+ifeq ($(wildcard ./config.h),)
+    $(error "configure needs to be run before make. For help, use: ./configure -h")
+endif
+
 srcdir := decoder ui
 incdir := decoder ui
 testdir := tests
@@ -11,7 +15,7 @@ CPPFLAGS += -Wall -Wextra -Wno-override-init $(addprefix -I,$(incdir))
 LIBS += -lncurses -lGeoIP
 sources = $(wildcard *.c decoder/*.c ui/*.c)
 ifeq ($(MACHINE), Linux)
-	sources += $(wildcard linux/*.c)
+    sources += $(wildcard linux/*.c)
 endif
 objects = $(patsubst %.c,$(BUILDDIR)/%.o,$(sources))
 test-objs = $(patsubst %.c,%.o,$(wildcard $(testdir)/*.c))
@@ -52,6 +56,10 @@ clean :
 .PHONY : distclean
 distclean : clean
 	rm -f config.h
+
+.PHONY : testclean
+testclean :
+	rm -f $(test-objs) $(testdir)/test
 
 .PHONY : tags
 tags :
