@@ -128,12 +128,10 @@ void host_screen_render(host_screen *hs)
         host_analyzer_get_remote();
 
     if (hashmap_size(hosts)) {
-        const hashmap_iterator *it = hashmap_first(hosts);
+        const hashmap_iterator *it;
 
-        while (it) {
+        HASHMAP_FOREACH(hosts, it)
             vector_push_back(hs->screen_buf, it->data);
-            it = hashmap_next(hosts, it);
-        }
         qsort(vector_data(hs->screen_buf), vector_size(hs->screen_buf),
               sizeof(struct host_info *), cmphost);
     }

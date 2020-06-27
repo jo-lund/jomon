@@ -58,13 +58,12 @@ struct protocol_info *get_protocol(uint32_t id)
 
 void traverse_protocols(protocol_handler fn, void *arg)
 {
-    const hashmap_iterator *it = hashmap_first(info);
+    const hashmap_iterator *it;
     struct protocol_info *pinfo;
 
-    while (it) {
+    HASHMAP_FOREACH(info, it) {
         pinfo = it->data;
         fn(pinfo, arg);
-        it = hashmap_next(info, it);
     }
 }
 

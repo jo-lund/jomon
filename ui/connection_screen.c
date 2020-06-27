@@ -140,12 +140,10 @@ void connection_screen_got_focus(screen *s, screen *oldscr UNUSED)
         hashmap_t *sessions = tcp_analyzer_get_sessions();
 
         if (hashmap_size(sessions)) {
-            const hashmap_iterator *it = hashmap_first(sessions);
+            const hashmap_iterator *it;
 
-            while (it) {
+            HASHMAP_FOREACH(sessions, it)
                 vector_push_back(((connection_screen *) s)->screen_buf, it->data);
-                it = hashmap_next(sessions, it);
-            }
         }
         tcp_analyzer_subscribe(update_connection);
         active = true;
