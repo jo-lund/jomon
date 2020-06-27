@@ -11,3 +11,9 @@
 - Errors with inspecting subheaders when the pad is bigger than the screen.
 - Some TCP flags (NS, CWR, ECE) are not stored, see e.g. cdp.pcap, packet
   number 38.
+- If the device loses connection (e.g. by physically removing the device) and
+  then reconnects, the packet scan just stops. It will not continue to log
+  packets when the connection is re-established. When explicitly stopping and
+  restarting the packet scan, we get a double free error.
+- The header is not updated if the menu is shown, the screen changes, and the
+  original screen is brought back.
