@@ -38,9 +38,10 @@ static inline void geoip_free(void)
 {
 }
 
-static inline char *geoip_get_location(char *addr UNUSED, char *buf UNUSED, int len UNUSED)
+static inline char *geoip_get_location(char *addr UNUSED, char *buf, int len)
 {
-    return NULL;
+    strncpy(buf, "Unknown", len);
+    return buf;
 }
 
 static inline char *geoip_get_country(char *addr UNUSED)

@@ -6,8 +6,8 @@ usage()
 {
     echo "Usage: ./configure [option]"
     echo ""
-    echo "--disable-geoip  : Build without libGeoIP"
-    echo "-h --help        : Display help"
+    echo "   --disable-geoip  : Build without libGeoIP"
+    echo "   -h --help        : Display help"
     exit 0
 }
 
@@ -62,21 +62,24 @@ check_geoip()
 generate_config()
 {
     echo "[*] Generating config..."
+    echo > config.mk
     echo "#ifndef CONFIG_H" > config.h
     echo "#define CONFIG_H" >> config.h
     echo >> config.h
 
     if [[ "$DISABLE_GEOIP" == 1 ]]; then
         echo "#define HAVE_GEOIP 0" >> config.h
+        echo "CONFIG_GEOIP=0" >> config.mk
     else
         echo "#define HAVE_GEOIP 1" >> config.h
+        echo "CONFIG_GEOIP=1" >> config.mk
     fi
 
     echo >> config.h
     echo "#endif" >> config.h
 }
 
-while [ $# -gt 0 ] ; do
+while [ $# -gt 0 ]; do
     case "$1" in
 	-h | --help)
 	    usage

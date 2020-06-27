@@ -1,6 +1,8 @@
-ifeq ($(wildcard ./config.h),)
+ifeq ($(wildcard ./config.mk),)
     $(error "configure needs to be run before make. For help, use: ./configure -h")
 endif
+
+include config.mk
 
 srcdir := decoder ui
 incdir := decoder ui
@@ -12,8 +14,13 @@ STRIP := strip
 CC := gcc
 CFLAGS += -std=gnu11
 CPPFLAGS += -Wall -Wextra -Wno-override-init $(addprefix -I,$(incdir))
-LIBS += -lncurses -lGeoIP
-sources = $(wildcard *.c decoder/*.c ui/*.c)
+LIBS += -lncurses
+ifeq ($(CONFIG_GEOIP),0)
+    sources = $(filter-out geoip.c,$(wildcard *.c decoder/*.c ui/*.c))
+else
+    LIBS += -lGeoIP
+    sources = $(wildcard *.c decoder/*.c ui/*.c)
+endif
 ifeq ($(MACHINE), Linux)
     sources += $(wildcard linux/*.c)
 endif
@@ -55,7 +62,7 @@ clean :
 
 .PHONY : distclean
 distclean : clean
-	rm -f config.h
+	rm -f config.h config.mk
 
 .PHONY : testclean
 testclean :
