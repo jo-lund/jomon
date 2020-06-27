@@ -230,10 +230,14 @@ void print_host(host_screen *hs, struct host_info *host, int y)
         mvwprintw(hs->base.win, y, 0, "%s", addr);
         if (host->name)
             mvwprintw(hs->base.win, y, ADDR_WIDTH, "%s", host->name);
-        if (country)
+        if (country) {
             mvwprintw(hs->base.win, y, ADDR_WIDTH + NAME_WIDTH, "%s", country);
-        if (city)
+            free(country);
+        }
+        if (city) {
             mvwprintw(hs->base.win, y, ADDR_WIDTH + NAME_WIDTH + NATION_WIDTH, "%s", city);
+            free(city);
+        }
     }
 }
 

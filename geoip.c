@@ -51,7 +51,7 @@ char *geoip_get_country(char *addr)
     GeoIPRecord *record = GeoIP_record_by_addr(gip, addr);
 
     if (record && record->country_name) {
-        name = record->country_name;
+        name = strdup(record->country_name);
         GeoIPRecord_delete(record);
     }
     return name;
@@ -66,7 +66,7 @@ char *geoip_get_city(char *addr)
     GeoIPRecord *record = GeoIP_record_by_addr(gip, addr);
 
     if (record && record->city) {
-        city = record->city;
+        city = strdup(record->city);
         GeoIPRecord_delete(record);
     }
     return city;

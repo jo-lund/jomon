@@ -15,10 +15,16 @@ void geoip_free(void);
 /* Returns the city and country name from an IP address */
 char *geoip_get_location(char *addr, char *buf, int len);
 
-/* Returns the country name from an IP address */
+/*
+ * Returns the country name from an IP address. Will allocate a new string that needs
+ * to be freed by the caller.
+ */
 char *geoip_get_country(char *addr);
 
-/* Returns the city from an IP address */
+/*
+ * Returns the city from an IP address. Will allocate a new string that needs
+ * to be freed by the caller.
+ */
 char *geoip_get_city(char *addr);
 
 #else
