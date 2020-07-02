@@ -119,12 +119,12 @@ START_TEST(hashmap_test_id)
     ck_assert(PTR_TO_UINT(hashmap_get(map, UINT_TO_PTR(~0))) == (uintptr_t) ~0);
 
     hashmap_insert(map, UINT_TO_PTR(2), UINT_TO_PTR(2));
-    hashmap_insert(map, UINT_TO_PTR(30), UINT_TO_PTR(30));
+    hashmap_insert(map, UINT_TO_PTR(18), UINT_TO_PTR(18));
     ck_assert(PTR_TO_UINT(hashmap_get(map, UINT_TO_PTR(2))) == 2);
-    ck_assert(PTR_TO_UINT(hashmap_get(map, UINT_TO_PTR(30))) == 30);
+    ck_assert(PTR_TO_UINT(hashmap_get(map, UINT_TO_PTR(18))) == 18);
     hashmap_remove(map, UINT_TO_PTR(2));
     ck_assert(hashmap_contains(map, UINT_TO_PTR(2)) == false);
-    ck_assert(PTR_TO_UINT(hashmap_get(map, UINT_TO_PTR(30))) == 30);
+    ck_assert(PTR_TO_UINT(hashmap_get(map, UINT_TO_PTR(18))) == 18);
     hashmap_free(map);
 }
 END_TEST

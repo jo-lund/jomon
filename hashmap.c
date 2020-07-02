@@ -91,20 +91,21 @@ void hashmap_remove(hashmap_t *map, void *key)
     struct hash_elem *elem = NULL;
     unsigned int hash = map->hash(key);
     unsigned int i;
-    unsigned int j = 0;
 
     if (hash == 0)
         hash++;
     i = hash & (map->buckets - 1);
-    while (map->table[i].hash_val != 0 && j < map->buckets) {
+    while (map->table[i].hash_val != 0) {
         if (map->comp(map->table[i].key, key) == 0) {
             elem = &map->table[i];
             break;
         }
         i = (i + 1) & (map->buckets - 1);
-        j++;
     }
     if (elem) {
+        unsigned int free_slot = i;
+        unsigned int pc = 0;
+
         if (map->free_key) {
             map->free_key(elem->key);
         }
@@ -114,17 +115,17 @@ void hashmap_remove(hashmap_t *map, void *key)
         elem->hash_val = 0;
         map->count--;
         i = (i + 1) & (map->buckets - 1);
-        j++;
-
-        /* re-insert every item after 'i' until we encounter a free slot */
-        while (map->table[i].hash_val != 0 && j < map->buckets) {
-            unsigned int hash = map->table[i].hash_val;
-
-            map->table[i].hash_val = 0;
-            insert_elem(map, map->table, map->buckets, hash, map->table[i].key,
-                        map->table[i].data, false);
+        while (map->table[i].hash_val != 0) {
+            if (map->table[i].probe_count > pc) {
+                map->table[free_slot] = map->table[i];
+                map->table[free_slot].probe_count = map->table[i].probe_count - pc - 1;
+                map->table[i].hash_val = 0;
+                free_slot = i;
+                pc = 0;
+            } else {
+                pc++;
+            }
             i = (i + 1) & (map->buckets - 1);
-            j++;
         }
     }
 }
