@@ -18,8 +18,8 @@ enum connection_state {
 
 /* stored in network byte order */
 struct tcp_endpoint_v4 {
-    uint16_t src_port;
-    uint16_t dst_port;
+    uint16_t sport;
+    uint16_t dport;
     uint32_t src;
     uint32_t dst;
 };
@@ -40,7 +40,7 @@ static inline unsigned int hash_tcp_v4(const void *key)
 {
     struct tcp_endpoint_v4 *endp = (struct tcp_endpoint_v4 *) key;
     unsigned int hash = 2166136261;
-    unsigned int val = endp->src + endp->dst + endp->src_port + endp->dst_port;
+    unsigned int val = endp->src + endp->dst + endp->sport + endp->dport;
 
     for (int i = 0; i < 4; i++) {
         hash = (hash ^ ((val >> (8 * i)) & 0xff)) * 16777619;
@@ -54,13 +54,13 @@ static inline int compare_tcp_v4(const void *t1, const void *t2)
     struct tcp_endpoint_v4 *endp2 = (struct tcp_endpoint_v4 *) t2;
 
     if ((endp1->src == endp2->src && endp1->dst == endp2->dst &&
-         endp1->src_port == endp2->src_port && endp1->dst_port == endp2->dst_port)
-        || (endp1->src == endp2->dst && endp1->src_port == endp2->dst_port &&
-            endp1->dst == endp2->src && endp1->dst_port == endp2->src_port)) {
+         endp1->sport == endp2->sport && endp1->dport == endp2->dport)
+        || (endp1->src == endp2->dst && endp1->sport == endp2->dport &&
+            endp1->dst == endp2->src && endp1->dport == endp2->sport)) {
         return 0;
     }
-    return (endp1->src + endp1->dst + endp1->src_port + endp1->dst_port) -
-        (endp2->src + endp2->dst + endp2->src_port + endp2->dst_port);
+    return (endp1->src + endp1->dst + endp1->sport + endp1->dport) -
+        (endp2->src + endp2->dst + endp2->sport + endp2->dport);
 }
 
 void tcp_analyzer_init();

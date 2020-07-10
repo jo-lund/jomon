@@ -48,7 +48,6 @@ static char *get_name(int pid)
     char tmp[1024];
     FILE *fp;
     char *name;
-    size_t n;
 
     snprintf(cmdline, MAXPATH, "/proc/%d/cmdline", pid);
     if ((fp = fopen(cmdline, "r")) == NULL)
@@ -58,12 +57,10 @@ static char *get_name(int pid)
         return NULL;
     }
     if ((name = hashmap_get_key(string_table, tmp)) == NULL) {
-        n = strlen(tmp);
-        name = malloc(n + 1);
-        strncpy(name, tmp, n);
-        name[n] = '\0';
+        name = strdup(tmp);
         hashmap_insert(string_table, name, NULL);
     }
+    fclose(fp);
     return name;
 }
 
@@ -97,8 +94,8 @@ static bool parse_tcp()
             continue;
         endp.src = strtol(laddr, NULL, 16);
         endp.dst = strtol(raddr, NULL, 16);
-        endp.src_port = lport;
-        endp.dst_port = rport;
+        endp.sport = lport;
+        endp.dport = rport;
         if ((old = hashmap_get(tcp_cache, &endp))) {
             if (inode != old->inode)
                 hashmap_remove(tcp_cache, &endp);
@@ -256,9 +253,9 @@ static bool read_netlink_msg()
             if (diag_msg->idiag_inode == 0)
                 continue;
             endp.src = diag_msg->id.idiag_src[0];
-            endp.src_port = diag_msg->id.idiag_sport;
+            endp.sport = diag_msg->id.idiag_sport;
             endp.dst = diag_msg->id.idiag_dst[0];
-            endp.dst_port = diag_msg->id.idiag_dport;
+            endp.dport = diag_msg->id.idiag_dport;
             if ((old = hashmap_get(tcp_cache, &endp))) {
                 if (diag_msg->idiag_inode != old->inode)
                     hashmap_remove(tcp_cache, &endp);

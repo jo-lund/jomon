@@ -279,9 +279,9 @@ void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int
     inet_ntop(AF_INET, &conn->endp->dst, entry[ADDRB].buf, INET_ADDRSTRLEN);
     p = list_data(n);
     entry[ADDRA].val = conn->endp->src;
-    entry[PORTA].val = conn->endp->src_port;
+    entry[PORTA].val = conn->endp->sport;
     entry[ADDRB].val = conn->endp->dst;
-    entry[PORTB].val = conn->endp->dst_port;
+    entry[PORTB].val = conn->endp->dport;
     while (n) {
         p = list_data(n);
         if (entry[ADDRA].val == ipv4_src(p) && entry[PORTA].val == tcp_member(p, src_port)) {

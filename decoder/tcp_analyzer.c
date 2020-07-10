@@ -28,8 +28,8 @@ void tcp_analyzer_check_stream(const struct packet *p)
 
         endp.src = ipv4_src(p);
         endp.dst = ipv4_dst(p);
-        endp.src_port = tcp_member(p, src_port);
-        endp.dst_port = tcp_member(p, dst_port);
+        endp.sport = tcp_member(p, src_port);
+        endp.dport = tcp_member(p, dst_port);
         conn = hashmap_get(connection_table, &endp);
         if (conn) {
             list_push_back(conn->packets, (struct packet *) p);
