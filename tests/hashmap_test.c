@@ -88,17 +88,28 @@ START_TEST(hashmap_test_iterate)
 {
     hashmap_t *map = hashmap_init(1024, hash_uint32, compare_uint);
     const hashmap_iterator *it;
+    const hashmap_iterator *prev;
     int c = 0;
 
     for (uint32_t i = 0; i < 500; i++) {
         hashmap_insert(map, UINT_TO_PTR(i), UINT_TO_PTR(i + 1));
-        ck_assert(PTR_TO_UINT(hashmap_contains(map, UINT_TO_PTR(i))));
+        ck_assert(hashmap_contains(map, UINT_TO_PTR(i)));
     }
     HASHMAP_FOREACH(map, it) {
-        ck_assert(UINT_TO_PTR(it->key) + 1 == UINT_TO_PTR(it->data));
+        ck_assert(PTR_TO_UINT(it->key) + 1 == PTR_TO_UINT(it->data));
+        prev = it;
         c++;
     }
     ck_assert_msg(c == 500, "HASHMAP_FOREACH failed to traverse all elements: size = %d, count = %d",
+                  hashmap_size(map), c);
+
+    c = 0;
+    while (prev) {
+        ck_assert(PTR_TO_UINT(prev->key) + 1 == PTR_TO_UINT(prev->data));
+        prev = hashmap_prev(map, prev);
+        c++;
+    }
+    ck_assert_msg(c == 500, "hashmap_prev failed to traverse all elements: size = %d, count = %d",
                   hashmap_size(map), c);
     hashmap_free(map);
 }
