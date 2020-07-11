@@ -18,8 +18,8 @@
     pdata->data ? ((struct tcp *) pdata->data)->member : 0;})
 
 struct tcp {
-    uint16_t src_port; /* stored in network byte order */
-    uint16_t dst_port; /* stored in network byte order */
+    uint16_t sport;
+    uint16_t dport;
     uint32_t seq_num;
     uint32_t ack_num;
     unsigned int offset : 4;

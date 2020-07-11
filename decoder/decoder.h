@@ -11,6 +11,7 @@
 #include "packet_stp.h"
 #include "packet_ip.h"
 #include "packet_tcp.h"
+#include "packet_udp.h"
 #include "packet_nbds.h"
 #include "packet_snmp.h"
 #include "packet_smb.h"

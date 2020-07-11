@@ -1347,13 +1347,13 @@ static void follow_tcp_stream(main_screen *ms)
         return;
     endp.src = ipv4_src(p);
     endp.dst = ipv4_dst(p);
-    endp.sport = tcp_member(p, src_port);
-    endp.dport = tcp_member(p, dst_port);
+    endp.sport = tcp_member(p, sport);
+    endp.dport = tcp_member(p, dport);
     if (!(stream = hashmap_get(connections, &endp))) {
         endp.src = ipv4_dst(p);
         endp.dst = ipv4_src(p);
-        endp.sport = tcp_member(p, dst_port);
-        endp.dport = tcp_member(p, src_port);
+        endp.sport = tcp_member(p, dport);
+        endp.dport = tcp_member(p, sport);
         stream = hashmap_get(connections, &endp);
     }
     cs->stream = stream;

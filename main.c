@@ -43,8 +43,18 @@ static iface_handle_t *handle = NULL;
 
 static bool handle_packet(unsigned char *buffer, uint32_t n, struct timeval *t);
 static void print_help(char *prg);
-static void structures_init();
-static void run();
+static void setup_signal(int signo, void (*handler)(int), int flags);
+static void run(void);
+
+static void sig_alarm(int signo UNUSED)
+{
+    signal_flag = 1;
+}
+
+static void sig_int(int signo UNUSED)
+{
+    finish(1);
+}
 
 int main(int argc, char **argv)
 {
@@ -104,7 +114,8 @@ int main(int argc, char **argv)
             exit(0);
         }
     }
-    structures_init();
+    setup_signal(SIGALRM, sig_alarm, SA_RESTART);
+    setup_signal(SIGINT, sig_int, 0);
     mempool_init();
     decoder_init();
     debug_init();
@@ -117,9 +128,10 @@ int main(int argc, char **argv)
             process_init();
 #endif
     }
-    if (!ctx.device && !(ctx.device = get_default_interface())) {
+    if (ctx.opt.use_ncurses || ctx.opt.load_file)
+        packets = vector_init(TABLE_SIZE);
+    if (!ctx.device && !(ctx.device = get_default_interface()))
         err_quit("Cannot find active network device");
-    }
     if (!ctx.opt.nopromiscuous && !ctx.opt.load_file) {
         set_promiscuous(ctx.device, true);
         promiscuous = true;
@@ -187,16 +199,6 @@ void print_help(char *prg)
     printf("     -h                     Print this help summary\n");
 }
 
-void sig_alarm(int signo UNUSED)
-{
-    signal_flag = 1;
-}
-
-void sig_int(int signo UNUSED)
-{
-    finish(1);
-}
-
 void finish(int status)
 {
     if (ncurses_initialized) {
@@ -227,31 +229,19 @@ void finish(int status)
     exit(status);
 }
 
-void structures_init()
+void setup_signal(int signo, void (*handler)(int), int flags)
 {
     struct sigaction act;
 
-    /* set up an alarm and interrupt signal handler */
-    act.sa_handler = sig_alarm;
+    act.sa_handler = handler;
     sigemptyset(&act.sa_mask);
-    act.sa_flags = SA_RESTART;
-    if (sigaction(SIGALRM, &act, NULL) == -1) {
+    act.sa_flags = flags;
+    if (sigaction(signo, &act, NULL) == -1) {
         err_sys("sigaction error");
-    }
-    act.sa_handler = sig_int;
-    sigemptyset(&act.sa_mask);
-    act.sa_flags = 0;
-    if (sigaction(SIGINT, &act, NULL) == -1) {
-        err_sys("sigaction error");
-    }
-
-    /* Initialize table to store packets */
-    if (ctx.opt.use_ncurses || ctx.opt.load_file) {
-        packets = vector_init(TABLE_SIZE);
     }
 }
 
-void run()
+void run(void)
 {
     struct pollfd fds[] = {
         { handle->sockfd, POLLIN, 0 },

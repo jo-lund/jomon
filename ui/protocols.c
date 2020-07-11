@@ -13,6 +13,7 @@
 #include "../misc.h"
 #include "hexdump.h"
 #include "../geoip.h"
+#include "../decoder/decoder.h"
 
 #define HOSTNAMELEN 255 /* maximum 255 according to rfc1035 */
 #define TBUFLEN 16
@@ -341,7 +342,7 @@ void print_tcp(char *buf, int n, void *data)
     else {
         PRINT_PROTOCOL(buf, n, "TCP");
         PRINT_INFO(buf, n, "Source port: %d  Destination port: %d",
-                   ntohs(tcp->src_port), tcp->dst_port);
+                   tcp->sport, tcp->dport);
         PRINT_INFO(buf, n, "  Flags:");
         if (tcp->fin) {
             PRINT_INFO(buf, n, " FIN");
@@ -376,8 +377,8 @@ void print_udp(char *buf, int n, void *data)
         pinfo->print_pdu(buf, n, pdata->next);
     else {
         PRINT_PROTOCOL(buf, n, "UDP");
-        PRINT_INFO(buf, n, "Source port: %d  Destination port: %d", udp->src_port,
-                   udp->dst_port);
+        PRINT_INFO(buf, n, "Source port: %d  Destination port: %d",
+                   udp->sport, udp->dport);
     }
 }
 
@@ -1250,8 +1251,8 @@ void add_udp_information(void *w, void *sw, void *data)
     struct packet_data *pdata = data;
     struct udp_info *udp = pdata->data;
 
-    LV_ADD_TEXT_ELEMENT(lw, header, "Source port: %u", udp->src_port);
-    LV_ADD_TEXT_ELEMENT(lw, header, "Destination port: %u", udp->dst_port);
+    LV_ADD_TEXT_ELEMENT(lw, header, "Source port: %u", udp->sport);
+    LV_ADD_TEXT_ELEMENT(lw, header, "Destination port: %u", udp->dport);
     LV_ADD_TEXT_ELEMENT(lw, header, "Length: %u", udp->len);
     LV_ADD_TEXT_ELEMENT(lw, header, "Checksum: %u", udp->checksum);
 }
@@ -1289,8 +1290,8 @@ void add_tcp_information(void *w, void *sw, void *data)
     if (tcp->fin) {
         snprintcat(buf, n, "FIN ");
     }
-    LV_ADD_TEXT_ELEMENT(lw, header, "Source port: %u", tcp->src_port);
-    LV_ADD_TEXT_ELEMENT(lw, header, "Destination port: %u", tcp->dst_port);
+    LV_ADD_TEXT_ELEMENT(lw, header, "Source port: %u", tcp->sport);
+    LV_ADD_TEXT_ELEMENT(lw, header, "Destination port: %u", tcp->dport);
     LV_ADD_TEXT_ELEMENT(lw, header, "Sequence number: %u", tcp->seq_num);
     LV_ADD_TEXT_ELEMENT(lw, header, "Acknowledgment number: %u", tcp->ack_num);
     LV_ADD_TEXT_ELEMENT(lw, header, "Data offset: %u", tcp->offset);

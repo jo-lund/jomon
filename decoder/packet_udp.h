@@ -6,8 +6,8 @@
 #define UDP_HDR_LEN 8
 
 struct udp_info {
-    uint16_t src_port;
-    uint16_t dst_port;
+    uint16_t sport;
+    uint16_t dport;
     uint16_t len; /* length of UDP header and data */
     uint16_t checksum;
 };

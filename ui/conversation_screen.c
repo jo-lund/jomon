@@ -458,9 +458,9 @@ static void buffer_tcppage(conversation_screen *cs, int (*buffer_fn)
         PROGRESS_DIALOGUE_UPDATE(pd, 1);
         if (i == 0) {
             cli_addr = ipv4_src(p);
-            cli_port = tcp_member(p, src_port);
+            cli_port = tcp_member(p, sport);
         }
-        if (cli_addr == ipv4_src(p) && cli_port == tcp_member(p, src_port))
+        if (cli_addr == ipv4_src(p) && cli_port == tcp_member(p, sport))
             col = get_theme_colour(SRC_TXT);
         else
             col = get_theme_colour(DST_TXT);
@@ -590,11 +590,11 @@ void print_header(conversation_screen *cs)
 
         if (i == 0) {
             cli_addr = ipv4_src(p);
-            cli_port = tcp_member(p, src_port);
+            cli_port = tcp_member(p, sport);
             srv_addr = ipv4_dst(p);
-            srv_port = tcp_member(p, dst_port);
+            srv_port = tcp_member(p, dport);
         }
-        if (cli_addr == ipv4_src(p) && cli_port == tcp_member(p, src_port)) {
+        if (cli_addr == ipv4_src(p) && cli_port == tcp_member(p, sport)) {
             cli_packets++;
             cli_bytes += len;
         } else {

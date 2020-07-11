@@ -44,8 +44,8 @@ packet_error handle_udp(struct protocol_info *pinfo, unsigned char *buffer, int 
     pinfo->num_packets++;
     pinfo->num_bytes += n;
     udp = (struct udphdr *) buffer;
-    info->src_port = ntohs(udp->source);
-    info->dst_port = ntohs(udp->dest);
+    info->sport = ntohs(udp->source);
+    info->dport = ntohs(udp->dest);
     info->len = ntohs(udp->len);
     if (info->len < UDP_HDR_LEN || info->len > n) {
         return DECODE_ERR;

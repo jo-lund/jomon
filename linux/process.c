@@ -94,8 +94,8 @@ static bool parse_tcp()
             continue;
         endp.src = strtol(laddr, NULL, 16);
         endp.dst = strtol(raddr, NULL, 16);
-        endp.sport = lport;
-        endp.dport = rport;
+        endp.sport = ntohs(lport);
+        endp.dport = ntohs(rport);
         if ((old = hashmap_get(tcp_cache, &endp))) {
             if (inode != old->inode)
                 hashmap_remove(tcp_cache, &endp);
@@ -105,8 +105,8 @@ static bool parse_tcp()
         tcp = malloc(sizeof(*tcp));
         tcp->laddr = strtol(laddr, NULL, 16);
         tcp->raddr = strtol(raddr, NULL, 16);
-        tcp->lport = lport;
-        tcp->rport = rport;
+        tcp->lport = ntohs(lport);
+        tcp->rport = ntohs(rport);
         tcp->inode = inode;
         hashmap_insert(tcp_cache, (struct tcp_connection_v4 *) tcp, tcp);
     }
@@ -253,9 +253,9 @@ static bool read_netlink_msg()
             if (diag_msg->idiag_inode == 0)
                 continue;
             endp.src = diag_msg->id.idiag_src[0];
-            endp.sport = diag_msg->id.idiag_sport;
+            endp.sport = ntohs(diag_msg->id.idiag_sport);
             endp.dst = diag_msg->id.idiag_dst[0];
-            endp.dport = diag_msg->id.idiag_dport;
+            endp.dport = ntohs(diag_msg->id.idiag_dport);
             if ((old = hashmap_get(tcp_cache, &endp))) {
                 if (diag_msg->idiag_inode != old->inode)
                     hashmap_remove(tcp_cache, &endp);
@@ -264,9 +264,9 @@ static bool read_netlink_msg()
             }
             struct tcp_elem *tcp = malloc(sizeof(*tcp));
             tcp->laddr = diag_msg->id.idiag_src[0];
-            tcp->lport = diag_msg->id.idiag_sport;
+            tcp->lport = ntohs(diag_msg->id.idiag_sport);
             tcp->raddr = diag_msg->id.idiag_dst[0];
-            tcp->rport = diag_msg->id.idiag_dport;
+            tcp->rport = ntohs(diag_msg->id.idiag_dport);
             tcp->inode = diag_msg->idiag_inode;
             hashmap_insert(tcp_cache, (struct tcp_endpoint_v4 *) tcp, tcp);
         }

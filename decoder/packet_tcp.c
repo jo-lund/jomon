@@ -113,8 +113,8 @@ packet_error handle_tcp(struct protocol_info *pinfo, unsigned char *buffer, int 
     pdata->data = info;
     pinfo->num_packets++;
     pinfo->num_bytes += n;
-    info->src_port = tcp->source;
-    info->dst_port = tcp->dest;
+    info->sport = ntohs(tcp->source);
+    info->dport = ntohs(tcp->dest);
     info->seq_num = ntohl(tcp->seq);
     info->ack_num = ntohl(tcp->ack_seq);
     info->offset = tcp->doff;

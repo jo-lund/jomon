@@ -284,11 +284,11 @@ void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int
     entry[PORTB].val = conn->endp->dport;
     while (n) {
         p = list_data(n);
-        if (entry[ADDRA].val == ipv4_src(p) && entry[PORTA].val == tcp_member(p, src_port)) {
+        if (entry[ADDRA].val == ipv4_src(p) && entry[PORTA].val == tcp_member(p, sport)) {
             entry[BYTES_AB].val += p->len;
             entry[PACKETS_AB].val++;
         } else if (entry[ADDRB].val == ipv4_src(p) &&
-                   entry[PORTB].val == tcp_member(p, src_port)) {
+                   entry[PORTB].val == tcp_member(p, sport)) {
             entry[BYTES_BA].val += p->len;
             entry[PACKETS_BA].val++;
         }
