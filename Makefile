@@ -26,23 +26,35 @@ ifeq ($(MACHINE), Linux)
 endif
 objects = $(patsubst %.c,$(BUILDDIR)/%.o,$(sources))
 test-objs = $(patsubst %.c,%.o,$(wildcard $(testdir)/*.c))
+bpf-objs = $(BUILDDIR)/bpf/parse.o $(BUILDDIR)/bpf/lexer.o $(BUILDDIR)/bpf/main.o $(BUILDDIR)/vector.o
 
 .PHONY : all
 all : debug
 
 .PHONY : debug
-debug : CFLAGS += -g -fsanitize=address -fno-omit-frame-pointer
+debug : CFLAGS += -g #-fsanitize=address -fno-omit-frame-pointer
 debug : CPPFLAGS += -DMONITOR_DEBUG
-debug : $(TARGETDIR)/monitor
+debug : $(TARGETDIR)/monitor bpf
 
 .PHONY : release
 release : CFLAGS += -O3
-release : $(TARGETDIR)/monitor
+release : $(TARGETDIR)/monitor bpf
 	@$(STRIP) --strip-all --remove-section .comment $(TARGETDIR)/monitor
 
 $(TARGETDIR)/monitor : $(objects)
 	@mkdir -p $(TARGETDIR)
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $(objects) $(LIBS)
+
+.PHONY : bpf
+bpf : $(TARGETDIR)/jbpf
+
+$(TARGETDIR)/jbpf : bpf/lexer.c $(bpf-objs)
+	@mkdir -p $(TARGETDIR)
+	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $(bpf-objs)
+
+bpf/lexer.c : bpf/lexer.re
+	re2c -W bpf/lexer.re -o $@
+
 
 # Compile and generate dependency files
 $(BUILDDIR)/%.o : %.c
@@ -72,8 +84,9 @@ testclean :
 tags :
 	@find . -name "*.h" -o -name "*.c" | etags -
 
+test : CFLAGS += -O3
 test : $(testdir)/test
 	@$<
 
 $(testdir)/test : $(test-objs)
-	$(CC) $(CPPFLAGS) $< -o $@  -lcheck -lm -lpthread -lrt -lsubunit
+	$(CC) $(CFLAGS) $(CPPFLAGS) $< -o $@  -lcheck -lm -lpthread -lrt -lsubunit

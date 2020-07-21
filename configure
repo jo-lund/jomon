@@ -7,7 +7,7 @@ usage()
     echo "Usage: ./configure [option]"
     echo ""
     echo "   --disable-geoip  : Build without libGeoIP"
-    echo "   -h --help        : Display help"
+    echo "   -h, --help       : Display help"
     exit 0
 }
 
@@ -59,6 +59,22 @@ check_geoip()
     echo "OK"
 }
 
+check_re2c()
+{
+    echo -n "[*] Checking for re2c... "
+
+    command -v re2c >/dev/null ||
+        {
+            echo "FAIL";
+            echo;
+            echo -n "re2c needs to be installed. This can be installed with ";
+            echo "\"pacman -S re2c\" or equivalent command for your distribution.";
+            exit 1;
+        }
+
+    echo "OK"
+}
+
 generate_config()
 {
     echo "[*] Generating config..."
@@ -100,4 +116,5 @@ check_ncurses
 if [[ "$DISABLE_GEOIP" == 0 ]]; then
     check_geoip
 fi
+check_re2c
 generate_config
