@@ -93,8 +93,8 @@ scan:
     "txa"  { return TXA; }
     "tax"  { return TAX; }
 
-    /* registers */
-    [ax] { return input->tok[0]; }
+    /* registers/scratch memory store */
+    [axM] { return input->tok[0]; }
 
     [a-zA-Z][a-zA-Z0-9_]* {
         parser->val.str = strndup((char *) input->tok, TOKENLEN);

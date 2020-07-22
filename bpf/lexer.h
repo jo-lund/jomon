@@ -11,7 +11,9 @@ struct bpf_input {
 };
 
 enum token {
-    LD = 1,
+    LABEL = 1,
+    INT,
+    LD,
     LDH,
     LDB,
     LDX,
@@ -33,9 +35,7 @@ enum token {
     JSET,
     TAX,
     TXA,
-    RET,
-    LABEL,
-    INT
+    RET
 };
 
 struct bpf_parser;

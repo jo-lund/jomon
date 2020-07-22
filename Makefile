@@ -26,13 +26,13 @@ ifeq ($(MACHINE), Linux)
 endif
 objects = $(patsubst %.c,$(BUILDDIR)/%.o,$(sources))
 test-objs = $(patsubst %.c,%.o,$(wildcard $(testdir)/*.c))
-bpf-objs = $(BUILDDIR)/bpf/parse.o $(BUILDDIR)/bpf/lexer.o $(BUILDDIR)/bpf/main.o $(BUILDDIR)/vector.o
+bpf-objs = $(BUILDDIR)/bpf/parse.o $(BUILDDIR)/bpf/lexer.o $(BUILDDIR)/bpf/main.o $(BUILDDIR)/vector.o $(BUILDDIR)/hashmap.o
 
 .PHONY : all
 all : debug
 
 .PHONY : debug
-debug : CFLAGS += -g #-fsanitize=address -fno-omit-frame-pointer
+debug : CFLAGS += -g -fsanitize=address -fno-omit-frame-pointer
 debug : CPPFLAGS += -DMONITOR_DEBUG
 debug : $(TARGETDIR)/monitor bpf
 
@@ -65,6 +65,7 @@ $(BUILDDIR)/%.o : %.c
 
 # Include dependency info for existing object files
 -include $(objects:.o=.d)
+-include $(bpf-objs:.o=.d)
 
 .PHONY : clean
 clean :

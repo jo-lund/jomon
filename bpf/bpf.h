@@ -60,16 +60,9 @@
 
 #define BPF_MEMWORDS 16
 
-enum type {
-    REL,
-    MTDF
-};
-
 struct symbol {
     char *name;
     int value;
-    enum type type;
-    struct symbol *next; /* forward references */
 };
 
 struct bpf_insn {
