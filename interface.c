@@ -34,10 +34,10 @@ struct interface {
     unsigned char hwaddr[8];       /* hardware address */
 };
 
-void iface_activate(iface_handle_t *handle, char *device)
+void iface_activate(iface_handle_t *handle, char *device, struct bpf_prog bpf)
 {
     if (!handle->active) {
-        handle->op->activate(handle, device);
+        handle->op->activate(handle, device, bpf);
         handle->active = true;
     }
 }

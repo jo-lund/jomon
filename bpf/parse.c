@@ -77,14 +77,10 @@ bool bpf_parse_init(char *file)
     struct stat st;
     bool ret = false;
 
-    if ((fd = open(file, O_RDONLY)) == -1) {
-        perror("open error");
+    if ((fd = open(file, O_RDONLY)) == -1)
         return false;
-    }
-    if (fstat(fd, &st) == -1) {
-        perror("fstat error");
+    if (fstat(fd, &st) == -1)
         goto end;
-    }
     memset(&parser, 0, sizeof(parser));
     parser.size = st.st_size;
     parser.line = 1;
@@ -481,19 +477,13 @@ undefined:
     return false;
 }
 
-static void print_bytecode()
+struct bpf_prog bpf_parse()
 {
-    struct bpf_insn *insn;
-
-    for (int i = 0; i < vector_size(bytecode); i++) {
-        insn = vector_get_data(bytecode, i);
-        printf("0x%x, 0x%x, 0x%x, 0x%x\n", insn->code, insn->jt, insn->jf, insn->k);
-    }
-}
-
-bool bpf_parse()
-{
-    bool ret;
+    bool ret = false;
+    struct bpf_prog prog = {
+        .bytecode = NULL,
+        .size = 0
+    };
 
     parser.input.tok = parser.input.buf;
     parser.input.cur = parser.input.buf;
@@ -501,7 +491,7 @@ bool bpf_parse()
     while ((parser.token = get_token()) != 0) {
         if (parser.token == LABEL) {
             if (!parse_label())
-                return false;
+                return prog;
         }
     }
     parser.input.tok = parser.input.buf;
@@ -513,12 +503,12 @@ bool bpf_parse()
             free(parser.val.str);
             if (!match(':')) {
                 error("Unexpected token: %c", parser.token);
-                return false;
+                return prog;
             }
             break;
         case INT:
             error("Unexpected integer");
-            return false;
+            return prog;
         case LD:
             ret = parse_ld();
             break;
@@ -582,11 +572,17 @@ bool bpf_parse()
             break;
         default:
             error("Unexpected token: %c", parser.token);
-            return false;
+            return prog;
         }
         if (!ret)
-            return false;
+            return prog;
     }
-    print_bytecode();
-    return true;
+    int sz = vector_size(bytecode);
+    struct bpf_insn *bc = malloc(sz * sizeof(struct bpf_insn));
+
+    for (int i = 0; i < sz; i++)
+        bc[i] = * (struct bpf_insn *) vector_get_data(bytecode, i);
+    prog.bytecode = bc;
+    prog.size = (uint16_t) sz;
+    return prog;
 }

@@ -25,6 +25,7 @@ ifeq ($(MACHINE), Linux)
     sources += $(wildcard linux/*.c)
 endif
 objects = $(patsubst %.c,$(BUILDDIR)/%.o,$(sources))
+objects += $(BUILDDIR)/bpf/parse.o $(BUILDDIR)/bpf/lexer.o
 test-objs = $(patsubst %.c,%.o,$(wildcard $(testdir)/*.c))
 bpf-objs = $(BUILDDIR)/bpf/parse.o $(BUILDDIR)/bpf/lexer.o $(BUILDDIR)/bpf/main.o $(BUILDDIR)/vector.o $(BUILDDIR)/hashmap.o
 
@@ -80,6 +81,11 @@ distclean : clean
 .PHONY : testclean
 testclean :
 	rm -f $(test-objs) $(testdir)/test
+
+.PHONY : bpfclean
+bpfclean :
+	rm -f $(bpf-objs) bpf/lexer.c
+
 
 .PHONY : tags
 tags :

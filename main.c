@@ -30,6 +30,7 @@
 #include "process.h"
 #include "debug_file.h"
 #include "geoip.h"
+#include "bpf/parse.h"
 
 #define TABLE_SIZE 65536
 
@@ -40,6 +41,7 @@ static bool fd_changed = false;
 static bool promiscuous = false;
 static bool ncurses_initialized = false;
 static iface_handle_t *handle = NULL;
+static struct bpf_prog bpf;
 
 static bool handle_packet(unsigned char *buffer, uint32_t n, struct timeval *t);
 static void print_help(char *prg);
@@ -63,8 +65,9 @@ int main(int argc, char **argv)
     int opt;
     int idx;
     static struct option long_options[] = {
-        { "interface", required_argument, 0, 'i' },
+        { "filter", required_argument, 0, 'f' },
         { "help", no_argument, 0, 'h' },
+        { "interface", required_argument, 0, 'i' },
         { "list-interfaces", no_argument, 0, 'l' },
         { "no-geoip", no_argument, 0, 'G' },
         { "statistics", no_argument, 0, 's' },
@@ -72,6 +75,7 @@ int main(int argc, char **argv)
         { 0, 0, 0, 0}
     };
 
+    memset(&bpf, 0, sizeof(bpf));
     setlocale(LC_ALL, "");
     ctx.opt.use_ncurses = true;
     ctx.opt.nopromiscuous = false;
@@ -79,11 +83,14 @@ int main(int argc, char **argv)
     ctx.opt.load_file = false;
     ctx.opt.nogeoip = false;
     ctx.opt.show_statistics = false;
-    while ((opt = getopt_long(argc, argv, "i:r:Ghlpstv",
+    while ((opt = getopt_long(argc, argv, "i:f:r:Ghlpstv",
                               long_options, &idx)) != -1) {
         switch (opt) {
         case 'G':
             ctx.opt.nogeoip = true;
+            break;
+        case 'f':
+            ctx.filter = optarg;
             break;
         case 'i':
             ctx.device = strdup(optarg);
@@ -141,13 +148,22 @@ int main(int argc, char **argv)
     get_local_mac(ctx.device, ctx.mac);
     if (!ctx.opt.nogeoip && !geoip_init())
         exit(1);
+    if (ctx.filter) {
+        if (!bpf_parse_init(ctx.filter))
+            err_sys("bpf_parse_init error");
+        bpf = bpf_parse();
+        if (bpf.size == 0) {
+            bpf_parse_free();
+            err_quit("bpf_parse error");
+        }
+    }
     if (ctx.opt.load_file) {
         enum file_error err;
         FILE *fp;
 
         ctx.capturing = false;
         if ((fp = open_file(ctx.filename, "r", &err)) == NULL) {
-            err_sys("Error in %s", ctx.filename);
+            err_sys("Error: %s", ctx.filename);
         }
         if ((err = read_file(fp, handle_packet)) != NO_ERROR) {
             fclose(fp);
@@ -174,7 +190,7 @@ int main(int argc, char **argv)
         handle->buf = buf;
         handle->len = SNAPLEN;
         handle->on_packet = handle_packet;
-        iface_activate(handle, ctx.device);
+        iface_activate(handle, ctx.device, bpf);
         if (ctx.opt.use_ncurses) {
             ncurses_init(&ctx);
             ncurses_initialized = true;
@@ -189,6 +205,7 @@ void print_help(char *prg)
     printf("Usage: %s [-lvhpstG] [-i interface] [-r path]\n", prg);
     printf("Options:\n");
     printf("     -G, --no-geoip         Don't use GeoIP information\n");
+    printf("     -f, --filter           Filter file\n");
     printf("     -i, --interface        Specify network interface\n");
     printf("     -l, --list-interfaces  List available interfaces\n");
     printf("     -p                     Don't put the interface into promiscuous mode\n");
@@ -225,6 +242,11 @@ void finish(int status)
     geoip_free();
     if (handle)
         free(handle);
+    if (ctx.filter) {
+        if (bpf.bytecode)
+            free(bpf.bytecode);
+        bpf_parse_free();
+    }
     decoder_exit();
     exit(status);
 }
@@ -282,7 +304,7 @@ void start_scan()
     clear_statistics();
     vector_clear(packets, NULL);
     free_packets(NULL);
-    iface_activate(handle, ctx.device);
+    iface_activate(handle, ctx.device, bpf);
     fd_changed = true;
 }
 

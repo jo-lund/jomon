@@ -72,4 +72,9 @@ struct bpf_insn {
     uint32_t k;
 };
 
+struct bpf_prog {
+    struct bpf_insn *bytecode;
+    uint16_t size;
+};
+
 #endif
