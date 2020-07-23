@@ -176,10 +176,10 @@ static int get_opcode(int insn)
         return BPF_JMP | BPF_JSET;
     case RET:
         return BPF_RET;
-    case TXA:
-        return BPF_LD | BPF_W;
     case TAX:
-        return BPF_LD | BPF_W;
+        return BPF_MISC | BPF_TAX;
+    case TXA:
+        return BPF_MISC | BPF_TXA;
     default:
         return -1;
     }
@@ -574,11 +574,13 @@ struct bpf_prog bpf_parse()
         case RET:
             ret = parse_ret();
             break;
-        case TXA:
-            a = x;
-            break;
         case TAX:
             x = a;
+            bpf_stm(TAX, 0, 0);
+            break;
+        case TXA:
+            a = x;
+            bpf_stm(TXA, 0, 0);
             break;
         default:
             error("Unexpected token: %c", parser.token);
