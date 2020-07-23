@@ -229,31 +229,41 @@ static bool parse_ind(int *reg)
     return true;
 }
 
-static bool parse_offset(int insn, int reg)
+static bool parse_offset(int insn, int *reg)
 {
-    if (parse_ind(&reg)) {
-        bpf_stm(insn, BPF_IND, reg);
+    if (parse_ind(reg)) {
+        bpf_stm(insn, BPF_IND, *reg);
     } else if (parser.token == INT) {
-        reg = parser.val.intval;
-        bpf_stm(insn, BPF_ABS, reg);
+        *reg = parser.val.intval;
+        bpf_stm(insn, BPF_ABS, *reg);
     } else {
         return false;
     }
     return true;
 }
 
-static bool parse_int(int insn, int reg, int mode)
+static bool parse_int(int insn, int *reg, int mode)
 {
-    if (!match(INT)) {
-        error("Expected immediate");
-        return false;
+    bool negative = false;
+
+    if (match('-')) {
+        negative = true;
+        if (!match(INT)) {
+            goto error;
+        }
+    } else if (parser.token != INT) {
+        goto error;
     }
-    reg = parser.val.intval;
-    bpf_stm(insn, mode, reg);
+    *reg = negative ? parser.val.intval * -1 : parser.val.intval;
+    bpf_stm(insn, mode, *reg);
     return true;
+
+error:
+    error("Expected immediate");
+    return false;
 }
 
-static bool parse_mem(int insn, int reg, int mode, bool load)
+static bool parse_mem(int insn, int *reg, int mode, bool load)
 {
     int t;
 
@@ -262,14 +272,14 @@ static bool parse_mem(int insn, int reg, int mode, bool load)
     if (!valid_mem_offset(t))
         return false;
     if (load)
-        reg = M[t];
+        *reg = M[t];
     else
-        M[t] = reg;
+        M[t] = *reg;
     bpf_stm(insn, mode, t);
     return true;
 }
 
-static bool parse_msh(int insn, int reg)
+static bool parse_msh(int insn, int *reg)
 {
     if (parser.val.intval != 4)
         goto error;
@@ -284,10 +294,10 @@ static bool parse_msh(int insn, int reg)
             goto error;
         if (!match(INT) && parser.val.intval == 0xf)
             goto error;
-        reg = 4 * (t & 0xf);
+        *reg = 4 * (t & 0xf);
         if (!match(')'))
             goto error;
-        bpf_stm(insn, BPF_MSH, reg);
+        bpf_stm(insn, BPF_MSH, *reg);
         return true;
     }
 
@@ -299,11 +309,11 @@ error:
 static bool parse_ld()
 {
     if (match('#')) {
-        return parse_int(LD, a, BPF_IMM);
+        return parse_int(LD, &a, BPF_IMM);
     } else if (parser.token == 'M') {
-        return parse_mem(LD, a, BPF_MEM, true);
+        return parse_mem(LD, &a, BPF_MEM, true);
     } else if (parser.token == '[') {
-        if (!parse_offset(LD, a)) {
+        if (!parse_offset(LD, &a)) {
             error("Unexpected token: %c", parser.token);
             return false;
         }
@@ -323,7 +333,7 @@ static bool parse_ldbh()
         error("Expected \'[\' after operand");
         return false;
     }
-    if (!parse_offset(insn, a)) {
+    if (!parse_offset(insn, &a)) {
         error("Unexpected token: %c", parser.token);
         return false;
     }
@@ -337,11 +347,11 @@ static bool parse_ldbh()
 static bool parse_ldx()
 {
     if (match('#'))
-        return parse_int(LDX, x, BPF_IMM);
+        return parse_int(LDX, &x, BPF_IMM);
     else if (parser.token == 'M')
-        return parse_mem(LDX, x, BPF_MEM, true);
+        return parse_mem(LDX, &x, BPF_MEM, true);
     else if (parser.token == INT)
-        return parse_msh(LDX, x);
+        return parse_msh(LDX, &x);
     return true;
 }
 
@@ -349,7 +359,7 @@ static bool parse_ret()
 {
     if (match('#')) {
         int i = 0;
-        return parse_int(RET, i, BPF_K);
+        return parse_int(RET, &i, BPF_K);
     } else if (parser.token == 'a' || parser.token == 'A') {
         bpf_stm(RET, BPF_A, a);
         return true;
@@ -361,7 +371,7 @@ static bool parse_ret()
 static bool parse_st()
 {
     if (match('M'))
-        return parse_mem(ST, a, 0, false);
+        return parse_mem(ST, &a, 0, false);
     error("Unexpected token: %c", parser.token);
     return false;
 }
@@ -369,7 +379,7 @@ static bool parse_st()
 static bool parse_stx()
 {
     if (match('M'))
-        return parse_mem(STX, x, 0, false);
+        return parse_mem(STX, &x, 0, false);
     error("Unexpected token: %c", parser.token);
     return false;
 }
@@ -379,7 +389,7 @@ static bool parse_alu(int insn, int alu_op(int, int))
     if (match('#')) {
         int t = 0;
 
-        if (parse_int(insn, t, BPF_K)) {
+        if (parse_int(insn, &t, BPF_K)) {
             a = alu_op(a, t);
             return true;
         }

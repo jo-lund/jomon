@@ -101,7 +101,7 @@ scan:
         return LABEL;
     }
 
-    [:+*[\]#,()&] { return input->tok[0]; }
+    [:-+*[\]#,()&] { return input->tok[0]; }
 
     ws+ { goto scan; }
 
