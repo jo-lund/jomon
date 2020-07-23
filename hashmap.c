@@ -211,6 +211,9 @@ void hashmap_set_free_data(hashmap_t *map, hashmap_deallocate fn)
 
 void hashmap_free(hashmap_t *map)
 {
+    if (!map)
+        return;
+
     for (unsigned int i = 0; i < map->buckets; i++) {
         if (map->table[i].probe_count != 0) {
             if (map->free_key)

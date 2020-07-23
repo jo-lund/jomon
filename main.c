@@ -47,6 +47,7 @@ static bool handle_packet(unsigned char *buffer, uint32_t n, struct timeval *t);
 static void print_help(char *prg);
 static void setup_signal(int signo, void (*handler)(int), int flags);
 static void run(void);
+static void print_bpf(void) NORETURN;
 
 static void sig_alarm(int signo UNUSED)
 {
@@ -65,14 +66,15 @@ int main(int argc, char **argv)
     int opt;
     int idx;
     static struct option long_options[] = {
-        { "filter", required_argument, 0, 'f' },
-        { "help", no_argument, 0, 'h' },
-        { "interface", required_argument, 0, 'i' },
-        { "list-interfaces", no_argument, 0, 'l' },
-        { "no-geoip", no_argument, 0, 'G' },
-        { "statistics", no_argument, 0, 's' },
-        { "verbose", no_argument, 0, 'v' },
-        { 0, 0, 0, 0}
+        { "dd", no_argument, NULL, '\xdd' },
+        { "filter", required_argument, NULL, 'f' },
+        { "help", no_argument, NULL, 'h' },
+        { "interface", required_argument, NULL, 'i' },
+        { "list-interfaces", no_argument, NULL, 'l' },
+        { "no-geoip", no_argument, NULL, 'G' },
+        { "statistics", no_argument, NULL, 's' },
+        { "verbose", no_argument, NULL, 'v' },
+        { NULL, 0, NULL, 0}
     };
 
     memset(&bpf, 0, sizeof(bpf));
@@ -83,11 +85,17 @@ int main(int argc, char **argv)
     ctx.opt.load_file = false;
     ctx.opt.nogeoip = false;
     ctx.opt.show_statistics = false;
-    while ((opt = getopt_long(argc, argv, "i:f:r:Ghlpstv",
-                              long_options, &idx)) != -1) {
+    while ((opt = getopt_long_only(argc, argv, "i:f:r:Gdhlpstv",
+                                   long_options, &idx)) != -1) {
         switch (opt) {
         case 'G':
             ctx.opt.nogeoip = true;
+            break;
+        case 'd':
+            ctx.opt.mode = MODE_DUMP_C;
+            break;
+        case '\xdd':
+            ctx.opt.mode = MODE_DUMP_INT;
             break;
         case 'f':
             ctx.filter = optarg;
@@ -137,6 +145,15 @@ int main(int argc, char **argv)
     }
     if (ctx.opt.use_ncurses || ctx.opt.load_file)
         packets = vector_init(TABLE_SIZE);
+    if (ctx.filter) {
+        if (!bpf_parse_init(ctx.filter))
+            err_sys("bpf_parse_init error");
+        bpf = bpf_parse();
+        if (bpf.size == 0)
+            err_quit("bpf_parse error");
+    }
+    if (ctx.opt.mode != MODE_NONE)
+        print_bpf();
     if (!ctx.device && !(ctx.device = get_default_interface()))
         err_quit("Cannot find active network device");
     if (!ctx.opt.nopromiscuous && !ctx.opt.load_file) {
@@ -148,15 +165,6 @@ int main(int argc, char **argv)
     get_local_mac(ctx.device, ctx.mac);
     if (!ctx.opt.nogeoip && !geoip_init())
         exit(1);
-    if (ctx.filter) {
-        if (!bpf_parse_init(ctx.filter))
-            err_sys("bpf_parse_init error");
-        bpf = bpf_parse();
-        if (bpf.size == 0) {
-            bpf_parse_free();
-            err_quit("bpf_parse error");
-        }
-    }
     if (ctx.opt.load_file) {
         enum file_error err;
         FILE *fp;
@@ -200,12 +208,35 @@ int main(int argc, char **argv)
     finish(0);
 }
 
-void print_help(char *prg)
+static void print_bpf(void)
 {
-    printf("Usage: %s [-lvhpstG] [-i interface] [-r path]\n", prg);
+    switch (ctx.opt.mode) {
+    case MODE_DUMP_C:
+        for (int i = 0; i < bpf.size; i++)
+            printf("{ 0x%x, %u, %u, 0x%08x },\n", bpf.bytecode[i].code, bpf.bytecode[i].jt,
+                   bpf.bytecode[i].jf, bpf.bytecode[i].k);
+        break;
+    case MODE_DUMP_INT:
+        printf("%u\n", bpf.size);
+        for (int i = 0; i < bpf.size; i++)
+            printf("%u %u %u %u\n", bpf.bytecode[i].code, bpf.bytecode[i].jt,
+                   bpf.bytecode[i].jf, bpf.bytecode[i].k);
+        break;
+    default:
+        break;
+    }
+    exit(0);
+}
+
+static void print_help(char *prg)
+{
+    printf("Usage: %s [-dhlpstvG] [-f filter] [-i interface] [-r path]\n", prg);
     printf("Options:\n");
     printf("     -G, --no-geoip         Don't use GeoIP information\n");
-    printf("     -f, --filter           Filter file\n");
+    printf("     -d                     Dump packet filter as C code fragment and exit\n");
+    printf("     -dd                    Dump packet filter as decimal numbers and exit\n");
+    printf("     -f, --filter           Read packet filter from file\n");
+    printf("     -h                     Print this help summary\n");
     printf("     -i, --interface        Specify network interface\n");
     printf("     -l, --list-interfaces  List available interfaces\n");
     printf("     -p                     Don't put the interface into promiscuous mode\n");
@@ -213,7 +244,48 @@ void print_help(char *prg)
     printf("     -s, --statistics       Show statistics page\n");
     printf("     -t                     Use normal text output, i.e. don't use ncurses\n");
     printf("     -v, --verbose          Print verbose information\n");
-    printf("     -h                     Print this help summary\n");
+}
+
+static void setup_signal(int signo, void (*handler)(int), int flags)
+{
+    struct sigaction act;
+
+    act.sa_handler = handler;
+    sigemptyset(&act.sa_mask);
+    act.sa_flags = flags;
+    if (sigaction(signo, &act, NULL) == -1) {
+        err_sys("sigaction error");
+    }
+}
+
+static void run(void)
+{
+    struct pollfd fds[] = {
+        { handle->sockfd, POLLIN, 0 },
+        { STDIN_FILENO, POLLIN, 0 }
+    };
+
+    while (1) {
+        if (signal_flag) {
+            signal_flag = 0;
+            layout(ALARM);
+            alarm(1);
+        }
+        if (fd_changed) {
+            fds[0].fd = handle->sockfd;
+            fd_changed = false;
+        }
+        if (poll(fds, 2, -1) == -1) {
+            if (errno == EINTR) continue;
+            err_sys("poll error");
+        }
+        if (fds[0].revents & POLLIN) {
+            iface_read_packet(handle);
+        }
+        if (fds[1].revents & POLLIN) {
+            handle_input();
+        }
+    }
 }
 
 void finish(int status)
@@ -249,48 +321,6 @@ void finish(int status)
     }
     decoder_exit();
     exit(status);
-}
-
-void setup_signal(int signo, void (*handler)(int), int flags)
-{
-    struct sigaction act;
-
-    act.sa_handler = handler;
-    sigemptyset(&act.sa_mask);
-    act.sa_flags = flags;
-    if (sigaction(signo, &act, NULL) == -1) {
-        err_sys("sigaction error");
-    }
-}
-
-void run(void)
-{
-    struct pollfd fds[] = {
-        { handle->sockfd, POLLIN, 0 },
-        { STDIN_FILENO, POLLIN, 0 }
-    };
-
-    while (1) {
-        if (signal_flag) {
-            signal_flag = 0;
-            layout(ALARM);
-            alarm(1);
-        }
-        if (fd_changed) {
-            fds[0].fd = handle->sockfd;
-            fd_changed = false;
-        }
-        if (poll(fds, 2, -1) == -1) {
-            if (errno == EINTR) continue;
-            err_sys("poll error");
-        }
-        if (fds[0].revents & POLLIN) {
-            iface_read_packet(handle);
-        }
-        if (fds[1].revents & POLLIN) {
-            handle_input();
-        }
-    }
 }
 
 void stop_scan()

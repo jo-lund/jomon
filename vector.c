@@ -86,6 +86,9 @@ void vector_clear(vector_t *vector, vector_deallocate func)
 
 void vector_free(vector_t *vector, vector_deallocate func)
 {
+    if (!vector)
+        return;
+
     vector_clear(vector, func);
     vector->size = 0;
     free(vector->buf);
