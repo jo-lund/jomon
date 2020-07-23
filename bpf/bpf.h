@@ -62,7 +62,7 @@
 
 struct symbol {
     char *name;
-    int value;
+    uint32_t value;
 };
 
 struct bpf_insn {

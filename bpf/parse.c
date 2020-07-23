@@ -14,6 +14,7 @@
 #include "../hash.h"
 
 #define MAXLINE 1000
+#define BPF_MAXINSN 4096
 
 static struct bpf_parser parser;
 static vector_t *bytecode;
@@ -120,8 +121,13 @@ static void error(const char *fmt, ...)
     fputs(buf, stderr);
 }
 
-static void make_stm(uint16_t opcode, uint8_t jt, uint8_t jf, uint32_t k)
+static bool make_stm(uint16_t opcode, uint8_t jt, uint8_t jf, uint32_t k)
 {
+    if (vector_size(bytecode) >= BPF_MAXINSN) {
+        error("Program exceeds max number of instructions: %u", BPF_MAXINSN);
+        return false;
+    }
+
     struct bpf_insn *insn = malloc(sizeof(struct bpf_insn));
 
     insn->code = opcode;
@@ -129,6 +135,7 @@ static void make_stm(uint16_t opcode, uint8_t jt, uint8_t jf, uint32_t k)
     insn->jf = jf;
     insn->k = k;
     vector_push_back(bytecode, insn);
+    return true;
 }
 
 static int get_opcode(int insn)
@@ -231,15 +238,13 @@ static bool parse_ind(int *reg)
 
 static bool parse_offset(int insn, int *reg)
 {
-    if (parse_ind(reg)) {
-        bpf_stm(insn, BPF_IND, *reg);
-    } else if (parser.token == INT) {
+    if (parse_ind(reg))
+        return bpf_stm(insn, BPF_IND, *reg);
+    if (parser.token == INT) {
         *reg = parser.val.intval;
-        bpf_stm(insn, BPF_ABS, *reg);
-    } else {
-        return false;
+        return bpf_stm(insn, BPF_ABS, *reg);
     }
-    return true;
+    return false;
 }
 
 static bool parse_int(int insn, int *reg, int mode)
@@ -255,8 +260,7 @@ static bool parse_int(int insn, int *reg, int mode)
         goto error;
     }
     *reg = negative ? parser.val.intval * -1 : parser.val.intval;
-    bpf_stm(insn, mode, *reg);
-    return true;
+    return bpf_stm(insn, mode, *reg);
 
 error:
     error("Expected immediate");
@@ -275,8 +279,7 @@ static bool parse_mem(int insn, int *reg, int mode, bool load)
         *reg = M[t];
     else
         M[t] = *reg;
-    bpf_stm(insn, mode, t);
-    return true;
+    return bpf_stm(insn, mode, t);
 }
 
 static bool parse_msh(int insn, int *reg)
@@ -297,8 +300,7 @@ static bool parse_msh(int insn, int *reg)
         *reg = 4 * (t & 0xf);
         if (!match(')'))
             goto error;
-        bpf_stm(insn, BPF_MSH, *reg);
-        return true;
+        return bpf_stm(insn, BPF_MSH, *reg);
     }
 
 error:
@@ -360,10 +362,9 @@ static bool parse_ret()
     if (match('#')) {
         int i = 0;
         return parse_int(RET, &i, BPF_K);
-    } else if (parser.token == 'a' || parser.token == 'A') {
-        bpf_stm(RET, BPF_A, a);
-        return true;
     }
+    if (parser.token == 'a' || parser.token == 'A')
+        return bpf_stm(RET, BPF_A, a);
     error("Unexpected token: %c", parser.token);
     return false;
 }
@@ -395,8 +396,7 @@ static bool parse_alu(int insn, int alu_op(int, int))
         }
     } else if (parser.token == x) {
         a = alu_op(a, x);
-        bpf_stm(insn, BPF_X, 0);
-        return true;
+        return bpf_stm(insn, BPF_X, 0);
     }
     error("Unexpected token: %c", parser.token);
     return false;
@@ -442,9 +442,8 @@ static bool parse_jmp()
         free(parser.val.str);
         return false;
     }
-    bpf_stm(JMP, 0, sym->value - parser.line);
     free(parser.val.str);
-    return true;
+    return bpf_stm(JMP, 0, sym->value - parser.line);
 }
 
 static bool parse_cond_jmp()
@@ -472,9 +471,13 @@ static bool parse_cond_jmp()
         goto error;
     if ((jf = hashmap_get(symbol_table, parser.val.str)) == NULL)
         goto undefined;
-    bpf_jmp_stm(insn, BPF_K, jt->value - parser.line, jf->value - parser.line, t);
+    if (jt->value < parser.line || jf->value < parser.line) {
+        free(parser.val.str);
+        error("Backward jumps are not supported");
+        return false;
+    }
     free(parser.val.str);
-    return true;
+    return bpf_jmp_stm(insn, BPF_K, jt->value - parser.line, jf->value - parser.line, t);
 
 error:
     free(parser.val.str);
@@ -576,11 +579,11 @@ struct bpf_prog bpf_parse()
             break;
         case TAX:
             x = a;
-            bpf_stm(TAX, 0, 0);
+            ret = bpf_stm(TAX, 0, 0);
             break;
         case TXA:
             a = x;
-            bpf_stm(TXA, 0, 0);
+            ret = bpf_stm(TXA, 0, 0);
             break;
         default:
             error("Unexpected token: %c", parser.token);
