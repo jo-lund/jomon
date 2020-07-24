@@ -122,7 +122,7 @@ ldx_len:
 
 ldx_msh:
     if (bpf.bytecode[pc-1].k > n)
-        return -1;
+        return 0;
     x = 4 * (buf[bpf.bytecode[pc-1].k] & 0xf);
     goto *dispatch_table[bpf.bytecode[pc++].code];
 
@@ -148,7 +148,7 @@ mul_k:
 
 div_k:
     if (bpf.bytecode[pc-1].k == 0)
-        return -1;
+        return 0;
     a /= bpf.bytecode[pc-1].k;
     goto *dispatch_table[bpf.bytecode[pc++].code];
 
