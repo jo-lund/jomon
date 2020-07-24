@@ -20,9 +20,35 @@ static struct bpf_parser parser;
 static vector_t *bytecode;
 static hashmap_t *symbol_table;
 
+static uint16_t opcodes[] = {
+    [LD]   = BPF_LD | BPF_W,
+    [LDH]  = BPF_LD | BPF_H,
+    [LDB]  = BPF_LD | BPF_B,
+    [LDX]  = BPF_LDX | BPF_W,
+    [ST]   = BPF_ST,
+    [STX]  = BPF_STX,
+    [ADD]  = BPF_ALU | BPF_ADD,
+    [SUB]  = BPF_ALU | BPF_SUB,
+    [MUL]  = BPF_ALU | BPF_MUL,
+    [DIV]  = BPF_ALU | BPF_DIV,
+    [AND]  = BPF_ALU | BPF_AND,
+    [OR]   = BPF_ALU | BPF_OR,
+    [XOR]  = BPF_ALU | BPF_XOR,
+    [LSH]  = BPF_ALU | BPF_LSH,
+    [RSH]  = BPF_ALU | BPF_RSH,
+    [JMP]  = BPF_JMP | BPF_JA,
+    [JEQ]  = BPF_JMP | BPF_JEQ,
+    [JGT]  = BPF_JMP | BPF_JGT,
+    [JGE]  = BPF_JMP | BPF_JGE,
+    [JSET] = BPF_JMP | BPF_JSET,
+    [TAX]  = BPF_MISC | BPF_TAX,
+    [TXA]  = BPF_MISC | BPF_TXA,
+    [RET]  = BPF_RET
+};
+
 #define get_token() bpf_lex(&parser)
-#define bpf_jmp_stm(i, m, jt, jf, k) make_stm(get_opcode(i) | (m), jt, jf, k)
-#define bpf_stm(i, m, k) make_stm(get_opcode(i) | (m), 0, 0, k)
+#define bpf_jmp_stm(i, m, jt, jf, k) make_stm(opcodes[i] | (m), jt, jf, k)
+#define bpf_stm(i, m, k) make_stm(opcodes[i] | (m), 0, 0, k)
 
 bool bpf_parse_init(char *file)
 {
@@ -87,60 +113,6 @@ static bool make_stm(uint16_t opcode, uint8_t jt, uint8_t jf, uint32_t k)
     insn->k = k;
     vector_push_back(bytecode, insn);
     return true;
-}
-
-static int get_opcode(int insn)
-{
-    switch (insn) {
-    case LD:
-        return BPF_LD | BPF_W;
-    case LDB:
-        return BPF_LD | BPF_B;
-    case LDH:
-        return BPF_LD | BPF_H;
-    case LDX:
-        return BPF_LDX | BPF_W;
-    case ST:
-        return BPF_ST;
-    case STX:
-        return BPF_STX;
-    case ADD:
-        return BPF_ALU | BPF_ADD;
-    case SUB:
-        return BPF_ALU | BPF_SUB;
-    case MUL:
-        return BPF_ALU | BPF_MUL;
-    case DIV:
-        return BPF_ALU | BPF_DIV;
-    case AND:
-        return BPF_ALU | BPF_AND;
-    case OR:
-        return BPF_ALU | BPF_OR;
-    case XOR:
-        return BPF_ALU | BPF_XOR;
-    case LSH:
-        return BPF_ALU | BPF_LSH;
-    case RSH:
-        return BPF_ALU | BPF_RSH;
-    case JMP:
-        return BPF_JMP | BPF_JA;
-    case JEQ:
-        return BPF_JMP | BPF_JEQ;
-    case JGT:
-        return BPF_JMP | BPF_JGT;
-    case JGE:
-        return BPF_JMP | BPF_JGE;
-    case JSET:
-        return BPF_JMP | BPF_JSET;
-    case RET:
-        return BPF_RET;
-    case TAX:
-        return BPF_MISC | BPF_TAX;
-    case TXA:
-        return BPF_MISC | BPF_TXA;
-    default:
-        return -1;
-    }
 }
 
 static inline bool valid_mem_offset(int i)
@@ -237,7 +209,12 @@ static bool parse_msh(int insn)
             goto error;
         if (!match(')'))
             goto error;
-        return bpf_stm(insn, BPF_MSH, k);
+
+        /*
+         * The instruction: ldx  4 * ([k] & 0xf)
+         * should use the BPF_B size modifier even though it has no 'b' suffix
+         */
+        return bpf_stm(insn, BPF_B | BPF_MSH, k);
     }
 
 error:
