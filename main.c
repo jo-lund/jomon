@@ -342,6 +342,12 @@ bool handle_packet(unsigned char *buffer, uint32_t n, struct timeval *t)
 {
     struct packet *p;
 
+    if (bpf.size > 0) {
+        int k = bpf_run_filter(bpf, buffer, n);
+
+        if (k == 0)
+            return true;
+    }
     if (!decode_packet(buffer, n, &p)) {
         return false;
     }

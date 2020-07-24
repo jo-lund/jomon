@@ -62,6 +62,7 @@ void linux_activate(iface_handle_t *handle, char *device, struct bpf_prog bpf)
 
         if (setsockopt(handle->sockfd, SOL_SOCKET, SO_ATTACH_FILTER, &code, sizeof(code)) == -1)
             err_sys("setsockopt error");
+        bpf.size = 0; /* clear filter */
     }
     memset(&ll_addr, 0, sizeof(ll_addr));
     ll_addr.sll_family = PF_PACKET;

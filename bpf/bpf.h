@@ -60,11 +60,6 @@
 
 #define BPF_MEMWORDS 16
 
-struct symbol {
-    char *name;
-    uint32_t value;
-};
-
 struct bpf_insn {
     uint16_t code;
     uint8_t jt;
@@ -76,5 +71,7 @@ struct bpf_prog {
     struct bpf_insn *bytecode;
     uint16_t size;
 };
+
+int bpf_run_filter(struct bpf_prog bpf, unsigned char *buf, uint32_t n);
 
 #endif

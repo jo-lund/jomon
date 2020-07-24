@@ -16,6 +16,11 @@
 #define MAXLINE 1000
 #define BPF_MAXINSN 4096
 
+struct symbol {
+    char *name;
+    uint32_t value;
+};
+
 static struct bpf_parser parser;
 static vector_t *bytecode;
 static hashmap_t *symbol_table;

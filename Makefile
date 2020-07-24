@@ -25,9 +25,10 @@ ifeq ($(MACHINE), Linux)
     sources += $(wildcard linux/*.c)
 endif
 objects = $(patsubst %.c,$(BUILDDIR)/%.o,$(sources))
-objects += $(BUILDDIR)/bpf/parse.o $(BUILDDIR)/bpf/lexer.o
+objects += $(BUILDDIR)/bpf/parse.o $(BUILDDIR)/bpf/lexer.o $(BUILDDIR)/bpf/bpf.o
 test-objs = $(patsubst %.c,%.o,$(wildcard $(testdir)/*.c))
-bpf-objs = $(BUILDDIR)/bpf/parse.o $(BUILDDIR)/bpf/lexer.o $(BUILDDIR)/bpf/main.o $(BUILDDIR)/vector.o $(BUILDDIR)/hashmap.o
+bpf-objs = $(BUILDDIR)/bpf/parse.o $(BUILDDIR)/bpf/lexer.o $(BUILDDIR)/bpf/main.o $(BUILDDIR)/bpf/bpf.o \
+  $(BUILDDIR)/vector.o $(BUILDDIR)/hashmap.o
 
 .PHONY : all
 all : debug
