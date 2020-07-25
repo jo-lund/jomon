@@ -345,11 +345,18 @@ static bool parse_jmp()
     }
     if ((sym = hashmap_get(symbol_table, parser.val.str)) == NULL) {
         error("Undefined label");
-        free(parser.val.str);
-        return false;
+        goto cleanup;
+    }
+    if (sym->value < parser.line) {
+        error("Backward jumps are not supported");
+        goto cleanup;
     }
     free(parser.val.str);
     return bpf_stm(JMP, 0, sym->value - parser.line);
+
+cleanup:
+    free(parser.val.str);
+    return false;
 }
 
 static bool parse_cond_jmp()
@@ -391,8 +398,8 @@ error:
     return false;
 
 undefined:
-    free(parser.val.str);
     error("Undefined label: %s", parser.val.str);
+    free(parser.val.str);
     return false;
 }
 
@@ -477,6 +484,12 @@ struct bpf_prog bpf_parse()
         }
         if (!ret)
             return prog;
+    }
+    struct bpf_insn *insn = vector_get_data(bytecode, vector_size(bytecode) - 1);
+
+    if (BPF_CLASS(insn->code) != BPF_RET) {
+        error("Not a valid program");
+        return prog;
     }
     int sz = vector_size(bytecode);
     struct bpf_insn *bc = malloc(sz * sizeof(struct bpf_insn));
