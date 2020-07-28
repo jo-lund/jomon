@@ -519,8 +519,8 @@ bool read_show_progress(unsigned char *buffer, uint32_t n, struct timeval *t)
     p->time.tv_usec = t->tv_usec;
     if (p->perr != DECODE_ERR) {
         tcp_analyzer_check_stream(p);
+        host_analyzer_investigate(p);
     }
-    host_analyzer_investigate(p);
     vector_push_back(ms->packet_ref, p);
     PROGRESS_DIALOGUE_UPDATE(pd, n);
     return true;
