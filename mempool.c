@@ -70,6 +70,21 @@ void *mempool_shcopy(void *addr, int size)
     return obstack_copy(&request_pool, addr, size);
 }
 
+void *mempool_shcopy0(void *addr, int size)
+{
+    return obstack_copy0(&request_pool, addr, size);
+}
+
+void mempool_shgrow(void *data, int size)
+{
+    obstack_grow(&request_pool, data, size);
+}
+
+void *mempool_shfinish()
+{
+    return obstack_finish(&request_pool);
+}
+
 void mempool_shfree(void *ptr)
 {
     if (ptr) {

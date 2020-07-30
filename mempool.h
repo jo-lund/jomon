@@ -52,6 +52,18 @@ void *mempool_shalloc(size_t size);
 void *mempool_shcopy(void *addr, int size);
 
 /*
+ * Allocates an object in the short-lived pool of 'size + 1' bytes with 'size'
+ * bytes copied from address followed by a null character at the end.
+ */
+void *mempool_shcopy0(void *addr, int size);
+
+/* See mempool_pegrow */
+void mempool_shgrow(void *data, int size);
+
+/* See mempool_pefinish */
+void *mempool_shfinish();
+
+/*
  * Deallocates ptr and everything allocated in the short-lived pool more recently
  * than ptr. To deallocate the whole pool use NULL as argument.
  */
