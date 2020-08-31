@@ -11,7 +11,7 @@
 #include <linux/filter.h>
 #include "../util.h"
 
-static void linux_activate(iface_handle_t *handle, char *device, struct bpf_prog bpf);
+static void linux_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf);
 static void linux_close(iface_handle_t *handle);
 static void linux_read_packet(iface_handle_t *handle);
 
@@ -30,7 +30,7 @@ iface_handle_t *iface_handle_create()
     return handle;
 }
 
-void linux_activate(iface_handle_t *handle, char *device, struct bpf_prog bpf)
+void linux_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf)
 {
     int flag;
     int n = 1;
@@ -54,15 +54,15 @@ void linux_activate(iface_handle_t *handle, char *device, struct bpf_prog bpf)
         err_sys("setsockopt error");
     }
 
-    if (bpf.size > 0) {
+    if (bpf->size > 0) {
         struct sock_fprog code = {
-            .len = bpf.size,
-            .filter = (struct sock_filter *) bpf.bytecode
+            .len = bpf->size,
+            .filter = (struct sock_filter *) bpf->bytecode
         };
 
         if (setsockopt(handle->sockfd, SOL_SOCKET, SO_ATTACH_FILTER, &code, sizeof(code)) == -1)
             err_sys("setsockopt error");
-        bpf.size = 0; /* clear filter */
+        bpf->size = 0; /* clear filter */
     }
     memset(&ll_addr, 0, sizeof(ll_addr));
     ll_addr.sll_family = PF_PACKET;

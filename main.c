@@ -198,7 +198,7 @@ int main(int argc, char **argv)
         handle->buf = buf;
         handle->len = SNAPLEN;
         handle->on_packet = handle_packet;
-        iface_activate(handle, ctx.device, bpf);
+        iface_activate(handle, ctx.device, &bpf);
         if (ctx.opt.use_ncurses) {
             ncurses_init(&ctx);
             ncurses_initialized = true;
@@ -334,7 +334,7 @@ void start_scan()
     clear_statistics();
     vector_clear(packets, NULL);
     free_packets(NULL);
-    iface_activate(handle, ctx.device, bpf);
+    iface_activate(handle, ctx.device, &bpf);
     fd_changed = true;
 }
 

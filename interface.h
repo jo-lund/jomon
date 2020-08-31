@@ -22,7 +22,7 @@ typedef struct iface_handle {
 } iface_handle_t;
 
 struct iface_operations {
-    void (*activate)(iface_handle_t *handle, char *device, struct bpf_prog bpf);
+    void (*activate)(iface_handle_t *handle, char *device, struct bpf_prog *bpf);
     void (*close)(iface_handle_t *handle);
     void (*read_packet)(iface_handle_t *handle);
 };
@@ -31,7 +31,7 @@ struct iface_operations {
 iface_handle_t *iface_handle_create();
 
 /* Activate the interface */
-void iface_activate(iface_handle_t *handle, char *device, struct bpf_prog bpf);
+void iface_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf);
 
 /* Close the interface */
 void iface_close(iface_handle_t *handle);
