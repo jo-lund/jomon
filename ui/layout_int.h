@@ -33,6 +33,7 @@ enum elements {
     MENU_SELECTIONBAR,
     SRC_TXT,
     DST_TXT,
+    ERR_BKGD,
     NUM_ELEMENTS
 };
 

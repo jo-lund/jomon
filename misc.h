@@ -54,6 +54,7 @@ typedef struct {
     struct sockaddr_in *local_addr;
     unsigned char mac[ETHER_ADDR_LEN];
     char *filter;
+    char *filter_file;
 } main_context;
 
 enum event {

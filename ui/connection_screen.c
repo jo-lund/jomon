@@ -22,7 +22,6 @@
 #define PROC_WIDTH 20
 #define MAX_WIDTH 20
 #define CONN_HEADER 5
-#define STATUS_HEIGHT 1
 
 enum cs_val {
     ADDRA,

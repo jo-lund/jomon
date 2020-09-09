@@ -1,6 +1,7 @@
 #include <string.h>
 #include "lexer.h"
 #include "parse.h"
+#include "util.h"
 
 #define YYFILL(n) {}
 #define YYLIMIT input->lim
@@ -8,31 +9,6 @@
 #define TOKENLEN (input->cur - input->tok)
 
 /*!re2c re2c:define:YYCTYPE = "unsigned char"; */
-
-// TODO: Check for overflow
-long getval(unsigned char *tok, unsigned char *end, int base)
-{
-    long v = 0;
-
-    while (tok < end)
-        v = v * base + *tok++ - '0';
-    return v;
-}
-
-long gethexval(unsigned char *tok, unsigned char *end)
-{
-    long v = 0;
-
-    while (tok < end) {
-        if (*tok >= 'A' && *tok <= 'F')
-            v = v * 16 + *tok++ - 'A' + 10;
-        else if (*tok >= 'a' && *tok <= 'f')
-            v = v * 16 + *tok++ - 'a' + 10;
-        else
-            v = v * 16 + *tok++ - '0';
-    }
-    return v;
-}
 
 int bpf_lex(struct bpf_parser *parser)
 {
@@ -101,7 +77,7 @@ scan:
         return LABEL;
     }
 
-    [:-+*[\]#,()&] { return input->tok[0]; }
+    [:+*[\]#,()&-] { return input->tok[0]; }
 
     ws+ { goto scan; }
 

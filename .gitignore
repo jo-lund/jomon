@@ -2,6 +2,7 @@
 config.mk
 config.h
 bpf/lexer.c
+bpf/pcap_lexer.c
 TAGS
 
 # Build results

@@ -3,8 +3,8 @@
 
 int bpf_run_filter(struct bpf_prog bpf, unsigned char *buf, uint32_t n)
 {
-    uint32_t a = 0; /* index register */
-    uint32_t x = 0; /* accumulator */
+    uint32_t a = 0; /* accumulator */
+    uint32_t x = 0; /* index register */
     uint32_t pc = 0;
     uint32_t M[BPF_MEMWORDS]; /* scratch memory store */
     static void *dispatch_table[] = {

@@ -25,10 +25,12 @@ ifeq ($(MACHINE), Linux)
     sources += $(wildcard linux/*.c)
 endif
 objects = $(patsubst %.c,$(BUILDDIR)/%.o,$(sources))
-objects += $(BUILDDIR)/bpf/parse.o $(BUILDDIR)/bpf/lexer.o $(BUILDDIR)/bpf/bpf.o
+objects += $(BUILDDIR)/bpf/parse.o $(BUILDDIR)/bpf/lexer.o $(BUILDDIR)/bpf/bpf.o $(BUILDDIR)/bpf/pcap_lexer.o \
+  $(BUILDDIR)/bpf/pcap_parser.o
 test-objs = $(patsubst %.c,%.o,$(wildcard $(testdir)/*.c))
 bpf-objs = $(BUILDDIR)/bpf/parse.o $(BUILDDIR)/bpf/lexer.o $(BUILDDIR)/bpf/main.o $(BUILDDIR)/bpf/bpf.o \
-  $(BUILDDIR)/vector.o $(BUILDDIR)/hashmap.o
+  $(BUILDDIR)/bpf/pcap_lexer.o $(BUILDDIR)/bpf/pcap_parser.o $(BUILDDIR)/vector.o $(BUILDDIR)/hashmap.o \
+  $(BUILDDIR)/mempool.o $(BUILDDIR)/debug_file.o $(BUILDDIR)/util.o
 
 .PHONY : all
 all : debug
@@ -50,13 +52,15 @@ $(TARGETDIR)/monitor : $(objects)
 .PHONY : bpf
 bpf : $(TARGETDIR)/jbpf
 
-$(TARGETDIR)/jbpf : bpf/lexer.c $(bpf-objs)
+$(TARGETDIR)/jbpf : bpf/lexer.c bpf/pcap_lexer.c $(bpf-objs)
 	@mkdir -p $(TARGETDIR)
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $(bpf-objs)
 
 bpf/lexer.c : bpf/lexer.re
 	re2c -W bpf/lexer.re -o $@
 
+bpf/pcap_lexer.c : bpf/pcap_lexer.re
+	re2c -T -W bpf/pcap_lexer.re -o $@
 
 # Compile and generate dependency files
 $(BUILDDIR)/%.o : %.c
@@ -74,6 +78,7 @@ clean :
 	rm -rf bin
 	rm -rf build
 	rm -f $(test-objs) $(testdir)/test
+	rm -f $(bpf-objs) bpf/lexer.c bpf/pcap_lexer.c
 
 .PHONY : distclean
 distclean : clean
@@ -85,7 +90,7 @@ testclean :
 
 .PHONY : bpfclean
 bpfclean :
-	rm -f $(bpf-objs) bpf/lexer.c
+	rm -f $(bpf-objs) bpf/lexer.c bpf/pcap_lexer.c
 
 
 .PHONY : tags

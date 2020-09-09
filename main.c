@@ -67,7 +67,6 @@ int main(int argc, char **argv)
     int idx;
     static struct option long_options[] = {
         { "dd", no_argument, NULL, '\xdd' },
-        { "filter", required_argument, NULL, 'f' },
         { "help", no_argument, NULL, 'h' },
         { "interface", required_argument, NULL, 'i' },
         { "list-interfaces", no_argument, NULL, 'l' },
@@ -85,9 +84,12 @@ int main(int argc, char **argv)
     ctx.opt.load_file = false;
     ctx.opt.nogeoip = false;
     ctx.opt.show_statistics = false;
-    while ((opt = getopt_long_only(argc, argv, "i:f:r:Gdhlpstv",
+    while ((opt = getopt_long_only(argc, argv, "F:i:f:r:Gdhlpstv",
                                    long_options, &idx)) != -1) {
         switch (opt) {
+        case 'F':
+            ctx.filter_file = optarg;
+            break;
         case 'G':
             ctx.opt.nogeoip = true;
             break;
@@ -129,6 +131,8 @@ int main(int argc, char **argv)
             exit(0);
         }
     }
+    if (ctx.filter && ctx.filter_file)
+        err_quit("Cannot set both a filter expression and a filter file");
     setup_signal(SIGALRM, sig_alarm, SA_RESTART);
     setup_signal(SIGINT, sig_int, 0);
     mempool_init();
@@ -145,12 +149,16 @@ int main(int argc, char **argv)
     }
     if (ctx.opt.use_ncurses || ctx.opt.load_file)
         packets = vector_init(TABLE_SIZE);
-    if (ctx.filter) {
-        if (!bpf_parse_init(ctx.filter))
+    if (ctx.filter_file) {
+        if (!bpf_parse_init(ctx.filter_file))
             err_sys("bpf_parse_init error");
         bpf = bpf_parse();
         if (bpf.size == 0)
             err_quit("bpf_parse error");
+    } else if (ctx.filter) {
+        bpf = pcap_compile(ctx.filter);
+        if (bpf.size == 0)
+            err_quit("pcap_compile error");
     }
     if (ctx.opt.mode != MODE_NONE)
         print_bpf();
@@ -230,12 +238,13 @@ static void print_bpf(void)
 
 static void print_help(char *prg)
 {
-    printf("Usage: %s [-dhlpstvG] [-f filter] [-i interface] [-r path]\n", prg);
+    printf("Usage: %s [-dhlpstvG] [-f filter] [-F filter-file] [-i interface] [-r path]\n", prg);
     printf("Options:\n");
     printf("     -G, --no-geoip         Don't use GeoIP information\n");
     printf("     -d                     Dump packet filter as C code fragment and exit\n");
     printf("     -dd                    Dump packet filter as decimal numbers and exit\n");
-    printf("     -f, --filter           Read packet filter from file\n");
+    printf("     -F,                    Read packet filter from file\n");
+    printf("     -f,                    Specify packet filter\n");
     printf("     -h                     Print this help summary\n");
     printf("     -i, --interface        Specify network interface\n");
     printf("     -l, --list-interfaces  List available interfaces\n");
@@ -343,9 +352,7 @@ bool handle_packet(unsigned char *buffer, uint32_t n, struct timeval *t)
     struct packet *p;
 
     if (bpf.size > 0) {
-        int k = bpf_run_filter(bpf, buffer, n);
-
-        if (k == 0)
+        if (bpf_run_filter(bpf, buffer, n) == 0)
             return true;
     }
     if (!decode_packet(buffer, n, &p)) {
