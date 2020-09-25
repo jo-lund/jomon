@@ -17,11 +17,11 @@ int pcap_lex(struct bpf_parser *parser)
     unsigned char *o1, *o2, *o3, *o4;
 
     if (input->cur == input->eof)
-        return 0;
+        return PCAP_EOF;
 
 scan:
     if (*input->cur == '\0')
-        return 0;
+        return PCAP_EOF;
     input->tok = input->cur;
 
     /*!stags:re2c format = 'unsigned char *@@;'; */
@@ -95,10 +95,10 @@ scan:
       "protochain" { return PCAP_PROTOCHAIN; }
 
       /* operators */
-      "and" { return PCAP_AND; }
-      "&&"  { return PCAP_AND; }
-      "or"  { return PCAP_OR; }
-      "||"  { return PCAP_OR; }
+      "and" { return PCAP_LAND; }
+      "&&"  { return PCAP_LAND; }
+      "or"  { return PCAP_LOR; }
+      "||"  { return PCAP_LOR; }
       "not" { return PCAP_NOT; }
       "!"   { return PCAP_NOT; }
       ">="  { return PCAP_GEQ; }
@@ -106,8 +106,21 @@ scan:
       "!="  { return PCAP_NEQ; }
       "<<"  { return PCAP_SHL; }
       ">>"  { return PCAP_SHR; }
+      "<"   { return PCAP_LE; }
+      ">"   { return PCAP_GT; }
+      "="   { return PCAP_EQ; }
+      "+"   { return PCAP_ADD; }
+      "-"   { return PCAP_SUB; }
+      "*"   { return PCAP_MUL; }
+      "/"   { return PCAP_DIV; }
+      "%"   { return PCAP_MOD; }
+      "&"   { return PCAP_AND; }
+      "^"   { return PCAP_XOR; }
+      "|"   { return PCAP_OR; }
+      "["   { return PCAP_LBRACKET; }
+      "]"   { return PCAP_RBRACKET; }
 
-      [<>=:+*[\],()&-] { return input->tok[0]; }
+      ":" { return PCAP_COL; }
 
       /* IPv4 address */
       octet = [0-9] | [1-9][0-9] | [1][0-9][0-9] | [2][0-4][0-9] | [2][5][0-5];
@@ -141,7 +154,7 @@ scan:
       * { return -1; }
 
       /* end of input */
-      [\x00] { return 0; }
+      [\x00] { return PCAP_EOF; }
 
     */
 }

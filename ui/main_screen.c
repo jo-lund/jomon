@@ -27,7 +27,7 @@
 #include "main_screen_int.h"
 #include "conversation_screen.h"
 #include "dialogue.h"
-#include "../bpf/parse.h"
+#include "../bpf/pcap_parser.h"
 
 /* Get the y screen coordinate. The argument is the main_screen coordinate */
 #define GET_SCRY(y) ((y) + HEADER_HEIGHT)
@@ -744,7 +744,7 @@ void main_screen_goto_line(main_screen *ms, int c)
         wrefresh(ms->base.win);
         curs_set(0);
         werase(status);
-        input_mode = MODE_NONE;
+        input_mode = INPUT_NONE;
         num = 0;
         print_status();
     } else if (c == KEY_ESC) {
@@ -752,7 +752,7 @@ void main_screen_goto_line(main_screen *ms, int c)
         werase(status);
         print_status();
         num = 0;
-        input_mode = MODE_NONE;
+        input_mode = INPUT_NONE;
     }
     wrefresh(status);
 }
@@ -832,7 +832,7 @@ void clear_filter(main_screen *ms)
             ms->outy = print_lines(ms, 0, getmaxy(ms->base.win), 0);
     }
     memset(bpf_filter, 0, sizeof(bpf_filter));
-    input_mode = MODE_NONE;
+    input_mode = INPUT_NONE;
     werase(status);
     print_status();
 }
@@ -843,14 +843,14 @@ void filter_packets(main_screen *ms)
         wbkgd(status, get_theme_colour(ERR_BKGD));
         return;
     }
-    ms->packet_ref = vector_init(1024);
+    ms->packet_ref = vector_init(vector_size(packets) / 2);
     for (int i = 0; i < vector_size(packets); i++) {
         struct packet *p = vector_get_data(packets, i);
 
-        if (bpf_run_filter(bpf, p->buf, p->len) > 0)
+        if (bpf_run_filter(bpf, p->buf, p->len) != 0)
             vector_push_back(ms->packet_ref, p);
     }
-    input_mode = MODE_NONE;
+    input_mode = INPUT_NONE;
     werase(status);
     print_status();
     werase(ms->base.win);

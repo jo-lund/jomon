@@ -31,8 +31,19 @@
 #include "debug_file.h"
 #include "geoip.h"
 #include "bpf/parse.h"
+#include "bpf/pcap_parser.h"
+#include "bpf/genasm.h"
 
 #define TABLE_SIZE 65536
+#define SHORT_OPTS "F:i:f:r:Gdhlpstv"
+#define BPF_DUMP_MODES 3
+
+enum bpf_dump_mode {
+    BPF_DUMP_MODE_NONE,
+    BPF_DUMP_MODE_ASM,
+    BPF_DUMP_MODE_C,
+    BPF_DUMP_MODE_INT
+};
 
 vector_t *packets;
 main_context ctx;
@@ -66,7 +77,6 @@ int main(int argc, char **argv)
     int opt;
     int idx;
     static struct option long_options[] = {
-        { "dd", no_argument, NULL, '\xdd' },
         { "help", no_argument, NULL, 'h' },
         { "interface", required_argument, NULL, 'i' },
         { "list-interfaces", no_argument, NULL, 'l' },
@@ -84,8 +94,7 @@ int main(int argc, char **argv)
     ctx.opt.load_file = false;
     ctx.opt.nogeoip = false;
     ctx.opt.show_statistics = false;
-    while ((opt = getopt_long_only(argc, argv, "F:i:f:r:Gdhlpstv",
-                                   long_options, &idx)) != -1) {
+    while ((opt = getopt_long(argc, argv, SHORT_OPTS, long_options, &idx)) != -1) {
         switch (opt) {
         case 'F':
             ctx.filter_file = optarg;
@@ -94,10 +103,7 @@ int main(int argc, char **argv)
             ctx.opt.nogeoip = true;
             break;
         case 'd':
-            ctx.opt.mode = MODE_DUMP_C;
-            break;
-        case '\xdd':
-            ctx.opt.mode = MODE_DUMP_INT;
+            ctx.opt.dmode++;
             break;
         case 'f':
             ctx.filter = optarg;
@@ -133,6 +139,8 @@ int main(int argc, char **argv)
     }
     if (ctx.filter && ctx.filter_file)
         err_quit("Cannot set both a filter expression and a filter file");
+    if (ctx.opt.dmode > BPF_DUMP_MODES)
+        err_quit("Only -d, -dd, and -ddd are accepted");
     setup_signal(SIGALRM, sig_alarm, SA_RESTART);
     setup_signal(SIGINT, sig_int, 0);
     mempool_init();
@@ -160,7 +168,7 @@ int main(int argc, char **argv)
         if (bpf.size == 0)
             err_quit("pcap_compile error");
     }
-    if (ctx.opt.mode != MODE_NONE)
+    if (ctx.opt.dmode > BPF_DUMP_MODE_NONE)
         print_bpf();
     if (!ctx.device && !(ctx.device = get_default_interface()))
         err_quit("Cannot find active network device");
@@ -168,7 +176,7 @@ int main(int argc, char **argv)
         set_promiscuous(ctx.device, true);
         promiscuous = true;
     }
-    ctx.local_addr = malloc(sizeof (struct sockaddr_in));
+    ctx.local_addr = malloc(sizeof(struct sockaddr_in));
     get_local_address(ctx.device, (struct sockaddr *) ctx.local_addr);
     get_local_mac(ctx.device, ctx.mac);
     if (!ctx.opt.nogeoip && !geoip_init())
@@ -218,13 +226,16 @@ int main(int argc, char **argv)
 
 static void print_bpf(void)
 {
-    switch (ctx.opt.mode) {
-    case MODE_DUMP_C:
+    switch (ctx.opt.dmode) {
+    case BPF_DUMP_MODE_ASM:
+        dumpasm(&bpf);
+        break;
+    case BPF_DUMP_MODE_C:
         for (int i = 0; i < bpf.size; i++)
             printf("{ 0x%x, %u, %u, 0x%08x },\n", bpf.bytecode[i].code, bpf.bytecode[i].jt,
                    bpf.bytecode[i].jf, bpf.bytecode[i].k);
         break;
-    case MODE_DUMP_INT:
+    case BPF_DUMP_MODE_INT:
         printf("%u\n", bpf.size);
         for (int i = 0; i < bpf.size; i++)
             printf("%u %u %u %u\n", bpf.bytecode[i].code, bpf.bytecode[i].jt,
@@ -241,11 +252,12 @@ static void print_help(char *prg)
     printf("Usage: %s [-dhlpstvG] [-f filter] [-F filter-file] [-i interface] [-r path]\n", prg);
     printf("Options:\n");
     printf("     -G, --no-geoip         Don't use GeoIP information\n");
-    printf("     -d                     Dump packet filter as C code fragment and exit\n");
-    printf("     -dd                    Dump packet filter as decimal numbers and exit\n");
+    printf("     -d                     Dump packet filter as BPF assembly and exit");
+    printf("     -dd                    Dump packet filter as C code fragment and exit\n");
+    printf("     -ddd                   Dump packet filter as decimal numbers and exit\n");
     printf("     -F,                    Read packet filter from file\n");
     printf("     -f,                    Specify packet filter\n");
-    printf("     -h                     Print this help summary\n");
+    printf("     -h, --help             Print this help summary\n");
     printf("     -i, --interface        Specify network interface\n");
     printf("     -l, --list-interfaces  List available interfaces\n");
     printf("     -p                     Don't put the interface into promiscuous mode\n");
@@ -352,8 +364,9 @@ bool handle_packet(unsigned char *buffer, uint32_t n, struct timeval *t)
     struct packet *p;
 
     if (bpf.size > 0) {
-        if (bpf_run_filter(bpf, buffer, n) == 0)
+        if (bpf_run_filter(bpf, buffer, n) == 0) {
             return true;
+        }
     }
     if (!decode_packet(buffer, n, &p)) {
         return false;

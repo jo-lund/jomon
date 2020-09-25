@@ -5,7 +5,8 @@
 #include <stdbool.h>
 
 enum pcap_token {
-    PCAP_HOST = 1,
+    PCAP_EOF,
+    PCAP_HOST,
     PCAP_NET,
     PCAP_PORT,
     PCAP_PORTRANGE,
@@ -46,8 +47,8 @@ enum pcap_token {
     PCAP_PROTOCHAIN,
     PCAP_SRC,
     PCAP_DST,
-    PCAP_AND,
-    PCAP_OR,
+    PCAP_LAND,
+    PCAP_LOR,
     PCAP_NOT,
     PCAP_EQ,
     PCAP_LE,
@@ -57,11 +58,23 @@ enum pcap_token {
     PCAP_NEQ,
     PCAP_SHL,
     PCAP_SHR,
+    PCAP_MUL,
+    PCAP_DIV,
+    PCAP_MOD,
+    PCAP_ADD,
+    PCAP_SUB,
+    PCAP_AND,
+    PCAP_XOR,
+    PCAP_OR,
     PCAP_ID,
     PCAP_IPADDR,
     PCAP_HWADDR,
     PCAP_INT,
-    PCAP_RET
+    PCAP_LPAR,
+    PCAP_RPAR,
+    PCAP_LBRACKET,
+    PCAP_RBRACKET,
+    PCAP_COL
 };
 
 struct bpf_parser;

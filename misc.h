@@ -32,12 +32,6 @@
 #define MAXPATH 1024
 #endif
 
-enum dump_mode {
-    MODE_NONE,
-    MODE_DUMP_C,
-    MODE_DUMP_INT
-};
-
 typedef struct {
     char *device;
     char filename[MAXPATH + 1];
@@ -49,7 +43,7 @@ typedef struct {
         bool nopromiscuous;
         bool verbose;
         bool load_file;
-        enum dump_mode mode;
+        int dmode;
     } opt;
     struct sockaddr_in *local_addr;
     unsigned char mac[ETHER_ADDR_LEN];

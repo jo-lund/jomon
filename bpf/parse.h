@@ -43,6 +43,4 @@ void bpf_parse_setbuf(char *buf, int n);
  */
 struct bpf_prog bpf_parse();
 
-struct bpf_prog pcap_compile(char *filter);
-
 #endif
