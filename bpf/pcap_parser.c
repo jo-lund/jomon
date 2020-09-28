@@ -232,26 +232,6 @@ static struct block *parse_relop(struct node *n)
     }
 }
 
-#if 0
-static struct block *parse_ip(void)
-{
-    struct node *n1, *n2;
-    struct block *b1, *b2;
-
-    make_leaf_node(n1, parser.token, 0); /* PCAP_IP/PCAP_IP6 */
-    make_leaf_node(n2, PCAP_INT, ETH_P_IP);
-    make_block(b1, PCAP_EQ, n1, n2);
-
-    parser.token = get_token();
-    if ((n = parse_expr(0)) == NULL)
-        return NULL;
-    b2 = parse_relop(n);
-    b1->next = b2;
-    b1->jt = b2;
-    return b2;
-}
-#endif
-
 static struct block *parse_op(struct block *b0)
 {
     if (b0 == NULL)
