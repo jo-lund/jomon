@@ -61,22 +61,22 @@ static const char *instable[] = {
 
 #define is_transport(c) (c == PCAP_UDP || c == PCAP_TCP || c == PCAP_ICMP)
 
-#define set_jmp_offset(b, insn, jmp, i)     \
-    do {                                    \
-        struct block *b1 = b->next;         \
-        int c = 0;                          \
-        bool iset = false;                  \
-        while (b1) {                        \
-            if (b->jmp == b1) {             \
-                insn->jmp = c;              \
-                iset = true;                \
-                break;                      \
-            }                               \
-            c += b1->insn;                  \
-            b1 = b1->next;                  \
-        }                                   \
-        if (!iset)                          \
-            insn->jmp = c + i;              \
+#define set_jmp_offset(b, insn, jmp, i)                 \
+    do {                                                \
+        struct block *b1 = b->next;                     \
+        int c = 0;                                      \
+        bool iset = false;                              \
+        while (b1) {                                    \
+            if (b->jmp == b1) {                         \
+                insn->jmp = (i > 0) ? c + i - 1 : c;    \
+                iset = true;                            \
+                break;                                  \
+            }                                           \
+            c += b1->insn;                              \
+            b1 = b1->next;                              \
+        }                                               \
+        if (!iset)                                      \
+            insn->jmp = c + i;                          \
     } while (0)
 
 DEFINE_ALLOC(struct proto_offset, offset);
@@ -330,7 +330,7 @@ static void genexpr(struct block *b, struct node *n, int op, int offset)
         gen_proto(b, n, op, offset);
         break;
     case PCAP_RARP:
-        gen_network(b, n, ETH_P_ARP);
+        gen_network(b, n, ETH_P_RARP);
         offset = NETWORK_OFFSET;
         gen_proto(b, n, op, offset);
         break;
@@ -594,5 +594,7 @@ struct bpf_prog gencode(struct block *b)
         bc[i] = *(struct bpf_insn *) vector_get_data(code, i);
     prog.bytecode = bc;
     prog.size = (uint16_t) sz;
+    vector_free(code, free);
+    stack_free(memidx, NULL);
     return prog;
 }

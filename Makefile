@@ -26,12 +26,12 @@ ifeq ($(MACHINE), Linux)
 endif
 objects = $(patsubst %.c,$(BUILDDIR)/%.o,$(sources))
 objects += $(BUILDDIR)/bpf/parse.o $(BUILDDIR)/bpf/lexer.o $(BUILDDIR)/bpf/bpf.o $(BUILDDIR)/bpf/pcap_lexer.o \
-  $(BUILDDIR)/bpf/pcap_parser.o $(BUILDDIR)/bpf/genasm.o $(BUILDDIR)/bpf/optimize.o
+  $(BUILDDIR)/bpf/pcap_parser.o $(BUILDDIR)/bpf/genasm.o
 test-objs = $(patsubst %.c,%.o,$(wildcard $(testdir)/*.c))
 bpf-objs = $(BUILDDIR)/bpf/parse.o $(BUILDDIR)/bpf/lexer.o $(BUILDDIR)/bpf/main.o $(BUILDDIR)/bpf/bpf.o \
   $(BUILDDIR)/bpf/pcap_lexer.o $(BUILDDIR)/bpf/pcap_parser.o $(BUILDDIR)/stack.o $(BUILDDIR)/vector.o \
   $(BUILDDIR)/hashmap.o $(BUILDDIR)/mempool.o $(BUILDDIR)/debug_file.o $(BUILDDIR)/util.o $(BUILDDIR/stack.o) \
-  $(BUILDDIR)/bpf/genasm.o $(BUILDDIR)/bpf/optimize.o
+  $(BUILDDIR)/bpf/genasm.o
 
 .PHONY : all
 all : debug

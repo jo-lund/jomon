@@ -794,9 +794,15 @@ void set_filter(main_screen *ms, int c)
             numc = 0;
         } else {
             wmove(status, 0, numc + 8);
+            if (bpf.size > 0) {
+                free(bpf.bytecode);
+                bpf.size = 0;
+                vector_free(ms->packet_ref, NULL);
+            }
             bpf = pcap_compile(bpf_filter);
             filter_packets(ms);
         }
+        show_selectionbar(ms, ms->base.win, 0, A_NORMAL);
         wrefresh(ms->base.win);
     } else if (c == KEY_ESC) {
         clear_filter(ms);
@@ -826,10 +832,13 @@ void clear_filter(main_screen *ms)
         vector_free(ms->packet_ref, NULL);
         ms->packet_ref = packets;
         werase(ms->base.win);
-        if (vector_size(packets) >= my)
+        if (ctx.capturing && vector_size(packets) >= my) {
             print_packets(ms);
-        else
+        } else {
             ms->outy = print_lines(ms, 0, getmaxy(ms->base.win), 0);
+            ms->base.top = 0;
+            ms->base.selectionbar = 0;
+        }
     }
     memset(bpf_filter, 0, sizeof(bpf_filter));
     input_mode = INPUT_NONE;
@@ -855,6 +864,8 @@ void filter_packets(main_screen *ms)
     print_status();
     werase(ms->base.win);
     ms->outy = print_lines(ms, 0, getmaxy(ms->base.win), 0);
+    ms->base.top = 0;
+    ms->base.selectionbar = 0;
 }
 
 void print_packets(main_screen *ms)
