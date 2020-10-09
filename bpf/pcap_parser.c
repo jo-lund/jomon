@@ -9,7 +9,6 @@
 #include "pcap_lexer.h"
 #include "pcap_parser.h"
 #include "genasm.h"
-#include "optimize.h"
 #include "../mempool.h"
 #include "../debug_file.h"
 #include "../vector.h"
