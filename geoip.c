@@ -2,8 +2,7 @@
 #include <GeoIPCity.h>
 #include <stdbool.h>
 #include "geoip.h"
-
-#define GEOIP_PATH "/usr/share/GeoIP/GeoIPCity.dat"
+#include "config.h"
 
 static GeoIP *gip;
 
