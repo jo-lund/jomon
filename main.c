@@ -252,7 +252,7 @@ static void print_help(char *prg)
     printf("Usage: %s [-dhlpstvG] [-f filter] [-F filter-file] [-i interface] [-r path]\n", prg);
     printf("Options:\n");
     printf("     -G, --no-geoip         Don't use GeoIP information\n");
-    printf("     -d                     Dump packet filter as BPF assembly and exit");
+    printf("     -d                     Dump packet filter as BPF assembly and exit\n");
     printf("     -dd                    Dump packet filter as C code fragment and exit\n");
     printf("     -ddd                   Dump packet filter as decimal numbers and exit\n");
     printf("     -F,                    Read packet filter from file\n");
