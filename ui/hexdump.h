@@ -10,7 +10,7 @@ enum hexmode {
 
 #define HEXMODES 2
 
-struct packet *p;
+struct packet;
 
 void add_hexdump(list_view *lw, list_view_header *header, enum hexmode mode,
                  unsigned char *payload, uint16_t len);

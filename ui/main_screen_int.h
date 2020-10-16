@@ -19,9 +19,9 @@ static screen_header main_header[] = {
     { "Info", 0 }
 };
 
-char load_filepath[MAXPATH + 1];
-file_dialogue *load_dialogue;
-file_dialogue *save_dialogue;
+extern char load_filepath[MAXPATH + 1];
+extern file_dialogue *load_dialogue;
+extern file_dialogue *save_dialogue;
 
 // TODO: Move functions that don't need to be static to struct main_screen.
 void main_screen_write_show_progress(int i);
