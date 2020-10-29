@@ -335,7 +335,7 @@ void finish(int status)
     geoip_free();
     if (handle)
         free(handle);
-    if (ctx.filter) {
+    if (ctx.filter || ctx.filter_file) {
         if (bpf.bytecode)
             free(bpf.bytecode);
         bpf_parse_free();
