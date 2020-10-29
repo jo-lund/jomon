@@ -143,9 +143,9 @@ static void load_cache()
         if (dp->d_type == DT_DIR) {
             DIR *dfd2;
             struct dirent *dp2;
-            char fd[MAXPATH];
+            char fd[SIZE];
 
-            snprintf(fd, MAXPATH, "%s/%s/%s", PROC, dp->d_name, FD);
+            snprintf(fd, SIZE, "%s/%s/%s", PROC, dp->d_name, FD);
             if ((dfd2 = opendir(fd)) == NULL) {
                 closedir(dfd);
                 return;
@@ -314,9 +314,9 @@ char *process_get_name(struct tcp_connection_v4 *conn)
 
 void process_init()
 {
-    inode_cache = hashmap_init(SIZE, hash_uint32, compare_uint);
+    inode_cache = hashmap_init(SIZE, hashfnv_uint32, compare_uint);
     tcp_cache = hashmap_init(SIZE, hash_tcp_v4, compare_tcp_v4);
-    string_table = hashmap_init(64, hash_string, compare_string);
+    string_table = hashmap_init(64, hashfnv_string, compare_string);
     hashmap_set_free_data(inode_cache, free);
     hashmap_set_free_key(tcp_cache, free);
     hashmap_set_free_key(string_table, free);

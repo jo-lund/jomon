@@ -22,8 +22,8 @@ static void update_host(uint32_t addr, char *name);
 
 void host_analyzer_init()
 {
-    local_hosts = hashmap_init(TBLSZ, hash_uint32, compare_uint);
-    remote_hosts = hashmap_init(TBLSZ, hash_uint32, compare_uint);
+    local_hosts = hashmap_init(TBLSZ, hashdjb_uint32, compare_uint);
+    remote_hosts = hashmap_init(TBLSZ, hashdjb_uint32, compare_uint);
     host_changed_publisher = publisher_init();
     dns_cache_subscribe(update_host);
 }
