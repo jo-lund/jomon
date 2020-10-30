@@ -16,8 +16,6 @@ static hashmap_t *remote_hosts;
 static publisher_t *host_changed_publisher;
 
 static void handle_ip4(struct packet *p);
-static bool local_ip4(uint32_t addr);
-static void insert_host(uint32_t addr, uint8_t *mac);
 static void update_host(uint32_t addr, char *name);
 
 void host_analyzer_init()
@@ -38,7 +36,8 @@ void host_analyzer_free()
 
 void host_analyzer_investigate(struct packet *p)
 {
-    if (!local_hosts && !remote_hosts) return;
+    if (!local_hosts && !remote_hosts)
+        return;
 
     switch (ethertype(p)) {
     case ETH_P_IP:
@@ -61,12 +60,12 @@ hashmap_t *host_analyzer_get_remote()
 
 void host_analyzer_subscribe(analyzer_host_fn fn)
 {
-    add_subscription2(host_changed_publisher, (publisher_fn2) fn);
+    add_subscription2(host_changed_publisher, (publisher_fn2) (void *) fn);
 }
 
 void host_analyzer_unsubscribe(analyzer_host_fn fn)
 {
-    remove_subscription2(host_changed_publisher, (publisher_fn2) fn);
+    remove_subscription2(host_changed_publisher, (publisher_fn2) (void *) fn);
 }
 
 void host_analyzer_clear()
@@ -75,24 +74,23 @@ void host_analyzer_clear()
     hashmap_clear(remote_hosts);
 }
 
-void handle_ip4(struct packet *p)
+static bool filter_address(const uint32_t addr)
 {
-    // TODO: Filter out broadcast and multicast
-    insert_host(ipv4_src(p), eth_src(p));
-    insert_host(ipv4_dst(p), eth_dst(p));
+    if (addr == 0)
+        return true;
 
-    // TODO: Inspect packet
-    switch (ipv4_protocol(p)) {
-    case IPPROTO_TCP:
-        break;
-    case IPPROTO_UDP:
-        break;
-    default:
-        break;
-    }
+    /* broadcast */
+    if (addr == (uint32_t) ~0)
+        return true;
+
+    /* multicast: 224.0.0.0 - 239.255.255.255) */
+    if ((addr & 0xff) >= 224 && (addr & 0xff) <= 239)
+        return true;
+
+    return false;
 }
 
-bool local_ip4(uint32_t addr)
+static bool local_ip4(const uint32_t addr)
 {
     if ((addr & 0xff) == 10 || /* class A: 10.0.0.0 - 10.255.255.255 */
         (addr & 0xffff) == 43200) /* class C: 192.168.0.0 - 192.168.255.255 */
@@ -101,12 +99,13 @@ bool local_ip4(uint32_t addr)
     /* class B: 172.16.0.0 - 172.31.255.255 */
     uint32_t classb = (addr & 0xff) << 8 | (addr & 0xff00) >> 8;
 
-    if (classb >= 44048 && classb <= 44063) return true;
+    if (classb >= 44048 && classb <= 44063)
+        return true;
 
     return false;
 }
 
-void insert_host(uint32_t addr, uint8_t *mac)
+static void insert_host(uint32_t addr, const uint8_t *mac)
 {
     hashmap_t *map;
     bool local;
@@ -137,7 +136,7 @@ void insert_host(uint32_t addr, uint8_t *mac)
     }
 }
 
-void update_host(uint32_t addr, char *name)
+static void update_host(const uint32_t addr, char *name)
 {
     hashmap_t *map = local_ip4(addr) ? local_hosts : remote_hosts;
     struct host_info *host = hashmap_get(map, UINT_TO_PTR(addr));
@@ -146,4 +145,12 @@ void update_host(uint32_t addr, char *name)
         host->name = name;
         publish2(host_changed_publisher, host, UINT_TO_PTR(0x0));
     }
+}
+
+static void handle_ip4(struct packet *p)
+{
+    if (!filter_address(ipv4_src(p)))
+        insert_host(ipv4_src(p), eth_src(p));
+    if (!filter_address(ipv4_dst(p)))
+        insert_host(ipv4_dst(p), eth_dst(p));
 }

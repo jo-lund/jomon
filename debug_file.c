@@ -24,7 +24,8 @@ bool debug_init()
 void debug_free()
 {
 #ifdef MONITOR_DEBUG
-    fclose(fp);
+    if (fp)
+        fclose(fp);
 #endif
 }
 
