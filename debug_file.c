@@ -32,6 +32,9 @@ void debug_free()
 bool debug_output(char *file, int line, char *fmt, ...)
 {
 #ifdef MONITOR_DEBUG
+    if (!fp)
+        return false;
+
     va_list ap;
     char buf[MAXLINE];
     struct timeval tv;
