@@ -1157,7 +1157,7 @@ void add_elements(main_screen *ms, struct packet *p)
         }
     }
     if (p->perr != NO_ERR && p->len - idx > 0) {
-        header = LV_ADD_HEADER(ms->lvw, "Data", selected[i], i);
+        header = LV_ADD_HEADER(ms->lvw, "Data", selected[i+1], i + 1);
         add_hexdump(ms->lvw, header, hexmode, p->buf + idx, p->len - idx);
     }
 }
