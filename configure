@@ -1,7 +1,9 @@
 #!/bin/bash
 
 DISABLE_GEOIP=0
-CC="gcc"
+if [ -z "$CC" ]; then
+   CC="gcc"
+fi
 GEOIP_PATH="/usr/share/GeoIP/GeoIPCity.dat"
 BUILD=".build_$$"
 
@@ -17,7 +19,7 @@ usage()
 
 check_gcc()
 {
-    echo -n "[*] Checking for gcc... "
+    echo -n "[*] Checking for $CC... "
 
     echo "int main() { return 0; }" > "$BUILD.c"
     $CC "$BUILD.c" -o "$BUILD" &> /dev/null
@@ -25,8 +27,8 @@ check_gcc()
     if [ ! -x "$BUILD" ]; then
         echo "FAIL";
         echo;
-        echo -n "You need a functioning install of gcc."
-        echo -n "This can be installed with \"pacman -S gcc\" or equivalent "
+        echo -n "You need a functioning install of $CC. "
+        echo -n "This can be installed with \"pacman -S $CC\" or equivalent "
         echo "command for your distribution."
         rm -f "$BUILD.c" "$BUILD"
         exit 1;
@@ -86,6 +88,7 @@ generate_config()
     echo "#define CONFIG_H" >> config.h
     echo >> config.h
 
+    echo "CC=$CC" >> config.mk
     if [[ "$DISABLE_GEOIP" == 1 ]]; then
         echo "#define HAVE_GEOIP 0" >> config.h
         echo "CONFIG_GEOIP=0" >> config.mk
