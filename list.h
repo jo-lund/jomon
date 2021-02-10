@@ -3,6 +3,9 @@
 
 #include "alloc.h"
 
+#define LIST_FOREACH(l, i) \
+    for ((i) = list_begin(l); (i); (i) = list_next((i)))
+
 typedef struct node node_t;
 typedef struct list list_t;
 

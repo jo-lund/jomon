@@ -72,10 +72,20 @@ char *get_arp_hardware_type(uint16_t type)
     switch (type) {
     case ARPHRD_ETHER:
         return "Ethernet";
+    case ARPHRD_EETHER:
+        return "Experimental Ethernet (3mb)";
+    case ARPHRD_AX25:
+        return "Amateur Radio AX.25";
+    case ARPHRD_PRONET:
+        return "Proteon ProNET Token Ring";
+    case ARPHRD_CHAOS:
+        return "Chaos";
     case ARPHRD_IEEE802:
         return "IEEE 802 networks";
+    case ARPHRD_ARCNET:
+        return "Arcnet";
     default:
-        return "";
+        return NULL;
     }
 }
 
@@ -89,7 +99,7 @@ char *get_arp_protocol_type(uint16_t type)
     case ETH_P_IPV6:
         return "IPv6";
     default:
-        return "";
+        return NULL;
     }
 }
 
@@ -101,6 +111,6 @@ char *get_arp_opcode(uint16_t opcode)
     case ARPOP_REPLY:
         return "ARP reply";
     default:
-        return "";
+        return NULL;
     }
 }

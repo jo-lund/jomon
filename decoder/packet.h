@@ -29,6 +29,8 @@ extern allocator_t d_alloc;
 
 enum port {
     DNS = 53,   /* Domain Name System */
+    DHCP_SRV = 67, /* Dynamic Host Configuration Protocol Server/BOOTP server */
+    DHCP_CLI = 68, /* Dynamic Host Configuration Protocol Client/BOOTP client */
     HTTP = 80,  /* Hypertext Transfer Protocol */
     /*
      * NetBIOS is used for SMB/CIFS-based Windows file sharing. SMB can now run
