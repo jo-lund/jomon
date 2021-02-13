@@ -119,6 +119,8 @@ scan:
       "|"   { return PCAP_OR; }
       "["   { return PCAP_LBRACKET; }
       "]"   { return PCAP_RBRACKET; }
+      "("   { return PCAP_LPAR; }
+      ")"   { return PCAP_RPAR; }
 
       ":" { return PCAP_COL; }
 

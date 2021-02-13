@@ -13,7 +13,6 @@ struct node {
     int op;
     int k;
     uint8_t size;
-    uint8_t su;
     struct node *left;
     struct node *right;
 };
@@ -25,6 +24,7 @@ struct proto_offset {
 };
 
 struct block {
+    struct block *p;
     bool inverse;
     int relop;
     int insn;

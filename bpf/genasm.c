@@ -55,31 +55,60 @@ static const char *instable[] = {
 };
 
 #define is_proto(c)                                                     \
-    (c == PCAP_ETHER || c == PCAP_IP || c == PCAP_IP6                   \
-     || c == PCAP_ARP || c == PCAP_RARP || c == PCAP_TCP                \
-     || c == PCAP_UDP || c == PCAP_ICMP)
+    ((c) == PCAP_ETHER || (c) == PCAP_IP || (c) == PCAP_IP6             \
+     || (c) == PCAP_ARP || (c) == PCAP_RARP || (c) == PCAP_TCP          \
+     || (c) == PCAP_UDP || (c) == PCAP_ICMP)
 
-#define is_transport(c) (c == PCAP_UDP || c == PCAP_TCP || c == PCAP_ICMP)
-
-#define set_jmp_offset(b, insn, jmp, i)                 \
-    do {                                                \
-        struct block *b1 = b->next;                     \
-        int c = 0;                                      \
-        bool iset = false;                              \
-        while (b1) {                                    \
-            if (b->jmp == b1) {                         \
-                insn->jmp = (i > 0) ? c + i - 1 : c;    \
-                iset = true;                            \
-                break;                                  \
-            }                                           \
-            c += b1->insn;                              \
-            b1 = b1->next;                              \
-        }                                               \
-        if (!iset)                                      \
-            insn->jmp = c + i;                          \
-    } while (0)
+#define is_transport(c) ((c) == PCAP_UDP || (c) == PCAP_TCP || (c) == PCAP_ICMP)
 
 DEFINE_ALLOC(struct proto_offset, offset);
+
+/* TODO: Clean this up! */
+
+static bool traverse_offset(struct block *b1, struct block *jmp, struct block *e, uint8_t *ii, int i, int *c)
+{
+    if (!b1)
+        return false;
+
+    while (b1) {
+        if (jmp == b1) {
+            *ii = (i > 0) ? *c + i - 1 : *c;
+            return true;
+        }
+        if (b1->p) {
+            if (traverse_offset(b1->p, jmp, e, ii, i, c))
+                return true;
+        }
+        *c += b1->insn;
+        b1 = b1->next;
+    }
+    return false;
+}
+
+static void set_jmp_offset(struct block *b, struct block *jmp, struct block *e, uint8_t *ii, int i)
+{
+    int c = 0;
+    bool set;
+
+    set = traverse_offset(b->next, jmp, e, ii, i, &c);
+    if (!set && traverse_offset(b->p, jmp, e, ii, i, &c))
+        return;
+    if (!set && e) {
+        struct block *b1 = e->next;
+        while (b1) {
+            if (jmp == b1) {
+                *ii = (i > 0) ? c + i - 1 : c;
+                return;
+            }
+            if (!set && traverse_offset(b1->p, jmp, e, ii, i, &c))
+                return;
+            c += b1->insn;
+            b1 = b1->next;
+        }
+    }
+    if (!set)
+        *ii = c + i;
+}
 
 static int alloc_mem(void)
 {
@@ -445,32 +474,41 @@ static void genjmp(struct block *b)
     }
 }
 
-static void patch_jmp(struct block *b, int numi)
+static int patch_jmp(struct block *b, struct block *e, int numi)
 {
     if (b == NULL)
-        return;
+        return numi;
 
-    struct bpf_insn *insn;
-    struct proto_offset *poff = b->poff;
-    int offset;
+    while (b) {
+        struct bpf_insn *insn;
+        struct proto_offset *poff = b->poff;
+        int offset;
 
-    while (poff) {
-        insn = vector_get_data(code, numi + poff->offset);
-        offset = poff->offset;
-        if (BPF_CLASS(insn->code) == BPF_JMP) {
-            if (poff->inverse)
-                set_jmp_offset(b, insn, jt, b->insn - offset);
-            else
-                set_jmp_offset(b, insn, jf, b->insn - offset);
+        while (poff) {
+            insn = vector_get_data(code, numi + poff->offset);
+            offset = poff->offset;
+            if (BPF_CLASS(insn->code) == BPF_JMP) {
+                if (poff->inverse) {
+                    set_jmp_offset(b, b->jt, e, &insn->jt, b->insn - offset);
+                } else {
+                    set_jmp_offset(b, b->jf, e, &insn->jf, b->insn - offset);
+                }
+            }
+            poff = poff->next;
         }
-        poff = poff->next;
+        if (b->p == NULL) {
+            insn = vector_get_data(code, numi + b->insn - 1);
+            if (insn && BPF_CLASS(insn->code) == BPF_JMP) {
+                set_jmp_offset(b, b->jt, e, &insn->jt, 0);
+                set_jmp_offset(b, b->jf, e, &insn->jf, 1);
+            }
+        } else {
+            numi = patch_jmp(b->p, b, b->insn + numi);
+        }
+        numi += b->insn;
+        b = b->next;
     }
-    insn = vector_get_data(code, numi + b->insn - 1);
-    if (BPF_CLASS(insn->code) == BPF_JMP) {
-        set_jmp_offset(b, insn, jt, 0);
-        set_jmp_offset(b, insn, jf, 1);
-    }
-    patch_jmp(b->next, b->insn + numi);
+    return numi;
 }
 
 static void traverse_blocks(struct block *b)
@@ -483,6 +521,8 @@ static void traverse_blocks(struct block *b)
         genjmp(b);
         b->insn = block_insn;
         block_insn = 0;
+        if (b->p)
+            traverse_blocks(b->p);
         b = b->next;
     }
 }
@@ -587,7 +627,7 @@ struct bpf_prog gencode(struct block *b)
     traverse_blocks(b);
     gen_ret(-1);
     gen_ret(0);
-    patch_jmp(b, 0);
+    patch_jmp(b, NULL, 0);
     sz = vector_size(code);
     bc = malloc(sz * sizeof(struct bpf_insn));
     for (int i = 0; i < sz; i++)
