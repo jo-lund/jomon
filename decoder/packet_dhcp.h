@@ -43,8 +43,24 @@
 #define DHCP_PERFORM_MASK_DISCOVERY 29
 #define DHCP_MASK_SUPPLIER 30
 #define DHCP_PERFORM_ROUTER_DISCOVERY 31
+#define DHCP_ROUTER_SOLICITATION_ADDRESS 32
+#define DHCP_STATIC_ROUTE 33
+#define DHCP_TRAILER_ENCAPSULATION 34
+#define DHCP_ARP_CACHE_TIMEOUT 35
+#define DHCP_ETHERNET_ENCAPSULATION 36
+#define DHCP_TCP_DEFAULT_TTL 37
+#define DHCP_TCP_KEEPALIVE_INTERVAL 38
+#define DHCP_TCP_KEEPALIVE_GARBARGE 39
+#define DHCP_NIS_DOMAIN 40
+#define DHCP_NETWORK_INFORMATION_SERVERS 41
+#define DHCP_NTP_SERVERS 42
+#define DHCP_VENDOR_SPECIFIC 43
 #define DHCP_NETBIOS_NS 44
-#define DHCP_NETBIOS_DD 46
+#define DHCP_NETBIOS_DD 45
+#define DHCP_NETBIOS_NT 46
+#define DHCP_NETBIOS_SCOPE 47
+#define DHCP_XWINDOWS_SFS 48
+#define DHCP_XWINDOWS_DM 49
 #define DHCP_REQUESTED_IP_ADDRESS 50
 #define DHCP_IP_ADDRESS_LEASE_TIME 51 /* The value is in units of seconds */
 #define DHCP_OPTION_OVERLOAD 52
@@ -57,8 +73,11 @@
 #define DHCP_REBINDING_TIME_VAL 59  /* The value is in units of seconds */
 #define DHCP_VENDOR_CLASS_ID 60
 #define DHCP_CLIENT_IDENTIFIER 61
+#define DHCP_NISP_DOMAIN 64
+#define DHCP_NISP_SERVERS 65
 #define DHCP_TFTP_SERVER_NAME 66
 #define DHCP_BOOTFILE_NAME 67
+#define DHCP_MOBILE_IP_HA 68
 #define DHCP_LDAP_SERVERS 95 /* RFC 3679 */
 #define DHCP_DOMAIN_SEARCH 119 /* RFC 3397 */
 
@@ -110,5 +129,7 @@ struct packet_flags *get_dhcp_flags();
 int get_dhcp_flags_size();
 char *get_dhcp_option_type(uint8_t type);
 char *get_dhcp_message_type(uint8_t type);
+char *get_dhcp_netbios_node_type(uint8_t type);
+char *get_dhcp_option_overload(uint8_t type);
 
 #endif

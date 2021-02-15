@@ -568,29 +568,28 @@ void print_dhcp(char *buf, int n, void *data)
             switch (opt->byte) {
             case DHCPDISCOVER:
                 HW_ADDR_NTOP(hwaddr, dhcp->chaddr);
-                PRINT_INFO(buf, n, "DHCP DISCOVER  Transaction id: 0x%x, client hw addr: %s",
-                           dhcp->xid, hwaddr);
+                PRINT_INFO(buf, n, "Discover  Transaction id: 0x%x", dhcp->xid);
                 break;
             case DHCPOFFER:
-                PRINT_INFO(buf, n, "DHCP OFFER  Transaction id: 0x%x", dhcp->xid);
+                PRINT_INFO(buf, n, "Offer     Transaction id: 0x%x", dhcp->xid);
                 break;
             case DHCPREQUEST:
-                PRINT_INFO(buf, n, "DHCP REQUEST  Transaction id: 0x%x", dhcp->xid);
+                PRINT_INFO(buf, n, "Request   Transaction id: 0x%x", dhcp->xid);
                 break;
             case DHCPDECLINE:
-                PRINT_INFO(buf, n, "DHCP DECLINE  Transaction id: 0x%x", dhcp->xid);
+                PRINT_INFO(buf, n, "Decline   Transaction id: 0x%x", dhcp->xid);
                 break;
             case DHCPACK:
-                PRINT_INFO(buf, n, "DHCP ACK  Transaction id: 0x%x", dhcp->xid);
+                PRINT_INFO(buf, n, "ACK       Transaction id: 0x%x", dhcp->xid);
                 break;
             case DHCPNAK:
-                PRINT_INFO(buf, n, "DHCP NAK  Transaction id: 0x%x", dhcp->xid);
+                PRINT_INFO(buf, n, "NAK       Transaction id: 0x%x", dhcp->xid);
                 break;
             case DHCPRELEASE:
-                PRINT_INFO(buf, n, "DHCP RELEASE  Transaction id: 0x%x", dhcp->xid);
+                PRINT_INFO(buf, n, "Release   Transaction id: 0x%x", dhcp->xid);
                 break;
             case DHCPINFORM:
-                PRINT_INFO(buf, n, "DHCP INFORM  Transaction id: 0x%x", dhcp->xid);
+                PRINT_INFO(buf, n, "Inform    Transaction id: 0x%x", dhcp->xid);
             default:
                 break;
             }
@@ -2079,6 +2078,10 @@ static void add_dhcp_options(list_view *lw, list_view_header *header, struct dhc
         LV_ADD_TEXT_ELEMENT(lw, opthdr, "Length: %d", opt->length);
         switch (opt->tag) {
         case DHCP_MESSAGE_TYPE:
+        case DHCP_TRAILER_ENCAPSULATION:
+        case DHCP_ETHERNET_ENCAPSULATION:
+        case DHCP_TCP_DEFAULT_TTL:
+        case DHCP_TCP_KEEPALIVE_GARBARGE:
             LV_ADD_TEXT_ELEMENT(lw, opthdr, "Value: %s (%d)", get_dhcp_message_type(opt->byte), opt->byte);
             break;
         case DHCP_PARAMETER_REQUEST_LIST:
@@ -2109,6 +2112,9 @@ static void add_dhcp_options(list_view *lw, list_view_header *header, struct dhc
             break;
         case DHCP_HOST_NAME:
         case DHCP_DOMAIN_NAME:
+        case DHCP_NIS_DOMAIN:
+        case DHCP_NISP_DOMAIN:
+        case DHCP_TFTP_SERVER_NAME:
             memcpy(buf, opt->bytes, opt->length);
             buf[opt->length] = '\0';
             LV_ADD_TEXT_ELEMENT(lw, opthdr, "Name: %s", buf);
@@ -2130,17 +2136,59 @@ static void add_dhcp_options(list_view *lw, list_view_header *header, struct dhc
             break;
         case DHCP_SERVER_IDENTIFIER:
         case DHCP_REQUESTED_IP_ADDRESS:
+        case DHCP_ROUTER_SOLICITATION_ADDRESS:
             addr = htonl(opt->u32val);
             inet_ntop(AF_INET, &addr, buf, INET_ADDRSTRLEN);
             LV_ADD_TEXT_ELEMENT(lw, opthdr, "Address: %s", buf);
             break;
         case DHCP_ROUTER:
         case DHCP_DOMAIN_NAME_SERVER:
+        case DHCP_NETWORK_INFORMATION_SERVERS:
+        case DHCP_NTP_SERVERS:
+        case DHCP_XWINDOWS_SFS:
+        case DHCP_XWINDOWS_DM:
+        case DHCP_NISP_SERVERS:
+        case DHCP_NETBIOS_DD:
+        case DHCP_IMPRESS_SERVER:
+        case DHCP_NETBIOS_NS:
+        case DHCP_MOBILE_IP_HA:
             for (int i = 0, c = 1; i < opt->length; i += 4, c++) {
                 inet_ntop(AF_INET, opt->bytes + i, buf, INET_ADDRSTRLEN);
                 LV_ADD_TEXT_ELEMENT(lw, opthdr, "Address %d: %s", c, buf);
             }
             break;
+        case DHCP_ARP_CACHE_TIMEOUT:
+        case DHCP_TCP_KEEPALIVE_INTERVAL:
+            t = get_time(opt->u32val);
+            time_ntop(&t, buf, 256);
+            LV_ADD_TEXT_ELEMENT(lw, opthdr, "Value: %s (%d seconds)", buf, opt->u32val);
+            break;
+        case DHCP_VENDOR_SPECIFIC:
+        case DHCP_NETBIOS_SCOPE:
+            for (int i = 0; i < opt->length; i++) {
+                snprintf(buf + 2 * i, 256 - 2 * i, "%02x", (unsigned char) opt->bytes[i]);
+            }
+            break;
+        case DHCP_NETBIOS_NT:
+        {
+            char *type = get_dhcp_netbios_node_type(opt->byte);
+
+            if (type)
+                LV_ADD_TEXT_ELEMENT(lw, opthdr, "Node type: %s (0x%x)", type, opt->byte);
+            else
+                LV_ADD_TEXT_ELEMENT(lw, opthdr, "Node type: 0x%x", opt->byte);
+            break;
+        }
+        case DHCP_OPTION_OVERLOAD:
+        {
+            char *type = get_dhcp_option_overload(opt->byte);
+
+            if (type)
+                LV_ADD_TEXT_ELEMENT(lw, opthdr, "Option overload: %s (0x%x)", type, opt->byte);
+            else
+                LV_ADD_TEXT_ELEMENT(lw, opthdr, "Option overload: 0x%x", opt->byte);
+            break;
+        }
         default:
             break;
         }

@@ -174,6 +174,15 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
         case DHCP_LPR_SERVER:
         case DHCP_RESOURCE_LOC_SERVER:
         case DHCP_PATH_MTU_AGING_TIMEOUT:
+        case DHCP_NETWORK_INFORMATION_SERVERS:
+        case DHCP_NTP_SERVERS:
+        case DHCP_VENDOR_SPECIFIC:
+        case DHCP_NETBIOS_DD:
+        case DHCP_XWINDOWS_SFS:
+        case DHCP_NISP_SERVERS:
+        case DHCP_IMPRESS_SERVER:
+        case DHCP_NETBIOS_NS:
+        case DHCP_MOBILE_IP_HA:
             opt->length = *buffer++;
             n--;
             if (opt->length % 4 != 0)
@@ -199,6 +208,12 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
         case DHCP_PERFORM_MASK_DISCOVERY:
         case DHCP_MASK_SUPPLIER:
         case DHCP_PERFORM_ROUTER_DISCOVERY:
+        case DHCP_TRAILER_ENCAPSULATION:
+        case DHCP_ETHERNET_ENCAPSULATION:
+        case DHCP_TCP_DEFAULT_TTL:
+        case DHCP_TCP_KEEPALIVE_GARBARGE:
+        case DHCP_NETBIOS_NT:
+        case DHCP_OPTION_OVERLOAD:
             opt->length = *buffer++;
             if (opt->length != 1)
                 return DECODE_ERR;
@@ -207,6 +222,7 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
             list_push_back(dhcp->options, opt);
             break;
         case DHCP_POLICY_FILTER:
+        case DHCP_STATIC_ROUTE:
             opt->length = *buffer++;
             n--;
             if (opt->length < 8 && opt->length % 8 != 0)
@@ -221,6 +237,11 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
         case DHCP_ROOT_PATH:
         case DHCP_EXTENSIONS_PATH:
         case DHCP_PARAMETER_REQUEST_LIST:
+        case DHCP_NIS_DOMAIN:
+        case DHCP_NETBIOS_SCOPE:
+        case DHCP_NISP_DOMAIN:
+        case DHCP_VENDOR_CLASS_ID:
+        case DHCP_TFTP_SERVER_NAME:
             opt->length = *buffer++;
             if (opt->length < 1)  /* minimum length is 1 */
                 return DECODE_ERR;
@@ -247,6 +268,9 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
         case DHCP_RENEWAL_TIME_VAL:
         case DHCP_REBINDING_TIME_VAL:
         case DHCP_BROADCAST_ADDRESS:
+        case DHCP_ROUTER_SOLICITATION_ADDRESS:
+        case DHCP_ARP_CACHE_TIMEOUT:
+        case DHCP_TCP_KEEPALIVE_INTERVAL:
             opt->length = *buffer++;
             if (opt->length != 4)
                 return DECODE_ERR;
@@ -269,7 +293,7 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
         default:
             opt->length = *buffer++;
             n--;
-            //printf("DHCP option not supported: %d\n", opt->tag);
+            printf("DHCP option not supported: %d\n", opt->tag);
         }
     }
     return DECODE_ERR;
@@ -424,10 +448,86 @@ char *get_dhcp_option_type(uint8_t type)
         return "LDAP Servers";
     case DHCP_DOMAIN_SEARCH:
         return "Domain Search";
+    case DHCP_ROUTER_SOLICITATION_ADDRESS:
+        return "Router Solicitation Address";
+    case DHCP_STATIC_ROUTE:
+        return "Static Route";
+    case DHCP_TRAILER_ENCAPSULATION:
+        return "Trailer Encapsulation";
+    case DHCP_ARP_CACHE_TIMEOUT:
+        return "ARP Cache Timeout";
+    case DHCP_ETHERNET_ENCAPSULATION:
+        return "Ethernet Encapsulation";
+    case DHCP_TCP_DEFAULT_TTL:
+        return "TCP Default TTL";
+    case DHCP_TCP_KEEPALIVE_INTERVAL:
+        return "TCP Keepalive Interval";
+    case DHCP_TCP_KEEPALIVE_GARBARGE:
+        return "TCP Keepalive Garbage";
+    case DHCP_NIS_DOMAIN:
+        return "Network Information Service Domain";
+    case DHCP_NETWORK_INFORMATION_SERVERS:
+        return "Network Information Servers";
+    case DHCP_NTP_SERVERS:
+        return "Network Time Protocol Servers";
+    case DHCP_VENDOR_SPECIFIC:
+        return "Vendor Specific Information";
+    case DHCP_NETBIOS_NT:
+        return "NetBIOS over TCP/IP Node Type";
+    case DHCP_NETBIOS_SCOPE:
+        return "NetBIOS over TCP/IP Scope";
+    case DHCP_XWINDOWS_SFS:
+        return "X Window System Font Server";
+    case DHCP_XWINDOWS_DM:
+        return "X Window System Display Manager";
+    case DHCP_NISP_DOMAIN:
+        return "Network Information Service+ Domain";
+    case DHCP_NISP_SERVERS:
+        return "Network Information Service+ Servers";
+    case DHCP_VENDOR_CLASS_ID:
+        return "Vendor Class Identifier";
+    case DHCP_IMPRESS_SERVER:
+        return "Impress Server";
+    case DHCP_TFTP_SERVER_NAME:
+        return "TFTP Server Name";
+    case DHCP_OPTION_OVERLOAD:
+        return "Option Overload";
+    case DHCP_MOBILE_IP_HA:
+        return "Mobile IP Home Agent";
     case 252:
         return "Private Use";
     case DHCP_END_OPTION:
         return "End";
+    default:
+        return NULL;
+    }
+}
+
+char *get_dhcp_netbios_node_type(uint8_t type)
+{
+    switch (type) {
+    case 0x1:
+        return "B-node";
+    case 0x2:
+        return "P-node";
+    case 0x4:
+        return "M-node";
+    case 0x8:
+        return "H-node";
+    default:
+        return NULL;
+    }
+}
+
+char *get_dhcp_option_overload(uint8_t type)
+{
+    switch (type) {
+    case 1:
+        return "The \'file\' field is used to hold options";
+    case 2:
+        return "The \'sname\' field is used to hold options";
+    case 3:
+        return "Both the \'file\' and \'sname\' fields are used to hold options";
     default:
         return NULL;
     }
