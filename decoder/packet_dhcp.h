@@ -78,6 +78,15 @@
 #define DHCP_TFTP_SERVER_NAME 66
 #define DHCP_BOOTFILE_NAME 67
 #define DHCP_MOBILE_IP_HA 68
+#define DHCP_SMTP_SERVER 69
+#define DHCP_POP3_SERVER 70
+#define DHCP_NNTP_SERVER 71
+#define DHCP_WWW_SERVER 72
+#define DHCP_FINGER_SERVER 73
+#define DHCP_IRC_SERVER 74
+#define DHCP_STREETTALK_SERVER 75
+#define DHCP_STDA_SERVER 76
+#define DHCP_CLIENT_FQDN 81
 #define DHCP_LDAP_SERVERS 95 /* RFC 3679 */
 #define DHCP_DOMAIN_SEARCH 119 /* RFC 3397 */
 
@@ -100,6 +109,12 @@ struct dhcp_options {
         uint16_t u16val;
         uint8_t *bytes;
         uint8_t byte;
+        struct {
+            uint8_t flags;
+            uint8_t rcode1; /* deprecated */
+            uint8_t rcode2; /* deprecated */
+            uint8_t *name;
+        } fqdn;
     };
 };
 
@@ -125,8 +140,10 @@ struct dhcp_info {
 
 void register_dhcp(void);
 char *get_dhcp_opcode(uint8_t opcode);
-struct packet_flags *get_dhcp_flags();
-int get_dhcp_flags_size();
+struct packet_flags *get_dhcp_flags(void);
+int get_dhcp_flags_size(void);
+struct packet_flags *get_dhcp_fqdn_flags(void);
+int get_dhcp_fqdn_flags_size(void);
 char *get_dhcp_option_type(uint8_t type);
 char *get_dhcp_message_type(uint8_t type);
 char *get_dhcp_netbios_node_type(uint8_t type);

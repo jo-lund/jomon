@@ -19,6 +19,19 @@ static struct packet_flags dhcp_flags[] = {
     { "Reserved", 15, NULL },
 };
 
+static char *update[] = { "Should perform update", "Should not perform update" };
+static char *encoding[] = { "ASCII encoding", "Canonical wire format" };
+static char *override[] = { "No override", "Server overrides" };
+static char *server[] = { "No update", "Perform update" };
+
+static struct packet_flags fqdn_flags[] = {
+    { "Reserved", 4, NULL },
+    { "Server DNS updates:", 1, update },
+    { "Encoding:", 1, encoding },
+    { "Override:", 1, override },
+    { "Server A RR update:", 1, server }
+};
+
 static struct protocol_info dhcp_prot = {
     .short_name = "DHCP",
     .long_name = "Dynamic Host Configuration Protocol",
@@ -27,7 +40,7 @@ static struct protocol_info dhcp_prot = {
     .add_pdu = add_dhcp_information
 };
 
-void register_dhcp()
+void register_dhcp(void)
 {
     register_protocol(&dhcp_prot, PORT, DHCP_CLI);
     register_protocol(&dhcp_prot, PORT, DHCP_SRV);
@@ -176,13 +189,20 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
         case DHCP_PATH_MTU_AGING_TIMEOUT:
         case DHCP_NETWORK_INFORMATION_SERVERS:
         case DHCP_NTP_SERVERS:
-        case DHCP_VENDOR_SPECIFIC:
         case DHCP_NETBIOS_DD:
         case DHCP_XWINDOWS_SFS:
         case DHCP_NISP_SERVERS:
         case DHCP_IMPRESS_SERVER:
         case DHCP_NETBIOS_NS:
         case DHCP_MOBILE_IP_HA:
+        case DHCP_SMTP_SERVER:
+        case DHCP_POP3_SERVER:
+        case DHCP_NNTP_SERVER:
+        case DHCP_WWW_SERVER:
+        case DHCP_FINGER_SERVER:
+        case DHCP_IRC_SERVER:
+        case DHCP_STREETTALK_SERVER:
+        case DHCP_STDA_SERVER:
             opt->length = *buffer++;
             n--;
             if (opt->length % 4 != 0)
@@ -242,6 +262,7 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
         case DHCP_NISP_DOMAIN:
         case DHCP_VENDOR_CLASS_ID:
         case DHCP_TFTP_SERVER_NAME:
+        case DHCP_VENDOR_SPECIFIC:
             opt->length = *buffer++;
             if (opt->length < 1)  /* minimum length is 1 */
                 return DECODE_ERR;
@@ -286,6 +307,20 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
             n = n - opt->length - 1;
             list_push_back(dhcp->options, opt);
             break;
+        case DHCP_CLIENT_FQDN:
+            opt->length = *buffer++;
+            if (opt->length < 3)
+                return DECODE_ERR;
+            opt->fqdn.flags = buffer[0];
+            opt->fqdn.rcode1 = buffer[1];
+            opt->fqdn.rcode2 = buffer[2];
+            opt->fqdn.name = mempool_pealloc(opt->length - 2); /* name + null byte*/
+            memcpy(opt->fqdn.name, buffer + 3, opt->length - 3);
+            buffer += opt->length;
+            n = n - opt->length - 1;
+            opt->fqdn.name[opt->length - 2] = '\0';
+            list_push_back(dhcp->options, opt);
+            break;
         case DHCP_END_OPTION:
             opt->length = 1;
             list_push_back(dhcp->options, opt);
@@ -304,6 +339,8 @@ static uint8_t *parse_bytes(unsigned char **data, uint8_t length)
     unsigned char *ptr = *data;
     uint8_t *bytes;
 
+    if (length == 0)
+        return NULL;
     bytes = mempool_pealloc(length);
     memcpy(bytes, ptr, length);
     ptr += length;
@@ -323,14 +360,24 @@ char *get_dhcp_opcode(uint8_t opcode)
     }
 }
 
-struct packet_flags *get_dhcp_flags()
+struct packet_flags *get_dhcp_flags(void)
 {
     return dhcp_flags;
 }
 
-int get_dhcp_flags_size()
+int get_dhcp_flags_size(void)
 {
     return ARRAY_SIZE(dhcp_flags);
+}
+
+struct packet_flags *get_dhcp_fqdn_flags(void)
+{
+    return fqdn_flags;
+}
+
+int get_dhcp_fqdn_flags_size(void)
+{
+    return ARRAY_SIZE(fqdn_flags);
 }
 
 char *get_dhcp_message_type(uint8_t type)
@@ -494,6 +541,24 @@ char *get_dhcp_option_type(uint8_t type)
         return "Option Overload";
     case DHCP_MOBILE_IP_HA:
         return "Mobile IP Home Agent";
+    case DHCP_SMTP_SERVER:
+        return "Simple Mail Transport Protocol Server";
+    case DHCP_POP3_SERVER:
+        return "Post Office Protocol Server";
+    case DHCP_NNTP_SERVER:
+        return "News Transport Protocol Server";
+    case DHCP_WWW_SERVER:
+        return "WWW Server";
+    case DHCP_FINGER_SERVER:
+        return "Finger Server";
+    case DHCP_IRC_SERVER:
+        return "IRC Server";
+    case DHCP_STREETTALK_SERVER:
+        return "StreetTalk Server";
+    case DHCP_STDA_SERVER:
+        return "StreetTalk Directory Assistance Server";
+    case DHCP_CLIENT_FQDN:
+        return "Client Fully Qualified Domain Name";
     case 252:
         return "Private Use";
     case DHCP_END_OPTION:

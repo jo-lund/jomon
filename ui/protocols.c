@@ -2152,6 +2152,14 @@ static void add_dhcp_options(list_view *lw, list_view_header *header, struct dhc
         case DHCP_IMPRESS_SERVER:
         case DHCP_NETBIOS_NS:
         case DHCP_MOBILE_IP_HA:
+        case DHCP_SMTP_SERVER:
+        case DHCP_POP3_SERVER:
+        case DHCP_NNTP_SERVER:
+        case DHCP_WWW_SERVER:
+        case DHCP_FINGER_SERVER:
+        case DHCP_IRC_SERVER:
+        case DHCP_STREETTALK_SERVER:
+        case DHCP_STDA_SERVER:
             for (int i = 0, c = 1; i < opt->length; i += 4, c++) {
                 inet_ntop(AF_INET, opt->bytes + i, buf, INET_ADDRSTRLEN);
                 LV_ADD_TEXT_ELEMENT(lw, opthdr, "Address %d: %s", c, buf);
@@ -2168,6 +2176,7 @@ static void add_dhcp_options(list_view *lw, list_view_header *header, struct dhc
             for (int i = 0; i < opt->length; i++) {
                 snprintf(buf + 2 * i, 256 - 2 * i, "%02x", (unsigned char) opt->bytes[i]);
             }
+            LV_ADD_TEXT_ELEMENT(lw, opthdr, "Value: %s", buf);
             break;
         case DHCP_NETBIOS_NT:
         {
@@ -2187,6 +2196,17 @@ static void add_dhcp_options(list_view *lw, list_view_header *header, struct dhc
                 LV_ADD_TEXT_ELEMENT(lw, opthdr, "Option overload: %s (0x%x)", type, opt->byte);
             else
                 LV_ADD_TEXT_ELEMENT(lw, opthdr, "Option overload: 0x%x", opt->byte);
+            break;
+        }
+        case DHCP_CLIENT_FQDN:
+        {
+            list_view_header *fhdr;
+
+            fhdr = LV_ADD_SUB_HEADER(lw, opthdr, selected[UI_FLAGS], UI_FLAGS, "Flags", opt->fqdn.flags);
+            add_flags(lw, fhdr, opt->fqdn.flags, get_dhcp_fqdn_flags(), get_dhcp_fqdn_flags_size());
+            LV_ADD_TEXT_ELEMENT(lw, opthdr, "RCODE1: 0x%x", opt->fqdn.rcode1);
+            LV_ADD_TEXT_ELEMENT(lw, opthdr, "RCODE2: 0x%x", opt->fqdn.rcode2);
+            LV_ADD_TEXT_ELEMENT(lw, opthdr, "name: %s", opt->fqdn.name);
             break;
         }
         default:
