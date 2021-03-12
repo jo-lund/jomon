@@ -263,6 +263,7 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
         case DHCP_VENDOR_CLASS_ID:
         case DHCP_TFTP_SERVER_NAME:
         case DHCP_VENDOR_SPECIFIC:
+        case DHCP_UUID_CLIENT_ID:
             opt->length = *buffer++;
             if (opt->length < 1)  /* minimum length is 1 */
                 return DECODE_ERR;
@@ -314,11 +315,29 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
             opt->fqdn.flags = buffer[0];
             opt->fqdn.rcode1 = buffer[1];
             opt->fqdn.rcode2 = buffer[2];
-            opt->fqdn.name = mempool_pealloc(opt->length - 2); /* name + null byte*/
+            opt->fqdn.name = mempool_pealloc(opt->length - 2); /* name + null byte */
             memcpy(opt->fqdn.name, buffer + 3, opt->length - 3);
             buffer += opt->length;
             n = n - opt->length - 1;
-            opt->fqdn.name[opt->length - 2] = '\0';
+            opt->fqdn.name[opt->length - 3] = '\0';
+            list_push_back(dhcp->options, opt);
+            break;
+        case DHCP_CLIENT_NDI:
+            opt->length = *buffer++;
+            if (opt->length != 3)
+                return DECODE_ERR;
+            opt->ndi.type = buffer[0];
+            opt->ndi.maj = buffer[1];
+            opt->ndi.min = buffer[2];
+            buffer += opt->length;
+            n = n - opt->length - 1;
+            list_push_back(dhcp->options, opt);
+            break;
+        case DHCP_CLIENT_SA:
+            if (opt->length != 2 && n < 2)
+                return DECODE_ERR;
+            opt->byte = *++buffer;
+            n -= 3;
             list_push_back(dhcp->options, opt);
             break;
         case DHCP_END_OPTION:
@@ -559,6 +578,12 @@ char *get_dhcp_option_type(uint8_t type)
         return "StreetTalk Directory Assistance Server";
     case DHCP_CLIENT_FQDN:
         return "Client Fully Qualified Domain Name";
+    case DHCP_UUID_CLIENT_ID:
+        return "UUID/GUID Client Identifier";
+    case DHCP_CLIENT_SA:
+        return "Client System Architecture";
+    case DHCP_CLIENT_NDI:
+        return "Client Network Interface Identifier";
     case 252:
         return "Private Use";
     case DHCP_END_OPTION:
@@ -593,6 +618,26 @@ char *get_dhcp_option_overload(uint8_t type)
         return "The \'sname\' field is used to hold options";
     case 3:
         return "Both the \'file\' and \'sname\' fields are used to hold options";
+    default:
+        return NULL;
+    }
+}
+
+char *get_dhcp_option_architecture(uint8_t type)
+{
+    switch (type) {
+    case IA_X86_PC:
+        return "IA x86 PC";
+    case NEC_PC98:
+        return "NEC/PC98";
+    case IA64_PC:
+        return "IA64 PC";
+    case DEC_ALPHA:
+        return "DEC Alpha";
+    case ARCX86:
+        return "ArcX86";
+    case ILC:
+        return "Intel Lean Client";
     default:
         return NULL;
     }

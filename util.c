@@ -11,6 +11,9 @@
 #include "vector.h"
 #include "error.h"
 #include "decoder/decoder.h"
+#include "debug_file.h"
+
+#define UUID_LEN 36
 
 /*
  * Transform a hex string in the format aa:bb:cc:dd:ee:ff to its integer
@@ -209,4 +212,40 @@ char *format_bytes(int bytes, char *buf, int len)
         }
     }
     return buf;
+}
+
+/* Clean this up! */
+char *uuid_format(uint8_t *uuid)
+{
+    char *str;
+    char *p;
+    int len;
+
+    if (uuid == NULL)
+        return NULL;
+    len = UUID_LEN + 1;
+    str = malloc(len);
+    p = str;
+    for (int i = 0; i < 4; i++) {
+        snprintf(p, len, "%02x", *uuid++);
+        p += 2;
+        len -= 2;
+    }
+    *p++ = '-';
+    len--;
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 2; j++) {
+            snprintf(p, len, "%02x", *uuid++);
+            p += 2;
+            len -= 2;
+        }
+        *p++ = '-';
+        len--;
+    }
+    for (int i = 0; i < 6; i++) {
+        snprintf(p, len, "%02x", *uuid++);
+        p += 2;
+        len -= 2;
+    }
+    return str;
 }

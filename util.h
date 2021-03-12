@@ -115,6 +115,12 @@ char *get_file_part(char *path);
 char *format_bytes(int bytes, char *buf, int len);
 
 /*
+ * Returns the canonical textual representation of a UUID. Memory is allocated for
+ * the string that must be freed by the caller.
+ */
+char *uuid_format(uint8_t *uuid);
+
+/*
  * Extracts a 16 bits integer in big endian format from buf without incrementing the buffer
  */
 static inline uint16_t get_uint16be(const unsigned char *buf)

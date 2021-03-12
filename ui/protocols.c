@@ -2036,7 +2036,7 @@ void add_dhcp_information(void *w, void *sw, void *data)
     LV_ADD_TEXT_ELEMENT(lw, header, "Hops: %d", dhcp->hops);
     LV_ADD_TEXT_ELEMENT(lw, header, "Transaction id: 0x%x", dhcp->xid);
     LV_ADD_TEXT_ELEMENT(lw, header, "Seconds elapsed: %d", dhcp->secs);
-    str = (dhcp->flags == 0x80) ? "Broadcast" : "Unicast";
+    str = (dhcp->flags == 0x8000) ? "Broadcast" : "Unicast";
     flag_hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_FLAGS], UI_FLAGS, "Flags: %s (0x%x)", str, dhcp->flags);
     add_flags(lw, flag_hdr, dhcp->flags, get_dhcp_flags(), get_dhcp_flags_size());
     inet_ntop(AF_INET, &dhcp->ciaddr, addr, INET_ADDRSTRLEN);
@@ -2207,6 +2207,34 @@ static void add_dhcp_options(list_view *lw, list_view_header *header, struct dhc
             LV_ADD_TEXT_ELEMENT(lw, opthdr, "RCODE1: 0x%x", opt->fqdn.rcode1);
             LV_ADD_TEXT_ELEMENT(lw, opthdr, "RCODE2: 0x%x", opt->fqdn.rcode2);
             LV_ADD_TEXT_ELEMENT(lw, opthdr, "name: %s", opt->fqdn.name);
+            break;
+        }
+        case DHCP_UUID_CLIENT_ID:
+            if (opt->bytes[0] == 0) { /* type 0 is UUID */
+                char *uuid = uuid_format(opt->bytes + 1);
+
+                LV_ADD_TEXT_ELEMENT(lw, opthdr, "UUID: %s", uuid);
+                free(uuid);
+            } else {
+                for (int i = 0; i < opt->length; i++) {
+                    snprintf(buf + 2 * i, 256 - 2 * i, "%02x", (unsigned char) opt->bytes[i]);
+                }
+                LV_ADD_TEXT_ELEMENT(lw, opthdr, "Value: %s", buf);
+            }
+            break;
+        case DHCP_CLIENT_NDI:
+            LV_ADD_TEXT_ELEMENT(lw, opthdr, "Type: %d", opt->ndi.type);
+            LV_ADD_TEXT_ELEMENT(lw, opthdr, "Major version: %d", opt->ndi.maj);
+            LV_ADD_TEXT_ELEMENT(lw, opthdr, "Minor version: %d", opt->ndi.min);
+            break;
+        case DHCP_CLIENT_SA:
+        {
+            char *type = get_dhcp_option_architecture(opt->byte);
+
+            if (type)
+                LV_ADD_TEXT_ELEMENT(lw, opthdr, "Client System Architecture: %s", type);
+            else
+                LV_ADD_TEXT_ELEMENT(lw, opthdr, "Client System Architecture: %d", opt->byte);
             break;
         }
         default:

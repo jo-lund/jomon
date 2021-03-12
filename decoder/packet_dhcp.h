@@ -87,8 +87,19 @@
 #define DHCP_STREETTALK_SERVER 75
 #define DHCP_STDA_SERVER 76
 #define DHCP_CLIENT_FQDN 81
+#define DHCP_CLIENT_SA 93
+#define DHCP_CLIENT_NDI 94
 #define DHCP_LDAP_SERVERS 95 /* RFC 3679 */
+#define DHCP_UUID_CLIENT_ID 97
 #define DHCP_DOMAIN_SEARCH 119 /* RFC 3397 */
+
+/* DHCP client architecture type */
+#define IA_X86_PC 0
+#define NEC_PC98 1
+#define IA64_PC 2
+#define DEC_ALPHA 3
+#define ARCX86 4
+#define ILC 5
 
 /* DHCP message type */
 #define DHCPDISCOVER 1
@@ -115,6 +126,11 @@ struct dhcp_options {
             uint8_t rcode2; /* deprecated */
             uint8_t *name;
         } fqdn;
+        struct {
+            uint8_t type; /* should be 1 */
+            uint8_t maj;
+            uint8_t min;
+        } ndi;
     };
 };
 
@@ -148,5 +164,6 @@ char *get_dhcp_option_type(uint8_t type);
 char *get_dhcp_message_type(uint8_t type);
 char *get_dhcp_netbios_node_type(uint8_t type);
 char *get_dhcp_option_overload(uint8_t type);
+char *get_dhcp_option_architecture(uint8_t type);
 
 #endif
