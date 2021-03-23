@@ -1,0 +1,17 @@
+;;; ip[9] = 6 or ether[12:2] >= 1536 and (ip[9] = 17 or ether[0] & 1 = 0)
+
+        ldh    [12]
+        jeq    #0x800, L1, L2
+L1:     ldb    [23]
+        jeq    #0x6, L3, L2
+L2:     ldh    [12]
+        jge    #0x600, L3, L4
+L3:     ldh    [12]
+        jeq    #0x800, L5, L6
+L5:     ldb    [23]
+        jeq    #0x11, L7, L6
+L6:     ldb    [0]
+        and    #0x1
+        jeq    #0x0, L7, L4
+L7:     ret    #-1
+L4:     ret    #0

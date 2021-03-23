@@ -28,10 +28,11 @@ objects = $(patsubst %.c,$(BUILDDIR)/%.o,$(sources))
 objects += $(BUILDDIR)/bpf/parse.o $(BUILDDIR)/bpf/lexer.o $(BUILDDIR)/bpf/bpf.o $(BUILDDIR)/bpf/pcap_lexer.o \
   $(BUILDDIR)/bpf/pcap_parser.o $(BUILDDIR)/bpf/genasm.o
 test-objs = $(patsubst %.c,%.o,$(wildcard $(testdir)/*.c))
-bpf-objs = $(BUILDDIR)/bpf/parse.o $(BUILDDIR)/bpf/lexer.o $(BUILDDIR)/bpf/main.o $(BUILDDIR)/bpf/bpf.o \
+bpf-objs = $(BUILDDIR)/bpf/parse.o $(BUILDDIR)/bpf/lexer.o $(BUILDDIR)/bpf/bpf.o \
   $(BUILDDIR)/bpf/pcap_lexer.o $(BUILDDIR)/bpf/pcap_parser.o $(BUILDDIR)/stack.o $(BUILDDIR)/vector.o \
   $(BUILDDIR)/hashmap.o $(BUILDDIR)/mempool.o $(BUILDDIR)/debug_file.o $(BUILDDIR)/util.o $(BUILDDIR/stack.o) \
   $(BUILDDIR)/bpf/genasm.o
+test-objs += $(bpf-objs)
 
 .PHONY : all
 all : debug
@@ -39,23 +40,16 @@ all : debug
 .PHONY : debug
 debug : CFLAGS += -g -fsanitize=address -fno-omit-frame-pointer
 debug : CPPFLAGS += -DMONITOR_DEBUG
-debug : $(TARGETDIR)/monitor bpf
+debug : $(TARGETDIR)/monitor
 
 .PHONY : release
 release : CFLAGS += -O3
-release : $(TARGETDIR)/monitor bpf
+release : $(TARGETDIR)/monitor
 	@$(STRIP) --strip-all --remove-section .comment $(TARGETDIR)/monitor
 
 $(TARGETDIR)/monitor : $(objects)
 	@mkdir -p $(TARGETDIR)
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $(objects) $(LIBS)
-
-.PHONY : bpf
-bpf : $(TARGETDIR)/jbpf
-
-$(TARGETDIR)/jbpf : bpf/lexer.c bpf/pcap_lexer.c $(bpf-objs)
-	@mkdir -p $(TARGETDIR)
-	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $(bpf-objs)
 
 bpf/lexer.c : bpf/lexer.re
 	re2c -W bpf/lexer.re -o $@
@@ -103,4 +97,4 @@ test : $(testdir)/test
 	@$<
 
 $(testdir)/test : $(test-objs)
-	$(CC) $(CFLAGS) $(CPPFLAGS) $< -o $@  -lcheck -lm -lpthread -lrt -lsubunit
+	@$(CC) $(CFLAGS) $(CPPFLAGS) $(test-objs) -o $@ -lcheck -lm -lpthread -lrt

@@ -2,7 +2,6 @@
 #include <time.h>
 #include "../util.h"
 #include "../hashmap.h"
-#include "../hashmap.c"
 #include "../hash.h"
 
 START_TEST(hashmap_test_create)
@@ -156,18 +155,4 @@ Suite *hashmap_suite(void)
     tcase_add_test(tc_core, hashmap_test_id);
     tcase_set_timeout(tc_core, 60);
     return s;
-}
-
-int main()
-{
-    int number_failed;
-    Suite *s;
-    SRunner *sr;
-
-    s = hashmap_suite();
-    sr = srunner_create(s);
-    srunner_run_all(sr, CK_NORMAL);
-    number_failed = srunner_ntests_failed(sr);
-    srunner_free(sr);
-    return number_failed;
 }
