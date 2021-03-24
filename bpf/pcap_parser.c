@@ -13,6 +13,12 @@
 #include "../debug_file.h"
 #include "../vector.h"
 
+enum pcap_state {
+    PCAP_NONE,
+    PCAP_RELOP,
+    PCAP_QUALIFIER
+};
+
 static int lbp[128] = {
     [PCAP_MUL] = 60,
     [PCAP_DIV] = 60,
@@ -26,6 +32,7 @@ static int lbp[128] = {
     [PCAP_OR] = 10
 };
 
+static enum pcap_state state = PCAP_NONE;
 static struct bpf_parser parser;
 static jmp_buf env;
 static struct node *parse_expr(int rbp, struct block **b);
@@ -88,39 +95,46 @@ static int get_lbp(int token)
     case PCAP_XOR:
     case PCAP_OR:
     case PCAP_RPAR:
+    case PCAP_ETHER:
+    case PCAP_IP:
+    case PCAP_IP6:
+    case PCAP_ARP:
+    case PCAP_RARP:
+    case PCAP_ICMP:
+    case PCAP_TCP:
+    case PCAP_UDP:
         return lbp[token];
     default:
-        DEBUG("%s: Unexpected token", __func__);
+        DEBUG("%s: Unexpected token %d", __func__, token);
         longjmp(env, -1);
     }
 }
 
 static struct node *parse_offset(int token, struct block **b)
 {
-    if (match(PCAP_LBRACKET)) {
-        struct node *n;
-        struct node *c;
+    struct node *n;
+    struct node *c;
 
-        make_leaf_node(n, token, 0);
-        parser.token = get_token();
-        if ((c = parse_expr(0, b)) == NULL)
-            return NULL;
-        n->left = c;
-        switch (parser.token) {
-        case PCAP_COL:
-            if (match(PCAP_INT)) {
-                c->size = parser.val.intval;
-                if (match(PCAP_RBRACKET)) {
-                    return n;
-                }
+    state = PCAP_RELOP;
+    make_leaf_node(n, token, 0);
+    parser.token = get_token();
+    if ((c = parse_expr(0, b)) == NULL)
+        return NULL;
+    n->left = c;
+    switch (parser.token) {
+    case PCAP_COL:
+        if (match(PCAP_INT)) {
+            c->size = parser.val.intval;
+            if (match(PCAP_RBRACKET)) {
+                return n;
             }
-            break;
-        case PCAP_RBRACKET:
-            c->size = 1;
-            return n;
-        default:
-            break;
         }
+        break;
+    case PCAP_RBRACKET:
+        c->size = 1;
+        return n;
+    default:
+        break;
     }
     DEBUG("%s: Unexpected token", __func__);
     longjmp(env, -1);
@@ -139,6 +153,7 @@ static struct block *parse_relop(struct node *n, struct block **b)
     case PCAP_NEQ:
         parser.token = get_token();
         make_block(*b, token, n, parse_expr(0, b));
+        state = PCAP_NONE;
         return *b;
     default:
         DEBUG("%s: Unexpected relop: %d", __func__, parser.token);
@@ -158,7 +173,7 @@ static struct block *parse_op(struct block **b0)
     parser.token = get_token();
     if ((n = parse_expr(0, &b1)) == NULL)
         return NULL;
-    if (parser.token != PCAP_EOF)
+    if (state == PCAP_RELOP)
         b1 = parse_relop(n, &b1);
     (*b0)->next = b1;
     if (token == PCAP_LAND) {
@@ -193,19 +208,23 @@ static struct node *parse_parexpr(struct block **b)
     if (parser.token != PCAP_RPAR) {
         struct block *b1;
 
+        if (state == PCAP_QUALIFIER) {
+            b1 = *b;
+            *b = NULL;
+        }
         *b = alloc_block();
-        parse_relop(n, &b1);
+        if (state == PCAP_RELOP)
+            parse_relop(n, &b1);
         (*b)->p = b1;
-        while (parser.token != PCAP_EOF && parser.token != PCAP_RPAR) {
-            if (parser.token == PCAP_LAND || parser.token == PCAP_LOR) {
-                if ((b1 = parse_op(&b1)) == NULL)
-                    return NULL;
-            }
+        while (parser.token == PCAP_LAND || parser.token == PCAP_LOR) {
+            if ((b1 = parse_op(&b1)) == NULL)
+                return NULL;
         }
         if (parser.token != PCAP_RPAR) {
             DEBUG("%s: Unexpected token %d", __func__, parser.token);
             longjmp(env, -1);
         }
+        state = PCAP_NONE;
     }
     return n;
 }
@@ -234,7 +253,18 @@ static struct node *nud(int token, struct block **b)
     case PCAP_UDP:
     case PCAP_ICMP:
     case PCAP_IP6:
-        return parse_offset(token, b);
+        if (match(PCAP_LBRACKET)) {
+            return parse_offset(token, b);
+        } else if (parser.token == PCAP_LAND || parser.token == PCAP_LOR ||
+                   parser.token == PCAP_EOF || parser.token == PCAP_RPAR) {
+            state = PCAP_QUALIFIER;
+            make_leaf_node(n, token, 0);
+            make_block(*b, 0, n, NULL);
+            return n;
+        } else {
+            DEBUG("%s: Unexpected token", __func__);
+            longjmp(env, -1);
+        }
     case PCAP_LPAR:
         return parse_parexpr(b);
     default:
@@ -289,6 +319,8 @@ static struct node *parse_expr(int rbp, struct block **b)
     struct node *left;
 
     left = nud(token, b);
+    if (state == PCAP_QUALIFIER)
+        return left;
     parser.token = get_token();
     while (rbp < get_lbp(parser.token)) {
         token = parser.token;
@@ -357,10 +389,9 @@ struct bpf_prog pcap_compile(char *filter)
             default:
                 if ((n = parse_expr(0, &head)) == NULL)
                     goto done;
-                if (parser.token != PCAP_EOF && parser.token != PCAP_LAND &&
-                    parser.token != PCAP_LOR) {
+                if (state == PCAP_RELOP)
                     head = parse_relop(n, &head);
-                }
+                state = PCAP_NONE;
                 b = head;
                 break;
             }
@@ -368,7 +399,6 @@ struct bpf_prog pcap_compile(char *filter)
         patch_blocks(head);
         prog = gencode(head);
     }
-
 done:
     mempool_shfree(NULL);
     return prog;

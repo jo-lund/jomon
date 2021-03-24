@@ -306,6 +306,9 @@ static void gen_transport(struct block *b, struct node *n, uint32_t prot)
     block_insn++;
     regs[A] = 0;
 
+    if (!b->relop)
+        return;
+
     /* Block 3: Only accept unfragmented or frag 0 IPv4 packets */
     npoff->next = alloc_offset();
     npoff = npoff->next;
@@ -562,7 +565,7 @@ void dumpasm(const struct bpf_prog *prog)
                 break;
             }
             break;
-        break;
+            break;
         case BPF_ST:
         case BPF_STX:
             printf("%-6s M[%d]\n", instable[prog->bytecode[i].code], prog->bytecode[i].k);

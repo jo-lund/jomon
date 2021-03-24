@@ -702,7 +702,7 @@ void main_screen_goto_line(main_screen *ms, int c)
     if (isdigit(c) && num < INT_MAX / 10) {
         waddch(status, c);
         num = num * 10 + c - '0';
-    } else if (c == KEY_BACKSPACE) {
+    } else if (c == KEY_BACKSPACE || c == 127 || c == '\b') {
         int x, y;
 
         getyx(status, y, x);
@@ -786,7 +786,9 @@ void set_filter(main_screen *ms, int c)
 {
     static int numc = 0;
 
-    if (c == '\n' || c == KEY_ENTER) {
+    switch (c) {
+    case '\n':
+    case KEY_ENTER:
         mvwinnstr(status, 0, 8, bpf_filter, MAXLINE);
         bpf_filter[numc] = '\0';
         if (numc == 0) {
@@ -804,10 +806,15 @@ void set_filter(main_screen *ms, int c)
         }
         show_selectionbar(ms, ms->base.win, 0, A_NORMAL);
         wrefresh(ms->base.win);
-    } else if (c == KEY_ESC) {
+        break;
+    case KEY_ESC:
         clear_filter(ms);
         numc = 0;
-    } else if (c == KEY_BACKSPACE) {
+        break;
+    case KEY_BACKSPACE:
+    case 127:
+    case '\b':
+    {
         int x, y;
 
         getyx(status, y, x);
@@ -815,9 +822,12 @@ void set_filter(main_screen *ms, int c)
             mvwdelch(status, y, x - 1);
             numc--;
         }
-    } else if (isascii(c)) {
+        break;
+    }
+    default:
         waddch(status, c);
         numc++;
+        break;
     }
     wrefresh(status);
 }
