@@ -217,7 +217,7 @@ void main_screen_print_packet(main_screen *ms, struct packet *p)
     char buf[MAXLINE];
 
     if (bpf.size > 0) {
-        if (bpf_run_filter(bpf, p->buf, p->len) > 0) {
+        if (bpf_run_filter(bpf, p->buf, p->len) != 0) {
             vector_push_back(ms->packet_ref, p);
             write_to_buf(buf, MAXLINE, p);
             main_screen_update(ms, buf);
@@ -804,7 +804,8 @@ void set_filter(main_screen *ms, int c)
             bpf = pcap_compile(bpf_filter);
             filter_packets(ms);
         }
-        show_selectionbar(ms, ms->base.win, 0, A_NORMAL);
+        if (ms->base.show_selectionbar && vector_size(ms->packet_ref) > 0)
+            show_selectionbar(ms, ms->base.win, 0, A_NORMAL);
         wrefresh(ms->base.win);
         break;
     case KEY_ESC:

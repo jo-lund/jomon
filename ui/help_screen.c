@@ -75,6 +75,8 @@ void help_screen_render()
     wprintw(win, ": Load file in pcap format");
     printat(win, ++y, 0, subcol, "%12s", "F7");
     wprintw(win, ": Change between decoded view or hexdump");
+    printat(win, ++y, 0, subcol, "%12s", "F8 e");
+    wprintw(win, ": Add a display filter (tcpdump syntax)");
     mvwprintw(win, ++y, 0, "");
     printat(win, ++y, 0, hdrcol, "Keyboard shortcuts in interactive mode");
     printat(win, ++y, 0, subcol, "%12s", "Arrows");
