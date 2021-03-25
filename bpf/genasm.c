@@ -306,23 +306,22 @@ static void gen_transport(struct block *b, struct node *n, uint32_t prot)
     block_insn++;
     regs[A] = 0;
 
-    if (!b->relop)
-        return;
-
     /* Block 3: Only accept unfragmented or frag 0 IPv4 packets */
-    npoff->next = alloc_offset();
-    npoff = npoff->next;
-    npoff->offset = block_insn + 1;
-    npoff->inverse = true;
-    n->k = 20;
-    n->size = 2;
-    gen_lda(n, BPF_ABS);
-    insn = calloc(1, sizeof(*insn));
-    insn->code = BPF_JMP | BPF_JSET | BPF_K;
-    insn->k = 0x1fff;
-    vector_push_back(code, insn);
-    block_insn++;
-    regs[A] = 0;
+    if (b->relop) {
+        npoff->next = alloc_offset();
+        npoff = npoff->next;
+        npoff->offset = block_insn + 1;
+        npoff->inverse = true;
+        n->k = 20;
+        n->size = 2;
+        gen_lda(n, BPF_ABS);
+        insn = calloc(1, sizeof(*insn));
+        insn->code = BPF_JMP | BPF_JSET | BPF_K;
+        insn->k = 0x1fff;
+        vector_push_back(code, insn);
+        block_insn++;
+        regs[A] = 0;
+    }
 }
 
 static void gen_proto(struct block *b, struct node *n, int op, int offset)
@@ -438,7 +437,7 @@ static void gen_ret(int k)
     vector_push_back(code, insn);
 }
 
-static void gen_jmpins(struct block *b, int ins)
+static void gen_jmpins(struct block *b, int ins, bool inverse)
 {
     struct bpf_insn *insn = calloc(1, sizeof(*insn));
 
@@ -450,6 +449,7 @@ static void gen_jmpins(struct block *b, int ins)
         gen_ldm(b->expr1);
         insn->code = BPF_JMP | ins | BPF_X;
     }
+    b->inverse = inverse;
     vector_push_back(code, insn);
     block_insn++;
     regs[A] = 0;
@@ -459,18 +459,22 @@ static void genjmp(struct block *b)
 {
     switch (b->relop) {
     case PCAP_EQ:
-        gen_jmpins(b, BPF_JEQ);
+        gen_jmpins(b, BPF_JEQ, false);
         break;
     case PCAP_LE:
+        gen_jmpins(b, BPF_JGE, true);
         break;
     case PCAP_GT:
-        gen_jmpins(b, BPF_JGT);
+        gen_jmpins(b, BPF_JGT, false);
         break;
     case PCAP_GEQ:
-        gen_jmpins(b, BPF_JGE);
+        gen_jmpins(b, BPF_JGE, false);
         break;
     case PCAP_LEQ:
+        gen_jmpins(b, BPF_JGT, true);
+        break;
     case PCAP_NEQ:
+        gen_jmpins(b, BPF_JEQ, true);
         break;
     default:
         break;
@@ -502,8 +506,13 @@ static int patch_jmp(struct block *b, struct block *e, int numi)
         if (b->p == NULL) {
             insn = vector_get_data(code, numi + b->insn - 1);
             if (insn && BPF_CLASS(insn->code) == BPF_JMP) {
-                set_jmp_offset(b, b->jt, e, &insn->jt, 0);
-                set_jmp_offset(b, b->jf, e, &insn->jf, 1);
+                if (b->inverse) {
+                    set_jmp_offset(b, b->jt, e, &insn->jf, 0);
+                    set_jmp_offset(b, b->jf, e, &insn->jt, 1);
+                } else {
+                    set_jmp_offset(b, b->jt, e, &insn->jt, 0);
+                    set_jmp_offset(b, b->jf, e, &insn->jf, 1);
+                }
             }
         } else {
             numi = patch_jmp(b->p, b, b->insn + numi);
