@@ -36,6 +36,7 @@ typedef struct main_screen {
 
     int scrollx; /* the amount scrolled on the x-axis */
     vector_t *packet_ref;
+    bool follow_stream;
 } main_screen;
 
 struct packet;

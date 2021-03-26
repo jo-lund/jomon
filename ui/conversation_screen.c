@@ -154,6 +154,7 @@ void conversation_screen_got_focus(screen *s, screen *oldscr)
 {
     conversation_screen *cs = (conversation_screen *) s;
 
+    ((main_screen *) s)->follow_stream = true;
     tcp_analyzer_subscribe(add_packet);
     if (oldscr->fullscreen) {
         cs->base.packet_ref = vector_init(list_size(cs->stream->packets));
@@ -165,6 +166,7 @@ void conversation_screen_lost_focus(screen *s, screen *newscr)
 {
     conversation_screen *cs = (conversation_screen *) s;
 
+    ((main_screen *) s)->follow_stream = false;
     tcp_analyzer_unsubscribe(add_packet);
     if (newscr->fullscreen)
         vector_free(cs->base.packet_ref, NULL);
@@ -173,9 +175,11 @@ void conversation_screen_lost_focus(screen *s, screen *newscr)
 static void conversation_screen_on_back(screen *s)
 {
     ((conversation_screen *) s)->stream = NULL;
+    ((main_screen *) s)->follow_stream = false;
     tcp_mode = NORMAL;
     vector_clear(tcp_page.buf, free_tcp_attr);
     tcp_page.top = 0;
+
 }
 
 void conversation_screen_get_input(screen *s)

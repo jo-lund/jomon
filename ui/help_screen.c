@@ -53,6 +53,8 @@ void help_screen_render()
     wprintw(win, ": Show TCP connections");
     printat(win, ++y, 0, subcol, "%12s", "h");
     wprintw(win, ": Show hosts");
+    printat(win, ++y, 0, subcol, "%12s", "i");
+    wprintw(win, ": Enter interactive mode (main screen and connection list)");
     printat(win, ++y, 0, subcol, "%12s", "p/P");
     wprintw(win, ": Switch to next/previous page (where applicable)");
     printat(win, ++y, 0, subcol, "%12s", "F1");
@@ -63,8 +65,6 @@ void help_screen_render()
     wprintw(win, ": Quit");
     mvwprintw(win, ++y, 0, "");
     printat(win, ++y, 0, hdrcol, "Main screen keyboard shortcuts");
-    printat(win, ++y, 0, subcol, "%12s", "i");
-    wprintw(win, ": Enter interactive mode");
     printat(win, ++y, 0, subcol, "%12s", "F3");
     wprintw(win, ": Start packet scan");
     printat(win, ++y, 0, subcol, "%12s", "F4");

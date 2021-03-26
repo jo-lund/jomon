@@ -19,6 +19,7 @@ void tcp_analyzer_check_stream(const struct packet *p)
         return;
 
     struct packet_data *pdata;
+    static int i = 0;
 
     if (ethertype(p) == ETH_P_IP &&
         (pdata = get_packet_data(p, get_protocol_id(IP_PROTOCOL, IPPROTO_TCP)))) {
@@ -73,6 +74,7 @@ void tcp_analyzer_check_stream(const struct packet *p)
             new_conn = mempool_pealloc(sizeof(struct tcp_connection_v4));
             new_conn->endp = new_endp;
             new_conn->packets = list_init(&d_alloc);
+            new_conn->num = i++;
             list_push_back(new_conn->packets, (void *) p);
             if (tcp->syn) {
                 new_conn->state = tcp->ack ? SYN_RCVD : SYN_SENT;

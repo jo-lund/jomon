@@ -117,6 +117,7 @@ void main_screen_init(screen *s)
     scrollok(s->win, TRUE);
     ms->packet_ref = packets;
     getcwd(load_filepath, MAXPATH);
+    ms->follow_stream = false;
 }
 
 void main_screen_free(screen *s)
@@ -595,6 +596,7 @@ void print_header(main_screen *ms)
     char addr[INET_ADDRSTRLEN];
     int txtcol = get_theme_colour(HEADER_TXT);
     char mac[HW_ADDRSTRLEN];
+    int maxx = getmaxx(stdscr);
 
     werase(ms->header);
     if (ctx.filename[0]) {
@@ -604,9 +606,19 @@ void print_header(main_screen *ms)
         printat(ms->header, y, 0, txtcol, "Device");
         wprintw(ms->header, ": %s", ctx.device);
     }
+    printat(ms->header, y, maxx / 2, txtcol, "Display filter");
+    if (bpf.size != 0)
+        wprintw(ms->header, ": %s", bpf_filter);
+    else
+        wprintw(ms->header, ": None");
     inet_ntop(AF_INET, &ctx.local_addr->sin_addr, addr, sizeof(addr));
     printat(ms->header, ++y, 0, txtcol, "IPv4 address");
     wprintw(ms->header, ": %s", addr);
+    printat(ms->header, y, maxx / 2, txtcol, "Follow stream");
+    if (ms->follow_stream)
+        wprintw(ms->header, ": %u", ((conversation_screen *) ms)->stream->num);
+    else
+        wprintw(ms->header, ": None");
     HW_ADDR_NTOP(mac, ctx.mac);
     printat(ms->header, ++y, 0, txtcol, "MAC");
     wprintw(ms->header, ": %s", mac);
@@ -785,32 +797,44 @@ void main_screen_goto_end(main_screen *ms)
 void set_filter(main_screen *ms, int c)
 {
     static int numc = 0;
+    struct bpf_prog prog;
+    char filter[MAXLINE];
 
     switch (c) {
     case '\n':
     case KEY_ENTER:
-        mvwinnstr(status, 0, 8, bpf_filter, MAXLINE);
-        bpf_filter[numc] = '\0';
+        mvwinnstr(status, 0, 8, filter, MAXLINE);
+        filter[numc] = '\0';
         if (numc == 0) {
             clear_filter(ms);
-            numc = 0;
         } else {
             wmove(status, 0, numc + 8);
+            prog = pcap_compile(filter);
+            if (prog.size == 0) {
+                wbkgd(status, get_theme_colour(ERR_BKGD));
+                wrefresh(status);
+                return;
+            }
             if (bpf.size > 0) {
                 free(bpf.bytecode);
-                bpf.size = 0;
                 vector_free(ms->packet_ref, NULL);
             }
-            bpf = pcap_compile(bpf_filter);
+            bpf = prog;
+            strncpy(bpf_filter, filter, MAXLINE);
             filter_packets(ms);
         }
         if (ms->base.show_selectionbar && vector_size(ms->packet_ref) > 0)
             show_selectionbar(ms, ms->base.win, 0, A_NORMAL);
-        wrefresh(ms->base.win);
+        print_header(ms);
+        wnoutrefresh(ms->header);
+        wnoutrefresh(ms->base.win);
+        doupdate();
         break;
     case KEY_ESC:
-        clear_filter(ms);
-        numc = 0;
+        numc = strlen(bpf_filter);
+        input_mode = INPUT_NONE;
+        werase(status);
+        print_status();
         break;
     case KEY_BACKSPACE:
     case 127:
@@ -859,10 +883,6 @@ void clear_filter(main_screen *ms)
 
 void filter_packets(main_screen *ms)
 {
-    if (bpf.size == 0) {
-        wbkgd(status, get_theme_colour(ERR_BKGD));
-        return;
-    }
     ms->packet_ref = vector_init(vector_size(packets) / 2);
     for (int i = 0; i < vector_size(packets); i++) {
         struct packet *p = vector_get_data(packets, i);

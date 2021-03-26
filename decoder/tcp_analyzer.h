@@ -27,6 +27,7 @@ struct tcp_connection_v4 {
     struct tcp_endpoint_v4 *endp;
     enum connection_state state;
     list_t *packets;
+    uint32_t num;
 };
 
 /*
