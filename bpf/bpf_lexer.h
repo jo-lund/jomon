@@ -1,5 +1,5 @@
-#ifndef LEXER_H
-#define LEXER_H
+#ifndef BPF_LEXER_H
+#define BPF_LEXER_H
 
 enum token {
     LABEL = 1,

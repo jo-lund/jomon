@@ -1,5 +1,5 @@
 #include <string.h>
-#include "lexer.h"
+#include "bpf_lexer.h"
 #include "parse.h"
 #include "util.h"
 

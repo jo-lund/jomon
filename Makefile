@@ -25,10 +25,10 @@ ifeq ($(MACHINE), Linux)
     sources += $(wildcard linux/*.c)
 endif
 objects = $(patsubst %.c,$(BUILDDIR)/%.o,$(sources))
-objects += $(BUILDDIR)/bpf/parse.o $(BUILDDIR)/bpf/lexer.o $(BUILDDIR)/bpf/bpf.o $(BUILDDIR)/bpf/pcap_lexer.o \
+objects += $(BUILDDIR)/bpf/bpf_parser.o $(BUILDDIR)/bpf/bpf_lexer.o $(BUILDDIR)/bpf/bpf.o $(BUILDDIR)/bpf/pcap_lexer.o \
   $(BUILDDIR)/bpf/pcap_parser.o $(BUILDDIR)/bpf/genasm.o
 test-objs = $(patsubst %.c,%.o,$(wildcard $(testdir)/*.c))
-bpf-objs = $(BUILDDIR)/bpf/parse.o $(BUILDDIR)/bpf/lexer.o $(BUILDDIR)/bpf/bpf.o \
+bpf-objs = $(BUILDDIR)/bpf/bpf_parser.o $(BUILDDIR)/bpf/bpf_lexer.o $(BUILDDIR)/bpf/bpf.o \
   $(BUILDDIR)/bpf/pcap_lexer.o $(BUILDDIR)/bpf/pcap_parser.o $(BUILDDIR)/stack.o $(BUILDDIR)/vector.o \
   $(BUILDDIR)/hashmap.o $(BUILDDIR)/mempool.o $(BUILDDIR)/debug_file.o $(BUILDDIR)/util.o $(BUILDDIR/stack.o) \
   $(BUILDDIR)/bpf/genasm.o
@@ -51,11 +51,11 @@ $(TARGETDIR)/monitor : $(objects)
 	@mkdir -p $(TARGETDIR)
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $(objects) $(LIBS)
 
-bpf/lexer.c : bpf/lexer.re
-	re2c -W bpf/lexer.re -o $@
+bpf/bpf_lexer.c : bpf/bpf_lexer.re
+	re2c -W $< -o $@
 
 bpf/pcap_lexer.c : bpf/pcap_lexer.re
-	re2c -T -W bpf/pcap_lexer.re -o $@
+	re2c -T -W $< -o $@
 
 # Compile and generate dependency files
 $(BUILDDIR)/%.o : %.c

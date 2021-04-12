@@ -30,7 +30,7 @@
 #include "process.h"
 #include "debug_file.h"
 #include "geoip.h"
-#include "bpf/parse.h"
+#include "bpf/bpf_parser.h"
 #include "bpf/pcap_parser.h"
 #include "bpf/genasm.h"
 
@@ -158,11 +158,11 @@ int main(int argc, char **argv)
     if (ctx.opt.use_ncurses || ctx.opt.load_file)
         packets = vector_init(TABLE_SIZE);
     if (ctx.filter_file) {
-        if (!bpf_parse_init(ctx.filter_file))
-            err_sys("bpf_parse_init error");
-        bpf = bpf_parse();
+        if (!bpf_init(ctx.filter_file))
+            err_sys("bpf_init error");
+        bpf = bpf_assemble();
         if (bpf.size == 0)
-            err_quit("bpf_parse error");
+            err_quit("bpf_assemble error");
     } else if (ctx.filter) {
         bpf = pcap_compile(ctx.filter);
         if (bpf.size == 0)
@@ -249,22 +249,23 @@ static void print_bpf(void)
 
 static void print_help(char *prg)
 {
-    printf("Usage: %s [-dhlpstvG] [-f filter] [-F filter-file] [-i interface] [-r path]\n", prg);
-    printf("Options:\n");
-    printf("     -G, --no-geoip         Don't use GeoIP information\n");
-    printf("     -d                     Dump packet filter as BPF assembly and exit\n");
-    printf("     -dd                    Dump packet filter as C code fragment and exit\n");
-    printf("     -ddd                   Dump packet filter as decimal numbers and exit\n");
-    printf("     -F,                    Read packet filter from file\n");
-    printf("     -f,                    Specify packet filter\n");
-    printf("     -h, --help             Print this help summary\n");
-    printf("     -i, --interface        Specify network interface\n");
-    printf("     -l, --list-interfaces  List available interfaces\n");
-    printf("     -p                     Don't put the interface into promiscuous mode\n");
-    printf("     -r                     Read file in pcap format\n");
-    printf("     -s, --statistics       Show statistics page\n");
-    printf("     -t                     Use normal text output, i.e. don't use ncurses\n");
-    printf("     -v, --verbose          Print verbose information\n");
+    printf("Usage: %s [-dhlpstvG] [-f filter] [-F filter-file] [-i interface] [-r path]\n"
+           "Options:\n"
+           "     -G, --no-geoip         Don't use GeoIP information\n"
+           "     -d                     Dump packet filter as BPF assembly and exit\n"
+           "     -dd                    Dump packet filter as C code fragment and exit\n"
+           "     -ddd                   Dump packet filter as decimal numbers and exit\n"
+           "     -F                     Read packet filter from file (BPF assembly)\n"
+           "     -f                     Specify packet filter (tcpdump syntax)\n"
+           "     -h, --help             Print this help summary\n"
+           "     -i, --interface        Specify network interface\n"
+           "     -l, --list-interfaces  List available interfaces\n"
+           "     -p                     Don't put the interface into promiscuous mode\n"
+           "     -r                     Read file in pcap format\n"
+           "     -s, --statistics       Show statistics page\n"
+           "     -t                     Use normal text output, i.e. don't use ncurses\n"
+           "     -v, --verbose          Print verbose information\n",
+           prg);
 }
 
 static void setup_signal(int signo, void (*handler)(int), int flags)
@@ -338,7 +339,7 @@ void finish(int status)
     if (ctx.filter || ctx.filter_file) {
         if (bpf.bytecode)
             free(bpf.bytecode);
-        bpf_parse_free();
+        bpf_free();
     }
     decoder_exit();
     exit(status);

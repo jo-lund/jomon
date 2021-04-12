@@ -1,8 +1,6 @@
 #ifndef PARSE_H
 #define PARSE_H
 
-#include <stdbool.h>
-
 struct bpf_input {
     unsigned char *buf;
     unsigned char *lim;
@@ -23,24 +21,5 @@ struct bpf_parser {
     unsigned int line;
     char *infile;
 };
-
-
-enum bpf_error {
-    BPF_SYNTAX_ERROR
-};
-
-/* Initialize BPF parser */
-bool bpf_parse_init(char *file);
-
-/* Free resources associated with BPF parser */
-void bpf_parse_free();
-
-void bpf_parse_setbuf(char *buf, int n);
-
-/*
- * Allocates memory for bytecode that needs to be freed after use, i.e. before
- * calling this function again.
- */
-struct bpf_prog bpf_parse();
 
 #endif

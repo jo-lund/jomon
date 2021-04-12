@@ -7,7 +7,8 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include "parse.h"
-#include "lexer.h"
+#include "bpf_parser.h"
+#include "bpf_lexer.h"
 #include "bpf.h"
 #include "../vector.h"
 #include "../hashmap.h"
@@ -55,7 +56,7 @@ static uint16_t opcodes[] = {
 #define bpf_jmp_stm(i, m, jt, jf, k) make_stm(opcodes[i] | (m), jt, jf, k)
 #define bpf_stm(i, m, k) make_stm(opcodes[i] | (m), 0, 0, k)
 
-bool bpf_parse_init(char *file)
+bool bpf_init(char *file)
 {
     int fd;
     struct stat st;
@@ -82,7 +83,7 @@ end:
     return ret;
 }
 
-void bpf_parse_free()
+void bpf_free()
 {
     munmap(parser.input.buf, parser.size);
     vector_free(bytecode, free);
@@ -403,7 +404,7 @@ undefined:
     return false;
 }
 
-struct bpf_prog bpf_parse()
+struct bpf_prog bpf_assemble(void)
 {
     bool ret = false;
     struct bpf_prog prog = {
