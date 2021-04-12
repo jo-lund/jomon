@@ -5,7 +5,7 @@
 #include <dirent.h>
 #include <stdio.h>
 #include "../bpf/bpf.h"
-#include "../bpf/parse.h"
+#include "../bpf/bpf_parser.h"
 #include "../bpf/pcap_parser.h"
 #include "../mempool.h"
 #include "../misc.h"
@@ -30,9 +30,9 @@ START_TEST(filter_test)
         if (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0)
             continue;
         strncat(file, dp->d_name, MAXPATH);
-        if (!bpf_parse_init(file))
-            ck_abort_msg("bpf_parse_init error");
-        bpf1 = bpf_parse();
+        if (!bpf_init(file))
+            ck_abort_msg("bpf_init error");
+        bpf1 = bpf_assemble();
         if ((fp = fopen(file, "r")) == NULL)
             ck_abort_msg("fopen error");
         fgets(buf, 1024, fp);
@@ -51,7 +51,7 @@ START_TEST(filter_test)
         break;
     }
     closedir(dfd);
-    bpf_parse_free();
+    bpf_free();
 }
 END_TEST
 

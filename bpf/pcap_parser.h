@@ -1,6 +1,8 @@
 #ifndef PCAP_PARSER_H
 #define PCAP_PARSER_H
 
+#include <stdbool.h>
+
 #define DEFINE_ALLOC(type, name)                        \
     static inline type *alloc_##name(void)              \
     {                                                   \
