@@ -158,9 +158,7 @@ int main(int argc, char **argv)
     if (ctx.opt.use_ncurses || ctx.opt.load_file)
         packets = vector_init(TABLE_SIZE);
     if (ctx.filter_file) {
-        if (!bpf_init(ctx.filter_file))
-            err_sys("bpf_init error");
-        bpf = bpf_assemble();
+        bpf = bpf_assemble(ctx.filter_file);
         if (bpf.size == 0)
             err_quit("bpf_assemble error");
     } else if (ctx.filter) {
@@ -339,7 +337,6 @@ void finish(int status)
     if (ctx.filter || ctx.filter_file) {
         if (bpf.bytecode)
             free(bpf.bytecode);
-        bpf_free();
     }
     decoder_exit();
     exit(status);

@@ -30,9 +30,7 @@ START_TEST(filter_test)
         if (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0)
             continue;
         strncat(file, dp->d_name, MAXPATH);
-        if (!bpf_init(file))
-            ck_abort_msg("bpf_init error");
-        bpf1 = bpf_assemble();
+        bpf1 = bpf_assemble(file);
         if ((fp = fopen(file, "r")) == NULL)
             ck_abort_msg("fopen error");
         fgets(buf, 1024, fp);
@@ -51,7 +49,6 @@ START_TEST(filter_test)
         break;
     }
     closedir(dfd);
-    bpf_free();
 }
 END_TEST
 

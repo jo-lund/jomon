@@ -56,7 +56,7 @@ static uint16_t opcodes[] = {
 #define bpf_jmp_stm(i, m, jt, jf, k) make_stm(opcodes[i] | (m), jt, jf, k)
 #define bpf_stm(i, m, k) make_stm(opcodes[i] | (m), 0, 0, k)
 
-bool bpf_init(char *file)
+static bool bpf_init(char *file)
 {
     int fd;
     struct stat st;
@@ -83,7 +83,7 @@ end:
     return ret;
 }
 
-void bpf_free()
+static void bpf_free(void)
 {
     munmap(parser.input.buf, parser.size);
     vector_free(bytecode, free);
@@ -404,7 +404,7 @@ undefined:
     return false;
 }
 
-struct bpf_prog bpf_assemble(void)
+struct bpf_prog bpf_assemble(char *file)
 {
     bool ret = false;
     struct bpf_prog prog = {
@@ -412,13 +412,16 @@ struct bpf_prog bpf_assemble(void)
         .size = 0
     };
 
+    if (!bpf_init(file))
+        return prog;
+
     parser.input.tok = parser.input.buf;
     parser.input.cur = parser.input.buf;
     parser.input.lim = parser.input.buf + strlen((char *) parser.input.buf) + 1;
     while ((parser.token = get_token()) != 0) {
         if (parser.token == LABEL) {
             if (!parse_label())
-                return prog;
+                goto done;
         }
     }
     parser.input.tok = parser.input.buf;
@@ -430,12 +433,12 @@ struct bpf_prog bpf_assemble(void)
             free(parser.val.str);
             if (!match(':')) {
                 error("Unexpected token: %c", parser.token);
-                return prog;
+                goto done;
             }
             break;
         case INT:
             error("Unexpected integer");
-            return prog;
+            goto done;
         case LD:
             ret = parse_ld();
             break;
@@ -481,16 +484,16 @@ struct bpf_prog bpf_assemble(void)
             break;
         default:
             error("Unexpected token: %c", parser.token);
-            return prog;
+            goto done;
         }
         if (!ret)
-            return prog;
+            goto done;
     }
     struct bpf_insn *insn = vector_get_data(bytecode, vector_size(bytecode) - 1);
 
     if (BPF_CLASS(insn->code) != BPF_RET) {
         error("Not a valid program");
-        return prog;
+        goto done;
     }
     int sz = vector_size(bytecode);
     struct bpf_insn *bc = malloc(sz * sizeof(struct bpf_insn));
@@ -499,5 +502,8 @@ struct bpf_prog bpf_assemble(void)
         bc[i] = * (struct bpf_insn *) vector_get_data(bytecode, i);
     prog.bytecode = bc;
     prog.size = (uint16_t) sz;
+
+done:
+    bpf_free();
     return prog;
 }
