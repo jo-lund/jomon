@@ -73,7 +73,7 @@ static bool bpf_init(char *file)
     if ((parser.input.buf = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0)) == MAP_FAILED)
         goto end;
     bytecode = vector_init(10);
-    symbol_table = hashmap_init(10, hash_string, compare_string);
+    symbol_table = hashmap_init(10, hashfnv_string, compare_string);
     hashmap_set_free_key(symbol_table, free);
     hashmap_set_free_data(symbol_table, free);
     ret = true;
