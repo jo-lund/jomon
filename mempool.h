@@ -1,6 +1,13 @@
 #ifndef MEMPOOL_H
 #define MEMPOOL_H
 
+#define MEMPOOL_CALLOC(type, pool)                      \
+    ({                                                  \
+        type *t = mempool_##pool##alloc(sizeof(*t));    \
+        memset(t, 0, sizeof(*t));                       \
+    })
+
+
 /* Initializes the memory pools */
 void mempool_init();
 

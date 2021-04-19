@@ -11,7 +11,6 @@ BUILDDIR := build
 TARGETDIR := bin
 MACHINE := $(shell uname -s)
 STRIP := strip
-CC := gcc
 CFLAGS += -std=gnu11
 CPPFLAGS += -Wall -Wextra -Wno-override-init $(addprefix -I,$(incdir))
 LIBS += -lncurses

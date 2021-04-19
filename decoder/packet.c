@@ -30,8 +30,8 @@ static hashmap_t *protocols;
 
 void decoder_init()
 {
-    info = hashmap_init(64, hash_string, compare_string);
-    protocols = hashmap_init(64, hash_uint16, compare_uint);
+    info = hashmap_init(64, hashdjb_string, compare_string);
+    protocols = hashmap_init(64, hashdjb_uint16, compare_uint);
     for (unsigned int i = 0; i < ARRAY_SIZE(decoder_functions); i++) {
         decoder_functions[i]();
     }

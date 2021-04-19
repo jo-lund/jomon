@@ -11,7 +11,7 @@ static publisher_t *dns_cache_publisher;
 
 void dns_cache_init()
 {
-    dns_cache = hashmap_init(CACHE_SIZE, hash_uint32, compare_uint);
+    dns_cache = hashmap_init(CACHE_SIZE, hashdjb_uint32, compare_uint);
     dns_cache_publisher = publisher_init();
 }
 

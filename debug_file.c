@@ -24,13 +24,17 @@ bool debug_init()
 void debug_free()
 {
 #ifdef MONITOR_DEBUG
-    fclose(fp);
+    if (fp)
+        fclose(fp);
 #endif
 }
 
 bool debug_output(char *file, int line, char *fmt, ...)
 {
 #ifdef MONITOR_DEBUG
+    if (!fp)
+        return false;
+
     va_list ap;
     char buf[MAXLINE];
     struct timeval tv;

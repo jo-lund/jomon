@@ -14,6 +14,7 @@
 #include "hexdump.h"
 #include "../geoip.h"
 #include "../decoder/decoder.h"
+#include "../debug_file.h"
 
 #define HOSTNAMELEN 255 /* maximum 255 according to rfc1035 */
 #define TBUFLEN 16
@@ -74,7 +75,7 @@ static void add_tls_server_hello(list_view *lw, list_view_header *header,
                                  struct tls_handshake_server_hello *hello);
 static void add_tls_extensions(list_view *lw, list_view_header *header,
                                unsigned char *data, uint16_t len);
-
+static void add_dhcp_options(list_view *lw, list_view_header *header, struct dhcp_info *dhcp);
 
 void write_to_buf(char *buf, int size, struct packet *p)
 {
@@ -553,6 +554,50 @@ void print_tls(char *buf, int n, void *data)
     PRINT_INFO(buf, n, "%s", records);
 }
 
+void print_dhcp(char *buf, int n, void *data)
+{
+    char hwaddr[HW_ADDRSTRLEN];
+    struct dhcp_info *dhcp = (struct dhcp_info *)((struct packet_data *) data)->data;
+    const node_t *node;
+
+    PRINT_PROTOCOL(buf, n, "DHCP");
+    LIST_FOREACH(dhcp->options, node) {
+        struct dhcp_options *opt = (struct dhcp_options *) list_data(node);
+
+        if (opt->tag == DHCP_MESSAGE_TYPE) {
+            switch (opt->byte) {
+            case DHCPDISCOVER:
+                HW_ADDR_NTOP(hwaddr, dhcp->chaddr);
+                PRINT_INFO(buf, n, "Discover  Transaction id: 0x%x", dhcp->xid);
+                break;
+            case DHCPOFFER:
+                PRINT_INFO(buf, n, "Offer     Transaction id: 0x%x", dhcp->xid);
+                break;
+            case DHCPREQUEST:
+                PRINT_INFO(buf, n, "Request   Transaction id: 0x%x", dhcp->xid);
+                break;
+            case DHCPDECLINE:
+                PRINT_INFO(buf, n, "Decline   Transaction id: 0x%x", dhcp->xid);
+                break;
+            case DHCPACK:
+                PRINT_INFO(buf, n, "ACK       Transaction id: 0x%x", dhcp->xid);
+                break;
+            case DHCPNAK:
+                PRINT_INFO(buf, n, "NAK       Transaction id: 0x%x", dhcp->xid);
+                break;
+            case DHCPRELEASE:
+                PRINT_INFO(buf, n, "Release   Transaction id: 0x%x", dhcp->xid);
+                break;
+            case DHCPINFORM:
+                PRINT_INFO(buf, n, "Inform    Transaction id: 0x%x", dhcp->xid);
+            default:
+                break;
+            }
+            break;
+        }
+    }
+}
+
 void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t type)
 {
     switch (type) {
@@ -715,17 +760,23 @@ void add_arp_information(void *w, void *sw, void *data)
     char tip[INET_ADDRSTRLEN];
     char sha[HW_ADDRSTRLEN];
     char tha[HW_ADDRSTRLEN];
+    char *hwtype;
+    char *ptype;
+    char *opcode;
 
     HW_ADDR_NTOP(sha, arp->sha);
     HW_ADDR_NTOP(tha, arp->tha);
     inet_ntop(AF_INET, arp->sip, sip, INET_ADDRSTRLEN);
     inet_ntop(AF_INET, arp->tip, tip, INET_ADDRSTRLEN);
-    LV_ADD_TEXT_ELEMENT(lw, header, "Hardware type: %d (%s)", arp->ht, get_arp_hardware_type(arp->ht));
-    LV_ADD_TEXT_ELEMENT(lw, header, "Protocol type: 0x%x (%s)", arp->pt, get_arp_protocol_type(arp->pt));
+
+    if ((hwtype = get_arp_hardware_type(arp->ht)) != NULL)
+        LV_ADD_TEXT_ELEMENT(lw, header, "Hardware type: %s (%d)", hwtype, arp->ht);
+    if ((ptype = get_arp_protocol_type(arp->pt)) != NULL)
+        LV_ADD_TEXT_ELEMENT(lw, header, "Protocol type: %s (0x%x)", ptype, arp->pt);
     LV_ADD_TEXT_ELEMENT(lw, header, "Hardware size: %d", arp->hs);
     LV_ADD_TEXT_ELEMENT(lw, header, "Protocol size: %d", arp->ps);
-    LV_ADD_TEXT_ELEMENT(lw, header, "Opcode: %d (%s)", arp->op, get_arp_opcode(arp->op));
-    LV_ADD_TEXT_ELEMENT(lw, header, "");
+    if ((opcode = get_arp_opcode(arp->op)) != NULL)
+        LV_ADD_TEXT_ELEMENT(lw, header, "Opcode: %s (%d)", opcode, arp->op);
     LV_ADD_TEXT_ELEMENT(lw, header, "Sender IP: %-15s  HW: %s", sip, sha);
     LV_ADD_TEXT_ELEMENT(lw, header, "Target IP: %-15s  HW: %s", tip, tha);
 }
@@ -816,13 +867,12 @@ void add_ipv4_information(void *w, void *sw, void *data)
     LV_ADD_TEXT_ELEMENT(lw, header, "%s", buf);
     LV_ADD_TEXT_ELEMENT(lw, header, "Total length: %u", ip->length);
     LV_ADD_TEXT_ELEMENT(lw, header, "Identification: 0x%x (%u)", ip->id, ip->id);
-    snprintf(buf, MAXLINE, "Flags 0x%x ", flags);
+    snprintf(buf, MAXLINE, "Flags: ");
     if (ip->foffset & 0x4000 || ip->foffset & 0x2000) {
-        snprintcat(buf, MAXLINE, "(");
-        if (ip->foffset & 0x4000) snprintcat(buf, MAXLINE, "Don't Fragment");
-        if (ip->foffset & 0x2000) snprintcat(buf, MAXLINE, "More Fragments");
-        snprintcat(buf, MAXLINE, ")");
+        if (ip->foffset & 0x4000) snprintcat(buf, MAXLINE, "Don't Fragment ");
+        if (ip->foffset & 0x2000) snprintcat(buf, MAXLINE, "More Fragments ");
     }
+    snprintcat(buf, MAXLINE, "(0x%x)", flags);
     hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_FLAGS], UI_FLAGS, "%s", buf, flags);
     add_flags(lw, hdr, flags, get_ipv4_flags(), get_ipv4_flags_size());
     LV_ADD_TEXT_ELEMENT(lw, header, "Fragment offset: %u", get_ipv4_foffset(ip));
@@ -1964,6 +2014,231 @@ void add_imap_information(void *w, void *sw, void *data)
         while (n) {
             LV_ADD_TEXT_ELEMENT(lw, header, "%s", (char *) list_data(n));
             n = list_next(n);
+        }
+    }
+}
+
+void add_dhcp_information(void *w, void *sw, void *data)
+{
+    list_view *lw = w;
+    list_view_header *header = sw;
+    struct packet_data *pdata = data;
+    struct dhcp_info *dhcp = pdata->data;
+    char *str;
+    list_view_header *flag_hdr;
+    char addr[INET_ADDRSTRLEN];
+    char hwaddr[HW_ADDRSTRLEN];
+
+    if ((str = get_dhcp_opcode(dhcp->op)) != NULL)
+        LV_ADD_TEXT_ELEMENT(lw, header, "Message opcode: %s (%d)", str, dhcp->op);
+    if ((str = get_arp_hardware_type(dhcp->htype)) != NULL)
+        LV_ADD_TEXT_ELEMENT(lw, header, "Hardware address type: %s (%d)", str, dhcp->htype);
+    LV_ADD_TEXT_ELEMENT(lw, header, "Hops: %d", dhcp->hops);
+    LV_ADD_TEXT_ELEMENT(lw, header, "Transaction id: 0x%x", dhcp->xid);
+    LV_ADD_TEXT_ELEMENT(lw, header, "Seconds elapsed: %d", dhcp->secs);
+    str = (dhcp->flags == 0x8000) ? "Broadcast" : "Unicast";
+    flag_hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_FLAGS], UI_FLAGS, "Flags: %s (0x%x)", str, dhcp->flags);
+    add_flags(lw, flag_hdr, dhcp->flags, get_dhcp_flags(), get_dhcp_flags_size());
+    inet_ntop(AF_INET, &dhcp->ciaddr, addr, INET_ADDRSTRLEN);
+    LV_ADD_TEXT_ELEMENT(lw, header, "Client IP address: %s", addr);
+    inet_ntop(AF_INET, &dhcp->yiaddr, addr, INET_ADDRSTRLEN);
+    LV_ADD_TEXT_ELEMENT(lw, header, "Your (client) IP address: %s", addr);
+    inet_ntop(AF_INET, &dhcp->siaddr, addr, INET_ADDRSTRLEN);
+    LV_ADD_TEXT_ELEMENT(lw, header, "IP address of next server: %s", addr);
+    inet_ntop(AF_INET, &dhcp->giaddr, addr, INET_ADDRSTRLEN);
+    LV_ADD_TEXT_ELEMENT(lw, header, "Relay agent IP address: %s", addr);
+    HW_ADDR_NTOP(hwaddr, dhcp->chaddr);
+    LV_ADD_TEXT_ELEMENT(lw, header, "Client hardware address: %s", hwaddr);
+    if (dhcp->sname[0] != '\0')
+        LV_ADD_TEXT_ELEMENT(lw, header, "Server host name: %s", dhcp->sname);
+    else
+        LV_ADD_TEXT_ELEMENT(lw, header, "Server host name: Not given");
+    if (dhcp->file[0] != '\0')
+        LV_ADD_TEXT_ELEMENT(lw, header, "Boot file name: %s", dhcp->file);
+    else
+        LV_ADD_TEXT_ELEMENT(lw, header, "Boot file name: Not given");
+    LV_ADD_TEXT_ELEMENT(lw, header, "Magic cookie: %s (0x%x)", (dhcp->magic_cookie == DHCP_COOKIE) ?
+                        "DHCP" : "", dhcp->magic_cookie);
+    add_dhcp_options(lw, header, dhcp);
+}
+
+static void add_dhcp_options(list_view *lw, list_view_header *header, struct dhcp_info *dhcp)
+{
+    const node_t *node;
+    char buf[256] = { 0 };
+    struct tm_t t;
+    uint32_t addr;
+
+    LIST_FOREACH(dhcp->options, node) {
+        list_view_header *opthdr;
+        struct dhcp_options *opt = (struct dhcp_options *) list_data(node);
+
+        opthdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1,
+                                   "Option: %s (%d)", get_dhcp_option_type(opt->tag), opt->tag);
+        LV_ADD_TEXT_ELEMENT(lw, opthdr, "Length: %d", opt->length);
+        switch (opt->tag) {
+        case DHCP_MESSAGE_TYPE:
+        case DHCP_TRAILER_ENCAPSULATION:
+        case DHCP_ETHERNET_ENCAPSULATION:
+        case DHCP_TCP_DEFAULT_TTL:
+        case DHCP_TCP_KEEPALIVE_GARBARGE:
+            LV_ADD_TEXT_ELEMENT(lw, opthdr, "Value: %s (%d)", get_dhcp_message_type(opt->byte), opt->byte);
+            break;
+        case DHCP_PARAMETER_REQUEST_LIST:
+            for (int i = 0; i < opt->length; i++)
+                LV_ADD_TEXT_ELEMENT(lw, opthdr, "Option code: %s (%d)",
+                                    get_dhcp_option_type(opt->bytes[i]), opt->bytes[i]);
+            break;
+        case DHCP_MAXIMUM_MESSAGE_SIZE:
+            LV_ADD_TEXT_ELEMENT(lw, opthdr, "Maximum DHCP message size: %d", opt->u16val);
+            break;
+        case DHCP_CLIENT_IDENTIFIER:
+            if (opt->bytes[0] == 0) {
+                for (int i = 0; i < opt->length; i++) {
+                    snprintf(buf + 2 * i, 256 - 2 * i, "%02x", (unsigned char) opt->bytes[i]);
+                }
+            } else {
+                LV_ADD_TEXT_ELEMENT(lw, opthdr, "Hardware type: %s (%d)",
+                                    get_arp_hardware_type(opt->bytes[0]), opt->bytes[0]);
+                opt->bytes++;
+                HW_ADDR_NTOP(buf, opt->bytes);
+            }
+            LV_ADD_TEXT_ELEMENT(lw, opthdr, "Client Identifier: %s", buf);
+            break;
+        case DHCP_IP_ADDRESS_LEASE_TIME:
+            t = get_time(opt->u32val);
+            time_ntop(&t, buf, 256);
+            LV_ADD_TEXT_ELEMENT(lw, opthdr, "Lease time: %s (%d seconds)", buf, opt->u32val);
+            break;
+        case DHCP_HOST_NAME:
+        case DHCP_DOMAIN_NAME:
+        case DHCP_NIS_DOMAIN:
+        case DHCP_NISP_DOMAIN:
+        case DHCP_TFTP_SERVER_NAME:
+            memcpy(buf, opt->bytes, opt->length);
+            buf[opt->length] = '\0';
+            LV_ADD_TEXT_ELEMENT(lw, opthdr, "Name: %s", buf);
+            break;
+        case DHCP_SUBNET_MASK:
+            addr = htonl(opt->u32val);
+            inet_ntop(AF_INET, &addr, buf, INET_ADDRSTRLEN);
+            LV_ADD_TEXT_ELEMENT(lw, opthdr, "Subnet mask: %s", buf);
+            break;
+        case DHCP_RENEWAL_TIME_VAL:
+            t = get_time(opt->u32val);
+            time_ntop(&t, buf, 256);
+            LV_ADD_TEXT_ELEMENT(lw, opthdr, "T1 interval: %s (%d seconds)", buf, opt->u32val);
+            break;
+        case DHCP_REBINDING_TIME_VAL:
+            t = get_time(opt->u32val);
+            time_ntop(&t, buf, 256);
+            LV_ADD_TEXT_ELEMENT(lw, opthdr, "T2 interval: %s (%d seconds)", buf, opt->u32val);
+            break;
+        case DHCP_SERVER_IDENTIFIER:
+        case DHCP_REQUESTED_IP_ADDRESS:
+        case DHCP_ROUTER_SOLICITATION_ADDRESS:
+            addr = htonl(opt->u32val);
+            inet_ntop(AF_INET, &addr, buf, INET_ADDRSTRLEN);
+            LV_ADD_TEXT_ELEMENT(lw, opthdr, "Address: %s", buf);
+            break;
+        case DHCP_ROUTER:
+        case DHCP_DOMAIN_NAME_SERVER:
+        case DHCP_NETWORK_INFORMATION_SERVERS:
+        case DHCP_NTP_SERVERS:
+        case DHCP_XWINDOWS_SFS:
+        case DHCP_XWINDOWS_DM:
+        case DHCP_NISP_SERVERS:
+        case DHCP_NETBIOS_DD:
+        case DHCP_IMPRESS_SERVER:
+        case DHCP_NETBIOS_NS:
+        case DHCP_MOBILE_IP_HA:
+        case DHCP_SMTP_SERVER:
+        case DHCP_POP3_SERVER:
+        case DHCP_NNTP_SERVER:
+        case DHCP_WWW_SERVER:
+        case DHCP_FINGER_SERVER:
+        case DHCP_IRC_SERVER:
+        case DHCP_STREETTALK_SERVER:
+        case DHCP_STDA_SERVER:
+            for (int i = 0, c = 1; i < opt->length; i += 4, c++) {
+                inet_ntop(AF_INET, opt->bytes + i, buf, INET_ADDRSTRLEN);
+                LV_ADD_TEXT_ELEMENT(lw, opthdr, "Address %d: %s", c, buf);
+            }
+            break;
+        case DHCP_ARP_CACHE_TIMEOUT:
+        case DHCP_TCP_KEEPALIVE_INTERVAL:
+            t = get_time(opt->u32val);
+            time_ntop(&t, buf, 256);
+            LV_ADD_TEXT_ELEMENT(lw, opthdr, "Value: %s (%d seconds)", buf, opt->u32val);
+            break;
+        case DHCP_VENDOR_SPECIFIC:
+        case DHCP_NETBIOS_SCOPE:
+            for (int i = 0; i < opt->length; i++) {
+                snprintf(buf + 2 * i, 256 - 2 * i, "%02x", (unsigned char) opt->bytes[i]);
+            }
+            LV_ADD_TEXT_ELEMENT(lw, opthdr, "Value: %s", buf);
+            break;
+        case DHCP_NETBIOS_NT:
+        {
+            char *type = get_dhcp_netbios_node_type(opt->byte);
+
+            if (type)
+                LV_ADD_TEXT_ELEMENT(lw, opthdr, "Node type: %s (0x%x)", type, opt->byte);
+            else
+                LV_ADD_TEXT_ELEMENT(lw, opthdr, "Node type: 0x%x", opt->byte);
+            break;
+        }
+        case DHCP_OPTION_OVERLOAD:
+        {
+            char *type = get_dhcp_option_overload(opt->byte);
+
+            if (type)
+                LV_ADD_TEXT_ELEMENT(lw, opthdr, "Option overload: %s (0x%x)", type, opt->byte);
+            else
+                LV_ADD_TEXT_ELEMENT(lw, opthdr, "Option overload: 0x%x", opt->byte);
+            break;
+        }
+        case DHCP_CLIENT_FQDN:
+        {
+            list_view_header *fhdr;
+
+            fhdr = LV_ADD_SUB_HEADER(lw, opthdr, selected[UI_FLAGS], UI_FLAGS, "Flags", opt->fqdn.flags);
+            add_flags(lw, fhdr, opt->fqdn.flags, get_dhcp_fqdn_flags(), get_dhcp_fqdn_flags_size());
+            LV_ADD_TEXT_ELEMENT(lw, opthdr, "RCODE1: 0x%x", opt->fqdn.rcode1);
+            LV_ADD_TEXT_ELEMENT(lw, opthdr, "RCODE2: 0x%x", opt->fqdn.rcode2);
+            LV_ADD_TEXT_ELEMENT(lw, opthdr, "name: %s", opt->fqdn.name);
+            break;
+        }
+        case DHCP_UUID_CLIENT_ID:
+            if (opt->bytes[0] == 0) { /* type 0 is UUID */
+                char *uuid = uuid_format(opt->bytes + 1);
+
+                LV_ADD_TEXT_ELEMENT(lw, opthdr, "UUID: %s", uuid);
+                free(uuid);
+            } else {
+                for (int i = 0; i < opt->length; i++) {
+                    snprintf(buf + 2 * i, 256 - 2 * i, "%02x", (unsigned char) opt->bytes[i]);
+                }
+                LV_ADD_TEXT_ELEMENT(lw, opthdr, "Value: %s", buf);
+            }
+            break;
+        case DHCP_CLIENT_NDI:
+            LV_ADD_TEXT_ELEMENT(lw, opthdr, "Type: %d", opt->ndi.type);
+            LV_ADD_TEXT_ELEMENT(lw, opthdr, "Major version: %d", opt->ndi.maj);
+            LV_ADD_TEXT_ELEMENT(lw, opthdr, "Minor version: %d", opt->ndi.min);
+            break;
+        case DHCP_CLIENT_SA:
+        {
+            char *type = get_dhcp_option_architecture(opt->byte);
+
+            if (type)
+                LV_ADD_TEXT_ELEMENT(lw, opthdr, "Client System Architecture: %s", type);
+            else
+                LV_ADD_TEXT_ELEMENT(lw, opthdr, "Client System Architecture: %d", opt->byte);
+            break;
+        }
+        default:
+            break;
         }
     }
 }

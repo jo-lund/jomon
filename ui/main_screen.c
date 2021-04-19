@@ -44,6 +44,9 @@ extern main_menu *menu;
 bool selected[NUM_LAYERS];
 bool numeric = true;
 int hexmode = HEXMODE_NORMAL;
+char load_filepath[MAXPATH + 1];
+file_dialogue *load_dialogue;
+file_dialogue *save_dialogue;
 static enum input_mode input_mode;
 static int view_mode = DECODED_VIEW;
 static progress_dialogue *pd = NULL;
@@ -1316,7 +1319,7 @@ void add_elements(main_screen *ms, struct packet *p)
         }
     }
     if (p->perr != NO_ERR && p->len - idx > 0) {
-        header = LV_ADD_HEADER(ms->lvw, "Data", selected[i], i);
+        header = LV_ADD_HEADER(ms->lvw, "Data", selected[i+1], i + 1);
         add_hexdump(ms->lvw, header, hexmode, p->buf + idx, p->len - idx);
     }
 }

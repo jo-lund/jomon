@@ -21,5 +21,6 @@
 #include "packet_llc.h"
 #include "packet_snap.h"
 #include "packet_smb.h"
+#include "packet_dhcp.h"
 
 #endif

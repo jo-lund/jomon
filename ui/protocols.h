@@ -34,6 +34,7 @@ void add_snmp_information(void *w, void *sw, void *data);
 void add_ssdp_information(void *w, void *sw, void *data);
 void add_tls_information(void *w, void *sw, void *data);
 void add_smb_information(void *w, void *sw, void *data);
+void add_dhcp_information(void *w, void *sw, void *data);
 
 void print_llc(char *buf, int n, void *data);
 void print_arp(char *buf, int n, void *data);
