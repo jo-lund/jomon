@@ -33,7 +33,7 @@ END_TEST
 
 START_TEST(hashmap_test_insert_same)
 {
-    hashmap_t *map = hashmap_init(20, hash_uint32, compare_uint);
+    hashmap_t *map = hashmap_init(20, hashfnv_uint32, compare_uint);
 
     for (unsigned int i = 0; i < 20; i++) {
         hashmap_insert(map, UINT_TO_PTR(i), UINT_TO_PTR(i + 1));
@@ -54,7 +54,7 @@ END_TEST
 
 START_TEST(hashmap_test_remove)
 {
-    hashmap_t *map = hashmap_init(1024, hash_uint32, compare_uint);
+    hashmap_t *map = hashmap_init(1024, hashfnv_uint32, compare_uint);
 
     for (unsigned int i = 0; i < SIZE; i++) {
         hashmap_insert(map, UINT_TO_PTR(i), UINT_TO_PTR(i));
@@ -86,7 +86,7 @@ END_TEST
 
 START_TEST(hashmap_test_iterate)
 {
-    hashmap_t *map = hashmap_init(1024, hash_uint32, compare_uint);
+    hashmap_t *map = hashmap_init(1024, hashfnv_uint32, compare_uint);
     const hashmap_iterator *it;
     const hashmap_iterator *prev;
     int c = 0;
