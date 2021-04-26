@@ -11,7 +11,7 @@
 #include "vector.h"
 #include "error.h"
 #include "decoder/decoder.h"
-#include "debug_file.h"
+#include "debug.h"
 
 #define UUID_LEN 36
 

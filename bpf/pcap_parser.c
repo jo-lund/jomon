@@ -10,7 +10,7 @@
 #include "pcap_parser.h"
 #include "genasm.h"
 #include "../mempool.h"
-#include "../debug_file.h"
+#include "../debug.h"
 #include "../vector.h"
 
 enum pcap_state {

@@ -28,7 +28,7 @@
 #include "decoder/dns_cache.h"
 #include "attributes.h"
 #include "process.h"
-#include "debug_file.h"
+#include "debug.h"
 #include "geoip.h"
 #include "bpf/bpf_parser.h"
 #include "bpf/pcap_parser.h"

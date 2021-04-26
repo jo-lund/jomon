@@ -14,7 +14,7 @@
 #include "hexdump.h"
 #include "../geoip.h"
 #include "../decoder/decoder.h"
-#include "../debug_file.h"
+#include "../debug.h"
 
 #define HOSTNAMELEN 255 /* maximum 255 according to rfc1035 */
 #define TBUFLEN 16

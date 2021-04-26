@@ -1,6 +1,7 @@
 #include <string.h>
 #include "packet_dhcp.h"
 #include "../util.h"
+#include "../debug.h"
 
 #define MIN_DHCP_MSG 264
 #define MAX_DHCP_MSG 576
@@ -334,10 +335,12 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
             list_push_back(dhcp->options, opt);
             break;
         case DHCP_CLIENT_SA:
-            if (opt->length != 2 && n < 2)
+            opt->length = *buffer++;
+            if (opt->length != 2 || n < 2)
                 return DECODE_ERR;
             opt->byte = *++buffer;
             n -= 3;
+            buffer++;
             list_push_back(dhcp->options, opt);
             break;
         case DHCP_END_OPTION:
@@ -347,7 +350,7 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
         default:
             opt->length = *buffer++;
             n--;
-            printf("DHCP option not supported: %d\n", opt->tag);
+            DEBUG("DHCP option not supported: %d", opt->tag);
         }
     }
     return DECODE_ERR;

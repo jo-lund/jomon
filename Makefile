@@ -29,7 +29,7 @@ objects += $(BUILDDIR)/bpf/bpf_parser.o $(BUILDDIR)/bpf/bpf_lexer.o $(BUILDDIR)/
 test-objs = $(patsubst %.c,%.o,$(wildcard $(testdir)/*.c))
 bpf-objs = $(BUILDDIR)/bpf/bpf_parser.o $(BUILDDIR)/bpf/bpf_lexer.o $(BUILDDIR)/bpf/bpf.o \
   $(BUILDDIR)/bpf/pcap_lexer.o $(BUILDDIR)/bpf/pcap_parser.o $(BUILDDIR)/stack.o $(BUILDDIR)/vector.o \
-  $(BUILDDIR)/hashmap.o $(BUILDDIR)/mempool.o $(BUILDDIR)/debug_file.o $(BUILDDIR)/util.o $(BUILDDIR/stack.o) \
+  $(BUILDDIR)/hashmap.o $(BUILDDIR)/mempool.o $(BUILDDIR)/debug.o $(BUILDDIR)/util.o $(BUILDDIR/stack.o) \
   $(BUILDDIR)/bpf/genasm.o
 test-objs += $(bpf-objs)
 
