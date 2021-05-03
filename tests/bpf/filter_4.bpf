@@ -1,0 +1,6 @@
+;;; ether[12:2] <= 1500
+
+        ldh    [12]
+        jgt    #0x5dc, L2, L1
+L1:     ret    #-1
+L2:     ret    #0

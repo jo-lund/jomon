@@ -30,6 +30,7 @@ START_TEST(filter_test)
         if (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0)
             continue;
         strncat(file, dp->d_name, MAXPATH);
+        printf("Testing %s\n", file);
         bpf1 = bpf_assemble(file);
         if ((fp = fopen(file, "r")) == NULL)
             ck_abort_msg("fopen error");
@@ -40,13 +41,12 @@ START_TEST(filter_test)
             p++;
         }
         bpf2 = pcap_compile(p);
-        ck_assert(bpf1.size == bpf2.size);
+        ck_assert_msg(bpf1.size == bpf2.size, "Error size mismatch: Filter %d: %s", i, p);
         ck_assert_msg(memcmp(bpf1.bytecode, bpf2.bytecode, bpf1.size * sizeof(struct bpf_insn)) == 0,
                       "Error: Filter %d: %s", i++, p);
         free(bpf1.bytecode);
         free(bpf2.bytecode);
         fclose(fp);
-        break;
     }
     closedir(dfd);
 }
