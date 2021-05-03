@@ -318,11 +318,8 @@ static bool parse_label()
         free(str);
         if (parser.token != LABEL)
             return true;
-        if (!match(':')) {
-            free(str);
-            free(parser.val.str);
+        if (!match(':'))
             return true;
-        }
     }
     if (hashmap_contains(symbol_table, parser.val.str)) {
         error("Multiple defined label");
