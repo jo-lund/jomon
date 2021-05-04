@@ -59,7 +59,7 @@ enum event {
 extern main_context ctx;
 
 void finish(int status) NORETURN;
-void stop_scan();
-void start_scan();
+void stop_scan(void);
+void start_scan(void);
 
 #endif

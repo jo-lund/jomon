@@ -49,7 +49,6 @@ vector_t *packets;
 main_context ctx;
 static volatile sig_atomic_t signal_flag = 0;
 static bool fd_changed = false;
-static bool promiscuous = false;
 static bool ncurses_initialized = false;
 static iface_handle_t *handle = NULL;
 static struct bpf_prog bpf;
@@ -170,10 +169,8 @@ int main(int argc, char **argv)
         print_bpf();
     if (!ctx.device && !(ctx.device = get_default_interface()))
         err_quit("Cannot find active network device");
-    if (!ctx.opt.nopromiscuous && !ctx.opt.load_file) {
+    if (!ctx.opt.nopromiscuous && !ctx.opt.load_file)
         set_promiscuous(ctx.device, true);
-        promiscuous = true;
-    }
     ctx.local_addr = malloc(sizeof(struct sockaddr_in));
     get_local_address(ctx.device, (struct sockaddr *) ctx.local_addr);
     get_local_mac(ctx.device, ctx.mac);
@@ -322,14 +319,12 @@ void finish(int status)
             process_free();
 #endif
     }
-    if (promiscuous) {
+    if (!ctx.opt.nopromiscuous)
         set_promiscuous(ctx.device, false);
-    }
     free(ctx.device);
     free(ctx.local_addr);
-    if (handle && handle->sockfd > 0) {
+    if (handle && handle->sockfd > 0)
         iface_close(handle);
-    }
     mempool_free();
     geoip_free();
     if (handle)
@@ -342,13 +337,13 @@ void finish(int status)
     exit(status);
 }
 
-void stop_scan()
+void stop_scan(void)
 {
     iface_close(handle);
     fd_changed = true;
 }
 
-void start_scan()
+void start_scan(void)
 {
     clear_statistics();
     vector_clear(packets, NULL);
