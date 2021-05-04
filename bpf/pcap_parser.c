@@ -265,6 +265,10 @@ static struct node *nud(int token, struct block **b)
         }
     case PCAP_LPAR:
         return parse_parexpr(b);
+    case PCAP_NOT:
+        (*b)->inverse = !(*b)->inverse;
+        parser.token = get_token();
+        return nud(parser.token, b);
     default:
         DEBUG("%s: Unexpected token %d", __func__, token);
         longjmp(env, -1);

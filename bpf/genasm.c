@@ -24,6 +24,7 @@ static uint32_t regs[NUM_REGS];
 static uint32_t M[BPF_MEMWORDS];
 static _stack_t *memidx;
 static int block_insn = 0;
+
 static void genexpr(struct block *b, struct node *n, int op, int offset);
 
 static const char *instable[] = {
@@ -449,7 +450,7 @@ static void gen_jmpins(struct block *b, int ins, bool inverse)
         gen_ldm(b->expr1);
         insn->code = BPF_JMP | ins | BPF_X;
     }
-    b->inverse = inverse;
+    b->op_inverse = inverse;
     vector_push_back(code, insn);
     block_insn++;
     regs[A] = 0;
@@ -495,10 +496,14 @@ static int patch_jmp(struct block *b, struct block *e, int numi)
             insn = vector_get_data(code, numi + poff->offset);
             offset = poff->offset;
             if (BPF_CLASS(insn->code) == BPF_JMP) {
-                if (poff->inverse) {
-                    set_jmp_offset(b, b->jt, e, &insn->jt, b->insn - offset);
+                if (b->inverse) {
+                    set_jmp_offset(b, b->jt, e, &insn->jf, b->next ? b->insn - offset : b->insn - offset - 1);
                 } else {
-                    set_jmp_offset(b, b->jf, e, &insn->jf, b->insn - offset);
+                    if (poff->inverse) {
+                        set_jmp_offset(b, b->jt, e, &insn->jt, b->insn - offset);
+                    } else {
+                        set_jmp_offset(b, b->jf, e, &insn->jf, b->insn - offset);
+                    }
                 }
             }
             poff = poff->next;
@@ -506,7 +511,7 @@ static int patch_jmp(struct block *b, struct block *e, int numi)
         if (b->p == NULL) {
             insn = vector_get_data(code, numi + b->insn - 1);
             if (insn && BPF_CLASS(insn->code) == BPF_JMP) {
-                if (b->inverse) {
+                if (b->inverse || b->op_inverse) {
                     set_jmp_offset(b, b->jt, e, &insn->jf, 0);
                     set_jmp_offset(b, b->jf, e, &insn->jt, 1);
                 } else {

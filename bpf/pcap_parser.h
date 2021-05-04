@@ -27,7 +27,8 @@ struct proto_offset {
 
 struct block {
     struct block *p;
-    bool inverse;
+    bool inverse;    /* true if 'not' block */
+    bool op_inverse; /* true if operator is '!=', '<' or '<=' */
     int relop;
     int insn;
     struct proto_offset *poff; /* only used for protocols above ether */
