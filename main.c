@@ -319,7 +319,7 @@ void finish(int status)
             process_free();
 #endif
     }
-    if (!ctx.opt.nopromiscuous)
+    if (!ctx.opt.nopromiscuous && !ctx.opt.load_file)
         set_promiscuous(ctx.device, false);
     free(ctx.device);
     free(ctx.local_addr);
