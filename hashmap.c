@@ -1,4 +1,5 @@
 #include "hashmap.h"
+#include "hash.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
@@ -27,22 +28,6 @@ static struct hash_elem *find_elem(hashmap_t *map, void *key);
 static inline const hashmap_iterator *get_next_iterator(hashmap_t *map, int i);
 static inline const hashmap_iterator *get_prev_iterator(hashmap_t *map, int i);
 
-static inline unsigned int default_hash(const void *key)
-{
-    unsigned int hash = 2166136261;
-    uint32_t val = *(uint32_t *) key;
-
-    for (int i = 0; i < 4; i++) {
-        hash = (hash ^ ((val >> (8 * i)) & 0xff)) * 16777619;
-    }
-    return hash;
-}
-
-static inline int default_compare(const void *e1, const void *e2)
-{
-    return *(uint32_t *) e1 - *(uint32_t *) e2;
-}
-
 hashmap_t *hashmap_init(unsigned int size, hash_fn h, hashmap_compare fn)
 {
     hashmap_t *map;
@@ -50,8 +35,8 @@ hashmap_t *hashmap_init(unsigned int size, hash_fn h, hashmap_compare fn)
     map = malloc(sizeof(hashmap_t));
     map->buckets = clp2(size); /* set the size to a power of 2 */
     map->table = calloc(map->buckets, sizeof(struct hash_elem));
-    map->hash = h ? h : default_hash;
-    map->comp = fn ? fn : default_compare;
+    map->hash = h ? h : hashfnv_uint32;
+    map->comp = fn ? fn : compare_uint;
     map->free_key = NULL;
     map->free_data = NULL;
     map->count = 0;
