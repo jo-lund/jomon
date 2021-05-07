@@ -34,7 +34,6 @@
 #include "bpf/pcap_parser.h"
 #include "bpf/genasm.h"
 
-#define TABLE_SIZE 65536
 #define SHORT_OPTS "F:i:f:r:Gdhlpstv"
 #define BPF_DUMP_MODES 3
 
@@ -155,7 +154,7 @@ int main(int argc, char **argv)
 #endif
     }
     if (ctx.opt.use_ncurses || ctx.opt.load_file)
-        packets = vector_init(TABLE_SIZE);
+        packets = vector_init(PACKET_TABLE_SIZE);
     if (ctx.filter_file) {
         bpf = bpf_assemble(ctx.filter_file);
         if (bpf.size == 0)

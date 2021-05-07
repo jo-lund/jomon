@@ -886,7 +886,7 @@ void clear_filter(main_screen *ms)
 
 void filter_packets(main_screen *ms)
 {
-    ms->packet_ref = vector_init(vector_size(packets) / 2);
+    ms->packet_ref = vector_init(PACKET_TABLE_SIZE);
     for (int i = 0; i < vector_size(packets); i++) {
         struct packet *p = vector_get_data(packets, i);
 
