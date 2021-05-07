@@ -28,6 +28,7 @@ struct packet_flags {
 extern allocator_t d_alloc;
 
 enum port {
+    SMTP = 25,  /* Simple Message Transport Protocol */
     DNS = 53,   /* Domain Name System */
     DHCP_SRV = 67, /* Dynamic Host Configuration Protocol Server/BOOTP server */
     DHCP_CLI = 68, /* Dynamic Host Configuration Protocol Client/BOOTP client */
@@ -46,8 +47,11 @@ enum port {
     SNMPTRAP = 162,  /* Simple Network Management Protocol Trap */
     HTTPS = 443,     /* Transport Layer Security (HTTPS) */
     SMB = 445,       /* Server Message Block */
+    SMTPS = 465,     /* Transport Layer Security (SMTPS) */
+    SMTP_EMS = 587,  /* Email Message Submission (SMTP) */
     IMAPS = 993,     /* Transport Layer Security (IMAPS) */
     SSDP = 1900,     /* Simple Service Discovery Protocol */
+    SMTP_ALT = 3535, /* SMTP alternate */
     MDNS = 5353,     /* Multicast DNS */
     LLMNR = 5355     /* Link-Local Multicast Name Resolution */
 };

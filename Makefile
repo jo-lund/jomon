@@ -24,14 +24,23 @@ ifeq ($(MACHINE), Linux)
     sources += $(wildcard linux/*.c)
 endif
 objects = $(patsubst %.c,$(BUILDDIR)/%.o,$(sources))
-objects += $(BUILDDIR)/bpf/bpf_parser.o $(BUILDDIR)/bpf/bpf_lexer.o $(BUILDDIR)/bpf/bpf.o $(BUILDDIR)/bpf/pcap_lexer.o \
-  $(BUILDDIR)/bpf/pcap_parser.o $(BUILDDIR)/bpf/genasm.o
+bpf-objs = \
+	$(BUILDDIR)/bpf/bpf_parser.o \
+	$(BUILDDIR)/bpf/bpf_lexer.o \
+	$(BUILDDIR)/bpf/bpf.o \
+	$(BUILDDIR)/bpf/pcap_lexer.o \
+	$(BUILDDIR)/bpf/pcap_parser.o \
+	$(BUILDDIR)/bpf/genasm.o
+objects += $(bpf-objs)
 test-objs = $(patsubst %.c,%.o,$(wildcard $(testdir)/*.c))
-bpf-objs = $(BUILDDIR)/bpf/bpf_parser.o $(BUILDDIR)/bpf/bpf_lexer.o $(BUILDDIR)/bpf/bpf.o \
-  $(BUILDDIR)/bpf/pcap_lexer.o $(BUILDDIR)/bpf/pcap_parser.o $(BUILDDIR)/stack.o $(BUILDDIR)/vector.o \
-  $(BUILDDIR)/hashmap.o $(BUILDDIR)/mempool.o $(BUILDDIR)/debug.o $(BUILDDIR)/util.o $(BUILDDIR/stack.o) \
-  $(BUILDDIR)/bpf/genasm.o
-test-objs += $(bpf-objs)
+test-objs += $(bpf-objs) \
+	$(BUILDDIR)/stack.o \
+	$(BUILDDIR)/vector.o \
+	$(BUILDDIR)/hashmap.o \
+	$(BUILDDIR)/mempool.o \
+	$(BUILDDIR)/debug.o \
+	$(BUILDDIR)/util.o \
+	$(BUILDDIR/stack.o) \
 
 .PHONY : all
 all : debug
@@ -69,23 +78,20 @@ $(BUILDDIR)/%.o : %.c
 
 .PHONY : clean
 clean :
-	rm -rf bin
-	rm -rf build
-	rm -f $(test-objs) $(testdir)/test
-	rm -f bpf/lexer.c bpf/pcap_lexer.c
+	@echo "Cleaning..."
+	@rm -rf bin
+	@rm -rf build
+	@rm -f $(test-objs) $(testdir)/test
+	@rm -f bpf/lexer.c bpf/pcap_lexer.c
 
 .PHONY : distclean
 distclean : clean
-	rm -f config.h config.mk
+	@rm -f config.h config.mk
 
 .PHONY : testclean
 testclean :
-	rm -f $(test-objs) $(testdir)/test
-
-.PHONY : bpfclean
-bpfclean :
-	rm -f $(bpf-objs) bpf/lexer.c bpf/pcap_lexer.c
-
+	@echo "Cleaning..."
+	@rm -f $(test-objs) $(testdir)/test
 
 .PHONY : tags
 tags :

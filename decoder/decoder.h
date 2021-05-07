@@ -22,5 +22,6 @@
 #include "packet_snap.h"
 #include "packet_smb.h"
 #include "packet_dhcp.h"
+#include "packet_smtp.h"
 
 #endif

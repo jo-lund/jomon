@@ -524,6 +524,22 @@ void print_imap(char *buf, int n, void *data)
     }
 }
 
+void print_smtp(char *buf, int n, void *data)
+{
+    struct packet_data *pdata = data;
+    struct smtp_info *smtp = pdata->data;
+
+    PRINT_PROTOCOL(buf, n, "SMTP");
+    if (smtp->data) {
+        PRINT_INFO(buf, n, "C: Mail data");
+    } else {
+        if (smtp->response)
+            PRINT_INFO(buf, n, "S: %s", smtp->start_line);
+        else
+            PRINT_INFO(buf, n, "C: %s", smtp->start_line);
+    }
+}
+
 void print_tls(char *buf, int n, void *data)
 {
     struct packet_data *pdata = data;
@@ -2014,6 +2030,51 @@ void add_imap_information(void *w, void *sw, void *data)
         while (n) {
             LV_ADD_TEXT_ELEMENT(lw, header, "%s", (char *) list_data(n));
             n = list_next(n);
+        }
+    }
+}
+
+void add_smtp_information(void *w, void *sw, void *data)
+{
+    list_view *lw = w;
+    list_view_header *header = sw;
+    struct packet_data *pdata = data;
+    struct smtp_info *smtp = pdata->data;
+
+    if (smtp->data) {
+        char *buf = malloc(smtp->len + 1);
+        int c = 0;
+
+        for (int i = 0; i < smtp->len; i++) {
+            if (isprint(smtp->data[i]))
+                buf[i] = smtp->data[i];
+            else
+                buf[i] = '.';
+            if (smtp->data[i] == '\n') {
+                buf[i + 1] = '\0';
+                LV_ADD_TEXT_ELEMENT(lw, header, "%s", buf + c);
+                c = i + 1;
+            }
+        }
+        free(buf);
+    } else {
+        if (smtp->response) {
+            char *code = get_smtp_code(smtp->rsp.code);
+            const node_t *n;
+
+            if (code)
+                LV_ADD_TEXT_ELEMENT(lw, header, "Reply code %d: %s", smtp->rsp.code, code);
+            else
+                LV_ADD_TEXT_ELEMENT(lw, header, "Reply code %d", smtp->rsp.code);
+            LIST_FOREACH(smtp->rsp.lines, n)
+                LV_ADD_TEXT_ELEMENT(lw, header, "Reply parameters: %s", (char *) list_data(n));
+        } else {
+            if (smtp->cmd.command) {
+                LV_ADD_TEXT_ELEMENT(lw, header, "Command: %s", smtp->cmd.command);
+                LV_ADD_TEXT_ELEMENT(lw, header, "Parameters: %s", smtp->cmd.params);
+            } else {
+                LV_ADD_TEXT_ELEMENT(lw, header, "Parameters: %s", smtp->start_line);
+            }
         }
     }
 }

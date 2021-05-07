@@ -26,6 +26,7 @@ static register_function decoder_functions[] = {
     register_tls,
     register_smb,
     register_dhcp,
+    register_smtp
 };
 
 #endif
