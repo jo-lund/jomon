@@ -107,6 +107,7 @@ packet_error parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp)
     }
     if (n > 0) {
         /* common header */
+        // BUG: Need to check that the values are correct!
         snmp->version = val[0].ival;
         snmp->community = val[1].pval;
 
@@ -277,12 +278,14 @@ int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag, snmp_
         {
             int j = 0;
 
-            if (len != INET_ADDRSTRLEN)
+            if (len != 4)
                 return -1;
+
             value->pval = mempool_pealloc(INET_ADDRSTRLEN);
-            for (unsigned int i = 0; i < len; i++) {
-                j += snprintf(value->pval + j, INET_ADDRSTRLEN - j, "%d.", *ptr++);
+            for (unsigned int i = 0; i < 3; i++) {
+                j += snprintf(value->pval + j, INET_ADDRSTRLEN - j, "%u.", *ptr++);
             }
+            snprintf(value->pval + j, INET_ADDRSTRLEN - j, "%u", *ptr++);
             break;
         }
         case OPAQUE:
