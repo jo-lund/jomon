@@ -51,6 +51,7 @@ static bool fd_changed = false;
 static bool ncurses_initialized = false;
 static iface_handle_t *handle = NULL;
 static struct bpf_prog bpf;
+static bool promiscuous_mode = false;
 
 static bool handle_packet(unsigned char *buffer, uint32_t n, struct timeval *t);
 static void print_help(char *prg);
@@ -168,8 +169,10 @@ int main(int argc, char **argv)
         print_bpf();
     if (!ctx.device && !(ctx.device = get_default_interface()))
         err_quit("Cannot find active network device");
-    if (!ctx.opt.nopromiscuous && !ctx.opt.load_file)
+    if (!ctx.opt.nopromiscuous && !ctx.opt.load_file) {
         set_promiscuous(ctx.device, true);
+        promiscuous_mode = true;
+    }
     ctx.local_addr = malloc(sizeof(struct sockaddr_in));
     get_local_address(ctx.device, (struct sockaddr *) ctx.local_addr);
     get_local_mac(ctx.device, ctx.mac);
@@ -318,7 +321,7 @@ void finish(int status)
             process_free();
 #endif
     }
-    if (!ctx.opt.nopromiscuous && !ctx.opt.load_file)
+    if (promiscuous_mode)
         set_promiscuous(ctx.device, false);
     free(ctx.device);
     free(ctx.local_addr);

@@ -1,7 +1,6 @@
 #ifndef UI_PROTOCOLS_H
 #define UI_PROTOCOLS_H
 
-#include <decoder.h>
 #include "list_view.h"
 
 #define ADDR_WIDTH 40
