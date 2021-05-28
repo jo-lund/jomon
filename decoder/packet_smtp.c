@@ -182,13 +182,16 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
         char line[MAXLINE];
 
         smtp->response = false;
-        while (isprint(*p) && *p != ' ' && i < n)
+        while (isprint(*p) && *p != ' ' && i < n) {
+            if (i >= MAXLINE)
+                goto error;
             line[i++] = *p++;
+        }
         smtp->cmd.command = mempool_pecopy0(line, i);
         if (strncmp(smtp->cmd.command, "DATA", 4) == 0)
             state = WAIT_DATA;
     }
-    if (*p == ' ' || *p == '-') {
+    if (i < n && (*p == ' ' || *p == '-')) {
         int j = 0;
 
         while (i < n) {
@@ -201,6 +204,8 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
     } else if (!smtp->response) {
         smtp->start_line = smtp->cmd.command;
         smtp->cmd.command = NULL;
+    } else {
+        goto error;
     }
     return NO_ERR;
 

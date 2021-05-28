@@ -2045,7 +2045,7 @@ void add_smtp_information(void *w, void *sw, void *data)
         char *buf = malloc(smtp->len + 1);
         int c = 0;
 
-        for (int i = 0; i < smtp->len; i++) {
+        for (unsigned int i = 0; i < smtp->len; i++) {
             if (isprint(smtp->data[i]))
                 buf[i] = smtp->data[i];
             else
