@@ -691,8 +691,6 @@ void handle_input_mode(const char *str)
     case INPUT_FILTER:
         werase(status);
         mvwprintw(status, 0, 0, str);
-        if (bpf_filter[0] != 0)
-            waddstr(status, bpf_filter);
         break;
     case INPUT_GOTO:
         werase(status);
@@ -832,9 +830,10 @@ void set_filter(main_screen *ms, int c)
         wnoutrefresh(ms->header);
         wnoutrefresh(ms->base.win);
         doupdate();
+        numc = 0;
         break;
     case KEY_ESC:
-        numc = strlen(bpf_filter);
+        numc = 0;
         input_mode = INPUT_NONE;
         werase(status);
         print_status();
