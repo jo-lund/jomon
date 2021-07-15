@@ -6,7 +6,7 @@
 #define DEFINE_ALLOC(type, name)                        \
     static inline type *alloc_##name(void)              \
     {                                                   \
-        type *t = mempool_shalloc(sizeof(*t));          \
+        type *t = mempool_alloc(sizeof(*t));            \
         memset(t, 0, sizeof(*t));                       \
         return t;                                       \
     }

@@ -129,9 +129,9 @@ static bool parse_line(struct smtp_info *smtp, char *buf, int n, int *i)
             if (*++p == '\n') {
                 *i += 2;
                 if (smtp->response)
-                    list_push_back(smtp->rsp.lines, mempool_pecopy0(buf + c, *i - c - 2));
+                    list_push_back(smtp->rsp.lines, mempool_copy0(buf + c, *i - c - 2));
                 else
-                    smtp->cmd.params = mempool_pecopy0(buf + c, *i - c - 2);
+                    smtp->cmd.params = mempool_copy0(buf + c, *i - c - 2);
                 return true;
             } else {
                 return false;
@@ -151,14 +151,14 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
     int i = 0;
 
     p = buf;
-    smtp = mempool_pealloc(sizeof(struct smtp_info));
+    smtp = mempool_alloc(sizeof(struct smtp_info));
     smtp->data = NULL;
     pdata->data = smtp;
     pdata->len = n;
     pinfo->num_packets++;
     pinfo->num_bytes += n;
     if (state == DATA) {
-        smtp->data = mempool_pecopy(buf, n);
+        smtp->data = mempool_copy(buf, n);
         smtp->len = n;
         if (strncmp(smtp->data, "\r\n.\r\n", 5) == 0)
             state = NORMAL;
@@ -187,7 +187,7 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
                 goto error;
             line[i++] = *p++;
         }
-        smtp->cmd.command = mempool_pecopy0(line, i);
+        smtp->cmd.command = mempool_copy0(line, i);
         if (strncmp(smtp->cmd.command, "DATA", 4) == 0)
             state = WAIT_DATA;
     }
@@ -198,7 +198,7 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
             if (!parse_line(smtp, (char *) buf, n, &i))
                 goto error;
             if (j == 0)
-                smtp->start_line = mempool_pecopy0(buf, i - 2);
+                smtp->start_line = mempool_copy0(buf, i - 2);
             j++;
         }
     } else if (!smtp->response) {
@@ -210,7 +210,7 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
     return NO_ERR;
 
 error:
-    mempool_pefree(smtp);
+    mempool_free(smtp);
     return DECODE_ERR;
 }
 

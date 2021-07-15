@@ -369,6 +369,7 @@ struct bpf_prog pcap_compile(char *filter)
         .bytecode = NULL,
         .size = 0
     };
+    MEMPOOL_RELEASE enum pool prev = mempool_set(POOL_SHORT);
 
     parser.input.buf = (unsigned char *) filter;
     parser.input.tok = parser.input.buf;
@@ -386,11 +387,11 @@ struct bpf_prog pcap_compile(char *filter)
             case PCAP_LAND:
             case PCAP_LOR:
                 if ((b = parse_op(&b)) == NULL)
-                    goto done;
+                    return prog;
                 break;
             default:
                 if ((n = parse_expr(0, &head)) == NULL)
-                    goto done;
+                    return prog;
                 if (state == PCAP_RELOP)
                     head = parse_relop(n, &head);
                 state = PCAP_NONE;
@@ -401,7 +402,5 @@ struct bpf_prog pcap_compile(char *filter)
         patch_blocks(head);
         prog = gencode(head);
     }
-done:
-    mempool_shfree(NULL);
     return prog;
 }

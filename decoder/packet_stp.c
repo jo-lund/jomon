@@ -53,7 +53,7 @@ packet_error handle_stp(struct protocol_info *pinfo, unsigned char *buffer, int 
 
     pinfo->num_packets++;
     pinfo->num_bytes += n;
-    bpdu = mempool_pealloc(sizeof(struct stp_info));
+    bpdu = mempool_alloc(sizeof(struct stp_info));
     pdata->data = bpdu;
     pdata->len = n;
     bpdu->protocol_id = protocol_id;

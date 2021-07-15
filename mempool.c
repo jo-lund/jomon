@@ -6,97 +6,76 @@
 #define obstack_chunk_free free
 #define CHUNK_SIZE 16 * 1024
 
-static struct obstack global_pool;  /* pool for long-lived memory */
-static struct obstack request_pool; /* pool for short-lived memory */
+#define NUM_POOLS 2
 
-/* When the argument to obstack_free is a NULL pointer, the result is an
-   uninitialized obstack. xx_globptr will be a pointer to a first dummy object on
-   the obstack, and this is used as an argument to obstack_free in order to free
-   all memory in the obstack and keep it valid for further allocations. */
-static int *pe_globptr;
-static int *sh_globptr;
+struct mempool {
+    struct obstack pool;
 
-void mempool_init()
+    /* When the argument to obstack_free is a NULL pointer, the result is an
+       uninitialized obstack. obj will be a pointer to a first dummy object on
+       the obstack, and this is used as an argument to obstack_free in order to free
+       all memory in the obstack and keep it valid for further allocations. */
+    int *obj;
+};
+
+static struct mempool mempool[NUM_POOLS];
+static enum pool mempool_store = POOL_PERM;
+
+void mempool_init(void)
 {
-    obstack_init(&global_pool);
-    obstack_init(&request_pool); /* will use the default chunk size of 4096 bytes */
-    obstack_chunk_size(&global_pool) = CHUNK_SIZE;
-    pe_globptr = obstack_alloc(&global_pool, sizeof(int));
-    sh_globptr = obstack_alloc(&request_pool, sizeof(int));
+    /* POOL_SHORT will use the default chunk size of 4096 bytes */
+    for (int i = 0; i < NUM_POOLS; i++) {
+        obstack_init(&mempool[i].pool);
+        mempool[i].obj = obstack_alloc(&mempool[i].pool, sizeof(int));
+    }
+    obstack_chunk_size(&mempool[POOL_PERM].pool) = CHUNK_SIZE;
 }
 
-void *mempool_pealloc(size_t size)
+void mempool_destruct(void)
 {
-    return obstack_alloc(&global_pool, size);
+    for (int i = 0; i < NUM_POOLS; i++)
+        obstack_free(&mempool[i].pool, NULL);
 }
 
-void mempool_pefree(void *ptr)
+enum pool mempool_set(enum pool p)
+{
+	enum pool prev = mempool_store;
+
+    mempool_store = p;
+	return prev;
+}
+
+void *mempool_alloc(size_t size)
+{
+    return obstack_alloc(&mempool[mempool_store].pool, size);
+}
+
+void mempool_free(void *ptr)
 {
     if (ptr) {
-        obstack_free(&global_pool, ptr);
+        obstack_free(&mempool[mempool_store].pool, ptr);
     } else {
-        obstack_free(&global_pool, pe_globptr);
-        pe_globptr = obstack_alloc(&global_pool, sizeof(int));
+        obstack_free(&mempool[mempool_store].pool, mempool[mempool_store].obj);
+        mempool[mempool_store].obj = obstack_alloc(&mempool[mempool_store].pool, sizeof(int));
     }
 }
 
-void *mempool_pecopy(void *addr, int size)
+void *mempool_copy(void *addr, int size)
 {
-    return obstack_copy(&global_pool, addr, size);
+    return obstack_copy(&mempool[mempool_store].pool, addr, size);
 }
 
-void *mempool_pecopy0(void *addr, int size)
+void *mempool_copy0(void *addr, int size)
 {
-    return obstack_copy0(&global_pool, addr, size);
+    return obstack_copy0(&mempool[mempool_store].pool, addr, size);
 }
 
-void mempool_pegrow(void *data, int size)
+void mempool_grow(void *data, int size)
 {
-    obstack_grow(&global_pool, data, size);
+    obstack_grow(&mempool[mempool_store].pool, data, size);
 }
 
-void *mempool_pefinish()
+void *mempool_finish(void)
 {
-    return obstack_finish(&global_pool);
-}
-
-void *mempool_shalloc(size_t size)
-{
-    return obstack_alloc(&request_pool, size);
-}
-
-void *mempool_shcopy(void *addr, int size)
-{
-    return obstack_copy(&request_pool, addr, size);
-}
-
-void *mempool_shcopy0(void *addr, int size)
-{
-    return obstack_copy0(&request_pool, addr, size);
-}
-
-void mempool_shgrow(void *data, int size)
-{
-    obstack_grow(&request_pool, data, size);
-}
-
-void *mempool_shfinish()
-{
-    return obstack_finish(&request_pool);
-}
-
-void mempool_shfree(void *ptr)
-{
-    if (ptr) {
-        obstack_free(&request_pool, ptr);
-    } else {
-        obstack_free(&request_pool, sh_globptr);
-        sh_globptr = obstack_alloc(&request_pool, sizeof(int));
-    }
-}
-
-void mempool_free()
-{
-    obstack_free(&global_pool, NULL);
-    obstack_free(&request_pool, NULL);
+    return obstack_finish(&mempool[mempool_store].pool);
 }

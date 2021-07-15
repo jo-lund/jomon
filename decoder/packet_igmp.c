@@ -71,7 +71,7 @@ packet_error handle_igmp(struct protocol_info *pinfo, unsigned char *buffer, int
     struct igmp *igmp;
     struct igmp_info *info;
 
-    info = mempool_pealloc(sizeof(struct igmp_info));
+    info = mempool_alloc(sizeof(struct igmp_info));
     pdata->data = info;
     pdata->len = n;
     pinfo->num_packets++;

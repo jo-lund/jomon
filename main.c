@@ -327,7 +327,7 @@ void finish(int status)
     free(ctx.local_addr);
     if (handle && handle->sockfd > 0)
         iface_close(handle);
-    mempool_free();
+    mempool_destruct();
     geoip_free();
     if (handle)
         free(handle);

@@ -54,11 +54,11 @@ bool handle_ethernet(unsigned char *buffer, int n, struct packet *p)
     struct protocol_info *pinfo;
 
     eth_header = (struct ethhdr *) buffer;
-    eth = mempool_pealloc(sizeof(struct eth_info));
+    eth = mempool_alloc(sizeof(struct eth_info));
     memcpy(eth->mac_src, eth_header->h_source, ETH_ALEN);
     memcpy(eth->mac_dst, eth_header->h_dest, ETH_ALEN);
     eth->ethertype = ntohs(eth_header->h_proto);
-    p->root = mempool_pealloc(sizeof(struct packet_data));
+    p->root = mempool_alloc(sizeof(struct packet_data));
     p->root->data = eth;
     p->root->len = ETH_HLEN;
 
@@ -70,7 +70,7 @@ bool handle_ethernet(unsigned char *buffer, int n, struct packet *p)
         pinfo = get_protocol(p->root->id);
     }
     if (pinfo) {
-        p->root->next = mempool_pealloc(sizeof(struct packet_data));
+        p->root->next = mempool_alloc(sizeof(struct packet_data));
         memset(p->root->next, 0, sizeof(struct packet_data));
         p->perr = pinfo->decode(pinfo, buffer + ETH_HLEN, n - ETH_HLEN, p->root->next);
     } else {

@@ -126,7 +126,7 @@ packet_error handle_dns(struct protocol_info *pinfo, unsigned char *buffer, int 
     struct dns_info *dns;
 
     if (n < DNS_HDRLEN) return DECODE_ERR;
-    dns = mempool_pealloc(sizeof(struct dns_info));
+    dns = mempool_alloc(sizeof(struct dns_info));
     pdata->data = dns;
     pdata->len = n;
 
@@ -191,7 +191,7 @@ packet_error handle_dns(struct protocol_info *pinfo, unsigned char *buffer, int 
         return DECODE_ERR;
     }
     if (num_records) {
-        dns->record = mempool_pealloc(num_records * sizeof(struct dns_resource_record));
+        dns->record = mempool_alloc(num_records * sizeof(struct dns_resource_record));
         for (int i = 0; i < num_records; i++) {
             int len = parse_dns_record(i, buffer, n, &ptr, plen, dns);
 
@@ -215,7 +215,7 @@ int parse_dns_question(unsigned char *buffer, int n, unsigned char **data,
     if (dns->section_count[QDCOUNT] > dlen) {
         return -1;
     }
-    dns->question = mempool_pealloc(dns->section_count[QDCOUNT] *
+    dns->question = mempool_alloc(dns->section_count[QDCOUNT] *
                            sizeof(struct dns_question));
     for (unsigned int i = 0; i < dns->section_count[QDCOUNT]; i++) {
         if ((len = parse_dns_name(buffer, n, ptr, dlen, dns->question[i].qname)) == -1) {
@@ -326,7 +326,7 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
             struct dns_txt_rr *rr;
             int len = 0;
 
-            rr = mempool_pealloc(sizeof(struct dns_txt_rr));
+            rr = mempool_alloc(sizeof(struct dns_txt_rr));
             rr->txt = parse_dns_txt(&ptr);
             if (rr->txt) {
                 len = strlen(rr->txt);
@@ -364,7 +364,7 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
     case DNS_TYPE_OPT:
         dns->record[i].rdata.opt.rdlen = rdlen;
         if (rdlen) {
-            dns->record[i].rdata.opt.data = mempool_pecopy(ptr, rdlen);
+            dns->record[i].rdata.opt.data = mempool_copy(ptr, rdlen);
             ptr += rdlen;
         }
         break;
@@ -480,7 +480,7 @@ char *parse_dns_txt(unsigned char **data)
 
     len = *ptr++;
     if (len) {
-        txt = mempool_pecopy0(ptr, len);
+        txt = mempool_copy0(ptr, len);
         ptr += len;
     }
     *data = ptr;
@@ -547,7 +547,7 @@ bool parse_type_bitmaps(unsigned char **data, uint16_t rdlen,
         winnum = ptr[i];
         maplen = ptr[i + 1];
         if (maplen > rdlen) {
-            mempool_pefree(mempool_pefinish());
+            mempool_free(mempool_finish());
             return false;
         }
         i += 2;
@@ -556,7 +556,7 @@ bool parse_type_bitmaps(unsigned char **data, uint16_t rdlen,
                 if (ptr[i + j] & (1 << (7 - k))) {
                     uint16_t type = winnum * 256 + k + (8 * j);
 
-                    mempool_pegrow(&type, sizeof(uint16_t));
+                    mempool_grow(&type, sizeof(uint16_t));
                     record->rdata.nsec.num_types++;
                 }
             }
@@ -564,7 +564,7 @@ bool parse_type_bitmaps(unsigned char **data, uint16_t rdlen,
         i += maplen;
     }
     ptr += i;
-    record->rdata.nsec.types = mempool_pefinish();
+    record->rdata.nsec.types = mempool_finish();
     *data = ptr;
     return true;
 }

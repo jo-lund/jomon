@@ -25,7 +25,7 @@ packet_error handle_snap(struct protocol_info *pinfo, unsigned char *buffer, int
 
     pinfo->num_packets++;
     pinfo->num_bytes += n;
-    snap = mempool_pealloc(sizeof(struct snap_info));
+    snap = mempool_alloc(sizeof(struct snap_info));
     pdata->data = snap;
     pdata->len = n;
     memcpy(snap->oui, buffer, 3);

@@ -69,7 +69,7 @@ packet_error handle_smb(struct protocol_info *pinfo, unsigned char *buffer, int 
 
     pinfo->num_packets++;
     pinfo->num_bytes += n;
-    smb = mempool_pealloc(sizeof(struct smb_info));
+    smb = mempool_alloc(sizeof(struct smb_info));
     pdata->data = smb;
     pdata->len = n;
     memcpy(smb->protocol, buffer, 4);

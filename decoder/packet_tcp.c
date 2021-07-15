@@ -109,7 +109,7 @@ packet_error handle_tcp(struct protocol_info *pinfo, unsigned char *buffer, int 
     if (tcp->doff < 5)
         return DECODE_ERR;
 
-    info = mempool_pealloc(sizeof(struct tcp));
+    info = mempool_alloc(sizeof(struct tcp));
     pdata->data = info;
     pinfo->num_packets++;
     pinfo->num_bytes += n;
@@ -135,7 +135,7 @@ packet_error handle_tcp(struct protocol_info *pinfo, unsigned char *buffer, int 
         uint8_t options_len;
 
         options_len = (info->offset - 5) * 4;
-        info->options = mempool_pealloc(options_len);
+        info->options = mempool_alloc(options_len);
         memcpy(info->options, buffer + 20, options_len);
     } else {
         info->options = NULL;

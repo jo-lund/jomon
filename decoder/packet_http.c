@@ -59,7 +59,7 @@ packet_error handle_http(struct protocol_info *pinfo, unsigned char *buffer,
 {
     struct http_info *http;
 
-    http = mempool_pealloc(sizeof(struct http_info));
+    http = mempool_alloc(sizeof(struct http_info));
     pdata->data = http;
     pdata->len = len;
     if (!parse_http(buffer, len, http)) {
@@ -94,7 +94,7 @@ bool parse_http(unsigned char *buffer, uint16_t len, struct http_info *http)
     /* copy message body */
     if (is_http) {
         if (n) {
-            http->data = mempool_pecopy(ptr, n);
+            http->data = mempool_copy(ptr, n);
             http->len = n;
         } else {
             http->len = 0;
@@ -129,7 +129,7 @@ bool parse_start_line(unsigned char **str, unsigned int *len, struct http_info *
                 if (*ptr == '\r') {
                     if (*++ptr == '\n') {
                         ptr++;
-                        http->start_line = mempool_pecopy0(line, i);
+                        http->start_line = mempool_copy0(line, i);
                         *len -= (i + 2); /* start_line + CRLF */
                         *str = ptr;
                         return true;
@@ -228,14 +228,14 @@ bool parse_http_header(unsigned char **str, unsigned int *len, rbtree_t *header)
                     return true;
                 } else {
                     if (toklen + 1 < c) {
-                        char *key = mempool_pecopy0(line, toklen);
+                        char *key = mempool_copy0(line, toklen);
                         char *data = NULL;
 
                         while (isblank(line[toklen + 1])) {
                              toklen++;
                         }
                         if (toklen + 1 < c)
-                            data = mempool_pecopy0(line + toklen + 1, c - (toklen + 1));
+                            data = mempool_copy0(line + toklen + 1, c - (toklen + 1));
                         rbtree_insert(header, key, data);
                     }
                     is_http = true;

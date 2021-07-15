@@ -25,7 +25,7 @@ packet_error handle_llc(struct protocol_info *pinfo, unsigned char *buffer, int 
 
     pinfo->num_packets++;
     pinfo->num_bytes += n;
-    llc = mempool_pealloc(sizeof(struct eth_802_llc));
+    llc = mempool_alloc(sizeof(struct eth_802_llc));
     pdata->data = llc;
     llc->dsap = buffer[0];
     llc->ssap = buffer[1];
@@ -35,7 +35,7 @@ packet_error handle_llc(struct protocol_info *pinfo, unsigned char *buffer, int 
     if ((llc->dsap << 8 | llc->ssap) == 0xffff) /* invalid id */
         return UNK_PROTOCOL;
     if ((psub = get_protocol(pdata->id))) {
-        pdata->next = mempool_pealloc(sizeof(struct packet_data));
+        pdata->next = mempool_alloc(sizeof(struct packet_data));
         memset(pdata->next, 0, sizeof(struct packet_data));
         return psub->decode(psub, buffer + LLC_HDR_LEN, n - LLC_HDR_LEN, pdata->next);
     }

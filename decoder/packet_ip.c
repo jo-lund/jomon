@@ -105,7 +105,7 @@ packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int
 
     pinfo->num_packets++;
     pinfo->num_bytes += n;
-    ipv4 = mempool_pealloc(sizeof(struct ipv4_info));
+    ipv4 = mempool_alloc(sizeof(struct ipv4_info));
     pdata->data = ipv4;
     ipv4->src = ip->saddr;
     ipv4->dst = ip->daddr;
@@ -140,7 +140,7 @@ packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int
 
     struct protocol_info *layer3 = get_protocol(pdata->id);
     if (layer3) {
-        pdata->next = mempool_pealloc(sizeof(struct packet_data));
+        pdata->next = mempool_alloc(sizeof(struct packet_data));
         memset(pdata->next, 0, sizeof(struct packet_data));
         return layer3->decode(layer3, buffer + header_len, n - header_len, pdata->next);
     }
@@ -199,7 +199,7 @@ packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int
     pinfo->num_packets++;
     pinfo->num_bytes += n;
     ip6 = (struct ip6_hdr *) buffer;
-    ipv6 = mempool_pealloc(sizeof(struct ipv6_info));
+    ipv6 = mempool_alloc(sizeof(struct ipv6_info));
     pdata->data = ipv6;
     pdata->len = header_len;
     ipv6->version = ip6->ip6_vfc >> 4;
@@ -215,7 +215,7 @@ packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int
     // TODO: Handle IPv6 extension headers and errors
     struct protocol_info *layer3 = get_protocol(pdata->id);
     if (layer3) {
-        pdata->next = mempool_pealloc(sizeof(struct packet_data));
+        pdata->next = mempool_alloc(sizeof(struct packet_data));
         memset(pdata->next, 0, sizeof(struct packet_data));
         return layer3->decode(layer3, buffer + header_len, n - header_len, pdata->next);
     }

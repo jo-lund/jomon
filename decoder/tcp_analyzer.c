@@ -70,8 +70,8 @@ void tcp_analyzer_check_stream(const struct packet *p)
             struct tcp_connection_v4 *new_conn;
             struct tcp_endpoint_v4 *new_endp;
 
-            new_endp = mempool_pecopy(&endp, sizeof(struct tcp_endpoint_v4));
-            new_conn = mempool_pealloc(sizeof(struct tcp_connection_v4));
+            new_endp = mempool_copy(&endp, sizeof(struct tcp_endpoint_v4));
+            new_conn = mempool_alloc(sizeof(struct tcp_connection_v4));
             new_conn->endp = new_endp;
             new_conn->packets = list_init(&d_alloc);
             new_conn->num = i++;

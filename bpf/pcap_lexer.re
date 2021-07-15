@@ -140,12 +140,12 @@ scan:
       sep = [:.-];
 
       (hex{2} sep?){5} hex{2} {
-          parser->val.str = mempool_shcopy0((char *) input->tok, TOKENLEN);
+          parser->val.str = mempool_copy0((char *) input->tok, TOKENLEN);
           return PCAP_HWADDR;
       }
 
       [a-zA-Z][a-zA-Z0-9_]* {
-          parser->val.str = mempool_shcopy0((char *) input->tok, TOKENLEN);
+          parser->val.str = mempool_copy0((char *) input->tok, TOKENLEN);
           return PCAP_ID;
       }
 

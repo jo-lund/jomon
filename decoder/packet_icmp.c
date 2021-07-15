@@ -28,7 +28,7 @@ packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buffer, int
     struct icmp_info *info;
     struct icmp *icmp = (struct icmp *) buffer;
 
-    info = mempool_pealloc(sizeof(struct icmp_info));
+    info = mempool_alloc(sizeof(struct icmp_info));
     pdata->data = info;
     pdata->len = n;
     pinfo->num_packets++;

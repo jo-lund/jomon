@@ -19,7 +19,7 @@
 #include "../hash.h"
 
 allocator_t d_alloc = {
-    .alloc = mempool_pealloc,
+    .alloc = mempool_alloc,
     .dealloc = NULL
 };
 
@@ -69,8 +69,8 @@ void traverse_protocols(protocol_handler fn, void *arg)
 
 bool decode_packet(unsigned char *buffer, size_t len, struct packet **p)
 {
-    *p = mempool_pealloc(sizeof(struct packet));
-    (*p)->buf = mempool_pecopy(buffer, len); /* store the original frame in buf */
+    *p = mempool_alloc(sizeof(struct packet));
+    (*p)->buf = mempool_copy(buffer, len); /* store the original frame in buf */
     (*p)->len = len;
     if (!handle_ethernet(buffer, len, *p)) {
         free_packets(*p);
@@ -84,7 +84,7 @@ bool decode_packet(unsigned char *buffer, size_t len, struct packet **p)
 
 void free_packets(void *data)
 {
-    mempool_pefree(data);
+    mempool_free(data);
 }
 
 packet_error call_data_decoder(struct packet_data *pdata, uint8_t transport,
@@ -97,12 +97,12 @@ packet_error call_data_decoder(struct packet_data *pdata, uint8_t transport,
         return DECODE_ERR;
 
     if ((pinfo = get_protocol(pdata->id))) {
-        pdata->next = mempool_pealloc(sizeof(struct packet_data));
+        pdata->next = mempool_alloc(sizeof(struct packet_data));
         memset(pdata->next, 0, sizeof(struct packet_data));
         pdata->next->transport = transport;
         pdata->next->id = pdata->id;
         if ((err = pinfo->decode(pinfo, buf, n, pdata->next)) != NO_ERR) {
-            mempool_pefree(pdata->next);
+            mempool_free(pdata->next);
             pdata->next = NULL;
         }
     } else {

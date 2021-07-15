@@ -127,7 +127,7 @@ packet_error handle_dhcp(struct protocol_info *pinfo, unsigned char *buffer, int
     struct dhcp_info *dhcp;
     packet_error err;
 
-    dhcp = mempool_pealloc(sizeof(struct dhcp_info));
+    dhcp = mempool_alloc(sizeof(struct dhcp_info));
     pdata->data = dhcp;
     pdata->len = n;
     dhcp->op = ptr[0];
@@ -163,7 +163,7 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
     n -= 4;
     dhcp->options = list_init(&d_alloc);
     while (n > 0) {
-        struct dhcp_options *opt = MEMPOOL_CALLOC(struct dhcp_options, pe);
+        struct dhcp_options *opt = mempool_calloc(struct dhcp_options);
 
         opt->tag = *buffer++;
         n--;
@@ -316,7 +316,7 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
             opt->fqdn.flags = buffer[0];
             opt->fqdn.rcode1 = buffer[1];
             opt->fqdn.rcode2 = buffer[2];
-            opt->fqdn.name = mempool_pealloc(opt->length - 2); /* name + null byte */
+            opt->fqdn.name = mempool_alloc(opt->length - 2); /* name + null byte */
             memcpy(opt->fqdn.name, buffer + 3, opt->length - 3);
             buffer += opt->length;
             n = n - opt->length - 1;
@@ -363,7 +363,7 @@ static uint8_t *parse_bytes(unsigned char **data, uint8_t length)
 
     if (length == 0)
         return NULL;
-    bytes = mempool_pealloc(length);
+    bytes = mempool_alloc(length);
     memcpy(bytes, ptr, length);
     ptr += length;
     *data = ptr;

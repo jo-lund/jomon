@@ -40,7 +40,7 @@ packet_error handle_udp(struct protocol_info *pinfo, unsigned char *buffer, int 
     packet_error error = NO_ERR;
     struct udp_info *info;
 
-    info = mempool_pealloc(sizeof(struct udp_info));
+    info = mempool_alloc(sizeof(struct udp_info));
     pinfo->num_packets++;
     pinfo->num_bytes += n;
     udp = (struct udphdr *) buffer;

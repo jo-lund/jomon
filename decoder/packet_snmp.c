@@ -71,7 +71,7 @@ packet_error handle_snmp(struct protocol_info *pinfo, unsigned char *buffer, int
 
     if (n < MIN_MSG) return DECODE_ERR;
 
-    snmp = mempool_pealloc(sizeof(struct snmp_info));
+    snmp = mempool_alloc(sizeof(struct snmp_info));
     pdata->data = snmp;
     pdata->len = n;
     if ((msg_len = parse_value(&ptr, n, &class, &tag, NULL)) == -1) {
@@ -135,7 +135,7 @@ packet_error parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp)
                     n -= val_len;
                 }
                 if (n > 0) {
-                    snmp->pdu = mempool_pealloc(sizeof(struct snmp_pdu));
+                    snmp->pdu = mempool_alloc(sizeof(struct snmp_pdu));
                     snmp->pdu->request_id = val[0].ival;
                     snmp->pdu->error_status = val[1].ival;
                     snmp->pdu->error_index = val[2].ival;
@@ -159,7 +159,7 @@ packet_error parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp)
                     n -= val_len;
                 }
                 if (n > 0) {
-                    snmp->trap = mempool_pealloc(sizeof(struct snmp_trap));
+                    snmp->trap = mempool_alloc(sizeof(struct snmp_trap));
                     snmp->trap->enterprise = val[0].pval;
                     snmp->trap->agent_addr = val[1].pval;
                     snmp->trap->trap_type = val[2].ival;
@@ -213,7 +213,7 @@ list_t *parse_variables(unsigned char *buffer, int n)
                 if (tag == SNMP_OBJECT_ID_TAG && n > 0) {
                     struct snmp_varbind *var;
 
-                    var = mempool_pealloc(sizeof(struct snmp_varbind));
+                    var = mempool_alloc(sizeof(struct snmp_varbind));
                     var->object_name = val.pval;
                     if ((val_len = parse_value(&ptr, n, &class, &tag, &val)) == -1) {
                         return NULL;
@@ -281,7 +281,7 @@ int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag, snmp_
             if (len != 4)
                 return -1;
 
-            value->pval = mempool_pealloc(INET_ADDRSTRLEN);
+            value->pval = mempool_alloc(INET_ADDRSTRLEN);
             for (unsigned int i = 0; i < 3; i++) {
                 j += snprintf(value->pval + j, INET_ADDRSTRLEN - j, "%u.", *ptr++);
             }
@@ -313,7 +313,7 @@ int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag, snmp_
             break;
         case SNMP_OCTET_STRING_TAG:
             if (len > 0) {
-                value->pval = mempool_pealloc(len + 1);
+                value->pval = mempool_alloc(len + 1);
                 memcpy(value->pval, ptr, len);
                 value->pval[len] = '\0';
                 value->plen = len;
@@ -359,7 +359,7 @@ int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag, snmp_
                     }
                 }
                 val[i-1] = '\0';
-                value->pval = mempool_pealloc(strlen(val) + 1);
+                value->pval = mempool_alloc(strlen(val) + 1);
                 strcpy(value->pval, val);
                 value->plen = len;
                 ptr += len;

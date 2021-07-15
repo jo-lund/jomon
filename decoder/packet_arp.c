@@ -52,7 +52,7 @@ packet_error handle_arp(struct protocol_info *pinfo, unsigned char *buffer, int 
     pinfo->num_packets++;
     pinfo->num_bytes += n;
     arp_header = (struct ether_arp *) buffer;
-    arp = mempool_pealloc(sizeof(struct arp_info));
+    arp = mempool_alloc(sizeof(struct arp_info));
     memcpy(arp->sip, arp_header->arp_spa, 4); /* sender protocol address */
     memcpy(arp->tip, arp_header->arp_tpa, 4); /* target protocol address */
     memcpy(arp->sha, arp_header->arp_sha, ETH_ALEN); /* sender hardware address */

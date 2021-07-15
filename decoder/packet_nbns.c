@@ -73,7 +73,7 @@ packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int
     int plen = n;
     struct nbns_info *nbns;
 
-    nbns = mempool_pealloc(sizeof(struct nbns_info));
+    nbns = mempool_alloc(sizeof(struct nbns_info));
     pdata->data = nbns;
     pdata->len = n;
     nbns->id = ptr[0] << 8 | ptr[1];
@@ -108,7 +108,7 @@ packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int
         while (i < 4) {
             num_records += nbns->section_count[i++];
         }
-        nbns->record = mempool_pealloc(num_records * sizeof(struct nbns_rr));
+        nbns->record = mempool_alloc(num_records * sizeof(struct nbns_rr));
         for (int j = 0; j < num_records; j++) {
             int len = parse_nbns_record(j, buffer, n, &ptr, plen, nbns);
 
@@ -143,7 +143,7 @@ packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int
             return DECODE_ERR;
         }
         if (nbns->section_count[ARCOUNT]) {
-            nbns->record = mempool_pealloc(nbns->section_count[ARCOUNT] *
+            nbns->record = mempool_alloc(nbns->section_count[ARCOUNT] *
                                            sizeof(struct nbns_rr));
             for (int i = 0; i < nbns->section_count[ARCOUNT]; i++) {
                 int len = parse_nbns_record(i, buffer, n, &ptr, plen, nbns);

@@ -118,7 +118,7 @@ static void insert_host(uint32_t addr, const uint8_t *mac)
         local = false;
     }
     if (!hashmap_contains(map, UINT_TO_PTR(addr))) {
-        struct host_info *host = mempool_pealloc(sizeof(struct host_info));
+        struct host_info *host = mempool_alloc(sizeof(struct host_info));
         char *name;
 
         host->ip4_addr = addr;

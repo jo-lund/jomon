@@ -61,7 +61,7 @@ packet_error handle_nbds(struct protocol_info *pinfo, unsigned char *buffer, int
     int plen = n;
 
     ptr = buffer;
-    nbds = mempool_pealloc(sizeof(struct nbds_info));
+    nbds = mempool_alloc(sizeof(struct nbds_info));
     pdata->data = nbds;
     pdata->len = n;
     nbds->msg_type = ptr[0];
@@ -113,7 +113,7 @@ int parse_datagram(unsigned char *buffer, int n, unsigned char **data, int dlen,
     uint16_t tot_name_len;
     int name_len;
 
-    dgm = mempool_pealloc(sizeof(struct nbds_datagram));
+    dgm = mempool_alloc(sizeof(struct nbds_datagram));
     nbds->msg.dgm = dgm;
     dgm->dgm_length = get_uint16be(ptr);
     dgm->packet_offset = get_uint16be(ptr + 2);
@@ -139,7 +139,7 @@ int parse_datagram(unsigned char *buffer, int n, unsigned char **data, int dlen,
 
         pdata->id = get_protocol_id(PORT, SMB);
         if ((pinfo = get_protocol(pdata->id))) {
-            pdata->next = mempool_pealloc(sizeof(struct packet_data));
+            pdata->next = mempool_alloc(sizeof(struct packet_data));
             memset(pdata->next, 0, sizeof(struct packet_data));
             pinfo->decode(pinfo, ptr, dgm->dgm_length - (tot_name_len - 4), pdata->next);
         }

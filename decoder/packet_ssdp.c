@@ -38,7 +38,7 @@ packet_error handle_ssdp(struct protocol_info *pinfo, unsigned char *buffer, int
 {
     struct ssdp_info *ssdp;
 
-    ssdp = mempool_pealloc(sizeof(struct ssdp_info));
+    ssdp = mempool_alloc(sizeof(struct ssdp_info));
     pdata->data = ssdp;
     pdata->len = n;
     pinfo->num_packets++;
@@ -70,7 +70,7 @@ packet_error parse_ssdp(char *str, int n, list_t *msg_header)
 
         toklen = strlen(token);
         len += toklen + 2;
-        field = mempool_pecopy0(token, toklen);
+        field = mempool_copy0(token, toklen);
         list_push_back(msg_header, field);
         token = strtok(NULL, "\r\n");
     }

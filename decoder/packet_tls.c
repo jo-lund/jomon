@@ -367,6 +367,7 @@ static packet_error parse_client_hello(unsigned char **buf, uint16_t n,
                                        struct tls_handshake *handshake);
 static packet_error parse_server_hello(unsigned char **buf, uint16_t len,
                                        struct tls_handshake *handshake);
+static enum pool prev;
 
 static struct protocol_info tls_prot = {
     .short_name = "TLS",
@@ -399,7 +400,7 @@ packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
     while (data_len < n) {
         uint16_t record_len;
 
-        *pptr = mempool_pealloc(sizeof(struct tls_info));
+        *pptr = mempool_alloc(sizeof(struct tls_info));
         (*pptr)->next = NULL;
         (*pptr)->type = buf[0];
         (*pptr)->version = get_uint16be(buf + 1);
@@ -409,7 +410,7 @@ packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
             if (i == 0) {
                 return UNK_PROTOCOL;
             } else {
-                mempool_pefree(*pptr);
+                mempool_free(*pptr);
                 *pptr = NULL;
                 pdata->data = tls;
                 return NO_ERR;
@@ -431,7 +432,7 @@ packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
             break;
         case TLS_HANDSHAKE:
             if (state == CCS) {
-                (*pptr)->handshake = mempool_pealloc(sizeof(struct tls_handshake));
+                (*pptr)->handshake = mempool_alloc(sizeof(struct tls_handshake));
                 (*pptr)->handshake->type = ENCRYPTED_HANDSHAKE_MESSAGE;
                 buf += record_len;
             } else {
@@ -459,7 +460,7 @@ static packet_error parse_handshake(unsigned char **buf, uint16_t len, struct tl
     packet_error err = NO_ERR;
     unsigned char *ptr = *buf;
 
-    tls->handshake = mempool_pealloc(sizeof(struct tls_handshake));
+    tls->handshake = mempool_alloc(sizeof(struct tls_handshake));
     tls->handshake->type = ptr[0];
     memcpy(tls->handshake->length, ptr + 1, 3);
     ptr += 4;
@@ -489,7 +490,7 @@ static packet_error parse_client_hello(unsigned char **buf, uint16_t len,
 
     unsigned char *ptr = *buf;
 
-    handshake->client_hello = mempool_pealloc(sizeof(struct tls_handshake_client_hello));
+    handshake->client_hello = mempool_alloc(sizeof(struct tls_handshake_client_hello));
     handshake->client_hello->legacy_version = get_uint16be(ptr);
     memcpy(handshake->client_hello->random_bytes, ptr + 2, 32);
     ptr += 34;
@@ -498,14 +499,14 @@ static packet_error parse_client_hello(unsigned char **buf, uint16_t len,
         return DECODE_ERR;
     }
     handshake->client_hello->session_id =
-        mempool_pecopy(ptr + 1, handshake->client_hello->session_length);
+        mempool_copy(ptr + 1, handshake->client_hello->session_length);
     ptr += handshake->client_hello->session_length + 1;
     len = len - (handshake->client_hello->session_length + 1);
     if ((handshake->client_hello->cipher_length = get_uint16be(ptr)) > len) {
         return DECODE_ERR;
     }
     handshake->client_hello->cipher_suites =
-        mempool_pecopy(ptr + 2, handshake->client_hello->cipher_length);
+        mempool_copy(ptr + 2, handshake->client_hello->cipher_length);
     ptr += handshake->client_hello->cipher_length + 2;
     len = len - (handshake->client_hello->cipher_length + 2);
     if ((handshake->client_hello->compression_length = ptr[0]) > len) {
@@ -517,11 +518,11 @@ static packet_error parse_client_hello(unsigned char **buf, uint16_t len,
         len--;
     } else {
         handshake->client_hello->compression_methods =
-            mempool_pecopy(ptr + 1, handshake->client_hello->compression_length);
+            mempool_copy(ptr + 1, handshake->client_hello->compression_length);
         ptr += handshake->client_hello->compression_length + 1;
         len = len - (handshake->client_hello->compression_length + 1);
     }
-    handshake->client_hello->data = mempool_pecopy(ptr, len);
+    handshake->client_hello->data = mempool_copy(ptr, len);
     handshake->client_hello->data_len = len;
     ptr += len;
     *buf = ptr;
@@ -535,7 +536,7 @@ static packet_error parse_server_hello(unsigned char **buf, uint16_t len,
 
     unsigned char *ptr = *buf;
 
-    handshake->server_hello = mempool_pealloc(sizeof(struct tls_handshake_server_hello));
+    handshake->server_hello = mempool_alloc(sizeof(struct tls_handshake_server_hello));
     handshake->server_hello->legacy_version = get_uint16be(ptr);
     memcpy(handshake->server_hello->random_bytes, ptr + 2, 32);
     ptr += 34;
@@ -544,7 +545,7 @@ static packet_error parse_server_hello(unsigned char **buf, uint16_t len,
         return DECODE_ERR;
     }
     handshake->server_hello->session_id =
-        mempool_pecopy(ptr + 1, handshake->server_hello->session_length);
+        mempool_copy(ptr + 1, handshake->server_hello->session_length);
     ptr += handshake->server_hello->session_length + 1;
     len = len - (handshake->server_hello->session_length + 1);
     handshake->server_hello->cipher_suite = get_uint16be(ptr);
@@ -553,7 +554,7 @@ static packet_error parse_server_hello(unsigned char **buf, uint16_t len,
     handshake->server_hello->compression_method = ptr[0];
     ptr++;
     len--;
-    handshake->server_hello->data = mempool_pecopy(ptr, len);
+    handshake->server_hello->data = mempool_copy(ptr, len);
     handshake->server_hello->data_len = len;
     ptr += len;
     *buf = ptr;
@@ -563,16 +564,17 @@ static packet_error parse_server_hello(unsigned char **buf, uint16_t len,
 list_t *parse_tls_extensions(unsigned char *data, uint16_t len)
 {
     allocator_t alloc = {
-        .alloc = mempool_shalloc,
+        .alloc = mempool_alloc,
         .dealloc = NULL
     };
     list_t *extensions = list_init(&alloc);
     int length = len;
 
+    prev = mempool_set(POOL_SHORT);
     length -= 2;
     data += 2;
     while (length > 0) {
-        struct tls_extension *ext = mempool_shalloc(sizeof(struct tls_extension));
+        struct tls_extension *ext = mempool_alloc(sizeof(struct tls_extension));
 
         ext->type = get_uint16be(data);
         ext->length = get_uint16be(data + 2);
@@ -585,14 +587,14 @@ list_t *parse_tls_extensions(unsigned char *data, uint16_t len)
             break;
         case SUPPORTED_GROUPS:
             if (ext->length < length) {
-                ext->supported_groups.named_group_list = mempool_shcopy(data, ext->length);
+                ext->supported_groups.named_group_list = mempool_copy(data, ext->length);
                 ext->supported_groups.length = ext->length;
                 list_push_back(extensions, ext);
             }
             break;
         case SIGNATURE_ALGORITHMS:
             if (ext->length < length) {
-                ext->signature_algorithms.types = mempool_shcopy(data, ext->length);
+                ext->signature_algorithms.types = mempool_copy(data, ext->length);
                 ext->signature_algorithms.length = ext->length;
                 list_push_back(extensions, ext);
             }
@@ -609,14 +611,14 @@ list_t *parse_tls_extensions(unsigned char *data, uint16_t len)
             break;
         case SUPPORTED_VERSIONS:
             if (ext->length < length) {
-                ext->supported_versions.versions = mempool_shcopy(data, ext->length);
+                ext->supported_versions.versions = mempool_copy(data, ext->length);
                 ext->supported_versions.length = ext->length;
                 list_push_back(extensions, ext);
             }
             break;
         case COOKIE:
             if (ext->length < length) {
-                ext->cookie.ptr = mempool_shcopy(data, ext->length);
+                ext->cookie.ptr = mempool_copy(data, ext->length);
                 ext->cookie.length = ext->length;
                 list_push_back(extensions, ext);
             }
@@ -638,7 +640,8 @@ list_t *parse_tls_extensions(unsigned char *data, uint16_t len)
 
 void free_tls_extensions(list_t *extensions)
 {
-    mempool_shfree(extensions);
+    mempool_free(extensions);
+    mempool_set(prev);
 }
 
 char *get_tls_version(uint16_t version)
