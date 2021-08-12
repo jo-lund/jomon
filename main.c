@@ -54,7 +54,7 @@ static struct bpf_prog bpf;
 static bool promiscuous_mode = false;
 
 static bool handle_packet(unsigned char *buffer, uint32_t n, struct timeval *t);
-static void print_help(char *prg);
+static void print_help(char *prg) NORETURN;
 static void setup_signal(int signo, void (*handler)(int), int flags);
 static void run(void);
 static void print_bpf(void) NORETURN;
@@ -113,7 +113,6 @@ int main(int argc, char **argv)
         case 'l':
             list_interfaces();
             exit(0);
-            break;
         case 'p':
             ctx.opt.nopromiscuous = true;
             break;
@@ -133,7 +132,6 @@ int main(int argc, char **argv)
         case 'h':
         default:
             print_help(prg_name);
-            exit(0);
         }
     }
     if (ctx.filter && ctx.filter_file)
@@ -194,7 +192,7 @@ int main(int argc, char **argv)
         if (ctx.opt.use_ncurses) {
             ncurses_init(&ctx);
             ncurses_initialized = true;
-            handle = iface_handle_create();
+            handle = iface_handle_create(buf, SNAPLEN, handle_packet);
             print_file();
         } else {
             for (int i = 0; i < vector_size(packets); i++) {
@@ -207,10 +205,7 @@ int main(int argc, char **argv)
         }
     } else {
         ctx.capturing = true;
-        handle = iface_handle_create();
-        handle->buf = buf;
-        handle->len = SNAPLEN;
-        handle->on_packet = handle_packet;
+        handle = iface_handle_create(buf, SNAPLEN, handle_packet);
         iface_activate(handle, ctx.device, &bpf);
         if (ctx.opt.use_ncurses) {
             ncurses_init(&ctx);
@@ -263,6 +258,7 @@ static void print_help(char *prg)
            "     -t                     Use normal text output, i.e. don't use ncurses\n"
            "     -v, --verbose          Print verbose information\n",
            prg);
+    exit(0);
 }
 
 static void setup_signal(int signo, void (*handler)(int), int flags)
@@ -347,6 +343,10 @@ void stop_scan(void)
 
 void start_scan(void)
 {
+    if (!ctx.opt.nopromiscuous && !promiscuous_mode) {
+        set_promiscuous(ctx.device, true);
+        promiscuous_mode = true;
+    }
     clear_statistics();
     vector_clear(packets, NULL);
     free_packets(NULL);

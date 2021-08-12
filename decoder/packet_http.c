@@ -3,6 +3,7 @@
 #include <string.h>
 #include "packet.h"
 #include "packet_http.h"
+#include "../util.h"
 
 /* It is recommended that all HTTP senders and recipients support, at a minimum,
    request-line lengths of 8000 octets, cf. RFC 7230 */
@@ -27,14 +28,14 @@ static char *request_method[] = {
     "TRACE"
 };
 
-#define NUM_METHODS sizeof(request_method) / sizeof(char *)
-
 extern void print_http(char *buf, int n, void *data);
 extern void add_http_information(void *widget, void *subwidget, void *data);
 static bool parse_http(unsigned char *buf, uint16_t len, struct http_info *http);
 static bool parse_start_line(unsigned char **str, unsigned int *len, struct http_info *http);
 static bool check_method(char *token);
 static bool parse_http_header(unsigned char **str, unsigned int *len, rbtree_t *header);
+static packet_error handle_http(struct protocol_info *pinfo, unsigned char *buffer,
+                                int len, struct packet_data *pdata);
 
 static struct protocol_info http_prot = {
     .short_name = "HTTP",
@@ -149,7 +150,7 @@ bool parse_start_line(unsigned char **str, unsigned int *len, struct http_info *
 bool check_method(char *token)
 {
     int low = 0;
-    int high = NUM_METHODS - 1;
+    int high = ARRAY_SIZE(request_method) - 1;
     int mid;
     int c;
 

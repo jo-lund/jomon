@@ -28,7 +28,7 @@ struct iface_operations {
 };
 
 /* Create a new interface handle */
-iface_handle_t *iface_handle_create();
+iface_handle_t *iface_handle_create(unsigned char *buf, size_t len, packet_handler fn);
 
 /* Activate the interface */
 void iface_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf);

@@ -21,12 +21,15 @@ static struct iface_operations linux_op = {
     .read_packet = linux_read_packet
 };
 
-iface_handle_t *iface_handle_create()
+iface_handle_t *iface_handle_create(unsigned char *buf, size_t len, packet_handler fn)
 {
     iface_handle_t *handle = calloc(1, sizeof(iface_handle_t));
 
     handle->sockfd = -1;
     handle->op = &linux_op;
+    handle->buf = buf;
+    handle->len = len;
+    handle->on_packet = fn;
     return handle;
 }
 
