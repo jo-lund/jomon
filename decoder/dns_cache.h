@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-typedef void (*dns_cache_fn)(uint32_t addr, char *name);
+typedef void (*dns_cache_fn)(void *addr, char *name);
 
 /* Initializes the DNS cache.
  *

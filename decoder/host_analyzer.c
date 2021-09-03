@@ -16,7 +16,7 @@ static hashmap_t *remote_hosts;
 static publisher_t *host_changed_publisher;
 
 static void handle_ip4(struct packet *p);
-static void update_host(uint32_t addr, char *name);
+static void update_host(void *paddr, char *name);
 
 void host_analyzer_init()
 {
@@ -136,8 +136,9 @@ static void insert_host(uint32_t addr, const uint8_t *mac)
     }
 }
 
-static void update_host(const uint32_t addr, char *name)
+static void update_host(void *paddr, char *name)
 {
+    uint32_t addr = PTR_TO_UINT(paddr);
     hashmap_t *map = local_ip4(addr) ? local_hosts : remote_hosts;
     struct host_info *host = hashmap_get(map, UINT_TO_PTR(addr));
 
