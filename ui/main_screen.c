@@ -555,27 +555,17 @@ void show_selectionbar(main_screen *ms UNUSED, WINDOW *win, int line, uint32_t a
 
 void remove_selectionbar(main_screen *ms, WINDOW *win, int line, uint32_t attr)
 {
+    mvwchgat(win, line, 0, -1, attr, PAIR_NUMBER(get_theme_colour(BACKGROUND)), NULL);
     if (inside_subwindow(ms) && !ms->lvw) { // TODO: fix this
         int i = 0;
-        bool print_line = false;
+        int mx = getmaxx(win);
+        int c;
 
-        while (original_line[i] != 0) {
-            if (original_line[i++] != ' ') {
-                print_line = true;
-                break;
-            }
-        }
-        if (print_line) {
-            i = 0;
-            while (original_line[i] != 0) {
-                waddch(win, original_line[i++]);
-            }
-        } else {
-            mvwchgat(win, line, 0, -1, attr, PAIR_NUMBER(get_theme_colour(BACKGROUND)), NULL);
-
-        }
-    } else {
-        mvwchgat(win, line, 0, -1, attr, PAIR_NUMBER(get_theme_colour(BACKGROUND)), NULL);
+        while (original_line[i] == 0 && i < mx)
+            i++;
+        c = i;
+        while (original_line[c] != 0 && c < mx - 1)
+            mvwaddch(win, line, c, original_line[c++]);
     }
 }
 
