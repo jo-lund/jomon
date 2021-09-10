@@ -52,7 +52,7 @@ static char *get_name(int pid)
     snprintf(cmdline, MAXPATH, "/proc/%d/cmdline", pid);
     if ((fp = fopen(cmdline, "r")) == NULL)
         return NULL;
-    if (fgets(tmp, MAXPATH, fp) == NULL) {
+    if (fgets(tmp, 1024, fp) == NULL) {
         fclose(fp);
         return NULL;
     }

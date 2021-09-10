@@ -281,7 +281,7 @@ int get_interface_index(char *dev)
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
         err_sys("socket error");
     }
-    strncpy(ifr.ifr_name, dev, IFNAMSIZ);
+    strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
     if (ioctl(sockfd, SIOCGIFINDEX, &ifr) == -1) {
         err_sys("ioctl error");
     }
@@ -294,7 +294,7 @@ void get_local_address(char *dev, struct sockaddr *addr)
     struct ifreq ifr;
     int sockfd;
 
-    strncpy(ifr.ifr_name, dev, sizeof(ifr.ifr_name));
+    strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
     ifr.ifr_addr.sa_family = AF_INET;
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
         err_sys("socket error");
@@ -311,7 +311,7 @@ void get_local_mac(char *dev, unsigned char *mac)
     struct ifreq ifr;
     int sockfd;
 
-    strncpy(ifr.ifr_name, dev, sizeof(ifr.ifr_name));
+    strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
     ifr.ifr_addr.sa_family = AF_INET;
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
         err_sys("socket error");
@@ -328,7 +328,7 @@ bool get_iw_stats(char *dev, struct iw_statistics *iwstat)
     int sockfd;
     struct iwreq iw;
 
-    strncpy(iw.ifr_ifrn.ifrn_name, dev, IFNAMSIZ);
+    strncpy(iw.ifr_ifrn.ifrn_name, dev, IFNAMSIZ - 1);
     iw.u.data.pointer = iwstat;
     iw.u.data.length = sizeof(struct iw_statistics);
     iw.u.data.flags = 0; // TODO: What are the possible values of flags?
@@ -349,7 +349,7 @@ bool get_iw_range(char *dev, struct iw_range *iwrange)
     int sockfd;
     struct iwreq iw;
 
-    strncpy(iw.ifr_ifrn.ifrn_name, dev, IFNAMSIZ);
+    strncpy(iw.ifr_ifrn.ifrn_name, dev, IFNAMSIZ - 1);
     iw.u.data.pointer = iwrange;
     iw.u.data.length = sizeof(struct iw_range);
     iw.u.data.flags = 0;
@@ -373,7 +373,7 @@ void set_promiscuous(char *dev, bool enable)
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
         err_sys("socket error");
     }
-    strncpy(ifr.ifr_name, dev, IFNAMSIZ);
+    strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
     if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) == -1) {
         err_sys("ioctl error");
     }

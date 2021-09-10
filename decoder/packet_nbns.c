@@ -241,7 +241,7 @@ int parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **data,
         ptr++;
         for (int j = 0; j < num_names; j++) {
             memcpy(nbns->record[i].rdata.nbstat[j].node_name, ptr, NBNS_NAMELEN);
-            nbns->record[i].rdata.nbstat[j].node_name[NBNS_NAMELEN] = '\0';
+            nbns->record[i].rdata.nbstat[j].node_name[NBNS_NAMELEN-1] = '\0';
             ptr += NBNS_NAMELEN;
             nbns->record[i].rdata.nbstat[j].name_flags = ptr[0] << 8 | ptr[1];
             ptr += 2;

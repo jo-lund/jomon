@@ -438,7 +438,7 @@ void print_nbns(char *buf, int n, void *data)
     if (nbns->r == 0) {
         char opcode[16];
 
-        strncpy(opcode, get_nbns_opcode(nbns->opcode), sizeof(opcode));
+        strncpy(opcode, get_nbns_opcode(nbns->opcode), sizeof(opcode) - 1);
         PRINT_INFO(buf, n, "Name %s request: ", string_tolower(opcode));
         PRINT_INFO(buf, n, "%s ", nbns->question.qname);
         PRINT_INFO(buf, n, "%s ", get_nbns_type(nbns->question.qtype));
@@ -470,7 +470,7 @@ void print_nbns(char *buf, int n, void *data)
         }
         char opcode[16];
 
-        strncpy(opcode, get_nbns_opcode(nbns->opcode), sizeof(opcode));
+        strncpy(opcode, get_nbns_opcode(nbns->opcode), sizeof(opcode) - 1);
         PRINT_INFO(buf, n, "Name %s response: ", string_tolower(opcode));
         PRINT_INFO(buf, n, "%s ", nbns->record[0].rrname);
         PRINT_INFO(buf, n, "%s ", get_nbns_type(nbns->record[0].rrtype));

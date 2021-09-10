@@ -295,7 +295,7 @@ void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int
         n = list_next(n);
     }
     state = tcp_analyzer_get_connection_state(conn->state);
-    strncpy(entry[STATE].buf, state, MAX_WIDTH);
+    strncpy(entry[STATE].buf, state, MAX_WIDTH - 1);
     entry[PACKETS].val = list_size(conn->packets);
     format_bytes(entry[BYTES].val, entry[BYTES].buf, MAX_WIDTH);
     format_bytes(entry[BYTES_AB].val, entry[BYTES_AB].buf, MAX_WIDTH);
