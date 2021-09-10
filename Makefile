@@ -11,7 +11,7 @@ BUILDDIR := build
 TARGETDIR := bin
 MACHINE := $(shell uname -s)
 STRIP := strip
-CFLAGS += -std=gnu11
+CFLAGS += -std=gnu11 -fwrapv -g
 CPPFLAGS += -Wall -Wextra -Wno-override-init $(addprefix -I,$(incdir))
 LIBS += -lncurses
 ifeq ($(CONFIG_GEOIP),0)
@@ -43,15 +43,15 @@ test-objs += $(bpf-objs) \
 	$(BUILDDIR/stack.o) \
 
 .PHONY : all
-all : debug
+all : release
 
 .PHONY : debug
-debug : CFLAGS += -g -fsanitize=address -fno-omit-frame-pointer
+debug : CFLAGS += -fsanitize=address -fno-omit-frame-pointer
 debug : CPPFLAGS += -DMONITOR_DEBUG
 debug : $(TARGETDIR)/monitor
 
 .PHONY : release
-release : CFLAGS += -O3
+release : CFLAGS += -Os
 release : $(TARGETDIR)/monitor
 	@$(STRIP) --strip-all --remove-section .comment $(TARGETDIR)/monitor
 
@@ -76,6 +76,12 @@ $(BUILDDIR)/%.o : %.c
 -include $(objects:.o=.d)
 -include $(bpf-objs:.o=.d)
 
+install :
+	@install bin/monitor $(PREFIX)/bin/monitor
+
+uninstall :
+	@rm -f $(PREFIX)/bin/monitor
+
 .PHONY : clean
 clean :
 	@echo "Cleaning..."
@@ -95,9 +101,10 @@ testclean :
 
 .PHONY : tags
 tags :
+	@echo "Generating tags..."
 	@find . -name "*.h" -o -name "*.c" | etags -
 
-test : CFLAGS += -O3
+test : CFLAGS += -Os
 test : $(testdir)/test
 	@$<
 
