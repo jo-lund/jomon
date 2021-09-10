@@ -95,13 +95,13 @@ hashmap_t *tcp_analyzer_get_sessions()
 void tcp_analyzer_subscribe(analyzer_conn_fn fn)
 {
     if (conn_changed_publisher)
-        add_subscription2(conn_changed_publisher, (publisher_fn2) fn);
+        add_subscription2(conn_changed_publisher, (publisher_fn2) (void *) fn);
 }
 
 void tcp_analyzer_unsubscribe(analyzer_conn_fn fn)
 {
     if (conn_changed_publisher)
-        remove_subscription2(conn_changed_publisher, (publisher_fn2) fn);
+        remove_subscription2(conn_changed_publisher, (publisher_fn2) (void *) fn);
 }
 
 char *tcp_analyzer_get_connection_state(enum connection_state state)

@@ -1,6 +1,8 @@
 #ifndef DEBUG_H
 #define DEBUG_H
 
+#include <stdbool.h>
+
 #define DEBUG_FATAL
 #define DEBUG_ERROR
 #define DEBUG_WARNING
@@ -12,8 +14,8 @@
 #define DEBUG(fmt, ...)
 #endif
 
-bool debug_init();
-void debug_free();
+bool debug_init(void);
+void debug_free(void);
 bool debug_output(char *file, int line, char *fmt, ...);
 
 #endif

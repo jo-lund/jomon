@@ -9,12 +9,11 @@
 #include "layout.h"
 #include "layout_int.h"
 #include "protocols.h"
-#include "../util.h"
 #include "../misc.h"
 #include "hexdump.h"
 #include "../geoip.h"
 #include "../decoder/decoder.h"
-#include "../debug.h"
+#include "../monitor.h"
 
 #define HOSTNAMELEN 255 /* maximum 255 according to rfc1035 */
 #define TBUFLEN 16
@@ -440,7 +439,7 @@ void print_nbns(char *buf, int n, void *data)
         char opcode[16];
 
         strncpy(opcode, get_nbns_opcode(nbns->opcode), sizeof(opcode));
-        PRINT_INFO(buf, n, "Name %s request: ", strtolower(opcode));
+        PRINT_INFO(buf, n, "Name %s request: ", string_tolower(opcode));
         PRINT_INFO(buf, n, "%s ", nbns->question.qname);
         PRINT_INFO(buf, n, "%s ", get_nbns_type(nbns->question.qtype));
         if (nbns->section_count[ARCOUNT]) {
@@ -472,7 +471,7 @@ void print_nbns(char *buf, int n, void *data)
         char opcode[16];
 
         strncpy(opcode, get_nbns_opcode(nbns->opcode), sizeof(opcode));
-        PRINT_INFO(buf, n, "Name %s response: ", strtolower(opcode));
+        PRINT_INFO(buf, n, "Name %s response: ", string_tolower(opcode));
         PRINT_INFO(buf, n, "%s ", nbns->record[0].rrname);
         PRINT_INFO(buf, n, "%s ", get_nbns_type(nbns->record[0].rrtype));
         print_nbns_record(nbns, 0, buf, n);

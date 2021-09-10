@@ -4,8 +4,8 @@
 #include "hexdump.h"
 #include "layout_int.h"
 #include "../decoder/decoder.h"
-#include "../util.h"
 #include "../list.h"
+#include "../monitor.h"
 
 #define HD_LIST_VIEW 0
 #define HD_WINDOW 1

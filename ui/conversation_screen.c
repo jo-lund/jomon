@@ -8,7 +8,7 @@
 #include "protocols.h"
 #include "../list.h"
 #include "../error.h"
-#include "../util.h"
+#include "../monitor.h"
 #include "../vector.h"
 #include "../decoder/decoder.h"
 #include "../stack.h"
@@ -392,7 +392,7 @@ static void save_handle_ok(void *file)
 static void create_save_dialogue()
 {
     if (!save_dialogue) {
-        char *info;
+        char *info = "";
 
         switch (tcp_mode) {
         case NORMAL:

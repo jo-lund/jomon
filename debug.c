@@ -8,9 +8,11 @@
 
 #define DEBUG_FILE "/tmp/monitor.log"
 
+#ifdef MONITOR_DEBUG
 static FILE *fp;
+#endif
 
-bool debug_init()
+bool debug_init(void)
 {
 #ifdef MONITOR_DEBUG
     if ((fp = fopen(DEBUG_FILE, "a")) == NULL)
@@ -21,7 +23,7 @@ bool debug_init()
 #endif
 }
 
-void debug_free()
+void debug_free(void)
 {
 #ifdef MONITOR_DEBUG
     if (fp)
@@ -50,5 +52,8 @@ bool debug_output(char *file, int line, char *fmt, ...)
     fflush(fp);
     return true;
 #endif
+    (void) file;
+    (void) line;
+    (void) fmt;
     return false;
 }

@@ -19,7 +19,7 @@
 #define LV_GET_EXPANDED(o, i) (o)->get_expanded(o, i)
 #define LV_GET_DATA(o, i) (o)->get_data(o, i)
 #define LV_GET_ATTR(o, i) (o)->get_attribute(o, i)
-#define LV_RENDER(o, win, s) (o)->render(o, win, s)
+#define LV_RENDER(o, win) (o)->render(o, win)
 
 typedef struct {
     char *txt;
@@ -65,11 +65,8 @@ typedef struct lw {
     /* Returns the attribute assciated with the element */
     uint32_t (*get_attribute)(struct lw *this, int i);
 
-    /*
-     * Prints the elements of the list view in the window 'win'.
-     * 'scrollx' is the amount scrolled on the x-axis in 'win'.
-     */
-    void (*render)(struct lw *this, WINDOW *win, int scrollx);
+    /* Prints the elements of the list view in the window 'win' */
+    void (*render)(struct lw *this, WINDOW *win);
 } list_view;
 
 list_view *create_list_view();

@@ -11,7 +11,7 @@
 #include "vector.h"
 #include "error.h"
 #include "decoder/decoder.h"
-#include "debug.h"
+#include "monitor.h"
 
 #define UUID_LEN 36
 
@@ -49,42 +49,6 @@ void gethost(uint32_t addr, char *host, int hostlen)
     saddr.sin_addr.s_addr = addr;
     getnameinfo((struct sockaddr *) &saddr, sizeof(struct sockaddr_in),
                 host, hostlen, NULL, 0, 0);
-}
-
-int snprintcat(char *buf, int size, char *fmt, ...)
-{
-    va_list ap;
-    int len;
-    int n;
-
-    len = strnlen(buf, size);
-    va_start(ap, fmt);
-    n = vsnprintf(buf + len, size - len, fmt, ap);
-    va_end(ap);
-    return n;
-}
-
-char *strtolower(char *str)
-{
-    char *ptr = str;
-
-    while (*ptr != '\0') {
-        *ptr = tolower(*ptr);
-        ptr++;
-    }
-    return str;
-}
-
-int str_find_last(const char *str, int c)
-{
-    int len = strlen(str);
-
-    for (int i = len; i >= 0; i--) {
-        if (str[i] == c) {
-            return i;
-        }
-    }
-    return -1;
 }
 
 char *format_timeval(struct timeval *t, char *buf, int n)
@@ -168,7 +132,7 @@ char *get_directory_part(char *path)
 {
     int i;
 
-    i = str_find_last(path, '/');
+    i = string_find_last(path, '/');
     if (i == 0) {
         path[i + 1] = '\0';
     } else if (i != -1) {
@@ -181,7 +145,7 @@ char *get_file_part(char *path)
 {
     int i;
 
-    i = str_find_last(path, '/');
+    i = string_find_last(path, '/');
     if (i != -1) {
         int n;
 

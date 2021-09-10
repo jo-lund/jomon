@@ -6,7 +6,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include "dialogue.h"
-#include "../util.h"
+#include "../monitor.h"
 
 #define FORMAT_BUF_LEN 7
 #define FILE_INPUT_TEXT "Filename: "
@@ -127,7 +127,10 @@ void dialogue_render(dialogue *this)
     wbkgd(win, get_theme_colour(DIALOGUE_BKGD));
     if (this->title) {
         len = strlen(this->title);
-        mvwprintw(win, 0, (mx - len) / 2, this->title);
+        if (len > mx - 2) {
+            string_truncate(this->title, len, mx - 2);
+            len = mx - 2;
+        }
         printat(win, 0, (mx - len) / 2, A_BOLD, this->title);
     }
 }
@@ -485,12 +488,11 @@ void file_dialogue_print(struct file_dialogue *this, struct file_info *info, int
     int w;
     char buf[FORMAT_BUF_LEN];
 
+    w = getmaxx(this->list.win) - strlen(info->name) - 2;
     if (S_ISDIR(info->stat->st_mode)) {
-        w = getmaxx(this->list.win) - strlen(info->name) - 2;
         printat(this->list.win, i, 1, A_BOLD | get_theme_colour(FD_TEXT), "%s%*s", info->name, w,
                 format_bytes(info->stat->st_size, buf, FORMAT_BUF_LEN));
     } else {
-        w = getmaxx(this->list.win) - strlen(info->name) - 2;
         printat(this->list.win, i, 1, get_theme_colour(FD_TEXT), "%s%*s", info->name, w,
                 format_bytes(info->stat->st_size, buf, FORMAT_BUF_LEN));
     }

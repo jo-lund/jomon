@@ -39,21 +39,6 @@
 /* extract an integer from a pointer */
 #define PTR_TO_INT(i) ((intptr_t) (i))
 
-struct uint_string {
-    uint32_t val;
-    char *str;
-};
-
-static inline int cmp_val(const void *c1, const void *c2)
-{
-    return ((struct uint_string *) c1)->val - ((struct uint_string *) c2)->val;
-}
-
-static inline int cmp_str(const void *c1, const void *c2)
-{
-    return strcmp(((struct uint_string *) c1)->str, ((struct uint_string *) c2)->str);
-}
-
 // TODO: remove this
 struct tm_t {
     int days;
@@ -67,17 +52,6 @@ struct tm_t {
  * DNS request over UDP.
  */
 void gethost(uint32_t addr, char *host, int hostlen);
-
-/*
- * Concatenates fmt string to buf. Will never print passed the size of buf.
- * Expects buf to already contain a string or that buf is zeroed.
- *
- * Returns the number of bytes written.
- */
-int snprintcat(char *buf, int size, char *fmt, ...);
-
-/* Converts str to lower case */
-char *strtolower(char *str);
 
 /*
  * Converts seconds to number of days, hours, minutes and seconds
@@ -101,9 +75,6 @@ char *format_timespec(struct timespec *t, char *buf, int n);
  * in the form h:m:s.ms
  */
 char *get_time_from_ms_ut(uint32_t ms, char *buf, int n);
-
-/* Find index of the last character 'c' in string. Return -1 if not found */
-int str_find_last(const char *str, int c);
 
 /* Given a file with full path name, return the directory part */
 char *get_directory_part(char *path);

@@ -3,7 +3,7 @@
 #include "packet.h"
 #include "packet_smtp.h"
 #include "packet_imap.h"
-#include "../util.h"
+#include "../monitor.h"
 
 /*
  * The maximum total length of a text line including the <CRLF> is 1000 octets

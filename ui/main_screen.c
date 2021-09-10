@@ -8,7 +8,7 @@
 #include "protocols.h"
 #include "../list.h"
 #include "../error.h"
-#include "../util.h"
+#include "../monitor.h"
 #include "../vector.h"
 #include "../decoder/decoder.h"
 #include "../stack.h"
@@ -107,7 +107,6 @@ void main_screen_init(screen *s)
 
     screen_init(s);
     getmaxyx(stdscr, my, mx);
-    s->show_selectionbar = !ctx.capturing;
     s->win = newwin(my - HEADER_HEIGHT - STATUS_HEIGHT, mx, HEADER_HEIGHT, 0);
     ms->outy = 0;
     ms->scrolly = 0;
@@ -234,6 +233,9 @@ void main_screen_print_packet(main_screen *ms, struct packet *p)
 
 void main_screen_render(main_screen *ms, bool interactive_mode)
 {
+    if (vector_size(ms->packet_ref) == 0)
+        return;
+
     int my = getmaxy(ms->base.win);
 
     if (vector_size(ms->packet_ref) < my) {
@@ -453,7 +455,7 @@ void main_screen_load_handle_ok(void *file)
 
             main_screen_clear(ms);
             strcpy(ctx.filename, (const char *) file);
-            i = str_find_last(ctx.filename, '/');
+            i = string_find_last(ctx.filename, '/');
             if (i > 0 && i < MAXPATH) {
                 strncpy(load_filepath, ctx.filename, i);
                 load_filepath[i] = '\0';
@@ -555,6 +557,7 @@ void show_selectionbar(main_screen *ms UNUSED, WINDOW *win, int line, uint32_t a
 
 void remove_selectionbar(main_screen *ms, WINDOW *win, int line, uint32_t attr)
 {
+    mvwchgat(win, line, 0, -1, attr, PAIR_NUMBER(get_theme_colour(BACKGROUND)), NULL);
     if (inside_subwindow(ms) && !ms->lvw) { // TODO: fix this
         int i = 0;
         bool print_line = false;
@@ -1334,7 +1337,7 @@ void print_protocol_information(main_screen *ms, struct packet *p, int lineno)
         int subline;
 
         create_subwindow(ms, ms->lvw->size + 1, lineno);
-        LV_RENDER(ms->lvw, ms->subwindow.win, ms->scrollx);
+        LV_RENDER(ms->lvw, ms->subwindow.win);
         subline = ms->base.selectionbar - ms->base.top - ms->subwindow.top;
         if (inside_subwindow(ms)) {
             show_selectionbar(ms, ms->subwindow.win, subline, LV_GET_ATTR(ms->lvw, subline));

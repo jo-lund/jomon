@@ -14,12 +14,12 @@ static list_view_header *add_sub_header(list_view *this, list_view_header *heade
 static list_view_item *add_text_element(list_view *this, list_view_header *header, char *txt, ...);
 static void add_separator(list_view *this, list_view_header *hdr);
 static void free_list_view_item(list_t *widgets);
-static void render(list_view *this, WINDOW *win, int scrollx);
+static void render(list_view *this, WINDOW *win);
 static bool get_expanded(list_view *this, int i);
 static void set_expanded(list_view *this, int i, bool expanded);
 static int32_t get_data(list_view *this, int i);
 static uint32_t get_attribute(list_view *this, int i);
-static void print_elements(list_t *widgets, WINDOW *win, int pad, int *line, int scrollx);
+static void print_elements(list_t *widgets, WINDOW *win, int pad, int *line);
 static list_view_item *create_item(char *txt, uint32_t attr, uint16_t type);
 static list_view_header *create_header(char *txt, bool expanded, uint16_t data, uint32_t attr);
 static void list_view_item_init(list_view_item *item, char *txt, uint32_t attr, uint16_t type);
@@ -43,7 +43,6 @@ list_view *create_list_view()
     widget->widgets = list_init(NULL);
     widget->num_elements = 0;
     widget->size = 0;
-
     return widget;
 }
 
@@ -80,7 +79,7 @@ list_view_item *create_item(char *txt, uint32_t attr, uint16_t type)
     widget = malloc(sizeof(list_view_item));
     len = strlen(txt);
     elem = malloc(len + 1);
-    strncpy(elem, txt, len + 1);
+    memcpy(elem, txt, len + 1);
     list_view_item_init(widget, elem, attr, type);
     return widget;
 }
@@ -102,11 +101,11 @@ list_view_header *create_header(char *txt, bool expanded, uint16_t data, uint32_
     len = strlen(txt);
     elem = malloc(len + 3);
     if (expanded) {
-        strncpy(elem, "- ", 2);
+        memcpy(elem, "- ", 2);
     } else {
-        strncpy(elem, "+ ", 2);
+        memcpy(elem, "+ ", 2);
     }
-    strncpy(elem + 2, txt, len + 1);
+    memcpy(elem + 2, txt, len + 1);
     list_view_item_init((list_view_item *) widget, elem, attr, HEADER);
     widget->expanded = expanded;
     widget->data = data;
@@ -204,33 +203,27 @@ void add_separator(list_view *this, list_view_header *hdr)
     }
 }
 
-void render(list_view *this, WINDOW *win, int scrollx)
+void render(list_view *this, WINDOW *win)
 {
     int line = 0;
 
-    print_elements(this->widgets, win, 2, &line, scrollx);
+    print_elements(this->widgets, win, 2, &line);
 }
 
-void print_elements(list_t *widgets, WINDOW *win, int pad, int *line, int scrollx)
+void print_elements(list_t *widgets, WINDOW *win, int pad, int *line)
 {
     const node_t *n = list_begin(widgets);
 
     while (n) {
         list_view_item *w = list_data(n);
 
-        if (scrollx < strlen(w->txt)) {
-            wattron(win, w->attr);
-            if (scrollx > pad) {
-                mvwprintw(win, *line, 0, "%s", w->txt + scrollx - pad);
-            } else {
-                mvwprintw(win, *line, pad - scrollx, "%s", w->txt);
-            }
-            wattroff(win, w->attr);
-        }
+        wattron(win, w->attr);
+        mvwprintw(win, *line, pad, "%s", w->txt);
+        wattroff(win, w->attr);
         (*line)++;
         if (w->type == HEADER && ((list_view_header *) w)->expanded &&
             ((list_view_header *) w)->subwidgets) {
-            print_elements(((list_view_header *) w)->subwidgets, win, pad + 2, line, scrollx);
+            print_elements(((list_view_header *) w)->subwidgets, win, pad + 2, line);
         }
         n = list_next(n);
     }
