@@ -29,7 +29,7 @@ START_TEST(filter_test)
 
         if (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0)
             continue;
-        strncat(file, dp->d_name, MAXPATH);
+        strncat(file, dp->d_name, MAXPATH - 1);
         printf("Testing %s\n", file);
         bpf1 = bpf_assemble(file);
         if ((fp = fopen(file, "r")) == NULL)
@@ -63,6 +63,6 @@ Suite *bpf_suite(void)
     suite_add_tcase(s, tc_core);
     tcase_add_test(tc_core, filter_test);
     tcase_set_timeout(tc_core, 60);
-    mempool_free();
+    mempool_free(NULL);
     return s;
 }

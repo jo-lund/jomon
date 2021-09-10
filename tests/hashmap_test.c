@@ -87,7 +87,7 @@ START_TEST(hashmap_test_iterate)
 {
     hashmap_t *map = hashmap_init(1024, hashfnv_uint32, compare_uint);
     const hashmap_iterator *it;
-    const hashmap_iterator *prev;
+    const hashmap_iterator *prev = NULL;
     int c = 0;
 
     for (uint32_t i = 0; i < 500; i++) {

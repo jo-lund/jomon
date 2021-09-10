@@ -41,6 +41,7 @@ test-objs += $(bpf-objs) \
 	$(BUILDDIR)/debug.o \
 	$(BUILDDIR)/util.o \
 	$(BUILDDIR/stack.o) \
+	$(BUILDDIR)/string.o
 
 .PHONY : all
 all : release
@@ -53,7 +54,6 @@ debug : $(TARGETDIR)/monitor
 .PHONY : release
 release : CFLAGS += -Os
 release : $(TARGETDIR)/monitor
-	@$(STRIP) --strip-all --remove-section .comment $(TARGETDIR)/monitor
 
 $(TARGETDIR)/monitor : $(objects)
 	@mkdir -p $(TARGETDIR)
@@ -77,7 +77,7 @@ $(BUILDDIR)/%.o : %.c
 -include $(bpf-objs:.o=.d)
 
 install :
-	@install bin/monitor $(PREFIX)/bin/monitor
+	@install -s --strip-program=$(STRIP) bin/monitor $(PREFIX)/bin/monitor
 
 uninstall :
 	@rm -f $(PREFIX)/bin/monitor
