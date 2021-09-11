@@ -19,7 +19,6 @@ START_TEST(filter_test)
     FILE *fp;
     DIR *dfd;
     struct dirent *dp;
-    int i = 1;
 
     if ((dfd = opendir(PATH)) == NULL)
         ck_abort_msg("opendir error");
@@ -41,9 +40,9 @@ START_TEST(filter_test)
             p++;
         }
         bpf2 = pcap_compile(p);
-        ck_assert_msg(bpf1.size == bpf2.size, "Error size mismatch: Filter %d: %s", i, p);
+        ck_assert_msg(bpf1.size == bpf2.size, "Error size mismatch (%s): %s", file, p);
         ck_assert_msg(memcmp(bpf1.bytecode, bpf2.bytecode, bpf1.size * sizeof(struct bpf_insn)) == 0,
-                      "Error: Filter %d: %s", i++, p);
+                      "Error (%s): %s", file, p);
         free(bpf1.bytecode);
         free(bpf2.bytecode);
         fclose(fp);
@@ -63,6 +62,6 @@ Suite *bpf_suite(void)
     suite_add_tcase(s, tc_core);
     tcase_add_test(tc_core, filter_test);
     tcase_set_timeout(tc_core, 60);
-    mempool_free(NULL);
+    mempool_destruct();
     return s;
 }
