@@ -6,6 +6,6 @@
 struct screen;
 
 /* Create the help screen */
-struct screen *help_screen_create();
+struct screen *help_screen_create(void);
 
 #endif

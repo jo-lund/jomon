@@ -2,10 +2,10 @@
 #include "screen.h"
 
 static void help_screen_get_input(screen *s);
-static void help_screen_render();
+static void help_screen_render(void);
 static void help_screen_refresh(screen *s);
 
-screen *help_screen_create()
+screen *help_screen_create(void)
 {
     screen *s;
     static screen_operations op;
@@ -31,7 +31,7 @@ void help_screen_refresh(screen *s)
     wrefresh(s->win);
 }
 
-void help_screen_render()
+void help_screen_render(void)
 {
     int y = 0;
     WINDOW *win = screen_cache_get(HELP_SCREEN)->win;
@@ -40,7 +40,7 @@ void help_screen_render()
 
     werase(win);
     wbkgd(win, get_theme_colour(BACKGROUND));
-    wprintw(win, "Monitor (c) 2014-2020 John Olav Lund");
+    wprintw(win, "Monitor (c) 2014 - 2021 John Olav Lund");
     mvwprintw(win, ++y, 0, "");
     mvwprintw(win, ++y, 0, "When a packet scan is active you can enter interactive mode "
               "by pressing \'i\'. In interactive mode the packet scan will continue in the "
