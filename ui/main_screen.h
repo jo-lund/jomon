@@ -41,7 +41,7 @@ typedef struct main_screen {
 
 struct packet;
 
-main_screen *main_screen_create();
+main_screen *main_screen_create(void);
 void main_screen_init(screen *s);
 void main_screen_free(screen *s);
 void main_screen_set_interactive(main_screen *ms, bool interactive_mode);

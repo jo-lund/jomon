@@ -57,12 +57,12 @@ static char bpf_filter[MAXLINE];
 
 static bool check_line(main_screen *ms);
 static void print_header(main_screen *ms);
-static void print_status();
+static void print_status(void);
 static void print_selected_packet(main_screen *ms);
 static void print_protocol_information(main_screen *ms, struct packet *p, int lineno);
 static int print_lines(main_screen *ms, int from, int to, int y);
-static void create_load_dialogue();
-static void create_save_dialogue();
+static void create_load_dialogue(void);
+static void create_save_dialogue(void);
 static bool read_show_progress(unsigned char *buffer, uint32_t n, struct timeval *t);
 static void print_packets(main_screen *ms);
 static void follow_tcp_stream(main_screen *ms);
@@ -90,7 +90,7 @@ static screen_operations msop = {
     .screen_get_input = main_screen_get_input
 };
 
-main_screen *main_screen_create()
+main_screen *main_screen_create(void)
 {
     main_screen *ms;
 
@@ -406,7 +406,7 @@ void main_screen_get_input(screen *s)
     }
 }
 
-void create_load_dialogue()
+void create_load_dialogue(void)
 {
     if (!load_dialogue) {
         load_dialogue = file_dialogue_create(" Load capture file ", FS_LOAD, load_filepath,
@@ -415,7 +415,7 @@ void create_load_dialogue()
     }
 }
 
-void create_save_dialogue()
+void create_save_dialogue(void)
 {
     if (!save_dialogue) {
         save_dialogue = file_dialogue_create(" Save as pcap ", FS_SAVE, load_filepath,
@@ -592,11 +592,13 @@ void print_header(main_screen *ms)
     int txtcol = get_theme_colour(HEADER_TXT);
     char mac[HW_ADDRSTRLEN];
     int maxx = getmaxx(stdscr);
+    char file[MAXPATH];
 
     werase(ms->header);
     if (ctx.filename[0]) {
+        strncpy(file, ctx.filename, MAXPATH - 1);
         printat(ms->header, y, 0, txtcol, "Filename");
-        wprintw(ms->header, ": %s", ctx.filename);
+        wprintw(ms->header, ": %s", get_file_part(file));
     } else {
         printat(ms->header, y, 0, txtcol, "Device");
         wprintw(ms->header, ": %s", ctx.device);
@@ -626,7 +628,7 @@ void print_header(main_screen *ms)
              PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
 }
 
-void print_status()
+void print_status(void)
 {
     uid_t euid = geteuid();
     int colour = get_theme_colour(STATUS_BUTTON);
