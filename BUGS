@@ -17,3 +17,7 @@
   restarting the packet scan, we get a double free error.
 - The header is not updated if the menu is shown, the screen changes, and the
   original screen is brought back.
+
+** BPF
+- [asm] Segmentation fault when trying to assemble instructions that use numbers as
+  jump offsets instead of labels

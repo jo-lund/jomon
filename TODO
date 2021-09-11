@@ -11,6 +11,8 @@
 
 
 * GENERAL
+- Use reference counting for pointers to objects that need to be "garbage
+  collected", e.g. packet_ref and packets.
 - Implement possiblity to make a text search for a specific pattern. Should also
   include regex search (possible to use PCRE). Difficult to implement when
   everything is stored in compressed form. Could be based on BPF, i.e only make
@@ -20,12 +22,10 @@
   caller function instead.
 - Implement injecting packets on the network (e.g. to query server response time,
   test the network's ability to handle high traffic volume, etc.
-- Implement a logging mechanism that can print out debug messages to file/stdout
 - Make a ring buffer to store the data read from a pcap file. Then I don't need
   to shift the data when consuming frames.
 - Use an initial guess for the buffer size when listing interfaces and increase
   this in case there is more, i.e. the same as is done in get_default_interface()
-- Include more global variables into the main_context struct, e.g. local_address.
 - Can implement support for editing packets, e.g. like WireEdit
   (https://wireedit.com/)
 - DNS traceroute to detect malicious DNS injection on transit traffic,
@@ -34,24 +34,6 @@
   see e.g. http://nullprogram.com/blog/2016/10/07/
 - If a HTTP packet is encoded in gzip, add the possibility to automatically
   decompress it.
-- Should implement events. I already use alarm() to generate a SIGALRM to update
-  the statistics screen every second. Maybe I could make this into a generic
-  event handling routine. I need this to implement several timers, e.g. both
-  a timer to update the statistics screen and a dialogue on top that removes
-  itself after a certain amount of time. The timer events have to have an id so
-  that we can know which timer has expired and call the correct callback.
-
-  It's possible to make a process_events function that is called from the main
-  event loop. This function can then act based on the event fired. This can be
-  implemented in a new file event.h/event.c. Instead of then having
-  stat_screen_print() called directly from main.c's event loop, this can be a
-  callback to the timer event. process_events() checks the id of the event and
-  calls the correct callback. The events can be inserted in a list like the
-  publisher/subscribe mechanism in signal.h/signal.c does.
-
-  Look at:
-  timer_create - create a POSIX per-process timer
-  timer_settime, timer_gettime - arm/disarm and fetch state of POSIX per-process timer
 - Print out information about a pcap file, e.g.:
   Size: 368 MB
   Packets: 791615
@@ -62,21 +44,16 @@
 - Should print the checksums in hex format.
 
 * Ncurses GUI
-- http://invisible-island.net/ncurses/ncurses-intro.html
-- Remove the PRINT_INFO macro. It only calls snprintcat.
+- The UI needs to be refactored. Remove pad and change the way rendering is
+  implemented.
 - Implement a possibility to select multiple list_view headers. Then one can
   print all the selected headers when enter is pressed.
 - XXX_RENDER should not be called by calling functions of widgets, but should
   be called in the widgets themselves.
 - Need to clean up the interface for the widget_create (constructor) functions.
-- Implement the possibility to have several subwindows open at once. The
-  subwindows can be stored in a list (or vector) and if there is not more space
-  left to show a new subwindow, close the least previously used window (or maybe
-  just the window on top of the screen).
 - Show the reply to a request/query and the opposite, e.g. a DNS response
   related to the DNS query that is being inspected. Can maybe give the line
   number to where the response/query is.
-- Implement scrolling in the pad.
 - No need to call the base render functions for the derived functions. The base
   function should only be called one time and does not need to be updated again
   when the derived class changes.
@@ -84,9 +61,9 @@
   (or some other structure) that it uses to populate the container and prints
   the buttons etc. When a new screen is pushed the statusbar needs to be updated
   according to what the screen does.
-- Split protocols.c into two files: one that prints information on a single line,
-  i.e. the normal output, and one that prints packet information when a packet
-  is selected.
+- [Follow TCP stream] Add a hex mode view
+- [Follow TCP stream] Add an option to select only one direction, i.e view only
+  incoming or outgoing traffic
 
 * Packet decoder
 - Remove add_pdu and print_pdu and make packet_data completely "generic", i.e.
@@ -110,22 +87,8 @@
 - decode_packet should return struct packet or NULL in case of error. Better than
   having it return a boolean and use packet as a parameter to the function.
 - Replace the DNS name arrays in struct dns_info with char ptrs.
-- Look at the use of list_t and use other data structures where applicable.
-  Candidates for using a red-black tree (std::map): http->header
 - Look at the use of bit fields and portability. Need to make sure that it works
   on big endian machines.
 - In order to save memory it's possible to decode packets the way Wireshark does,
   i.e. store all packets on disk and read from it to show the decoded packets.
 - Implement error handling
-- Implement packet filtering with Linux packet filter (BPF) and a display filter.
-  This could also have an option to just highlight the traffic you are interested
-  in instead of filtering it.
-  See "pcap-filter" for filter syntax. Packet filter syntax in BNF form:
-  http://www.manualslib.com/manual/342018/Paradyne-Jetfusion-2208.html?page=231
-  Find out which parser generator is the best to use (e.g. Flex/Bison, Flex/Lemon
-  etc.) I'm leaning on using Lemon as it seems more lightweight and modular than
-  Bison. Lemon documentation: http://www.hwaci.com/sw/lemon/lemon.html
-  https://www.codeproject.com/Articles/1056460/Generating-a-High-Speed-Parser-Part-Lemon
-  First compile BPF assembler code to its opcode representation. Then, later, I
-  can add support for high-level syntax.
-  Also make a disassembler/debugger for this.
