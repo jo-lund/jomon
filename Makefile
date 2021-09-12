@@ -77,7 +77,7 @@ $(BUILDDIR)/%.o : %.c
 -include $(bpf-objs:.o=.d)
 
 install :
-	@install -s --strip-program=$(STRIP) bin/monitor $(PREFIX)/bin/monitor
+	@install -sD --strip-program=$(STRIP) bin/monitor $(PREFIX)/bin/monitor
 
 uninstall :
 	@rm -f $(PREFIX)/bin/monitor

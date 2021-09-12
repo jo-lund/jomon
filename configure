@@ -134,6 +134,10 @@ while [ $# -gt 0 ]; do
             shift
             GEOIP_PATH=$1
             ;;
+        --prefix)
+            shift
+            PREFIX=$1
+            ;;
         *)
             echo "Invalid option. Use -h for help"
             exit 1;
