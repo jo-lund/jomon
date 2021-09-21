@@ -173,8 +173,16 @@ void main_screen_refresh(screen *s)
     touchwin(s->win);
     c = vector_size(ms->packet_ref) - 1;
 
-    /* re-render the whole screen when capturing */
-    if (!s->show_selectionbar && (ms->outy >= my || c >= my) && ctx.capturing) {
+    /* re-render the whole screen when capturing or resizing */
+    if (s->resize) {
+        int y;
+        int x;
+
+        getmaxyx(stdscr, y, x);
+        y = y - HEADER_HEIGHT - STATUS_HEIGHT;
+        wresize(s->win, y, x);
+        ms->outy = print_lines(ms, ms->base.top, ms->base.top + y, 0);
+    } else if (!s->show_selectionbar && (ms->outy >= my || c >= my) && ctx.capturing) {
         print_packets(ms);
     } else if (ctx.capturing && ms->outy > 0 && ms->outy < my) {
         int i;
@@ -260,6 +268,7 @@ void main_screen_get_input(screen *s)
     ms = (main_screen *) s;
     my = getmaxy(s->win);
     c = wgetch(s->win);
+
     switch (input_mode) {
     case INPUT_GOTO:
         main_screen_goto_line(ms, c);
@@ -462,7 +471,7 @@ void main_screen_load_handle_ok(void *file)
             }
             pop_screen();
             SCREEN_FREE((screen *) pd);
-            print_file(ms);
+            print_file();
         } else {
             pop_screen();
             SCREEN_FREE((screen *) pd);
@@ -634,8 +643,12 @@ void print_status(void)
     int colour = get_theme_colour(STATUS_BUTTON);
     int disabled = get_theme_colour(DISABLE);
     main_screen *ms = (main_screen *) screen_cache_get(MAIN_SCREEN);
+    int my = getmaxy(stdscr);
 
     werase(status);
+    if (ms->base.resize) {
+        mvwin(status, my - STATUS_HEIGHT, 0);
+    }
     wbkgd(status, get_theme_colour(BACKGROUND));
     mvwprintw(status, 0, 0, "F1");
     printat(status, -1, -1, colour, "%-11s", "Help");

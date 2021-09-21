@@ -4,5 +4,6 @@
 #include "debug.h"
 #include "util.h"
 #include "string.h"
+#include "attributes.h"
 
 #endif

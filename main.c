@@ -46,7 +46,8 @@ enum bpf_dump_mode {
 
 vector_t *packets;
 main_context ctx;
-static volatile sig_atomic_t signal_flag = 0;
+static volatile sig_atomic_t alarm_flag = 0;
+static volatile sig_atomic_t winch_flag = 0;
 static bool fd_changed = false;
 static bool ncurses_initialized = false;
 static iface_handle_t *handle = NULL;
@@ -61,12 +62,17 @@ static void print_bpf(void) NORETURN;
 
 static void sig_alarm(int signo UNUSED)
 {
-    signal_flag = 1;
+    alarm_flag = 1;
 }
 
 static void sig_int(int signo UNUSED)
 {
     finish(1);
+}
+
+static void sig_winch(int signo UNUSED)
+{
+    winch_flag = 1;
 }
 
 int main(int argc, char **argv)
@@ -151,6 +157,7 @@ int main(int argc, char **argv)
         if (!ctx.opt.load_file)
             process_init();
 #endif
+        setup_signal(SIGWINCH, sig_winch, 0);
     }
     if (ctx.opt.use_ncurses || ctx.opt.load_file)
         packets = vector_init(PACKET_TABLE_SIZE);
@@ -190,7 +197,7 @@ int main(int argc, char **argv)
         }
         fclose(fp);
         if (ctx.opt.use_ncurses) {
-            ncurses_init(&ctx);
+            ncurses_init();
             ncurses_initialized = true;
             handle = iface_handle_create(buf, SNAPLEN, handle_packet);
             print_file();
@@ -208,7 +215,7 @@ int main(int argc, char **argv)
         handle = iface_handle_create(buf, SNAPLEN, handle_packet);
         iface_activate(handle, ctx.device, &bpf);
         if (ctx.opt.use_ncurses) {
-            ncurses_init(&ctx);
+            ncurses_init();
             ncurses_initialized = true;
         }
     }
@@ -281,10 +288,16 @@ static void run(void)
     };
 
     while (1) {
-        if (signal_flag) {
-            signal_flag = 0;
-            layout(ALARM);
+        if (alarm_flag) {
+            alarm_flag = 0;
+            layout(LAYOUT_ALARM);
             alarm(1);
+        }
+        if (winch_flag) {
+            winch_flag = 0;
+            setup_signal(SIGWINCH, NULL, SA_RESETHAND);
+            layout(LAYOUT_RESIZE);
+            setup_signal(SIGWINCH, sig_winch, 0);
         }
         if (fd_changed) {
             fds[0].fd = handle->sockfd;
@@ -375,7 +388,7 @@ bool handle_packet(unsigned char *buffer, uint32_t n, struct timeval *t)
     if (ctx.capturing) {
         if (ctx.opt.use_ncurses) {
             vector_push_back(packets, p);
-            layout(NEW_PACKET);
+            layout(LAYOUT_NEW_PACKET);
         } else {
             char buf[MAXLINE];
 

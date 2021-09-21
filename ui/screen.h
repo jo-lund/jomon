@@ -38,6 +38,7 @@ typedef struct screen {
     int num_pages;
     bool refreshing;
     bool fullscreen;
+    bool resize;
     struct screen_operations *op;
 } screen;
 

@@ -276,7 +276,7 @@ void main_menu_get_input(screen *s)
             main_menu_refresh(s);
             break;
         }
-        pop_screen(s);
+        pop_screen();
         break;
     case KEY_F(2):
     case KEY_F(10):
@@ -284,7 +284,7 @@ void main_menu_get_input(screen *s)
         if (focused->is_suboption) {
             focused->focus = false;
         }
-        pop_screen(s);
+        pop_screen();
         break;
     case KEY_DOWN:
         handle_selectionbar(focused, c);

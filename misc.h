@@ -52,11 +52,6 @@ typedef struct {
     char *filter_file;
 } main_context;
 
-enum event {
-    NEW_PACKET,
-    ALARM
-};
-
 extern main_context ctx;
 
 void finish(int status) NORETURN;

@@ -12,9 +12,10 @@
 #include "../stack.h"
 #include "menu.h"
 #include "host_screen.h"
-#include "../util.h"
 #include "screen.h"
 #include "conversation_screen.h"
+#include "../monitor.h"
+#include "../terminal.h"
 
 #define NUM_COLOURS 8
 
@@ -26,9 +27,9 @@ main_menu *menu;
 static struct screen *screen_cache[NUM_SCREENS];
 static _stack_t *screen_stack;
 static int theme;
-static void colours_init();
-static void create_screens();
-static void create_menu();
+static void colours_init(void);
+static void create_screens(void);
+static void create_menu(void);
 static void change_theme(int i);
 static void options(int i);
 
@@ -122,7 +123,21 @@ static char *menu_options[] = {
     "Network rate display"
 };
 
-void ncurses_init()
+static void layout_resize(void)
+{
+    struct termsize size;
+    screen *s;
+
+    if (!get_termsize(&size))
+        return;
+    resizeterm(size.row, size.col);
+    s = stack_top(screen_stack);
+    s->resize = true;
+    SCREEN_REFRESH(s);
+    s->resize = false;
+}
+
+void ncurses_init(void)
 {
     int mx, my;
 
@@ -139,7 +154,7 @@ void ncurses_init()
     create_menu();
 }
 
-void ncurses_end()
+void ncurses_end(void)
 {
     screen_cache_clear();
     main_menu_free((screen *) menu);
@@ -147,7 +162,7 @@ void ncurses_end()
     endwin();
 }
 
-container *create_container()
+container *create_container(void)
 {
     container *c = malloc(sizeof(container));
 
@@ -183,7 +198,7 @@ void screen_cache_remove(enum screen_type st)
     }
 }
 
-void screen_cache_clear()
+void screen_cache_clear(void)
 {
     for (int i = 0; i < NUM_SCREENS; i++) {
         if (screen_cache[i]) {
@@ -193,12 +208,12 @@ void screen_cache_clear()
     }
 }
 
-void print_file()
+void print_file(void)
 {
     main_screen_render((main_screen *) screen_cache[MAIN_SCREEN], true);
 }
 
-void pop_screen()
+void pop_screen(void)
 {
     screen *oldscr = stack_pop(screen_stack);
     screen *newscr = stack_top(screen_stack);
@@ -245,17 +260,17 @@ bool screen_stack_empty()
     return stack_empty(screen_stack);
 }
 
-unsigned int screen_stack_size()
+unsigned int screen_stack_size(void)
 {
     return stack_size(screen_stack);
 }
 
-screen *screen_stack_top()
+screen *screen_stack_top(void)
 {
     return stack_top(screen_stack);
 }
 
-screen *screen_stack_prev()
+screen *screen_stack_prev(void)
 {
     return stack_get(screen_stack, stack_size(screen_stack) - 2);
 }
@@ -327,7 +342,7 @@ void printnlw(WINDOW *win, char *str, int len, int y, int x, int scrollx)
     }
 }
 
-void handle_input()
+void handle_input(void)
 {
     SCREEN_GET_INPUT((screen *) stack_top(screen_stack));
 }
@@ -337,15 +352,18 @@ void layout(enum event ev)
     screen *s;
 
     switch (ev) {
-    case NEW_PACKET:
+    case LAYOUT_NEW_PACKET:
         main_screen_print_packet((main_screen *) screen_cache[MAIN_SCREEN],
                                  vector_back(packets));
         break;
-    case ALARM:
+    case LAYOUT_ALARM:
         s = screen_cache_get(STAT_SCREEN);
         if (s && s->focus) {
             stat_screen_print(s);
         }
+        break;
+    case LAYOUT_RESIZE:
+        layout_resize();
         break;
     default:
         break;

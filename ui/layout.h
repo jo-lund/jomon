@@ -6,14 +6,25 @@
 extern bool numeric;
 struct packet;
 
+enum event {
+    LAYOUT_NEW_PACKET,
+    LAYOUT_ALARM,
+    LAYOUT_RESIZE
+};
+
 /* initialize ncurses and create the screen layout */
-void ncurses_init();
+void ncurses_init(void);
 
 /* end ncurses mode */
-void ncurses_end();
+void ncurses_end(void);
 
+/* handle layout events */
 void layout(enum event ev);
-void handle_input();
-void print_file();
+
+/* handle key input */
+void handle_input(void);
+
+/* print file to screen */
+void print_file(void);
 
 #endif

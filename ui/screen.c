@@ -87,6 +87,7 @@ void screen_init(screen *s)
     s->lines = getmaxy(stdscr);
     s->refreshing = false;
     s->fullscreen = true;
+    s->resize = false;
 }
 
 void screen_free(screen *s)

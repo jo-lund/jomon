@@ -71,7 +71,7 @@ typedef struct {
 extern bool selected[NUM_LAYERS];
 
 /* Allocates space for a new container. Needs to be freed with free_container() */
-container *create_container();
+container *create_container(void);
 
 /* Free the memory allocated for the container */
 void free_container(container *c);
@@ -89,25 +89,25 @@ void screen_cache_insert(enum screen_type st, struct screen *s);
 void screen_cache_remove(enum screen_type st);
 
 /* Clear the screen cache. Will free the memory allocated for the screens. */
-void screen_cache_clear();
+void screen_cache_clear(void);
 
 /* Push the screen on the screen stack */
 void push_screen(struct screen *s);
 
 /* Pop the screen from the screen stack */
-void pop_screen();
+void pop_screen(void);
 
 /* Return whether the screen stack is empty or not */
-bool screen_stack_empty();
+bool screen_stack_empty(void);
 
 /* Return the size of the screen stack */
-unsigned int screen_stack_size();
+unsigned int screen_stack_size(void);
 
 /* Get the topmost screen */
-struct screen *screen_stack_top();
+struct screen *screen_stack_top(void);
 
 /* Get the screen behind the topmost screen */
-struct screen *screen_stack_prev();
+struct screen *screen_stack_prev(void);
 
 /*
  * Move screen to top of the screen stack. If screen is not part of the stack,

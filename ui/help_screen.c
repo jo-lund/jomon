@@ -1,5 +1,6 @@
 #include "help_screen.h"
 #include "screen.h"
+#include "../monitor.h"
 
 static void help_screen_get_input(screen *s);
 static void help_screen_render(void);
@@ -19,9 +20,9 @@ screen *help_screen_create(void)
     return s;
 }
 
-void help_screen_get_input(screen *s)
+void help_screen_get_input(screen *s UNUSED)
 {
-    pop_screen(s);
+    pop_screen();
 }
 
 void help_screen_refresh(screen *s)
