@@ -57,10 +57,6 @@
 - No need to call the base render functions for the derived functions. The base
   function should only be called one time and does not need to be updated again
   when the derived class changes.
-- statusbar should be made into a container. It can have as argument an array
-  (or some other structure) that it uses to populate the container and prints
-  the buttons etc. When a new screen is pushed the statusbar needs to be updated
-  according to what the screen does.
 - [Follow TCP stream] Add a hex mode view
 - [Follow TCP stream] Add an option to select only one direction, i.e view only
   incoming or outgoing traffic

@@ -3,8 +3,10 @@
 #include "menu.h"
 #include "layout_int.h"
 #include "main_screen.h"
+#include "../monitor.h"
 
-extern WINDOW *status;
+#define UPDATE_SELECTIONBAR(w, l, c) \
+    mvwchgat(w, l, 0, -1, A_NORMAL, PAIR_NUMBER(get_theme_colour(c)), NULL);
 
 static char *selected_txt = "[x] ";
 static char *unselected_txt = "[ ] ";
@@ -29,6 +31,7 @@ struct option_menu {
     bool focus;
     bool is_suboption;
     menu_handler handler;
+    int sub_idx;
 };
 
 static void main_menu_get_input(screen *s);
@@ -39,16 +42,6 @@ static void handle_new_focus(screen *s, int c);
 static void free_option_menu(void *d);
 static int get_cols(menu_type type, char **opts, int num_opts);
 static void handle_selectionbar(option_menu *om, int c);
-
-static void show_selectionbar(WINDOW *win, int line)
-{
-    mvwchgat(win, line, 0, -1, A_NORMAL, PAIR_NUMBER(get_theme_colour(MENU_SELECTIONBAR)), NULL);
-}
-
-static void remove_selectionbar(WINDOW *win, int line)
-{
-    mvwchgat(win, line, 0, -1, A_NORMAL, PAIR_NUMBER(get_theme_colour(MENU_BACKGROUND)), NULL);
-}
 
 main_menu *main_menu_create()
 {
@@ -120,6 +113,7 @@ option_menu *main_menu_add_suboptions(option_menu *om, menu_type type, int sub_i
     sub->content = derwin(sub->frame, rows - 2, cols - 2, 1, 1);
     sub->is_suboption = true;
     sub->handler = fn;
+    sub->sub_idx = sub_idx;
     box(sub->frame, 0, 0);
     if (!om->subopts) {
         om->subopts = list_init(NULL);
@@ -212,16 +206,12 @@ void main_menu_refresh(screen *s)
     if (screen_cache_get(MAIN_SCREEN) == prev) {
         main_screen_refresh_pad((main_screen *) prev);
     }
-    show_selectionbar(focused->content, focused->i);
-    mvwchgat(focused->wheader, 0, 0, -1, A_NORMAL,
-             PAIR_NUMBER(get_theme_colour(MENU_SELECTIONBAR)), NULL);
-    werase(status);
-    touchwin(status);
+    UPDATE_SELECTIONBAR(focused->content, focused->i, MENU_SELECTIONBAR);
+    UPDATE_SELECTIONBAR(focused->wheader, 0, MENU_SELECTIONBAR);
     touchwin(menu->base.win);
     touchwin(focused->wheader);
     touchwin(focused->frame);
     touchwin(focused->content);
-    wnoutrefresh(status);
     wnoutrefresh(menu->base.win);
     wnoutrefresh(focused->wheader);
     wnoutrefresh(focused->frame);
@@ -287,8 +277,6 @@ void main_menu_get_input(screen *s)
         pop_screen();
         break;
     case KEY_DOWN:
-        handle_selectionbar(focused, c);
-        break;
     case KEY_UP:
         handle_selectionbar(focused, c);
         break;
@@ -315,7 +303,7 @@ void main_menu_get_input(screen *s)
                 sub->focus = true;
                 wbkgd(sub->frame, get_theme_colour(MENU_BACKGROUND));
                 wbkgd(sub->content, get_theme_colour(MENU_BACKGROUND));
-                show_selectionbar(sub->content, sub->i);
+                UPDATE_SELECTIONBAR(sub->content, sub->i, MENU_SELECTIONBAR);
                 wnoutrefresh(sub->content);
                 wnoutrefresh(sub->frame);
                 doupdate();
@@ -326,12 +314,12 @@ void main_menu_get_input(screen *s)
                 focused->opts[focused->i].selected = true;
                 focused->previ = focused->i;
                 main_menu_render(s);
-                show_selectionbar(focused->content, focused->i);
+                UPDATE_SELECTIONBAR(focused->content, focused->i, MENU_SELECTIONBAR);
                 wrefresh(focused->content);
             } else if (focused->type == MENU_MULTI_SELECT) {
                 focused->opts[focused->i].selected = !focused->opts[focused->i].selected;
                 main_menu_render(s);
-                show_selectionbar(focused->content, focused->i);
+                UPDATE_SELECTIONBAR(focused->content, focused->i, MENU_SELECTIONBAR);
                 wrefresh(focused->content);
             }
             focused->handler(focused->i);
@@ -351,6 +339,10 @@ void handle_new_focus(screen *s, int c)
         list_prev(menu->current);
 
     if (n) {
+        option_menu *focused = list_data(menu->current);
+
+        mvwchgat(focused->wheader, 0, 0, -1, A_NORMAL,
+                 PAIR_NUMBER(get_theme_colour(MENU_BACKGROUND)), NULL);
         menu->current = n;
         main_menu_refresh(s);
     }
@@ -358,19 +350,51 @@ void handle_new_focus(screen *s, int c)
 
 void handle_selectionbar(option_menu *om, int c)
 {
+    UPDATE_SELECTIONBAR(om->content, om->i, MENU_BACKGROUND);
     switch (c) {
     case KEY_DOWN:
-        remove_selectionbar(om->content, om->i);
         om->i = (om->i + 1) % om->num_opts;
-        show_selectionbar(om->content, om->i);
-        wrefresh(om->content);
         break;
     case KEY_UP:
-        remove_selectionbar(om->content, om->i);
         om->i = (om->i == 0) ? (om->num_opts - 1) : (om->i - 1) % om->num_opts;
-        show_selectionbar(om->content, om->i);
-        wrefresh(om->content);
     default:
         break;
+    }
+    UPDATE_SELECTIONBAR(om->content, om->i, MENU_SELECTIONBAR);
+    touchwin(om->frame);
+    touchwin(om->content);
+    wnoutrefresh(om->frame);
+    wnoutrefresh(om->content);
+    doupdate();
+}
+
+static void iterate_submenu(option_menu *par, list_t *items, int y)
+{
+    option_menu *om;
+    const node_t *n;
+
+    LIST_FOREACH(items, n) {
+        om = list_data(n);
+        mvwin(om->frame, y - par->num_opts - om->num_opts - 3 + om->sub_idx,
+              getmaxx(par->frame) + par->x);
+        if (om->subopts)
+            iterate_submenu(om, om->subopts, y);
+    }
+}
+
+void main_menu_resize(main_menu *menu)
+{
+    const node_t *n;
+    option_menu *om;
+    int my = getmaxy(stdscr);
+    int rows;
+
+    mvwin(menu->base.win, my - 1, 0);
+    LIST_FOREACH(menu->opt, n) {
+        om = list_data(n);
+        rows = om->num_opts + 2;
+        mvwin(om->frame, my - (rows + 1), om->x);
+        if (om->subopts)
+            iterate_submenu(om, om->subopts, my);
     }
 }

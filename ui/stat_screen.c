@@ -6,12 +6,12 @@
 #include <ctype.h>
 #include "stat_screen.h"
 #include "layout_int.h"
-#include "../misc.h"
 #include "../interface.h"
 #include "../decoder/decoder.h"
 #include "menu.h"
-#include "../util.h"
 #include "screen.h"
+#include "actionbar.h"
+#include "../monitor.h"
 
 #define MAX_NAME 128
 #define DEVPATH "/proc/net/dev"
@@ -70,7 +70,6 @@ enum page {
         sscanf(buf + i, s, &val);               \
     } while (0);
 
-extern WINDOW *status;
 extern main_menu *menu;
 
 // TODO: Make a stat_screen struct
@@ -92,7 +91,6 @@ static void stat_screen_free(screen *s);
 static void stat_screen_init(screen *s);
 static void stat_screen_get_input(screen *s);
 static void stat_screen_refresh(screen *s);
-static void print_status();
 static void stat_screen_got_focus();
 static void stat_screen_lost_focus();
 
@@ -143,7 +141,6 @@ void stat_screen_refresh(screen *s)
         memset(cpustat[i], 0 , 2 * sizeof(cputime));
     }
     stat_screen_print(s);
-    print_status();
 }
 
 void stat_screen_got_focus()
@@ -189,6 +186,7 @@ void stat_screen_print(screen *s)
     default:
         break;
     }
+    actionbar_refresh(actionbar, s);
 }
 
 void init_stat()
@@ -300,8 +298,6 @@ void print_netstat()
         }
     }
     wnoutrefresh(s->win);
-    touchwin(status);
-    wnoutrefresh(status);
     doupdate();
 }
 
@@ -340,8 +336,6 @@ void print_hwstat()
         }
     }
     wnoutrefresh(s->win);
-    touchwin(status);
-    wnoutrefresh(status);
     doupdate();
 }
 
@@ -459,21 +453,4 @@ void calculate_rate()
     tx.prev_bytes = tx.tot_bytes;
     rx.prev_packets = rx.num_packets;
     tx.prev_packets = tx.num_packets;
-}
-
-void print_status()
-{
-    int colour = get_theme_colour(STATUS_BUTTON);
-
-    werase(status);
-    wbkgd(status, get_theme_colour(BACKGROUND));
-    mvwprintw(status, 0, 0, "F1");
-    printat(status, -1, -1, colour, "%-11s", "Help");
-    wprintw(status, "F2");
-    printat(status, -1, -1, colour, "%-11s", "Menu");
-    wprintw(status, "F3");
-    printat(status, -1, -1, colour, "%-11s", "Back");
-    wprintw(status, "F10");
-    printat(status, -1, -1, colour, "%-11s", "Quit");
-    wrefresh(status);
 }

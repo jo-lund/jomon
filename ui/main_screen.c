@@ -28,6 +28,7 @@
 #include "conversation_screen.h"
 #include "dialogue.h"
 #include "../bpf/pcap_parser.h"
+#include "actionbar.h"
 
 /* Get the y screen coordinate. The argument is the main_screen coordinate */
 #define GET_SCRY(y) ((y) + HEADER_HEIGHT)
@@ -39,7 +40,6 @@ enum input_mode {
 };
 
 extern vector_t *packets;
-extern WINDOW *status;
 extern main_menu *menu;
 bool selected[NUM_LAYERS];
 bool numeric = true;
@@ -54,10 +54,10 @@ static bool decode_error = false;
 static chtype original_line[MAXLINE];
 static struct bpf_prog bpf;
 static char bpf_filter[MAXLINE];
+static WINDOW *status;
 
 static bool check_line(main_screen *ms);
 static void print_header(main_screen *ms);
-static void print_status(void);
 static void print_selected_packet(main_screen *ms);
 static void print_protocol_information(main_screen *ms, struct packet *p, int lineno);
 static int print_lines(main_screen *ms, int from, int to, int y);
@@ -73,7 +73,7 @@ static void add_elements(main_screen *ms, struct packet *p);
 static void set_filter(main_screen *ms, int c);
 static void clear_filter(main_screen *ms);
 static void filter_packets(main_screen *ms);
-static void handle_input_mode(const char *str);
+static void handle_input_mode(main_screen *ms, const char *str);
 
 /* Handles subwindow layout */
 static void create_subwindow(main_screen *ms, int num_lines, int lineno);
@@ -89,6 +89,20 @@ static screen_operations msop = {
     .screen_refresh = main_screen_refresh,
     .screen_get_input = main_screen_get_input
 };
+
+static void add_actionbar_elems(screen *s)
+{
+    actionbar_add(s, "F1", "Help", false);
+    actionbar_add(s, "F2", "Menu", false);
+    actionbar_add(s, "F3", "Start", ctx.capturing || geteuid() != 0);
+    actionbar_add(s, "F4", "Stop", !ctx.capturing);
+    actionbar_add(s, "F5", "Save", ctx.capturing ||
+                  vector_size(((main_screen *) s)->packet_ref) == 0);
+    actionbar_add(s, "F6", "Load", ctx.capturing);
+    actionbar_add(s, "F7", "View (dec)", false);
+    actionbar_add(s, "F8", "Filter", false);
+    actionbar_add(s, "F10", "Quit", false);
+}
 
 main_screen *main_screen_create(void)
 {
@@ -107,7 +121,7 @@ void main_screen_init(screen *s)
 
     screen_init(s);
     getmaxyx(stdscr, my, mx);
-    s->win = newwin(my - HEADER_HEIGHT - STATUS_HEIGHT, mx, HEADER_HEIGHT, 0);
+    s->win = newwin(my - HEADER_HEIGHT - actionbar_getmaxy(actionbar), mx, HEADER_HEIGHT, 0);
     ms->outy = 0;
     ms->scrolly = 0;
     ms->scrollx = 0;
@@ -120,6 +134,8 @@ void main_screen_init(screen *s)
     ms->packet_ref = packets;
     getcwd(load_filepath, MAXPATH);
     ms->follow_stream = false;
+    status = newwin(1, mx, my - 1, 0);
+    add_actionbar_elems(s);
 }
 
 void main_screen_free(screen *s)
@@ -132,6 +148,7 @@ void main_screen_free(screen *s)
     if (ms->lvw) {
         free_list_view(ms->lvw);
     }
+    delwin(status);
     free(ms);
 }
 
@@ -179,7 +196,8 @@ void main_screen_refresh(screen *s)
         int x;
 
         getmaxyx(stdscr, y, x);
-        y = y - HEADER_HEIGHT - STATUS_HEIGHT;
+        mvwin(status, y - 1, 0);
+        y = y - HEADER_HEIGHT - actionbar_getmaxy(actionbar);
         wresize(s->win, y, x);
         ms->outy = print_lines(ms, ms->base.top, ms->base.top + y, 0);
     } else if (!s->show_selectionbar && (ms->outy >= my || c >= my) && ctx.capturing) {
@@ -210,9 +228,7 @@ void main_screen_refresh(screen *s)
         refresh_pad(ms, &ms->subwindow, 0, 0, false);
     }
     print_header(ms);
-    print_status();
     wnoutrefresh(ms->header);
-    wnoutrefresh(status);
     doupdate();
 }
 
@@ -268,7 +284,6 @@ void main_screen_get_input(screen *s)
     ms = (main_screen *) s;
     my = getmaxy(s->win);
     c = wgetch(s->win);
-
     switch (input_mode) {
     case INPUT_GOTO:
         main_screen_goto_line(ms, c);
@@ -288,7 +303,7 @@ void main_screen_get_input(screen *s)
         if (!s->show_selectionbar)
             return;
         input_mode = (input_mode == INPUT_GOTO) ? INPUT_NONE : INPUT_GOTO;
-        handle_input_mode("Go to line: ");
+        handle_input_mode(ms, "Go to line: ");
         break;
     case 'i':
         main_screen_set_interactive(ms, !s->show_selectionbar);
@@ -359,10 +374,12 @@ void main_screen_get_input(screen *s)
             main_screen_clear(ms);
             ctx.capturing = true;
             print_header(ms);
-            print_status();
             wnoutrefresh(s->win);
             wnoutrefresh(ms->header);
-            wnoutrefresh(status);
+            actionbar_update(s, "F3", NULL, true);
+            actionbar_update(s, "F4", NULL, false);
+            actionbar_update(s, "F5", NULL, true);
+            actionbar_update(s, "F6", NULL, true);
             doupdate();
             start_scan();
         }
@@ -375,8 +392,10 @@ void main_screen_get_input(screen *s)
             }
             stop_scan();
             ctx.capturing = false;
-            print_status();
-            wrefresh(status);
+            actionbar_update(s, "F3", NULL, false);
+            actionbar_update(s, "F4", NULL, true);
+            actionbar_update(s, "F5", NULL, !vector_size(ms->packet_ref));
+            actionbar_update(s, "F6", NULL, false);
         }
         break;
     case KEY_F(5):
@@ -400,13 +419,14 @@ void main_screen_get_input(screen *s)
             }
             print_protocol_information(ms, p, ms->main_line.line_number + s->top);
         }
-        print_status();
-        wrefresh(status);
+        actionbar_update(s, "F7", (view_mode == DECODED_VIEW) ? "View (dec)" :
+                         "View (hex)", false);
         break;
     case 'e':
     case KEY_F(8):
+        DEBUG("%s F8/e", __func__);
         input_mode = (input_mode == INPUT_FILTER) ? INPUT_NONE : INPUT_FILTER;
-        handle_input_mode("Filter: ");
+        handle_input_mode(ms, "Filter: ");
         break;
     default:
         ungetch(c);
@@ -495,9 +515,7 @@ void main_screen_load_handle_cancel(void *d UNUSED)
         ms = (main_screen *) screen_cache_get(MAIN_SCREEN);
         main_screen_clear(ms);
         print_header(ms);
-        print_status();
         wnoutrefresh(ms->header);
-        wnoutrefresh(status);
         wnoutrefresh(ms->base.win);
         doupdate();
         decode_error = false;
@@ -637,82 +655,28 @@ void print_header(main_screen *ms)
              PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
 }
 
-void print_status(void)
-{
-    uid_t euid = geteuid();
-    int colour = get_theme_colour(STATUS_BUTTON);
-    int disabled = get_theme_colour(DISABLE);
-    main_screen *ms = (main_screen *) screen_cache_get(MAIN_SCREEN);
-    int my = getmaxy(stdscr);
-
-    werase(status);
-    if (ms->base.resize) {
-        mvwin(status, my - STATUS_HEIGHT, 0);
-    }
-    wbkgd(status, get_theme_colour(BACKGROUND));
-    mvwprintw(status, 0, 0, "F1");
-    printat(status, -1, -1, colour, "%-11s", "Help");
-    wprintw(status, "F2");
-    printat(status, -1, -1, colour, "%-11s", "Menu");
-    if (ctx.capturing || euid != 0) {
-        printat(status, -1, -1, disabled, "F3");
-    } else {
-        wprintw(status, "F3");
-    }
-    printat(status, -1, -1, colour, "%-11s", "Start");
-    if (ctx.capturing) {
-        wprintw(status, "F4");
-    } else {
-        printat(status, -1, -1, disabled, "F4");
-    }
-    printat(status, -1, -1, colour, "%-11s", "Stop");
-    if (ctx.capturing || vector_size(ms->packet_ref) == 0) {
-        printat(status, -1, -1, disabled, "F5");
-        printat(status, -1, -1, colour, "%-11s", "Save");
-    } else {
-        wprintw(status, "F5");
-        printat(status, -1, -1, colour, "%-11s", "Save");
-    }
-    if (ctx.capturing) {
-        printat(status, -1, -1, disabled, "F6");
-        printat(status, -1, -1, colour, "%-11s", "Load");
-    } else {
-        wprintw(status, "F6");
-        printat(status, -1, -1, colour, "%-11s", "Load");
-    }
-    wprintw(status, "F7");
-    if (view_mode == DECODED_VIEW) {
-        printat(status, -1, -1, colour, "%-11s", "View (dec)");
-    } else {
-        printat(status, -1, -1, colour, "%-11s", "View (hex)");
-    }
-    wprintw(status, "F8");
-    printat(status, -1, -1, colour, "%-11s", "Filter");
-    wprintw(status, "F10");
-    printat(status, -1, -1, colour, "%-11s", "Quit");
-}
-
-void handle_input_mode(const char *str)
+void handle_input_mode(main_screen *ms, const char *str)
 {
     switch (input_mode) {
     case INPUT_FILTER:
         werase(status);
         mvwprintw(status, 0, 0, str);
+        wrefresh(status);
         break;
     case INPUT_GOTO:
         werase(status);
         mvwprintw(status, 0, 0, str);
         curs_set(1);
+        wrefresh(status);
         break;
     case INPUT_NONE:
         curs_set(0);
         werase(status);
-        print_status();
+        actionbar_refresh(actionbar, (screen *) ms);
         break;
     default:
         break;
     }
-    wrefresh(status);
 }
 
 void main_screen_goto_line(main_screen *ms, int c)
@@ -722,6 +686,7 @@ void main_screen_goto_line(main_screen *ms, int c)
     if (isdigit(c) && num < INT_MAX / 10) {
         waddch(status, c);
         num = num * 10 + c - '0';
+        wrefresh(status);
     } else if (c == KEY_BACKSPACE || c == 127 || c == '\b') {
         int x, y;
 
@@ -730,6 +695,7 @@ void main_screen_goto_line(main_screen *ms, int c)
             mvwdelch(status, y, x - 1);
             num /= 10;
         }
+        wrefresh(status);
     } else if (num && (c == '\n' || c == KEY_ENTER)) {
         if ((ms->subwindow.win && num > ms->subwindow.num_lines + vector_size(ms->packet_ref)) ||
             (!ms->subwindow.win && num > vector_size(ms->packet_ref))) {
@@ -766,15 +732,14 @@ void main_screen_goto_line(main_screen *ms, int c)
         werase(status);
         input_mode = INPUT_NONE;
         num = 0;
-        print_status();
+        actionbar_refresh(actionbar, (screen *) ms);
     } else if (c == KEY_ESC) {
         curs_set(0);
         werase(status);
-        print_status();
         num = 0;
         input_mode = INPUT_NONE;
+        actionbar_refresh(actionbar, (screen *) ms);
     }
-    wrefresh(status);
 }
 
 void main_screen_goto_home(main_screen *ms)
@@ -837,13 +802,15 @@ void set_filter(main_screen *ms, int c)
         wnoutrefresh(ms->header);
         wnoutrefresh(ms->base.win);
         doupdate();
+        wbkgd(status, get_theme_colour(BACKGROUND));
         numc = 0;
         break;
     case KEY_ESC:
         numc = 0;
         input_mode = INPUT_NONE;
         werase(status);
-        print_status();
+        wbkgd(status, get_theme_colour(BACKGROUND));
+        actionbar_refresh(actionbar, (screen *) ms);
         break;
     case KEY_BACKSPACE:
     case 127:
@@ -856,14 +823,15 @@ void set_filter(main_screen *ms, int c)
             mvwdelch(status, y, x - 1);
             numc--;
         }
+        wrefresh(status);
         break;
     }
     default:
         waddch(status, c);
         numc++;
+        wrefresh(status);
         break;
     }
-    wrefresh(status);
 }
 
 void clear_filter(main_screen *ms)
@@ -887,7 +855,7 @@ void clear_filter(main_screen *ms)
     memset(bpf_filter, 0, sizeof(bpf_filter));
     input_mode = INPUT_NONE;
     werase(status);
-    print_status();
+    actionbar_refresh(actionbar, (screen *) ms);
 }
 
 void filter_packets(main_screen *ms)
@@ -901,7 +869,7 @@ void filter_packets(main_screen *ms)
     }
     input_mode = INPUT_NONE;
     werase(status);
-    print_status();
+    actionbar_refresh(actionbar, (screen *) ms);
     werase(ms->base.win);
     ms->outy = print_lines(ms, 0, getmaxy(ms->base.win), 0);
     ms->base.top = 0;

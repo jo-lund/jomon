@@ -16,14 +16,16 @@
 #include "conversation_screen.h"
 #include "../monitor.h"
 #include "../terminal.h"
+#include "actionbar.h"
 
 #define NUM_COLOURS 8
 
 #define COLOUR_IDX(f, b) ((b == -1) ? (f) + 1 : (b) + 1 + ((f) + 1) * NUM_COLOURS)
 
 extern vector_t *packets;
-WINDOW *status;
 main_menu *menu;
+actionbar_t *actionbar;
+
 static struct screen *screen_cache[NUM_SCREENS];
 static _stack_t *screen_stack;
 static int theme;
@@ -134,13 +136,13 @@ static void layout_resize(void)
     s = stack_top(screen_stack);
     s->resize = true;
     SCREEN_REFRESH(s);
+    actionbar_refresh(actionbar, s);
+    main_menu_resize(menu);
     s->resize = false;
 }
 
 void ncurses_init(void)
 {
-    int mx, my;
-
     initscr(); /* initialize curses mode */
     cbreak(); /* disable line buffering */
     noecho();
@@ -148,8 +150,11 @@ void ncurses_init(void)
     colours_init();
     set_escdelay(25); /* set escdelay to 25 ms */
     screen_stack = stack_init(NUM_SCREENS);
-    getmaxyx(stdscr, my, mx);
-    status = newwin(STATUS_HEIGHT, mx, my - STATUS_HEIGHT, 0);
+    actionbar = actionbar_create();
+    actionbar_add_default("F1", "Help", false);
+    actionbar_add_default("F2", "Menu", false);
+    actionbar_add_default("F3", "Back", false);
+    actionbar_add_default("F10", "Quit", false);
     create_screens();
     create_menu();
 }
@@ -158,7 +163,7 @@ void ncurses_end(void)
 {
     screen_cache_clear();
     main_menu_free((screen *) menu);
-    delwin(status);
+    actionbar_free(actionbar);
     endwin();
 }
 
@@ -232,6 +237,7 @@ void pop_screen(void)
         SCREEN_GOT_FOCUS(newscr, oldscr);
     }
     SCREEN_REFRESH(newscr);
+    actionbar_refresh(actionbar, newscr);
     newscr->refreshing = false;
 }
 
@@ -252,6 +258,7 @@ void push_screen(screen *newscr)
         SCREEN_GOT_FOCUS(newscr, oldscr);
     }
     SCREEN_REFRESH(newscr);
+    actionbar_refresh(actionbar, newscr);
     newscr->refreshing = false;
 }
 

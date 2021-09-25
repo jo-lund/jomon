@@ -5,7 +5,6 @@
 #include "../signal.h"
 
 #define KEY_ESC 27
-#define STATUS_HEIGHT 1
 #define NUM_THEMES 3
 
 enum colour_themes {
@@ -62,6 +61,7 @@ enum screen_type {
 };
 
 struct screen;
+typedef struct actionbar actionbar_t;
 
 typedef struct {
     bool focus;
@@ -69,6 +69,7 @@ typedef struct {
 } container;
 
 extern bool selected[NUM_LAYERS];
+extern actionbar_t *actionbar;
 
 /* Allocates space for a new container. Needs to be freed with free_container() */
 container *create_container(void);

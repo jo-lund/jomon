@@ -11,6 +11,7 @@
 #include "../attributes.h"
 #include "../process.h"
 #include "conversation_screen.h"
+#include "actionbar.h"
 
 #define ADDR_WIDTH 17
 #define PORT_WIDTH 10
@@ -47,7 +48,6 @@ struct cs_entry {
     };
 };
 
-extern WINDOW *status;
 extern main_menu *menu;
 static bool active = false;
 
@@ -62,7 +62,6 @@ static void update_connection(struct tcp_connection_v4 *c, bool new_connection);
 static void print_all_connections(connection_screen *cs);
 static void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int y);
 static void print_conn_header(connection_screen *cs);
-static void print_status();
 
 static screen_operations csop = {
     .screen_init = connection_screen_init,
@@ -108,9 +107,9 @@ void connection_screen_init(screen *s)
 
     screen_init(s);
     getmaxyx(stdscr, my, mx);
-    s->win = newwin(my - CONN_HEADER - STATUS_HEIGHT, mx, CONN_HEADER, 0);
+    s->win = newwin(my - CONN_HEADER - actionbar_getmaxy(actionbar), mx, CONN_HEADER, 0);
     s->have_selectionbar = true;
-    s->lines = getmaxy(stdscr) - CONN_HEADER - STATUS_HEIGHT;
+    s->lines = getmaxy(stdscr) - CONN_HEADER - actionbar_getmaxy(actionbar);
     cs->header = newwin(CONN_HEADER, mx, 0, 0);
     cs->y = 0;
     cs->screen_buf = vector_init(1024);
@@ -199,7 +198,6 @@ void connection_screen_render(connection_screen *cs)
     touchwin(cs->base.win);
     print_conn_header(cs);
     print_all_connections(cs);
-    print_status();
 }
 
 void update_connection(struct tcp_connection_v4 *conn, bool new_connection)
@@ -317,21 +315,4 @@ void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int
         }
         x += header[i].width;
     }
-}
-
-void print_status()
-{
-    int colour = get_theme_colour(STATUS_BUTTON);
-
-    werase(status);
-    wbkgd(status, get_theme_colour(BACKGROUND));
-    mvwprintw(status, 0, 0, "F1");
-    printat(status, -1, -1, colour, "%-11s", "Help");
-    wprintw(status, "F2");
-    printat(status, -1, -1, colour, "%-11s", "Menu");
-    wprintw(status, "F3");
-    printat(status, -1, -1, colour, "%-11s", "Back");
-    wprintw(status, "F10");
-    printat(status, -1, -1, colour, "%-11s", "Quit");
-    wrefresh(status);
 }

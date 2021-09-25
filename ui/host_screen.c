@@ -9,6 +9,7 @@
 #include "../util.h"
 #include "../attributes.h"
 #include "../geoip.h"
+#include "actionbar.h"
 
 #define HOST_HEADER 5
 #define ADDR_WIDTH 20
@@ -16,7 +17,6 @@
 #define NAME_WIDTH 80
 #define NATION_WIDTH 20
 
-extern WINDOW *status;
 extern main_menu *menu;
 
 enum page {
@@ -33,7 +33,6 @@ static unsigned int host_screen_get_size(screen *s);
 static void host_screen_render(host_screen *hs);
 static void update_host(struct host_info *host, bool new_host);
 static void print_host_header(host_screen *hs);
-static void print_status();
 static void print_all_hosts(host_screen *hs);
 static void print_host(host_screen *hs, struct host_info *host, int y);
 
@@ -72,8 +71,8 @@ void host_screen_init(screen *s)
 
     screen_init(s);
     getmaxyx(stdscr, my, mx);
-    s->win = newwin(my - HOST_HEADER - STATUS_HEIGHT, mx, HOST_HEADER, 0);
-    s->lines = my - HOST_HEADER - STATUS_HEIGHT;
+    s->win = newwin(my - HOST_HEADER - actionbar_getmaxy(actionbar), mx, HOST_HEADER, 0);
+    s->lines = my - HOST_HEADER - actionbar_getmaxy(actionbar);
     s->page = LOCAL;
     s->num_pages = NUM_PAGES;
     hs->header = newwin(HOST_HEADER, mx, 0, 0);
@@ -139,7 +138,7 @@ void host_screen_render(host_screen *hs)
     touchwin(hs->base.win);
     print_host_header(hs);
     print_all_hosts(hs);
-    print_status();
+    actionbar_refresh(actionbar, (screen *) hs);
 }
 
 void update_host(struct host_info *host, bool new_host)
@@ -170,6 +169,7 @@ void update_host(struct host_info *host, bool new_host)
                 y++;
             }
         }
+        actionbar_refresh(actionbar, (screen *) hs);
     }
 }
 
@@ -237,21 +237,4 @@ void print_host(host_screen *hs, struct host_info *host, int y)
             free(city);
         }
     }
-}
-
-void print_status()
-{
-    int colour = get_theme_colour(STATUS_BUTTON);
-
-    werase(status);
-    wbkgd(status, get_theme_colour(BACKGROUND));
-    mvwprintw(status, 0, 0, "F1");
-    printat(status, -1, -1, colour, "%-11s", "Help");
-    wprintw(status, "F2");
-    printat(status, -1, -1, colour, "%-11s", "Menu");
-    wprintw(status, "F3");
-    printat(status, -1, -1, colour, "%-11s", "Back");
-    wprintw(status, "F10");
-    printat(status, -1, -1, colour, "%-11s", "Quit");
-    wrefresh(status);
 }

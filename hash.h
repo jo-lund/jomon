@@ -73,6 +73,16 @@ static inline unsigned int hashfnv_uint32(const void *key)
     return hash;
 }
 
+static inline unsigned int hashfnv_uint64(const void *key)
+{
+    uint64_t hash = 14695981039346656037U;
+    uint64_t val = PTR_TO_UINT(key);
+
+    for (int i = 0; i < 8; i++)
+        hash = (hash ^ ((val >> (8 * i)) & 0xff)) * 1099511628211;
+    return hash;
+}
+
 static inline int compare_uint(const void *e1, const void *e2)
 {
     return PTR_TO_UINT(e1) - PTR_TO_UINT(e2);

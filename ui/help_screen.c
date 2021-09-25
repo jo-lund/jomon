@@ -1,38 +1,24 @@
 #include "help_screen.h"
 #include "screen.h"
 #include "../monitor.h"
+#include "actionbar.h"
 
-static void help_screen_get_input(screen *s);
-static void help_screen_render(void);
-static void help_screen_refresh(screen *s);
-
-screen *help_screen_create(void)
+static void help_screen_got_focus(screen *s UNUSED, screen *old UNUSED)
 {
-    screen *s;
-    static screen_operations op;
-    int my, mx;
-
-    op = SCREEN_OPS(.screen_get_input = help_screen_get_input,
-                    .screen_refresh = help_screen_refresh);
-    s = screen_create(&op);
-    getmaxyx(stdscr, my, mx);
-    s->win = newwin(my, mx, 0, 0);
-    return s;
+    actionbar->visible = false;
 }
 
-void help_screen_get_input(screen *s UNUSED)
+static void help_screen_lost_focus(screen *s UNUSED, screen *old UNUSED)
+{
+    actionbar->visible = true;
+}
+
+static void help_screen_get_input(screen *s UNUSED)
 {
     pop_screen();
 }
 
-void help_screen_refresh(screen *s)
-{
-    help_screen_render();
-    touchwin(s->win);
-    wrefresh(s->win);
-}
-
-void help_screen_render(void)
+static void help_screen_render(void)
 {
     int y = 0;
     WINDOW *win = screen_cache_get(HELP_SCREEN)->win;
@@ -110,4 +96,27 @@ void help_screen_render(void)
     wprintw(win, ": Show/hide packet statistics");
     printat(win, ++y, 0, subcol, "%12s", "Esc x F3");
     wprintw(win, ": Exit statistics screen");
+}
+
+static void help_screen_refresh(screen *s)
+{
+    help_screen_render();
+    touchwin(s->win);
+    wrefresh(s->win);
+}
+
+screen *help_screen_create(void)
+{
+    screen *s;
+    static screen_operations op;
+    int my, mx;
+
+    op = SCREEN_OPS(.screen_get_input = help_screen_get_input,
+                    .screen_refresh = help_screen_refresh,
+                    .screen_got_focus = help_screen_got_focus,
+                    .screen_lost_focus = help_screen_lost_focus);
+    s = screen_create(&op);
+    getmaxyx(stdscr, my, mx);
+    s->win = newwin(my, mx, 0, 0);
+    return s;
 }

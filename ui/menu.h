@@ -28,5 +28,6 @@ option_menu *main_menu_add_options(main_menu *menu, menu_type type, char *header
 option_menu *main_menu_add_suboptions(option_menu *om, menu_type type, int sub_idx,
                                       char **opts, int num_opts, menu_handler fn);
 void main_menu_free(screen *s);
+void main_menu_resize(main_menu *menu);
 
 #endif

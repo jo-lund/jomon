@@ -46,7 +46,6 @@ struct tcp_page_attr {
 };
 
 extern vector_t *packets;
-extern WINDOW *status;
 extern main_menu *menu;
 static bool input_mode = false;
 static progress_dialogue *pd = NULL;

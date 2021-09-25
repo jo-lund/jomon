@@ -10,7 +10,7 @@
  * (not counting the leading dot duplicated for transparency). This number may
  * be increased by the use of SMTP Service Extensions.
  */
-#define MAXLINE 2048
+#define MAXLENGTH 2048
 #define REPLY_CODE_DIGITS 3
 
 enum smtp_state {
@@ -179,11 +179,11 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
         if (state == WAIT_DATA && smtp->rsp.code == 354)
             state = DATA;
     } else {
-        char line[MAXLINE];
+        char line[MAXLENGTH];
 
         smtp->response = false;
         while (isprint(*p) && *p != ' ' && i < n) {
-            if (i >= MAXLINE)
+            if (i >= MAXLENGTH)
                 goto error;
             line[i++] = *p++;
         }
