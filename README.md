@@ -1,7 +1,8 @@
 # Monitor
 
 Monitor is a network forensics tool. It monitors all incoming/outgoing network
-traffic and the processes that are generating this traffic.
+traffic without the use of libpcap, and the processes that are generating this
+traffic.
 
 It supports packet filtering by writing BPF assembly directly or writing in a
 higher level tcpdump syntax (tcpdump syntax has very limited support for now,
