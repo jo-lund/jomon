@@ -3,6 +3,9 @@
 
 #include "alloc.h"
 
+#define RBTREE_FOREACH(m, n) \
+    for ((n) = rbtree_first(m); (n); (n) = rbtree_next(m, (n)))
+
 typedef struct rbtree_node rbtree_node_t;
 typedef struct rbtree rbtree_t;
 typedef void (*rbtree_deallocate)(void *);
