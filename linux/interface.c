@@ -1,6 +1,4 @@
 #define _GNU_SOURCE
-#include "../interface.h"
-#include "../error.h"
 #include <sys/socket.h>
 #include <fcntl.h>
 #include <netpacket/packet.h>
@@ -9,7 +7,11 @@
 #include <linux/if_ether.h>
 #include <unistd.h>
 #include <linux/filter.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
 #include "../util.h"
+#include "../interface.h"
+#include "../error.h"
 
 static void linux_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf);
 static void linux_close(iface_handle_t *handle);
@@ -20,6 +22,23 @@ static struct iface_operations linux_op = {
     .close = linux_close,
     .read_packet = linux_read_packet
 };
+
+/* get the interface number associated with the interface (name -> if_index mapping) */
+static int get_interface_index(char *dev)
+{
+    int sockfd;
+    struct ifreq ifr;
+
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
+        err_sys("socket error");
+    }
+    strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
+    if (ioctl(sockfd, SIOCGIFINDEX, &ifr) == -1) {
+        err_sys("ioctl error");
+    }
+    close(sockfd);
+    return ifr.ifr_ifindex;
+}
 
 iface_handle_t *iface_handle_create(unsigned char *buf, size_t len, packet_handler fn)
 {
