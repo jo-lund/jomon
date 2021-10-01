@@ -181,40 +181,24 @@ void main_screen_refresh(screen *s)
 {
     int my;
     main_screen *ms;
-    int c;
+    int y;
 
     ms = (main_screen *) s;
     my = getmaxy(s->win);
     wbkgd(s->win, get_theme_colour(BACKGROUND));
     wbkgd(ms->header, get_theme_colour(BACKGROUND));
     touchwin(s->win);
-    c = vector_size(ms->packet_ref) - 1;
-
-    /* re-render the whole screen when capturing or resizing */
     if (s->resize) {
-        int y;
         int x;
 
         getmaxyx(stdscr, y, x);
         mvwin(status, y - 1, 0);
         y = y - HEADER_HEIGHT - actionbar_getmaxy(actionbar);
         wresize(s->win, y, x);
-        ms->outy = print_lines(ms, ms->base.top, ms->base.top + y, 0);
-    } else if (!s->show_selectionbar && (ms->outy >= my || c >= my) && ctx.capturing) {
-        print_packets(ms);
-    } else if (ctx.capturing && ms->outy > 0 && ms->outy < my) {
-        int i;
-
-        for (i = ms->outy; i < my && i <= c; i++) {
-            struct packet *p;
-            char buffer[MAXLINE];
-
-            p = vector_get_data(ms->packet_ref, i);
-            write_to_buf(buffer, MAXLINE, p);
-            printnlw(s->win, buffer, strlen(buffer), i, 0, ms->scrollx);
-        }
-        ms->outy = i;
+    } else {
+        y = my;
     }
+    ms->outy = print_lines(ms, ms->base.top, ms->base.top + y, 0);
     if (s->show_selectionbar) {
         show_selectionbar(ms, s->win, s->selectionbar - s->top, A_NORMAL);
     }

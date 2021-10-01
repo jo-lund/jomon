@@ -198,6 +198,7 @@ void connection_screen_render(connection_screen *cs)
     touchwin(cs->base.win);
     print_conn_header(cs);
     print_all_connections(cs);
+    actionbar_refresh(actionbar, (screen *) cs);
 }
 
 void update_connection(struct tcp_connection_v4 *conn, bool new_connection)
@@ -227,6 +228,7 @@ void update_connection(struct tcp_connection_v4 *conn, bool new_connection)
             y++;
         }
     }
+    actionbar_refresh(actionbar, (screen *) cs);
 }
 
 void print_conn_header(connection_screen *cs)
@@ -274,7 +276,6 @@ void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int
     memset(entry, 0, sizeof(entry));
     inet_ntop(AF_INET, &conn->endp->src, entry[ADDRA].buf, INET_ADDRSTRLEN);
     inet_ntop(AF_INET, &conn->endp->dst, entry[ADDRB].buf, INET_ADDRSTRLEN);
-    p = list_data(n);
     entry[ADDRA].val = conn->endp->src;
     entry[PORTA].val = conn->endp->sport;
     entry[ADDRB].val = conn->endp->dst;
