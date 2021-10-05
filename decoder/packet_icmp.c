@@ -1,6 +1,7 @@
 #include <netinet/ip_icmp.h>
 #include "packet_ip.h"
 #include "packet_icmp.h"
+#include "../attributes.h"
 
 #define ICMP_HDR_LEN 8
 
@@ -42,9 +43,6 @@ packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buffer, int
         info->echo.id = ntohs(icmp->icmp_id);
         info->echo.seq_num = ntohs(icmp->icmp_seq);
         break;
-    case ICMP_REDIRECT:
-        info->gateway = icmp->icmp_gwaddr.s_addr;
-        break;
     case ICMP_TIMESTAMP:
     case ICMP_TIMESTAMPREPLY:
         info->echo.id = ntohs(icmp->icmp_id);
@@ -59,12 +57,29 @@ packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buffer, int
         info->echo.seq_num = ntohs(icmp->icmp_seq);
         info->addr_mask = icmp->icmp_mask;
         break;
+    case ICMP_PARAMETERPROB:
+        info->pointer = icmp->icmp_pptr;
+        goto parse_ip;
+    case ICMP_REDIRECT:
+        info->gateway = icmp->icmp_gwaddr.s_addr;
+        FALLTHROUGH;
+    case ICMP_DEST_UNREACH:
+    case ICMP_TIME_EXCEEDED:
+    case ICMP_SOURCE_QUENCH:
+    parse_ip:
+        if (n > ICMP_HDR_LEN) {
+            struct protocol_info *pinfo;
+
+            pdata->id = get_protocol_id(ETHERNET_II, ETH_P_IP);
+            pinfo = get_protocol(pdata->id);
+            pdata->next = mempool_calloc(struct packet_data);
+            return pinfo->decode(pinfo, buffer + ICMP_HDR_LEN, n - ICMP_HDR_LEN, pdata->next);
+        }
     default:
         break;
     }
     return NO_ERR;
 }
-
 
 char *get_icmp_type(uint8_t type)
 {

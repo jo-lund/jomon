@@ -25,6 +25,7 @@ struct icmp_info {
             uint32_t transmit;
         } timestamp;
         uint32_t addr_mask; /* address mask request/reply */
+        uint8_t pointer; /* parameter problem message */
     };
 };
 

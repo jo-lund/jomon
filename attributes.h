@@ -17,4 +17,10 @@
 #define UNUSED
 #endif
 
+#if __has_attribute(fallthrough)
+#define FALLTHROUGH __attribute__((fallthrough))
+#else
+#define FALLTHROUGH
+#endif
+
 #endif

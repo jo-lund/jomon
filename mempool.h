@@ -1,6 +1,8 @@
 #ifndef MEMPOOL_H
 #define MEMPOOL_H
 
+#include <string.h>
+
 #define mempool_calloc(type)                            \
     ({                                                  \
         type *t = mempool_alloc(sizeof(*t));            \
