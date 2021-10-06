@@ -458,6 +458,8 @@ void main_screen_load_handle_ok(void *file)
         snprintf(title, MAXLINE, " Loading %s ", filename);
         clear_statistics();
         vector_clear(ms->packet_ref, NULL);
+        if (bpf.size > 0)
+            vector_clear(packets, NULL);
         free_packets(NULL);
         lstat((const char *) file, buf);
         pd = progress_dialogue_create(title, buf->st_size);
@@ -555,7 +557,13 @@ bool read_show_progress(unsigned char *buffer, uint32_t n, struct timeval *t)
         tcp_analyzer_check_stream(p);
         host_analyzer_investigate(p);
     }
-    vector_push_back(ms->packet_ref, p);
+    if (bpf.size > 0)  {
+        vector_push_back(packets, p);
+        if (bpf_run_filter(bpf, p->buf, p->len) != 0)
+            vector_push_back(ms->packet_ref, p);
+    } else {
+        vector_push_back(ms->packet_ref, p);
+    }
     PROGRESS_DIALOGUE_UPDATE(pd, n);
     return true;
 }
