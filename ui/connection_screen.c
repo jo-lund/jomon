@@ -6,9 +6,7 @@
 #include "../decoder/tcp_analyzer.h"
 #include "../decoder/packet.h"
 #include "../decoder/packet_ip.h"
-#include "../misc.h"
-#include "../util.h"
-#include "../attributes.h"
+#include "../monitor.h"
 #include "../process.h"
 #include "conversation_screen.h"
 #include "actionbar.h"
@@ -210,6 +208,7 @@ void update_connection(struct tcp_connection_v4 *conn, bool new_connection)
         if (cs->base.focus) {
             werase(cs->header);
             print_conn_header(cs);
+            actionbar_refresh(actionbar, (screen *) cs);
         }
     } else if (cs->base.focus) {
         int y = 0;
@@ -227,8 +226,8 @@ void update_connection(struct tcp_connection_v4 *conn, bool new_connection)
             }
             y++;
         }
+        actionbar_refresh(actionbar, (screen *) cs);
     }
-    actionbar_refresh(actionbar, (screen *) cs);
 }
 
 void print_conn_header(connection_screen *cs)

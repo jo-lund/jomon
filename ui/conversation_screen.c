@@ -563,8 +563,6 @@ void add_packet(struct tcp_connection_v4 *conn, bool new_connection)
         return;
     cs = (conversation_screen *) screen_cache_get(CONVERSATION_SCREEN);
     if (cs->stream == conn) {
-        conversation_screen *cs = (conversation_screen *) screen_cache_get(CONVERSATION_SCREEN);
-
         vector_push_back(cs->base.packet_ref, list_back(conn->packets));
         if (tcp_mode == NORMAL)
             main_screen_print_packet((main_screen *) cs, list_back(conn->packets));
