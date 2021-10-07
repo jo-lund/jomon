@@ -181,7 +181,6 @@ void main_screen_refresh(screen *s)
 {
     int my;
     main_screen *ms;
-    int y;
 
     ms = (main_screen *) s;
     my = getmaxy(s->win);
@@ -189,19 +188,19 @@ void main_screen_refresh(screen *s)
     wbkgd(ms->header, get_theme_colour(BACKGROUND));
     touchwin(s->win);
     if (s->resize) {
-        int x;
+        int y, x;
 
         getmaxyx(stdscr, y, x);
         mvwin(status, y - 1, 0);
-        y = y - HEADER_HEIGHT - actionbar_getmaxy(actionbar);
-        wresize(s->win, y, x);
-    } else {
-        y = my;
+        my = y - HEADER_HEIGHT - actionbar_getmaxy(actionbar);
+        wresize(s->win, my, x);
     }
-    ms->outy = print_lines(ms, ms->base.top, ms->base.top + y, 0);
-    if (s->show_selectionbar) {
+    if (!s->show_selectionbar && ctx.capturing && vector_size(ms->packet_ref) > my)
+        print_packets(ms);
+    else
+        ms->outy = print_lines(ms, ms->base.top, ms->base.top + my, 0);
+    if (s->show_selectionbar)
         show_selectionbar(ms, s->win, s->selectionbar - s->top, A_NORMAL);
-    }
     wnoutrefresh(s->win);
     if (ms->subwindow.win) {
         struct packet *p;
@@ -408,7 +407,6 @@ void main_screen_get_input(screen *s)
         break;
     case 'e':
     case KEY_F(8):
-        DEBUG("%s F8/e", __func__);
         input_mode = (input_mode == INPUT_FILTER) ? INPUT_NONE : INPUT_FILTER;
         handle_input_mode(ms, "Filter: ");
         break;
