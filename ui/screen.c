@@ -8,6 +8,8 @@ extern main_menu *menu;
 
 static void handle_keydown(screen *s)
 {
+    if (!s->op->screen_get_data_size)
+        return;
     if (s->show_selectionbar) {
         if ((unsigned int) s->selectionbar < SCREEN_GET_DATA_SIZE(s)) {
             s->selectionbar++;
@@ -42,6 +44,9 @@ static void handle_keyup(screen *s)
 
 static void scroll_page(screen *s, int num_lines)
 {
+    if (!s->op->screen_get_data_size)
+        return;
+
     int i = abs(num_lines);
     int c = 0;
 
