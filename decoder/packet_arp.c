@@ -1,3 +1,6 @@
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netinet/if_ether.h>
 #include <stdlib.h>
@@ -8,6 +11,13 @@
 #include "packet.h"
 
 #define ARP_SIZE 28 /* size of an ARP packet (header + payload) */
+#ifdef __FreeBSD__
+#define ARPHRD_EETHER 2
+#define ARPHRD_AX25 3
+#define ARPHRD_PRONET 4
+#define ARPHRD_CHAOS 5
+#define ARPHRD_ARCNET 7
+#endif
 
 extern void add_arp_information(void *w, void *sw, void *data);
 extern void print_arp(char *buf, int n, void *data);
@@ -22,7 +32,7 @@ static struct protocol_info arp_prot = {
 
 void register_arp()
 {
-    register_protocol(&arp_prot, ETHERNET_II, ETH_P_ARP);
+    register_protocol(&arp_prot, ETHERNET_II, ETHERTYPE_ARP);
 }
 
 /*
@@ -55,8 +65,8 @@ packet_error handle_arp(struct protocol_info *pinfo, unsigned char *buffer, int 
     arp = mempool_alloc(sizeof(struct arp_info));
     memcpy(arp->sip, arp_header->arp_spa, 4); /* sender protocol address */
     memcpy(arp->tip, arp_header->arp_tpa, 4); /* target protocol address */
-    memcpy(arp->sha, arp_header->arp_sha, ETH_ALEN); /* sender hardware address */
-    memcpy(arp->tha, arp_header->arp_tha, ETH_ALEN); /* target hardware address */
+    memcpy(arp->sha, arp_header->arp_sha, ETHER_ADDR_LEN); /* sender hardware address */
+    memcpy(arp->tha, arp_header->arp_tha, ETHER_ADDR_LEN); /* target hardware address */
     arp->op = ntohs(arp_header->arp_op); /* arp opcode (command) */
     arp->ht = ntohs(arp_header->arp_hrd);
     arp->pt = ntohs(arp_header->arp_pro);
@@ -92,11 +102,11 @@ char *get_arp_hardware_type(uint16_t type)
 char *get_arp_protocol_type(uint16_t type)
 {
     switch (type) {
-    case ETH_P_IP:
+    case ETHERTYPE_IP:
         return "IPv4";
-    case ETH_P_ARP:
+    case ETHERTYPE_ARP:
         return "Address resolution packet";
-    case ETH_P_IPV6:
+    case ETHERTYPE_IPV6:
         return "IPv6";
     default:
         return NULL;

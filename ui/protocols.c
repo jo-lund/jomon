@@ -1,3 +1,7 @@
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
 #include <arpa/inet.h>
 #include <net/if_arp.h>
 #include <netinet/igmp.h>
@@ -91,7 +95,7 @@ void write_to_buf(char *buf, int size, struct packet *p)
             PRINT_NUMBER(buf, size, p->num);
             PRINT_TIME(buf, size, time);
             pinfo->print_pdu(buf, size, p);
-        } else if (p->len - ETH_HLEN)
+        } else if (p->len - ETHER_HDR_LEN)
             print_error(buf, size, p);
     }
 }
@@ -252,31 +256,31 @@ void print_icmp(char *buf, int n, void *data)
     case ICMP_ECHO:
         PRINT_INFO(buf, n, "Echo request: id = 0x%x  seq = %d", icmp->echo.id, icmp->echo.seq_num);
         break;
-    case ICMP_DEST_UNREACH:
+    case ICMP_UNREACH:
         PRINT_INFO(buf, n, "%s", get_icmp_dest_unreach_code(icmp->code));
         break;
     case ICMP_REDIRECT:
         inet_ntop(AF_INET, &icmp->gateway, addr, INET_ADDRSTRLEN);
         PRINT_INFO(buf, n, "Redirect to %s", addr);
         break;
-    case ICMP_TIMESTAMP:
+    case ICMP_TSTAMP:
         PRINT_INFO(buf, n, "Timestamp request: id = 0x%x  seq = %d, originate = %s, receive = %s, transmit = %s",
                    icmp->echo.id, icmp->echo.seq_num, get_time_from_ms_ut(icmp->timestamp.originate, org, 32),
                    get_time_from_ms_ut(icmp->timestamp.receive, rcvd, 32),
                    get_time_from_ms_ut(icmp->timestamp.transmit, xmit, 32));
         break;
-    case ICMP_TIMESTAMPREPLY:
+    case ICMP_TSTAMPREPLY:
         PRINT_INFO(buf, n, "Timestamp reply  : id = 0x%x  seq = %d, originate = %s, receive = %s, transmit = %s",
                    icmp->echo.id, icmp->echo.seq_num, get_time_from_ms_ut(icmp->timestamp.originate, org, 32),
                    get_time_from_ms_ut(icmp->timestamp.receive, rcvd, 32),
                    get_time_from_ms_ut(icmp->timestamp.transmit, xmit, 32));
         break;
-    case ICMP_ADDRESS:
+    case ICMP_MASKREQ:
         inet_ntop(AF_INET, &icmp->addr_mask, addr, INET_ADDRSTRLEN);
         PRINT_INFO(buf, n, "Address mask request: id = 0x%x  seq = %d, mask = %s",
                    icmp->echo.id, icmp->echo.seq_num, addr);
         break;
-    case ICMP_ADDRESSREPLY:
+    case ICMP_MASKREPLY:
         inet_ntop(AF_INET, &icmp->addr_mask, addr, INET_ADDRSTRLEN);
         PRINT_INFO(buf, n, "Address mask reply:   id = 0x%x  seq = %d, mask = %s",
                    icmp->echo.id, icmp->echo.seq_num, addr);
@@ -296,17 +300,17 @@ void print_igmp(char *buf, int n, void *data)
 
     PRINT_PROTOCOL(buf, n, "IGMP");
     switch (igmp->type) {
-    case IGMP_MEMBERSHIP_QUERY:
+    case IGMP_HOST_MEMBERSHIP_QUERY:
         PRINT_INFO(buf, n, "Membership query  Max response time: %d seconds",
                    igmp->max_resp_time / 10);
         break;
-    case IGMP_V1_MEMBERSHIP_REPORT:
+    case IGMP_v1_HOST_MEMBERSHIP_REPORT:
         PRINT_INFO(buf, n, "Membership report");
         break;
-    case IGMP_V2_MEMBERSHIP_REPORT:
+    case IGMP_v2_HOST_MEMBERSHIP_REPORT:
         PRINT_INFO(buf, n, "IGMP2 Membership report");
         break;
-    case IGMP_V2_LEAVE_GROUP:
+    case IGMP_HOST_LEAVE_MESSAGE:
         PRINT_INFO(buf, n, "Leave group");
         break;
     default:
@@ -959,7 +963,7 @@ void add_icmp_information(void *w, void *sw, void *data)
         LV_ADD_TEXT_ELEMENT(lw, header, "Identifier: 0x%x", icmp->echo.id);
         LV_ADD_TEXT_ELEMENT(lw, header, "Sequence number: %d", icmp->echo.seq_num);
         break;
-    case ICMP_DEST_UNREACH:
+    case ICMP_UNREACH:
         LV_ADD_TEXT_ELEMENT(lw, header, "Code: %d (%s)", icmp->code, get_icmp_dest_unreach_code(icmp->code));
         LV_ADD_TEXT_ELEMENT(lw, header, "Checksum: %d", icmp->checksum);
         break;
@@ -969,8 +973,8 @@ void add_icmp_information(void *w, void *sw, void *data)
         LV_ADD_TEXT_ELEMENT(lw, header, "Checksum: %d", icmp->checksum);
         LV_ADD_TEXT_ELEMENT(lw, header, "Gateway: %s", addr);
         break;
-    case ICMP_TIMESTAMP:
-    case ICMP_TIMESTAMPREPLY:
+    case ICMP_TSTAMP:
+    case ICMP_TSTAMPREPLY:
         LV_ADD_TEXT_ELEMENT(lw, header, "Code: %d", icmp->code);
         LV_ADD_TEXT_ELEMENT(lw, header, "Checksum: %d", icmp->checksum);
         LV_ADD_TEXT_ELEMENT(lw, header, "Identifier: 0x%x", icmp->echo.id);
@@ -982,8 +986,8 @@ void add_icmp_information(void *w, void *sw, void *data)
         LV_ADD_TEXT_ELEMENT(lw, header, "Tramsmit timestamp: %s",
                          get_time_from_ms_ut(icmp->timestamp.transmit, time, 32));
         break;
-    case ICMP_ADDRESS:
-    case ICMP_ADDRESSREPLY:
+    case ICMP_MASKREQ:
+    case ICMP_MASKREPLY:
         inet_ntop(AF_INET, &icmp->addr_mask, addr, INET_ADDRSTRLEN);
         LV_ADD_TEXT_ELEMENT(lw, header, "Code: %d", icmp->code);
         LV_ADD_TEXT_ELEMENT(lw, header, "Checksum: %d", icmp->checksum);

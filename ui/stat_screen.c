@@ -254,8 +254,7 @@ static void print_protocol_stat(struct protocol_info *pinfo, void *arg)
 void print_netstat()
 {
     int y = 0;
-    struct iw_statistics iwstat;
-    struct iw_range iwrange;
+    struct wireless stat;
     screen *s = screen_cache_get(STAT_SCREEN);
     int hdrcol = get_theme_colour(HEADER_TXT);
     int subcol = get_theme_colour(SUBHEADER_TXT);
@@ -271,14 +270,14 @@ void print_netstat()
     wprintw(s->win, ": %8.2f kB/s", rx.kbps);
     wprintw(s->win, "\t%4d packets/s", rx.pps);
 
-    if (get_iw_stats(ctx.device, &iwstat) && get_iw_range(ctx.device, &iwrange)) {
+    if (get_iw_stats(ctx.device, &stat)) {
         mvwprintw(s->win, ++y, 0, "");
         printat(s->win, ++y, 0, subcol, "%13s", "Link quality");
-        wprintw(s->win, ": %8u/%u", iwstat.qual.qual, iwrange.max_qual.qual);
+        wprintw(s->win, ": %8u/%u", stat.qual, stat.max_qual);
         printat(s->win, ++y, 0, subcol, "%13s", "Level");
-        wprintw(s->win, ": %8d dBm", (int8_t) iwstat.qual.level);
+        wprintw(s->win, ": %8d dBm", (int8_t) stat.level);
         printat(s->win, ++y, 0, subcol, "%13s", "Noise");
-        wprintw(s->win, ": %8d dBm", (int8_t) iwstat.qual.noise);
+        wprintw(s->win, ": %8d dBm", (int8_t) stat.noise);
     }
     if (show_packet_stats) {
         char buf[16];

@@ -1,3 +1,4 @@
+#include <sys/types.h>
 #include <netinet/udp.h>
 #include <string.h>
 #include "packet_udp.h"
@@ -45,13 +46,13 @@ packet_error handle_udp(struct protocol_info *pinfo, unsigned char *buffer, int 
     pinfo->num_packets++;
     pinfo->num_bytes += n;
     udp = (struct udphdr *) buffer;
-    info->sport = ntohs(udp->source);
-    info->dport = ntohs(udp->dest);
-    info->len = ntohs(udp->len);
+    info->sport = ntohs(udp->uh_sport);
+    info->dport = ntohs(udp->uh_dport);
+    info->len = ntohs(udp->uh_ulen);
     if (info->len < UDP_HDR_LEN || info->len > n) {
         return DECODE_ERR;
     }
-    info->checksum = ntohs(udp->check);
+    info->checksum = ntohs(udp->uh_sum);
     pdata->data = info;
     pdata->len = UDP_HDR_LEN;
     if (n - UDP_HDR_LEN > 0) {

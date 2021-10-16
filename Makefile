@@ -4,7 +4,6 @@ endif
 
 include config.mk
 
-srcdir := decoder ui
 incdir := decoder ui
 testdir := tests
 BUILDDIR := build
@@ -20,8 +19,15 @@ else
     LIBS += -lGeoIP
     sources = $(wildcard *.c decoder/*.c ui/*.c)
 endif
-ifeq ($(MACHINE), Linux)
+ifeq ($(HAVE_OBSTACK),0)
+    sources += $(wildcard compat/*.c)
+else
+    CPPFLAGS += -DHAVE_OBSTACK
+endif
+ifeq ($(MACHINE),Linux)
     sources += $(wildcard linux/*.c)
+else ($(MACHINE),FreeBSD)
+    sources += $(wildcard bsd/*.c)
 endif
 objects = $(patsubst %.c,$(BUILDDIR)/%.o,$(sources))
 bpf-objs = \
@@ -70,7 +76,7 @@ $(BUILDDIR)/%.o : %.c
 	@mkdir -p $(dir $@)
 	$(CC) -c $(CFLAGS) $(CPPFLAGS) $< -o $@
 	$(CC) -MM $*.c > $(BUILDDIR)/$*.d
-	@sed -i 's|.*:|$(BUILDDIR)/$*.o:|' $(BUILDDIR)/$*.d # prefix target with BUILDDIR
+	@sed -i -r 's|.*:|$(BUILDDIR)/$*.o:|' $(BUILDDIR)/$*.d # prefix target with BUILDDIR
 
 # Include dependency info for existing object files
 -include $(objects:.o=.d)

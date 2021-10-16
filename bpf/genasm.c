@@ -1,5 +1,8 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include <netinet/if_ether.h>
 #include <netinet/in.h>
 #include "genasm.h"
@@ -17,7 +20,7 @@
 
 #define ETH_FRAME_TYPE_OFFSET 12
 #define ETH_OFFSET 0
-#define NETWORK_OFFSET ETH_HLEN
+#define NETWORK_OFFSET ETHER_HDR_LEN
 
 static vector_t *code;
 static uint32_t regs[NUM_REGS];
@@ -291,7 +294,7 @@ static void gen_transport(struct block *b, struct node *n, uint32_t prot)
     struct proto_offset *npoff;
 
     /* Block 1: Check if IPV4 */
-    gen_network(b, n, ETH_P_IP); /* TODO: If not IPV4, check for IPV6 */
+    gen_network(b, n, ETHERTYPE_IP); /* TODO: If not IPV4, check for IPV6 */
 
     /* Block 2: Check if TCP/UDP/ICMP */
     b->poff->next = alloc_offset();
@@ -347,22 +350,22 @@ static void genexpr(struct block *b, struct node *n, int op, int offset)
         gen_proto(b, n, op, offset);
         break;
     case PCAP_IP:
-        gen_network(b, n, ETH_P_IP);
+        gen_network(b, n, ETHERTYPE_IP);
         offset = NETWORK_OFFSET;
         gen_proto(b, n, op, offset);
         break;
     case PCAP_IP6:
-        gen_network(b, n, ETH_P_IPV6);
+        gen_network(b, n, ETHERTYPE_IPV6);
         offset = NETWORK_OFFSET;
         gen_proto(b, n, op, offset);
         break;
     case PCAP_ARP:
-        gen_network(b, n, ETH_P_ARP);
+        gen_network(b, n, ETHERTYPE_ARP);
         offset = NETWORK_OFFSET;
         gen_proto(b, n, op, offset);
         break;
     case PCAP_RARP:
-        gen_network(b, n, ETH_P_RARP);
+        gen_network(b, n, ETHERTYPE_REVARP);
         offset = NETWORK_OFFSET;
         gen_proto(b, n, op, offset);
         break;

@@ -40,7 +40,7 @@ void host_analyzer_investigate(struct packet *p)
         return;
 
     switch (ethertype(p)) {
-    case ETH_P_IP:
+    case ETHERTYPE_IP:
         handle_ip4(p);
         break;
     default:
@@ -129,7 +129,7 @@ static void insert_host(uint32_t addr, const uint8_t *mac)
             host->name = NULL;
         }
         if (local) {
-            memcpy(host->mac_addr, mac, ETH_ALEN);
+            memcpy(host->mac_addr, mac, ETHER_ADDR_LEN);
         }
         hashmap_insert(map, UINT_TO_PTR(addr), host);
         publish2(host_changed_publisher, host, UINT_TO_PTR(0x1));

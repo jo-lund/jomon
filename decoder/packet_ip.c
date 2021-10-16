@@ -1,3 +1,5 @@
+#include <sys/types.h>
+#include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
 #include <netinet/in.h>
@@ -59,8 +61,8 @@ static struct protocol_info ipv6_prot = {
 
 void register_ip()
 {
-    register_protocol(&ipv4_prot, ETHERNET_II, ETH_P_IP);
-    register_protocol(&ipv6_prot, ETHERNET_II, ETH_P_IPV6);
+    register_protocol(&ipv4_prot, ETHERNET_II, ETHERTYPE_IP);
+    register_protocol(&ipv6_prot, ETHERNET_II, ETHERTYPE_IPV6);
 }
 
 /*
@@ -96,30 +98,30 @@ void register_ip()
 packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int n,
                          struct packet_data *pdata)
 {
-    struct iphdr *ip;
+    struct ip *ip;
     unsigned int header_len;
     struct ipv4_info *ipv4;
 
-    ip = (struct iphdr *) buffer;
-    if (n < ip->ihl * 4 || ip->ihl < 5) return DECODE_ERR;
+    ip = (struct ip *) buffer;
+    if (n < ip->ip_hl * 4 || ip->ip_hl < 5) return DECODE_ERR;
 
     pinfo->num_packets++;
     pinfo->num_bytes += n;
     ipv4 = mempool_alloc(sizeof(struct ipv4_info));
     pdata->data = ipv4;
-    ipv4->src = ip->saddr;
-    ipv4->dst = ip->daddr;
-    ipv4->version = ip->version;
-    ipv4->ihl = ip->ihl;
-    header_len = ip->ihl * 4;
+    ipv4->src = ip->ip_src.s_addr;
+    ipv4->dst = ip->ip_dst.s_addr;
+    ipv4->version = ip->ip_v;
+    ipv4->ihl = ip->ip_hl;
+    header_len = ip->ip_hl * 4;
     pdata->len = header_len;
 
     /* Originally defined as type of service, but now defined as differentiated
        services code point and explicit congestion control */
-    ipv4->dscp = (ip->tos & 0xfc) >> 2;
-    ipv4->ecn = ip->tos & 0x03;
+    ipv4->dscp = (ip->ip_tos & 0xfc) >> 2;
+    ipv4->ecn = ip->ip_tos & 0x03;
 
-    ipv4->length = ntohs(ip->tot_len);
+    ipv4->length = ntohs(ip->ip_len);
     if (ipv4->length < header_len || /* total length less than header length */
         ipv4->length > n) { /* total length greater than packet length */
         return DECODE_ERR;
@@ -131,11 +133,11 @@ packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int
         n = ipv4->length;
     }
 
-    ipv4->id = ntohs(ip->id);
-    ipv4->foffset = ntohs(ip->frag_off);
-    ipv4->ttl = ip->ttl;
-    ipv4->protocol = ip->protocol;
-    ipv4->checksum = ntohs(ip->check);
+    ipv4->id = ntohs(ip->ip_id);
+    ipv4->foffset = ntohs(ip->ip_off);
+    ipv4->ttl = ip->ip_ttl;
+    ipv4->protocol = ip->ip_p;
+    ipv4->checksum = ntohs(ip->ip_sum);
     pdata->id = get_protocol_id(IP_PROTOCOL, ipv4->protocol);
 
     struct protocol_info *layer3 = get_protocol(pdata->id);

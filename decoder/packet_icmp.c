@@ -1,3 +1,7 @@
+#include <stdint.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
 #include <netinet/ip_icmp.h>
 #include "packet_ip.h"
 #include "packet_icmp.h"
@@ -43,34 +47,34 @@ packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buffer, int
         info->echo.id = ntohs(icmp->icmp_id);
         info->echo.seq_num = ntohs(icmp->icmp_seq);
         break;
-    case ICMP_TIMESTAMP:
-    case ICMP_TIMESTAMPREPLY:
+    case ICMP_TSTAMP:
+    case ICMP_TSTAMPREPLY:
         info->echo.id = ntohs(icmp->icmp_id);
         info->echo.seq_num = ntohs(icmp->icmp_seq);
         info->timestamp.originate = ntohl(icmp->icmp_otime);
         info->timestamp.receive = ntohl(icmp->icmp_rtime);
         info->timestamp.transmit = ntohl(icmp->icmp_ttime);
         break;
-    case ICMP_ADDRESS:
-    case ICMP_ADDRESSREPLY:
+    case ICMP_MASKREQ:
+    case ICMP_MASKREPLY:
         info->echo.id = ntohs(icmp->icmp_id);
         info->echo.seq_num = ntohs(icmp->icmp_seq);
         info->addr_mask = icmp->icmp_mask;
         break;
-    case ICMP_PARAMETERPROB:
+    case ICMP_PARAMPROB:
         info->pointer = icmp->icmp_pptr;
         goto parse_ip;
     case ICMP_REDIRECT:
         info->gateway = icmp->icmp_gwaddr.s_addr;
         FALLTHROUGH;
-    case ICMP_DEST_UNREACH:
-    case ICMP_TIME_EXCEEDED:
-    case ICMP_SOURCE_QUENCH:
+    case ICMP_UNREACH:
+    case ICMP_TIMXCEED:
+    case ICMP_SOURCEQUENCH:
     parse_ip:
         if (n > ICMP_HDR_LEN) {
             struct protocol_info *pinfo;
 
-            pdata->id = get_protocol_id(ETHERNET_II, ETH_P_IP);
+            pdata->id = get_protocol_id(ETHERNET_II, ETHERTYPE_IP);
             pinfo = get_protocol(pdata->id);
             pdata->next = mempool_calloc(struct packet_data);
             return pinfo->decode(pinfo, buffer + ICMP_HDR_LEN, n - ICMP_HDR_LEN, pdata->next);
@@ -86,29 +90,29 @@ char *get_icmp_type(uint8_t type)
     switch (type) {
     case ICMP_ECHOREPLY:
         return "Echo Reply";
-    case ICMP_DEST_UNREACH:
+    case ICMP_UNREACH:
         return "Destination Unreachable";
-    case ICMP_SOURCE_QUENCH:
+    case ICMP_SOURCEQUENCH:
         return "Source Quench";
     case ICMP_REDIRECT:
         return "Redirect (change route)";
     case ICMP_ECHO:
         return "Echo Request";
-    case ICMP_TIME_EXCEEDED:
+    case ICMP_TIMXCEED:
         return "Time Exceeded";
-    case ICMP_PARAMETERPROB:
+    case ICMP_PARAMPROB:
         return "Parameter Problem";
-    case ICMP_TIMESTAMP:
+    case ICMP_TSTAMP:
         return "Timestamp Request";
-    case ICMP_TIMESTAMPREPLY:
+    case ICMP_TSTAMPREPLY:
         return "Timestamp Reply";
-    case ICMP_INFO_REQUEST:
+    case ICMP_IREQ:
         return "Information Request";
-    case ICMP_INFO_REPLY:
+    case ICMP_IREQREPLY:
         return "Information Reply";
-    case ICMP_ADDRESS:
+    case ICMP_MASKREQ:
         return "Address Mask Request";
-    case ICMP_ADDRESSREPLY:
+    case ICMP_MASKREPLY:
         return "Address Mask Reply";
     default:
         return "";
@@ -118,23 +122,23 @@ char *get_icmp_type(uint8_t type)
 char *get_icmp_dest_unreach_code(uint8_t code)
 {
     switch (code) {
-    case ICMP_NET_UNREACH:
+    case ICMP_UNREACH_NET:
         return "Network Unreachable";
-    case ICMP_HOST_UNREACH:
+    case ICMP_UNREACH_HOST:
         return "Host Unreachable";
-    case ICMP_PROT_UNREACH:
+    case ICMP_UNREACH_PROTOCOL:
         return "Protocol Unreachable";
-    case ICMP_PORT_UNREACH:
+    case ICMP_UNREACH_PORT:
         return "Port Unreachable";
-    case ICMP_FRAG_NEEDED:
+    case ICMP_UNREACH_NEEDFRAG:
         return "Fragmentation Needed/DF set";
-    case ICMP_SR_FAILED:
+    case ICMP_UNREACH_SRCFAIL:
         return "Source Route failed";
-    case ICMP_PKT_FILTERED:
+    case ICMP_UNREACH_FILTER_PROHIB:
         return "Packet filtered";
-    case ICMP_PREC_VIOLATION:
+    case ICMP_UNREACH_HOST_PRECEDENCE:
         return "Precedence violation";
-    case ICMP_PREC_CUTOFF:
+    case ICMP_UNREACH_PRECEDENCE_CUTOFF:
         return "Precedence cut off";
     default:
         return "";
@@ -144,13 +148,13 @@ char *get_icmp_dest_unreach_code(uint8_t code)
 char *get_icmp_redirect_code(uint8_t code)
 {
     switch (code) {
-    case ICMP_REDIR_NET:
+    case ICMP_REDIRECT_NET:
         return "Redirect for the network";
-    case ICMP_REDIR_HOST:
+    case ICMP_REDIRECT_HOST:
         return "Redirect for the host";
-    case ICMP_REDIR_NETTOS:
+    case ICMP_REDIRECT_TOSNET:
         return "Redirect for the type of service and network";
-    case ICMP_REDIR_HOSTTOS:
+    case ICMP_REDIRECT_TOSHOST:
         return "Redirect for the type of service and host";
     default:
         return "";

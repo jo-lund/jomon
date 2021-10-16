@@ -7,8 +7,7 @@
 #include <sys/socket.h>
 #include "bpf/bpf.h"
 
-struct iw_statistics;
-struct iw_range;
+struct timeval;
 
 typedef bool (*packet_handler)(unsigned char *buffer, uint32_t n, struct timeval *t);
 
@@ -25,6 +24,13 @@ struct iface_operations {
     void (*activate)(iface_handle_t *handle, char *device, struct bpf_prog *bpf);
     void (*close)(iface_handle_t *handle);
     void (*read_packet)(iface_handle_t *handle);
+};
+
+struct wireless {
+    uint8_t qual;
+    uint8_t max_qual;
+    uint8_t level;
+    uint8_t noise;
 };
 
 /* Create a new interface handle */
@@ -55,8 +61,7 @@ void get_local_address(char *dev, struct sockaddr *addr);
 void get_local_mac(char *dev, unsigned char *mac);
 
 /* get wireless statistics */
-bool get_iw_stats(char *dev, struct iw_statistics *iwstat);
-bool get_iw_range(char *dev, struct iw_range *iwrange);
+bool get_iw_stats(char *dev, struct wireless *stat);
 
 /* Enable/disable promiscuous mode */
 void set_promiscuous(char *dev, bool enable);

@@ -47,20 +47,20 @@
  */
 bool handle_ethernet(unsigned char *buffer, int n, struct packet *p)
 {
-    if (n < ETH_HLEN || n > MAX_PACKET_SIZE) return false;
+    if (n < ETHER_HDR_LEN || n > MAX_PACKET_SIZE) return false;
 
-    struct ethhdr *eth_header;
+    struct ether_header *eth_header;
     struct eth_info *eth;
     struct protocol_info *pinfo;
 
     eth_header = (struct ethhdr *) buffer;
     eth = mempool_alloc(sizeof(struct eth_info));
-    memcpy(eth->mac_src, eth_header->h_source, ETH_ALEN);
-    memcpy(eth->mac_dst, eth_header->h_dest, ETH_ALEN);
-    eth->ethertype = ntohs(eth_header->h_proto);
+    memcpy(eth->mac_src, eth_header->ether_shost, ETHER_ADDR_LEN);
+    memcpy(eth->mac_dst, eth_header->ether_dhost, ETHER_ADDR_LEN);
+    eth->ethertype = ntohs(eth_header->ether_type);
     p->root = mempool_alloc(sizeof(struct packet_data));
     p->root->data = eth;
-    p->root->len = ETH_HLEN;
+    p->root->len = ETHER_HDR_LEN;
 
     if (eth->ethertype <= ETH_802_3_MAX) { /* Ethernet 802.3 frame */
         p->root->id = get_protocol_id(ETH802_3, ETH_802_LLC);
@@ -72,7 +72,8 @@ bool handle_ethernet(unsigned char *buffer, int n, struct packet *p)
     if (pinfo) {
         p->root->next = mempool_alloc(sizeof(struct packet_data));
         memset(p->root->next, 0, sizeof(struct packet_data));
-        p->perr = pinfo->decode(pinfo, buffer + ETH_HLEN, n - ETH_HLEN, p->root->next);
+        p->perr = pinfo->decode(pinfo, buffer + ETHER_HDR_LEN, n - ETHER_HDR_LEN,
+                                p->root->next);
     } else {
         p->perr = UNK_PROTOCOL;
     }
@@ -82,13 +83,13 @@ bool handle_ethernet(unsigned char *buffer, int n, struct packet *p)
 char *get_ethernet_type(uint16_t ethertype)
 {
     switch (ethertype) {
-    case ETH_P_IP:
+    case ETHERTYPE_IP:
         return "IPv4";
-    case ETH_P_ARP:
+    case ETHERTYPE_ARP:
         return "ARP";
-    case ETH_P_IPV6:
+    case ETHERTYPE_IPV6:
         return "IPv6";
-    case ETH_P_PAE:
+    case ETHERTYPE_PAE:
         return "Port Access Entity";
     default:
         return NULL;

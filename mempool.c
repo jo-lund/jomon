@@ -1,4 +1,8 @@
+#ifdef HAVE_OBSTACK
 #include <obstack.h>
+#else
+#include "compat/obstack.h"
+#endif
 #include <stdlib.h>
 #include "mempool.h"
 

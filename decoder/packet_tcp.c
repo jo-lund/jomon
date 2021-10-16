@@ -103,30 +103,30 @@ packet_error handle_tcp(struct protocol_info *pinfo, unsigned char *buffer, int 
     struct tcp *info;
 
     tcp = (struct tcphdr *) buffer;
-    if (n < tcp->doff * 4) return DECODE_ERR;
+    if (n < tcp->th_off * 4) return DECODE_ERR;
 
     /* bogus header length */
-    if (tcp->doff < 5)
+    if (tcp->th_off < 5)
         return DECODE_ERR;
 
     info = mempool_alloc(sizeof(struct tcp));
     pdata->data = info;
     pinfo->num_packets++;
     pinfo->num_bytes += n;
-    info->sport = ntohs(tcp->source);
-    info->dport = ntohs(tcp->dest);
-    info->seq_num = ntohl(tcp->seq);
-    info->ack_num = ntohl(tcp->ack_seq);
-    info->offset = tcp->doff;
-    info->urg = tcp->urg;
-    info->ack = tcp->ack;
-    info->psh = tcp->psh;
-    info->rst = tcp->rst;
-    info->syn = tcp->syn;
-    info->fin = tcp->fin;
-    info->window = ntohs(tcp->window);
-    info->checksum = ntohs(tcp->check);
-    info->urg_ptr = ntohs(tcp->urg_ptr);
+    info->sport = ntohs(tcp->th_sport);
+    info->dport = ntohs(tcp->th_dport);
+    info->seq_num = ntohl(tcp->th_seq);
+    info->ack_num = ntohl(tcp->th_ack);
+    info->offset = tcp->th_off;
+    info->urg = tcp->th_flags & 0x20;
+    info->ack = tcp->th_flags & 0x10;
+    info->psh = tcp->th_flags & 0x8;
+    info->rst = tcp->th_flags & 0x4;
+    info->syn = tcp->th_flags & 0x2;
+    info->fin = tcp->th_flags & 0x1;
+    info->window = ntohs(tcp->th_win);
+    info->checksum = ntohs(tcp->th_sum);
+    info->urg_ptr = ntohs(tcp->th_urp);
     payload_len = n - info->offset * 4;
     pdata->len = info->offset * 4;
 

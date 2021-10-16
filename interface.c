@@ -290,65 +290,6 @@ void get_local_address(char *dev, struct sockaddr *addr)
     close(sockfd);
 }
 
-void get_local_mac(char *dev, unsigned char *mac)
-{
-    struct ifreq ifr;
-    int sockfd;
-
-    strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
-    ifr.ifr_addr.sa_family = AF_INET;
-    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
-        err_sys("socket error");
-    }
-    if (ioctl(sockfd, SIOCGIFHWADDR, &ifr) == -1) {
-        err_sys("ioctl error");
-    }
-    memcpy(mac, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN);
-    close(sockfd);
-}
-
-bool get_iw_stats(char *dev, struct iw_statistics *iwstat)
-{
-    int sockfd;
-    struct iwreq iw;
-
-    strncpy(iw.ifr_ifrn.ifrn_name, dev, IFNAMSIZ - 1);
-    iw.u.data.pointer = iwstat;
-    iw.u.data.length = sizeof(struct iw_statistics);
-    iw.u.data.flags = 0; // TODO: What are the possible values of flags?
-
-    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
-        return false;
-    }
-    if ((ioctl(sockfd, SIOCGIWSTATS, &iw)) == -1) {
-        close(sockfd);
-        return false;
-    }
-    close(sockfd);
-    return true;
-}
-
-bool get_iw_range(char *dev, struct iw_range *iwrange)
-{
-    int sockfd;
-    struct iwreq iw;
-
-    strncpy(iw.ifr_ifrn.ifrn_name, dev, IFNAMSIZ - 1);
-    iw.u.data.pointer = iwrange;
-    iw.u.data.length = sizeof(struct iw_range);
-    iw.u.data.flags = 0;
-
-    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
-        return false;
-    }
-    if ((ioctl(sockfd, SIOCGIWRANGE, &iw)) == -1) {
-        close(sockfd);
-        return false;
-    }
-    close(sockfd);
-    return true;
-}
-
 void set_promiscuous(char *dev, bool enable)
 {
     int sockfd;

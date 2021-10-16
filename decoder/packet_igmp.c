@@ -1,3 +1,5 @@
+#include <sys/types.h>
+#include <netinet/in.h>
 #include <netinet/igmp.h>
 #include <stddef.h>
 #include <arpa/inet.h>
@@ -87,13 +89,13 @@ packet_error handle_igmp(struct protocol_info *pinfo, unsigned char *buffer, int
 char *get_igmp_type(uint8_t type)
 {
     switch (type) {
-    case IGMP_MEMBERSHIP_QUERY:
+    case IGMP_HOST_MEMBERSHIP_QUERY:
         return "Membership query";
-    case IGMP_V1_MEMBERSHIP_REPORT:
+    case IGMP_v1_HOST_MEMBERSHIP_REPORT:
         return "Version 1 Membership report";
-    case IGMP_V2_MEMBERSHIP_REPORT:
+    case IGMP_v2_HOST_MEMBERSHIP_REPORT:
         return "Version 2 Membership report";
-    case IGMP_V2_LEAVE_GROUP:
+    case IGMP_HOST_LEAVE_MESSAGE:
         return "Leave group";
     case IGMP_PIM:
     default:

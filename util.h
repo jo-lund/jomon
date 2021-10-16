@@ -39,6 +39,9 @@
 /* extract an integer from a pointer */
 #define PTR_TO_INT(i) ((intptr_t) (i))
 
+struct timeval;
+struct timespec;
+
 // TODO: remove this
 struct tm_t {
     int days;

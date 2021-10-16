@@ -1474,7 +1474,7 @@ static void follow_tcp_stream(main_screen *ms)
     struct tcp_endpoint_v4 endp;
     conversation_screen *cs = (conversation_screen *) screen_cache_get(CONVERSATION_SCREEN);
 
-    if (!is_tcp(p) || ethertype(p) != ETH_P_IP)
+    if (!is_tcp(p) || ethertype(p) != ETHERTYPE_IP)
         return;
     endp.src = ipv4_src(p);
     endp.dst = ipv4_dst(p);

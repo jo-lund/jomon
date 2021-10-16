@@ -3,6 +3,7 @@
 
 // TODO: Clean up this file
 
+#include <sys/types.h>
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <net/ethernet.h>
