@@ -450,10 +450,12 @@ void main_screen_load_handle_ok(void *file)
         char filename[MAXPATH + 1];
         char title[MAXLINE];
         main_screen *ms = (main_screen *) screen_cache_get(MAIN_SCREEN);
+        int n;
 
         strcpy(filename, file);
         get_file_part(filename);
-        snprintf(title, MAXLINE, " Loading %s ", filename);
+        if ((n = snprintf(title, MAXLINE, " Loading %s ", filename)) >= MAXLINE)
+            string_truncate(title, MAXLINE, MAXLINE - 1);
         clear_statistics();
         vector_clear(ms->packet_ref, NULL);
         if (bpf.size > 0)
@@ -787,7 +789,7 @@ void set_filter(main_screen *ms, int c)
             filter_packets(ms);
         }
         if (ms->base.show_selectionbar && vector_size(ms->packet_ref) > 0)
-            show_selectionbar(ms, ms->base.win, 0, A_NORMAL);
+            show_selectionbar(ms, ms->base.win, ms->base.selectionbar - ms->base.top, A_NORMAL);
         print_header(ms);
         wnoutrefresh(ms->header);
         wnoutrefresh(ms->base.win);
