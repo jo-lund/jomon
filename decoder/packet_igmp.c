@@ -9,7 +9,6 @@
 
 #define IGMP_HDR_LEN 8
 
-
 extern void add_igmp_information(void *w, void *sw, void *data);
 extern void print_igmp(char *buf, int n, void *data);
 

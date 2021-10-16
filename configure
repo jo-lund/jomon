@@ -106,7 +106,7 @@ check_re2c()
 
 check_missing()
 {
-    echo -e "#include <obstack.h>\nint main() { struct obstack s; obstack_init(&s); obstack_free(NULL); }" > "$BUILD.c"
+    echo -e "#include <obstack.h>\nint main() { struct obstack s; }" > "$BUILD.c"
     $CC "$BUILD.c" -o "$BUILD" &> /dev/null
     if [ ! -x "$BUILD" ]; then
         HAVE_OBSTACK=0

@@ -26,7 +26,7 @@ else
 endif
 ifeq ($(MACHINE),Linux)
     sources += $(wildcard linux/*.c)
-else ($(MACHINE),FreeBSD)
+else ifeq ($(MACHINE),FreeBSD)
     sources += $(wildcard bsd/*.c)
 endif
 objects = $(patsubst %.c,$(BUILDDIR)/%.o,$(sources))

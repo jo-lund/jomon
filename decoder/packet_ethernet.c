@@ -6,6 +6,9 @@
 #include "../util.h"
 
 #define MAX_PACKET_SIZE 65535
+#ifdef __linux__
+#define ETHERTYPE_PAE ETH_P_PAE
+#endif
 
 /*
  * Ethernet header
@@ -53,7 +56,7 @@ bool handle_ethernet(unsigned char *buffer, int n, struct packet *p)
     struct eth_info *eth;
     struct protocol_info *pinfo;
 
-    eth_header = (struct ethhdr *) buffer;
+    eth_header = (struct ether_header *) buffer;
     eth = mempool_alloc(sizeof(struct eth_info));
     memcpy(eth->mac_src, eth_header->ether_shost, ETHER_ADDR_LEN);
     memcpy(eth->mac_dst, eth_header->ether_dhost, ETHER_ADDR_LEN);
