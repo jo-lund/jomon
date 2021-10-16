@@ -1,6 +1,6 @@
 #include <ifaddrs.h>
 #include <net/if.h>
-#ifdef MACOS
+#if defined(MACOS) || defined(__FreeBSD__)
 #include <net/if_dl.h>
 #include <net/if_types.h>
 #endif
@@ -107,7 +107,7 @@ void list_interfaces()
             break;
         }
 #endif
-#ifdef MACOS
+#if defined(MACOS) || defined(__FreeBSD__)
         case AF_LINK:
         {
             struct sockaddr_dl *dl_addr;
@@ -136,7 +136,7 @@ void list_interfaces()
             printf("%-*s", width, iflist[i].name);
         }
         switch (iflist[i].type) {
-#ifdef MACOS
+#if defined(MACOS) || defined(__FreeBSD__)
         case IFT_ETHER:
             printf("Ethernet\n");
             break;
