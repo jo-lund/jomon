@@ -381,6 +381,7 @@ void register_tls()
 {
     register_protocol(&tls_prot, PORT, HTTPS);
     register_protocol(&tls_prot, PORT, IMAPS);
+    register_protocol(&tls_prot, PORT, SMTPS);
 }
 
 packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
@@ -394,8 +395,6 @@ packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
     int i = 0;
     struct tls_info *tls;
 
-    pinfo->num_packets++;
-    pinfo->num_bytes += n;
     pptr = &tls;
     while (data_len < n) {
         uint16_t record_len;
@@ -412,8 +411,7 @@ packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
             } else {
                 mempool_free(*pptr);
                 *pptr = NULL;
-                pdata->data = tls;
-                return NO_ERR;
+                goto done;
             }
         }
         record_len = (*pptr)->length;
@@ -448,6 +446,10 @@ packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
         pptr = &(*pptr)->next;
         i++;
     }
+
+done:
+    pinfo->num_packets++;
+    pinfo->num_bytes += n;
     pdata->data = tls;
     pdata->len = n;
     return NO_ERR;
@@ -567,10 +569,11 @@ list_t *parse_tls_extensions(unsigned char *data, uint16_t len)
         .alloc = mempool_alloc,
         .dealloc = NULL
     };
-    list_t *extensions = list_init(&alloc);
+    list_t *extensions;
     int length = len;
 
     prev = mempool_set(POOL_SHORT);
+    extensions = list_init(&alloc);
     length -= 2;
     data += 2;
     while (length > 0) {
