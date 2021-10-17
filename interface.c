@@ -54,7 +54,12 @@ void iface_read_packet(iface_handle_t *handle)
     handle->op->read_packet(handle);
 }
 
-void list_interfaces()
+void iface_set_promiscuous(iface_handle_t *handle, char *dev, bool enable)
+{
+    handle->op->set_promiscuous(handle, dev, enable);
+}
+
+void list_interfaces(void)
 {
     struct ifaddrs *ifp, *ifhead;
     struct interface iflist[MAX_NUM_INTERFACES];
@@ -199,7 +204,7 @@ void list_interfaces()
     freeifaddrs(ifhead);
 }
 
-char *get_default_interface()
+char *get_default_interface(void)
 {
     struct ifconf ifc;
     int sockfd, len, lastlen;
@@ -287,26 +292,4 @@ void get_local_address(char *dev, struct sockaddr *addr)
     }
     memcpy(addr, &ifr.ifr_addr, sizeof(*addr));
     close(sockfd);
-}
-
-void set_promiscuous(char *dev, bool enable)
-{
-    int sockfd;
-    struct ifreq ifr;
-
-    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
-        err_sys("socket error");
-    }
-    strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
-    if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) == -1) {
-        err_sys("ioctl error");
-    }
-    if (enable) {
-        ifr.ifr_flags |= IFF_PROMISC;
-    } else {
-        ifr.ifr_flags &= ~IFF_PROMISC;
-    }
-    if (ioctl(sockfd, SIOCSIFFLAGS, &ifr)) {
-        err_sys("ioctl error");
-    }
 }

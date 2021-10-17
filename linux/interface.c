@@ -18,11 +18,13 @@
 static void linux_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf);
 static void linux_close(iface_handle_t *handle);
 static void linux_read_packet(iface_handle_t *handle);
+static void linux_set_promiscuous(iface_handle_t *handle, char *dev, bool enable);
 
 static struct iface_operations linux_op = {
     .activate = linux_activate,
     .close = linux_close,
-    .read_packet = linux_read_packet
+    .read_packet = linux_read_packet,
+    .set_promiscuous = linux_set_promiscuous
 };
 
 /* get the interface number associated with the interface (name -> if_index mapping) */
@@ -46,7 +48,7 @@ iface_handle_t *iface_handle_create(unsigned char *buf, size_t len, packet_handl
 {
     iface_handle_t *handle = calloc(1, sizeof(iface_handle_t));
 
-    handle->sockfd = -1;
+    handle->fd = -1;
     handle->op = &linux_op;
     handle->buf = buf;
     handle->len = len;
@@ -61,20 +63,20 @@ void linux_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf)
     struct sockaddr_ll ll_addr; /* device independent physical layer address */
 
     /* SOCK_RAW packet sockets include the link level header */
-    if ((handle->sockfd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {
+    if ((handle->fd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {
         err_sys("socket error");
     }
 
     /* use non-blocking socket */
-    if ((flag = fcntl(handle->sockfd, F_GETFL, 0)) == -1) {
+    if ((flag = fcntl(handle->fd, F_GETFL, 0)) == -1) {
         err_sys("fcntl error");
     }
-    if (fcntl(handle->sockfd, F_SETFL, flag | O_NONBLOCK) == -1) {
+    if (fcntl(handle->fd, F_SETFL, flag | O_NONBLOCK) == -1) {
         err_sys("fcntl error");
     }
 
     /* get timestamps */
-    if (setsockopt(handle->sockfd, SOL_SOCKET, SO_TIMESTAMP, &n, sizeof(n)) == -1) {
+    if (setsockopt(handle->fd, SOL_SOCKET, SO_TIMESTAMP, &n, sizeof(n)) == -1) {
         err_sys("setsockopt error");
     }
 
@@ -84,7 +86,7 @@ void linux_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf)
             .filter = (struct sock_filter *) bpf->bytecode
         };
 
-        if (setsockopt(handle->sockfd, SOL_SOCKET, SO_ATTACH_FILTER, &code, sizeof(code)) == -1)
+        if (setsockopt(handle->fd, SOL_SOCKET, SO_ATTACH_FILTER, &code, sizeof(code)) == -1)
             err_sys("setsockopt error");
         bpf->size = 0; /* clear filter */
     }
@@ -94,15 +96,15 @@ void linux_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf)
     ll_addr.sll_ifindex = get_interface_index(device);
 
     /* only receive packets on the specified interface */
-    if (bind(handle->sockfd, (struct sockaddr *) &ll_addr, sizeof(ll_addr)) == -1) {
+    if (bind(handle->fd, (struct sockaddr *) &ll_addr, sizeof(ll_addr)) == -1) {
         err_sys("bind error");
     }
 }
 
 void linux_close(iface_handle_t *handle)
 {
-    close(handle->sockfd);
-    handle->sockfd = -1;
+    close(handle->fd);
+    handle->fd = -1;
 }
 
 void linux_read_packet(iface_handle_t *handle)
@@ -120,8 +122,7 @@ void linux_read_packet(iface_handle_t *handle)
     msg.msg_hdr.msg_iovlen = 1;
     msg.msg_hdr.msg_control = data;
     msg.msg_hdr.msg_controllen = 64;
-
-    if (recvmmsg(handle->sockfd, &msg, 1, 0, NULL) == -1) {
+    if (recvmmsg(handle->fd, &msg, 1, 0, NULL) == -1) {
         err_sys("recvmmsg error");
     }
     for (cmsg = CMSG_FIRSTHDR(&msg.msg_hdr); cmsg != NULL;
@@ -133,6 +134,28 @@ void linux_read_packet(iface_handle_t *handle)
     }
     // TODO: Should log dropped packets
     handle->on_packet(handle->buf, msg.msg_len, val);
+}
+
+void linux_set_promiscuous(iface_handle_t *handle UNUSED, char *dev, bool enable)
+{
+    int sockfd;
+    struct ifreq ifr;
+
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
+        err_sys("socket error");
+    }
+    strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
+    if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) == -1) {
+        err_sys("ioctl error");
+    }
+    if (enable) {
+        ifr.ifr_flags |= IFF_PROMISC;
+    } else {
+        ifr.ifr_flags &= ~IFF_PROMISC;
+    }
+    if (ioctl(sockfd, SIOCSIFFLAGS, &ifr)) {
+        err_sys("ioctl error");
+    }
 }
 
 void get_local_mac(char *dev, unsigned char *mac)

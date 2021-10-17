@@ -3,6 +3,11 @@
 
 #include <stdint.h>
 
+#ifdef __FreeBSD__
+#include <sys/types.h>
+#include <net/bpf.h>
+#undef LIST_FOREACH
+#else
 /* opcodes */
 #define BPF_CLASS(code) ((code) & 0x07)
 #define		BPF_LD		0x00
@@ -66,6 +71,7 @@ struct bpf_insn {
     uint8_t jf;
     uint32_t k;
 };
+#endif
 
 struct bpf_prog {
     struct bpf_insn *bytecode;

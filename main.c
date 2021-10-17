@@ -174,10 +174,6 @@ int main(int argc, char **argv)
         print_bpf();
     if (!ctx.device && !(ctx.device = get_default_interface()))
         err_quit("Cannot find active network device");
-    if (!ctx.opt.nopromiscuous && !ctx.opt.load_file) {
-        set_promiscuous(ctx.device, true);
-        promiscuous_mode = true;
-    }
     ctx.local_addr = malloc(sizeof(struct sockaddr_in));
     get_local_address(ctx.device, (struct sockaddr *) ctx.local_addr);
     get_local_mac(ctx.device, ctx.mac);
@@ -214,6 +210,10 @@ int main(int argc, char **argv)
         ctx.capturing = true;
         handle = iface_handle_create(buf, SNAPLEN, handle_packet);
         iface_activate(handle, ctx.device, &bpf);
+        if (!ctx.opt.nopromiscuous) {
+            iface_set_promiscuous(handle, ctx.device, true);
+            promiscuous_mode = true;
+        }
         if (ctx.opt.use_ncurses) {
             ncurses_init();
             ncurses_initialized = true;
@@ -283,7 +283,7 @@ static void setup_signal(int signo, void (*handler)(int), int flags)
 static void run(void)
 {
     struct pollfd fds[] = {
-        { handle->sockfd, POLLIN, 0 },
+        { handle->fd, POLLIN, 0 },
         { STDIN_FILENO, POLLIN, 0 }
     };
 
@@ -300,7 +300,7 @@ static void run(void)
             setup_signal(SIGWINCH, sig_winch, 0);
         }
         if (fd_changed) {
-            fds[0].fd = handle->sockfd;
+            fds[0].fd = handle->fd;
             fd_changed = false;
         }
         if (poll(fds, 2, -1) == -1) {
@@ -331,15 +331,16 @@ void finish(int status)
 #endif
     }
     if (promiscuous_mode)
-        set_promiscuous(ctx.device, false);
+        iface_set_promiscuous(handle, ctx.device, false);
     free(ctx.device);
     free(ctx.local_addr);
-    if (handle && handle->sockfd > 0)
-        iface_close(handle);
     mempool_destruct();
     geoip_free();
-    if (handle)
+    if (handle) {
+        if (handle->fd > 0)
+            iface_close(handle);
         free(handle);
+    }
     if (ctx.filter || ctx.filter_file) {
         if (bpf.bytecode)
             free(bpf.bytecode);
@@ -357,7 +358,7 @@ void stop_scan(void)
 void start_scan(void)
 {
     if (!ctx.opt.nopromiscuous && !promiscuous_mode) {
-        set_promiscuous(ctx.device, true);
+        iface_set_promiscuous(handle, ctx.device, true);
         promiscuous_mode = true;
     }
     clear_statistics();

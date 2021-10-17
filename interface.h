@@ -12,11 +12,12 @@ struct timeval;
 typedef bool (*packet_handler)(unsigned char *buffer, uint32_t n, struct timeval *t);
 
 typedef struct iface_handle {
-    int sockfd;
+    int fd;
     packet_handler on_packet;
     unsigned char *buf;
     size_t len;
     bool active;
+    bool use_zerocopy;
     struct iface_operations *op;
 } iface_handle_t;
 
@@ -24,6 +25,7 @@ struct iface_operations {
     void (*activate)(iface_handle_t *handle, char *device, struct bpf_prog *bpf);
     void (*close)(iface_handle_t *handle);
     void (*read_packet)(iface_handle_t *handle);
+    void (*set_promiscuous)(iface_handle_t *handle, char *device, bool enable);
 };
 
 struct wireless {
@@ -48,11 +50,14 @@ void iface_close(iface_handle_t *handle);
  */
 void iface_read_packet(iface_handle_t *handle);
 
+/* Enable/disable promiscuous mode */
+void iface_set_promiscuous(iface_handle_t *handle, char *dev, bool enable);
+
 /* Print all interfaces */
-void list_interfaces();
+void list_interfaces(void);
 
 /* Return the first interface which is up and running */
-char *get_default_interface();
+char *get_default_interface(void);
 
 /* get the local IP address */
 void get_local_address(char *dev, struct sockaddr *addr);
@@ -62,8 +67,5 @@ void get_local_mac(char *dev, unsigned char *mac);
 
 /* get wireless statistics */
 bool get_iw_stats(char *dev, struct wireless *stat);
-
-/* Enable/disable promiscuous mode */
-void set_promiscuous(char *dev, bool enable);
 
 #endif
