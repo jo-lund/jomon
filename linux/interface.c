@@ -11,7 +11,7 @@
 #include <sys/ioctl.h>
 #include <net/ethernet.h>
 #include <linux/wireless.h>
-#include "../util.h"
+#include "../monitor.h"
 #include "../interface.h"
 #include "../error.h"
 
