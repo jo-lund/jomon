@@ -71,29 +71,29 @@ void bsd_activate(iface_handle_t *handle, char *dev, struct bpf_prog *bpf UNUSED
 
     /* use zero-copy buffer mode if supported */
     mode = BPF_BUFMODE_ZBUF;
-    if (ioctl(handle->fd, BIOCSETBUFMODE, &mode) >= 0) {
+    if (ioctl(handle->fd, BIOCSETBUFMODE, &mode) != -1) {
         zbuf.bz_bufa = buffers[0];
         zbuf.bz_bufb = buffers[1];
         zbuf.bz_buflen = BUFSIZE;
         if (ioctl(handle->fd, BIOCSETZBUF, &zbuf) == -1)
             err_sys("ioctl error BIOCSETZBUF");
         handle->use_zerocopy = true;
+    } else {
+        DEBUG("Failed setting zero-copy mode");
+        mode = BPF_BUFMODE_BUFFER;
+        if (ioctl(handle->fd, BIOCSETBUFMODE, &mode) == -1)
+            err_sys("ioctl error BIOCSETBUFMODE");
+
+        /* Enable immediate mode. When immediate mode is enabled, reads return
+           immediatly upon packet reception */
+        imm = 1;
+        if (ioctl(handle->fd, BIOCIMMEDIATE, &imm) == -1)
+            err_sys("ioctl error BIOCIMMEDIATE");
+
+        /* set buffer length */
+        if (ioctl(handle->fd, BIOCSBLEN, &handle->len) == -1)
+            err_sys("ioctl error BIOCSBLEN");
     }
-    DEBUG("Failed setting zero-copy mode");
-    mode = BPF_BUFMODE_BUFFER;
-    if (ioctl(handle->fd, BIOCSETBUFMODE, &mode) == -1)
-        err_sys("ioctl error BIOCSETBUFMODE");
-
-    /* Enable immediate mode. When immediate mode is enabled, reads return
-       immediatly upon packet reception */
-    imm = 1;
-    if (ioctl(handle->fd, BIOCIMMEDIATE, &imm) == -1)
-        err_sys("ioctl error BIOCIMMEDIATE");
-
-    /* set buffer length */
-    if (ioctl(handle->fd, BIOCSBLEN, &handle->len) == -1)
-        err_sys("ioctl error BIOCSBLEN");
-
     /* set the hardware interface associated with the file */
     strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
     ifr.ifr_addr.sa_family = AF_INET;
