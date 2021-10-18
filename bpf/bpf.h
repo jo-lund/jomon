@@ -6,7 +6,6 @@
 #ifdef __FreeBSD__
 #include <sys/types.h>
 #include <net/bpf.h>
-#undef LIST_FOREACH
 #else
 /* opcodes */
 #define BPF_CLASS(code) ((code) & 0x07)

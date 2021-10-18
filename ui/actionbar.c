@@ -63,7 +63,7 @@ void actionbar_refresh(actionbar_t *bar, screen *s)
     wbkgd(bar->base.win, get_theme_colour(BACKGROUND));
     if ((elems = hashmap_get(screens, s)) == NULL)
         elems = defaults;
-    LIST_FOREACH(elems, n) {
+    DLIST_FOREACH(elems, n) {
         actionbar_elem *elem = list_data(n);
 
         if (elem->disabled)
@@ -101,7 +101,7 @@ void actionbar_update(screen *s, char *key, char *text, bool disabled)
     if (!hashmap_contains(screens, s))
         return;
     elems = hashmap_get(screens, s);
-    LIST_FOREACH(elems, n) {
+    DLIST_FOREACH(elems, n) {
         actionbar_elem *elem = list_data(n);
 
         if (strcmp(key, elem->key) == 0) {

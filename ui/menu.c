@@ -373,7 +373,7 @@ static void iterate_submenu(option_menu *par, list_t *items, int y)
     option_menu *om;
     const node_t *n;
 
-    LIST_FOREACH(items, n) {
+    DLIST_FOREACH(items, n) {
         om = list_data(n);
         mvwin(om->frame, y - par->num_opts - om->num_opts - 3 + om->sub_idx,
               getmaxx(par->frame) + par->x);
@@ -390,7 +390,7 @@ void main_menu_resize(main_menu *menu)
     int rows;
 
     mvwin(menu->base.win, my - 1, 0);
-    LIST_FOREACH(menu->opt, n) {
+    DLIST_FOREACH(menu->opt, n) {
         om = list_data(n);
         rows = om->num_opts + 2;
         mvwin(om->frame, my - (rows + 1), om->x);

@@ -580,7 +580,7 @@ void print_dhcp(char *buf, int n, void *data)
     const node_t *node;
 
     PRINT_PROTOCOL(buf, n, "DHCP");
-    LIST_FOREACH(dhcp->options, node) {
+    DLIST_FOREACH(dhcp->options, node) {
         struct dhcp_options *opt = (struct dhcp_options *) list_data(node);
 
         if (opt->tag == DHCP_MESSAGE_TYPE) {
@@ -2069,7 +2069,7 @@ void add_smtp_information(void *w, void *sw, void *data)
                 LV_ADD_TEXT_ELEMENT(lw, header, "Reply code %d: %s", smtp->rsp.code, code);
             else
                 LV_ADD_TEXT_ELEMENT(lw, header, "Reply code %d", smtp->rsp.code);
-            LIST_FOREACH(smtp->rsp.lines, n)
+            DLIST_FOREACH(smtp->rsp.lines, n)
                 LV_ADD_TEXT_ELEMENT(lw, header, "Reply parameters: %s", (char *) list_data(n));
         } else {
             if (smtp->cmd.command) {
@@ -2133,7 +2133,7 @@ static void add_dhcp_options(list_view *lw, list_view_header *header, struct dhc
     struct tm_t t;
     uint32_t addr;
 
-    LIST_FOREACH(dhcp->options, node) {
+    DLIST_FOREACH(dhcp->options, node) {
         list_view_header *opthdr;
         struct dhcp_options *opt = (struct dhcp_options *) list_data(node);
 
