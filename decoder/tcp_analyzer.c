@@ -19,9 +19,8 @@ void tcp_analyzer_check_stream(const struct packet *p)
         return;
 
     struct packet_data *pdata;
-    static int i = 0;
 
-    if (ethertype(p) == ETHERTYPE_IP &&
+    if (ethertype(p) == ETH_P_IP &&
         (pdata = get_packet_data(p, get_protocol_id(IP_PROTOCOL, IPPROTO_TCP)))) {
         struct tcp *tcp = pdata->data;
         struct tcp_connection_v4 *conn;
@@ -33,6 +32,8 @@ void tcp_analyzer_check_stream(const struct packet *p)
         endp.dport = tcp_member(p, dport);
         conn = hashmap_get(connection_table, &endp);
         if (conn) {
+            bool is_new = list_size(conn->packets) == 0;
+
             list_push_back(conn->packets, (struct packet *) p);
             if (tcp->rst) {
                 conn->state = RESET;
@@ -65,26 +66,42 @@ void tcp_analyzer_check_stream(const struct packet *p)
             default:
                 break;
             }
-            publish2(conn_changed_publisher, conn, NULL);
+            publish2(conn_changed_publisher, conn, is_new ? (void *) 0x1 : NULL);
         } else if (!tcp->fin) {
-            struct tcp_connection_v4 *new_conn;
-            struct tcp_endpoint_v4 *new_endp;
+            struct tcp_connection_v4 *new_conn = tcp_analyzer_create_connection(&endp);
 
-            new_endp = mempool_copy(&endp, sizeof(struct tcp_endpoint_v4));
-            new_conn = mempool_alloc(sizeof(struct tcp_connection_v4));
-            new_conn->endp = new_endp;
-            new_conn->packets = list_init(&d_alloc);
-            new_conn->num = i++;
-            list_push_back(new_conn->packets, (void *) p);
             if (tcp->syn) {
                 new_conn->state = tcp->ack ? SYN_RCVD : SYN_SENT;
             } else { /* already established session */
                 new_conn->state = ESTABLISHED;
             }
-            hashmap_insert(connection_table, new_endp, new_conn);
+            list_push_back(new_conn->packets, (void *) p);
             publish2(conn_changed_publisher, new_conn, (void *) 0x1);
         }
     }
+}
+
+struct tcp_connection_v4 *tcp_analyzer_create_connection(struct tcp_endpoint_v4 *endp)
+{
+    struct tcp_connection_v4 *new_conn;
+    struct tcp_endpoint_v4 *new_endp;
+    static int i = 0;
+
+    new_endp = mempool_copy(endp, sizeof(struct tcp_endpoint_v4));
+    new_conn = mempool_alloc(sizeof(struct tcp_connection_v4));
+    new_conn->endp = new_endp;
+    new_conn->packets = list_init(&d_alloc);
+    new_conn->num = i++;
+    new_conn->data = NULL;
+    hashmap_insert(connection_table, new_endp, new_conn);
+    return new_conn;
+}
+
+struct tcp_connection_v4 *tcp_analyzer_get_connection(struct tcp_endpoint_v4 *endp)
+{
+    if (connection_table)
+        return hashmap_get(connection_table, endp);
+    return NULL;
 }
 
 hashmap_t *tcp_analyzer_get_sessions()

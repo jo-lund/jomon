@@ -28,6 +28,7 @@ struct tcp_connection_v4 {
     enum connection_state state;
     list_t *packets;
     uint32_t num;
+    void *data; /* Protocol related meta-data. Can be NULL */
 };
 
 /*
@@ -63,13 +64,34 @@ static inline int compare_tcp_v4(const void *t1, const void *t2)
         (endp2->src + endp2->dst + endp2->sport + endp2->dport);
 }
 
+/* Initialize the TCP analyzer */
 void tcp_analyzer_init();
+
+/* Analyze the packet and if TCP store the connection in a table */
 void tcp_analyzer_check_stream(const struct packet *p);
+
+/* Return the connection table */
 hashmap_t *tcp_analyzer_get_sessions();
+
+/* Return the connection based on the given endpoint, or NULL if not found */
+struct tcp_connection_v4 *tcp_analyzer_get_connection(struct tcp_endpoint_v4 *endp);
+
+/* Create a new connection based on the given endpoint */
+struct tcp_connection_v4 *tcp_analyzer_create_connection(struct tcp_endpoint_v4 *endp);
+
+/* Subscribe to connection changes, e.g. more data or state changes */
 void tcp_analyzer_subscribe(analyzer_conn_fn fn);
+
+/* Unsubscribe to TCP connection changes */
 void tcp_analyzer_unsubscribe(analyzer_conn_fn fn);
+
+/* Return the connection state */
 char *tcp_analyzer_get_connection_state(enum connection_state);
+
+/* Clear the connection table */
 void tcp_analyzer_clear();
+
+/* Free all structures related to the TCP connections */
 void tcp_analyzer_free();
 
 #endif

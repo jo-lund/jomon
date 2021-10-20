@@ -64,7 +64,7 @@ bool handle_ethernet(unsigned char *buffer, int n, struct packet *p)
     p->root = mempool_alloc(sizeof(struct packet_data));
     p->root->data = eth;
     p->root->len = ETHER_HDR_LEN;
-
+    p->root->prev = NULL;
     if (eth->ethertype <= ETH_802_3_MAX) { /* Ethernet 802.3 frame */
         p->root->id = get_protocol_id(ETH802_3, ETH_802_LLC);
         pinfo = get_protocol(p->root->id);
@@ -75,6 +75,7 @@ bool handle_ethernet(unsigned char *buffer, int n, struct packet *p)
     if (pinfo) {
         p->root->next = mempool_alloc(sizeof(struct packet_data));
         memset(p->root->next, 0, sizeof(struct packet_data));
+        p->root->next->prev = p->root;
         p->perr = pinfo->decode(pinfo, buffer + ETHER_HDR_LEN, n - ETHER_HDR_LEN,
                                 p->root->next);
     } else {

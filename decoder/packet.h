@@ -105,12 +105,13 @@ struct packet_data {
     uint8_t transport;
     uint16_t len;
     void *data;
+    struct packet_data *prev;
     struct packet_data *next;
 };
 
 /* TODO: move this */
-void decoder_init();
-void decoder_exit();
+void decoder_init(void);
+void decoder_exit(void);
 void register_protocol(struct protocol_info *pinfo, uint16_t layer, uint16_t id);
 struct protocol_info *get_protocol(uint32_t id);
 void traverse_protocols(protocol_handler fn, void *arg);
@@ -135,7 +136,7 @@ unsigned char *get_adu_payload(struct packet *p);
 unsigned int get_adu_payload_len(struct packet *p);
 
 /* Clear packet statistics */
-void clear_statistics();
+void clear_statistics(void);
 
 bool is_tcp(struct packet *p);
 

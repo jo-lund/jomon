@@ -4,6 +4,9 @@
 #include "packet_smtp.h"
 #include "packet_imap.h"
 #include "../monitor.h"
+#include "tcp_analyzer.h"
+#include "packet_ip.h"
+#include "packet_tls.h"
 
 /*
  * The maximum total length of a text line including the <CRLF> is 1000 octets
@@ -12,14 +15,6 @@
  */
 #define MAXLENGTH 2048
 #define REPLY_CODE_DIGITS 3
-
-enum smtp_state {
-    NORMAL,
-    WAIT_DATA,
-    DATA
-};
-
-static enum smtp_state state = NORMAL;
 
 extern void print_smtp(char *buf, int n, void *data);
 extern void add_smtp_information(void *widget, void *subwidget, void *data);
@@ -78,6 +73,20 @@ static struct uint_string reply_codes[] = {
   { 552, "Requested mail action aborted: exceeded storage allocation" },
   { 553, "Requested action not taken: mailbox name not allowed" },
   { 554, "Transaction failed" },
+};
+
+enum smtp_state {
+    NORMAL,
+    WAIT_DATA,
+    DATA,
+    WAIT_TLS,
+    TLS
+};
+
+struct smtp_conn_state {
+    enum smtp_state state;
+    int chunk_size; /* BDAT chunk size */
+    bool last_chunk;
 };
 
 static struct protocol_info smtp_prot = {
@@ -143,26 +152,70 @@ static bool parse_line(struct smtp_info *smtp, char *buf, int n, int *i)
     return false;
 }
 
+static struct packet_data *get_root(struct packet_data *pdata)
+{
+    struct packet_data *p = pdata;
+
+    while (p->prev)
+        p = p->prev;
+    return p;
+}
+
 static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf, int n,
                                 struct packet_data *pdata)
 {
     struct smtp_info *smtp;
     unsigned char *p;
     int i = 0;
+    struct smtp_conn_state *smtp_state;
+    struct packet_data *root;
+    struct tcp *tcp;
+    struct tcp_endpoint_v4 endp;
+    struct ipv4_info *ipv4;
+    struct tcp_connection_v4 *conn;
 
+     /* only support for TCP and IPv4 */
+    if (pdata->transport != TCP)
+        return DECODE_ERR;
+    root = get_root(pdata);
+    if (!root || (root && root->id != get_protocol_id(ETHERNET_II, ETHERTYPE_IP)))
+        return DECODE_ERR;
+    if (!root->next && !root->next->next)
+        return DECODE_ERR;
+
+    ipv4 = root->next->data;
+    tcp = root->next->next->data;
+    endp.sport = tcp->sport;
+    endp.dport = tcp->dport;
+    endp.src = ipv4->src;
+    endp.dst = ipv4->dst;
+    if ((conn = tcp_analyzer_get_connection(&endp)) == NULL) {
+        conn = tcp_analyzer_create_connection(&endp);
+        conn->state = ESTABLISHED;
+    }
+    if (!conn->data) {
+        smtp_state = mempool_alloc(sizeof(*smtp_state));
+        smtp_state->state = NORMAL;
+        conn->data = smtp_state;
+    } else {
+        smtp_state = conn->data;
+    }
+    if (smtp_state->state == TLS) {
+        pdata->prev->id = get_protocol_id(PORT, SMTPS);
+        pinfo = get_protocol(pdata->prev->id);
+        return pinfo->decode(pinfo, buf, n, pdata);
+    }
     p = buf;
     smtp = mempool_alloc(sizeof(struct smtp_info));
     smtp->data = NULL;
     pdata->data = smtp;
     pdata->len = n;
-    pinfo->num_packets++;
-    pinfo->num_bytes += n;
-    if (state == DATA) {
+    if (smtp_state->state == DATA) {
         smtp->data = mempool_copy(buf, n);
         smtp->len = n;
         if (strncmp(smtp->data, "\r\n.\r\n", 5) == 0)
-            state = NORMAL;
-        return NO_ERR;
+            smtp_state->state = NORMAL;
+        goto ok;
     }
     if (isdigit(*p)) {
         if (n < REPLY_CODE_DIGITS)
@@ -176,8 +229,18 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
         }
         if (isdigit(*p))
             goto error;
-        if (state == WAIT_DATA && smtp->rsp.code == 354)
-            state = DATA;
+        switch (smtp_state->state) {
+        case WAIT_DATA:
+            if (smtp->rsp.code == 354)
+                smtp_state->state = DATA;
+            break;
+        case WAIT_TLS:
+            if (smtp->rsp.code == 220)
+                smtp_state->state = TLS;
+            break;
+        default:
+            break;
+        }
     } else {
         char line[MAXLENGTH];
 
@@ -187,9 +250,12 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
                 goto error;
             line[i++] = *p++;
         }
+        /* TODO: Check to see if valid command */
         smtp->cmd.command = mempool_copy0(line, i);
         if (strncmp(smtp->cmd.command, "DATA", 4) == 0)
-            state = WAIT_DATA;
+            smtp_state->state = WAIT_DATA;
+        else if (strncmp(smtp->cmd.command, "STARTTLS", 8) == 0)
+            smtp_state->state = WAIT_TLS;
     }
     if (i < n && (*p == ' ' || *p == '-')) {
         int j = 0;
@@ -207,6 +273,9 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
     } else {
         goto error;
     }
+ok:
+    pinfo->num_packets++;
+    pinfo->num_bytes += n;
     return NO_ERR;
 
 error:

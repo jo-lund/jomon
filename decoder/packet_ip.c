@@ -144,6 +144,7 @@ packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int
     if (layer3) {
         pdata->next = mempool_alloc(sizeof(struct packet_data));
         memset(pdata->next, 0, sizeof(struct packet_data));
+        pdata->next->prev = pdata;
         return layer3->decode(layer3, buffer + header_len, n - header_len, pdata->next);
     }
      return NO_ERR;
@@ -219,6 +220,7 @@ packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int
     if (layer3) {
         pdata->next = mempool_alloc(sizeof(struct packet_data));
         memset(pdata->next, 0, sizeof(struct packet_data));
+        pdata->next->prev = pdata;
         return layer3->decode(layer3, buffer + header_len, n - header_len, pdata->next);
     }
     return NO_ERR;

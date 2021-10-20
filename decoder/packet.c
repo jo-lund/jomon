@@ -28,7 +28,7 @@ uint64_t total_bytes;
 static hashmap_t *info;
 static hashmap_t *protocols;
 
-void decoder_init()
+void decoder_init(void)
 {
     info = hashmap_init(64, hashdjb_string, compare_string);
     protocols = hashmap_init(64, hashdjb_uint16, compare_uint);
@@ -37,7 +37,7 @@ void decoder_init()
     }
 }
 
-void decoder_exit()
+void decoder_exit(void)
 {
     hashmap_free(protocols);
     hashmap_free(info);
@@ -101,6 +101,7 @@ packet_error call_data_decoder(struct packet_data *pdata, uint8_t transport,
         memset(pdata->next, 0, sizeof(struct packet_data));
         pdata->next->transport = transport;
         pdata->next->id = pdata->id;
+        pdata->next->prev = pdata;
         if ((err = pinfo->decode(pinfo, buf, n, pdata->next)) != NO_ERR) {
             mempool_free(pdata->next);
             pdata->next = NULL;
@@ -147,7 +148,7 @@ static void clear_packet(struct protocol_info *pinfo, void *user UNUSED)
     pinfo->num_packets = 0;
 }
 
-void clear_statistics()
+void clear_statistics(void)
 {
     total_bytes = 0;
     total_packets = 0;
