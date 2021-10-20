@@ -60,17 +60,17 @@ static void setup_signal(int signo, void (*handler)(int), int flags);
 static void run(void);
 static void print_bpf(void) NORETURN;
 
-static void sig_alarm(int signo UNUSED)
+static void sig_alarm()
 {
     alarm_flag = 1;
 }
 
-static void sig_int(int signo UNUSED)
+static void sig_int()
 {
     finish(1);
 }
 
-static void sig_winch(int signo UNUSED)
+static void sig_winch()
 {
     winch_flag = 1;
 }
@@ -153,10 +153,8 @@ int main(int argc, char **argv)
         tcp_analyzer_init();
         dns_cache_init();
         host_analyzer_init();
-#ifdef __linux__
         if (!ctx.opt.load_file)
             process_init();
-#endif
         setup_signal(SIGWINCH, sig_winch, 0);
     }
     if (ctx.opt.use_ncurses || ctx.opt.load_file)
@@ -325,10 +323,8 @@ void finish(int status)
         host_analyzer_free();
         dns_cache_free();
         debug_free();
-#ifdef __linux__
         if (!ctx.opt.load_file)
             process_free();
-#endif
     }
     if (promiscuous_mode)
         iface_set_promiscuous(handle, ctx.device, false);
