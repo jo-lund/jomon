@@ -20,6 +20,9 @@ $ make
 $ make install
 ```
 
+#### FreeBSD
+Need to have bash and gmake to build on FreeBSD
+
 ### Code style
 This project uses K&R style
 
