@@ -149,8 +149,8 @@ int main(int argc, char **argv)
     mempool_init();
     decoder_init();
     debug_init();
+    tcp_analyzer_init();
     if (ctx.opt.use_ncurses) {
-        tcp_analyzer_init();
         dns_cache_init();
         host_analyzer_init();
         if (!ctx.opt.load_file)

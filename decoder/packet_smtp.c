@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <ctype.h>
+#include <errno.h>
 #include "packet.h"
 #include "packet_smtp.h"
 #include "packet_imap.h"
@@ -80,7 +81,8 @@ enum smtp_state {
     WAIT_DATA,
     DATA,
     WAIT_TLS,
-    TLS
+    TLS,
+    BDAT
 };
 
 struct smtp_conn_state {
@@ -210,11 +212,16 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
     smtp->data = NULL;
     pdata->data = smtp;
     pdata->len = n;
-    if (smtp_state->state == DATA) {
+    if (smtp_state->state == DATA || smtp_state->state == BDAT) {
         smtp->data = mempool_copy(buf, n);
         smtp->len = n;
-        if (strncmp(smtp->data, "\r\n.\r\n", 5) == 0)
+        if (smtp_state->state == DATA && strncmp(smtp->data, "\r\n.\r\n", 5) == 0) {
             smtp_state->state = NORMAL;
+        } else if (smtp_state->state == BDAT) {
+            smtp_state->chunk_size -= n;
+            if (smtp_state->chunk_size <= 0)
+                smtp_state->state = NORMAL;
+        }
         goto ok;
     }
     if (isdigit(*p)) {
@@ -252,10 +259,12 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
         }
         /* TODO: Check to see if valid command */
         smtp->cmd.command = mempool_copy0(line, i);
-        if (strncmp(smtp->cmd.command, "DATA", 4) == 0)
+        if (strcmp(smtp->cmd.command, "DATA") == 0)
             smtp_state->state = WAIT_DATA;
-        else if (strncmp(smtp->cmd.command, "STARTTLS", 8) == 0)
+        else if (strcmp(smtp->cmd.command, "STARTTLS") == 0)
             smtp_state->state = WAIT_TLS;
+        else if (strcmp(smtp->cmd.command, "BDAT") == 0)
+            smtp_state->state = BDAT;
     }
     if (i < n && (*p == ' ' || *p == '-')) {
         int j = 0;
@@ -266,6 +275,20 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
             if (j == 0)
                 smtp->start_line = mempool_copy0(buf, i - 2);
             j++;
+        }
+        if (smtp_state->state == BDAT) {
+            char *s;
+
+            errno = 0;
+            smtp_state->chunk_size = strtol(smtp->cmd.params, &s, 10);
+            if (errno != 0)
+                goto error;
+            while (*s == ' ')
+                s++;
+            if (strcmp(s, "LAST") == 0)
+                smtp_state->last_chunk = true;
+            if (smtp_state->last_chunk && smtp_state->chunk_size == 0)
+                smtp_state->state = NORMAL;
         }
     } else if (!smtp->response) {
         smtp->start_line = smtp->cmd.command;
