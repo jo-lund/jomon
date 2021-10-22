@@ -1,20 +1,23 @@
 #ifndef PACKET_SMTP_H
 #define PACKET_SMTP_H
 
+struct smtp_cmd {
+    char *command;
+    char *params;
+};
+
+struct smtp_rsp {
+    int code;
+    list_t *lines;
+};
+
 struct smtp_info {
-    char *start_line;
     bool response;
     char *data;
     uint32_t len;
     union {
-        struct {
-            char *command;
-            char *params;
-        } cmd;
-        struct {
-            int code;
-            list_t *lines;
-        } rsp;
+        list_t *cmds;
+        list_t *rsps;
     };
 };
 

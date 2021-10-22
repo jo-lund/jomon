@@ -536,10 +536,30 @@ void print_smtp(char *buf, int n, void *data)
     if (smtp->data) {
         PRINT_INFO(buf, n, "C: Mail data");
     } else {
-        if (smtp->response)
-            PRINT_INFO(buf, n, "S: %s", smtp->start_line);
-        else
-            PRINT_INFO(buf, n, "C: %s", smtp->start_line);
+        if (smtp->response) {
+            const node_t *node;
+            struct smtp_rsp *rsp;
+
+            PRINT_INFO(buf, n, "S: ");
+            DLIST_FOREACH(smtp->rsps, node) {
+                const node_t *line;
+
+                rsp = list_data(node);
+                PRINT_INFO(buf, n, "%d%c", rsp->code, list_size(rsp->lines) > 1 ? '-' : ' ');
+                DLIST_FOREACH(rsp->lines, line) {
+                    PRINT_INFO(buf, n, "%s  ", list_data(line));
+                }
+            }
+        } else {
+            const node_t *node;
+            struct smtp_cmd *cmd;
+
+            PRINT_INFO(buf, n, "C: ");
+            DLIST_FOREACH(smtp->cmds, node) {
+                cmd = list_data(node);
+                PRINT_INFO(buf, n, "%s %s  ", cmd->command, cmd->params);
+            }
+        }
     }
 }
 
@@ -2062,21 +2082,32 @@ void add_smtp_information(void *w, void *sw, void *data)
         free(buf);
     } else {
         if (smtp->response) {
-            char *code = get_smtp_code(smtp->rsp.code);
             const node_t *n;
 
-            if (code)
-                LV_ADD_TEXT_ELEMENT(lw, header, "Reply code %d: %s", smtp->rsp.code, code);
-            else
-                LV_ADD_TEXT_ELEMENT(lw, header, "Reply code %d", smtp->rsp.code);
-            DLIST_FOREACH(smtp->rsp.lines, n)
-                LV_ADD_TEXT_ELEMENT(lw, header, "Reply parameters: %s", (char *) list_data(n));
+            DLIST_FOREACH(smtp->rsps, n) {
+                const node_t *line;
+                struct smtp_rsp *rsp;
+                char *code;
+
+                rsp = list_data(n);
+                code = get_smtp_code(rsp->code);
+                if (code)
+                    LV_ADD_TEXT_ELEMENT(lw, header, "Reply code %d: %s",
+                                        rsp->code, code);
+                else
+                    LV_ADD_TEXT_ELEMENT(lw, header, "Reply code %d", rsp->code);
+                DLIST_FOREACH(rsp->lines, line)
+                    LV_ADD_TEXT_ELEMENT(lw, header, "Reply parameters: %s",
+                                        list_data(line));
+            }
         } else {
-            if (smtp->cmd.command) {
-                LV_ADD_TEXT_ELEMENT(lw, header, "Command: %s", smtp->cmd.command);
-                LV_ADD_TEXT_ELEMENT(lw, header, "Parameters: %s", smtp->cmd.params);
-            } else {
-                LV_ADD_TEXT_ELEMENT(lw, header, "Parameters: %s", smtp->start_line);
+            const node_t *n;
+            struct smtp_cmd *cmd;
+
+            DLIST_FOREACH(smtp->cmds, n) {
+                cmd = list_data(n);
+                LV_ADD_TEXT_ELEMENT(lw, header, "Command: %s", cmd->command);
+                LV_ADD_TEXT_ELEMENT(lw, header, "Parameters: %s", cmd->params);
             }
         }
     }

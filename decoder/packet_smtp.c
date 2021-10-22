@@ -91,6 +91,11 @@ struct smtp_conn_state {
     bool last_chunk;
 };
 
+struct smtp_data {
+    struct smtp_cmd *cmd;
+    struct smtp_rsp *rsp;
+};
+
 static struct protocol_info smtp_prot = {
     .short_name = "SMTP",
     .long_name = "Simple Mail Transfer Protocol",
@@ -114,22 +119,12 @@ static int cmp_code(const void *c1, const void *c2)
     return code1->val - code2->val;
 }
 
-static bool parse_line(struct smtp_info *smtp, char *buf, int n, int *i)
+static bool parse_line(struct smtp_info *smtp, struct smtp_data *data, char *buf, int n, int *i)
 {
     int c;
     char *p;
 
     p = buf + *i;
-    if (smtp->response) {
-        while (isdigit(*p)) {
-            p++;
-            ++*i;
-        }
-        if (*p == '-') {
-            p++;
-            ++*i;
-        }
-    }
     while (*p == ' ') {
         p++;
         ++*i;
@@ -140,9 +135,9 @@ static bool parse_line(struct smtp_info *smtp, char *buf, int n, int *i)
             if (*++p == '\n') {
                 *i += 2;
                 if (smtp->response)
-                    list_push_back(smtp->rsp.lines, mempool_copy0(buf + c, *i - c - 2));
+                    list_push_back(data->rsp->lines, mempool_copy0(buf + c, *i - c - 2));
                 else
-                    smtp->cmd.params = mempool_copy0(buf + c, *i - c - 2);
+                    data->cmd->params = mempool_copy0(buf + c, *i - c - 2);
                 return true;
             } else {
                 return false;
@@ -224,77 +219,112 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
         }
         goto ok;
     }
-    if (isdigit(*p)) {
+    if (isdigit(*p)) { /* response */
         if (n < REPLY_CODE_DIGITS)
             goto error;
+        struct smtp_data data;
+        struct smtp_rsp *rsp;
+
         smtp->response = true;
-        smtp->rsp.lines = list_init(&d_alloc);
-        smtp->rsp.code = 0;
-        while (isdigit(*p) && i < REPLY_CODE_DIGITS) {
-            smtp->rsp.code = 10 * smtp->rsp.code + (*p++ - '0');
-            i++;
+        smtp->rsps = list_init(&d_alloc);
+        while (i < n) {
+            int j = 0;
+            bool last_line = false;
+
+            rsp = mempool_alloc(sizeof(*rsp));
+            rsp->lines = list_init(&d_alloc);
+            rsp->code = 0;
+            while (isdigit(*p) && j++ < REPLY_CODE_DIGITS) {
+                rsp->code = 10 * rsp->code + (*p++ - '0');
+                i++;
+            }
+            if (isdigit(*p))
+                goto error;
+            switch (smtp_state->state) {
+            case WAIT_DATA:
+                if (rsp->code == 354)
+                    smtp_state->state = DATA;
+                break;
+            case WAIT_TLS:
+                if (rsp->code == 220)
+                    smtp_state->state = TLS;
+                break;
+            default:
+                break;
+            }
+            while (i < n && !last_line) {
+                while (isdigit(*p)) {
+                    p++;
+                    i++;
+                }
+                if (*p == '-') {
+                    p++;
+                    i++;
+                } else if (*p == ' ') {
+                    last_line = true;
+                    p++;
+                    i++;
+                }
+                data.rsp = rsp;
+                if (!parse_line(smtp, &data, (char *) buf, n, &i))
+                    goto error;
+                p = buf + i;
+            }
+            list_push_back(smtp->rsps, rsp);
         }
-        if (isdigit(*p))
-            goto error;
-        switch (smtp_state->state) {
-        case WAIT_DATA:
-            if (smtp->rsp.code == 354)
-                smtp_state->state = DATA;
-            break;
-        case WAIT_TLS:
-            if (smtp->rsp.code == 220)
-                smtp_state->state = TLS;
-            break;
-        default:
-            break;
-        }
-    } else {
-        char line[MAXLENGTH];
+    } else { /* command */
+        struct smtp_data data;
+        struct smtp_cmd *cmd;
 
         smtp->response = false;
-        while (isprint(*p) && *p != ' ' && i < n) {
-            if (i >= MAXLENGTH)
-                goto error;
-            line[i++] = *p++;
-        }
-        /* TODO: Check to see if valid command */
-        smtp->cmd.command = mempool_copy0(line, i);
-        if (strcmp(smtp->cmd.command, "DATA") == 0)
-            smtp_state->state = WAIT_DATA;
-        else if (strcmp(smtp->cmd.command, "STARTTLS") == 0)
-            smtp_state->state = WAIT_TLS;
-        else if (strcmp(smtp->cmd.command, "BDAT") == 0)
-            smtp_state->state = BDAT;
-    }
-    if (i < n && (*p == ' ' || *p == '-')) {
-        int j = 0;
-
+        smtp->cmds = list_init(&d_alloc);
         while (i < n) {
-            if (!parse_line(smtp, (char *) buf, n, &i))
-                goto error;
-            if (j == 0)
-                smtp->start_line = mempool_copy0(buf, i - 2);
-            j++;
-        }
-        if (smtp_state->state == BDAT) {
-            char *s;
+            if (smtp_state->state == BDAT) {
+                int len = n - i;
 
-            errno = 0;
-            smtp_state->chunk_size = strtol(smtp->cmd.params, &s, 10);
-            if (errno != 0)
+                smtp->data = mempool_copy(buf, len);
+                smtp->len = len;
+                smtp_state->chunk_size -= len;
+                if (smtp_state->chunk_size <= 0)
+                    smtp_state->state = NORMAL;
+                goto ok;
+            }
+            int j = 0;
+            unsigned char *s = p;
+
+            while (isprint(*p) && *p != ' ' && i < n) {
+                if (i++ >= MAXLENGTH)
+                    goto error;
+                p++;
+                j++;
+            }
+            cmd = mempool_alloc(sizeof(*cmd));
+            cmd->command = mempool_copy0(s, j);
+            data.cmd = cmd;
+            if (!parse_line(smtp, &data, (char *) buf, n, &i))
                 goto error;
-            while (*s == ' ')
-                s++;
-            if (strcmp(s, "LAST") == 0)
-                smtp_state->last_chunk = true;
-            if (smtp_state->last_chunk && smtp_state->chunk_size == 0)
-                smtp_state->state = NORMAL;
+            p = buf + i;
+            list_push_back(smtp->cmds, cmd);
+            if (strcmp(cmd->command, "DATA") == 0)
+                smtp_state->state = WAIT_DATA;
+            else if (strcmp(cmd->command, "STARTTLS") == 0)
+                smtp_state->state = WAIT_TLS;
+            else if (strcmp(cmd->command, "BDAT") == 0) {
+                char *s;
+
+                smtp_state->state = BDAT;
+                errno = 0;
+                smtp_state->chunk_size = strtol(cmd->params, &s, 10);
+                if (errno != 0)
+                    goto error;
+                while (*s == ' ')
+                    s++;
+                if (strcmp(s, "LAST") == 0)
+                    smtp_state->last_chunk = true;
+                if (smtp_state->last_chunk && smtp_state->chunk_size == 0)
+                    smtp_state->state = NORMAL;
+            }
         }
-    } else if (!smtp->response) {
-        smtp->start_line = smtp->cmd.command;
-        smtp->cmd.command = NULL;
-    } else {
-        goto error;
     }
 ok:
     pinfo->num_packets++;
