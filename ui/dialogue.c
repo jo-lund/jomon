@@ -211,7 +211,7 @@ file_dialogue *file_dialogue_create(char *title, enum file_selection_type type U
     op = SCREEN_OPS(.screen_free = file_dialogue_free,
                      .screen_get_input = file_dialogue_get_input);
     fd->dialogue_base.screen_base.op = &op;
-    dialogue_init((dialogue *) fd, title, my / 3, mx / 4 + 10);
+    dialogue_init((dialogue *) fd, title, my / 3 + 5, mx / 4 + 10);
     getmaxyx(((screen *) fd)->win, my, mx);
     fd->list_height = my - 10;
     fd->list.win = derwin(((screen *) fd)->win, fd->list_height, mx - 15, 3, 7);
