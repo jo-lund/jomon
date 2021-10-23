@@ -33,6 +33,8 @@
 /* Get the y screen coordinate. The argument is the main_screen coordinate */
 #define GET_SCRY(y) ((y) + HEADER_HEIGHT)
 
+#define FILTER_IDX 8
+
 enum input_mode {
     INPUT_NONE,
     INPUT_GOTO,
@@ -89,6 +91,15 @@ static screen_operations msop = {
     .screen_refresh = main_screen_refresh,
     .screen_get_input = main_screen_get_input
 };
+
+static inline void move_cursor(WINDOW *win)
+{
+    int y, x;
+
+    getyx(win, y, x);
+    wmove(win, y, x);
+    wrefresh(win);
+}
 
 static void add_actionbar_elems(screen *s)
 {
@@ -163,6 +174,8 @@ void main_screen_update(main_screen *ms, char *buf)
             printnlw(ms->base.win, buf, strlen(buf), ms->outy, 0, ms->scrollx);
             ms->outy++;
             wrefresh(ms->base.win);
+            if (input_mode == INPUT_FILTER || input_mode == INPUT_GOTO)
+                move_cursor(status);
         }
     }
 }
@@ -651,10 +664,6 @@ void handle_input_mode(main_screen *ms, const char *str)
 {
     switch (input_mode) {
     case INPUT_FILTER:
-        werase(status);
-        mvwprintw(status, 0, 0, str);
-        wrefresh(status);
-        break;
     case INPUT_GOTO:
         werase(status);
         mvwprintw(status, 0, 0, str);
@@ -764,19 +773,23 @@ void set_filter(main_screen *ms, int c)
     static int numc = 0;
     struct bpf_prog prog;
     char filter[MAXLINE];
+    int x, y;
 
     switch (c) {
     case '\n':
     case KEY_ENTER:
+        getyx(status, y, x);
+        curs_set(0);
         mvwinnstr(status, 0, 8, filter, MAXLINE);
         filter[numc] = '\0';
         if (numc == 0) {
             clear_filter(ms);
         } else {
-            wmove(status, 0, numc + 8);
             prog = pcap_compile(filter);
             if (prog.size == 0) {
                 wbkgd(status, get_theme_colour(ERR_BKGD));
+                wmove(status, y, x);
+                curs_set(1);
                 wrefresh(status);
                 return;
             }
@@ -798,6 +811,7 @@ void set_filter(main_screen *ms, int c)
         numc = 0;
         break;
     case KEY_ESC:
+        curs_set(0);
         numc = 0;
         input_mode = INPUT_NONE;
         werase(status);
@@ -807,17 +821,33 @@ void set_filter(main_screen *ms, int c)
     case KEY_BACKSPACE:
     case 127:
     case '\b':
-    {
-        int x, y;
-
         getyx(status, y, x);
-        if (x >= 9) {
+        if (x > FILTER_IDX) {
             mvwdelch(status, y, x - 1);
             numc--;
+            wrefresh(status);
         }
+        break;
+    case KEY_LEFT:
+        getyx(status, y, x);
+        if (x > FILTER_IDX) {
+            wmove(status, 0, x - 1);
+            wrefresh(status);
+        }
+        break;
+    case KEY_RIGHT:
+        getyx(status, y, x);
+        if (x - FILTER_IDX < numc) {
+            wmove(status, 0, x + 1);
+            wrefresh(status);
+        }
+        break;
+    case KEY_DC:
+        getyx(status, y, x);
+        mvwdelch(status, 0, x);
+        numc--;
         wrefresh(status);
         break;
-    }
     default:
         waddch(status, c);
         numc++;
