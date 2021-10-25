@@ -882,6 +882,8 @@ void clear_filter(main_screen *ms)
 
 void filter_packets(main_screen *ms)
 {
+    int my;
+
     ms->packet_ref = vector_init(PACKET_TABLE_SIZE);
     for (int i = 0; i < vector_size(packets); i++) {
         struct packet *p = vector_get_data(packets, i);
@@ -893,9 +895,15 @@ void filter_packets(main_screen *ms)
     werase(status);
     actionbar_refresh(actionbar, (screen *) ms);
     werase(ms->base.win);
-    ms->outy = print_lines(ms, 0, getmaxy(ms->base.win), 0);
-    ms->base.top = 0;
-    ms->base.selectionbar = 0;
+    my = getmaxy(ms->base.win);
+    if (!ms->base.show_selectionbar && ctx.capturing &&
+        vector_size(ms->packet_ref) > my) {
+        print_packets(ms);
+    } else {
+        ms->outy = print_lines(ms, 0, my, 0);
+        ms->base.top = 0;
+        ms->base.selectionbar = 0;
+    }
 }
 
 void print_packets(main_screen *ms)
