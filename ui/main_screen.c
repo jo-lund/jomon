@@ -844,14 +844,18 @@ void set_filter(main_screen *ms, int c)
         break;
     case KEY_DC:
         getyx(status, y, x);
-        mvwdelch(status, 0, x);
-        numc--;
-        wrefresh(status);
+        if (x - FILTER_IDX < numc) {
+            mvwdelch(status, 0, x);
+            numc--;
+            wrefresh(status);
+        }
         break;
     default:
-        waddch(status, c);
-        numc++;
-        wrefresh(status);
+        if (c >= 0x20 && c < 0x7f) {
+            waddch(status, c);
+            numc++;
+            wrefresh(status);
+        }
         break;
     }
 }
