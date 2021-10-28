@@ -348,24 +348,24 @@ void print_tcp(char *buf, int n, void *data)
         PRINT_INFO(buf, n, "Source port: %d  Destination port: %d",
                    tcp->sport, tcp->dport);
         PRINT_INFO(buf, n, "  Flags:");
-        if (tcp->fin) {
+        if (tcp->fin)
             PRINT_INFO(buf, n, " FIN");
-        }
-        if (tcp->syn) {
+        if (tcp->syn)
             PRINT_INFO(buf, n, " SYN");
-        }
-        if (tcp->rst) {
+        if (tcp->rst)
             PRINT_INFO(buf, n, " RST");
-        }
-        if (tcp->psh) {
+        if (tcp->psh)
             PRINT_INFO(buf, n, " PSH");
-        }
-        if (tcp->ack) {
+        if (tcp->ack)
             PRINT_INFO(buf, n, " ACK");
-        }
-        if (tcp->urg) {
+        if (tcp->urg)
             PRINT_INFO(buf, n, " URG");
-        }
+        if (tcp->ece)
+            PRINT_INFO(buf, n, " ECE");
+        if (tcp->cwr)
+            PRINT_INFO(buf, n, " CWR");
+        if (tcp->ns)
+            PRINT_INFO(buf, n, " NS");
         PRINT_INFO(buf, n, "  seq: %u  ack: %u  win: %u",
                    tcp->seq_num, tcp->ack_num, tcp->window);
     }

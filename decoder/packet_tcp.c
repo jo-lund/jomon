@@ -118,6 +118,9 @@ packet_error handle_tcp(struct protocol_info *pinfo, unsigned char *buffer, int 
     info->seq_num = ntohl(tcp->th_seq);
     info->ack_num = ntohl(tcp->th_ack);
     info->offset = tcp->th_off;
+    info->ns = tcp->th_x2 & 0x1;
+    info->cwr = (tcp->th_flags & 0x80) >> 7;
+    info->ece = (tcp->th_flags & 0x40) >> 6;
     info->urg = (tcp->th_flags & TH_URG) >> 5;
     info->ack = (tcp->th_flags & TH_ACK) >> 4;
     info->psh = (tcp->th_flags & TH_PUSH) >> 3;
