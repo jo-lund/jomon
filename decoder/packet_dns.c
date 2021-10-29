@@ -212,7 +212,7 @@ int parse_dns_question(unsigned char *buffer, int n, unsigned char **data,
     unsigned char *ptr = *data;
     int len = 0;
 
-    if (dns->section_count[QDCOUNT] > dlen) {
+    if (dns->section_count[QDCOUNT] > (unsigned int) dlen) {
         return -1;
     }
     dns->question = mempool_alloc(dns->section_count[QDCOUNT] *
@@ -446,7 +446,8 @@ int parse_dns_name(unsigned char *buffer, int n, unsigned char *ptr, int plen, c
                 compression = true;
             }
         } else {
-            if (label_length > plen || len > n || len + label_length >= DNS_NAMELEN) {
+            if (label_length > (unsigned int) plen || len > (unsigned int) n ||
+                len + label_length >= DNS_NAMELEN) {
                 return -1;
             }
             memcpy(name + len, ptr + 1, label_length);

@@ -197,7 +197,8 @@ packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int
     struct ipv6_info *ipv6;
 
     header_len = sizeof(struct ip6_hdr);
-    if (n < header_len) return DECODE_ERR;
+    if ((unsigned int) n < header_len)
+        return DECODE_ERR;
 
     pinfo->num_packets++;
     pinfo->num_bytes += n;

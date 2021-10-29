@@ -139,13 +139,13 @@ packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int
         plen -= 4;
 
         /* Additional records section */
-        if (nbns->section_count[ARCOUNT] > n) {
+        if (nbns->section_count[ARCOUNT] > (unsigned int) n) {
             return DECODE_ERR;
         }
         if (nbns->section_count[ARCOUNT]) {
             nbns->record = mempool_alloc(nbns->section_count[ARCOUNT] *
                                            sizeof(struct nbns_rr));
-            for (int i = 0; i < nbns->section_count[ARCOUNT]; i++) {
+            for (unsigned int i = 0; i < nbns->section_count[ARCOUNT]; i++) {
                 int len = parse_nbns_record(i, buffer, n, &ptr, plen, nbns);
 
                 if (len == -1) return DECODE_ERR;

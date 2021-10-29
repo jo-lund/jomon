@@ -170,18 +170,16 @@ void list_interfaces(void)
             printf("Unknown type: %d\n", iflist[i].type);
             break;
         }
-        if (iflist[i].hwaddr) {
-            if (iflist[i].addrlen == 6) {
-                char hwaddr[18];
+        if (iflist[i].addrlen == 6) {
+            char hwaddr[18];
 
-                snprintf(hwaddr, 18, "%02x:%02x:%02x:%02x:%02x:%02x",
-                         iflist[i].hwaddr[0], iflist[i].hwaddr[1],
-                         iflist[i].hwaddr[2], iflist[i].hwaddr[3],
-                         iflist[i].hwaddr[4], iflist[i].hwaddr[5]);
-                printf("\tHW addr: %s\n", hwaddr);
-            } else {
-                printf("\tHW addr len: %d\n", iflist[i].addrlen);
-            }
+            snprintf(hwaddr, 18, "%02x:%02x:%02x:%02x:%02x:%02x",
+                     iflist[i].hwaddr[0], iflist[i].hwaddr[1],
+                     iflist[i].hwaddr[2], iflist[i].hwaddr[3],
+                     iflist[i].hwaddr[4], iflist[i].hwaddr[5]);
+            printf("\tHW addr: %s\n", hwaddr);
+        } else {
+            printf("\tHW addr len: %d\n", iflist[i].addrlen);
         }
         if (iflist[i].inaddr) {
             char inet_addr[INET_ADDRSTRLEN];
