@@ -114,7 +114,6 @@ check_missing()
     rm -f "$BUILD.c" "$BUILD"
 }
 
-# Need to check if config.mk and config.h already exist
 generate_config()
 {
     echo "[*] Generating config..."
@@ -122,7 +121,7 @@ generate_config()
     echo "#define CONFIG_H" >> config.h
     echo >> config.h
 
-    echo "CC=$CC" >> config.mk
+    echo "CC=$CC" > config.mk
     if [[ "$DISABLE_GEOIP" == 1 ]]; then
         echo "#define HAVE_GEOIP 0" >> config.h
         echo "CONFIG_GEOIP=0" >> config.mk
