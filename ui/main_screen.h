@@ -19,7 +19,7 @@ typedef struct main_screen {
                     main window, i.e. from 0 to max lines in window */
         int lineno; /* index to the selected line */
         int num_lines;
-        int selectionbar; /* index to the selectionbar relative to the pad */
+        bool scroll;
     } subwindow;
 
     WINDOW *header;
