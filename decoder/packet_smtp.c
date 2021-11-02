@@ -170,6 +170,7 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
     struct tcp_endpoint_v4 endp;
     struct ipv4_info *ipv4;
     struct tcp_connection_v4 *conn;
+    bool conn_created = false;
 
      /* only support for TCP and IPv4 */
     if (pdata->transport != TCP)
@@ -189,6 +190,7 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
     if ((conn = tcp_analyzer_get_connection(&endp)) == NULL) {
         conn = tcp_analyzer_create_connection(&endp);
         conn->state = ESTABLISHED;
+        conn_created = true;
     }
     if (!conn->data) {
         smtp_state = mempool_alloc(sizeof(*smtp_state));
@@ -332,6 +334,8 @@ ok:
     return NO_ERR;
 
 error:
+    if (conn_created)
+        tcp_analyzer_remove_connection(&endp);
     mempool_free(smtp);
     return DECODE_ERR;
 }

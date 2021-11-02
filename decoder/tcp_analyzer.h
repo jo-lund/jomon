@@ -79,6 +79,9 @@ struct tcp_connection_v4 *tcp_analyzer_get_connection(struct tcp_endpoint_v4 *en
 /* Create a new connection based on the given endpoint */
 struct tcp_connection_v4 *tcp_analyzer_create_connection(struct tcp_endpoint_v4 *endp);
 
+/* Remove a connection */
+void tcp_analyzer_remove_connection(struct tcp_endpoint_v4 *endp);
+
 /* Subscribe to connection changes, e.g. more data or state changes */
 void tcp_analyzer_subscribe(analyzer_conn_fn fn);
 

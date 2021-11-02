@@ -104,6 +104,12 @@ struct tcp_connection_v4 *tcp_analyzer_get_connection(struct tcp_endpoint_v4 *en
     return NULL;
 }
 
+void tcp_analyzer_remove_connection(struct tcp_endpoint_v4 *endp)
+{
+    if (connection_table)
+        hashmap_remove(connection_table, endp);
+}
+
 hashmap_t *tcp_analyzer_get_sessions()
 {
     return connection_table;
