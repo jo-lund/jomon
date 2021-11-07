@@ -1254,6 +1254,8 @@ void print_selected_packet(main_screen *ms)
             if (data >= 0 && data < NUM_LAYERS) {
                 selected[data] = LV_GET_EXPANDED(ms->lvw, subline);
             }
+            if (ms->subwindow.win)
+                delete_subwindow(ms);
             create_subwindow(ms, ms->lvw->size + 1, prev_selection);
             main_screen_refresh((screen *) ms);
             return;
