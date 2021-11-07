@@ -7,12 +7,10 @@
 
 typedef struct main_screen {
     screen base;
-
     struct line_info {
         int line_number;
         bool selected;
     } main_line;
-
     struct subwin_info {
         WINDOW *win;
         int top; /* index to the first line in the subwindow relative to the
@@ -20,8 +18,9 @@ typedef struct main_screen {
         int lineno; /* index to the selected line */
         int num_lines;
         bool scroll;
+        int redraw;
     } subwindow;
-
+    int sw_line;
     WINDOW *header;
     list_view *lvw;
 
