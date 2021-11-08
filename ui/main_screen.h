@@ -17,7 +17,6 @@ typedef struct main_screen {
                     main window, i.e. from 0 to max lines in window */
         int lineno; /* index to the selected line */
         int num_lines;
-        bool scroll;
         int redraw;
     } subwindow;
     int sw_line;

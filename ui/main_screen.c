@@ -1000,11 +1000,6 @@ void main_screen_handle_keyup(main_screen *ms, int num_lines)
     if (!ms->base.show_selectionbar) {
         main_screen_set_interactive(ms, true);
     }
-    if (!ms->lvw && ms->subwindow.win && ms->subwindow.num_lines > num_lines) {
-        if (ms->subwindow.num_lines + ms->subwindow.top <= ms->subwindow.num_lines)
-            refresh_pad(ms, &ms->subwindow, 1, ms->scrollx, true);
-        return;
-    }
 
     /* scroll screen if the selection bar is at the top */
     if (ms->base.top > 0 && ms->base.selectionbar == ms->base.top) {
@@ -1030,14 +1025,6 @@ void main_screen_handle_keydown(main_screen *ms, int num_lines)
         return;
     if (!ms->base.show_selectionbar)
         main_screen_set_interactive(ms, true);
-    if (!ms->lvw && ms->subwindow.win && ms->subwindow.num_lines > num_lines) {
-        if (ms->subwindow.num_lines + ms->subwindow.top >= num_lines) {
-            if (!ms->subwindow.scroll)
-                ms->subwindow.scroll = true;
-            refresh_pad(ms, &ms->subwindow, -1, ms->scrollx, true);
-        }
-        return;
-    }
 
     /* scroll screen if the selection bar is at the bottom */
     if (ms->base.selectionbar - ms->base.top == num_lines - 1) {
@@ -1059,31 +1046,13 @@ void main_screen_handle_keydown(main_screen *ms, int num_lines)
     }
 }
 
-
 void main_screen_scroll_page(main_screen *ms, int num_lines)
 {
     if (!ms->base.show_selectionbar) {
         main_screen_set_interactive(ms, true);
     }
     if (num_lines > 0) { /* scroll page down */
-        if (ms->subwindow.win && ms->subwindow.num_lines > num_lines) {
-            if (ms->subwindow.num_lines + ms->subwindow.top >= num_lines) {
-                int scroll;
-
-                if (!ms->lvw && !ms->subwindow.scroll)
-                    ms->subwindow.scroll = true;
-                scroll = (ms->subwindow.num_lines + (ms->subwindow.top - num_lines) < num_lines) ?
-                    ms->subwindow.num_lines + (ms->subwindow.top - num_lines) : num_lines;
-                if (ms->lvw) {
-                    ms->base.top += scroll;
-                    ms->base.selectionbar += scroll;
-                }
-                refresh_pad(ms, &ms->subwindow, -scroll, ms->scrollx, false);
-                main_screen_refresh((screen *) ms);
-            }
-            return;
-        }
-        if (vector_size(ms->packet_ref) <= num_lines) {
+        if (vector_size(ms->packet_ref) + ms->subwindow.num_lines <= num_lines) {
             if (ms->subwindow.win) {
                 ms->base.selectionbar = ms->subwindow.num_lines + vector_size(ms->packet_ref) - 1;
             } else {
@@ -1093,13 +1062,13 @@ void main_screen_scroll_page(main_screen *ms, int num_lines)
         } else {
             int bottom = ms->base.top + num_lines - 1;
 
-            if (bottom + num_lines > vector_size(ms->packet_ref) - 1) {
-                int scroll = vector_size(ms->packet_ref) - bottom - 1;
+            if (bottom + num_lines > vector_size(ms->packet_ref) - 1 + ms->subwindow.num_lines) {
+                int scroll = vector_size(ms->packet_ref) - bottom - 1 + ms->subwindow.num_lines;
 
                 ms->base.top += scroll;
                 ms->base.selectionbar += num_lines;
-                if (ms->base.selectionbar >= vector_size(ms->packet_ref)) {
-                    ms->base.selectionbar = vector_size(ms->packet_ref) - 1;
+                if (ms->base.selectionbar >= vector_size(ms->packet_ref) + ms->subwindow.num_lines) {
+                    ms->base.selectionbar = vector_size(ms->packet_ref) - 1 + ms->subwindow.num_lines;
                 }
                 if (ms->subwindow.win) {
                     ms->subwindow.redraw = true;
@@ -1119,20 +1088,7 @@ void main_screen_scroll_page(main_screen *ms, int num_lines)
             }
         }
     } else { /* scroll page up */
-        if (ms->subwindow.win && ms->subwindow.num_lines > abs(num_lines)) {
-            if (ms->subwindow.num_lines + ms->subwindow.top <= ms->subwindow.num_lines) {
-                int scroll;
-
-                scroll = (num_lines < ms->subwindow.top) ? ms->subwindow.top - 1 : num_lines;
-                if (ms->lvw) {
-                    ms->base.top += scroll;
-                    ms->base.selectionbar += scroll;
-                }
-                refresh_pad(ms, &ms->subwindow, abs(scroll), ms->scrollx, true);
-            }
-            return;
-        }
-        if (vector_size(ms->packet_ref) <= abs(num_lines) || ms->base.top == 0) {
+        if (vector_size(ms->packet_ref) + ms->subwindow.num_lines <= abs(num_lines) || ms->base.top == 0) {
             ms->base.selectionbar = 0;
             main_screen_refresh((screen *) ms);
         } else {
@@ -1361,7 +1317,6 @@ void create_subwindow(main_screen *ms, int num_lines, int lineno)
     ms->subwindow.top = start_line + 1;
     ms->subwindow.num_lines = num_lines;
     ms->subwindow.lineno = lineno;
-    ms->subwindow.scroll = false;
     wmove(ms->base.win, start_line + 1, 0);
     wclrtobot(ms->base.win); /* clear everything below selection bar */
     ms->outy = start_line + 1;
@@ -1378,6 +1333,7 @@ void delete_subwindow(main_screen *ms)
     delwin(ms->subwindow.win);
     ms->subwindow.win = NULL;
     ms->subwindow.num_lines = 0;
+    ms->sw_line = 0;
     werase(ms->base.win);
     if (ms->scrolly) {
         if (subwindow_on_screen(ms)) {
@@ -1400,7 +1356,7 @@ static inline bool inside_subwindow(main_screen *ms)
 /* Returns whether the subwindow is shown on screen */
 static inline bool subwindow_on_screen(main_screen *ms)
 {
-    return ((ms->sw_line < 0 && abs(ms->sw_line) < ms->subwindow.num_lines) ||
+    return ((ms->sw_line <= 0 && abs(ms->sw_line) < ms->subwindow.num_lines) ||
             (ms->sw_line > 0 && ms->sw_line < getmaxy(ms->base.win)));
 }
 
@@ -1418,14 +1374,10 @@ void refresh_pad(main_screen *ms, struct subwin_info *pad, int scrolly, int minx
     getmaxyx(ms->base.win, my, mx);
     pad->top += scrolly;
     if (pad->top <= 0) {
-        if (!ms->lvw && pad->top == 0 && scrolly == -1)
-            pad->top--;
         if (update) {
-            prefresh(pad->win, abs(pad->top), minx, ms->subwindow.scroll ?
-                     GET_SCRY(0) + 1 : GET_SCRY(0) , 0, GET_SCRY(my) - 1, mx);
+            prefresh(pad->win, abs(pad->top), minx, GET_SCRY(0), 0, GET_SCRY(my) - 1, mx);
         } else {
-            pnoutrefresh(pad->win, abs(pad->top), minx, ms->subwindow.scroll ?
-                         GET_SCRY(0) + 1 : GET_SCRY(0), 0, GET_SCRY(my) - 1, mx);
+            pnoutrefresh(pad->win, abs(pad->top), minx, GET_SCRY(0), 0, GET_SCRY(my) - 1, mx);
         }
     } else {
         if (update) {
