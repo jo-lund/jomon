@@ -5,19 +5,6 @@
 #include <stdint.h>
 #include "list.h"
 
-/*
- * Subtracts the offset of a structure's member from its address to get the
- * address of the containing structure.
- *
- * ptr    - The pointer to the member
- * type   - The type of the struct this is embedded in
- * member - The name of the member within the struct
- */
-#define container_of(ptr, type, member) ({                        \
-            const typeof(((type *) 0)->member) *_mptr = (ptr);    \
-            (type *) ((char *) _mptr - offsetof(type, member));})
-
-
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 /* hardware address length (format aa:bb:cc:dd:ee:ff) */
@@ -38,6 +25,8 @@
 
 /* extract an integer from a pointer */
 #define PTR_TO_INT(i) ((intptr_t) (i))
+
+#define MAX(a, b) ({ typeof(a) _a = (a), _b = (b); _a > _b ? _a : _b; })
 
 struct timeval;
 struct timespec;

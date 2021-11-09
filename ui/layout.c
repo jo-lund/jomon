@@ -19,9 +19,9 @@
 #include "actionbar.h"
 
 #define NUM_COLOURS 8
-
 #define COLOUR_IDX(f, b) ((b == -1) ? (f) + 1 : (b) + 1 + ((f) + 1) * NUM_COLOURS)
 
+extern void main_screen_refresh(screen *s);
 extern vector_t *packets;
 main_menu *menu;
 actionbar_t *actionbar;
@@ -215,7 +215,11 @@ void screen_cache_clear(void)
 
 void print_file(void)
 {
-    main_screen_render((main_screen *) screen_cache[MAIN_SCREEN], true);
+    main_screen *ms = (main_screen *) screen_cache[MAIN_SCREEN];
+
+    ms->base.top = 0;
+    ms->base.show_selectionbar = true;
+    main_screen_refresh((screen *) ms);
 }
 
 void pop_screen(void)

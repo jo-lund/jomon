@@ -421,7 +421,7 @@ static void change_tcp_mode(conversation_screen *cs)
     case NORMAL:
         werase(cs->base.header);
         werase(((screen *) cs)->win);
-        main_screen_render((main_screen *) cs, ((screen *) cs)->show_selectionbar);
+        main_screen_refresh((screen *) cs);
         break;
     case ASCII:
         buffer_tcppage(cs, buffer_ascii);

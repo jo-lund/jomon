@@ -17,7 +17,6 @@ typedef struct main_screen {
                     main window, i.e. from 0 to max lines in window */
         int lineno; /* index to the selected line */
         int num_lines;
-        int redraw;
     } subwindow;
     int sw_line;
     WINDOW *header;
@@ -43,7 +42,6 @@ main_screen *main_screen_create(void);
 void main_screen_init(screen *s);
 void main_screen_free(screen *s);
 void main_screen_set_interactive(main_screen *ms, bool interactive_mode);
-void main_screen_render(main_screen *ms, bool interactive_mode);
 void main_screen_print_packet(main_screen *ms, struct packet *p);
 
 /* refresh the entire pad */
