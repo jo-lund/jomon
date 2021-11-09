@@ -66,8 +66,6 @@ static void create_save_dialogue(void);
 static bool read_show_progress(unsigned char *buffer, uint32_t n, struct timeval *t);
 static void print_packets(main_screen *ms);
 static void follow_tcp_stream(main_screen *ms);
-static void show_selectionbar(main_screen *ms, WINDOW *win, int line, uint32_t attr);
-static void remove_selectionbar(main_screen *ms, WINDOW *win, int line, uint32_t attr);
 static void scroll_window(main_screen *ms);
 static void add_elements(main_screen *ms, struct packet *p);
 static void set_filter(main_screen *ms, int c);
@@ -234,7 +232,7 @@ void main_screen_refresh(screen *s)
         refresh_pad(ms, &ms->subwindow, 0, ms->scrollx, false);
     }
     if (s->show_selectionbar)
-        show_selectionbar(ms, s->win, s->selectionbar - s->top, A_NORMAL);
+        UPDATE_SELECTIONBAR(ms->base.win, s->selectionbar - s->top, SELECTIONBAR);
     print_header(ms);
     wnoutrefresh(ms->header);
     wnoutrefresh(s->win);
@@ -320,10 +318,10 @@ void main_screen_get_input(screen *s)
         main_screen_handle_keydown(ms, my);
         break;
     case KEY_LEFT:
-        main_screen_scroll_column(ms, -NUM_COLS_SCROLL, my);
+        main_screen_scroll_column(ms, -NUM_COLS_SCROLL);
         break;
     case KEY_RIGHT:
-        main_screen_scroll_column(ms, NUM_COLS_SCROLL, my);
+        main_screen_scroll_column(ms, NUM_COLS_SCROLL);
         break;
     case KEY_ENTER:
     case '\n':
@@ -596,16 +594,6 @@ bool read_show_progress(unsigned char *buffer, uint32_t n, struct timeval *t)
     return true;
 }
 
-void show_selectionbar(main_screen *ms UNUSED, WINDOW *win, int line, uint32_t attr)
-{
-    mvwchgat(win, line, 0, -1, attr, PAIR_NUMBER(get_theme_colour(SELECTIONBAR)), NULL);
-}
-
-void remove_selectionbar(main_screen *ms, WINDOW *win, int line, uint32_t attr)
-{
-    mvwchgat(win, line, 0, -1, attr, PAIR_NUMBER(get_theme_colour(BACKGROUND)), NULL);
-}
-
 /* scroll the window if necessary */
 void scroll_window(main_screen *ms)
 {
@@ -710,25 +698,25 @@ void main_screen_goto_line(main_screen *ms, int c)
 
         my = getmaxy(ms->base.win);
         if (num >= ms->base.top && num < ms->base.top + my) {
-            remove_selectionbar(ms, ms->base.win, ms->base.selectionbar, A_NORMAL);
+            UPDATE_SELECTIONBAR(ms->base.win, ms->base.selectionbar, BACKGROUND);
             if (ms->subwindow.win && num > ms->base.top + ms->subwindow.top) {
                 ms->base.selectionbar = num - 1 + ms->subwindow.num_lines;
             } else {
                 ms->base.selectionbar = num - 1;
             }
-            show_selectionbar(ms, ms->base.win, ms->base.selectionbar, A_NORMAL);
+            UPDATE_SELECTIONBAR(ms->base.win, ms->base.selectionbar, SELECTIONBAR);
         } else {
             werase(ms->base.win);
-            remove_selectionbar(ms, ms->base.win, ms->base.selectionbar, A_NORMAL);
+            UPDATE_SELECTIONBAR(ms->base.win, ms->base.selectionbar, BACKGROUND);
             if (num + my - 1 > vector_size(ms->packet_ref)) {
                 print_lines(ms, vector_size(ms->packet_ref) - my, vector_size(ms->packet_ref), 0);
                 ms->base.top = vector_size(ms->packet_ref) - my;
                 ms->base.selectionbar = num - 1;
-                show_selectionbar(ms, ms->base.win, ms->base.selectionbar - ms->base.top, A_NORMAL);
+                UPDATE_SELECTIONBAR(ms->base.win, ms->base.selectionbar - ms->base.top, SELECTIONBAR);
             } else {
                 print_lines(ms, num - 1, num + my - 1, 0);
                 ms->base.selectionbar = ms->base.top = num - 1;
-                show_selectionbar(ms, ms->base.win, 0, A_NORMAL);
+                UPDATE_SELECTIONBAR(ms->base.win, 0, SELECTIONBAR);
             }
         }
         wrefresh(ms->base.win);
@@ -754,7 +742,7 @@ void main_screen_goto_home(main_screen *ms)
     print_lines(ms, 0, my, 0);
     ms->base.selectionbar = 0;
     ms->base.top = 0;
-    show_selectionbar(ms, ms->base.win, 0, A_NORMAL);
+    UPDATE_SELECTIONBAR(ms->base.win, 0, SELECTIONBAR);
     wrefresh(ms->base.win);
 }
 
@@ -764,9 +752,9 @@ void main_screen_goto_end(main_screen *ms)
 
     if (ms->outy >= my) {
         print_packets(ms);
-        remove_selectionbar(ms, ms->base.win, ms->base.selectionbar - ms->base.top, A_NORMAL);
+        UPDATE_SELECTIONBAR(ms->base.win, ms->base.selectionbar - ms->base.top, BACKGROUND);
         ms->base.selectionbar = vector_size(ms->packet_ref) - 1;
-        show_selectionbar(ms, ms->base.win, ms->base.selectionbar - ms->base.top, A_NORMAL);
+        UPDATE_SELECTIONBAR(ms->base.win, ms->base.selectionbar - ms->base.top, SELECTIONBAR);
         wrefresh(ms->base.win);
     }
 }
@@ -805,7 +793,7 @@ void set_filter(main_screen *ms, int c)
             filter_packets(ms);
         }
         if (ms->base.show_selectionbar && vector_size(ms->packet_ref) > 0)
-            show_selectionbar(ms, ms->base.win, ms->base.selectionbar - ms->base.top, A_NORMAL);
+            UPDATE_SELECTIONBAR(ms->base.win, ms->base.selectionbar - ms->base.top, SELECTIONBAR);
         print_header(ms);
         wnoutrefresh(ms->header);
         wnoutrefresh(ms->base.win);
@@ -943,7 +931,7 @@ static inline bool check_line(main_screen *ms)
         ms->subwindow.num_lines - 1;
 }
 
-void main_screen_scroll_column(main_screen *ms, int scrollx, int num_lines)
+void main_screen_scroll_column(main_screen *ms, int scrollx)
 {
     if ((scrollx < 0 && ms->scrollx) || scrollx > 0) {
         ms->scrollx += scrollx;
@@ -951,7 +939,7 @@ void main_screen_scroll_column(main_screen *ms, int scrollx, int num_lines)
     }
 }
 
-void main_screen_handle_keyup(main_screen *ms, int num_lines)
+void main_screen_handle_keyup(main_screen *ms, int num_lines UNUSED)
 {
     if (!ms->base.show_selectionbar) {
         main_screen_set_interactive(ms, true);
@@ -1068,7 +1056,7 @@ void main_screen_set_interactive(main_screen *ms, bool interactive_mode)
     if (interactive_mode) {
         ms->base.show_selectionbar = true;
         ms->base.selectionbar = ms->base.top;
-        show_selectionbar(ms, ms->base.win, 0, A_NORMAL);
+        UPDATE_SELECTIONBAR(ms->base.win, 0, SELECTIONBAR);
         wrefresh(ms->base.win);
     } else {
         int my;
@@ -1081,7 +1069,7 @@ void main_screen_set_interactive(main_screen *ms, bool interactive_mode)
         if (ms->outy >= my && ctx.capturing) {
             print_packets(ms);
         } else {
-            remove_selectionbar(ms, ms->base.win, ms->base.selectionbar - ms->base.top, A_NORMAL);
+            UPDATE_SELECTIONBAR(ms->base.win, ms->base.selectionbar - ms->base.top, BACKGROUND);
         }
         ms->base.show_selectionbar = false;
         wrefresh(ms->base.win);

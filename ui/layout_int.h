@@ -6,6 +6,8 @@
 
 #define KEY_ESC 27
 #define NUM_THEMES 3
+#define UPDATE_SELECTIONBAR(w, l, c) \
+    mvwchgat(w, l, 0, -1, A_NORMAL, PAIR_NUMBER(get_theme_colour(c)), NULL)
 
 enum colour_themes {
     DEFAULT,

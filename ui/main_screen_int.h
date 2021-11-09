@@ -35,7 +35,7 @@ void main_screen_get_input(screen *s);
 void main_screen_handle_keydown(main_screen *ms, int num_lines);
 void main_screen_handle_keyup(main_screen *ms, int num_lines);
 void main_screen_scroll_page(main_screen *ms, int num_lines);
-void main_screen_scroll_column(main_screen *ms, int scrollx, int num_lines);
+void main_screen_scroll_column(main_screen *ms, int scrollx);
 void main_screen_goto_line(main_screen *ms, int c);
 void main_screen_goto_end(main_screen *ms);
 void main_screen_goto_home(main_screen *ms);

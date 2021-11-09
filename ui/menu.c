@@ -5,9 +5,6 @@
 #include "main_screen.h"
 #include "../monitor.h"
 
-#define UPDATE_SELECTIONBAR(w, l, c) \
-    mvwchgat(w, l, 0, -1, A_NORMAL, PAIR_NUMBER(get_theme_colour(c)), NULL);
-
 static char *selected_txt = "[x] ";
 static char *unselected_txt = "[ ] ";
 

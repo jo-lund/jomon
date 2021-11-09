@@ -214,11 +214,11 @@ void conversation_screen_get_input(screen *s)
         break;
     case KEY_LEFT:
         if (tcp_mode == NORMAL)
-            main_screen_scroll_column((main_screen *) cs, -NUM_COLS_SCROLL, my);
+            main_screen_scroll_column((main_screen *) cs, -NUM_COLS_SCROLL);
         break;
     case KEY_RIGHT:
         if (tcp_mode == NORMAL)
-            main_screen_scroll_column((main_screen *) cs, NUM_COLS_SCROLL, my);
+            main_screen_scroll_column((main_screen *) cs, NUM_COLS_SCROLL);
         break;
     case KEY_ESC:
         if (input_mode) {
