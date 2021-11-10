@@ -325,20 +325,8 @@ void main_screen_get_input(screen *s)
         break;
     case KEY_ENTER:
     case '\n':
-        if (s->show_selectionbar) {
-            if (ms->subwindow.win) {
-                if (ms->sw_line < 0 && abs(ms->sw_line) <= ms->subwindow.num_lines) {
-                    ms->base.top -= abs(ms->sw_line);
-                    ms->base.selectionbar -= abs(ms->sw_line);
-                    ms->main_line.line_number -= abs(ms->sw_line);
-                } else if (ms->sw_line < 0) {
-                    ms->base.top -= ms->subwindow.num_lines;
-                    ms->base.selectionbar -= ms->subwindow.num_lines;
-                    ms->main_line.line_number -= ms->subwindow.num_lines;
-                }
-            }
+        if (s->show_selectionbar)
             print_selected_packet(ms);
-        }
         break;
     case KEY_ESC:
             if (ms->subwindow.win) {
@@ -1157,10 +1145,17 @@ void print_selected_packet(main_screen *ms)
 
         /* the index to the selected line needs to be adjusted in case of an
            open subwindow */
-        if (ms->subwindow.win && subwindow_on_screen(ms) &&
-            screen_line > ms->subwindow.top) {
-            ms->main_line.line_number = ms->base.selectionbar - ms->subwindow.num_lines;
-            ms->base.selectionbar -= ms->subwindow.num_lines;
+        if (ms->subwindow.win) {
+            if (subwindow_on_screen(ms) && screen_line > ms->subwindow.top) {
+                if (ms->sw_line < 0)
+                    ms->base.top -= ms->subwindow.num_lines;
+                ms->main_line.line_number = ms->base.selectionbar - ms->subwindow.num_lines;
+                ms->base.selectionbar -= ms->subwindow.num_lines;
+            } else if (ms->sw_line < 0) {
+                ms->base.top -= ms->subwindow.num_lines;
+                ms->base.selectionbar -= ms->subwindow.num_lines;
+                ms->main_line.line_number -= ms->subwindow.num_lines;
+            }
         } else {
             ms->main_line.line_number = ms->base.selectionbar;
         }
