@@ -1155,6 +1155,8 @@ void print_selected_packet(main_screen *ms)
                 ms->base.top -= ms->subwindow.num_lines;
                 ms->base.selectionbar -= ms->subwindow.num_lines;
                 ms->main_line.line_number -= ms->subwindow.num_lines;
+            } else {
+                ms->main_line.line_number = ms->base.selectionbar;
             }
         } else {
             ms->main_line.line_number = ms->base.selectionbar;
