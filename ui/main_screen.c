@@ -75,7 +75,7 @@ static void handle_input_mode(main_screen *ms, const char *str);
 
 /* Handles subwindow layout */
 static void create_subwindow(main_screen *ms, int num_lines, int lineno);
-static void delete_subwindow(main_screen *ms);
+static void delete_subwindow(main_screen *ms, bool refresh);
 static bool inside_subwindow(main_screen *ms);
 static void refresh_pad(main_screen *ms, struct subwin_info *pad, int scrolly, int minx, bool update);
 static bool subwindow_on_screen(main_screen *ms);
@@ -225,10 +225,12 @@ void main_screen_refresh(screen *s)
     wnoutrefresh(s->win);
     if (ms->subwindow.win && subwindow_on_screen(ms)) {
         wbkgd(ms->subwindow.win, get_theme_colour(BACKGROUND));
-        if (view_mode == DECODED_VIEW) {
-            werase(ms->subwindow.win);
+        werase(ms->subwindow.win);
+        if (view_mode == DECODED_VIEW)
             LV_RENDER(ms->lvw, ms->subwindow.win);
-        }
+        else
+            add_winhexdump(ms->subwindow.win, 0, 2, hexmode,
+                           vector_get_data(ms->packet_ref, ms->main_line.line_number));
         refresh_pad(ms, &ms->subwindow, 0, ms->scrollx, false);
     }
     if (s->show_selectionbar)
@@ -300,11 +302,10 @@ void main_screen_get_input(screen *s)
         if (ms->subwindow.win && view_mode == HEXDUMP_VIEW) {
             struct packet *p;
 
-            delete_subwindow(ms);
+            delete_subwindow(ms, false);
             p = vector_get_data(ms->packet_ref, ms->main_line.line_number);
             create_subwindow(ms, (hexmode == HEXMODE_NORMAL) ? p->len / 16 + 3 :
                              p->len / 64 + 3, ms->main_line.line_number);
-            add_winhexdump(ms->subwindow.win, 0, 2, hexmode, p);
             main_screen_refresh((screen *) ms);
         }
         break;
@@ -330,7 +331,7 @@ void main_screen_get_input(screen *s)
         break;
     case KEY_ESC:
             if (ms->subwindow.win) {
-                delete_subwindow(ms);
+                delete_subwindow(ms, true);
                 ms->main_line.selected = false;
             } else if (s->show_selectionbar) {
                 main_screen_set_interactive(ms, false);
@@ -405,14 +406,13 @@ void main_screen_get_input(screen *s)
             if (view_mode == DECODED_VIEW) {
                 add_elements(ms, p);
                 if (ms->subwindow.win)
-                    delete_subwindow(ms);
+                    delete_subwindow(ms, false);
                 create_subwindow(ms, ms->lvw->size + 1, ms->main_line.line_number);
             } else {
                 if (ms->subwindow.win)
-                    delete_subwindow(ms);
+                    delete_subwindow(ms, false);
                 create_subwindow(ms, (hexmode == HEXMODE_NORMAL) ? p->len / 16 + 3 :
                                  p->len / 64 + 3, ms->main_line.line_number);
-                add_winhexdump(ms->subwindow.win, 0, 2, hexmode, p);
             }
             main_screen_refresh((screen *) ms);
         }
@@ -1051,7 +1051,7 @@ void main_screen_set_interactive(main_screen *ms, bool interactive_mode)
 
         my = getmaxy(ms->base.win);
         if (ms->subwindow.win) {
-            delete_subwindow(ms);
+            delete_subwindow(ms, true);
             ms->main_line.selected = false;
         }
         if (ms->outy >= my && ctx.capturing) {
@@ -1131,7 +1131,7 @@ void print_selected_packet(main_screen *ms)
                 selected[data] = LV_GET_EXPANDED(ms->lvw, subline);
             }
             if (ms->subwindow.win)
-                delete_subwindow(ms);
+                delete_subwindow(ms, false);
             create_subwindow(ms, ms->lvw->size + 1, prev_selection);
             main_screen_refresh((screen *) ms);
             return;
@@ -1167,18 +1167,17 @@ void print_selected_packet(main_screen *ms)
         if (view_mode == DECODED_VIEW) {
             add_elements(ms, p);
             if (ms->subwindow.win)
-                delete_subwindow(ms);
+                delete_subwindow(ms, false);
             create_subwindow(ms, ms->lvw->size + 1, ms->base.selectionbar);
         } else {
             if (ms->subwindow.win)
-                delete_subwindow(ms);
+                delete_subwindow(ms, false);
             create_subwindow(ms, (hexmode == HEXMODE_NORMAL) ? p->len / 16 + 3 :
                              p->len / 64 + 3, ms->base.selectionbar);
-            add_winhexdump(ms->subwindow.win, 0, 2, hexmode, p);
         }
         main_screen_refresh((screen *) ms);
     } else {
-        delete_subwindow(ms);
+        delete_subwindow(ms, true);
     }
     prev_selection = ms->base.selectionbar;
 }
@@ -1256,19 +1255,24 @@ void create_subwindow(main_screen *ms, int num_lines, int lineno)
     }
 }
 
-void delete_subwindow(main_screen *ms)
+void delete_subwindow(main_screen *ms, bool refresh)
 {
-    delwin(ms->subwindow.win);
-    ms->subwindow.win = NULL;
-    ms->subwindow.num_lines = 0;
-    werase(ms->base.win);
     if (ms->scrolly) {
         if (subwindow_on_screen(ms))
             ms->base.top = MAX(ms->base.top - ms->scrolly, 0);
         ms->scrolly = 0;
     }
+    delwin(ms->subwindow.win);
+    ms->subwindow.win = NULL;
+    ms->subwindow.num_lines = 0;
     ms->sw_line = 0;
-    main_screen_refresh((screen *) ms);
+    if (refresh) {
+        if (ms->base.selectionbar >= vector_size(ms->packet_ref))
+            ms->base.selectionbar = vector_size(ms->packet_ref) - 1;
+        if (ms->base.top >= vector_size(ms->packet_ref))
+            ms->base.top = 0;
+        main_screen_refresh((screen *) ms);
+    }
 }
 
 /* Returns whether the selection line is inside the subwindow */
