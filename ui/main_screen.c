@@ -231,9 +231,12 @@ void main_screen_refresh(screen *s)
         else
             add_winhexdump(ms->subwindow.win, 0, 2, hexmode,
                            vector_get_data(ms->packet_ref, ms->main_line.line_number));
+        if (inside_subwindow(ms))
+            UPDATE_SELECTIONBAR(ms->subwindow.win, s->selectionbar - s->top -
+                                ms->subwindow.top, SELECTIONBAR);
         refresh_pad(ms, &ms->subwindow, 0, ms->scrollx, false);
     }
-    if (s->show_selectionbar)
+    if (s->show_selectionbar && !inside_subwindow(ms))
         UPDATE_SELECTIONBAR(s->win, s->selectionbar - s->top, SELECTIONBAR);
     print_header(ms);
     wnoutrefresh(ms->header);
