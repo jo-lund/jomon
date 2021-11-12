@@ -234,7 +234,7 @@ void main_screen_refresh(screen *s)
         refresh_pad(ms, &ms->subwindow, 0, ms->scrollx, false);
     }
     if (s->show_selectionbar)
-        UPDATE_SELECTIONBAR(ms->base.win, s->selectionbar - s->top, SELECTIONBAR);
+        UPDATE_SELECTIONBAR(s->win, s->selectionbar - s->top, SELECTIONBAR);
     print_header(ms);
     wnoutrefresh(ms->header);
     wnoutrefresh(s->win);
@@ -302,10 +302,12 @@ void main_screen_get_input(screen *s)
         if (ms->subwindow.win && view_mode == HEXDUMP_VIEW) {
             struct packet *p;
 
-            delete_subwindow(ms, false);
+            ms->base.selectionbar -= ms->scrolly;
+            delete_subwindow(ms, true);
             p = vector_get_data(ms->packet_ref, ms->main_line.line_number);
             create_subwindow(ms, (hexmode == HEXMODE_NORMAL) ? p->len / 16 + 3 :
                              p->len / 64 + 3, ms->main_line.line_number);
+            ms->base.selectionbar += ms->scrolly;
             main_screen_refresh((screen *) ms);
         }
         break;
@@ -402,18 +404,17 @@ void main_screen_get_input(screen *s)
         if (ms->subwindow.win) {
             struct packet *p;
 
+            ms->base.selectionbar -= ms->scrolly;
+            delete_subwindow(ms, true);
             p = vector_get_data(ms->packet_ref, ms->main_line.line_number);
             if (view_mode == DECODED_VIEW) {
                 add_elements(ms, p);
-                if (ms->subwindow.win)
-                    delete_subwindow(ms, false);
                 create_subwindow(ms, ms->lvw->size + 1, ms->main_line.line_number);
             } else {
-                if (ms->subwindow.win)
-                    delete_subwindow(ms, false);
                 create_subwindow(ms, (hexmode == HEXMODE_NORMAL) ? p->len / 16 + 3 :
                                  p->len / 64 + 3, ms->main_line.line_number);
             }
+            ms->base.selectionbar += ms->scrolly;
             main_screen_refresh((screen *) ms);
         }
         actionbar_update(s, "F7", (view_mode == DECODED_VIEW) ? "View (dec)" :
@@ -1258,7 +1259,7 @@ void create_subwindow(main_screen *ms, int num_lines, int lineno)
 void delete_subwindow(main_screen *ms, bool refresh)
 {
     if (ms->scrolly) {
-        if (subwindow_on_screen(ms))
+        if (ms->sw_line > 0 && subwindow_on_screen(ms))
             ms->base.top = MAX(ms->base.top - ms->scrolly, 0);
         ms->scrolly = 0;
     }
