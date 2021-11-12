@@ -64,7 +64,7 @@ static int print_lines(main_screen *ms, int from, int to, int y);
 static void create_load_dialogue(void);
 static void create_save_dialogue(void);
 static bool read_show_progress(unsigned char *buffer, uint32_t n, struct timeval *t);
-static void print_packets(main_screen *ms);
+static void print_new_packets(main_screen *ms);
 static void follow_tcp_stream(main_screen *ms);
 static void scroll_window(main_screen *ms);
 static void add_elements(main_screen *ms, struct packet *p);
@@ -113,7 +113,7 @@ static void add_actionbar_elems(screen *s)
 static void screen_render(main_screen *ms, int my)
 {
     if (!ms->base.show_selectionbar && ctx.capturing && vector_size(ms->packet_ref) > my)
-        print_packets(ms);
+        print_new_packets(ms);
     else {
         if (ms->sw_line < 0 && abs(ms->sw_line) <= ms->subwindow.num_lines)
             ms->outy = print_lines(ms, ms->base.top - abs(ms->sw_line), ms->base.top + my, 0);
@@ -740,7 +740,7 @@ void main_screen_goto_end(main_screen *ms)
     int my = getmaxy(ms->base.win);
 
     if (ms->outy >= my) {
-        print_packets(ms);
+        print_new_packets(ms);
         UPDATE_SELECTIONBAR(ms->base.win, ms->base.selectionbar - ms->base.top, BACKGROUND);
         ms->base.selectionbar = vector_size(ms->packet_ref) - 1;
         UPDATE_SELECTIONBAR(ms->base.win, ms->base.selectionbar - ms->base.top, SELECTIONBAR);
@@ -851,7 +851,7 @@ void clear_filter(main_screen *ms)
         ms->packet_ref = packets;
         werase(ms->base.win);
         if (ctx.capturing && vector_size(packets) >= my) {
-            print_packets(ms);
+            print_new_packets(ms);
         } else {
             ms->outy = print_lines(ms, 0, getmaxy(ms->base.win), 0);
             ms->base.top = 0;
@@ -882,7 +882,7 @@ void filter_packets(main_screen *ms)
     my = getmaxy(ms->base.win);
     if (!ms->base.show_selectionbar && ctx.capturing &&
         vector_size(ms->packet_ref) > my) {
-        print_packets(ms);
+        print_new_packets(ms);
     } else {
         ms->outy = print_lines(ms, 0, my, 0);
         ms->base.top = 0;
@@ -890,14 +890,14 @@ void filter_packets(main_screen *ms)
     }
 }
 
-void print_packets(main_screen *ms)
+void print_new_packets(main_screen *ms)
 {
     int c = vector_size(ms->packet_ref) - 1;
     int my = getmaxy(ms->base.win);
 
     werase(ms->base.win);
 
-    /* print the new lines stored in vector from bottom to top of screen */
+    /* print the new packets stored in vector from bottom to top of screen */
     for (int i = my - 1; i >= 0; i--, c--) {
         struct packet *p;
         char buffer[MAXLINE];
@@ -1056,7 +1056,7 @@ void main_screen_set_interactive(main_screen *ms, bool interactive_mode)
             ms->main_line.selected = false;
         }
         if (ms->outy >= my && ctx.capturing) {
-            print_packets(ms);
+            print_new_packets(ms);
         } else {
             UPDATE_SELECTIONBAR(ms->base.win, ms->base.selectionbar - ms->base.top, BACKGROUND);
         }
