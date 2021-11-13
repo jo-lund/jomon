@@ -384,6 +384,7 @@ void file_dialogue_get_input(screen *s)
         break;
     case '\b':
     case KEY_BACKSPACE:
+    case 127:
         if (fd->has_focus == FS_INPUT) {
             int y, x;
 
