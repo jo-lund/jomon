@@ -209,6 +209,7 @@ int main(int argc, char **argv)
     } else {
         ctx.capturing = true;
         handle = iface_handle_create(buf, SNAPLEN, handle_packet);
+        ctx.handle = handle;
         iface_activate(handle, ctx.device, &bpf);
         if (!ctx.opt.nopromiscuous) {
             iface_set_promiscuous(handle, ctx.device, true);
