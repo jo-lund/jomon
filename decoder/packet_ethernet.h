@@ -34,9 +34,7 @@ struct eth_info {
 #define eth_dst(p) ((struct eth_info *)(p)->root->data)->mac_dst
 #define eth_len(p) ((p)->len - ETH_HLEN)
 
+void register_ethernet(void);
 char *get_ethernet_type(uint16_t ethertype);
-
-/* Should be internal to the decoder */
-bool handle_ethernet(unsigned char *buffer, int n, struct packet *p);
 
 #endif

@@ -230,7 +230,7 @@ void print_char(WINDOW *win, char *buf, struct protocol_ctx *ctx, int i, int j, 
         struct hd_layer *prot = malloc(sizeof(struct hd_layer));
 
         if (ctx->pdata->next) {
-            ctx->pinfo = get_protocol(ctx->pdata->id);
+            ctx->pinfo = get_protocol(ctx->pdata->next->id);
             ctx->pdata = ctx->pdata->next;
             ctx->prev_idx = ctx->idx;
             ctx->idx += ctx->pdata->len;

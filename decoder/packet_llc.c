@@ -22,6 +22,7 @@ packet_error handle_llc(struct protocol_info *pinfo, unsigned char *buffer, int 
 {
     struct eth_802_llc *llc;
     struct protocol_info *psub;
+    uint32_t id;
 
     pinfo->num_packets++;
     pinfo->num_bytes += n;
@@ -31,12 +32,13 @@ packet_error handle_llc(struct protocol_info *pinfo, unsigned char *buffer, int 
     llc->ssap = buffer[1];
     llc->control = buffer[2];
     pdata->len = LLC_HDR_LEN;
-    pdata->id = get_protocol_id(ETH802_3, (llc->dsap << 8) | llc->ssap);
+    id = get_protocol_id(ETH802_3, (llc->dsap << 8) | llc->ssap);
     if ((llc->dsap << 8 | llc->ssap) == 0xffff) /* invalid id */
         return UNK_PROTOCOL;
-    if ((psub = get_protocol(pdata->id))) {
+    if ((psub = get_protocol(id))) {
         pdata->next = mempool_alloc(sizeof(struct packet_data));
         memset(pdata->next, 0, sizeof(struct packet_data));
+        pdata->next->id = id;
         return psub->decode(psub, buffer + LLC_HDR_LEN, n - LLC_HDR_LEN, pdata->next);
     }
     return UNK_PROTOCOL;

@@ -23,5 +23,6 @@
 #include "packet_smb.h"
 #include "packet_dhcp.h"
 #include "packet_smtp.h"
+#include "packet_ethernet.h"
 
 #endif

@@ -71,7 +71,6 @@ packet_error handle_nbds(struct protocol_info *pinfo, unsigned char *buffer, int
     nbds->source_port = get_uint16be(ptr + 8);
     ptr += NBDS_HDRLEN;
     plen -= NBDS_HDRLEN;
-
     switch (nbds->msg_type) {
     case NBDS_DIRECT_UNIQUE:
     case NBDS_DIRECT_GROUP:
@@ -136,11 +135,14 @@ int parse_datagram(unsigned char *buffer, int n, unsigned char **data, int dlen,
     pdata->len = tot_name_len + 4 + NBDS_HDRLEN;
     if (dgm->dgm_length > tot_name_len) {
         struct protocol_info *pinfo;
+        uint32_t id;
 
-        pdata->id = get_protocol_id(PORT, SMB);
-        if ((pinfo = get_protocol(pdata->id))) {
+        id = get_protocol_id(PORT, SMB);
+        if ((pinfo = get_protocol(id))) {
             pdata->next = mempool_alloc(sizeof(struct packet_data));
             memset(pdata->next, 0, sizeof(struct packet_data));
+            pdata->next->prev = pdata;
+            pdata->next->id = id;
             pinfo->decode(pinfo, ptr, dgm->dgm_length - (tot_name_len - 4), pdata->next);
         }
     }

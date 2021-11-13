@@ -4,11 +4,29 @@
 #include "packet_ip.h"
 #include "packet_stp.h"
 #include "../util.h"
+#include "../interface.h"
 
 #define MAX_PACKET_SIZE 65535
 #ifdef __linux__
 #define ETHERTYPE_PAE ETH_P_PAE
 #endif
+
+extern void add_ethernet_information(void *w, void *sw, void *data);
+static packet_error handle_ethernet(struct protocol_info *pinfo, unsigned char *buffer,
+                                    int n, struct packet_data *pdata);
+
+static struct protocol_info eth_prot = {
+    .short_name = "ETH",
+    .long_name = "Ethernet",
+    .decode = handle_ethernet,
+    .print_pdu = NULL,
+    .add_pdu = add_ethernet_information
+};
+
+void register_ethernet(void)
+{
+    register_protocol(&eth_prot, DATALINK, LINKTYPE_ETHERNET);
+}
 
 /*
  * Ethernet header
@@ -48,40 +66,43 @@
  *
  * The K2 value is 0 (zero).
  */
-bool handle_ethernet(unsigned char *buffer, int n, struct packet *p)
+
+packet_error handle_ethernet(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                             struct packet_data *pdata)
 {
-    if (n < ETHER_HDR_LEN || n > MAX_PACKET_SIZE) return false;
+    if (n < ETHER_HDR_LEN || n > MAX_PACKET_SIZE)
+        return DATALINK_ERR;
 
     struct ether_header *eth_header;
     struct eth_info *eth;
-    struct protocol_info *pinfo;
+    struct protocol_info *layer2;
+    uint32_t id;
 
     eth_header = (struct ether_header *) buffer;
     eth = mempool_alloc(sizeof(struct eth_info));
     memcpy(eth->mac_src, eth_header->ether_shost, ETHER_ADDR_LEN);
     memcpy(eth->mac_dst, eth_header->ether_dhost, ETHER_ADDR_LEN);
     eth->ethertype = ntohs(eth_header->ether_type);
-    p->root = mempool_alloc(sizeof(struct packet_data));
-    p->root->data = eth;
-    p->root->len = ETHER_HDR_LEN;
-    p->root->prev = NULL;
-    if (eth->ethertype <= ETH_802_3_MAX) { /* Ethernet 802.3 frame */
-        p->root->id = get_protocol_id(ETH802_3, ETH_802_LLC);
-        pinfo = get_protocol(p->root->id);
-    } else { /* Ethernet II */
-        p->root->id = get_protocol_id(ETHERNET_II, eth->ethertype);
-        pinfo = get_protocol(p->root->id);
-    }
-    if (pinfo) {
-        p->root->next = mempool_alloc(sizeof(struct packet_data));
-        memset(p->root->next, 0, sizeof(struct packet_data));
-        p->root->next->prev = p->root;
-        p->perr = pinfo->decode(pinfo, buffer + ETHER_HDR_LEN, n - ETHER_HDR_LEN,
-                                p->root->next);
+    pdata->data = eth;
+    pdata->len = ETHER_HDR_LEN;
+    pdata->prev = NULL;
+    if (eth->ethertype <= ETH_802_3_MAX) {
+        id = get_protocol_id(ETH802_3, ETH_802_LLC);
+        layer2 = get_protocol(id);
+        pinfo->long_name = "Ethernet 802.3";
     } else {
-        p->perr = UNK_PROTOCOL;
+        id = get_protocol_id(ETHERNET_II, eth->ethertype);
+        layer2 = get_protocol(id);
+        pinfo->long_name = "Ethernet II";
     }
-    return true;
+    if (layer2) {
+        pdata->next = mempool_calloc(struct packet_data);
+        pdata->next->prev = pdata;
+        pdata->next->id = id;
+        return layer2->decode(layer2, buffer + ETHER_HDR_LEN, n - ETHER_HDR_LEN,
+                              pdata->next);
+    }
+    return UNK_PROTOCOL;
 }
 
 char *get_ethernet_type(uint16_t ethertype)

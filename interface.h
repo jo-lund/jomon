@@ -7,9 +7,13 @@
 #include <sys/socket.h>
 #include "bpf/bpf.h"
 
-struct timeval;
+#define LINKTYPE_ETHERNET 1
 
-typedef bool (*packet_handler)(unsigned char *buffer, uint32_t n, struct timeval *t);
+struct timeval;
+struct iface_handle;
+
+typedef bool (*packet_handler)(struct iface_handle *handle, unsigned char *buffer,
+                               uint32_t n, struct timeval *t);
 
 typedef struct iface_handle {
     int fd;
@@ -18,6 +22,7 @@ typedef struct iface_handle {
     size_t len;
     bool active;
     bool use_zerocopy;
+    unsigned int linktype;
     struct iface_operations *op;
 } iface_handle_t;
 

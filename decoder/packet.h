@@ -9,7 +9,9 @@
 #include "packet_ethernet.h"
 #include "../mempool.h"
 #include "../alloc.h"
+#include "../interface.h"
 
+#define DATALINK 0
 #define ETH802_3 1
 #define ETHERNET_II 2
 #define IP_PROTOCOL 3
@@ -62,13 +64,9 @@ enum transport {
 };
 
 typedef enum {
-    UNKNOWN = -1,
-    ETHERNET
-} packet_type;
-
-typedef enum {
     NO_ERR,
     DECODE_ERR,
+    DATALINK_ERR,
     UNK_PROTOCOL,
 } packet_error;
 
@@ -91,7 +89,6 @@ typedef void (*protocol_handler)(struct protocol_info *pinfo, void *arg);
  * Generic packet structure that can be used for every type of packet.
  */
 struct packet {
-    packet_type ptype;
     uint32_t num;
     packet_error perr;
     struct timeval time;
@@ -101,7 +98,7 @@ struct packet {
 };
 
 struct packet_data {
-    uint32_t id; /* defines the protocol used in the next packet_data */
+    uint32_t id;
     uint8_t transport;
     uint16_t len;
     void *data;
@@ -122,7 +119,8 @@ void traverse_protocols(protocol_handler fn, void *arg);
  *
  * Returns true if decoding succeeded, else false.
  */
-bool decode_packet(unsigned char *buffer, size_t n, struct packet **p);
+bool decode_packet(iface_handle_t *handle, unsigned char *buffer, size_t n,
+                   struct packet **p);
 
 /*
  * Frees data and everything allocated more recently than data. To free the
@@ -133,6 +131,7 @@ void free_packets(void *data);
 /* Return a pointer to the application payload */
 unsigned char *get_adu_payload(struct packet *p);
 
+/* Return the payload length */
 unsigned int get_adu_payload_len(struct packet *p);
 
 /* Clear packet statistics */
@@ -143,8 +142,8 @@ bool is_tcp(struct packet *p);
 struct packet_data *get_packet_data(const struct packet *p, uint32_t id);
 
 /* Should be internal to the decoder */
-packet_error call_data_decoder(struct packet_data *pdata, uint8_t transport,
-                               unsigned char *buf, int n);
+packet_error call_data_decoder(uint32_t id, struct packet_data *pdata,
+                               uint8_t transport, unsigned char *buf, int n);
 
 static inline uint32_t get_protocol_id(uint16_t layer, uint16_t key)
 {

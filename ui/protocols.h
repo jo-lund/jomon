@@ -11,7 +11,4 @@
 /* write packet to buffer */
 void write_to_buf(char *buf, int size, struct packet *p);
 
-/* add protocol headers to the list view widget */
-void add_ethernet_information(list_view *lw, list_view_header *header, struct packet *p);
-
 #endif

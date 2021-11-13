@@ -93,7 +93,7 @@ packet_error parse_pim_message(unsigned char *buffer, int n, struct pim_info *pi
         return parse_candidate_rp(buffer, n, pim);
     case PIM_STATE_REFRESH:
     default:
-        return true;
+        return NO_ERR;
     }
 }
 
@@ -169,7 +169,7 @@ packet_error parse_register_msg(unsigned char *buffer, int n, struct pim_info *p
         pim->reg->data = NULL;
         pim->reg->data_len = 0;
     }
-    return true;
+    return NO_ERR;
 }
 
 packet_error parse_register_stop(unsigned char *buffer, int n, struct pim_info *pim)
@@ -201,7 +201,8 @@ packet_error parse_assert_msg(unsigned char *buffer, int n, struct pim_info *pim
 
 packet_error parse_bootstrap(unsigned char *buffer, int n, struct pim_info *pim)
 {
-    if (n < 4) return DECODE_ERR;
+    if (n < 4)
+        return DECODE_ERR;
 
     pim->bootstrap = mempool_alloc(sizeof(struct pim_bootstrap));
     pim->bootstrap->tag = buffer[0] << 8 | buffer[1];
@@ -222,7 +223,8 @@ packet_error parse_bootstrap(unsigned char *buffer, int n, struct pim_info *pim)
     if (!parse_grp_address(&buffer, &n, &pim->bootstrap->groups->gaddr)) {
         return DECODE_ERR;
     }
-    if (n < 2) return DECODE_ERR;
+    if (n < 2)
+        return DECODE_ERR;
 
     pim->bootstrap->groups->rp_count = buffer[0];
     pim->bootstrap->groups->frag_rp_count = buffer[1];

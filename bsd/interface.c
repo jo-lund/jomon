@@ -68,6 +68,10 @@ void bsd_activate(iface_handle_t *handle, char *dev, struct bpf_prog *bpf UNUSED
 
     if ((handle->fd = open("/dev/bpf", O_RDONLY)) < 0)
         err_sys("%s: open error", __func__);
+    if (ioctl(handle->fd, BIOCGDLT, &handle->linktype) < 0)
+        err_sys("ioctl error BIOCGDLT");
+    if (handle->linktype != LINKTYPE_ETHERNET)
+        err_sys("Link type not supported");
 
     /* use zero-copy buffer mode if supported */
     mode = BPF_BUFMODE_ZBUF;

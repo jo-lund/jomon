@@ -11,6 +11,7 @@
 #include <stdbool.h>
 #include <limits.h>
 #include "attributes.h"
+#include "interface.h"
 
 /*
  * Only a portion of each packet is passed by the kernel to the application, this
@@ -51,6 +52,7 @@ typedef struct {
     unsigned char mac[ETHER_ADDR_LEN];
     char *filter;
     char *filter_file;
+    iface_handle_t *handle;
 } main_context;
 
 extern main_context ctx;

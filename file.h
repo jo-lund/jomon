@@ -35,7 +35,7 @@ char *get_file_error(enum file_error err);
  * handle the packets. If packet_handler returns false, read_file will return
  * with a DECODE_ERROR.
  */
-enum file_error read_file(FILE *fp, packet_handler f);
+enum file_error read_file(iface_handle_t *handle, FILE *fp, packet_handler f);
 
 /* Write packets to file in pcap format */
 void write_pcap(FILE *fp, vector_t *packets, progress_update fn);

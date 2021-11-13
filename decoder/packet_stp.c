@@ -31,7 +31,7 @@ static struct protocol_info stp_prot = {
     .add_pdu = add_stp_information
 };
 
-void register_stp()
+void register_stp(void)
 {
     register_protocol(&stp_prot, ETH802_3, ETH_802_STP);
 }
@@ -96,12 +96,12 @@ char *get_stp_bpdu_type(uint8_t type)
     }
 }
 
-struct packet_flags *get_stp_flags()
+struct packet_flags *get_stp_flags(void)
 {
     return stp_flags;
 }
 
-int get_stp_flags_size()
+int get_stp_flags_size(void)
 {
     return ARRAY_SIZE(stp_flags);
 }

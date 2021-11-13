@@ -67,16 +67,21 @@ void traverse_protocols(protocol_handler fn, void *arg)
     }
 }
 
-bool decode_packet(unsigned char *buffer, size_t len, struct packet **p)
+bool decode_packet(iface_handle_t *h, unsigned char *buffer, size_t len, struct packet **p)
 {
+    struct protocol_info *pinfo;
+
     *p = mempool_alloc(sizeof(struct packet));
     (*p)->buf = mempool_copy(buffer, len); /* store the original frame in buf */
     (*p)->len = len;
-    if (!handle_ethernet(buffer, len, *p)) {
+    (*p)->root = mempool_calloc(struct packet_data);
+    (*p)->root->id = get_protocol_id(DATALINK, h->linktype);
+    if ((pinfo = get_protocol((*p)->root->id)) == NULL)
+        return false;
+    if (((*p)->perr = pinfo->decode(pinfo, buffer, len, (*p)->root)) == DATALINK_ERR) {
         free_packets(*p);
         return false;
     }
-    (*p)->ptype = ETHERNET;
     (*p)->num = ++total_packets;
     total_bytes += len;
     return true;
@@ -87,56 +92,51 @@ void free_packets(void *data)
     mempool_free(data);
 }
 
-packet_error call_data_decoder(struct packet_data *pdata, uint8_t transport,
+packet_error call_data_decoder(uint32_t id, struct packet_data *p, uint8_t transport,
                                unsigned char *buf, int n)
 {
     struct protocol_info *pinfo;
     packet_error err = UNK_PROTOCOL;
+    struct packet_data *pdata;
 
-    if (!pdata)
-        return DECODE_ERR;
-
-    if ((pinfo = get_protocol(pdata->id))) {
-        pdata->next = mempool_alloc(sizeof(struct packet_data));
-        memset(pdata->next, 0, sizeof(struct packet_data));
-        pdata->next->transport = transport;
-        pdata->next->id = pdata->id;
-        pdata->next->prev = pdata;
-        if ((err = pinfo->decode(pinfo, buf, n, pdata->next)) != NO_ERR) {
-            mempool_free(pdata->next);
-            pdata->next = NULL;
+    if ((pinfo = get_protocol(id))) {
+        pdata = mempool_alloc(sizeof(struct packet_data));
+        memset(pdata, 0, sizeof(struct packet_data));
+        pdata->transport = transport;
+        pdata->id = id;
+        pdata->prev = p;
+        p->next = pdata;
+        if ((err = pinfo->decode(pinfo, buf, n, pdata)) != NO_ERR) {
+            mempool_free(pdata);
+            p->next = NULL;
         }
-    } else {
-        pdata->next = NULL;
     }
     return err;
 }
 
-// TODO: Improve this
 unsigned char *get_adu_payload(struct packet *p)
 {
     struct packet_data *pdata = p->root;
     int i = 0;
 
     while (pdata) {
-        i += pdata->len;
         if (get_protocol_layer(pdata->id) == PORT)
             return p->buf + i;
+        i += pdata->len;
         pdata = pdata->next;
     }
     return NULL;
 }
 
-// TODO: Improve this
 unsigned int get_adu_payload_len(struct packet *p)
 {
     struct packet_data *pdata = p->root;
     unsigned int len = p->len;
 
     while (pdata) {
-        len -= pdata->len;
         if (get_protocol_layer(pdata->id) == PORT)
             return len;
+        len -= pdata->len;
         pdata = pdata->next;
     }
     return 0;
@@ -168,8 +168,8 @@ struct packet_data *get_packet_data(const struct packet *p, uint32_t id)
     struct packet_data *pdata = p->root;
 
     while (pdata) {
-        if (pdata->id == id && pdata->next)
-            return pdata->next;
+        if (pdata->id == id)
+            return pdata;
         pdata = pdata->next;
     }
     return NULL;

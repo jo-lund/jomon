@@ -11,6 +11,7 @@
 #include <sys/ioctl.h>
 #include <net/ethernet.h>
 #include <linux/wireless.h>
+#include <net/if_arp.h>
 #include "../monitor.h"
 #include "../interface.h"
 #include "../error.h"
@@ -44,6 +45,30 @@ static int get_interface_index(char *dev)
     return ifr.ifr_ifindex;
 }
 
+static int map_linktype(unsigned int type)
+{
+    switch (type) {
+    case ARPHRD_ETHER:
+    case ARPHRD_LOOPBACK:
+        return LINKTYPE_ETHERNET;
+    default:
+        return -1;
+    }
+}
+
+static unsigned int get_linktype(char *dev)
+{
+    struct ifreq ifr;
+    int sockfd;
+
+    strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
+        return -1;
+    if (ioctl(sockfd, SIOCGIFHWADDR, &ifr) == -1)
+        return -1;
+    return ifr.ifr_hwaddr.sa_family;
+}
+
 iface_handle_t *iface_handle_create(unsigned char *buf, size_t len, packet_handler fn)
 {
     iface_handle_t *handle = calloc(1, sizeof(iface_handle_t));
@@ -61,6 +86,11 @@ void linux_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf)
     int flag;
     int n = 1;
     struct sockaddr_ll ll_addr; /* device independent physical layer address */
+    int type;
+
+    if ((type = map_linktype(get_linktype(device))) == -1)
+        err_quit("Link type not supported");
+    handle->linktype = type;
 
     /* SOCK_RAW packet sockets include the link level header */
     if ((handle->fd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {
@@ -133,7 +163,7 @@ void linux_read_packet(iface_handle_t *handle)
         }
     }
     // TODO: Should log dropped packets
-    handle->on_packet(handle->buf, msg.msg_len, val);
+    handle->on_packet(handle, handle->buf, msg.msg_len, val);
 }
 
 void linux_set_promiscuous(iface_handle_t *handle UNUSED, char *dev, bool enable)

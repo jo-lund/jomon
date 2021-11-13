@@ -63,7 +63,8 @@ static void print_selected_packet(main_screen *ms);
 static int print_lines(main_screen *ms, int from, int to, int y);
 static void create_load_dialogue(void);
 static void create_save_dialogue(void);
-static bool read_show_progress(unsigned char *buffer, uint32_t n, struct timeval *t);
+static bool read_show_progress(iface_handle_t *handle, unsigned char *buffer,
+                               uint32_t n, struct timeval *t);
 static void print_new_packets(main_screen *ms);
 static void follow_tcp_stream(main_screen *ms);
 static void scroll_window(main_screen *ms);
@@ -112,9 +113,9 @@ static void add_actionbar_elems(screen *s)
 
 static void screen_render(main_screen *ms, int my)
 {
-    if (!ms->base.show_selectionbar && ctx.capturing && vector_size(ms->packet_ref) > my)
+    if (!ms->base.show_selectionbar && ctx.capturing && vector_size(ms->packet_ref) > my) {
         print_new_packets(ms);
-    else {
+    } else {
         if (ms->sw_line < 0 && abs(ms->sw_line) <= ms->subwindow.num_lines)
             ms->outy = print_lines(ms, ms->base.top - abs(ms->sw_line), ms->base.top + my, 0);
         else if (ms->sw_line < 0)
@@ -482,7 +483,7 @@ void main_screen_load_handle_ok(void *file)
         lstat((const char *) file, buf);
         pd = progress_dialogue_create(title, buf->st_size);
         push_screen((screen *) pd);
-        err = read_file(fp, read_show_progress);
+        err = read_file(ctx.handle, fp, read_show_progress);
         if (err == NO_ERROR) {
             int i;
 
@@ -561,12 +562,13 @@ void main_screen_write_show_progress(int size)
     PROGRESS_DIALOGUE_UPDATE(pd, size);
 }
 
-bool read_show_progress(unsigned char *buffer, uint32_t n, struct timeval *t)
+bool read_show_progress(iface_handle_t *handle, unsigned char *buffer, uint32_t n,
+                        struct timeval *t)
 {
     struct packet *p;
     main_screen *ms = (main_screen *) screen_cache_get(MAIN_SCREEN);
 
-    if (!decode_packet(buffer, n, &p)) {
+    if (!decode_packet(handle, buffer, n, &p)) {
         return false;
     }
     p->time.tv_sec = t->tv_sec;
@@ -1190,7 +1192,6 @@ void add_elements(main_screen *ms, struct packet *p)
 {
     list_view_header *header;
     struct protocol_info *pinfo;
-    struct eth_info *eth;
     struct packet_data *pdata;
     int i = 0;
     int idx = 0;
@@ -1200,24 +1201,17 @@ void add_elements(main_screen *ms, struct packet *p)
     }
     ms->lvw = create_list_view();
     pdata = p->root;
-    eth = pdata->data;
 
-    /* inspect packet and add packet headers as elements to the list view */
-    if (eth->ethertype <= ETH_802_3_MAX)
-        header = LV_ADD_HEADER(ms->lvw, "Ethernet 802.3", selected[UI_LAYER1], UI_LAYER1);
-    else
-        header = LV_ADD_HEADER(ms->lvw, "Ethernet II", selected[UI_LAYER1], UI_LAYER1);
-    add_ethernet_information(ms->lvw, header, p);
-    idx += pdata->len;
-    while (pdata->next) {
+    /* add packet headers as elements to the list view */
+    while (pdata) {
         pinfo = get_protocol(pdata->id);
-        pdata = pdata->next;
-        i++;
         idx += pdata->len;
         if (pinfo && i < NUM_LAYERS) {
             header = LV_ADD_HEADER(ms->lvw, pinfo->long_name, selected[i], i);
             pinfo->add_pdu(ms->lvw, header, pdata);
         }
+        i++;
+        pdata = pdata->next;
     }
     if (p->perr != NO_ERR && (int) p->len - idx > 0) {
         header = LV_ADD_HEADER(ms->lvw, "Data", selected[i+1], i + 1);

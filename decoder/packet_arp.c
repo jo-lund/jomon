@@ -30,7 +30,7 @@ static struct protocol_info arp_prot = {
     .add_pdu = add_arp_information
 };
 
-void register_arp()
+void register_arp(void)
 {
     register_protocol(&arp_prot, ETHERNET_II, ETHERTYPE_ARP);
 }

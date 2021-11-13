@@ -54,7 +54,8 @@ static iface_handle_t *handle = NULL;
 static struct bpf_prog bpf;
 static bool promiscuous_mode = false;
 
-static bool handle_packet(unsigned char *buffer, uint32_t n, struct timeval *t);
+static bool handle_packet(iface_handle_t *handle, unsigned char *buffer,
+                          uint32_t n, struct timeval *t);
 static void print_help(char *prg) NORETURN;
 static void setup_signal(int signo, void (*handler)(int), int flags);
 static void run(void);
@@ -182,10 +183,12 @@ int main(int argc, char **argv)
         FILE *fp;
 
         ctx.capturing = false;
+        handle = iface_handle_create(buf, SNAPLEN, handle_packet);
+        ctx.handle = handle;
         if ((fp = open_file(ctx.filename, "r", &err)) == NULL) {
             err_sys("Error: %s", ctx.filename);
         }
-        if ((err = read_file(fp, handle_packet)) != NO_ERROR) {
+        if ((err = read_file(handle, fp, handle_packet)) != NO_ERROR) {
             fclose(fp);
             err_quit("Error in %s: %s", ctx.filename, get_file_error(err));
         }
@@ -193,7 +196,6 @@ int main(int argc, char **argv)
         if (ctx.opt.use_ncurses) {
             ncurses_init();
             ncurses_initialized = true;
-            handle = iface_handle_create(buf, SNAPLEN, handle_packet);
             print_file();
         } else {
             for (int i = 0; i < vector_size(packets); i++) {
@@ -364,18 +366,17 @@ void start_scan(void)
     fd_changed = true;
 }
 
-bool handle_packet(unsigned char *buffer, uint32_t n, struct timeval *t)
+bool handle_packet(iface_handle_t *handle, unsigned char *buffer, uint32_t n,
+                   struct timeval *t)
 {
     struct packet *p;
 
     if (bpf.size > 0) {
-        if (bpf_run_filter(bpf, buffer, n) == 0) {
+        if (bpf_run_filter(bpf, buffer, n) == 0)
             return true;
-        }
     }
-    if (!decode_packet(buffer, n, &p)) {
+    if (!decode_packet(handle, buffer, n, &p))
         return false;
-    }
     p->time.tv_sec = t->tv_sec;
     p->time.tv_usec = t->tv_usec;
     if (p->perr != DECODE_ERR) {

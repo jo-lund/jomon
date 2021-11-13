@@ -8,6 +8,7 @@
 #include <string.h>
 #include "packet_ip.h"
 #include "../error.h"
+#include "../util.h"
 
 /*
  * IP Differentiated Services Code Point class selectors.
@@ -59,7 +60,7 @@ static struct protocol_info ipv6_prot = {
     .add_pdu = add_ipv6_information
 };
 
-void register_ip()
+void register_ip(void)
 {
     register_protocol(&ipv4_prot, ETHERNET_II, ETHERTYPE_IP);
     register_protocol(&ipv6_prot, ETHERNET_II, ETHERTYPE_IPV6);
@@ -101,6 +102,7 @@ packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int
     struct ip *ip;
     unsigned int header_len;
     struct ipv4_info *ipv4;
+    uint32_t id;
 
     ip = (struct ip *) buffer;
     if (n < ip->ip_hl * 4 || ip->ip_hl < 5) return DECODE_ERR;
@@ -138,13 +140,14 @@ packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int
     ipv4->ttl = ip->ip_ttl;
     ipv4->protocol = ip->ip_p;
     ipv4->checksum = ntohs(ip->ip_sum);
-    pdata->id = get_protocol_id(IP_PROTOCOL, ipv4->protocol);
+    id = get_protocol_id(IP_PROTOCOL, ipv4->protocol);
 
-    struct protocol_info *layer3 = get_protocol(pdata->id);
+    struct protocol_info *layer3 = get_protocol(id);
     if (layer3) {
         pdata->next = mempool_alloc(sizeof(struct packet_data));
         memset(pdata->next, 0, sizeof(struct packet_data));
         pdata->next->prev = pdata;
+        pdata->next->id = id;
         return layer3->decode(layer3, buffer + header_len, n - header_len, pdata->next);
     }
      return NO_ERR;
@@ -195,6 +198,7 @@ packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int
     struct ip6_hdr *ip6;
     unsigned int header_len;
     struct ipv6_info *ipv6;
+    uint32_t id;
 
     header_len = sizeof(struct ip6_hdr);
     if ((unsigned int) n < header_len)
@@ -214,14 +218,15 @@ packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int
     ipv6->hop_limit = ip6->ip6_hlim;
     memcpy(ipv6->src, ip6->ip6_src.s6_addr, 16);
     memcpy(ipv6->dst, ip6->ip6_dst.s6_addr, 16);
-    pdata->id = get_protocol_id(IP_PROTOCOL, ipv6->next_header);
+    id = get_protocol_id(IP_PROTOCOL, ipv6->next_header);
 
     // TODO: Handle IPv6 extension headers and errors
-    struct protocol_info *layer3 = get_protocol(pdata->id);
+    struct protocol_info *layer3 = get_protocol(id);
     if (layer3) {
         pdata->next = mempool_alloc(sizeof(struct packet_data));
         memset(pdata->next, 0, sizeof(struct packet_data));
         pdata->next->prev = pdata;
+        pdata->next->id = id;
         return layer3->decode(layer3, buffer + header_len, n - header_len, pdata->next);
     }
     return NO_ERR;
@@ -267,14 +272,14 @@ char *get_ip_transport_protocol(uint8_t protocol)
     }
 }
 
-struct packet_flags *get_ipv4_flags()
+struct packet_flags *get_ipv4_flags(void)
 {
     return ipv4_flags;
 }
 
-int get_ipv4_flags_size()
+int get_ipv4_flags_size(void)
 {
-    return sizeof(ipv4_flags) / sizeof(struct packet_flags);
+    return ARRAY_SIZE(ipv4_flags);
 }
 
 uint16_t get_ipv4_foffset(struct ipv4_info *ip)

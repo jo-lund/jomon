@@ -57,11 +57,10 @@ packet_error handle_udp(struct protocol_info *pinfo, unsigned char *buffer, int 
     pdata->len = UDP_HDR_LEN;
     if (n - UDP_HDR_LEN > 0) {
         for (int i = 0; i < 2; i++) {
-            pdata->id = get_protocol_id(PORT, *((uint16_t *) info + i));
-            error = call_data_decoder(pdata, UDP, buffer + UDP_HDR_LEN, n - UDP_HDR_LEN);
-            if (error != UNK_PROTOCOL) {
+            error = call_data_decoder(get_protocol_id(PORT, *((uint16_t *) info + i)),
+                                      pdata, UDP, buffer + UDP_HDR_LEN, n - UDP_HDR_LEN);
+            if (error != UNK_PROTOCOL)
                 return error;
-            }
         }
     }
     return error;

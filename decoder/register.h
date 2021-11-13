@@ -3,9 +3,10 @@
 
 #include "decoder.h"
 
-typedef void (*register_function)();
+typedef void (*register_function)(void);
 
 static register_function decoder_functions[] = {
+    register_ethernet,
     register_llc,
     register_stp,
     register_snap,

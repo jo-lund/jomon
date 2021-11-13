@@ -11,7 +11,6 @@
 #include "decoder/decoder.h"
 
 #define BUFSIZE 128 * 1024
-#define LINKTYPE_ETHERNET 1
 #define MAGIC_NUMBER 0xa1b2c3d4
 #define MAJOR_VERSION 2
 #define MINOR_VERSION 4
@@ -40,8 +39,8 @@ typedef struct pcaprec_hdr_s {
 static bool swap_bytes = false;
 static packet_handler pkt_handler;
 
-static int read_buf(unsigned char *buf, size_t len);
-static enum file_error read_header(unsigned char *buf, size_t len);
+static int read_buf(iface_handle_t *handle, unsigned char *buf, size_t len);
+static enum file_error read_header(iface_handle_t *handle, unsigned char *buf, size_t len);
 static enum file_error errno_file_error(int err);
 static void write_header(unsigned char *buf);
 static int write_data(unsigned char *buf, unsigned int len, struct packet *p);
@@ -60,7 +59,7 @@ FILE *open_file(const char *path, const char *mode, enum file_error *err)
     return fp;
 }
 
-enum file_error read_file(FILE *fp, packet_handler f)
+enum file_error read_file(iface_handle_t *handle, FILE *fp, packet_handler f)
 {
     unsigned char buf[BUFSIZE];
     enum file_error error = NO_ERROR;
@@ -69,12 +68,12 @@ enum file_error read_file(FILE *fp, packet_handler f)
 
     pkt_handler = f;
     len = fread(buf, sizeof(unsigned char), sizeof(pcap_hdr_t), fp);
-    error = read_header(buf, len);
+    error = read_header(handle, buf, len);
     if (error != NO_ERROR) {
         return error;
     }
     while ((len = fread(buf + n, sizeof(unsigned char), BUFSIZE - n, fp)) > 0) {
-        n = read_buf(buf, len + n);
+        n = read_buf(handle, buf, len + n);
         if (n == -1) {
             error = DECODE_ERROR;
             break;
@@ -89,7 +88,7 @@ enum file_error read_file(FILE *fp, packet_handler f)
 }
 
 /* Read global file header */
-enum file_error read_header(unsigned char *buf, size_t len)
+enum file_error read_header(iface_handle_t *handle, unsigned char *buf, size_t len)
 {
     pcap_hdr_t *file_header;
 
@@ -103,7 +102,7 @@ enum file_error read_header(unsigned char *buf, size_t len)
     } else {
         return FORMAT_ERROR;
     }
-    if (get_linktype(file_header) != LINKTYPE_ETHERNET) {
+    if ((handle->linktype = get_linktype(file_header)) != LINKTYPE_ETHERNET) {
         return LINK_ERROR;
     }
     if (get_major_version(file_header) != 2 || get_minor_version(file_header) != 4) {
@@ -113,7 +112,7 @@ enum file_error read_header(unsigned char *buf, size_t len)
 }
 
 /* Return number of bytes left in buffer or -1 on error */
-int read_buf(unsigned char *buf, size_t len)
+int read_buf(iface_handle_t *handle, unsigned char *buf, size_t len)
 {
     size_t n = len;
 
@@ -137,7 +136,7 @@ int read_buf(unsigned char *buf, size_t len)
         n -= sizeof(pcaprec_hdr_t);
         t.tv_sec = swap_bytes ? ntohl(pkt_hdr->ts_sec) : pkt_hdr->ts_sec;
         t.tv_usec = swap_bytes ? ntohl(pkt_hdr->ts_usec) : pkt_hdr->ts_usec;
-        if (!pkt_handler(buf, pkt_len, &t)) {
+        if (!pkt_handler(handle, buf, pkt_len, &t)) {
             return -1;
         }
         n -= pkt_len;
