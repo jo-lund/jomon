@@ -175,10 +175,10 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
      /* only support for TCP and IPv4 */
     if (pdata->transport != TCP)
         return DECODE_ERR;
-    root = get_root(pdata);
-    if (!root || (root && root->id != get_protocol_id(ETHERNET_II, ETHERTYPE_IP)))
+    if ((root = get_root(pdata)) == NULL)
         return DECODE_ERR;
-    if (!root->next && !root->next->next)
+    if ((!root->next || root->next->id != get_protocol_id(ETHERNET_II, ETHERTYPE_IP)) ||
+        !root->next->next)
         return DECODE_ERR;
 
     ipv4 = root->next->data;
@@ -200,8 +200,8 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
         smtp_state = conn->data;
     }
     if (smtp_state->state == TLS) {
-        pdata->prev->id = get_protocol_id(PORT, SMTPS);
-        pinfo = get_protocol(pdata->prev->id);
+        pdata->id = get_protocol_id(PORT, SMTPS);
+        pinfo = get_protocol(pdata->id);
         return pinfo->decode(pinfo, buf, n, pdata);
     }
     p = buf;
