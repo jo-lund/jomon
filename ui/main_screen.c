@@ -1154,19 +1154,14 @@ void print_selected_packet(main_screen *ms)
         if (ms->subwindow.win) {
             if (subwindow_on_screen(ms) && screen_line > ms->subwindow.top) {
                 if (ms->sw_line < 0)
-                    ms->base.top -= ms->subwindow.num_lines;
-                ms->main_line.line_number = ms->base.selectionbar - ms->subwindow.num_lines;
+                    ms->base.top = MAX(ms->base.top - ms->subwindow.num_lines, 0);
                 ms->base.selectionbar -= ms->subwindow.num_lines;
             } else if (ms->sw_line < 0) {
                 ms->base.top -= ms->subwindow.num_lines;
                 ms->base.selectionbar -= ms->subwindow.num_lines;
-                ms->main_line.line_number -= ms->subwindow.num_lines;
-            } else {
-                ms->main_line.line_number = ms->base.selectionbar;
             }
-        } else {
-            ms->main_line.line_number = ms->base.selectionbar;
         }
+        ms->main_line.line_number = ms->base.selectionbar;
     }
     if (ms->main_line.selected) {
         p = vector_get_data(ms->packet_ref, ms->base.selectionbar);
