@@ -263,6 +263,7 @@ void file_dialogue_render(file_dialogue *this)
     printat(scr->win, 2, 8, A_BOLD, "Name");
     printat(scr->win, 2, w, A_BOLD, "Size");
     mvwchgat(scr->win, 2, 7, w - 2, A_NORMAL, PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
+    werase(this->input.win);
     wprintw(this->input.win, FILE_INPUT_TEXT);
     file_dialogue_populate(this, this->path);
     file_dialogue_update_dir(this, this->path);
@@ -422,10 +423,7 @@ void file_dialogue_get_input(screen *s)
             snprintcat(fd->path, MAXPATH, "%c", c);
             waddch(fd->input.win, c);
             wrefresh(fd->input.win);
-            break;
         }
-        ungetch(c);
-        screen_get_input(s);
         break;
     }
 }
