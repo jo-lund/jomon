@@ -13,12 +13,9 @@ typedef struct main_screen {
     } main_line;
     struct subwin_info {
         WINDOW *win;
-        int top; /* index to the first line in the subwindow relative to the
-                    main window, i.e. from 0 to max lines in window */
-        int lineno; /* index to the selected line */
+        int top; /* index to the first line in the subwindow */
         int num_lines;
     } subwindow;
-    int sw_line;
     WINDOW *header;
     list_view *lvw;
 
