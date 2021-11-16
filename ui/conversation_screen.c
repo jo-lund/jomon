@@ -223,6 +223,9 @@ void conversation_screen_get_input(screen *s)
     case KEY_ESC:
         if (input_mode) {
             main_screen_goto_line((main_screen *) cs, c);
+        } else if (((main_screen *) cs)->subwindow.win) {
+            ungetch(c);
+            main_screen_get_input(s);
         } else {
             conversation_screen_on_back(s);
             pop_screen();
