@@ -284,8 +284,8 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
             if (smtp_state->state == BDAT) {
                 int len = n - i;
 
-                smtp->data = mempool_copy(buf, len);
-                smtp->len = len;
+                smtp->data = mempool_copy(buf, n);
+                smtp->len = n;
                 smtp_state->chunk_size -= len;
                 if (smtp_state->chunk_size <= 0)
                     smtp_state->state = NORMAL;

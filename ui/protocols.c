@@ -2073,7 +2073,7 @@ void add_smtp_information(void *w, void *sw, void *data)
 
     if (smtp->data) {
         char *buf = malloc(smtp->len + 1);
-        int c = 0;
+        unsigned int c = 0;
 
         for (unsigned int i = 0; i < smtp->len; i++) {
             if (isprint(smtp->data[i]))
@@ -2085,6 +2085,10 @@ void add_smtp_information(void *w, void *sw, void *data)
                 LV_ADD_TEXT_ELEMENT(lw, header, "%s", buf + c);
                 c = i + 1;
             }
+        }
+        if (c < smtp->len) {
+            buf[smtp->len] = '\0';
+            LV_ADD_TEXT_ELEMENT(lw, header, "%s", buf + c);
         }
         free(buf);
     } else {
