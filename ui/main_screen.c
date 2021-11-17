@@ -306,12 +306,10 @@ void main_screen_get_input(screen *s)
         if (ms->subwindow.win && view_mode == HEXDUMP_VIEW) {
             struct packet *p;
 
-            ms->base.selectionbar = MAX(ms->base.selectionbar - ms->scrolly, 0);
             delete_subwindow(ms, true);
             p = vector_get_data(ms->packet_ref, ms->main_line.line_number);
             create_subwindow(ms, (hexmode == HEXMODE_NORMAL) ? p->len / 16 + 3 :
                              p->len / 64 + 3, ms->main_line.line_number);
-            ms->base.selectionbar += ms->scrolly;
             main_screen_refresh((screen *) ms);
         }
         break;
@@ -408,7 +406,6 @@ void main_screen_get_input(screen *s)
         if (ms->subwindow.win) {
             struct packet *p;
 
-            ms->base.selectionbar = MAX(ms->base.selectionbar - ms->scrolly, 0);
             delete_subwindow(ms, true);
             p = vector_get_data(ms->packet_ref, ms->main_line.line_number);
             if (view_mode == DECODED_VIEW) {
@@ -418,7 +415,6 @@ void main_screen_get_input(screen *s)
                 create_subwindow(ms, (hexmode == HEXMODE_NORMAL) ? p->len / 16 + 3 :
                                  p->len / 64 + 3, ms->main_line.line_number);
             }
-            ms->base.selectionbar += ms->scrolly;
             main_screen_refresh((screen *) ms);
         }
         actionbar_update(s, "F7", (view_mode == DECODED_VIEW) ? "View (dec)" :
@@ -1119,7 +1115,7 @@ void print_selected_packet(main_screen *ms)
             int32_t data;
 
             /* the window contains no selectable elements */
-            if (!ms->lvw)
+            if (view_mode == HEXDUMP_VIEW)
                 return;
 
             /* update the selection status of the selectable subwindow line */
@@ -1224,6 +1220,8 @@ void create_subwindow(main_screen *ms, int num_lines, int lineno)
         ms->scrolly = (num_lines >= my) ? start_line : num_lines - (my - (start_line + 1));
         start_line -= ms->scrolly;
         ms->base.top += ms->scrolly;
+        if (ms->base.selectionbar < ms->base.top)
+            ms->base.selectionbar = ms->base.top;
     }
     ms->subwindow.win = newpad(num_lines, mx);
     wbkgd(ms->subwindow.win, get_theme_colour(BACKGROUND));
