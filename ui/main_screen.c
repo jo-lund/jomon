@@ -1267,6 +1267,8 @@ void delete_subwindow(main_screen *ms, bool refresh)
             else
                 ms->base.top = ms->main_line.line_number;
             ms->base.selectionbar = ms->main_line.line_number;
+        } else if (ms->base.selectionbar >= ms->base.top + getmaxy(ms->base.win)) {
+            ms->base.selectionbar = ms->base.top + getmaxy(ms->base.win) - 1;
         }
         ms->subwindow.num_lines = 0;
         ms->subwindow.top = 0;
