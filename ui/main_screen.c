@@ -726,27 +726,35 @@ void main_screen_goto_line(main_screen *ms, int c)
 
 void main_screen_goto_home(main_screen *ms)
 {
-    int my = getmaxy(ms->base.win);
-
-    werase(ms->base.win);
-    print_lines(ms, 0, my, 0);
+    if (ms->subwindow.win) {
+        if (ms->subwindow.top > ms->base.top && ms->base.top != 0)
+            ms->subwindow.top = ms->base.top + ms->subwindow.top + ms->subwindow.num_lines;
+        else
+            ms->subwindow.top = ms->base.top + ms->subwindow.top;
+    }
     ms->base.selectionbar = 0;
     ms->base.top = 0;
-    UPDATE_SELECTIONBAR(ms->base.win, 0, SELECTIONBAR);
-    wrefresh(ms->base.win);
+    main_screen_refresh((screen *) ms);
 }
 
 void main_screen_goto_end(main_screen *ms)
 {
     int my = getmaxy(ms->base.win);
 
-    if (ms->outy >= my) {
-        print_new_packets(ms);
-        UPDATE_SELECTIONBAR(ms->base.win, ms->base.selectionbar - ms->base.top, BACKGROUND);
-        ms->base.selectionbar = vector_size(ms->packet_ref) - 1;
-        UPDATE_SELECTIONBAR(ms->base.win, ms->base.selectionbar - ms->base.top, SELECTIONBAR);
-        wrefresh(ms->base.win);
+    if (vector_size(ms->packet_ref) >= my) {
+        if (ms->subwindow.win) {
+            int scroll;
+
+            scroll = vector_size(ms->packet_ref) - my - ms->base.top + ms->subwindow.num_lines;
+            ms->base.top = vector_size(ms->packet_ref) - my + ms->subwindow.num_lines;
+            ms->base.selectionbar = vector_size(ms->packet_ref) - 1 + ms->subwindow.num_lines;
+            ms->subwindow.top -= scroll;
+        } else {
+            ms->base.top = vector_size(ms->packet_ref) - my;
+            ms->base.selectionbar = vector_size(ms->packet_ref) - 1;
+        }
     }
+    main_screen_refresh((screen *) ms);
 }
 
 void set_filter(main_screen *ms, int c)
