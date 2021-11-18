@@ -68,10 +68,6 @@ void bsd_activate(iface_handle_t *handle, char *dev, struct bpf_prog *bpf UNUSED
 
     if ((handle->fd = open("/dev/bpf", O_RDONLY)) < 0)
         err_sys("%s: open error", __func__);
-    if (ioctl(handle->fd, BIOCGDLT, &handle->linktype) < 0)
-        err_sys("ioctl error BIOCGDLT");
-    if (handle->linktype != LINKTYPE_ETHERNET)
-        err_sys("Link type not supported");
 
     /* use zero-copy buffer mode if supported */
     mode = BPF_BUFMODE_ZBUF;
@@ -103,6 +99,12 @@ void bsd_activate(iface_handle_t *handle, char *dev, struct bpf_prog *bpf UNUSED
     ifr.ifr_addr.sa_family = AF_INET;
     if (ioctl(handle->fd, BIOCSETIF, &ifr) == -1)
         err_sys("ioctl error BIOCSETIF");
+
+    /* get link type */
+    if (ioctl(handle->fd, BIOCGDLT, &handle->linktype) < 0)
+        err_sys("ioctl error BIOCGDLT");
+    if (handle->linktype != LINKTYPE_ETHERNET)
+        err_sys("Link type not supported");
 }
 
 void bsd_close(iface_handle_t *handle)
@@ -127,7 +129,7 @@ void bsd_read_packet(iface_handle_t *handle)
                 while (p < buffers[i] + zhdr->bzh_kernel_len) {
                     hdr = (struct bpf_hdr *) p;
                     handle->buf = p + hdr->bh_hdrlen;
-                    handle->on_packet(handle->buf, hdr->bh_caplen, &hdr->bh_tstamp);
+                    handle->on_packet(handle, handle->buf, hdr->bh_caplen, &hdr->bh_tstamp);
                     p += BPF_WORDALIGN(hdr->bh_hdrlen + hdr->bh_caplen);
                 }
                 buffer_acknowledge((struct bpf_zbuf_header *) buffers[i]);
@@ -141,7 +143,7 @@ void bsd_read_packet(iface_handle_t *handle)
         p = handle->buf;
         while (p < handle->buf + n) {
             hdr = (struct bpf_hdr *) p;
-            handle->on_packet(p + hdr->bh_hdrlen, hdr->bh_caplen, &hdr->bh_tstamp);
+            handle->on_packet(handle, p + hdr->bh_hdrlen, hdr->bh_caplen, &hdr->bh_tstamp);
             p += BPF_WORDALIGN(hdr->bh_hdrlen + hdr->bh_caplen);
         }
     }
