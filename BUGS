@@ -2,22 +2,9 @@
 - Resizing of window causes problems with layout.
 - If you go to a line (with "go to line") on the current screen and the selection
   line is on bolded text, the text will disappear.
-- If you are on the first page and inspect a packet (on line 2 and greater) that
-  covers the entire screen, it is not possible to scroll up. It doesn't seem to
-  take into account that the screen has been scrolled to make room for the
-  packet being inspected.
-- Pad disappears if one inspects a packet at the last page (or first), scrolls
-  away from the pad and then hit end (or home).
-- Errors with inspecting subheaders when the pad is bigger than the screen.
-- Some TCP flags (NS, CWR, ECE) are not stored, see e.g. cdp.pcap, packet
-  number 38.
 - If the device loses connection (e.g. by physically removing the device) and
   then reconnects, the packet scan just stops. It will not continue to log
   packets when the connection is re-established. When explicitly stopping and
   restarting the packet scan, we get a double free error.
 - The header is not updated if the menu is shown, the screen changes, and the
   original screen is brought back.
-
-** BPF
-- [asm] Segmentation fault when trying to assemble instructions that use numbers as
-  jump offsets instead of labels
