@@ -5,7 +5,7 @@
 
 struct screen;
 
-struct screen *stat_screen_create();
+struct screen *stat_screen_create(void);
 void stat_screen_print(struct screen *s);
 
 #endif

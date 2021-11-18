@@ -13,12 +13,12 @@ typedef struct main_screen {
     } main_line;
     struct subwin_info {
         WINDOW *win;
-        int top; /* index to the first line in the subwindow */
+        int top; /* index to the first line in the subwindow relative to the
+                    current page */
         int num_lines;
     } subwindow;
     WINDOW *header;
     list_view *lvw;
-
     /* next available line, i.e. outy - 1 is the last line printed on the screen */
     int outy;
 

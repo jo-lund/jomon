@@ -177,8 +177,3 @@ void get_local_mac(char *dev UNUSED, unsigned char *mac)
     }
     freeifaddrs(ifhead);
 }
-
-bool get_iw_stats(char *dev UNUSED, struct wireless *stat UNUSED)
-{
-    return false;
-}

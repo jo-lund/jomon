@@ -33,13 +33,6 @@ struct iface_operations {
     void (*set_promiscuous)(iface_handle_t *handle, char *device, bool enable);
 };
 
-struct wireless {
-    uint8_t qual;
-    uint8_t max_qual;
-    uint8_t level;
-    uint8_t noise;
-};
-
 /* Create a new interface handle */
 iface_handle_t *iface_handle_create(unsigned char *buf, size_t len, packet_handler fn);
 
@@ -69,8 +62,5 @@ void get_local_address(char *dev, struct sockaddr *addr);
 
 /* get the local MAC address */
 void get_local_mac(char *dev, unsigned char *mac);
-
-/* get wireless statistics */
-bool get_iw_stats(char *dev, struct wireless *stat);
 
 #endif

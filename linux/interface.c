@@ -10,7 +10,6 @@
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include <net/ethernet.h>
-#include <linux/wireless.h>
 #include <net/if_arp.h>
 #include "../monitor.h"
 #include "../interface.h"
@@ -203,37 +202,4 @@ void get_local_mac(char *dev, unsigned char *mac)
     }
     memcpy(mac, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN);
     close(sockfd);
-}
-
-bool get_iw_stats(char *dev, struct wireless *stat)
-{
-    int sockfd;
-    struct iwreq iw;
-    struct iw_statistics iw_stat;
-    struct iw_range iw_range;
-
-    strncpy(iw.ifr_ifrn.ifrn_name, dev, IFNAMSIZ - 1);
-    iw.u.data.pointer = &iw_stat;
-    iw.u.data.length = sizeof(struct iw_statistics);
-    iw.u.data.flags = 0; // TODO: What are the possible values of flags?
-
-    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
-        return false;
-    }
-    if ((ioctl(sockfd, SIOCGIWSTATS, &iw)) == -1) {
-        close(sockfd);
-        return false;
-    }
-    iw.u.data.pointer = &iw_range;
-    iw.u.data.length = sizeof(struct iw_range);
-    if ((ioctl(sockfd, SIOCGIWRANGE, &iw)) == -1) {
-        close(sockfd);
-        return false;
-    }
-    close(sockfd);
-    stat->qual = iw_stat.qual.qual;
-    stat->max_qual = iw_range.max_qual.qual;
-    stat->level = iw_stat.qual.level;
-    stat->noise = iw_stat.qual.noise;
-    return true;
 }
