@@ -1,7 +1,7 @@
 #ifndef BPF_LEXER_H
 #define BPF_LEXER_H
 
-enum token {
+enum bpf_token {
     LABEL = 1,
     INT,
     LD,
@@ -28,6 +28,8 @@ enum token {
     TXA,
     RET
 };
+
+#define BPF_NUM_TOKENS 25
 
 struct bpf_parser;
 

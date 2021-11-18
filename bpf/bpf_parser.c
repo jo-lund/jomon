@@ -13,6 +13,7 @@
 #include "../vector.h"
 #include "../hashmap.h"
 #include "../hash.h"
+#include "../mempool.h"
 
 #define MAXLINE 1000
 #define BPF_MAXINSN 4096
@@ -74,7 +75,6 @@ static bool bpf_init(char *file)
         goto end;
     bytecode = vector_init(10);
     symbol_table = hashmap_init(10, hashfnv_string, compare_string);
-    hashmap_set_free_key(symbol_table, free);
     hashmap_set_free_data(symbol_table, free);
     ret = true;
 
@@ -90,19 +90,84 @@ static void bpf_free(void)
     hashmap_free(symbol_table);
 }
 
-/* TEMP: Errors need to be handled differently  */
+static char *get_token_string(int c)
+{
+    switch (c) {
+    case INT:
+        return "int";
+    case LD:
+        return "ld";
+    case LDH:
+        return "ldh";
+    case LDB:
+        return "ldb";
+    case LDX:
+        return "ldx";
+    case ST:
+        return "st";
+    case STX:
+        return "stx";
+    case ADD:
+        return "add";
+    case SUB:
+        return "sub";
+    case MUL:
+        return "mul";
+    case DIV:
+        return "div";
+    case AND:
+        return "and";
+    case OR:
+        return "or";
+    case XOR:
+        return "xor";
+    case LSH:
+        return "lsh";
+    case RSH:
+        return "rsh";
+    case JMP:
+        return "jmp";
+    case JEQ:
+        return "jeq";
+    case JGT:
+        return "jgt";
+    case JGE:
+        return "jge";
+    case JSET:
+        return "jset";
+    case TAX:
+        return "tax";
+    case TXA:
+        return "txa";
+    case RET:
+        return "ret";
+    default:
+        return "";
+    }
+}
+
 static void error(const char *fmt, ...)
 {
     char buf[MAXLINE];
     va_list ap;
     int n;
 
-    n = snprintf(buf, MAXLINE, "%s:%d: error: ", parser.infile, parser.line);
+    n = snprintf(buf, MAXLINE, "%s:%d: ", parser.infile, parser.line);
     va_start(ap, fmt);
     vsnprintf(buf + n, MAXLINE - n - 1, fmt, ap);
     va_end(ap);
     strcat(buf, "\n");
     fputs(buf, stderr);
+}
+
+static void token_error(int token)
+{
+    if (token == LABEL)
+        error("Syntax error: %s", parser.val.str);
+    else if (token < BPF_NUM_TOKENS)
+        error("Syntax error: %s", get_token_string(token));
+    else
+        error("Syntax error: \'%c\'", token);
 }
 
 static bool make_stm(uint16_t opcode, uint8_t jt, uint8_t jf, uint32_t k)
@@ -162,7 +227,7 @@ static bool parse_offset(int insn)
     }
 
 error:
-    error("Syntax error: %c", parser.token);
+    token_error(parser.token);
     return false;
 }
 
@@ -224,21 +289,19 @@ static bool parse_msh(int insn)
     }
 
 error:
-    error("Unexpexted token %c\n", parser.token);
+    token_error(parser.token);
     return false;
 }
 
-static bool parse_ld()
+static bool parse_ld(void)
 {
     if (match('#')) {
         return parse_int(LD, BPF_IMM);
     } else if (parser.token == 'M') {
         return parse_mem(LD, BPF_MEM);
     } else if (parser.token == '[') {
-        if (!parse_offset(LD)) {
-            error("Unexpected token: %c", parser.token);
+        if (!parse_offset(LD))
             return false;
-        }
         if (!match(']')) {
             error("Expected \']\'");
             return false;
@@ -247,7 +310,7 @@ static bool parse_ld()
     return true;
 }
 
-static bool parse_ldbh()
+static bool parse_ldbh(void)
 {
     int insn = parser.token;
 
@@ -255,10 +318,8 @@ static bool parse_ldbh()
         error("Expected \'[\' after operand");
         return false;
     }
-    if (!parse_offset(insn)) {
-        error("Unexpected token: %c", parser.token);
+    if (!parse_offset(insn))
         return false;
-    }
     if (!match(']')) {
         error("Expected \']\'");
         return false;
@@ -266,7 +327,7 @@ static bool parse_ldbh()
     return true;
 }
 
-static bool parse_ldx()
+static bool parse_ldx(void)
 {
     if (match('#'))
         return parse_int(LDX, BPF_IMM);
@@ -277,27 +338,27 @@ static bool parse_ldx()
     return true;
 }
 
-static bool parse_ret()
+static bool parse_ret(void)
 {
     if (match('#'))
         return parse_int(RET, BPF_K);
     if (parser.token == 'a' || parser.token == 'A')
         return bpf_stm(RET, BPF_A, 0);
-    error("Unexpected token: %c", parser.token);
+    token_error(parser.token);
     return false;
 }
 
-static bool parse_st()
+static bool parse_st(void)
 {
     int insn = parser.token;
 
     if (match('M'))
         return parse_mem(insn, 0);
-    error("Unexpected token: %c", parser.token);
+    token_error(parser.token);
     return false;
 }
 
-static bool parse_alu()
+static bool parse_alu(void)
 {
     int insn = parser.token;
 
@@ -305,25 +366,22 @@ static bool parse_alu()
         return parse_int(insn, BPF_K);
     if (parser.token == 'x')
         return bpf_stm(insn, BPF_X, 0);
-    error("Unexpected token: %c", parser.token);
+    token_error(parser.token);
     return false;
 }
 
-static bool parse_label()
+static bool parse_label(void)
 {
     struct symbol *sym;
-    char *str = parser.val.str;
 
     if (!match(':')) {
-        free(str);
         if (parser.token != LABEL)
             return true;
         if (!match(':'))
             return true;
     }
     if (hashmap_contains(symbol_table, parser.val.str)) {
-        error("Multiple defined label");
-        free(parser.val.str);
+        error("Multiple defined label: %s", parser.val.str);
         return false;
     }
     sym = malloc(sizeof(*sym));
@@ -333,31 +391,26 @@ static bool parse_label()
     return true;
 }
 
-static bool parse_jmp()
+static bool parse_jmp(void)
 {
     struct symbol *sym;
 
     if (!match(LABEL)) {
-        error("Unexpected token: %c", parser.token);
+        token_error(parser.token);
         return false;
     }
     if ((sym = hashmap_get(symbol_table, parser.val.str)) == NULL) {
-        error("Undefined label");
-        goto cleanup;
+        error("Undefined label: %s", parser.val.str);
+        return false;
     }
     if (sym->value < parser.line) {
         error("Backward jumps are not supported");
-        goto cleanup;
+        return false;
     }
-    free(parser.val.str);
     return bpf_stm(JMP, 0, sym->value - parser.line);
-
-cleanup:
-    free(parser.val.str);
-    return false;
 }
 
-static bool parse_cond_jmp()
+static bool parse_cond_jmp(void)
 {
     int insn = parser.token;
     int k;
@@ -377,27 +430,22 @@ static bool parse_cond_jmp()
         goto undefined;
     if (!match(','))
         goto error;
-    free(parser.val.str);
     if (!match(LABEL))
         goto error;
     if ((jf = hashmap_get(symbol_table, parser.val.str)) == NULL)
         goto undefined;
     if (jt->value < parser.line || jf->value < parser.line) {
-        free(parser.val.str);
         error("Backward jumps are not supported");
         return false;
     }
-    free(parser.val.str);
     return bpf_jmp_stm(insn, BPF_K, jt->value - parser.line, jf->value - parser.line, k);
 
 error:
-    free(parser.val.str);
-    error("Unexpected token: %c", parser.token);
+    token_error(parser.token);
     return false;
 
 undefined:
     error("Undefined label: %s", parser.val.str);
-    free(parser.val.str);
     return false;
 }
 
@@ -408,6 +456,7 @@ struct bpf_prog bpf_assemble(char *file)
         .bytecode = NULL,
         .size = 0
     };
+    MEMPOOL_RELEASE enum pool prev = mempool_set(POOL_SHORT);
 
     if (!bpf_init(file))
         return prog;
@@ -427,9 +476,8 @@ struct bpf_prog bpf_assemble(char *file)
     while ((parser.token = get_token()) != 0) {
         switch (parser.token) {
         case LABEL:
-            free(parser.val.str);
             if (!match(':')) {
-                error("Unexpected token: %c", parser.token);
+                token_error(parser.token);
                 goto done;
             }
             break;
@@ -480,7 +528,7 @@ struct bpf_prog bpf_assemble(char *file)
             ret = bpf_stm(TXA, 0, 0);
             break;
         default:
-            error("Unexpected token: %c", parser.token);
+            token_error(parser.token);
             goto done;
         }
         if (!ret)

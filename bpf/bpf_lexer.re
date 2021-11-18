@@ -2,6 +2,7 @@
 #include "bpf_lexer.h"
 #include "parse.h"
 #include "util.h"
+#include "../mempool.h"
 
 #define YYFILL(n) {}
 #define YYLIMIT input->lim
@@ -73,7 +74,7 @@ scan:
     [axM] { return input->tok[0]; }
 
     [a-zA-Z][a-zA-Z0-9_]* {
-        parser->val.str = strndup((char *) input->tok, TOKENLEN);
+        parser->val.str = mempool_copy0((char *) input->tok, TOKENLEN);
         return LABEL;
     }
 
