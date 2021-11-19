@@ -534,6 +534,9 @@ struct bpf_prog bpf_assemble(char *file)
         if (!ret)
             goto done;
     }
+    if (vector_size(bytecode) == 0)
+        goto done;
+
     struct bpf_insn *insn = vector_get_data(bytecode, vector_size(bytecode) - 1);
 
     if (BPF_CLASS(insn->code) != BPF_RET) {
