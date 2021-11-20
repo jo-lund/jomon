@@ -1,6 +1,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <inttypes.h>
 #include "stat_screen.h"
 #include "layout_int.h"
 #include "../interface.h"
@@ -153,7 +154,7 @@ static void print_protocol_stat(struct protocol_info *pinfo, void *arg)
             wprintw(s->win, "%13s",
                     format_bytes(pinfo->num_bytes, buf, 16));
         } else {
-            wprintw(s->win, "%13llu", pinfo->num_bytes);
+            wprintw(s->win, "%13" PRIu64, pinfo->num_bytes);
         }
     }
 }
@@ -168,8 +169,7 @@ void print_netstat(void)
 
     get_netstat(ctx.device, &rx, &tx);
     calculate_rate();
-    printat(s->win, y, 0, hdrcol, "Network statistics for %s", ctx.device);
-    mvwprintw(s->win, ++y, 0, "");
+    printat(s->win, y++, 0, hdrcol, "Network statistics for %s", ctx.device);
     printat(s->win, ++y, 0, subcol, "%13s", "Upload rate");
     wprintw(s->win, ": %8.2f kB/s", tx.kbps);
     wprintw(s->win, "\t%4d packets/s", tx.pps);
@@ -177,7 +177,7 @@ void print_netstat(void)
     wprintw(s->win, ": %8.2f kB/s", rx.kbps);
     wprintw(s->win, "\t%4d packets/s", rx.pps);
     if (get_iwstat(ctx.device, &stat)) {
-        mvwprintw(s->win, ++y, 0, "");
+        y += 2;
         printat(s->win, ++y, 0, subcol, "%13s", "Link quality");
         wprintw(s->win, ": %8u/%u", stat.qual, stat.max_qual);
         printat(s->win, ++y, 0, subcol, "%13s", "Level");
@@ -188,16 +188,16 @@ void print_netstat(void)
     if (show_packet_stats) {
         char buf[16];
 
-        mvwprintw(s->win, ++y, 0, "");
         if (total_packets) {
-            printat(s->win, ++y, 0, subcol, "%23s %12s", "Packets", "Bytes");
+            y += 2;
+            printat(s->win, y, 0, subcol, "%23s %12s", "Packets", "Bytes");
             printat(s->win, ++y, 0, subcol, "%13s", "Total");
             wprintw(s->win, ": %8u", total_packets);
             if (formatted_output) {
                 wprintw(s->win, "%13s",
                         format_bytes(total_bytes, buf, 16));
             } else {
-                wprintw(s->win, "%13llu", total_bytes);
+                wprintw(s->win, "%13" PRIu64, total_bytes);
             }
             traverse_protocols(print_protocol_stat, &y);
         }
@@ -217,8 +217,7 @@ void print_hwstat(void)
     get_memstat(&mem);
     get_cpustat(cpustat[cpuidx]);
     cpuidx = (cpuidx + 1) % 2;
-    printat(s->win, y, 0, hdrcol, "Memory and CPU statistics");
-    mvwprintw(s->win, ++y, 0, "");
+    printat(s->win, y++, 0, hdrcol, "Memory and CPU statistics");
     printat(s->win, ++y, 0, subcol, "%18s", "Total memory");
     wprintw(s->win, ": %8lu kB", mem.total_ram);
     printat(s->win, ++y, 0, subcol, "%18s", "Memory used");
@@ -227,19 +226,18 @@ void print_hwstat(void)
     wprintw(s->win, ": %6lu kB", mem.buffers);
     printat(s->win, -1, -1, subcol, "%8s", "Cache");
     wprintw(s->win, ": %8lu kB", mem.cached);
-    mvwprintw(s->win, ++y, 0, "");
-    printat(s->win, ++y, 0, subcol, "%18s", "Pid");
+    y += 2;
+    printat(s->win, y, 0, subcol, "%18s", "Pid");
     wprintw(s->win, ":  %d", mem.proc.pid);
     printat(s->win, ++y, 0, subcol, "%18s", "Resident set size");
     wprintw(s->win, ":  %lu kB", mem.proc.vm_rss);
-    printat(s->win, y, 34, subcol, "Virtual memory size");
+    printat(s->win, y++, 34, subcol, "Virtual memory size");
     wprintw(s->win, ":  %lu kB", mem.proc.vm_size);
-    mvwprintw(s->win, ++y, 0, "");
     if (cpustat[0][0].idle != 0 && cpustat[1][0].idle != 0) {
         for (int i = 0; i < hw.num_cpu; i++) {
             idle = cpustat[!cpuidx][i].idle - cpustat[cpuidx][i].idle;
             printat(s->win, ++y, 0, subcol, " CPU%d idle", i);
-            wprintw(s->win, ": %4d %%", idle);
+            wprintw(s->win, ": %4lu %%", idle);
         }
     }
     wnoutrefresh(s->win);

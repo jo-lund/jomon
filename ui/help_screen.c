@@ -28,12 +28,12 @@ static void help_screen_render(void)
     werase(win);
     wbkgd(win, get_theme_colour(BACKGROUND));
     wprintw(win, "Monitor (c) 2014 - 2021 John Olav Lund");
-    mvwprintw(win, ++y, 0, "");
-    mvwprintw(win, ++y, 0, "When a packet scan is active you can enter interactive mode "
+    y += 2;
+    mvwprintw(win, y, 0, "When a packet scan is active you can enter interactive mode "
               "by pressing \'i\'. In interactive mode the packet scan will continue in the "
               "background.");
-    mvwprintw(win, ++y, 0, "");
-    printat(win, ++y, 0, hdrcol, "General keyboard shortcuts");
+    y += 2;
+    printat(win, y, 0, hdrcol, "General keyboard shortcuts");
     printat(win, ++y, 0, subcol, "%12s", "s");
     wprintw(win, ": Show statistics");
     printat(win, ++y, 0, subcol, "%12s", "c");
@@ -50,8 +50,8 @@ static void help_screen_render(void)
     wprintw(win, ": Show menu");
     printat(win, ++y, 0, subcol, "%12s", "F10 q");
     wprintw(win, ": Quit");
-    mvwprintw(win, ++y, 0, "");
-    printat(win, ++y, 0, hdrcol, "Main screen keyboard shortcuts");
+    y += 2;
+    printat(win, y, 0, hdrcol, "Main screen keyboard shortcuts");
     printat(win, ++y, 0, subcol, "%12s", "F3");
     wprintw(win, ": Start packet scan");
     printat(win, ++y, 0, subcol, "%12s", "F4");
@@ -64,8 +64,8 @@ static void help_screen_render(void)
     wprintw(win, ": Change between decoded view or hexdump");
     printat(win, ++y, 0, subcol, "%12s", "F8 e");
     wprintw(win, ": Add a display filter (tcpdump syntax)");
-    mvwprintw(win, ++y, 0, "");
-    printat(win, ++y, 0, hdrcol, "Keyboard shortcuts in interactive mode");
+    y += 2;
+    printat(win, y, 0, hdrcol, "Keyboard shortcuts in interactive mode");
     printat(win, ++y, 0, subcol, "%12s", "Arrows");
     wprintw(win, ": Scroll the packet list");
     printat(win, ++y, 0, subcol, "%12s", "Space pgdown");
@@ -86,8 +86,8 @@ static void help_screen_render(void)
     wprintw(win, ": Close packet window/Quit interactive mode");
     printat(win, ++y, 0, subcol, "%12s", "i");
     wprintw(win, ": Quit interactive mode");
-    mvwprintw(win, ++y, 0, "");
-    printat(win, ++y, 0, hdrcol, "Statistics screen keyboard shortcuts");
+    y += 2;
+    printat(win, y, 0, hdrcol, "Statistics screen keyboard shortcuts");
     printat(win, ++y, 0, subcol, "%12s", "e");
     wprintw(win, ": Switch between bytes and output in human readable format");
     printat(win, ++y, 0, subcol, "%12s", "p");
