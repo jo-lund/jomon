@@ -303,13 +303,19 @@ void main_screen_get_input(screen *s)
         break;
     case 'm':
         hexmode = (hexmode + 1) % HEXMODES;
-        if (ms->subwindow.win && view_mode == HEXDUMP_VIEW) {
+        if (ms->subwindow.win) {
             struct packet *p;
 
-            delete_subwindow(ms, true);
             p = vector_get_data(ms->packet_ref, ms->main_line.line_number);
-            create_subwindow(ms, (hexmode == HEXMODE_NORMAL) ? p->len / 16 + 3 :
-                             p->len / 64 + 3, ms->main_line.line_number);
+            if (view_mode == HEXDUMP_VIEW) {
+                delete_subwindow(ms, true);
+                create_subwindow(ms, (hexmode == HEXMODE_NORMAL) ? p->len / 16 + 3 :
+                                 p->len / 64 + 3, ms->main_line.line_number);
+            } else {
+                delete_subwindow(ms, true);
+                add_elements(ms, p);
+                create_subwindow(ms, ms->lvw->size + 1, ms->main_line.line_number + s->top);
+            }
             main_screen_refresh((screen *) ms);
         }
         break;
