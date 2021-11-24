@@ -726,12 +726,8 @@ void main_screen_goto_line(main_screen *ms, int c)
 
 void main_screen_goto_home(main_screen *ms)
 {
-    if (ms->subwindow.win) {
-        if (ms->subwindow.top > ms->base.top && ms->base.top != 0)
-            ms->subwindow.top = ms->base.top + ms->subwindow.top + ms->subwindow.num_lines;
-        else
-            ms->subwindow.top = ms->base.top + ms->subwindow.top;
-    }
+    if (ms->subwindow.win)
+        ms->subwindow.top += ms->base.top;
     ms->base.selectionbar = 0;
     ms->base.top = 0;
     main_screen_refresh((screen *) ms);
