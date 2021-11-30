@@ -27,6 +27,7 @@ int bpf_run_filter(struct bpf_prog bpf, unsigned char *buf, uint32_t n)
         [BPF_ALU | BPF_SUB | BPF_K] = &&sub_k,
         [BPF_ALU | BPF_MUL | BPF_K] = &&mul_k,
         [BPF_ALU | BPF_DIV | BPF_K] = &&div_k,
+        [BPF_ALU | BPF_MOD | BPF_K] = &&mod_k,
         [BPF_ALU | BPF_AND | BPF_K] = &&and_k,
         [BPF_ALU | BPF_OR | BPF_K] = &&or_k,
         [BPF_ALU | BPF_XOR | BPF_K] = &&xor_k,
@@ -36,6 +37,7 @@ int bpf_run_filter(struct bpf_prog bpf, unsigned char *buf, uint32_t n)
         [BPF_ALU | BPF_SUB | BPF_X] = &&sub_x,
         [BPF_ALU | BPF_MUL | BPF_X] = &&mul_x,
         [BPF_ALU | BPF_DIV | BPF_X] = &&div_x,
+        [BPF_ALU | BPF_MOD | BPF_X] = &&mod_x,
         [BPF_ALU | BPF_AND | BPF_X] = &&and_x,
         [BPF_ALU | BPF_OR | BPF_X] = &&or_x,
         [BPF_ALU | BPF_XOR | BPF_X] = &&xor_x,
@@ -152,6 +154,12 @@ div_k:
     a /= bpf.bytecode[pc-1].k;
     goto *dispatch_table[bpf.bytecode[pc++].code];
 
+mod_k:
+    if (bpf.bytecode[pc-1].k == 0)
+        return 0;
+    a %= bpf.bytecode[pc-1].k;
+    goto *dispatch_table[bpf.bytecode[pc++].code];
+
 and_k:
     a &= bpf.bytecode[pc-1].k;
     goto *dispatch_table[bpf.bytecode[pc++].code];
@@ -188,6 +196,12 @@ div_x:
     if (x == 0)
         return 0;
     a /= x;
+    goto *dispatch_table[bpf.bytecode[pc++].code];
+
+mod_x:
+    if (x == 0)
+        return 0;
+    a %= x;
     goto *dispatch_table[bpf.bytecode[pc++].code];
 
 and_x:

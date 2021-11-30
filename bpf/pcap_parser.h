@@ -15,6 +15,7 @@ struct node {
     int op;
     int k;
     uint8_t size;
+    struct proto_offset *poff; /* only used for protocols above ether */
     struct node *left;
     struct node *right;
 };
@@ -31,7 +32,6 @@ struct block {
     bool op_inverse; /* true if operator is '!=', '<' or '<=' */
     int relop;
     int insn;
-    struct proto_offset *poff; /* only used for protocols above ether */
     struct node *expr1;
     struct node *expr2;
     struct block *next;

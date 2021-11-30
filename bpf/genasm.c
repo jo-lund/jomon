@@ -160,10 +160,23 @@ static void gen_st(void)
     block_insn++;
 }
 
+/*
+ * If the accumulator register is taken, generate a store instruction. Else update
+ * the accumulator to show that it is taken.
+ */
+static void check_accumulator(void)
+{
+    if (regs[A])
+        gen_st();
+    else
+        regs[A] = 1;
+}
+
 static void gen_ldind(struct node *n, int k)
 {
     struct bpf_insn *insn = calloc(1, sizeof(*insn));
 
+    check_accumulator();
     insn->code = BPF_LD | get_ldsize(n->size) | BPF_IND;
     insn->k = k;
     vector_push_back(code, insn);
@@ -174,25 +187,19 @@ static void gen_lda(struct node *n, int mode)
 {
     struct bpf_insn *insn = calloc(1, sizeof(*insn));
 
-    if (regs[A])
-        gen_st();
-    else
-        regs[A] = 1;
+    check_accumulator();
     insn->code = BPF_LD | get_ldsize(n->size) | BPF_K | mode;
     insn->k = n->k;
     vector_push_back(code, insn);
     block_insn++;
 }
 
-static void gen_ldm(struct node *n)
+static void gen_ldm(void)
 {
     struct bpf_insn *insn = calloc(1, sizeof(*insn));
 
-    if (regs[A])
-        gen_st();
-    else
-        regs[A] = 1;
-    insn->code = BPF_LD | get_ldsize(n->size) | BPF_K | BPF_MEM;
+    check_accumulator();
+    insn->code = BPF_LD | BPF_MEM;
     insn->k = PTR_TO_INT(stack_pop(memidx));
     vector_push_back(code, insn);
     block_insn++;
@@ -276,11 +283,11 @@ static void gen_network(struct block *b, struct node *n, uint16_t ethertype)
 {
     struct bpf_insn *insn = calloc(1, sizeof(*insn));
 
-    b->poff = alloc_offset();
-    b->poff->offset = block_insn + 1;
     n->k = ETH_FRAME_TYPE_OFFSET;
     n->size = 2;
     gen_lda(n, BPF_ABS);
+    n->poff = alloc_offset();
+    n->poff->offset = block_insn;
     insn->code = BPF_JMP | BPF_JEQ | BPF_K;
     insn->k = ethertype;
     vector_push_back(code, insn);
@@ -297,12 +304,12 @@ static void gen_transport(struct block *b, struct node *n, uint32_t prot)
     gen_network(b, n, ETHERTYPE_IP); /* TODO: If not IPV4, check for IPV6 */
 
     /* Block 2: Check if TCP/UDP/ICMP */
-    b->poff->next = alloc_offset();
-    npoff = b->poff->next;
-    npoff->offset = block_insn + 1;
     n->k = 23;
     n->size = 1;
     gen_lda(n, BPF_ABS);
+    n->poff->next = alloc_offset();
+    npoff = n->poff->next;
+    npoff->offset = block_insn;
     insn = calloc(1, sizeof(*insn));
     insn->code = BPF_JMP | BPF_JEQ | BPF_K;
     insn->k = prot;
@@ -312,13 +319,13 @@ static void gen_transport(struct block *b, struct node *n, uint32_t prot)
 
     /* Block 3: Only accept unfragmented or frag 0 IPv4 packets */
     if (b->relop) {
-        npoff->next = alloc_offset();
-        npoff = npoff->next;
-        npoff->offset = block_insn + 1;
-        npoff->inverse = true;
         n->k = 20;
         n->size = 2;
         gen_lda(n, BPF_ABS);
+        npoff->next = alloc_offset();
+        npoff = npoff->next;
+        npoff->offset = block_insn;
+        npoff->inverse = true;
         insn = calloc(1, sizeof(*insn));
         insn->code = BPF_JMP | BPF_JSET | BPF_K;
         insn->k = 0x1fff;
@@ -398,7 +405,7 @@ static void genexpr(struct block *b, struct node *n, int op, int offset)
         genexpr(b, n->right, n->op, offset);
         if (n->left->op != PCAP_INT && n->right->op != PCAP_INT) {
             gen_tax();
-            gen_ldm(n);
+            gen_ldm();
             gen_alux(n);
             break;
         }
@@ -450,7 +457,7 @@ static void gen_jmpins(struct block *b, int ins, bool inverse)
         insn->k = b->expr2->k;
     } else {
         gen_tax();
-        gen_ldm(b->expr1);
+        gen_ldm();
         insn->code = BPF_JMP | ins | BPF_X;
     }
     b->op_inverse = inverse;
@@ -485,6 +492,37 @@ static void genjmp(struct block *b)
     }
 }
 
+static void patch_jmp_poffset(struct block *b, struct block *e, struct node *n, int numi)
+{
+    if (n == NULL)
+        return;
+
+    int offset;
+    struct proto_offset *poff;
+    struct bpf_insn *insn;
+
+    poff = n->poff;
+    while (poff) {
+        insn = vector_get_data(code, numi + poff->offset);
+        offset = poff->offset;
+        if (BPF_CLASS(insn->code) == BPF_JMP) {
+            if (b->inverse) {
+                set_jmp_offset(b, b->jt, e, &insn->jf, b->next ? b->insn - offset :
+                               b->insn - offset - 1);
+            } else {
+                if (poff->inverse) {
+                    set_jmp_offset(b, b->jt, e, &insn->jt, b->insn - offset);
+                } else {
+                    set_jmp_offset(b, b->jf, e, &insn->jf, b->insn - offset);
+                }
+            }
+        }
+        poff = poff->next;
+    }
+    patch_jmp_poffset(b, e, n->left, numi);
+    patch_jmp_poffset(b, e, n->right, numi);
+}
+
 static int patch_jmp(struct block *b, struct block *e, int numi)
 {
     if (b == NULL)
@@ -492,25 +530,9 @@ static int patch_jmp(struct block *b, struct block *e, int numi)
 
     while (b) {
         struct bpf_insn *insn;
-        struct proto_offset *poff = b->poff;
-        int offset;
 
-        while (poff) {
-            insn = vector_get_data(code, numi + poff->offset);
-            offset = poff->offset;
-            if (BPF_CLASS(insn->code) == BPF_JMP) {
-                if (b->inverse) {
-                    set_jmp_offset(b, b->jt, e, &insn->jf, b->next ? b->insn - offset : b->insn - offset - 1);
-                } else {
-                    if (poff->inverse) {
-                        set_jmp_offset(b, b->jt, e, &insn->jt, b->insn - offset);
-                    } else {
-                        set_jmp_offset(b, b->jf, e, &insn->jf, b->insn - offset);
-                    }
-                }
-            }
-            poff = poff->next;
-        }
+        patch_jmp_poffset(b, e, b->expr1, numi);
+        patch_jmp_poffset(b, e, b->expr2, numi);
         if (b->p == NULL) {
             insn = vector_get_data(code, numi + b->insn - 1);
             if (insn && BPF_CLASS(insn->code) == BPF_JMP) {
