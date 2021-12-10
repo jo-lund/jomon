@@ -279,7 +279,7 @@ static void gen_alux(struct node *n)
     regs[X] = 0;
 }
 
-static void gen_network(struct block *b, struct node *n, uint16_t ethertype)
+static void gen_network(struct node *n, uint16_t ethertype)
 {
     struct bpf_insn *insn = calloc(1, sizeof(*insn));
 
@@ -301,7 +301,7 @@ static void gen_transport(struct block *b, struct node *n, uint32_t prot)
     struct proto_offset *npoff;
 
     /* Block 1: Check if IPV4 */
-    gen_network(b, n, ETHERTYPE_IP); /* TODO: If not IPV4, check for IPV6 */
+    gen_network(n, ETHERTYPE_IP); /* TODO: If not IPV4, check for IPV6 */
 
     /* Block 2: Check if TCP/UDP/ICMP */
     n->k = 23;
@@ -357,22 +357,22 @@ static void genexpr(struct block *b, struct node *n, int op, int offset)
         gen_proto(b, n, op, offset);
         break;
     case PCAP_IP:
-        gen_network(b, n, ETHERTYPE_IP);
+        gen_network(n, ETHERTYPE_IP);
         offset = NETWORK_OFFSET;
         gen_proto(b, n, op, offset);
         break;
     case PCAP_IP6:
-        gen_network(b, n, ETHERTYPE_IPV6);
+        gen_network(n, ETHERTYPE_IPV6);
         offset = NETWORK_OFFSET;
         gen_proto(b, n, op, offset);
         break;
     case PCAP_ARP:
-        gen_network(b, n, ETHERTYPE_ARP);
+        gen_network(n, ETHERTYPE_ARP);
         offset = NETWORK_OFFSET;
         gen_proto(b, n, op, offset);
         break;
     case PCAP_RARP:
-        gen_network(b, n, ETHERTYPE_REVARP);
+        gen_network(n, ETHERTYPE_REVARP);
         offset = NETWORK_OFFSET;
         gen_proto(b, n, op, offset);
         break;
