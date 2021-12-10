@@ -341,12 +341,26 @@ void printat(WINDOW *win, int y, int x, int attrs, const char *fmt, ...)
     wattroff(win, attrs);
 }
 
+void printatnlw(WINDOW *win, int y, int x, int attrs, int scrollx,
+                const char *fmt, ...)
+{
+    char buf[MAXLINE];
+    va_list ap;
+
+    va_start(ap, fmt);
+    vsnprintf(buf, MAXLINE - 1, fmt, ap);
+    va_end(ap);
+    wattron(win, attrs);
+    printnlw(win, buf, strlen(buf), y, x, scrollx);
+    wattroff(win, attrs);
+}
+
 void printnlw(WINDOW *win, char *str, int len, int y, int x, int scrollx)
 {
     int mx = getmaxx(win);
 
-    if (mx + scrollx - 1 < len) {
-        str[mx + scrollx - 1] = '\0';
+    if (mx + scrollx - 1 < len + x && mx + scrollx - 1 - x > 0) {
+        str[mx + scrollx - 1 - x] = '\0';
     }
     if (scrollx < len) {
         mvwprintw(win, y, x, "%s", str + scrollx);

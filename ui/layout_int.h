@@ -125,6 +125,12 @@ void screen_stack_move_to_top(struct screen *s);
 void printnlw(WINDOW *win, char *str, int len, int y, int x, int scrollx);
 
 /*
+ * Print without line wrap with the specified attributes
+ */
+void printatnlw(WINDOW *win, int y, int x, int attrs, int scrollx,
+                const char *fmt, ...);
+
+/*
  * Print text in window with the given attributes. If 'y' and 'x' are -1, it will
  * start to print at the current cursor location.
  */
