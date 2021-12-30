@@ -8,7 +8,7 @@ typedef struct {
     struct tcp_connection_v4 *stream;
 } conversation_screen;
 
-conversation_screen *conversation_screen_create();
+conversation_screen *conversation_screen_create(void);
 void conversation_screen_free(screen *s);
 
 #endif

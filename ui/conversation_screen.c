@@ -74,7 +74,7 @@ static void handle_keydown(conversation_screen *cs, int num_lines);
 static void scroll_page(conversation_screen *cs, int num_lines);
 static void goto_home(conversation_screen *cs);
 static void goto_end(conversation_screen *cs);
-static void create_save_dialogue();
+static void create_save_dialogue(void);
 
 static screen_operations csop = {
     .screen_init = conversation_screen_init,
@@ -97,15 +97,13 @@ static void free_tcp_attr(void *arg)
 
 static void fill_screen_buffer(conversation_screen *cs)
 {
-    const node_t *n = list_begin(cs->stream->packets);
+    const node_t *n;
 
-    while (n) {
+    DLIST_FOREACH(cs->stream->packets, n)
         vector_push_back(cs->base.packet_ref, list_data(n));
-        n = list_next(n);
-    }
 }
 
-conversation_screen *conversation_screen_create()
+conversation_screen *conversation_screen_create(void)
 {
     conversation_screen *cs;
 
@@ -391,7 +389,7 @@ static void save_handle_ok(void *file)
     save_dialogue = NULL;
 }
 
-static void create_save_dialogue()
+static void create_save_dialogue(void)
 {
     if (!save_dialogue) {
         char *info = "";
@@ -634,6 +632,10 @@ void print_header(conversation_screen *cs)
     case NORMAL:
         printat(cs->base.header, 2, 0, txtcol, "Mode");
         wprintw(cs->base.header, ": Normal");
+        for (unsigned int i = 0; i < ARRAY_SIZE(main_header); i++) {
+            mvwprintw(cs->base.header, 4, x, main_header[i].txt);
+            x += main_header[i].width;
+        }
         break;
     case ASCII:
         printat(cs->base.header, 2, 0, txtcol, "Mode");
@@ -645,10 +647,6 @@ void print_header(conversation_screen *cs)
         break;
     default:
         break;
-    }
-    for (unsigned int i = 0; i < ARRAY_SIZE(main_header); i++) {
-        mvwprintw(cs->base.header, 4, x, main_header[i].txt);
-        x += main_header[i].width;
     }
     mvwchgat(cs->base.header, HEADER_HEIGHT - 1, 0, -1, A_NORMAL,
              PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
