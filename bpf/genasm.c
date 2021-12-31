@@ -342,8 +342,14 @@ static void gen_proto(struct block *b, struct node *n, int op, int offset)
 
     genexpr(b, n->left, n->op, offset);
     if (is_proto(op)) {
-        gen_tax();
-        gen_ldind(n, 0);
+        if (is_transport(op)) {
+            gen_lmsh(14);
+            n->op = PCAP_ADD;
+            gen_alux(n);
+        } else {
+            gen_tax();
+            gen_ldind(n, offset);
+        }
     }
 }
 

@@ -1,0 +1,25 @@
+;;; tcp[tcp[12]/16*4] = 22
+
+        ldh    [12]
+        jeq    #0x800, L1, L8
+L1:     ldb    [23]
+        jeq    #0x6, L2, L8
+L2:     ldh    [20]
+        jset   #0x1fff, L8, L3
+L3:     ldh    [12]
+        jeq    #0x800, L4, L8
+L4:     ldb    [23]
+        jeq    #0x6, L5, L8
+L5:     ldh    [20]
+        jset   #0x1fff, L8, L6
+L6:     ldx    4 * ([14] & 0xf)
+        ldb    [x+26]
+        div    #0x10
+        mul    #0x4
+        ldx    4 * ([14] & 0xf)
+        add    x
+        tax
+        ldb    [x+14]
+        jeq    #0x16, L7, L8
+L7:     ret    #-1
+L8:     ret    #0
