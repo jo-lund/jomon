@@ -1,0 +1,17 @@
+;;; tcp[7*2:2] = 1500
+
+        ldh    [12]
+        jeq    #0x800, L1, L5
+L1:     ldb    [23]
+        jeq    #0x6, L2, L5
+L2:     ldh    [20]
+        jset   #0x1fff, L5, L3
+L3:     ld     #7
+        mul    #0x2
+        ldx    4 * ([14] & 0xf)
+        add    x
+        tax
+        ldh    [x+14]
+        jeq    #0x5dc, L4, L5
+L4:     ret    #-1
+L5:     ret    #0

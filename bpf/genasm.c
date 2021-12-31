@@ -419,8 +419,17 @@ static void genexpr(struct block *b, struct node *n, int op, int offset)
             gen_alu(n);
         }
         if (is_proto(op)) {
-            gen_tax();
-            gen_ldind(n, 0);
+            if (is_transport(op)) {
+                gen_lmsh(14);
+                n->op = PCAP_ADD;
+                gen_alux(n);
+                gen_tax();
+                regs[A] = 0;
+                gen_ldind(n, offset);
+            } else {
+                gen_tax();
+                gen_ldind(n, offset);
+            }
         }
         break;
     case PCAP_INT:
