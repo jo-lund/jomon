@@ -1,0 +1,15 @@
+;;; (ip[0] & 0x0f) * 4 = 4 * 5
+
+        ldh    [12]
+        jeq    #0x800, L1, L3
+L1:     ldb    [14]
+        and    #0xf
+        mul    #0x4
+        st     M[1]
+        ld     #4
+        mul    #0x5
+        tax
+        ld     M[1]
+        jeq    x, L2, L3
+L2:     ret    #-1
+L3:     ret    #0
