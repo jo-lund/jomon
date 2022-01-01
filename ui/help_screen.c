@@ -90,6 +90,8 @@ static void help_screen_render(void)
     printat(win, y, 0, hdrcol, "Statistics screen keyboard shortcuts");
     printat(win, ++y, 0, subcol, "%12s", "e");
     wprintw(win, ": Switch between bytes and output in human readable format");
+    printat(win, ++y, 0, subcol, "%12s", "E");
+    wprintw(win, ": Change network rate");
     printat(win, ++y, 0, subcol, "%12s", "p");
     wprintw(win, ": Show network or CPU & memory statistics");
     printat(win, ++y, 0, subcol, "%12s", "v");

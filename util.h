@@ -75,7 +75,7 @@ char *get_directory_part(char *path);
 char *get_file_part(char *path);
 
 /* Transforms the bytes to a human readable format, e.g. "1K", "42M" etc. */
-char *format_bytes(int bytes, char *buf, int len);
+char *format_bytes(uint64_t bytes, char *buf, int len);
 
 /*
  * Returns the canonical textual representation of a UUID. Memory is allocated for

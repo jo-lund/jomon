@@ -156,7 +156,7 @@ char *get_file_part(char *path)
     return path;
 }
 
-char *format_bytes(int bytes, char *buf, int len)
+char *format_bytes(uint64_t bytes, char *buf, int len)
 {
     static const char *format[] = { "", "K", "M", "G", "T" };
     float f = bytes;
@@ -167,12 +167,12 @@ char *format_bytes(int bytes, char *buf, int len)
         c++;
     }
     if (c < sizeof(format) / sizeof(const char *)) {
-        float decpt = f - (int) f;
+        float decpt = f - (uint64_t) f;
 
         if (decpt >= 0.1) {
             snprintf(buf, len, "%.1f%s", f, format[c]);
         } else {
-            snprintf(buf, len, "%d%s", (int) f, format[c]);
+            snprintf(buf, len, "%lu%s", (uint64_t) f, format[c]);
         }
     }
     return buf;

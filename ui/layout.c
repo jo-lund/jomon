@@ -108,10 +108,11 @@ static char *menu_themes[] = {
 };
 
 static char *network_rate[] = {
-    "Mbit/s",
-    "Kbit/s",
-    "MB/s",
-    "kB/s"
+    "Mibit/s",
+    "Gibit/s",
+    "kiB/s",
+    "MiB/s",
+    "GiB/s"
 };
 
 static char *name_resolution[] = {

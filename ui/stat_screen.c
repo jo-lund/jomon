@@ -12,10 +12,22 @@
 #include "../monitor.h"
 #include "../system_information.h"
 
+#define KIB 1024
+#define MIB (KIB * KIB)
+
 enum page {
     NET_STAT,
     HW_STAT,
     NUM_PAGES
+};
+
+enum rate {
+    KIBS,
+    MIBS,
+    GIBS,
+    MBITS,
+    GBITS,
+    NUM_RATES
 };
 
 extern main_menu *menu;
@@ -28,6 +40,7 @@ static struct cputime **cpustat;
 static int cpuidx = 0;
 static bool show_packet_stats = true;
 static bool formatted_output = true;
+static enum rate rate = MIBS;
 
 static void calculate_rate(void);
 static void print_netstat(void);
@@ -113,6 +126,10 @@ void stat_screen_get_input(screen *s)
         formatted_output = !formatted_output;
         stat_screen_print(s);
         break;
+    case 'E':
+        rate = (rate + 1) % NUM_RATES;
+        stat_screen_print(s);
+        break;
     case 'v':
         show_packet_stats = !show_packet_stats;
         stat_screen_print(s);
@@ -150,13 +167,35 @@ static void print_protocol_stat(struct protocol_info *pinfo, void *arg)
     if (pinfo->num_packets) {
         printat(s->win, ++*y, 0, subcol, "%13s", pinfo->short_name);
         wprintw(s->win, ": %8u", pinfo->num_packets);
-        if (formatted_output) {
-            wprintw(s->win, "%13s",
-                    format_bytes(pinfo->num_bytes, buf, 16));
-        } else {
+        if (formatted_output)
+            wprintw(s->win, "%13s", format_bytes(pinfo->num_bytes, buf, 16));
+        else
             wprintw(s->win, "%13" PRIu64, pinfo->num_bytes);
-        }
     }
+}
+
+static void print_rate(screen *s, struct linkdef *link)
+{
+    switch (rate) {
+    case KIBS:
+        wprintw(s->win, ": %8.2f kiB/s", link->kbps);
+        break;
+    case MIBS:
+        wprintw(s->win, ": %8.2f MiB/s", link->kbps / KIB);
+        break;
+    case GIBS:
+        wprintw(s->win, ": %8.2f GiB/s", link->kbps / MIB);
+        break;
+    case MBITS:
+        wprintw(s->win, ": %8.2f Mibit/s", link->kbps / KIB * 8);
+        break;
+    case GBITS:
+        wprintw(s->win, ": %8.2f Gibit/s", link->kbps / MIB * 8);
+        break;
+    default:
+        break;
+    }
+    wprintw(s->win, "\t%4d packets/s", link->pps);
 }
 
 void print_netstat(void)
@@ -170,12 +209,11 @@ void print_netstat(void)
     get_netstat(ctx.device, &rx, &tx);
     calculate_rate();
     printat(s->win, y++, 0, hdrcol, "Network statistics for %s", ctx.device);
+
     printat(s->win, ++y, 0, subcol, "%13s", "Upload rate");
-    wprintw(s->win, ": %8.2f kB/s", tx.kbps);
-    wprintw(s->win, "\t%4d packets/s", tx.pps);
+    print_rate(s, &tx);
     printat(s->win, ++y, 0, subcol, "%13s", "Download rate");
-    wprintw(s->win, ": %8.2f kB/s", rx.kbps);
-    wprintw(s->win, "\t%4d packets/s", rx.pps);
+    print_rate(s, &rx);
     if (get_iwstat(ctx.device, &stat)) {
         y += 2;
         printat(s->win, ++y, 0, subcol, "%13s", "Link quality");
@@ -193,12 +231,10 @@ void print_netstat(void)
             printat(s->win, y, 0, subcol, "%23s %12s", "Packets", "Bytes");
             printat(s->win, ++y, 0, subcol, "%13s", "Total");
             wprintw(s->win, ": %8u", total_packets);
-            if (formatted_output) {
-                wprintw(s->win, "%13s",
-                        format_bytes(total_bytes, buf, 16));
-            } else {
+            if (formatted_output)
+                wprintw(s->win, "%13s", format_bytes(total_bytes, buf, 16));
+            else
                 wprintw(s->win, "%13" PRIu64, total_bytes);
-            }
             traverse_protocols(print_protocol_stat, &y);
         }
     }
@@ -213,26 +249,28 @@ void print_hwstat(void)
     screen *s = screen_cache_get(STAT_SCREEN);
     int hdrcol = get_theme_colour(HEADER_TXT);
     int subcol = get_theme_colour(SUBHEADER_TXT);
+    char buf[16];
 
     get_memstat(&mem);
     get_cpustat(cpustat[cpuidx]);
     cpuidx = (cpuidx + 1) % 2;
     printat(s->win, y++, 0, hdrcol, "Memory and CPU statistics");
     printat(s->win, ++y, 0, subcol, "%18s", "Total memory");
-    wprintw(s->win, ": %8lu kB", mem.total_ram);
+    wprintw(s->win, ": %6s", format_bytes(mem.total_ram * 1024, buf, ARRAY_SIZE(buf)));
     printat(s->win, ++y, 0, subcol, "%18s", "Memory used");
-    wprintw(s->win, ": %8lu kB", mem.total_ram - mem.free_ram);
+    wprintw(s->win, ": %6s", format_bytes((mem.total_ram - mem.free_ram) * 1024,
+                                              buf, ARRAY_SIZE(buf)));
     printat(s->win, -1, -1, subcol, "%10s", "Buffers");
-    wprintw(s->win, ": %6lu kB", mem.buffers);
+    wprintw(s->win, ": %6s", format_bytes(mem.buffers * 1024, buf, ARRAY_SIZE(buf)));
     printat(s->win, -1, -1, subcol, "%8s", "Cache");
-    wprintw(s->win, ": %8lu kB", mem.cached);
+    wprintw(s->win, ": %6s", format_bytes(mem.cached * 1024, buf, ARRAY_SIZE(buf)));
     y += 2;
     printat(s->win, y, 0, subcol, "%18s", "Pid");
     wprintw(s->win, ":  %d", mem.proc.pid);
     printat(s->win, ++y, 0, subcol, "%18s", "Resident set size");
-    wprintw(s->win, ":  %lu kB", mem.proc.vm_rss);
+    wprintw(s->win, ":  %s", format_bytes(mem.proc.vm_rss * 1024, buf, ARRAY_SIZE(buf)));
     printat(s->win, y++, 34, subcol, "Virtual memory size");
-    wprintw(s->win, ":  %lu kB", mem.proc.vm_size);
+    wprintw(s->win, ":  %s", format_bytes(mem.proc.vm_size * 1024, buf, ARRAY_SIZE(buf)));
     if (cpustat[0][0].idle != 0 && cpustat[1][0].idle != 0) {
         for (int i = 0; i < hw.num_cpu; i++) {
             idle = cpustat[!cpuidx][i].idle - cpustat[cpuidx][i].idle;
