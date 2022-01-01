@@ -416,12 +416,19 @@ static bool parse_cond_jmp(void)
     int k;
     struct symbol *jt;
     struct symbol *jf;
+    unsigned int src;
 
-    if (!match('#'))
-        goto error;
-    if (!match(INT))
-        goto error;
-    k = parser.val.intval;
+    if (match('x')) {
+        k = 0;
+        src = BPF_X;
+    } else {
+        if (parser.token != '#')
+            goto error;
+        if (!match(INT))
+            goto error;
+        k = parser.val.intval;
+        src = BPF_K;
+    }
     if (!match(','))
         goto error;
     if (!match(LABEL))
@@ -438,7 +445,7 @@ static bool parse_cond_jmp(void)
         error("Backward jumps are not supported");
         return false;
     }
-    return bpf_jmp_stm(insn, BPF_K, jt->value - parser.line, jf->value - parser.line, k);
+    return bpf_jmp_stm(insn, src, jt->value - parser.line, jf->value - parser.line, k);
 
 error:
     token_error(parser.token);
