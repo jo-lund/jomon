@@ -1,14 +1,8 @@
 * Most important things to improve and implement:
-  1. Store TCP sessions (and implement reassembly) to start showing packets/data
-     based on TCP. Also need to print a better view of TCP packets, i.e. the one
-     line of information on the main screen.
-  2. Implement packet filtering based on BPF.
-  3. Port Independent Protocol Identification
+  1. Implement TCP reassembly
+  2. Port Independent Protocol Identification
      Need to be able to identify application layer protocols without relying on
      the TCP or UDP port number.
-  4. Use PACKET_MMAP to remove "read" system calls (prevents copying data from
-     kernel to user space.
-
 
 * GENERAL
 - Use reference counting for pointers to objects that need to be "garbage
@@ -18,8 +12,6 @@
   everything is stored in compressed form. Could be based on BPF, i.e only make
   it possible to search what is "inside" the packet and not the text that is
   displayed.
-- char *device should not be allocated in the get_default_device function but in the
-  caller function instead.
 - Implement injecting packets on the network (e.g. to query server response time,
   test the network's ability to handle high traffic volume, etc.
 - Make a ring buffer to store the data read from a pcap file. Then I don't need

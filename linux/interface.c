@@ -1,7 +1,6 @@
 #define _GNU_SOURCE
 #include <sys/socket.h>
 #include <fcntl.h>
-#include <netpacket/packet.h>
 #include <arpa/inet.h>
 #include <string.h>
 #include <linux/if_ether.h>
@@ -11,13 +10,21 @@
 #include <sys/ioctl.h>
 #include <net/ethernet.h>
 #include <net/if_arp.h>
+#include <linux/if_packet.h>
+#include <linux/net_tstamp.h>
+#include <sys/mman.h>
 #include "../monitor.h"
 #include "../interface.h"
 #include "../error.h"
 
+#define BLOCKSIZE (4 * 1024 * 1024)
+#define FRAMESIZE 65536
+#define BLOCKNUMS 64
+
 static void linux_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf);
 static void linux_close(iface_handle_t *handle);
 static void linux_read_packet(iface_handle_t *handle);
+static void linux_read_packet_recv(iface_handle_t *handle);
 static void linux_set_promiscuous(iface_handle_t *handle, char *dev, bool enable);
 
 static struct iface_operations linux_op = {
@@ -26,6 +33,8 @@ static struct iface_operations linux_op = {
     .read_packet = linux_read_packet,
     .set_promiscuous = linux_set_promiscuous
 };
+
+static struct iovec *iov;
 
 /* get the interface number associated with the interface (name -> if_index mapping) */
 static int get_interface_index(char *dev)
@@ -68,6 +77,38 @@ static unsigned int get_linktype(char *dev)
     return ifr.ifr_hwaddr.sa_family;
 }
 
+static bool setup_packet_mmap(iface_handle_t *handle)
+{
+    int val;
+    struct tpacket_req3 req = {
+        .tp_block_size = BLOCKSIZE,
+        .tp_block_nr = BLOCKNUMS,
+        .tp_frame_size = FRAMESIZE,
+        .tp_frame_nr = (BLOCKSIZE * BLOCKNUMS) / FRAMESIZE,
+        .tp_retire_blk_tov = 60, /* timeout in ms */
+        .tp_feature_req_word = TP_FT_REQ_FILL_RXHASH
+    };
+
+    val = TPACKET_V3;
+    if (setsockopt(handle->fd, SOL_PACKET, PACKET_VERSION, &val, sizeof(val)) == -1)
+        return false;
+    val = SOF_TIMESTAMPING_RAW_HARDWARE;
+    if (setsockopt(handle->fd, SOL_PACKET, PACKET_TIMESTAMP, &val, sizeof(val)) == -1)
+        return false;
+    if (setsockopt(handle->fd, SOL_PACKET, PACKET_RX_RING, &req, sizeof(req)) == -1)
+        return false;
+    if ((handle->buf = mmap(NULL, req.tp_block_size * req.tp_block_nr, PROT_READ | PROT_WRITE,
+                            MAP_SHARED, handle->fd, 0)) == MAP_FAILED)
+        return false;
+    iov = malloc(req.tp_block_nr * sizeof(*iov));
+    for (unsigned int i = 0; i < req.tp_block_nr; i++) {
+        iov[i].iov_base = handle->buf + (i * req.tp_block_size);
+        iov[i].iov_len = req.tp_block_size;
+    }
+    handle->use_zerocopy = true;
+    return true;
+}
+
 iface_handle_t *iface_handle_create(unsigned char *buf, size_t len, packet_handler fn)
 {
     iface_handle_t *handle = calloc(1, sizeof(iface_handle_t));
@@ -104,11 +145,16 @@ void linux_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf)
         err_sys("fcntl error");
     }
 
-    /* get timestamps */
-    if (setsockopt(handle->fd, SOL_SOCKET, SO_TIMESTAMP, &n, sizeof(n)) == -1) {
-        err_sys("setsockopt error");
-    }
+    if (!setup_packet_mmap(handle)) {
+        DEBUG("PACKET_MMAP TPACKET_V3 is not supported");
+        linux_op.read_packet = linux_read_packet_recv;
+        handle->op = &linux_op;
 
+        /* get timestamps */
+        if (setsockopt(handle->fd, SOL_SOCKET, SO_TIMESTAMP, &n, sizeof(n)) == -1) {
+            err_sys("setsockopt error");
+        }
+    }
     if (bpf->size > 0) {
         struct sock_fprog code = {
             .len = bpf->size,
@@ -132,11 +178,15 @@ void linux_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf)
 
 void linux_close(iface_handle_t *handle)
 {
+    if (handle->use_zerocopy) {
+        munmap(handle->buf, BLOCKSIZE * BLOCKNUMS);
+        free(iov);
+    }
     close(handle->fd);
     handle->fd = -1;
 }
 
-void linux_read_packet(iface_handle_t *handle)
+void linux_read_packet_recv(iface_handle_t *handle)
 {
     struct mmsghdr msg;
     struct iovec iov;
@@ -163,6 +213,26 @@ void linux_read_packet(iface_handle_t *handle)
     }
     // TODO: Should log dropped packets
     handle->on_packet(handle, handle->buf, msg.msg_len, val);
+}
+
+void linux_read_packet(iface_handle_t *handle)
+{
+    struct tpacket_block_desc *bd;
+    struct tpacket3_hdr *hdr;
+    struct timeval val;
+
+    bd = (struct tpacket_block_desc *) iov[handle->block_num].iov_base;
+    if ((bd->hdr.bh1.block_status & TP_STATUS_USER) == 0)
+        return;
+    hdr = (struct tpacket3_hdr *) ((unsigned char *) bd + bd->hdr.bh1.offset_to_first_pkt);
+    for (unsigned int i = 0; i < bd->hdr.bh1.num_pkts; i++) {
+        val.tv_sec = hdr->tp_sec;
+        val.tv_usec = hdr->tp_nsec;
+        handle->on_packet(handle, (unsigned char *) hdr + hdr->tp_mac, hdr->tp_snaplen, &val);
+        hdr = (struct tpacket3_hdr *) ((unsigned char *) hdr + hdr->tp_next_offset);
+    }
+    bd->hdr.bh1.block_status = TP_STATUS_KERNEL;
+    handle->block_num = (handle->block_num + 1) & (BLOCKNUMS - 1);
 }
 
 void linux_set_promiscuous(iface_handle_t *handle UNUSED, char *dev, bool enable)

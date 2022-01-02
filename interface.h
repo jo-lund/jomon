@@ -24,6 +24,7 @@ typedef struct iface_handle {
     bool use_zerocopy;
     unsigned int linktype;
     struct iface_operations *op;
+    unsigned int block_num;
 } iface_handle_t;
 
 struct iface_operations {
