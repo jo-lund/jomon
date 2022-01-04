@@ -38,6 +38,7 @@ static uint16_t opcodes[] = {
     [SUB]  = BPF_ALU | BPF_SUB,
     [MUL]  = BPF_ALU | BPF_MUL,
     [DIV]  = BPF_ALU | BPF_DIV,
+    [MOD]  = BPF_ALU | BPF_MOD,
     [AND]  = BPF_ALU | BPF_AND,
     [OR]   = BPF_ALU | BPF_OR,
     [XOR]  = BPF_ALU | BPF_XOR,
@@ -509,6 +510,7 @@ struct bpf_prog bpf_assemble(char *file)
         case SUB:
         case MUL:
         case DIV:
+        case MOD:
         case AND:
         case OR:
         case XOR:

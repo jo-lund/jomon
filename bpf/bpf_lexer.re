@@ -57,6 +57,7 @@ scan:
     "sub"  { return SUB; }
     "mul"  { return MUL; }
     "div"  { return DIV; }
+    "mod"  { return MOD; }
     "and"  { return AND; }
     "or"   { return OR; }
     "lsh"  { return LSH; }

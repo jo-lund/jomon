@@ -14,6 +14,7 @@ enum bpf_token {
     SUB,
     MUL,
     DIV,
+    MOD,
     AND,
     OR,
     XOR,
@@ -29,7 +30,7 @@ enum bpf_token {
     RET
 };
 
-#define BPF_NUM_TOKENS 25
+#define BPF_NUM_TOKENS 26
 
 struct bpf_parser;
 
