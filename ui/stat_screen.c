@@ -269,7 +269,7 @@ void print_hwstat(void)
     wprintw(s->win, ":  %d", mem.proc.pid);
     printat(s->win, ++y, 0, subcol, "%18s", "Resident set size");
     wprintw(s->win, ":  %s", format_bytes(mem.proc.vm_rss * 1024, buf, ARRAY_SIZE(buf)));
-    printat(s->win, y++, 34, subcol, "Virtual memory size");
+    printat(s->win, y++, 29, subcol, "Virtual memory size");
     wprintw(s->win, ":  %s", format_bytes(mem.proc.vm_size * 1024, buf, ARRAY_SIZE(buf)));
     if (cpustat[0][0].idle != 0 && cpustat[1][0].idle != 0) {
         for (int i = 0; i < hw.num_cpu; i++) {
