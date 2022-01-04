@@ -6,11 +6,20 @@
 #include "packet_igmp.h"
 #include "packet_ip.h"
 #include "../error.h"
+#include "../util.h"
 
 #define IGMP_HDR_LEN 8
 
 extern void add_igmp_information(void *w, void *sw, void *data);
 extern void print_igmp(char *buf, int n, void *data);
+static packet_error handle_igmp(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                                struct packet_data *pdata);
+
+static struct packet_flags query_flags[] = {
+    { "Reserved", 4, NULL },
+    { "S", 1, NULL },
+    { "QRV", 3, NULL }
+};
 
 static struct protocol_info igmp_prot = {
     .short_name = "IGMP",
@@ -20,7 +29,19 @@ static struct protocol_info igmp_prot = {
     .add_pdu = add_igmp_information
 };
 
-void register_igmp()
+static int parse_address(uint32_t *addrs, int count, unsigned char **buf, int n)
+{
+    unsigned char *p = *buf;
+
+    for (int i = 0; i < count && (unsigned int) n >= sizeof(uint32_t); i++) {
+        *addrs++ = read_uint32le(&p); /* store in big-endian format */
+        n -= sizeof(uint32_t);
+    }
+    *buf = p;
+    return n;
+}
+
+void register_igmp(void)
 {
     register_protocol(&igmp_prot, IP_PROTOCOL, IPPROTO_IGMP);
 }
@@ -61,27 +82,71 @@ void register_igmp()
  * Group Address is the multicast address being queried when sending a
  * Group-Specific or Group-and-Source-Specific Query. The field is zeroed when
  * sending a General Query.
- *
- * TODO: Handle IGMPv3 membership query
  */
 packet_error handle_igmp(struct protocol_info *pinfo, unsigned char *buffer, int n,
                          struct packet_data *pdata)
 {
-    if (n < IGMP_HDR_LEN) return DECODE_ERR;
+    if (n < IGMP_HDR_LEN)
+        return DECODE_ERR;
 
-    struct igmp *igmp;
-    struct igmp_info *info;
+    struct igmp_info *igmp;
 
-    info = mempool_alloc(sizeof(struct igmp_info));
-    pdata->data = info;
+    igmp = mempool_calloc(struct igmp_info);
+    pdata->data = igmp;
     pdata->len = n;
     pinfo->num_packets++;
     pinfo->num_bytes += n;
-    igmp = (struct igmp *) buffer;
-    info->type = igmp->igmp_type;
-    info->max_resp_time = igmp->igmp_code;
-    info->checksum = ntohs(igmp->igmp_cksum);
-    info->group_addr = igmp->igmp_group.s_addr;
+    igmp->type = buffer[0];
+    igmp->max_resp_time = buffer[1];
+    igmp->checksum = get_uint16be(&buffer[2]);
+    buffer += 4;
+    if (igmp->type == IGMP_v3_HOST_MEMBERSHIP_REPORT)
+        igmp->ngroups = get_uint16be(&buffer[2]);
+    else
+        igmp->group_addr = get_uint32le(buffer);
+    buffer += 4;
+    n -= 8;
+    switch (igmp->type) {
+    case IGMP_HOST_MEMBERSHIP_QUERY:
+        if (n >= 4) {
+            igmp->query = mempool_alloc(sizeof(*igmp->query));
+            igmp->query->flags = buffer[0];
+            igmp->query->qqic = buffer[1];
+            igmp->query->nsources = get_uint16be(&buffer[2]);
+            buffer += 4;
+            n -= 4;
+            if (n < 4)
+                break;
+            if (igmp->query->nsources * 4 > n)
+                return DECODE_ERR;
+            igmp->query->src_addrs = mempool_alloc(igmp->query->nsources * 4);
+            parse_address(igmp->query->src_addrs, igmp->query->nsources, &buffer, n);
+        }
+        break;
+    case IGMP_v3_HOST_MEMBERSHIP_REPORT:
+        if (n > 0 && igmp->ngroups > 0) {
+            if (igmp->ngroups > n)
+                return DECODE_ERR;
+            igmp->records = mempool_alloc(sizeof(*igmp->records) * igmp->ngroups);
+            for (int i = 0; i < igmp->ngroups && n >= 8; i++) {
+                igmp->records[i].type = buffer[0];
+                igmp->records[i].aux_data_len = buffer[1];
+                igmp->records[i].nsources = get_uint16be(&buffer[2]);
+                buffer += 4;
+                igmp->records[i].mcast_addr = read_uint32le(&buffer);
+                n -= 8;
+                if (n < 4)
+                    break;
+                if (igmp->records[i].nsources * 4 > n)
+                    return DECODE_ERR;
+                igmp->records[i].src_addrs = mempool_alloc(igmp->records[i].nsources * 4);
+                n = parse_address(igmp->records[i].src_addrs, igmp->records[i].nsources, &buffer, n);
+            }
+        }
+        break;
+    default:
+        break;
+    }
     return NO_ERR;
 }
 
@@ -94,9 +159,40 @@ char *get_igmp_type(uint8_t type)
         return "Version 1 Membership report";
     case IGMP_v2_HOST_MEMBERSHIP_REPORT:
         return "Version 2 Membership report";
+    case IGMP_v3_HOST_MEMBERSHIP_REPORT:
+        return "Version 3 Membership report";
     case IGMP_HOST_LEAVE_MESSAGE:
         return "Leave group";
-    case IGMP_PIM:
+    default:
+        return NULL;
+    }
+}
+
+struct packet_flags *get_igmp_query_flags(void)
+{
+    return query_flags;
+}
+
+int get_igmp_query_flags_size(void)
+{
+    return ARRAY_SIZE(query_flags);
+}
+
+char *get_igmp_group_record_type(uint8_t type)
+{
+    switch (type) {
+    case MODE_IS_INCLUDE:
+        return "Mode is include";
+    case MODE_IS_EXCLUDE:
+        return "Mode is exclude";
+    case CHANGE_TO_INCLUDE_MODE:
+        return "Change to include mode";
+    case CHANGE_TO_EXCLUDE_MODE:
+        return "Change to exclude mode";
+    case ALLOW_NEW_SOURCES:
+        return "Allow new sources";
+    case BLOCK_OLD_SOURCES:
+        return "Block old sources";
     default:
         return NULL;
     }

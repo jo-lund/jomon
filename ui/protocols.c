@@ -313,6 +313,9 @@ void print_igmp(char *buf, int n, void *data)
     case IGMP_v2_HOST_MEMBERSHIP_REPORT:
         PRINT_INFO(buf, n, "IGMP2 Membership report");
         break;
+    case IGMP_v3_HOST_MEMBERSHIP_REPORT:
+        PRINT_INFO(buf, n, "IGMP3 Membership report");
+        break;
     case IGMP_HOST_LEAVE_MESSAGE:
         PRINT_INFO(buf, n, "Leave group");
         break;
@@ -320,8 +323,10 @@ void print_igmp(char *buf, int n, void *data)
         PRINT_INFO(buf, n, "Type 0x%x", igmp->type);
         break;
     }
-    inet_ntop(AF_INET, &igmp->group_addr, addr, INET_ADDRSTRLEN);
-    PRINT_INFO(buf, n, "  Group address: %s", addr);
+    if (igmp->type != IGMP_v3_HOST_MEMBERSHIP_REPORT) {
+        inet_ntop(AF_INET, &igmp->group_addr, addr, INET_ADDRSTRLEN);
+        PRINT_INFO(buf, n, "  Group address: %s", addr);
+    }
 }
 
 void print_pim(char *buf, int n, void *data)
@@ -1038,9 +1043,10 @@ void add_igmp_information(void *w, void *sw, void *data)
     char addr[INET_ADDRSTRLEN];
     char buf[MAXLINE];
     char *type;
+    list_view_header *flags;
 
     inet_ntop(AF_INET, &igmp->group_addr, addr, INET_ADDRSTRLEN);
-    snprintf(buf, MAXLINE, "Type: %d", igmp->type);
+    snprintf(buf, MAXLINE, "Type: 0x%x", igmp->type);
     if ((type = get_igmp_type(igmp->type))) {
         snprintcat(buf, MAXLINE, " (%s)", type);
     }
@@ -1052,9 +1058,55 @@ void add_igmp_information(void *w, void *sw, void *data)
             LV_ADD_TEXT_ELEMENT(lw, header, "Group-specific query");
         }
     }
-    LV_ADD_TEXT_ELEMENT(lw, header, "Max response time: %d seconds", igmp->max_resp_time / 10);
+    if (igmp->type == IGMP_v3_HOST_MEMBERSHIP_REPORT)
+        LV_ADD_TEXT_ELEMENT(lw, header, "Reserved: %d", igmp->max_resp_time);
+    else
+        LV_ADD_TEXT_ELEMENT(lw, header, "Max response time: %d seconds", igmp->max_resp_time / 10);
     LV_ADD_TEXT_ELEMENT(lw, header, "Checksum: %d", igmp->checksum);
-    LV_ADD_TEXT_ELEMENT(lw, header, "Group address: %s", addr);
+    if (igmp->type == IGMP_v3_HOST_MEMBERSHIP_REPORT)
+        LV_ADD_TEXT_ELEMENT(lw, header, "Number of group records: %d", igmp->ngroups);
+    else
+        LV_ADD_TEXT_ELEMENT(lw, header, "Group address: %s", addr);
+    switch (igmp->type) {
+    case IGMP_HOST_MEMBERSHIP_QUERY:
+        if (!igmp->query)
+            return;
+        flags = LV_ADD_SUB_HEADER(lw, header, selected[UI_FLAGS], UI_FLAGS, "Flags 0x%x",
+                                  igmp->query->flags);
+        add_flags(lw, flags, igmp->query->flags, get_igmp_query_flags(),
+                  get_igmp_query_flags_size());
+        LV_ADD_TEXT_ELEMENT(lw, header, "QQIC: %d", igmp->query->qqic);
+        LV_ADD_TEXT_ELEMENT(lw, header, "Number of sources: %d", igmp->query->nsources);
+        for (int i = 0; i < igmp->query->nsources; i++) {
+            inet_ntop(AF_INET, igmp->query->src_addrs++, addr, INET_ADDRSTRLEN);
+            LV_ADD_TEXT_ELEMENT(lw, header, "Source address %d: %s", i + 1, addr);
+        }
+        break;
+    case IGMP_v3_HOST_MEMBERSHIP_REPORT:
+        if (!igmp->records)
+            return;
+
+        for (int i = 0; i < igmp->ngroups; i++) {
+            list_view_header *group;
+            char *rtype;
+
+            group = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Group %d", i + 1);
+            if ((rtype = get_igmp_group_record_type(igmp->records[i].type)))
+                LV_ADD_TEXT_ELEMENT(lw, group, "Record type: %s (%d)", rtype, igmp->records[i].type);
+            else
+                LV_ADD_TEXT_ELEMENT(lw, group, "Record type: %d", igmp->records[i].type);
+            LV_ADD_TEXT_ELEMENT(lw, group, "Aux data length: %d", igmp->records[i].aux_data_len);
+            LV_ADD_TEXT_ELEMENT(lw, group, "Number of sources: %d", igmp->records[i].nsources);
+            inet_ntop(AF_INET, &igmp->records[i].mcast_addr, addr, INET_ADDRSTRLEN);
+            LV_ADD_TEXT_ELEMENT(lw, group, "Multicast address: %s", addr);
+            for (int j = 0; j < igmp->records[i].nsources; j++) {
+                inet_ntop(AF_INET, igmp->records[i].src_addrs + j, addr, INET_ADDRSTRLEN);
+                LV_ADD_TEXT_ELEMENT(lw, group, "Source address %d: %s", j + 1, addr);
+            }
+        }
+    default:
+        break;
+    }
 }
 
 void add_pim_information(void *w, void *sw, void *data)
