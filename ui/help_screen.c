@@ -27,7 +27,7 @@ static void help_screen_render(void)
 
     werase(win);
     wbkgd(win, get_theme_colour(BACKGROUND));
-    wprintw(win, "Monitor (c) 2014 - 2021 John Olav Lund");
+    wprintw(win, "Monitor (c) 2014 - 2022 John Olav Lund");
     y += 2;
     mvwprintw(win, y, 0, "When a packet scan is active you can enter interactive mode "
               "by pressing \'i\'. In interactive mode the packet scan will continue in the "
