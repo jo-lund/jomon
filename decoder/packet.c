@@ -8,9 +8,7 @@
 #include <sys/socket.h>
 #include <ctype.h>
 #include <sys/types.h>
-#include "../misc.h"
-#include "../error.h"
-#include "../util.h"
+#include "../monitor.h"
 #include "packet.h"
 #include "tcp_analyzer.h"
 #include "host_analyzer.h"
@@ -43,10 +41,10 @@ void decoder_exit(void)
     hashmap_free(info);
 }
 
-void register_protocol(struct protocol_info *pinfo, uint16_t layer, uint16_t id)
+void register_protocol(struct protocol_info *pinfo, uint16_t layer, uint16_t key)
 {
     if (pinfo) {
-        hashmap_insert(protocols, UINT_TO_PTR(get_protocol_id(layer, id)), pinfo);
+        hashmap_insert(protocols, UINT_TO_PTR(get_protocol_id(layer, key)), pinfo);
         hashmap_insert(info, pinfo->short_name, pinfo);
     }
 }
@@ -120,8 +118,9 @@ unsigned char *get_adu_payload(struct packet *p)
     int i = 0;
 
     while (pdata) {
-        if (get_protocol_layer(pdata->id) == PORT)
-            return p->buf + i;
+        if (get_protocol_key(pdata->id) == IPPROTO_TCP ||
+            get_protocol_key(pdata->id) == IPPROTO_UDP)
+            return p->buf + i + pdata->len;
         i += pdata->len;
         pdata = pdata->next;
     }
@@ -134,8 +133,9 @@ unsigned int get_adu_payload_len(struct packet *p)
     unsigned int len = p->len;
 
     while (pdata) {
-        if (get_protocol_layer(pdata->id) == PORT)
-            return len;
+        if (get_protocol_key(pdata->id) == IPPROTO_TCP ||
+            get_protocol_key(pdata->id) == IPPROTO_UDP)
+            return len - pdata->len;
         len -= pdata->len;
         pdata = pdata->next;
     }

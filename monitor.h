@@ -6,5 +6,6 @@
 #include "string.h"
 #include "attributes.h"
 #include "misc.h"
+#include "error.h"
 
 #endif

@@ -109,7 +109,7 @@ struct packet_data {
 /* TODO: move this */
 void decoder_init(void);
 void decoder_exit(void);
-void register_protocol(struct protocol_info *pinfo, uint16_t layer, uint16_t id);
+void register_protocol(struct protocol_info *pinfo, uint16_t layer, uint16_t key);
 struct protocol_info *get_protocol(uint32_t id);
 void traverse_protocols(protocol_handler fn, void *arg);
 
@@ -131,7 +131,7 @@ void free_packets(void *data);
 /* Return a pointer to the application payload */
 unsigned char *get_adu_payload(struct packet *p);
 
-/* Return the payload length */
+/* Return the application payload length */
 unsigned int get_adu_payload_len(struct packet *p);
 
 /* Clear packet statistics */
