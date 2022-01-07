@@ -10,7 +10,6 @@ enum connection_state {
     SYN_SENT,
     SYN_RCVD,
     ESTABLISHED,
-    CLOSE_WAIT,
     CLOSING,
     RESET,
     CLOSED

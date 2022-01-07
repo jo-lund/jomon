@@ -51,30 +51,28 @@ void tcp_analyzer_check_stream(const struct packet *p)
                 break;
             case ESTABLISHED:
                 if (tcp->fin) {
-                    conn->state = tcp->ack ? CLOSING : CLOSE_WAIT;
-                }
-                break;
-            case CLOSE_WAIT:
-                if (tcp->fin) {
                     conn->state = CLOSING;
                 }
                 break;
             case CLOSING:
-                if (tcp->ack) {
+                if (tcp->fin) {
                     conn->state = CLOSED;
                 }
             default:
                 break;
             }
             publish2(conn_changed_publisher, conn, is_new ? (void *) 0x1 : NULL);
-        } else if (!tcp->fin) {
+        } else {
             struct tcp_connection_v4 *new_conn = tcp_analyzer_create_connection(&endp);
 
-            if (tcp->syn) {
+            if (tcp->syn)
                 new_conn->state = tcp->ack ? SYN_RCVD : SYN_SENT;
-            } else { /* already established session */
+            else if (tcp->rst)
+                new_conn->state = RESET;
+            else if (tcp->fin)
+                new_conn->state = CLOSING;
+            else /* already established session */
                 new_conn->state = ESTABLISHED;
-            }
             list_push_back(new_conn->packets, (void *) p);
             publish2(conn_changed_publisher, new_conn, (void *) 0x1);
         }
@@ -135,7 +133,6 @@ char *tcp_analyzer_get_connection_state(enum connection_state state)
         return "Initializing";
     case ESTABLISHED:
         return "Established";
-    case CLOSE_WAIT:
     case CLOSING:
         return "Closing";
     case RESET:

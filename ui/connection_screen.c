@@ -300,8 +300,7 @@ void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int
     format_bytes(entry[BYTES_BA].val, entry[BYTES_BA].buf, MAX_WIDTH);
     if (ctx.capturing)
         entry[PROCESS].str = process_get_name(conn);
-    if (conn->state != ESTABLISHED && conn->state != SYN_SENT &&
-        conn->state != SYN_RCVD)
+    if (conn->state == CLOSED || conn->state == RESET)
         attrs = get_theme_colour(DISABLE);
     for (unsigned int i = 0; i < header_size; i++) {
         if (i % 2 == 0) {
