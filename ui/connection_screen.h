@@ -12,7 +12,7 @@ typedef struct {
     vector_t *screen_buf;
 } connection_screen;
 
-connection_screen *connection_screen_create();
+connection_screen *connection_screen_create(void);
 void connection_screen_free(screen *s);
 
 #endif

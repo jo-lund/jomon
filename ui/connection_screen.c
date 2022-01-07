@@ -38,6 +38,12 @@ enum cs_val {
     NUM_VALS
 };
 
+enum page {
+    CONNECTION_PAGE,
+    PROCESS_PAGE,
+    NUM_PAGES
+};
+
 struct cs_entry {
     uint32_t val;
     union {
@@ -48,6 +54,7 @@ struct cs_entry {
 
 extern main_menu *menu;
 static bool active = false;
+static enum page conn_mode;
 
 static void connection_screen_init(screen *s);
 static void connection_screen_refresh(screen *s);
@@ -58,7 +65,6 @@ static void connection_screen_on_back(screen *s);
 static void connection_screen_render(connection_screen *cs);
 static void update_connection(struct tcp_connection_v4 *c, bool new_connection);
 static void print_all_connections(connection_screen *cs);
-static void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int y);
 static void print_conn_header(connection_screen *cs);
 
 static screen_operations csop = {
@@ -86,9 +92,103 @@ static screen_header header[] = {
     { "Local Process", PROC_WIDTH }
 };
 
+static screen_header proc_header[] = {
+    { "Local Process", 40 },
+    { "Pid", 10 },
+    { "User", 20 },
+    { "Bytes Sent", 12 },
+    { "Bytes Received", 12 }
+};
+
 static unsigned int header_size;
 
-connection_screen *connection_screen_create()
+static void update_screen_buf(screen *s)
+{
+    vector_clear(((connection_screen *) s)->screen_buf, NULL);
+    if (conn_mode == CONNECTION_PAGE) {
+        hashmap_t *sessions = tcp_analyzer_get_sessions();
+        const hashmap_iterator *it;
+
+        HASHMAP_FOREACH(sessions, it)
+            vector_push_back(((connection_screen *) s)->screen_buf, it->data);
+    } else {
+        hashmap_t *pinfo = process_get_processes();
+        const hashmap_iterator *it;
+
+        HASHMAP_FOREACH(pinfo, it)
+            vector_push_back(((connection_screen *) s)->screen_buf, it->data);
+    }
+}
+
+static void print_process(connection_screen *cs, struct process *proc, int y)
+{
+    char name[MAXPATH];
+    int x = 0;
+
+    if (!proc->name)
+        return;
+    strncpy(name, proc->name, MAXPATH - 1);
+    mvwprintw(cs->base.win, y, x, "%s", get_file_part(name));
+    x += proc_header[0].width;
+    mvwprintw(cs->base.win, y, x, "%d", proc->pid);
+}
+
+static void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int y)
+{
+    const node_t *n = list_begin(conn->packets);
+    struct packet *p;
+    char *state;
+    int x = 0;
+    struct cs_entry entry[NUM_VALS];
+    int attrs = 0;
+
+    memset(entry, 0, sizeof(entry));
+    inet_ntop(AF_INET, &conn->endp->src, entry[ADDRA].buf, INET_ADDRSTRLEN);
+    inet_ntop(AF_INET, &conn->endp->dst, entry[ADDRB].buf, INET_ADDRSTRLEN);
+    p = list_data(n);
+    entry[ADDRA].val = conn->endp->src;
+    entry[PORTA].val = conn->endp->sport;
+    entry[ADDRB].val = conn->endp->dst;
+    entry[PORTB].val = conn->endp->dport;
+    while (n) {
+        p = list_data(n);
+        if (entry[ADDRA].val == ipv4_src(p) && entry[PORTA].val == tcp_member(p, sport)) {
+            entry[BYTES_AB].val += p->len;
+            entry[PACKETS_AB].val++;
+        } else if (entry[ADDRB].val == ipv4_src(p) &&
+                   entry[PORTB].val == tcp_member(p, sport)) {
+            entry[BYTES_BA].val += p->len;
+            entry[PACKETS_BA].val++;
+        }
+        entry[BYTES].val += p->len;
+        n = list_next(n);
+    }
+    state = tcp_analyzer_get_connection_state(conn->state);
+    strncpy(entry[STATE].buf, state, MAX_WIDTH - 1);
+    entry[PACKETS].val = list_size(conn->packets);
+    format_bytes(entry[BYTES].val, entry[BYTES].buf, MAX_WIDTH);
+    format_bytes(entry[BYTES_AB].val, entry[BYTES_AB].buf, MAX_WIDTH);
+    format_bytes(entry[BYTES_BA].val, entry[BYTES_BA].buf, MAX_WIDTH);
+    if (ctx.capturing)
+        entry[PROCESS].str = process_get_name(conn);
+    if (conn->state != ESTABLISHED && conn->state != SYN_SENT &&
+        conn->state != SYN_RCVD)
+        attrs = get_theme_colour(DISABLE);
+    for (unsigned int i = 0; i < header_size; i++) {
+        if (i % 2 == 0) {
+            printat(cs->base.win, y, x, attrs, "%s", entry[i].buf);
+        } else {
+            if (i == PROCESS) {
+                if (entry[i].str)
+                    printat(cs->base.win, y, x, attrs, "%s", entry[i].str);
+            } else
+                printat(cs->base.win, y, x, attrs, "%d", entry[i].val);
+        }
+        x += header[i].width;
+    }
+}
+
+connection_screen *connection_screen_create(void)
 {
     connection_screen *cs;
 
@@ -108,6 +208,7 @@ void connection_screen_init(screen *s)
     s->win = newwin(my - CONN_HEADER - actionbar_getmaxy(actionbar), mx, CONN_HEADER, 0);
     s->have_selectionbar = true;
     s->lines = getmaxy(stdscr) - CONN_HEADER - actionbar_getmaxy(actionbar);
+    conn_mode = CONNECTION_PAGE;
     cs->header = newwin(CONN_HEADER, mx, 0, 0);
     cs->y = 0;
     cs->screen_buf = vector_init(1024);
@@ -133,14 +234,7 @@ void connection_screen_free(screen *s)
 void connection_screen_got_focus(screen *s, screen *oldscr UNUSED)
 {
     if (!active) {
-        hashmap_t *sessions = tcp_analyzer_get_sessions();
-
-        if (hashmap_size(sessions)) {
-            const hashmap_iterator *it;
-
-            HASHMAP_FOREACH(sessions, it)
-                vector_push_back(((connection_screen *) s)->screen_buf, it->data);
-        }
+        update_screen_buf(s);
         tcp_analyzer_subscribe(update_connection);
         active = true;
     }
@@ -178,6 +272,11 @@ void connection_screen_get_input(screen *s)
         cvs->stream = vector_get_data(cs->screen_buf, s->selectionbar);
         screen_stack_move_to_top((screen *) cvs);
         break;
+    case 'p':
+        conn_mode = (conn_mode + 1) % NUM_PAGES;
+        update_screen_buf(s);
+        connection_screen_refresh(s);
+        break;
     default:
         ungetch(c);
         screen_get_input(s);
@@ -203,28 +302,30 @@ void update_connection(struct tcp_connection_v4 *conn, bool new_connection)
 {
     connection_screen *cs = (connection_screen *) screen_cache_get(CONNECTION_SCREEN);
 
-    if (new_connection) {
-        vector_push_back(cs->screen_buf, conn);
-        if (cs->base.focus) {
-            werase(cs->header);
-            print_conn_header(cs);
-            actionbar_refresh(actionbar, (screen *) cs);
-        }
-    } else if (cs->base.focus) {
-        int y = 0;
-
-        while (y < cs->base.lines && cs->base.top + y < vector_size(cs->screen_buf)) {
-            if (vector_get_data(cs->screen_buf, cs->base.top + y) == conn) {
-                wmove(cs->base.win, y, 0);
-                wclrtoeol(cs->base.win);
-                print_connection(cs, conn, y);
-                if (cs->base.show_selectionbar && y == cs->base.selectionbar)
-                    mvwchgat(cs->base.win, cs->base.selectionbar - cs->base.top, 0, -1, A_NORMAL,
-                             PAIR_NUMBER(get_theme_colour(SELECTIONBAR)), NULL);
-                wrefresh(cs->base.win);
-                break;
+    if (conn_mode == CONNECTION_PAGE) {
+        if (new_connection) {
+            vector_push_back(cs->screen_buf, conn);
+            if (cs->base.focus) {
+                werase(cs->header);
+                print_conn_header(cs);
+                actionbar_refresh(actionbar, (screen *) cs);
             }
-            y++;
+        } else if (cs->base.focus) {
+            int y = 0;
+
+            while (y < cs->base.lines && cs->base.top + y < vector_size(cs->screen_buf)) {
+                if (vector_get_data(cs->screen_buf, cs->base.top + y) == conn) {
+                    wmove(cs->base.win, y, 0);
+                    wclrtoeol(cs->base.win);
+                    print_connection(cs, conn, y);
+                    if (cs->base.show_selectionbar && y == cs->base.selectionbar)
+                        mvwchgat(cs->base.win, cs->base.selectionbar - cs->base.top, 0, -1, A_NORMAL,
+                                 PAIR_NUMBER(get_theme_colour(SELECTIONBAR)), NULL);
+                    wrefresh(cs->base.win);
+                    break;
+                }
+                y++;
+            }
         }
         actionbar_refresh(actionbar, (screen *) cs);
     }
@@ -234,13 +335,22 @@ void print_conn_header(connection_screen *cs)
 {
     int y = 0;
     int x = 0;
+    screen_header *p;
+    unsigned int size;
 
     printat(cs->header, y, 0, get_theme_colour(HEADER_TXT), "TCP connections");
     wprintw(cs->header,  ": %d", vector_size(cs->screen_buf));
     y += 4;
-    for (unsigned int i = 0; i < header_size; i++) {
-        mvwprintw(cs->header, y, x, header[i].txt);
-        x += header[i].width;
+    if (conn_mode == CONNECTION_PAGE) {
+        p = header;
+        size = header_size;
+    } else {
+        p = proc_header;
+        size = ARRAY_SIZE(proc_header);
+    }
+    for (unsigned int i = 0; i < size; i++, p++) {
+        mvwprintw(cs->header, y, x, p->txt);
+        x += p->width;
     }
     mvwchgat(cs->header, y, 0, -1, A_NORMAL, PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
     wrefresh(cs->header);
@@ -251,7 +361,10 @@ void print_all_connections(connection_screen *cs)
     int i = cs->base.top;
 
     while (cs->y < cs->base.lines && i < vector_size(cs->screen_buf)) {
-        print_connection(cs, vector_get_data(cs->screen_buf, i), cs->y);
+        if (conn_mode == CONNECTION_PAGE)
+            print_connection(cs, vector_get_data(cs->screen_buf, i), cs->y);
+        else
+            print_process(cs, vector_get_data(cs->screen_buf, i), cs->y);
         cs->y++;
         i++;
     }
@@ -261,57 +374,4 @@ void print_all_connections(connection_screen *cs)
         mvwchgat(cs->base.win, cs->base.selectionbar - cs->base.top, 0, -1, A_NORMAL,
                  PAIR_NUMBER(get_theme_colour(SELECTIONBAR)), NULL);
     wrefresh(cs->base.win);
-}
-
-void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int y)
-{
-    const node_t *n = list_begin(conn->packets);
-    struct packet *p;
-    char *state;
-    int x = 0;
-    struct cs_entry entry[NUM_VALS];
-    int attrs = 0;
-
-    memset(entry, 0, sizeof(entry));
-    inet_ntop(AF_INET, &conn->endp->src, entry[ADDRA].buf, INET_ADDRSTRLEN);
-    inet_ntop(AF_INET, &conn->endp->dst, entry[ADDRB].buf, INET_ADDRSTRLEN);
-    entry[ADDRA].val = conn->endp->src;
-    entry[PORTA].val = conn->endp->sport;
-    entry[ADDRB].val = conn->endp->dst;
-    entry[PORTB].val = conn->endp->dport;
-    while (n) {
-        p = list_data(n);
-        if (entry[ADDRA].val == ipv4_src(p) && entry[PORTA].val == tcp_member(p, sport)) {
-            entry[BYTES_AB].val += p->len;
-            entry[PACKETS_AB].val++;
-        } else if (entry[ADDRB].val == ipv4_src(p) &&
-                   entry[PORTB].val == tcp_member(p, sport)) {
-            entry[BYTES_BA].val += p->len;
-            entry[PACKETS_BA].val++;
-        }
-        entry[BYTES].val += p->len;
-        n = list_next(n);
-    }
-    state = tcp_analyzer_get_connection_state(conn->state);
-    strncpy(entry[STATE].buf, state, MAX_WIDTH - 1);
-    entry[PACKETS].val = list_size(conn->packets);
-    format_bytes(entry[BYTES].val, entry[BYTES].buf, MAX_WIDTH);
-    format_bytes(entry[BYTES_AB].val, entry[BYTES_AB].buf, MAX_WIDTH);
-    format_bytes(entry[BYTES_BA].val, entry[BYTES_BA].buf, MAX_WIDTH);
-    if (ctx.capturing)
-        entry[PROCESS].str = process_get_name(conn);
-    if (conn->state == CLOSED || conn->state == RESET)
-        attrs = get_theme_colour(DISABLE);
-    for (unsigned int i = 0; i < header_size; i++) {
-        if (i % 2 == 0) {
-            printat(cs->base.win, y, x, attrs, "%s", entry[i].buf);
-        } else {
-            if (i == PROCESS) {
-                if (entry[i].str)
-                    printatnlw(cs->base.win, y, x, attrs, 0, "%s", entry[i].str);
-            } else
-                printat(cs->base.win, y, x, attrs, "%d", entry[i].val);
-        }
-        x += header[i].width;
-    }
 }

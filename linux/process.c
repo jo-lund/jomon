@@ -13,6 +13,8 @@
 #include "../util.h"
 #include "../hash.h"
 #include "../decoder/tcp_analyzer.h"
+#include "../list.h"
+#include "../monitor.h"
 
 #define PROC "/proc"
 #define FD "fd"
@@ -20,12 +22,6 @@
 #define SOCKET "socket:["
 #define TCPPATH "/proc/net/tcp"
 #define SIZE 512
-
-struct process {
-    char *name;
-    int pid;
-    unsigned inode;
-};
 
 struct tcp_elem {
     uint16_t lport;
@@ -38,6 +34,7 @@ struct tcp_elem {
 static hashmap_t *inode_cache; /* processes keyed on inode */
 static hashmap_t *tcp_cache;
 static hashmap_t *string_table;
+static hashmap_t *procs;
 static int nl_sockfd;
 
 static void load_cache();
@@ -171,7 +168,6 @@ static void load_cache()
                     if (!hashmap_get(inode_cache, UINT_TO_PTR(inode))) {
                         pinfo = calloc(1, sizeof(struct process));
                         pinfo->pid = strtol(dp->d_name, NULL, 10);
-                        pinfo->inode = inode;
                         pinfo->name = get_name(pinfo->pid);
                         hashmap_insert(inode_cache, UINT_TO_PTR(inode), pinfo);
                     }
@@ -307,16 +303,31 @@ char *process_get_name(struct tcp_connection_v4 *conn)
     struct tcp_elem *tcp;
 
     if ((tcp = hashmap_get(tcp_cache, conn->endp)) &&
-        (pinfo = hashmap_get(inode_cache, UINT_TO_PTR(tcp->inode))))
+        (pinfo = hashmap_get(inode_cache, UINT_TO_PTR(tcp->inode)))) {
         return pinfo->name;
+    }
     return NULL;
 }
 
-void process_init()
+hashmap_t *process_get_processes(void)
+{
+    const hashmap_iterator *it;
+    struct process *p;
+
+    HASHMAP_FOREACH(tcp_cache, it) {
+        if ((p = hashmap_get(inode_cache, UINT_TO_PTR(((struct tcp_elem *) it->data)->inode)))) {
+            hashmap_insert(procs, UINT_TO_PTR(p->pid), p);
+        }
+    }
+    return procs;
+}
+
+void process_init(void)
 {
     inode_cache = hashmap_init(SIZE, hashfnv_uint32, compare_uint);
     tcp_cache = hashmap_init(SIZE, hash_tcp_v4, compare_tcp_v4);
     string_table = hashmap_init(64, hashfnv_string, compare_string);
+    procs = hashmap_init(16, NULL, NULL);
     hashmap_set_free_data(inode_cache, free);
     hashmap_set_free_key(tcp_cache, free);
     hashmap_set_free_key(string_table, free);
@@ -324,17 +335,17 @@ void process_init()
     netlink_init();
 }
 
-void process_load_cache()
+void process_load_cache(void)
 {
     load_cache();
 }
 
-void process_clear_cache()
+void process_clear_cache(void)
 {
     hashmap_clear(inode_cache);
 }
 
-void process_free()
+void process_free(void)
 {
     hashmap_free(inode_cache);
     hashmap_free(tcp_cache);

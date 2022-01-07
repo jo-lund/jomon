@@ -18,11 +18,6 @@
 
 #define SIZE 512
 
-struct process {
-    char *name;
-    int pid;
-};
-
 struct tcp_elem {
     uint16_t lport;
     uint16_t rport;
