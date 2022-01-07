@@ -2,10 +2,6 @@
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
-#include <netinet/in.h>
-#include <stdlib.h>
-#include <arpa/inet.h>
-#include <string.h>
 #include "packet_ip.h"
 #include "../error.h"
 #include "../util.h"
