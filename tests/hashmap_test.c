@@ -39,9 +39,13 @@ START_TEST(hashmap_test_insert_same)
         ck_assert(PTR_TO_UINT(hashmap_get_key(map, UINT_TO_PTR(i))) == i);
         ck_assert(PTR_TO_UINT(hashmap_get(map, UINT_TO_PTR(i))) == i + 1);
     }
+    ck_assert_msg(hashmap_size(map) == 20, "Hash table should contain 20 elements, but size is %d",
+                  hashmap_size(map));
     hashmap_insert(map, UINT_TO_PTR(5), UINT_TO_PTR(42));
-    ck_assert(PTR_TO_UINT(hashmap_contains(map, UINT_TO_PTR(5))));
+    ck_assert(hashmap_contains(map, UINT_TO_PTR(5)));
     ck_assert(PTR_TO_UINT(hashmap_get(map, UINT_TO_PTR(5))) == 42);
+    ck_assert_msg(hashmap_size(map) == 20, "Hash table should contain 20 elements, but size is %d",
+                  hashmap_size(map));
     hashmap_free(map);
 }
 END_TEST

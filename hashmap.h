@@ -36,7 +36,10 @@ typedef struct hashmap_stat {
  */
 hashmap_t *hashmap_init(unsigned int size, hash_fn h, hashmap_compare fn);
 
-/* Inserts element with specified key in hash map */
+/*
+ * Inserts element with specified key in hash map. Returns true if the element
+ * is inserted or false if the element is updated.
+ */
 bool hashmap_insert(hashmap_t *map, void *key, void *data);
 
 /* Removes element with specified key */
