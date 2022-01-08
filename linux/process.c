@@ -37,7 +37,7 @@ static hashmap_t *string_table;
 static hashmap_t *procs;
 static int nl_sockfd;
 
-static void load_cache();
+static void load_cache(void);
 
 static char *get_name(int pid)
 {
@@ -119,7 +119,7 @@ static bool parse_tcp()
  *    has an entry for the inode.
  * 5. If there is a match, opens /proc/pid/cmdline to get the process name.
  */
-static void load_cache()
+static void load_cache(void)
 {
     DIR *dfd;
     struct dirent *dp;

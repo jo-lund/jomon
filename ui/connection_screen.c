@@ -302,30 +302,30 @@ void update_connection(struct tcp_connection_v4 *conn, bool new_connection)
 {
     connection_screen *cs = (connection_screen *) screen_cache_get(CONNECTION_SCREEN);
 
-    if (conn_mode == CONNECTION_PAGE) {
-        if (new_connection) {
-            vector_push_back(cs->screen_buf, conn);
-            if (cs->base.focus) {
-                werase(cs->header);
-                print_conn_header(cs);
-                actionbar_refresh(actionbar, (screen *) cs);
-            }
-        } else if (cs->base.focus) {
-            int y = 0;
+    if (conn_mode != CONNECTION_PAGE)
+        return;
+    if (new_connection) {
+        vector_push_back(cs->screen_buf, conn);
+        if (cs->base.focus) {
+            werase(cs->header);
+            print_conn_header(cs);
+            actionbar_refresh(actionbar, (screen *) cs);
+        }
+    } else if (cs->base.focus) {
+        int y = 0;
 
-            while (y < cs->base.lines && cs->base.top + y < vector_size(cs->screen_buf)) {
-                if (vector_get_data(cs->screen_buf, cs->base.top + y) == conn) {
-                    wmove(cs->base.win, y, 0);
-                    wclrtoeol(cs->base.win);
-                    print_connection(cs, conn, y);
-                    if (cs->base.show_selectionbar && y == cs->base.selectionbar)
-                        mvwchgat(cs->base.win, cs->base.selectionbar - cs->base.top, 0, -1, A_NORMAL,
-                                 PAIR_NUMBER(get_theme_colour(SELECTIONBAR)), NULL);
-                    wrefresh(cs->base.win);
-                    break;
-                }
-                y++;
+        while (y < cs->base.lines && cs->base.top + y < vector_size(cs->screen_buf)) {
+            if (vector_get_data(cs->screen_buf, cs->base.top + y) == conn) {
+                wmove(cs->base.win, y, 0);
+                wclrtoeol(cs->base.win);
+                print_connection(cs, conn, y);
+                if (cs->base.show_selectionbar && y == cs->base.selectionbar)
+                    mvwchgat(cs->base.win, cs->base.selectionbar - cs->base.top, 0, -1, A_NORMAL,
+                             PAIR_NUMBER(get_theme_colour(SELECTIONBAR)), NULL);
+                wrefresh(cs->base.win);
+                break;
             }
+            y++;
         }
         actionbar_refresh(actionbar, (screen *) cs);
     }
