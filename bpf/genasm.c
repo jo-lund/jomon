@@ -522,14 +522,17 @@ static void patch_jmp_poffset(struct block *b, struct block *e, struct node *n, 
         offset = poff->offset;
         if (BPF_CLASS(insn->code) == BPF_JMP) {
             if (b->inverse) {
-                set_jmp_offset(b, b->jt, e, &insn->jf, b->next ? b->insn - offset :
-                               b->insn - offset - 1);
+                if (poff->inverse)
+                    set_jmp_offset(b, b->jt, e, &insn->jt, b->next ? b->insn - offset :
+                                   b->insn - offset - 1);
+                else
+                    set_jmp_offset(b, b->jt, e, &insn->jf, b->next ? b->insn - offset :
+                                   b->insn - offset - 1);
             } else {
-                if (poff->inverse) {
-                    set_jmp_offset(b, b->jt, e, &insn->jt, b->insn - offset);
-                } else {
+                if (poff->inverse)
+                    set_jmp_offset(b, b->jf, e, &insn->jt, b->insn - offset);
+                else
                     set_jmp_offset(b, b->jf, e, &insn->jf, b->insn - offset);
-                }
             }
         }
         poff = poff->next;
