@@ -126,6 +126,21 @@ static void screen_render(main_screen *ms, int my)
     }
 }
 
+static void set_filepath(void)
+{
+    int i;
+
+    if (ctx.filename[0] != '\0') {
+        i = string_find_last(ctx.filename, '/');
+        if (i > 0 && i < MAXPATH) {
+            strncpy(load_filepath, ctx.filename, i);
+            load_filepath[i] = '\0';
+            return;
+        }
+    }
+    getcwd(load_filepath, MAXPATH);
+}
+
 main_screen *main_screen_create(void)
 {
     main_screen *ms;
@@ -158,7 +173,7 @@ void main_screen_init(screen *s)
     keypad(s->win, TRUE);
     scrollok(s->win, TRUE);
     ms->packet_ref = packets;
-    getcwd(load_filepath, MAXPATH);
+    set_filepath();
     status = newwin(1, mx, my - 1, 0);
     add_actionbar_elems(s);
 }
@@ -487,15 +502,9 @@ void main_screen_load_handle_ok(void *file)
         push_screen((screen *) pd);
         err = read_file(ctx.handle, fp, read_show_progress);
         if (err == NO_ERROR) {
-            int i;
-
             main_screen_clear(ms);
             strcpy(ctx.filename, (const char *) file);
-            i = string_find_last(ctx.filename, '/');
-            if (i > 0 && i < MAXPATH) {
-                strncpy(load_filepath, ctx.filename, i);
-                load_filepath[i] = '\0';
-            }
+            set_filepath();
             pop_screen();
             SCREEN_FREE((screen *) pd);
             print_file();
@@ -614,6 +623,7 @@ void print_header(main_screen *ms)
     char file[MAXPATH];
 
     werase(ms->header);
+
     if (ctx.filename[0]) {
         strncpy(file, ctx.filename, MAXPATH - 1);
         printat(ms->header, y, 0, txtcol, "Filename");
