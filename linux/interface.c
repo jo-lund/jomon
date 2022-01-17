@@ -23,14 +23,14 @@
 
 static void linux_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf);
 static void linux_close(iface_handle_t *handle);
-static void linux_read_packet(iface_handle_t *handle);
+static void linux_read_packet_mmap(iface_handle_t *handle);
 static void linux_read_packet_recv(iface_handle_t *handle);
 static void linux_set_promiscuous(iface_handle_t *handle, char *dev, bool enable);
 
 static struct iface_operations linux_op = {
     .activate = linux_activate,
     .close = linux_close,
-    .read_packet = linux_read_packet,
+    .read_packet = linux_read_packet_mmap,
     .set_promiscuous = linux_set_promiscuous
 };
 
@@ -147,8 +147,7 @@ void linux_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf)
 
     if (!setup_packet_mmap(handle)) {
         DEBUG("PACKET_MMAP TPACKET_V3 is not supported");
-        linux_op.read_packet = linux_read_packet_recv;
-        handle->op = &linux_op;
+        handle->op->read_packet = linux_read_packet_recv;
 
         /* get timestamps */
         if (setsockopt(handle->fd, SOL_SOCKET, SO_TIMESTAMP, &n, sizeof(n)) == -1) {
@@ -215,7 +214,7 @@ void linux_read_packet_recv(iface_handle_t *handle)
     handle->on_packet(handle, handle->buf, msg.msg_len, val);
 }
 
-void linux_read_packet(iface_handle_t *handle)
+void linux_read_packet_mmap(iface_handle_t *handle)
 {
     struct tpacket_block_desc *bd;
     struct tpacket3_hdr *hdr;

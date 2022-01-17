@@ -19,7 +19,7 @@
 
 static void bsd_activate(iface_handle_t *handle, char *dev, struct bpf_prog *bpf);
 static void bsd_close(iface_handle_t *handle);
-static void bsd_read_packet(iface_handle_t *handle);
+static void bsd_read_packet_zbuf(iface_handle_t *handle);
 static void bsd_set_promiscuous(iface_handle_t *handle, char *dev, bool enable);
 
 static unsigned char buffers[NUM_BUFS][BUFSIZE];
@@ -27,14 +27,14 @@ static unsigned char buffers[NUM_BUFS][BUFSIZE];
 static struct iface_operations bsd_op = {
     .activate = bsd_activate,
     .close = bsd_close,
-    .read_packet = bsd_read_packet,
+    .read_packet = bsd_read_packet_zbuf,
     .set_promiscuous = bsd_set_promiscuous,
 };
 
 /*
  * Return ownership of a buffer to the kernel for reuse.
  */
-static void buffer_acknowledge(struct bpf_zbuf_header *bzh)
+static inline void buffer_acknowledge(struct bpf_zbuf_header *bzh)
 {
     atomic_store_rel_int(&bzh->bzh_user_gen, bzh->bzh_kernel_gen);
 }
@@ -43,7 +43,7 @@ static void buffer_acknowledge(struct bpf_zbuf_header *bzh)
  * Check whether a buffer has been assigned to userspace by the kernel.
  * Return true if userspace owns the buffer, and false otherwise.
  */
-static bool buffer_check(struct bpf_zbuf_header *bzh)
+static inline bool buffer_check(struct bpf_zbuf_header *bzh)
 {
     return bzh->bzh_user_gen != atomic_load_acq_int(&bzh->bzh_kernel_gen);
 }
@@ -80,6 +80,7 @@ void bsd_activate(iface_handle_t *handle, char *dev, struct bpf_prog *bpf UNUSED
         handle->use_zerocopy = true;
     } else {
         DEBUG("Failed setting zero-copy mode");
+        handle->op->read_packet = bsd_read_packet_buffer;
         mode = BPF_BUFMODE_BUFFER;
         if (ioctl(handle->fd, BIOCSETBUFMODE, &mode) == -1)
             err_sys("ioctl error BIOCSETBUFMODE");
@@ -113,39 +114,39 @@ void bsd_close(iface_handle_t *handle)
     handle->fd = -1;
 }
 
-void bsd_read_packet(iface_handle_t *handle)
+void bsd_read_packet_zbuf(iface_handle_t *handle)
 {
-    struct bpf_hdr *hdr;
+    unsigned int zbuf_header_len = sizeof(struct bpf_zbuf_header);
+    struct bpf_zbuf_header *zhdr;
     unsigned char *p;
 
-    if (handle->use_zerocopy) {
-        unsigned int zbuf_header_len = sizeof(struct bpf_zbuf_header);
-        struct bpf_zbuf_header *zhdr;
-
-        for (int i = 0; i < NUM_BUFS; i++) {
-            if (buffer_check((struct bpf_zbuf_header *) buffers[i])) {
-                zhdr = (struct bpf_zbuf_header *) buffers[i];
-                p = buffers[i] + zbuf_header_len;
-                while (p < buffers[i] + zhdr->bzh_kernel_len) {
-                    hdr = (struct bpf_hdr *) p;
-                    handle->buf = p + hdr->bh_hdrlen;
-                    handle->on_packet(handle, handle->buf, hdr->bh_caplen, &hdr->bh_tstamp);
-                    p += BPF_WORDALIGN(hdr->bh_hdrlen + hdr->bh_caplen);
-                }
-                buffer_acknowledge((struct bpf_zbuf_header *) buffers[i]);
+    for (int i = 0; i < NUM_BUFS; i++) {
+        if (buffer_check((struct bpf_zbuf_header *) buffers[i])) {
+            zhdr = (struct bpf_zbuf_header *) buffers[i];
+            p = buffers[i] + zbuf_header_len;
+            while (p < buffers[i] + zhdr->bzh_kernel_len) {
+                hdr = (struct bpf_hdr *) p;
+                handle->buf = p + hdr->bh_hdrlen;
+                handle->on_packet(handle, handle->buf, hdr->bh_caplen, &hdr->bh_tstamp);
+                p += BPF_WORDALIGN(hdr->bh_hdrlen + hdr->bh_caplen);
             }
+            buffer_acknowledge((struct bpf_zbuf_header *) buffers[i]);
         }
-    } else {
-        ssize_t n;
+    }
+}
 
-        if ((n = read(handle->fd, handle->buf, handle->len)) < 0)
-            err_sys("read error");
-        p = handle->buf;
-        while (p < handle->buf + n) {
-            hdr = (struct bpf_hdr *) p;
-            handle->on_packet(handle, p + hdr->bh_hdrlen, hdr->bh_caplen, &hdr->bh_tstamp);
-            p += BPF_WORDALIGN(hdr->bh_hdrlen + hdr->bh_caplen);
-        }
+void bsd_read_packet_buffer(iface_handle_t *handle)
+{
+    struct bpf_hdr *hdr;
+    ssize_t n;
+
+    if ((n = read(handle->fd, handle->buf, handle->len)) < 0)
+        err_sys("read error");
+    p = handle->buf;
+    while (p < handle->buf + n) {
+        hdr = (struct bpf_hdr *) p;
+        handle->on_packet(handle, p + hdr->bh_hdrlen, hdr->bh_caplen, &hdr->bh_tstamp);
+        p += BPF_WORDALIGN(hdr->bh_hdrlen + hdr->bh_caplen);
     }
 }
 
