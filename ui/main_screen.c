@@ -1055,8 +1055,10 @@ void main_screen_scroll_page(main_screen *ms, int num_lines)
 
 void main_screen_set_interactive(main_screen *ms, bool interactive_mode)
 {
-    if (!vector_size(ms->packet_ref)) return;
-
+    if (!vector_size(ms->packet_ref)) {
+        ms->base.show_selectionbar = false;
+        return;
+    }
     if (interactive_mode) {
         ms->base.show_selectionbar = true;
         ms->base.selectionbar = ms->base.top;
