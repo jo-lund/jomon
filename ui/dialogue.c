@@ -420,7 +420,6 @@ void file_dialogue_get_input(screen *s)
         break;
     default:
         if (fd->has_focus == FS_INPUT && isprint(c)) {
-            snprintcat(fd->path, MAXPATH, "%c", c);
             waddch(fd->input.win, c);
             wrefresh(fd->input.win);
         }
@@ -462,6 +461,12 @@ void file_dialogue_handle_enter(struct file_dialogue *this)
         int n = strlen(this->path);
 
         if (n > 0) {
+            char buf[MAXPATH];
+            char *s;
+
+            mvwinnstr(this->input.win, 0, FILE_INPUT_TEXTLEN, buf, MAXPATH);
+            s = string_trim_whitespace(buf);
+            snprintcat(this->path, MAXPATH, "%s", s);
             pop_screen();
             this->ok->action(this->path);
             return;
@@ -538,13 +543,20 @@ void file_dialogue_update_focus(struct file_dialogue *this)
         wrefresh(((screen *) this)->win);
         break;
     case FS_INPUT:
-        wmove(((screen *) this)->win, this->list_height + 6, FILE_INPUT_TEXTLEN + 7);
+    {
+        char buf[MAXPATH];
+        char *s;
+
+        mvwinnstr(this->input.win, 0, FILE_INPUT_TEXTLEN, buf, MAXPATH);
+        s = string_trim_whitespace(buf);
+        wmove(this->input.win, 0, FILE_INPUT_TEXTLEN + strlen(s));
         curs_set(1);
         remove_selectionbar(this, this->i - this->top);
-        wrefresh(this->input.win);
         wrefresh(this->list.win);
         wrefresh(((screen *) this)->win);
+        wrefresh(this->input.win);
         break;
+    }
     case FS_OK:
         curs_set(0);
         BUTTON_SET_FOCUS(this->ok, true);
