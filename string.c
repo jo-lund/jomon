@@ -50,3 +50,17 @@ void string_truncate(char *str, size_t len, size_t max)
     strncpy(str + n, "...", len - n);
     str[max] = '\0';
 }
+
+char *string_trim_whitespace(char *str)
+{
+    char *p, *q;
+
+    p = str;
+    q = p + strlen(str);
+    while (isspace(*p))
+        p++;
+    while (q > p && isspace(*(q - 1)))
+        q--;
+    *q = '\0';
+    return p;
+}

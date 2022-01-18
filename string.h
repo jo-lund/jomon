@@ -41,4 +41,9 @@ int string_find_last(const char *str, int c);
 */
 void string_truncate(char *str, size_t len, size_t max);
 
+/*
+ * Trim leading and trailing whitespace
+*/
+char *string_trim_whitespace(char *str);
+
 #endif
