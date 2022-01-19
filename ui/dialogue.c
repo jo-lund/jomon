@@ -391,12 +391,6 @@ void file_dialogue_get_input(screen *s)
 
             getyx(fd->input.win, y, x);
             if (x > FILE_INPUT_TEXTLEN) {
-                int n;
-
-                n = strlen(fd->path);
-                if (n > 0) {
-                    fd->path[n - 1] = '\0';
-                }
                 mvwdelch(fd->input.win, y, x - 1);
                 wrefresh(fd->input.win);
             }
