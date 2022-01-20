@@ -322,13 +322,13 @@ void finish(int status)
     if (ncurses_initialized) {
         ncurses_end();
         vector_free(packets, NULL);
-        tcp_analyzer_free();
         host_analyzer_free();
         dns_cache_free();
         debug_free();
         if (!ctx.opt.load_file)
             process_free();
     }
+    tcp_analyzer_free();
     if (promiscuous_mode)
         iface_set_promiscuous(handle, ctx.device, false);
     free(ctx.device);
