@@ -100,6 +100,7 @@ void dialogue_init(dialogue *d, char *title, int height, int width)
     d->title = title;
     d->dialogue_set_title = dialogue_set_title;
     d->dialogue_render = dialogue_render;
+    scrollok(d->screen_base.win, true);
 }
 
 void dialogue_free(screen *s)
@@ -178,25 +179,111 @@ void label_dialogue_set_action(label_dialogue *ld, button_action act, void *arg)
 
 void label_dialogue_get_input(screen *s)
 {
-     int c;
-     label_dialogue *ld;
+    int c;
+    label_dialogue *ld;
 
-     ld = (label_dialogue *) s;
-     c = wgetch(s->win);
-     switch (c) {
-     case KEY_ENTER:
-     case '\n':
-     case KEY_ESC:
-         pop_screen();
-         if (ld->ok->action) {
-             ld->ok->action(ld->ok->argument);
-         }
-         break;
-     default:
-         ungetch(c);
-         screen_get_input(s);
-         break;
-     }
+    ld = (label_dialogue *) s;
+    c = wgetch(s->win);
+    switch (c) {
+    case KEY_ENTER:
+    case '\n':
+    case KEY_ESC:
+        pop_screen();
+        if (ld->ok->action) {
+            ld->ok->action(ld->ok->argument);
+        }
+        break;
+    default:
+        break;
+    }
+}
+
+enum decision_dialogue_focus {
+    DD_OK,
+    DD_CANCEL
+};
+
+static void decision_dialogue_render(decision_dialogue *this)
+{
+    DIALOGUE_RENDER((dialogue *) this);
+    BUTTON_RENDER(this->ok);
+    BUTTON_RENDER(this->cancel);
+    mvwprintw(((screen *) this)->win, 5, 4, "%s", this->label);
+}
+
+static void decision_dialogue_get_input(screen *s)
+{
+    int c;
+    decision_dialogue *dd;
+
+    dd = (decision_dialogue *) s;
+    c = wgetch(s->win);
+    switch (c) {
+    case KEY_ENTER:
+    case '\n':
+        switch (dd->has_focus) {
+        case DD_OK:
+            pop_screen();
+            if (dd->ok->action)
+                dd->ok->action(dd->ok->argument);
+            break;
+        case DD_CANCEL:
+            pop_screen();
+            if (dd->cancel->action)
+                dd->cancel->action(dd->cancel->argument);
+            break;
+        }
+        break;
+    case KEY_ESC:
+        pop_screen();
+        if (dd->cancel->action)
+            dd->cancel->action(dd->cancel->argument);
+        break;
+    case '\t':
+        dd->has_focus = (dd->has_focus + 1) % 2;
+        BUTTON_SET_FOCUS(dd->ok, dd->has_focus == DD_OK);
+        BUTTON_SET_FOCUS(dd->cancel, dd->has_focus == DD_CANCEL);
+        BUTTON_RENDER(dd->ok);
+        BUTTON_RENDER(dd->cancel);
+        break;
+    default:
+        break;
+    }
+}
+
+decision_dialogue *decision_dialogue_create(char *title, char *label, button_action ok, void *ok_arg,
+                                            button_action cancel, void *cancel_arg)
+{
+    decision_dialogue *dd;
+    int my, mx;
+    static screen_operations op;
+    int height;
+    int width;
+
+    getmaxyx(stdscr, my, mx);
+    dd = malloc(sizeof(decision_dialogue));
+    op = SCREEN_OPS(.screen_free = decision_dialogue_free,
+                    .screen_get_input = decision_dialogue_get_input);
+    dd->dialogue_base.screen_base.op = &op;
+    dialogue_init((dialogue *) dd, title, my / 5, mx / 6 + 10);
+    dd->label = label;
+    dd->has_focus = DD_OK;
+    height = ((dialogue *) dd)->height;
+    width = ((dialogue *) dd)->width;
+    dd->ok = button_create((screen *) dd, ok, ok_arg, "Ok", height - 3, 5);
+    dd->cancel = button_create((screen *) dd, cancel, cancel_arg, "Cancel", height - 3, width - 20);
+    keypad(((screen *) dd)->win, TRUE);
+    BUTTON_SET_FOCUS(dd->ok, true);
+    decision_dialogue_render(dd);
+    return dd;
+}
+
+void decision_dialogue_free(screen *s)
+{
+    delwin(s->win);
+    button_free(((decision_dialogue *) s)->ok);
+    button_free(((decision_dialogue *) s)->cancel);
+    free((decision_dialogue *) s);
 }
 
 file_dialogue *file_dialogue_create(char *title, enum file_selection_type type UNUSED,

@@ -50,7 +50,6 @@ void button_render(button *b)
         wbkgd(win, get_theme_colour(BUTTON));
     }
     mvwprintw(win, my / 2, (mx - len) / 2, "[ %s ]", b->txt);
-
     wrefresh(win);
 }
 
