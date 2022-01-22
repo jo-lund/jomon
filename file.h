@@ -14,7 +14,8 @@ enum file_error {
     DECODE_ERROR,
     ACCESS_ERROR,
     NOT_FOUND_ERROR,
-    FOPEN_ERROR
+    FOPEN_ERROR,
+    FILE_EXIST_ERROR
 };
 
 /*
@@ -22,10 +23,10 @@ enum file_error {
  * returns a pointer to FILE that needs to be closed by the caller. Otherwise
  * 'err' will be set indicating the error and NULL is returned.
  */
-FILE *open_file(const char *path, const char *mode, enum file_error *err);
+FILE *file_open(const char *path, const char *mode, enum file_error *err);
 
 /* Get a string representing the error */
-char *get_file_error(enum file_error err);
+char *file_error(enum file_error err);
 
 /*
  * Read file in pcap format. 'packet_handler' is a callback function that will
@@ -35,16 +36,16 @@ char *get_file_error(enum file_error err);
  * handle the packets. If packet_handler returns false, read_file will return
  * with a DECODE_ERROR.
  */
-enum file_error read_file(iface_handle_t *handle, FILE *fp, packet_handler f);
+enum file_error file_read(iface_handle_t *handle, FILE *fp, packet_handler f);
 
 /* Write packets to file in pcap format */
-void write_pcap(FILE *fp, vector_t *packets, progress_update fn);
+void file_write_pcap(FILE *fp, vector_t *packets, progress_update fn);
 
 /* Write packets to file in ascii */
-void write_ascii(FILE *fp, vector_t *packets, progress_update fn);
+void file_write_ascii(FILE *fp, vector_t *packets, progress_update fn);
 
 /* Write the raw bytes in packets to file */
-void write_raw(FILE *fp, vector_t *packets, progress_update fn);
+void file_write_raw(FILE *fp, vector_t *packets, progress_update fn);
 
 
 #endif

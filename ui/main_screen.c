@@ -479,7 +479,7 @@ void main_screen_load_handle_ok(void *file)
     /* don't allow filenames containing ".." */
     if (strstr((const char *) file, "..")) {
         create_file_error_dialogue(ACCESS_ERROR, create_load_dialogue);
-    } else if ((fp = open_file((const char *) file, "r", &err)) == NULL) {
+    } else if ((fp = file_open((const char *) file, "r", &err)) == NULL) {
         create_file_error_dialogue(err, create_load_dialogue);
     } else {
         struct stat buf[sizeof(struct stat)];
@@ -500,7 +500,7 @@ void main_screen_load_handle_ok(void *file)
         lstat((const char *) file, buf);
         pd = progress_dialogue_create(title, buf->st_size);
         push_screen((screen *) pd);
-        err = read_file(ctx.handle, fp, read_show_progress);
+        err = file_read(ctx.handle, fp, read_show_progress);
         if (err == NO_ERROR) {
             main_screen_clear(ms);
             strcpy(ctx.filename, (const char *) file);
@@ -543,7 +543,8 @@ void main_screen_save_handle_ok(void *file)
     enum file_error err;
     FILE *fp;
 
-    if ((fp = open_file((const char *) file, "w", &err)) == NULL) {
+
+    if ((fp = file_open((const char *) file, "w", &err)) == NULL) {
         create_file_error_dialogue(err, create_save_dialogue);
     } else {
         char title[MAXLINE];
@@ -553,7 +554,7 @@ void main_screen_save_handle_ok(void *file)
         snprintf(title, MAXLINE, " Saving %s ", (char *) file);
         pd = progress_dialogue_create(title, total_bytes);
         push_screen((screen *) pd);
-        write_pcap(fp, ms->packet_ref, main_screen_write_show_progress);
+        file_write_pcap(fp, ms->packet_ref, main_screen_write_show_progress);
         pop_screen();
         SCREEN_FREE((screen *) pd);
         fclose(fp);

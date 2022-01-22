@@ -682,7 +682,7 @@ static void handle_file_error(void *callback)
 
 void create_file_error_dialogue(enum file_error err, void (*callback)())
 {
-    ld = label_dialogue_create(" File Error ", get_file_error(err),
+    ld = label_dialogue_create(" File Error ", file_error(err),
                                handle_file_error, callback);
     push_screen((screen *) ld);
 }

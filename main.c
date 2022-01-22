@@ -185,12 +185,12 @@ int main(int argc, char **argv)
         ctx.capturing = false;
         handle = iface_handle_create(buf, SNAPLEN, handle_packet);
         ctx.handle = handle;
-        if ((fp = open_file(ctx.filename, "r", &err)) == NULL) {
+        if ((fp = file_open(ctx.filename, "r", &err)) == NULL) {
             err_sys("Error: %s", ctx.filename);
         }
-        if ((err = read_file(handle, fp, handle_packet)) != NO_ERROR) {
+        if ((err = file_read(handle, fp, handle_packet)) != NO_ERROR) {
             fclose(fp);
-            err_quit("Error in %s: %s", ctx.filename, get_file_error(err));
+            err_quit("Error in %s: %s", ctx.filename, file_error(err));
         }
         fclose(fp);
         if (ctx.opt.use_ncurses) {
