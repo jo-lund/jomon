@@ -20,6 +20,7 @@
 static void bsd_activate(iface_handle_t *handle, char *dev, struct bpf_prog *bpf);
 static void bsd_close(iface_handle_t *handle);
 static void bsd_read_packet_zbuf(iface_handle_t *handle);
+static void bsd_read_packet_buffer(iface_handle_t *handle);
 static void bsd_set_promiscuous(iface_handle_t *handle, char *dev, bool enable);
 
 static unsigned char buffers[NUM_BUFS][BUFSIZE];
@@ -119,6 +120,7 @@ void bsd_read_packet_zbuf(iface_handle_t *handle)
     unsigned int zbuf_header_len = sizeof(struct bpf_zbuf_header);
     struct bpf_zbuf_header *zhdr;
     unsigned char *p;
+    struct bpf_hdr *hdr;
 
     for (int i = 0; i < NUM_BUFS; i++) {
         if (buffer_check((struct bpf_zbuf_header *) buffers[i])) {
@@ -139,6 +141,7 @@ void bsd_read_packet_buffer(iface_handle_t *handle)
 {
     struct bpf_hdr *hdr;
     ssize_t n;
+    unsigned char *p;
 
     if ((n = read(handle->fd, handle->buf, handle->len)) < 0)
         err_sys("read error");
