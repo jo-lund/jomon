@@ -1,3 +1,13 @@
+#define _GNU_SOURCE
+#include <sys/uio.h>
+#include <string.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <ctype.h>
+#include <sys/types.h>
 #include "../monitor.h"
 #include "packet.h"
 #include "tcp_analyzer.h"

@@ -1,7 +1,11 @@
 #ifndef PACKET_ETHERNET_H
 #define PACKET_ETHERNET_H
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <netinet/if_ether.h>
 
 #define ETH_802_3_MAX 1500
