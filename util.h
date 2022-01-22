@@ -26,7 +26,9 @@
 /* extract an integer from a pointer */
 #define PTR_TO_INT(i) ((intptr_t) (i))
 
+#ifndef MAX
 #define MAX(a, b) ({ typeof(a) _a = (a), _b = (b); _a > _b ? _a : _b; })
+#endif
 
 struct timeval;
 struct timespec;
