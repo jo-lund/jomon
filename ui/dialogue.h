@@ -113,6 +113,8 @@ progress_dialogue *progress_dialogue_create(char *title, int size);
 void progress_dialogue_free(screen *s);
 
 /* General dialogues */
-void create_file_error_dialogue(enum file_error err, void (*callback)());
+void create_file_error_dialogue(enum file_error err, void (*callback)(void));
+void create_warning_dialogue(char *txt, void (*ok_callback)(void *), void *ok_arg,
+                             void (*cancel_callback)(void *), void *cancel_arg);
 
 #endif

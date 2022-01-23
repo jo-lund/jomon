@@ -101,6 +101,7 @@ void dialogue_init(dialogue *d, char *title, int height, int width)
     d->dialogue_set_title = dialogue_set_title;
     d->dialogue_render = dialogue_render;
     scrollok(d->screen_base.win, true);
+    nodelay(d->screen_base.win, true);
 }
 
 void dialogue_free(screen *s)
@@ -286,7 +287,7 @@ void decision_dialogue_free(screen *s)
     free((decision_dialogue *) s);
 }
 
-file_dialogue *file_dialogue_create(char *title, enum file_selection_type type UNUSED,
+file_dialogue *file_dialogue_create(char *title, enum file_selection_type type,
                                     char *path, button_action ok, button_action cancel)
 {
     file_dialogue *fd;
@@ -311,8 +312,9 @@ file_dialogue *file_dialogue_create(char *title, enum file_selection_type type U
     fd->files = vector_init(10);
     fd->ok = button_create((screen *) fd, ok, NULL, "Ok", my - 2, 7);
     fd->cancel = button_create((screen *) fd, cancel, NULL, "Cancel", my - 2, mx - 20);
+    fd->type = type;
     strncpy(fd->path, path, MAXPATH);
-    snprintcat(fd->path, MAXPATH, "/");
+    strncat(fd->path, "/", MAXPATH);
     scrollok(fd->list.win, TRUE);
     nodelay(fd->list.win, TRUE);
     keypad(fd->list.win, TRUE);
@@ -508,6 +510,42 @@ void file_dialogue_get_input(screen *s)
     }
 }
 
+static void file_dialogue_ok(void *arg)
+{
+    file_dialogue *fd;
+
+    fd = (file_dialogue *) arg;
+    pop_screen();
+    fd->ok->action(fd->path);
+}
+
+static void file_dialogue_cancel(void *arg)
+{
+    file_dialogue *fd;
+    int i;
+
+    fd = (file_dialogue *) arg;
+    if ((i = string_find_last(fd->path, '/')) > 0)
+        fd->path[i+1] = '\0';
+    fd->has_focus--;
+    file_dialogue_update_focus(fd);
+}
+
+static void file_dialogue_file_exist(struct file_dialogue *this)
+{
+    enum file_error err;
+    FILE *fp;
+
+    if ((fp = file_open(this->path, "wx", &err)) == NULL && err == FILE_EXIST_ERROR) {
+        create_warning_dialogue("File already exists. Replace?",
+                                file_dialogue_ok, this, file_dialogue_cancel, this);
+    } else {
+        if (fp)
+            fclose(fp);
+        file_dialogue_ok(this);
+    }
+}
+
 void file_dialogue_handle_enter(struct file_dialogue *this)
 {
     struct file_info *info;
@@ -521,7 +559,7 @@ void file_dialogue_handle_enter(struct file_dialogue *this)
                 get_directory_part(this->path); /* remove ".." */
                 if (strcmp(this->path, "/") != 0) {
                     get_directory_part(this->path); /* go up dir */
-                    snprintcat(this->path, MAXPATH, "/");
+                    strncat(this->path, "/", MAXPATH);
                 }
             } else {
                 snprintcat(this->path, MAXPATH, "%s/", info->name);
@@ -532,9 +570,11 @@ void file_dialogue_handle_enter(struct file_dialogue *this)
             wrefresh(this->list.win);
             file_dialogue_update_dir(this, this->path);
         } else {
-            snprintcat(this->path, MAXPATH, "%s", info->name);
-            pop_screen();
-            this->ok->action(this->path);
+            strncat(this->path, info->name, MAXPATH);
+            if (this->type == FS_SAVE)
+                file_dialogue_file_exist(this);
+            else
+                file_dialogue_ok(this);
         }
         break;
     case FS_INPUT:
@@ -547,12 +587,12 @@ void file_dialogue_handle_enter(struct file_dialogue *this)
 
             mvwinnstr(this->input.win, 0, FILE_INPUT_TEXTLEN, buf, MAXPATH);
             s = string_trim_whitespace(buf);
-            snprintcat(this->path, MAXPATH, "%s", s);
-            pop_screen();
-            this->ok->action(this->path);
-            return;
+            strncat(this->path, s, MAXPATH);
+            if (this->type == FS_SAVE)
+                file_dialogue_file_exist(this);
+            else
+                file_dialogue_ok(this);
         }
-        this->has_focus = FS_LIST;
         break;
     }
     case FS_OK:
@@ -594,7 +634,6 @@ void file_dialogue_update_input(struct file_dialogue *this)
         waddstr(this->input.win, info->name);
     }
     wrefresh(this->input.win);
-
 }
 
 void file_dialogue_update_dir(struct file_dialogue *this, char *path)
@@ -760,16 +799,51 @@ void progress_dialogue_render(progress_dialogue *this)
 
 static label_dialogue *ld;
 
+struct warning_dialogue {
+    struct decision_dialogue *dd;
+    void *ok;
+    void *cancel;
+    void (*ok_cb)(void *);
+    void (*cancel_cb)(void *);
+};
+
+static struct warning_dialogue warning;
+
 static void handle_file_error(void *callback)
 {
     SCREEN_FREE((screen *) ld);
     ld = NULL;
-    (* (void (*)()) callback)();
+    (* (void (*)(void)) callback)();
 }
 
-void create_file_error_dialogue(enum file_error err, void (*callback)())
+static void handle_decision(void *arg)
+{
+    int val;
+
+    val = PTR_TO_INT(arg);
+    SCREEN_FREE((screen *) warning.dd);
+    if (val && warning.ok_cb)
+        warning.ok_cb(warning.ok);
+    else if (!val && warning.cancel_cb)
+        warning.cancel_cb(warning.cancel);
+    memset(&warning, 0, sizeof(warning));
+}
+
+void create_file_error_dialogue(enum file_error err, void (*callback)(void))
 {
     ld = label_dialogue_create(" File Error ", file_error(err),
-                               handle_file_error, callback);
+                               handle_file_error, (void *) callback);
     push_screen((screen *) ld);
+}
+
+void create_warning_dialogue(char *txt, void (*ok_callback)(void *), void *ok_arg,
+                             void (*cancel_callback)(void *), void *cancel_arg)
+{
+    warning.ok = ok_arg;
+    warning.cancel = cancel_arg;
+    warning.ok_cb = ok_callback;
+    warning.cancel_cb = cancel_callback;
+    warning.dd = decision_dialogue_create(" Warning ", txt, handle_decision, (void *) 1,
+                                           handle_decision, (void *) 0);
+    push_screen((screen *) warning.dd);
 }

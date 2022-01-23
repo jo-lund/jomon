@@ -237,7 +237,6 @@ void pop_screen(void)
     if (newscr->refreshing)
         return;
     newscr->refreshing = true;
-    wgetch(newscr->win); /* remove character from input queue */
     if (newscr->op->screen_got_focus) {
         SCREEN_GOT_FOCUS(newscr, oldscr);
     }

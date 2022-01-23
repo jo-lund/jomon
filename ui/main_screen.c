@@ -543,7 +543,6 @@ void main_screen_save_handle_ok(void *file)
     enum file_error err;
     FILE *fp;
 
-
     if ((fp = file_open((const char *) file, "w", &err)) == NULL) {
         create_file_error_dialogue(err, create_save_dialogue);
     } else {
