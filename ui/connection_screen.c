@@ -112,10 +112,10 @@ static void update_screen_buf(screen *s)
         HASHMAP_FOREACH(sessions, it)
             vector_push_back(((connection_screen *) s)->screen_buf, it->data);
     } else {
-        hashmap_t *pinfo = process_get_processes();
+        hashmap_t *procs = process_get_processes();
         const hashmap_iterator *it;
 
-        HASHMAP_FOREACH(pinfo, it)
+        HASHMAP_FOREACH(procs, it)
             vector_push_back(((connection_screen *) s)->screen_buf, it->data);
     }
 }
@@ -124,6 +124,10 @@ static void print_process(connection_screen *cs, struct process *proc, int y)
 {
     char name[MAXPATH];
     int x = 0;
+    const node_t *n, *m;
+    struct cs_entry entry[NUM_VALS];
+    struct tcp_connection_v4 *conn;
+    struct packet *p;
 
     if (!proc->name)
         return;
@@ -131,6 +135,32 @@ static void print_process(connection_screen *cs, struct process *proc, int y)
     mvwprintw(cs->base.win, y, x, "%s", get_file_part(name));
     x += proc_header[0].width;
     mvwprintw(cs->base.win, y, x, "%d", proc->pid);
+    x += proc_header[1].width;
+    x += proc_header[2].width;
+    memset(entry, 0, sizeof(entry));
+    if (!proc->conn)
+        return;
+    DLIST_FOREACH(proc->conn, n) {
+        conn = list_data(n);
+        entry[ADDRA].val = conn->endp->src;
+        entry[PORTA].val = conn->endp->sport;
+        entry[ADDRB].val = conn->endp->dst;
+        entry[PORTB].val = conn->endp->dport;
+        DLIST_FOREACH(conn->packets, m) {
+            p = list_data(m);
+            if (entry[ADDRA].val == ipv4_src(p) && entry[PORTA].val == tcp_member(p, sport)) {
+                entry[BYTES_AB].val += p->len;
+                entry[PACKETS_AB].val++;
+            } else if (entry[ADDRB].val == ipv4_src(p) &&
+                       entry[PORTB].val == tcp_member(p, sport)) {
+                entry[BYTES_BA].val += p->len;
+                entry[PACKETS_BA].val++;
+            }
+        }
+    }
+    mvwprintw(cs->base.win, y, x, "%u", entry[BYTES_AB].val);
+    x += proc_header[3].width;
+    mvwprintw(cs->base.win, y, x, "%u", entry[BYTES_BA].val);
 }
 
 static void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int y)

@@ -32,9 +32,11 @@ struct tcp_elem {
 };
 
 static hashmap_t *inode_cache; /* processes keyed on inode */
+static hashmap_t *proc_cache; /* processes keyed on pid */
 static hashmap_t *tcp_cache;
 static hashmap_t *string_table;
-static hashmap_t *procs;
+static hashmap_t *proc_conn; /* connected processes */
+
 static int nl_sockfd;
 
 static void load_cache(void);
@@ -61,7 +63,7 @@ static char *get_name(int pid)
     return name;
 }
 
-static bool parse_tcp()
+static bool parse_tcp(void)
 {
     FILE *fp;
     char buf[MAXLINE];
@@ -162,12 +164,17 @@ static void load_cache(void)
                 sn = strlen(SOCKET);
                 if (strncmp(SOCKET, slink, sn) == 0) {
                     struct process *pinfo;
+                    int pid;
 
                     if ((inode = strtol(slink + sn, NULL, 10)) == 0)
                         continue;
                     if (!hashmap_get(inode_cache, UINT_TO_PTR(inode))) {
-                        pinfo = calloc(1, sizeof(struct process));
-                        pinfo->pid = strtol(dp->d_name, NULL, 10);
+                        pid = strtol(dp->d_name, NULL, 10);
+                        if ((pinfo = hashmap_get(proc_cache, INT_TO_PTR(pid))) == NULL) {
+                            pinfo = calloc(1, sizeof(struct process));
+                            hashmap_insert(proc_cache, INT_TO_PTR(pid), pinfo);
+                        }
+                        pinfo->pid = pid;
                         pinfo->name = get_name(pinfo->pid);
                         hashmap_insert(inode_cache, UINT_TO_PTR(inode), pinfo);
                     }
@@ -179,7 +186,7 @@ static void load_cache(void)
     closedir(dfd);
 }
 
-static bool send_netlink_msg()
+static bool send_netlink_msg(void)
 {
     struct msghdr msg;
     struct iovec iov[2];
@@ -209,7 +216,7 @@ static bool send_netlink_msg()
     return sendmsg(nl_sockfd, &msg, 0) > 0;
 }
 
-static bool read_netlink_msg()
+static bool read_netlink_msg(void)
 {
     char buf[32768]; // TODO: Check size
     struct inet_diag_msg *diag_msg;
@@ -259,6 +266,7 @@ static bool read_netlink_msg()
                     continue;
             }
             struct tcp_elem *tcp = malloc(sizeof(*tcp));
+
             tcp->laddr = diag_msg->id.idiag_src[0];
             tcp->lport = ntohs(diag_msg->id.idiag_sport);
             tcp->raddr = diag_msg->id.idiag_dst[0];
@@ -273,18 +281,28 @@ static bool read_netlink_msg()
 static void update_cache(struct tcp_connection_v4 *conn, bool new_conn)
 {
     if (new_conn) {
+        struct tcp_elem *tcp;
+        struct process *pinfo;
+
         if (conn->endp->src != ctx.local_addr->sin_addr.s_addr &&
             conn->endp->dst != ctx.local_addr->sin_addr.s_addr)
             return;
         load_cache();
-        if (!hashmap_contains(tcp_cache, conn->endp)) {
+        if ((tcp = hashmap_get(tcp_cache, conn->endp)) == NULL) {
             if (!(send_netlink_msg() && read_netlink_msg()))
                 parse_tcp();
+        }
+        if (!tcp && (tcp = hashmap_get(tcp_cache, conn->endp)) == NULL)
+            return;
+        if ((pinfo = hashmap_get(inode_cache, UINT_TO_PTR(tcp->inode)))) {
+            if (!pinfo->conn)
+                pinfo->conn = list_init(NULL);
+            list_push_back(pinfo->conn, conn);
         }
     }
 }
 
-static bool netlink_init()
+static bool netlink_init(void)
 {
     struct sockaddr_nl nl_addr = {
         .nl_family = AF_NETLINK,
@@ -314,12 +332,12 @@ hashmap_t *process_get_processes(void)
     const hashmap_iterator *it;
     struct process *p;
 
+    hashmap_clear(proc_conn);
     HASHMAP_FOREACH(tcp_cache, it) {
-        if ((p = hashmap_get(inode_cache, UINT_TO_PTR(((struct tcp_elem *) it->data)->inode)))) {
-            hashmap_insert(procs, UINT_TO_PTR(p->pid), p);
-        }
+        if ((p = hashmap_get(inode_cache, UINT_TO_PTR(((struct tcp_elem *) it->data)->inode))))
+            hashmap_insert(proc_conn, INT_TO_PTR(p->pid), p);
     }
-    return procs;
+    return proc_conn;
 }
 
 void process_init(void)
@@ -327,8 +345,9 @@ void process_init(void)
     inode_cache = hashmap_init(SIZE, hashfnv_uint32, compare_uint);
     tcp_cache = hashmap_init(SIZE, hash_tcp_v4, compare_tcp_v4);
     string_table = hashmap_init(64, hashfnv_string, compare_string);
-    procs = hashmap_init(16, NULL, NULL);
-    hashmap_set_free_data(inode_cache, free);
+    proc_cache = hashmap_init(64, NULL, NULL);
+    proc_conn = hashmap_init(16, NULL, NULL);
+    hashmap_set_free_data(proc_cache, free);
     hashmap_set_free_key(tcp_cache, free);
     hashmap_set_free_key(string_table, free);
     tcp_analyzer_subscribe(update_cache);
@@ -350,6 +369,7 @@ void process_free(void)
     hashmap_free(inode_cache);
     hashmap_free(tcp_cache);
     hashmap_free(string_table);
+    hashmap_free(proc_conn);
     tcp_analyzer_unsubscribe(update_cache);
     close(nl_sockfd);
 }
