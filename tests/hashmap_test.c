@@ -123,6 +123,22 @@ uint32_t hash_id(const void *key)
     return PTR_TO_UINT(key);
 }
 
+START_TEST(hashmap_test_iterate_same_id)
+{
+    static const int size = 16;
+    hashmap_t *map = hashmap_init(size, hash_id, compare_uint);
+    const hashmap_iterator *it;
+    int c = 0;
+
+    for (int i = 0; i < size; i++)
+        hashmap_insert(map, UINT_TO_PTR((size - 1) * (i + 1) + i), NULL);
+    HASHMAP_FOREACH(map, it)
+        c++;
+    ck_assert_msg(c == size, "HASHMAP_FOREACH failed to traverse all elements: size = %d, count = %d",
+                  hashmap_size(map), c);
+}
+END_TEST
+
 START_TEST(hashmap_test_id)
 {
     hashmap_t *map = hashmap_init(16, hash_id, compare_uint);
@@ -156,6 +172,7 @@ Suite *hashmap_suite(void)
     tcase_add_test(tc_core, hashmap_test_insert_same);
     tcase_add_test(tc_core, hashmap_test_remove);
     tcase_add_test(tc_core, hashmap_test_iterate);
+    tcase_add_test(tc_core, hashmap_test_iterate_same_id);
     tcase_add_test(tc_core, hashmap_test_id);
     tcase_set_timeout(tc_core, 60);
     return s;

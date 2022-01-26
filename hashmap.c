@@ -145,8 +145,11 @@ const hashmap_iterator *hashmap_first(hashmap_t *map)
 const hashmap_iterator *hashmap_next(hashmap_t *map, const hashmap_iterator *it)
 {
     struct hash_elem *elem = (struct hash_elem *) it;
+
+    /* get correct bucket index */
     int i = (elem->hash_val & (map->buckets - 1)) + elem->probe_count - 1;
 
+    i &= (map->buckets - 1); /* handle wrap aroound */
     if ((unsigned int) ++i >= map->buckets)
         return NULL;
     return get_next_iterator(map, i);
@@ -157,6 +160,7 @@ const hashmap_iterator *hashmap_prev(hashmap_t *map, const hashmap_iterator *it)
     struct hash_elem *elem = (struct hash_elem *) it;
     int i = (elem->hash_val & (map->buckets - 1)) + elem->probe_count - 1;
 
+    i &= (map->buckets - 1);
     if (--i < 0)
         return NULL;
     return get_prev_iterator(map, i);
