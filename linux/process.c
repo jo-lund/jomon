@@ -16,11 +16,26 @@
 #include "../list.h"
 #include "../monitor.h"
 
+/* General algorithm to get the process related to the specific connection:
+ *
+ * 1. Traverse /proc/pid
+ * 2. For each pid traverse /proc/pid/fd/
+ * 3. For each fd call readlink, check if it's a socket and extract inode
+ * 4.
+ *   a. Alternative 1
+ *      For each inode open /proc/net/tcp and check if the kernel TCP table
+ *      has an entry for the inode.
+ *   b. Alternative 2
+ *      Initialize a netlink socket to query information about sockets, request
+ *      to get a list of TCP sockets and read the response which should contain,
+ *      among other things, the inode.
+ * 5. If there is a match, open /proc/pid/cmdline to get the process name.
+ */
+
 #define PROC "/proc"
 #define FD "fd"
 #define CMDLINE "cmdline"
 #define SOCKET "socket:["
-#define TCPPATH "/proc/net/tcp"
 #define SIZE 512
 
 struct tcp_elem {
@@ -63,64 +78,6 @@ static char *get_name(int pid)
     return name;
 }
 
-static bool parse_tcp(void)
-{
-    FILE *fp;
-    char buf[MAXLINE];
-    unsigned int i = 0;
-    bool ret = false;
-    char laddr[64];
-    char raddr[64];
-    int lport;
-    int rport;
-    uint32_t inode;
-    struct tcp_elem *tcp;
-    struct tcp_elem *old;
-    struct tcp_endpoint_v4 endp;
-
-    if (!(fp = fopen(TCPPATH, "r")))
-        return false;
-    while (fgets(buf, MAXLINE, fp)) {
-        while (isspace(buf[i]))
-            i++;
-        if (!isdigit(buf[i]))
-            continue;
-        if (sscanf(buf + i, "%*u: %32[A-Fa-f0-9]:%x %32[A-Fa-f0-9]:%x %*x %*u:%*u %*x:%*x %*u %*u %*u %u",
-                   laddr, &lport, raddr, &rport, &inode) != 5) {
-            break;
-        }
-        if (strlen(laddr) > 8 || strlen(raddr) > 8) /* TODO: support IPv6 */
-            continue;
-        endp.src = strtol(laddr, NULL, 16);
-        endp.dst = strtol(raddr, NULL, 16);
-        endp.sport = ntohs(lport);
-        endp.dport = ntohs(rport);
-        if ((old = hashmap_get(tcp_cache, &endp))) {
-            if (inode != old->inode)
-                hashmap_remove(tcp_cache, &endp);
-            else
-                continue;
-        }
-        tcp = malloc(sizeof(*tcp));
-        tcp->laddr = strtol(laddr, NULL, 16);
-        tcp->raddr = strtol(raddr, NULL, 16);
-        tcp->lport = ntohs(lport);
-        tcp->rport = ntohs(rport);
-        tcp->inode = inode;
-        hashmap_insert(tcp_cache, (struct tcp_connection_v4 *) tcp, tcp);
-    }
-    fclose(fp);
-    return ret;
-}
-
-/*
- * 1. Traverses /proc/pid
- * 2. For each pid traverses /proc/pid/fd/
- * 3. For each fd calls readlink, checks if it's a socket and extracts inode
- * 4. For each inode opens /proc/net/tcp and checks if the kernel TCP table
- *    has an entry for the inode.
- * 5. If there is a match, opens /proc/pid/cmdline to get the process name.
- */
 static void load_cache(void)
 {
     DIR *dfd;
@@ -245,7 +202,7 @@ static bool read_netlink_msg(void)
             return false;
         for (struct nlmsghdr *nh = (struct nlmsghdr *) buf; NLMSG_OK(nh, len);
              nh = NLMSG_NEXT(nh, len)) {
-            struct tcp_elem *old;
+            struct tcp_elem *old, *tcp;
             struct tcp_endpoint_v4 endp;
 
             if (nh->nlmsg_type == NLMSG_DONE)
@@ -265,8 +222,7 @@ static bool read_netlink_msg(void)
                 else
                     continue;
             }
-            struct tcp_elem *tcp = malloc(sizeof(*tcp));
-
+            tcp = malloc(sizeof(*tcp));
             tcp->laddr = diag_msg->id.idiag_src[0];
             tcp->lport = ntohs(diag_msg->id.idiag_sport);
             tcp->raddr = diag_msg->id.idiag_dst[0];
@@ -289,8 +245,8 @@ static void update_cache(struct tcp_connection_v4 *conn, bool new_conn)
             return;
         load_cache();
         if ((tcp = hashmap_get(tcp_cache, conn->endp)) == NULL) {
-            if (!(send_netlink_msg() && read_netlink_msg()))
-                parse_tcp();
+            if (send_netlink_msg())
+                read_netlink_msg();
         }
         if (!tcp && (tcp = hashmap_get(tcp_cache, conn->endp)) == NULL)
             return;
