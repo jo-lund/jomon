@@ -368,16 +368,17 @@ void print_conn_header(connection_screen *cs)
     screen_header *p;
     unsigned int size;
 
-    printat(cs->header, y, 0, get_theme_colour(HEADER_TXT), "TCP connections");
-    wprintw(cs->header,  ": %d", vector_size(cs->screen_buf));
-    y += 4;
     if (conn_mode == CONNECTION_PAGE) {
         p = header;
         size = header_size;
+        printat(cs->header, y, 0, get_theme_colour(HEADER_TXT), "TCP connections");
     } else {
         p = proc_header;
         size = ARRAY_SIZE(proc_header);
+        printat(cs->header, y, 0, get_theme_colour(HEADER_TXT), "Processes");
     }
+    wprintw(cs->header,  ": %d", vector_size(cs->screen_buf));
+    y += 4;
     for (unsigned int i = 0; i < size; i++, p++) {
         mvwprintw(cs->header, y, x, p->txt);
         x += p->width;
