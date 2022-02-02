@@ -8,12 +8,14 @@
 #include <linux/sock_diag.h>
 #include <errno.h>
 #include <stdio.h>
+#include <pwd.h>
 #include "../process.h"
 #include "../misc.h"
 #include "../util.h"
 #include "../hash.h"
 #include "../decoder/tcp_analyzer.h"
 #include "../list.h"
+
 #include "../monitor.h"
 
 /* General algorithm to get the process related to the specific connection:
@@ -44,24 +46,35 @@ struct tcp_elem {
     uint32_t laddr;
     uint32_t raddr;
     uint32_t inode;
+    uint32_t uid;
 };
 
 static hashmap_t *inode_cache; /* processes keyed on inode */
 static hashmap_t *proc_cache; /* processes keyed on pid */
 static hashmap_t *tcp_cache;
-static hashmap_t *string_table;
-static hashmap_t *proc_conn; /* connected processes */
+static hashmap_t *proc_conn; /* processes with open connections */
 
 static int nl_sockfd;
 
 static void load_cache(void);
+
+static void free_process(void *p)
+{
+    struct process *proc = (struct process *) p;
+
+    free(proc->name);
+    if (proc->user)
+        free(proc->user);
+    if (proc->conn)
+        list_free(proc->conn, NULL);
+    free(proc);
+}
 
 static char *get_name(int pid)
 {
     char cmdline[MAXPATH];
     char tmp[1024];
     FILE *fp;
-    char *name;
 
     snprintf(cmdline, MAXPATH, "/proc/%d/cmdline", pid);
     if ((fp = fopen(cmdline, "r")) == NULL)
@@ -70,12 +83,17 @@ static char *get_name(int pid)
         fclose(fp);
         return NULL;
     }
-    if ((name = hashmap_get_key(string_table, tmp)) == NULL) {
-        name = strdup(tmp);
-        hashmap_insert(string_table, name, NULL);
-    }
     fclose(fp);
-    return name;
+    return strdup(tmp);
+}
+
+char *get_username(uint32_t uid)
+{
+    struct passwd *pw;
+
+    if ((pw = getpwuid(uid)) == NULL)
+        return NULL;
+    return strdup(pw->pw_name);
 }
 
 static void load_cache(void)
@@ -129,10 +147,10 @@ static void load_cache(void)
                         pid = strtol(dp->d_name, NULL, 10);
                         if ((pinfo = hashmap_get(proc_cache, INT_TO_PTR(pid))) == NULL) {
                             pinfo = calloc(1, sizeof(struct process));
+                            pinfo->pid = pid;
+                            pinfo->name = get_name(pinfo->pid);
                             hashmap_insert(proc_cache, INT_TO_PTR(pid), pinfo);
                         }
-                        pinfo->pid = pid;
-                        pinfo->name = get_name(pinfo->pid);
                         hashmap_insert(inode_cache, UINT_TO_PTR(inode), pinfo);
                     }
                 }
@@ -204,6 +222,7 @@ static bool read_netlink_msg(void)
              nh = NLMSG_NEXT(nh, len)) {
             struct tcp_elem *old, *tcp;
             struct tcp_endpoint_v4 endp;
+            struct process *pinfo;
 
             if (nh->nlmsg_type == NLMSG_DONE)
                 return true;
@@ -228,7 +247,12 @@ static bool read_netlink_msg(void)
             tcp->raddr = diag_msg->id.idiag_dst[0];
             tcp->rport = ntohs(diag_msg->id.idiag_dport);
             tcp->inode = diag_msg->idiag_inode;
+            tcp->uid = diag_msg->idiag_uid;
             hashmap_insert(tcp_cache, (struct tcp_endpoint_v4 *) tcp, tcp);
+            if ((pinfo = hashmap_get(inode_cache, UINT_TO_PTR(tcp->inode)))) {
+                if (!pinfo->user)
+                    pinfo->user = get_username(tcp->uid);
+            }
         }
     }
     return false;
@@ -277,9 +301,8 @@ char *process_get_name(struct tcp_connection_v4 *conn)
     struct tcp_elem *tcp;
 
     if ((tcp = hashmap_get(tcp_cache, conn->endp)) &&
-        (pinfo = hashmap_get(inode_cache, UINT_TO_PTR(tcp->inode)))) {
+        (pinfo = hashmap_get(inode_cache, UINT_TO_PTR(tcp->inode))))
         return pinfo->name;
-    }
     return NULL;
 }
 
@@ -290,7 +313,7 @@ hashmap_t *process_get_processes(void)
 
     hashmap_clear(proc_conn);
     HASHMAP_FOREACH(tcp_cache, it) {
-        if ((p = hashmap_get(inode_cache, UINT_TO_PTR(((struct tcp_elem *) it->data)->inode))))
+        if ((p = hashmap_get(inode_cache, UINT_TO_PTR(((struct tcp_elem *) it->data)->inode))) && p->conn)
             hashmap_insert(proc_conn, INT_TO_PTR(p->pid), p);
     }
     return proc_conn;
@@ -300,12 +323,10 @@ void process_init(void)
 {
     inode_cache = hashmap_init(SIZE, hashfnv_uint32, compare_uint);
     tcp_cache = hashmap_init(SIZE, hash_tcp_v4, compare_tcp_v4);
-    string_table = hashmap_init(64, hashfnv_string, compare_string);
     proc_cache = hashmap_init(64, NULL, NULL);
     proc_conn = hashmap_init(16, NULL, NULL);
-    hashmap_set_free_data(proc_cache, free);
+    hashmap_set_free_data(proc_cache, free_process);
     hashmap_set_free_key(tcp_cache, free);
-    hashmap_set_free_key(string_table, free);
     tcp_analyzer_subscribe(update_cache);
     netlink_init();
 }
@@ -324,7 +345,7 @@ void process_free(void)
 {
     hashmap_free(inode_cache);
     hashmap_free(tcp_cache);
-    hashmap_free(string_table);
+    hashmap_free(proc_cache);
     hashmap_free(proc_conn);
     tcp_analyzer_unsubscribe(update_cache);
     close(nl_sockfd);

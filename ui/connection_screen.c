@@ -41,7 +41,6 @@ enum cs_val {
 enum page {
     CONNECTION_PAGE,
     PROCESS_PAGE,
-    NUM_PAGES
 };
 
 struct cs_entry {
@@ -96,11 +95,13 @@ static screen_header proc_header[] = {
     { "Local Process", 40 },
     { "Pid", 10 },
     { "User", 20 },
+    { "Connections", 14 },
     { "Bytes Sent", 12 },
     { "Bytes Received", 12 }
 };
 
 static unsigned int header_size;
+static unsigned int num_pages;
 
 static void update_screen_buf(screen *s)
 {
@@ -128,6 +129,7 @@ static void print_process(connection_screen *cs, struct process *proc, int y)
     struct cs_entry entry[NUM_VALS];
     struct tcp_connection_v4 *conn;
     struct packet *p;
+    unsigned int nconn = 0;
 
     if (!proc->name)
         return;
@@ -136,11 +138,18 @@ static void print_process(connection_screen *cs, struct process *proc, int y)
     x += proc_header[0].width;
     mvwprintw(cs->base.win, y, x, "%d", proc->pid);
     x += proc_header[1].width;
+    mvwprintw(cs->base.win, y, x, "%s", proc->user);
     x += proc_header[2].width;
     memset(entry, 0, sizeof(entry));
-    if (!proc->conn)
+    if (!proc->conn) {
+        mvwprintw(cs->base.win, y, x, "0");
+        x += proc_header[3].width;
+        mvwprintw(cs->base.win, y, x, "0");
+        mvwprintw(cs->base.win, y, x + proc_header[4].width, "0");
         return;
+    }
     DLIST_FOREACH(proc->conn, n) {
+        nconn++;
         conn = list_data(n);
         entry[ADDRA].val = conn->endp->src;
         entry[PORTA].val = conn->endp->sport;
@@ -158,9 +167,13 @@ static void print_process(connection_screen *cs, struct process *proc, int y)
             }
         }
     }
-    mvwprintw(cs->base.win, y, x, "%u", entry[BYTES_AB].val);
+    mvwprintw(cs->base.win, y, x, "%u", nconn);
     x += proc_header[3].width;
-    mvwprintw(cs->base.win, y, x, "%u", entry[BYTES_BA].val);
+    format_bytes(entry[BYTES_AB].val, entry[BYTES_AB].buf, MAX_WIDTH);
+    format_bytes(entry[BYTES_BA].val, entry[BYTES_BA].buf, MAX_WIDTH);
+    mvwprintw(cs->base.win, y, x, "%s", entry[BYTES_AB].buf);
+    x += proc_header[4].width;
+    mvwprintw(cs->base.win, y, x, "%s", entry[BYTES_BA].buf);
 }
 
 static void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int y)
@@ -199,10 +212,9 @@ static void print_connection(connection_screen *cs, struct tcp_connection_v4 *co
     format_bytes(entry[BYTES].val, entry[BYTES].buf, MAX_WIDTH);
     format_bytes(entry[BYTES_AB].val, entry[BYTES_AB].buf, MAX_WIDTH);
     format_bytes(entry[BYTES_BA].val, entry[BYTES_BA].buf, MAX_WIDTH);
-    if (ctx.capturing)
+    if (!ctx.opt.load_file)
         entry[PROCESS].str = process_get_name(conn);
-    if (conn->state != ESTABLISHED && conn->state != SYN_SENT &&
-        conn->state != SYN_RCVD)
+    if (conn->state == CLOSED || conn->state == RESET)
         attrs = get_theme_colour(DISABLE);
     for (unsigned int i = 0; i < header_size; i++) {
         if (i % 2 == 0) {
@@ -245,10 +257,13 @@ void connection_screen_init(screen *s)
     scrollok(s->win, TRUE);
     nodelay(s->win, TRUE);
     keypad(s->win, TRUE);
-    if (ctx.capturing)
-        header_size = ARRAY_SIZE(header);
-    else
+    if (ctx.opt.load_file) {
         header_size = ARRAY_SIZE(header) - 1;
+        num_pages = 1;
+    } else {
+        header_size = ARRAY_SIZE(header);
+        num_pages = 2;
+    }
 }
 
 void connection_screen_free(screen *s)
@@ -303,7 +318,7 @@ void connection_screen_get_input(screen *s)
         screen_stack_move_to_top((screen *) cvs);
         break;
     case 'p':
-        conn_mode = (conn_mode + 1) % NUM_PAGES;
+        conn_mode = (conn_mode + 1) % num_pages;
         update_screen_buf(s);
         connection_screen_refresh(s);
         break;
