@@ -66,7 +66,7 @@ static void remove_selectionbar(file_dialogue *fd, int line)
 {
     struct file_info *info;
 
-    info = (struct file_info *) vector_get_data(fd->files, fd->i);
+    info = (struct file_info *) vector_get(fd->files, fd->i);
     if (S_ISDIR(info->stat->st_mode)) {
         mvwchgat(fd->list.win, line, 0, -1, A_BOLD, PAIR_NUMBER(get_theme_colour(FD_TEXT)), NULL);
     } else {
@@ -409,13 +409,13 @@ void file_dialogue_populate(file_dialogue *this, char *path)
 
         /* insert regular files at end */
         for (int i = 0; i < vector_size(entries); i++) {
-            vector_push_back(this->files, vector_get_data(entries, i));
+            vector_push_back(this->files, vector_get(entries, i));
         }
         vector_free(entries, NULL);
         for (int i = 0; i < vector_size(this->files); i++) {
             struct file_info *info;
 
-            info = (struct file_info *) vector_get_data(this->files, i);
+            info = (struct file_info *) vector_get(this->files, i);
             file_dialogue_print(this, info, i);
         }
         show_selectionbar(this, this->i);
@@ -551,7 +551,7 @@ void file_dialogue_handle_enter(struct file_dialogue *this)
     struct file_info *info;
 
     curs_set(0);
-    info = (struct file_info *) vector_get_data(this->files, this->i);
+    info = (struct file_info *) vector_get(this->files, this->i);
     switch (this->has_focus) {
     case FS_LIST:
         if (S_ISDIR(info->stat->st_mode)) {
@@ -627,7 +627,7 @@ void file_dialogue_update_input(struct file_dialogue *this)
 {
     struct file_info *info;
 
-    info = (struct file_info *) vector_get_data(this->files, this->i);
+    info = (struct file_info *) vector_get(this->files, this->i);
     wmove(this->input.win, 0, FILE_INPUT_TEXTLEN);
     wclrtoeol(this->input.win);
     if (!S_ISDIR(info->stat->st_mode)) {
@@ -640,7 +640,7 @@ void file_dialogue_update_dir(struct file_dialogue *this, char *path)
 {
     struct file_info *info;
 
-    info = (struct file_info *) vector_get_data(this->files, this->i);
+    info = (struct file_info *) vector_get(this->files, this->i);
     if (S_ISDIR(info->stat->st_mode)) {
         werase(this->dir.win);
         waddstr(this->dir.win, path);
@@ -702,7 +702,7 @@ void file_dialogue_handle_keydown(struct file_dialogue *this)
             wscrl(this->list.win, 1);
             this->i++;
             this->top++;
-            file_dialogue_print(this, vector_get_data(this->files, this->i), this->list_height - 1);
+            file_dialogue_print(this, vector_get(this->files, this->i), this->list_height - 1);
             file_dialogue_update_input(this);
             show_selectionbar(this, this->list_height - 1);
         } else if (this->i < this->num_files - 1) {
@@ -725,7 +725,7 @@ void file_dialogue_handle_keyup(struct file_dialogue *this)
             wscrl(this->list.win, -1);
             this->top--;
             this->i--;
-            file_dialogue_print(this, vector_get_data(this->files, this->i), 0);
+            file_dialogue_print(this, vector_get(this->files, this->i), 0);
             file_dialogue_update_input(this);
         } else {
             this->i--;

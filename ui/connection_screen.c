@@ -175,7 +175,7 @@ void connection_screen_get_input(screen *s)
     case KEY_ENTER:
     case '\n':
         cvs = (conversation_screen *) screen_cache_get(CONVERSATION_SCREEN);
-        cvs->stream = vector_get_data(cs->screen_buf, s->selectionbar);
+        cvs->stream = vector_get(cs->screen_buf, s->selectionbar);
         screen_stack_move_to_top((screen *) cvs);
         break;
     default:
@@ -214,7 +214,7 @@ void update_connection(struct tcp_connection_v4 *conn, bool new_connection)
         int y = 0;
 
         while (y < cs->base.lines && cs->base.top + y < vector_size(cs->screen_buf)) {
-            if (vector_get_data(cs->screen_buf, cs->base.top + y) == conn) {
+            if (vector_get(cs->screen_buf, cs->base.top + y) == conn) {
                 wmove(cs->base.win, y, 0);
                 wclrtoeol(cs->base.win);
                 print_connection(cs, conn, y);
@@ -251,7 +251,7 @@ void print_all_connections(connection_screen *cs)
     int i = cs->base.top;
 
     while (cs->y < cs->base.lines && i < vector_size(cs->screen_buf)) {
-        print_connection(cs, vector_get_data(cs->screen_buf, i), cs->y);
+        print_connection(cs, vector_get(cs->screen_buf, i), cs->y);
         cs->y++;
         i++;
     }

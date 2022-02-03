@@ -246,7 +246,7 @@ void main_screen_refresh(screen *s)
             LV_RENDER(ms->lvw, ms->subwindow.win);
         else
             add_winhexdump(ms->subwindow.win, 0, 2, hexmode,
-                           vector_get_data(ms->packet_ref, ms->main_line.line_number));
+                           vector_get(ms->packet_ref, ms->main_line.line_number));
         if (inside_subwindow(ms))
             UPDATE_SELECTIONBAR(ms->subwindow.win, s->selectionbar - s->top -
                                 ms->subwindow.top, SELECTIONBAR);
@@ -321,7 +321,7 @@ void main_screen_get_input(screen *s)
         if (ms->subwindow.win) {
             struct packet *p;
 
-            p = vector_get_data(ms->packet_ref, ms->main_line.line_number);
+            p = vector_get(ms->packet_ref, ms->main_line.line_number);
             if (view_mode == HEXDUMP_VIEW) {
                 delete_subwindow(ms, true);
                 create_subwindow(ms, (hexmode == HEXMODE_NORMAL) ? p->len / 16 + 3 :
@@ -428,7 +428,7 @@ void main_screen_get_input(screen *s)
             struct packet *p;
 
             delete_subwindow(ms, true);
-            p = vector_get_data(ms->packet_ref, ms->main_line.line_number);
+            p = vector_get(ms->packet_ref, ms->main_line.line_number);
             if (view_mode == DECODED_VIEW) {
                 add_elements(ms, p);
                 create_subwindow(ms, ms->lvw->size + 1, ms->main_line.line_number);
@@ -891,7 +891,7 @@ void filter_packets(main_screen *ms)
 
     ms->packet_ref = vector_init(PACKET_TABLE_SIZE);
     for (int i = 0; i < vector_size(packets); i++) {
-        struct packet *p = vector_get_data(packets, i);
+        struct packet *p = vector_get(packets, i);
 
         if (bpf_run_filter(bpf, p->buf, p->len) != 0)
             vector_push_back(ms->packet_ref, p);
@@ -923,7 +923,7 @@ void print_new_packets(main_screen *ms)
         struct packet *p;
         char buffer[MAXLINE];
 
-        p = vector_get_data(ms->packet_ref, c);
+        p = vector_get(ms->packet_ref, c);
         write_to_buf(buffer, MAXLINE, p);
         printnlw(ms->base.win, buffer, strlen(buffer), i, 0, ms->scrollx);
     }
@@ -1099,7 +1099,7 @@ int print_lines(main_screen *ms, int from, int to, int y)
             y < ms->subwindow.top + ms->subwindow.num_lines) {
             y++;
         } else {
-            p = vector_get_data(ms->packet_ref, from);
+            p = vector_get(ms->packet_ref, from);
             if (!p) break;
             write_to_buf(buffer, MAXLINE, p);
             if (ms->scrollx) {
@@ -1176,7 +1176,7 @@ void print_selected_packet(main_screen *ms)
         ms->main_line.line_number = ms->base.selectionbar;
     }
     if (ms->main_line.selected) {
-        p = vector_get_data(ms->packet_ref, ms->base.selectionbar);
+        p = vector_get(ms->packet_ref, ms->base.selectionbar);
         if (view_mode == DECODED_VIEW) {
             add_elements(ms, p);
             if (ms->subwindow.win)
@@ -1339,7 +1339,7 @@ void refresh_pad(main_screen *ms, struct subwin_info *pad, int scrolly, int minx
 static void follow_tcp_stream(main_screen *ms)
 {
     hashmap_t *connections = tcp_analyzer_get_sessions();
-    struct packet *p = vector_get_data(ms->packet_ref, ms->base.selectionbar);
+    struct packet *p = vector_get(ms->packet_ref, ms->base.selectionbar);
     struct tcp_connection_v4 *stream;
     struct tcp_endpoint_v4 endp;
     conversation_screen *cs = (conversation_screen *) screen_cache_get(CONVERSATION_SCREEN);

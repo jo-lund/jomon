@@ -159,7 +159,7 @@ void update_host(struct host_info *host, bool new_host)
             int y = 0;
 
             while (y < hs->base.lines && hs->base.top + y < vector_size(hs->screen_buf)) {
-                if (vector_get_data(hs->screen_buf, hs->base.top + y) == host) {
+                if (vector_get(hs->screen_buf, hs->base.top + y) == host) {
                     wmove(hs->base.win, y, 0);
                     wclrtoeol(hs->base.win);
                     print_host(hs, host, y);
@@ -202,7 +202,7 @@ void print_all_hosts(host_screen *hs)
     int i = hs->base.top;
 
     while (hs->y < hs->base.lines && i < vector_size(hs->screen_buf)) {
-        print_host(hs, vector_get_data(hs->screen_buf, i), hs->y);
+        print_host(hs, vector_get(hs->screen_buf, i), hs->y);
         hs->y++;
         i++;
     }

@@ -276,7 +276,7 @@ static void conversation_screen_render(conversation_screen *cs)
     s->selectionbar = 0;
     s->top = 0;
     for (int i = 0; i < my && i < vector_size(cs->base.packet_ref); i++) {
-        write_to_buf(buf, MAXLINE, vector_get_data(cs->base.packet_ref, i));
+        write_to_buf(buf, MAXLINE, vector_get(cs->base.packet_ref, i));
         printnlw(s->win, buf, strlen(buf), i, 0, cs->base.scrollx);
     }
     cs->base.outy = vector_size(cs->base.packet_ref) > my ? my :
@@ -451,7 +451,7 @@ static void buffer_tcppage(conversation_screen *cs, int (*buffer_fn)
     push_screen((screen *) pd);
     mx = getmaxx(((screen *) cs)->win) - 1;
     for (int i = 0; i < vector_size(cs->base.packet_ref); i++) {
-        struct packet *p = vector_get_data(cs->base.packet_ref, i);
+        struct packet *p = vector_get(cs->base.packet_ref, i);
         unsigned char *payload = get_adu_payload(p);
         uint16_t len;
         int n;
@@ -544,7 +544,7 @@ static void print_tcppage(conversation_screen *cs)
     werase(s->win);
     my = getmaxy(s->win);
     while (i < my + tcp_page.top && i < vector_size(tcp_page.buf)) {
-        attr = vector_get_data(tcp_page.buf, i);
+        attr = vector_get(tcp_page.buf, i);
         wattron(s->win, attr->col);
         waddstr(s->win, attr->line);
         wattroff(s->win, attr->col);
@@ -587,7 +587,7 @@ void print_header(conversation_screen *cs)
 
     werase(cs->base.header);
     for (int i = 0; i < vector_size(cs->base.packet_ref); i++) {
-        struct packet *p = vector_get_data(cs->base.packet_ref, i);
+        struct packet *p = vector_get(cs->base.packet_ref, i);
         uint16_t len = get_adu_payload_len(p);
 
         if (i == 0) {

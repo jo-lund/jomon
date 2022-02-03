@@ -157,7 +157,7 @@ void file_write_pcap(FILE *fp, vector_t *packets, progress_update fn)
         struct packet *p;
         int n;
 
-        p = (struct packet *) vector_get_data(packets, i);
+        p = (struct packet *) vector_get(packets, i);
         n = write_data(buf + bufidx, BUFSIZE - bufidx, p);
         if (!n) { /* write buf to file */
             fwrite(buf, sizeof(unsigned char), bufidx, fp);
@@ -266,7 +266,7 @@ inline uint16_t get_minor_version(pcap_hdr_t *header)
 void file_write_ascii(FILE *fp, vector_t *packets, progress_update fn)
 {
     for (int i = 0; i < vector_size(packets); i++) {
-        struct packet *p = vector_get_data(packets, i);
+        struct packet *p = vector_get(packets, i);
         unsigned char *payload = get_adu_payload(p);
         uint16_t len = get_adu_payload_len(p);
 
@@ -284,7 +284,7 @@ void file_write_ascii(FILE *fp, vector_t *packets, progress_update fn)
 void file_write_raw(FILE *fp, vector_t *packets, progress_update fn)
 {
     for (int i = 0; i < vector_size(packets); i++) {
-        struct packet *p = vector_get_data(packets, i);
+        struct packet *p = vector_get(packets, i);
         unsigned char *payload = get_adu_payload(p);
         uint16_t len = get_adu_payload_len(p);
 
