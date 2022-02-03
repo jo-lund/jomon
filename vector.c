@@ -42,7 +42,7 @@ void vector_pop_back(vector_t *vector, vector_deallocate func)
 {
     if (vector->c) {
         if (func) {
-            func(vector->buf[vector->c].data);
+            func(vector->buf[vector->c - 1].data);
         }
         vector->c--;
     }
