@@ -318,6 +318,8 @@ void connection_screen_get_input(screen *s)
         screen_stack_move_to_top((screen *) cvs);
         break;
     case 'p':
+        if (conn_mode == CONNECTION_PAGE && s->show_selectionbar)
+            s->show_selectionbar = false;
         conn_mode = (conn_mode + 1) % num_pages;
         update_screen_buf(s);
         connection_screen_refresh(s);
