@@ -4,20 +4,19 @@ endif
 
 include config.mk
 
-incdir := decoder ui
 testdir := tests
 BUILDDIR := build
 TARGETDIR := bin
 MACHINE := $(shell uname -s)
 STRIP := strip
-CFLAGS += -std=gnu11 -fwrapv -g
-CPPFLAGS += -Wall -Wextra -Wno-override-init $(addprefix -I,$(incdir))
+CFLAGS += -std=gnu11 -fwrapv -Wall -Wextra -Wno-override-init
+CPPFLAGS += -iquote $(CURDIR)
 LIBS += -lncurses
 ifeq ($(CONFIG_GEOIP),0)
-    sources = $(filter-out geoip.c,$(wildcard *.c decoder/*.c ui/*.c))
+    sources = $(filter-out geoip.c,$(wildcard *.c decoder/*.c ui/*.c ui/ncurses/*.c))
 else
     LIBS += -lGeoIP
-    sources = $(wildcard *.c decoder/*.c ui/*.c)
+    sources = $(wildcard *.c decoder/*.c ui/*.c ui/ncurses/*.c)
 endif
 ifeq ($(HAVE_OBSTACK),0)
     sources += $(wildcard compat/*.c)
@@ -53,7 +52,7 @@ test-objs += $(bpf-objs) \
 all : release
 
 .PHONY : debug
-debug : CFLAGS += -fsanitize=address -fno-omit-frame-pointer
+debug : CFLAGS += -g -fsanitize=address -fno-omit-frame-pointer
 debug : CPPFLAGS += -DMONITOR_DEBUG
 debug : $(TARGETDIR)/monitor
 
@@ -75,7 +74,7 @@ bpf/pcap_lexer.c : bpf/pcap_lexer.re
 $(BUILDDIR)/%.o : %.c
 	@mkdir -p $(dir $@)
 	$(CC) -c $(CFLAGS) $(CPPFLAGS) $< -o $@
-	$(CC) -MM $*.c > $(BUILDDIR)/$*.d
+	$(CC) -MM $(CPPFLAGS) $*.c > $(BUILDDIR)/$*.d
 	@sed -i -r 's|.*:|$(BUILDDIR)/$*.o:|' $(BUILDDIR)/$*.d # prefix target with BUILDDIR
 
 # Include dependency info for existing object files

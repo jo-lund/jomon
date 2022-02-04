@@ -42,7 +42,7 @@ void vector_pop_back(vector_t *vector, vector_deallocate func)
 {
     if (vector->c) {
         if (func) {
-            func(vector->buf[vector->c].data);
+            func(vector->buf[vector->c - 1].data);
         }
         vector->c--;
     }
@@ -56,7 +56,7 @@ void *vector_back(vector_t *vector)
     return NULL;
 }
 
-void *vector_get_data(vector_t *vector, int i)
+void *vector_get(vector_t *vector, int i)
 {
     if ((unsigned int) i < vector->c) {
         return vector->buf[i].data;

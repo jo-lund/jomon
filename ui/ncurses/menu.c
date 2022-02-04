@@ -1,9 +1,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include "menu.h"
-#include "layout_int.h"
+#include "layout.h"
 #include "main_screen.h"
-#include "../monitor.h"
+#include "monitor.h"
 
 static char *selected_txt = "[x] ";
 static char *unselected_txt = "[ ] ";
@@ -323,8 +323,6 @@ void main_menu_get_input(screen *s)
         }
         break;
     default:
-        ungetch(c);
-        screen_get_input(s);
         break;
     }
 }

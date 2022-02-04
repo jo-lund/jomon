@@ -1,8 +1,7 @@
-#ifndef LAYOUT_INT_H
-#define LAYOUT_INT_H
+#ifndef LAYOUT_H
+#define LAYOUT_H
 
 #include <ncurses.h>
-#include "../signal.h"
 
 #define KEY_ESC 27
 #define NUM_THEMES 3

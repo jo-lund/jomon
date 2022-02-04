@@ -22,7 +22,7 @@ struct hashmap {
 };
 
 static inline unsigned int clp2(unsigned int x);
-static void insert_elem(hashmap_t *map, struct hash_elem *tbl, unsigned int size,
+static bool insert_elem(hashmap_t *map, struct hash_elem *tbl, unsigned int size,
                         unsigned int hash_val, void *key, void *data, bool update);
 static struct hash_elem *find_elem(hashmap_t *map, void *key);
 static inline const hashmap_iterator *get_next_iterator(hashmap_t *map, int i);
@@ -62,9 +62,11 @@ bool hashmap_insert(hashmap_t *map, void *key, void *data)
         free(map->table);
         map->table = tbl;
     }
-    insert_elem(map, map->table, map->buckets, map->hash(key), key, data, true);
-    map->count++;
-    return true;
+    if (insert_elem(map, map->table, map->buckets, map->hash(key), key, data, true)) {
+        map->count++;
+        return true;
+    }
+    return false;
 }
 
 void hashmap_remove(hashmap_t *map, void *key)
@@ -143,8 +145,11 @@ const hashmap_iterator *hashmap_first(hashmap_t *map)
 const hashmap_iterator *hashmap_next(hashmap_t *map, const hashmap_iterator *it)
 {
     struct hash_elem *elem = (struct hash_elem *) it;
+
+    /* get correct bucket index */
     int i = (elem->hash_val & (map->buckets - 1)) + elem->probe_count - 1;
 
+    i &= (map->buckets - 1); /* handle wrap aroound */
     if ((unsigned int) ++i >= map->buckets)
         return NULL;
     return get_next_iterator(map, i);
@@ -155,6 +160,7 @@ const hashmap_iterator *hashmap_prev(hashmap_t *map, const hashmap_iterator *it)
     struct hash_elem *elem = (struct hash_elem *) it;
     int i = (elem->hash_val & (map->buckets - 1)) + elem->probe_count - 1;
 
+    i &= (map->buckets - 1);
     if (--i < 0)
         return NULL;
     return get_prev_iterator(map, i);
@@ -261,8 +267,11 @@ static void insert_helper(struct hash_elem *tbl, unsigned int i, unsigned int si
     tbl[i].probe_count = pc;
 }
 
-/* Uses linear probing to find an empty bucket */
-void insert_elem(hashmap_t *map, struct hash_elem *tbl, unsigned int size,
+/*
+ * Uses linear probing to find an empty bucket. Returns true if element is inserted,
+ * false if it is updated.
+ */
+bool insert_elem(hashmap_t *map, struct hash_elem *tbl, unsigned int size,
                  unsigned int hash_val, void *key, void *data, bool update)
 {
     unsigned int i = hash_val & (size - 1);
@@ -277,14 +286,14 @@ void insert_elem(hashmap_t *map, struct hash_elem *tbl, unsigned int size,
                     map->free_data(tbl[i].data);
                 tbl[i].key = key;
                 tbl[i].data = data;
-                return;
+                return false;
             }
             if (tbl[i].probe_count < pc) {
                 swap(&tbl[i], &key, &data, &hash_val, &pc);
                 i = (i + 1) & (size - 1);
                 pc++;
                 insert_helper(tbl, i, size, hash_val, key, data, pc);
-                return;
+                return true;
             }
             i = (i + 1) & (size - 1);
             pc++;
@@ -296,6 +305,7 @@ void insert_elem(hashmap_t *map, struct hash_elem *tbl, unsigned int size,
     } else {
         insert_helper(tbl, i, size, hash_val, key, data, pc);
     }
+    return true;
 }
 
 /* Computes the least power of two greater than or equal to x */

@@ -518,18 +518,21 @@ static void patch_jmp_poffset(struct block *b, struct block *e, struct node *n, 
 
     poff = n->poff;
     while (poff) {
-        insn = vector_get_data(code, numi + poff->offset);
+        insn = vector_get(code, numi + poff->offset);
         offset = poff->offset;
         if (BPF_CLASS(insn->code) == BPF_JMP) {
             if (b->inverse) {
-                set_jmp_offset(b, b->jt, e, &insn->jf, b->next ? b->insn - offset :
-                               b->insn - offset - 1);
+                if (poff->inverse)
+                    set_jmp_offset(b, b->jt, e, &insn->jt, b->next ? b->insn - offset :
+                                   b->insn - offset - 1);
+                else
+                    set_jmp_offset(b, b->jt, e, &insn->jf, b->next ? b->insn - offset :
+                                   b->insn - offset - 1);
             } else {
-                if (poff->inverse) {
-                    set_jmp_offset(b, b->jt, e, &insn->jt, b->insn - offset);
-                } else {
+                if (poff->inverse)
+                    set_jmp_offset(b, b->jf, e, &insn->jt, b->insn - offset);
+                else
                     set_jmp_offset(b, b->jf, e, &insn->jf, b->insn - offset);
-                }
             }
         }
         poff = poff->next;
@@ -549,7 +552,7 @@ static int patch_jmp(struct block *b, struct block *e, int numi)
         patch_jmp_poffset(b, e, b->expr1, numi);
         patch_jmp_poffset(b, e, b->expr2, numi);
         if (b->p == NULL) {
-            insn = vector_get_data(code, numi + b->insn - 1);
+            insn = vector_get(code, numi + b->insn - 1);
             if (insn && BPF_CLASS(insn->code) == BPF_JMP) {
                 if (b->inverse || b->op_inverse) {
                     set_jmp_offset(b, b->jt, e, &insn->jf, 0);
@@ -688,7 +691,7 @@ struct bpf_prog gencode(struct block *b)
     sz = vector_size(code);
     bc = malloc(sz * sizeof(struct bpf_insn));
     for (int i = 0; i < sz; i++)
-        bc[i] = *(struct bpf_insn *) vector_get_data(code, i);
+        bc[i] = *(struct bpf_insn *) vector_get(code, i);
     prog.bytecode = bc;
     prog.size = (uint16_t) sz;
     vector_free(code, free);

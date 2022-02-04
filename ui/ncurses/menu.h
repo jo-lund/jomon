@@ -1,9 +1,9 @@
 #ifndef MAIN_MENU_H
 #define MAIN_MENU_H
 
-#include "layout_int.h"
-#include "../list.h"
+#include "layout.h"
 #include "screen.h"
+#include "list.h"
 
 typedef enum option_menu_type {
     MENU_NORMAL,

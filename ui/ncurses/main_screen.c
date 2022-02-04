@@ -5,29 +5,27 @@
 #include <menu.h>
 #include <sys/stat.h>
 #include "layout.h"
-#include "protocols.h"
-#include "../list.h"
-#include "../error.h"
-#include "../monitor.h"
-#include "../vector.h"
-#include "../decoder/decoder.h"
-#include "../stack.h"
-#include "../file.h"
-#include "layout_int.h"
-#include "../signal.h"
+#include "list.h"
+#include "error.h"
+#include "monitor.h"
+#include "vector.h"
+#include "decoder/decoder.h"
+#include "stack.h"
+#include "file.h"
+#include "signal.h"
 #include "dialogue.h"
 #include "main_screen.h"
 #include "hexdump.h"
 #include "menu.h"
 #include "connection_screen.h"
-#include "../hashmap.h"
-#include "../decoder/tcp_analyzer.h"
-#include "../decoder/host_analyzer.h"
-#include "../attributes.h"
+#include "hashmap.h"
+#include "decoder/tcp_analyzer.h"
+#include "decoder/host_analyzer.h"
+#include "attributes.h"
 #include "main_screen_int.h"
 #include "conversation_screen.h"
 #include "dialogue.h"
-#include "../bpf/pcap_parser.h"
+#include "bpf/pcap_parser.h"
 #include "actionbar.h"
 
 /* Get the y screen coordinate. The argument is the main_screen coordinate */
@@ -126,6 +124,21 @@ static void screen_render(main_screen *ms, int my)
     }
 }
 
+static void set_filepath(void)
+{
+    int i;
+
+    if (ctx.filename[0] != '\0') {
+        i = string_find_last(ctx.filename, '/');
+        if (i > 0 && i < MAXPATH) {
+            strncpy(load_filepath, ctx.filename, i);
+            load_filepath[i] = '\0';
+            return;
+        }
+    }
+    getcwd(load_filepath, MAXPATH);
+}
+
 main_screen *main_screen_create(void)
 {
     main_screen *ms;
@@ -158,7 +171,7 @@ void main_screen_init(screen *s)
     keypad(s->win, TRUE);
     scrollok(s->win, TRUE);
     ms->packet_ref = packets;
-    getcwd(load_filepath, MAXPATH);
+    set_filepath();
     status = newwin(1, mx, my - 1, 0);
     add_actionbar_elems(s);
 }
@@ -231,7 +244,7 @@ void main_screen_refresh(screen *s)
             LV_RENDER(ms->lvw, ms->subwindow.win);
         else
             add_winhexdump(ms->subwindow.win, 0, 2, hexmode,
-                           vector_get_data(ms->packet_ref, ms->main_line.line_number));
+                           vector_get(ms->packet_ref, ms->main_line.line_number));
         if (inside_subwindow(ms))
             UPDATE_SELECTIONBAR(ms->subwindow.win, s->selectionbar - s->top -
                                 ms->subwindow.top, SELECTIONBAR);
@@ -306,7 +319,7 @@ void main_screen_get_input(screen *s)
         if (ms->subwindow.win) {
             struct packet *p;
 
-            p = vector_get_data(ms->packet_ref, ms->main_line.line_number);
+            p = vector_get(ms->packet_ref, ms->main_line.line_number);
             if (view_mode == HEXDUMP_VIEW) {
                 delete_subwindow(ms, true);
                 create_subwindow(ms, (hexmode == HEXMODE_NORMAL) ? p->len / 16 + 3 :
@@ -413,7 +426,7 @@ void main_screen_get_input(screen *s)
             struct packet *p;
 
             delete_subwindow(ms, true);
-            p = vector_get_data(ms->packet_ref, ms->main_line.line_number);
+            p = vector_get(ms->packet_ref, ms->main_line.line_number);
             if (view_mode == DECODED_VIEW) {
                 add_elements(ms, p);
                 create_subwindow(ms, ms->lvw->size + 1, ms->main_line.line_number);
@@ -464,7 +477,7 @@ void main_screen_load_handle_ok(void *file)
     /* don't allow filenames containing ".." */
     if (strstr((const char *) file, "..")) {
         create_file_error_dialogue(ACCESS_ERROR, create_load_dialogue);
-    } else if ((fp = open_file((const char *) file, "r", &err)) == NULL) {
+    } else if ((fp = file_open((const char *) file, "r", &err)) == NULL) {
         create_file_error_dialogue(err, create_load_dialogue);
     } else {
         struct stat buf[sizeof(struct stat)];
@@ -485,20 +498,16 @@ void main_screen_load_handle_ok(void *file)
         lstat((const char *) file, buf);
         pd = progress_dialogue_create(title, buf->st_size);
         push_screen((screen *) pd);
-        err = read_file(ctx.handle, fp, read_show_progress);
+        err = file_read(ctx.handle, fp, read_show_progress);
         if (err == NO_ERROR) {
-            int i;
-
             main_screen_clear(ms);
             strcpy(ctx.filename, (const char *) file);
-            i = string_find_last(ctx.filename, '/');
-            if (i > 0 && i < MAXPATH) {
-                strncpy(load_filepath, ctx.filename, i);
-                load_filepath[i] = '\0';
-            }
+            set_filepath();
             pop_screen();
             SCREEN_FREE((screen *) pd);
-            print_file();
+            ms->base.top = 0;
+            ms->base.show_selectionbar = true;
+            main_screen_refresh((screen *) ms);
         } else {
             pop_screen();
             SCREEN_FREE((screen *) pd);
@@ -534,7 +543,7 @@ void main_screen_save_handle_ok(void *file)
     enum file_error err;
     FILE *fp;
 
-    if ((fp = open_file((const char *) file, "w", &err)) == NULL) {
+    if ((fp = file_open((const char *) file, "w", &err)) == NULL) {
         create_file_error_dialogue(err, create_save_dialogue);
     } else {
         char title[MAXLINE];
@@ -544,7 +553,7 @@ void main_screen_save_handle_ok(void *file)
         snprintf(title, MAXLINE, " Saving %s ", (char *) file);
         pd = progress_dialogue_create(title, total_bytes);
         push_screen((screen *) pd);
-        write_pcap(fp, ms->packet_ref, main_screen_write_show_progress);
+        file_write_pcap(fp, ms->packet_ref, main_screen_write_show_progress);
         pop_screen();
         SCREEN_FREE((screen *) pd);
         fclose(fp);
@@ -614,6 +623,7 @@ void print_header(main_screen *ms)
     char file[MAXPATH];
 
     werase(ms->header);
+
     if (ctx.filename[0]) {
         strncpy(file, ctx.filename, MAXPATH - 1);
         printat(ms->header, y, 0, txtcol, "Filename");
@@ -881,11 +891,13 @@ void filter_packets(main_screen *ms)
 
     ms->packet_ref = vector_init(PACKET_TABLE_SIZE);
     for (int i = 0; i < vector_size(packets); i++) {
-        struct packet *p = vector_get_data(packets, i);
+        struct packet *p = vector_get(packets, i);
 
         if (bpf_run_filter(bpf, p->buf, p->len) != 0)
             vector_push_back(ms->packet_ref, p);
     }
+    if (ms->subwindow.win)
+        delete_subwindow(ms, false);
     input_mode = INPUT_NONE;
     werase(status);
     actionbar_refresh(actionbar, (screen *) ms);
@@ -913,7 +925,7 @@ void print_new_packets(main_screen *ms)
         struct packet *p;
         char buffer[MAXLINE];
 
-        p = vector_get_data(ms->packet_ref, c);
+        p = vector_get(ms->packet_ref, c);
         write_to_buf(buffer, MAXLINE, p);
         printnlw(ms->base.win, buffer, strlen(buffer), i, 0, ms->scrollx);
     }
@@ -1045,8 +1057,10 @@ void main_screen_scroll_page(main_screen *ms, int num_lines)
 
 void main_screen_set_interactive(main_screen *ms, bool interactive_mode)
 {
-    if (!vector_size(ms->packet_ref)) return;
-
+    if (!vector_size(ms->packet_ref)) {
+        ms->base.show_selectionbar = false;
+        return;
+    }
     if (interactive_mode) {
         ms->base.show_selectionbar = true;
         ms->base.selectionbar = ms->base.top;
@@ -1087,7 +1101,7 @@ int print_lines(main_screen *ms, int from, int to, int y)
             y < ms->subwindow.top + ms->subwindow.num_lines) {
             y++;
         } else {
-            p = vector_get_data(ms->packet_ref, from);
+            p = vector_get(ms->packet_ref, from);
             if (!p) break;
             write_to_buf(buffer, MAXLINE, p);
             if (ms->scrollx) {
@@ -1164,7 +1178,7 @@ void print_selected_packet(main_screen *ms)
         ms->main_line.line_number = ms->base.selectionbar;
     }
     if (ms->main_line.selected) {
-        p = vector_get_data(ms->packet_ref, ms->base.selectionbar);
+        p = vector_get(ms->packet_ref, ms->base.selectionbar);
         if (view_mode == DECODED_VIEW) {
             add_elements(ms, p);
             if (ms->subwindow.win)
@@ -1327,7 +1341,7 @@ void refresh_pad(main_screen *ms, struct subwin_info *pad, int scrolly, int minx
 static void follow_tcp_stream(main_screen *ms)
 {
     hashmap_t *connections = tcp_analyzer_get_sessions();
-    struct packet *p = vector_get_data(ms->packet_ref, ms->base.selectionbar);
+    struct packet *p = vector_get(ms->packet_ref, ms->base.selectionbar);
     struct tcp_connection_v4 *stream;
     struct tcp_endpoint_v4 endp;
     conversation_screen *cs = (conversation_screen *) screen_cache_get(CONVERSATION_SCREEN);

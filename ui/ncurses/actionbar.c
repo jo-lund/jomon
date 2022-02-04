@@ -1,11 +1,11 @@
 #include <stdbool.h>
 #include "actionbar.h"
 #include "screen.h"
-#include "../hashmap.h"
-#include "../monitor.h"
-#include "../hash.h"
-#include "../signal.h"
-#include "../list.h"
+#include "hashmap.h"
+#include "monitor.h"
+#include "hash.h"
+#include "signal.h"
+#include "list.h"
 
 #define STATUS_HEIGHT 1
 #define ELEM_WIDTH 11

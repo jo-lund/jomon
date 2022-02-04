@@ -1,7 +1,7 @@
 #ifndef ACTIONBAR_H
 #define ACTIONBAR_H
 
-#include "layout_int.h"
+#include "layout.h"
 
 typedef struct screen screen;
 

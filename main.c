@@ -17,12 +17,10 @@
 #include "misc.h"
 #include "error.h"
 #include "interface.h"
-#include "ui/layout.h"
 #include "decoder/packet.h"
 #include "decoder/tcp_analyzer.h"
 #include "vector.h"
 #include "file.h"
-#include "ui/protocols.h"
 #include "mempool.h"
 #include "decoder/host_analyzer.h"
 #include "decoder/dns_cache.h"
@@ -33,6 +31,7 @@
 #include "bpf/bpf_parser.h"
 #include "bpf/pcap_parser.h"
 #include "bpf/genasm.h"
+#include "ui/ui.h"
 
 #define SHORT_OPTS "F:i:f:r:Gdhlpstv"
 #define BPF_DUMP_MODES 3
@@ -49,7 +48,6 @@ main_context ctx;
 static volatile sig_atomic_t alarm_flag = 0;
 static volatile sig_atomic_t winch_flag = 0;
 static bool fd_changed = false;
-static bool ncurses_initialized = false;
 static iface_handle_t *handle = NULL;
 static struct bpf_prog bpf;
 static bool promiscuous_mode = false;
@@ -94,7 +92,7 @@ int main(int argc, char **argv)
 
     memset(&bpf, 0, sizeof(bpf));
     setlocale(LC_ALL, "");
-    ctx.opt.use_ncurses = true;
+    ctx.opt.text_mode = false;
     ctx.opt.nopromiscuous = false;
     ctx.opt.verbose = false;
     ctx.opt.load_file = false;
@@ -131,7 +129,7 @@ int main(int argc, char **argv)
             ctx.opt.show_statistics = true;
             break;
         case 't':
-            ctx.opt.use_ncurses = false;
+            ctx.opt.text_mode = true;
             break;
         case 'v':
             ctx.opt.verbose = true;
@@ -151,15 +149,16 @@ int main(int argc, char **argv)
     decoder_init();
     debug_init();
     tcp_analyzer_init();
-    if (ctx.opt.use_ncurses) {
+    if (ctx.opt.text_mode) {
+        ui_set_active("text");
+    } else {
         dns_cache_init();
         host_analyzer_init();
         if (!ctx.opt.load_file)
             process_init();
         setup_signal(SIGWINCH, sig_winch, 0);
     }
-    if (ctx.opt.use_ncurses || ctx.opt.load_file)
-        packets = vector_init(PACKET_TABLE_SIZE);
+    packets = vector_init(PACKET_TABLE_SIZE);
     if (ctx.filter_file) {
         bpf = bpf_assemble(ctx.filter_file);
         if (bpf.size == 0)
@@ -185,27 +184,16 @@ int main(int argc, char **argv)
         ctx.capturing = false;
         handle = iface_handle_create(buf, SNAPLEN, handle_packet);
         ctx.handle = handle;
-        if ((fp = open_file(ctx.filename, "r", &err)) == NULL) {
+        if ((fp = file_open(ctx.filename, "r", &err)) == NULL) {
             err_sys("Error: %s", ctx.filename);
         }
-        if ((err = read_file(handle, fp, handle_packet)) != NO_ERROR) {
+        if ((err = file_read(handle, fp, handle_packet)) != NO_ERROR) {
             fclose(fp);
-            err_quit("Error in %s: %s", ctx.filename, get_file_error(err));
+            err_quit("Error in %s: %s", ctx.filename, file_error(err));
         }
         fclose(fp);
-        if (ctx.opt.use_ncurses) {
-            ncurses_init();
-            ncurses_initialized = true;
-            print_file();
-        } else {
-            for (int i = 0; i < vector_size(packets); i++) {
-                char buf[MAXLINE];
-
-                write_to_buf(buf, MAXLINE, vector_get_data(packets, i));
-                printf("%s\n", buf);
-            }
-            finish(0);
-        }
+        ui_init();
+        ui_draw();
     } else {
         ctx.capturing = true;
         handle = iface_handle_create(buf, SNAPLEN, handle_packet);
@@ -215,10 +203,7 @@ int main(int argc, char **argv)
             iface_set_promiscuous(handle, ctx.device, true);
             promiscuous_mode = true;
         }
-        if (ctx.opt.use_ncurses) {
-            ncurses_init();
-            ncurses_initialized = true;
-        }
+        ui_init();
     }
     run();
     finish(0);
@@ -291,13 +276,13 @@ static void run(void)
     while (1) {
         if (alarm_flag) {
             alarm_flag = 0;
-            layout(LAYOUT_ALARM);
+            ui_event(UI_ALARM);
             alarm(1);
         }
         if (winch_flag) {
             winch_flag = 0;
             setup_signal(SIGWINCH, NULL, SA_RESETHAND);
-            layout(LAYOUT_RESIZE);
+            ui_event(UI_RESIZE);
             setup_signal(SIGWINCH, sig_winch, 0);
         }
         if (fd_changed) {
@@ -305,30 +290,29 @@ static void run(void)
             fd_changed = false;
         }
         if (poll(fds, 2, -1) == -1) {
-            if (errno == EINTR) continue;
+            if (errno == EINTR)
+                continue;
             err_sys("poll error");
         }
-        if (fds[0].revents & POLLIN) {
+        if (fds[0].revents & POLLIN)
             iface_read_packet(handle);
-        }
-        if (fds[1].revents & POLLIN) {
-            handle_input();
-        }
+        if (fds[1].revents & POLLIN)
+            ui_event(UI_INPUT);
     }
 }
 
 void finish(int status)
 {
-    if (ncurses_initialized) {
-        ncurses_end();
-        vector_free(packets, NULL);
-        tcp_analyzer_free();
+    ui_fini();
+    vector_free(packets, NULL);
+    if (!ctx.opt.text_mode) {
         host_analyzer_free();
         dns_cache_free();
         debug_free();
         if (!ctx.opt.load_file)
             process_free();
     }
+    tcp_analyzer_free();
     if (promiscuous_mode)
         iface_set_promiscuous(handle, ctx.device, false);
     free(ctx.device);
@@ -384,19 +368,8 @@ bool handle_packet(iface_handle_t *handle, unsigned char *buffer, uint32_t n,
         tcp_analyzer_check_stream(p);
         host_analyzer_investigate(p);
     }
-    if (ctx.capturing) {
-        if (ctx.opt.use_ncurses) {
-            vector_push_back(packets, p);
-            layout(LAYOUT_NEW_PACKET);
-        } else {
-            char buf[MAXLINE];
-
-            write_to_buf(buf, MAXLINE, p);
-            printf("%s\n", buf);
-            free_packets(p);
-        }
-    } else {
-        vector_push_back(packets, p);
-    }
+    vector_push_back(packets, p);
+    if (ctx.capturing)
+        ui_event(UI_NEW_DATA);
     return true;
 }

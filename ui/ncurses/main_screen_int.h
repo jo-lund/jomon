@@ -1,6 +1,8 @@
 #ifndef MAIN_SCREEN_INT_H
 #define MAIN_SCREEN_INT_H
 
+#include "ui/print_protocol.h"
+
 #define HEADER_HEIGHT 5
 #define NUM_COLS_SCROLL 4
 

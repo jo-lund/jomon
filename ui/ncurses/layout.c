@@ -1,22 +1,21 @@
 #include <string.h>
 #include <assert.h>
 #include "layout.h"
-#include "layout_int.h"
-#include "protocols.h"
 #include "main_screen.h"
 #include "stat_screen.h"
 #include "help_screen.h"
 #include "connection_screen.h"
 #include "dialogue.h"
-#include "../vector.h"
-#include "../stack.h"
 #include "menu.h"
 #include "host_screen.h"
 #include "screen.h"
 #include "conversation_screen.h"
-#include "../monitor.h"
-#include "../terminal.h"
 #include "actionbar.h"
+#include "ui/ui.h"
+#include "vector.h"
+#include "stack.h"
+#include "monitor.h"
+#include "terminal.h"
 
 #define NUM_COLOURS 8
 #define COLOUR_IDX(f, b) ((b == -1) ? (f) + 1 : (b) + 1 + ((f) + 1) * NUM_COLOURS)
@@ -126,6 +125,24 @@ static char *menu_options[] = {
     "Network rate display"
 };
 
+static void ncurses_init(void);
+static void ncurses_end(void);
+static void ncurses_event(int);
+static void print_file(void);
+
+static struct ui ncurses_ui = {
+    .name = "ncurses",
+    .init = ncurses_init,
+    .fini = ncurses_end,
+    .draw = print_file,
+    .event = ncurses_event
+};
+
+CONSTRUCTOR static void ncurses_register(void)
+{
+    ui_register(&ncurses_ui, true);
+}
+
 static void layout_resize(void)
 {
     struct termsize size;
@@ -142,7 +159,7 @@ static void layout_resize(void)
     s->resize = false;
 }
 
-void ncurses_init(void)
+static void ncurses_init(void)
 {
     initscr(); /* initialize curses mode */
     cbreak(); /* disable line buffering */
@@ -160,7 +177,32 @@ void ncurses_init(void)
     create_menu();
 }
 
-void ncurses_end(void)
+static void ncurses_event(int event)
+{
+    screen *s;
+
+    switch (event) {
+    case UI_NEW_DATA:
+        main_screen_print_packet((main_screen *) screen_cache[MAIN_SCREEN],
+                                 vector_back(packets));
+        break;
+    case UI_ALARM:
+        s = screen_cache_get(STAT_SCREEN);
+        if (s && s->focus)
+            stat_screen_print(s);
+        break;
+    case UI_RESIZE:
+        layout_resize();
+        break;
+    case UI_INPUT:
+        SCREEN_GET_INPUT((screen *) stack_top(screen_stack));
+        break;
+    default:
+        break;
+    }
+}
+
+static void ncurses_end(void)
 {
     screen_cache_clear();
     main_menu_free((screen *) menu);
@@ -214,7 +256,7 @@ void screen_cache_clear(void)
     }
 }
 
-void print_file(void)
+static void print_file(void)
 {
     main_screen *ms = (main_screen *) screen_cache[MAIN_SCREEN];
 
@@ -237,7 +279,6 @@ void pop_screen(void)
     if (newscr->refreshing)
         return;
     newscr->refreshing = true;
-    wgetch(newscr->win); /* remove character from input queue */
     if (newscr->op->screen_got_focus) {
         SCREEN_GOT_FOCUS(newscr, oldscr);
     }
@@ -267,7 +308,7 @@ void push_screen(screen *newscr)
     newscr->refreshing = false;
 }
 
-bool screen_stack_empty()
+bool screen_stack_empty(void)
 {
     return stack_empty(screen_stack);
 }
@@ -368,35 +409,7 @@ void printnlw(WINDOW *win, char *str, int len, int y, int x, int scrollx)
     }
 }
 
-void handle_input(void)
-{
-    SCREEN_GET_INPUT((screen *) stack_top(screen_stack));
-}
-
-void layout(enum event ev)
-{
-    screen *s;
-
-    switch (ev) {
-    case LAYOUT_NEW_PACKET:
-        main_screen_print_packet((main_screen *) screen_cache[MAIN_SCREEN],
-                                 vector_back(packets));
-        break;
-    case LAYOUT_ALARM:
-        s = screen_cache_get(STAT_SCREEN);
-        if (s && s->focus) {
-            stat_screen_print(s);
-        }
-        break;
-    case LAYOUT_RESIZE:
-        layout_resize();
-        break;
-    default:
-        break;
-    }
-}
-
-void colours_init()
+void colours_init(void)
 {
     use_default_colors();
     start_color();
@@ -414,7 +427,7 @@ int get_theme_colour(enum elements elem)
     return themes[theme][elem];
 }
 
-void create_screens()
+void create_screens(void)
 {
     main_screen *ms;
     screen *s;
@@ -433,7 +446,7 @@ void create_screens()
     screen_cache_insert(CONVERSATION_SCREEN, (screen *) conversation_screen_create());
 }
 
-void create_menu()
+void create_menu(void)
 {
     option_menu *om;
 

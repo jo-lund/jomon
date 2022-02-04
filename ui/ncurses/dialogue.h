@@ -1,12 +1,12 @@
 #ifndef DIALOGUE_H
 #define DIALOGUE_H
 
-#include "layout_int.h"
+#include "layout.h"
 #include "button.h"
-#include "../misc.h"
-#include "../vector.h"
-#include "../file.h"
 #include "screen.h"
+#include "misc.h"
+#include "vector.h"
+#include "file.h"
 
 #define DIALOGUE_SET_TITLE(o, d, t) ((o)->dialogue_set_title(d, t))
 #define DIALOGUE_RENDER(o) ((o)->dialogue_render(o))
@@ -35,6 +35,14 @@ typedef struct label_dialogue {
     void (*label_dialogue_set_action)(struct label_dialogue *ld, button_action act,
                                       void *arg);
 } label_dialogue;
+
+typedef struct decision_dialogue {
+    dialogue dialogue_base;
+    char *label;
+    button *ok;
+    button *cancel;
+    int has_focus;
+} decision_dialogue;
 
 struct stat;
 
@@ -84,6 +92,13 @@ label_dialogue *label_dialogue_create(char *title, char *label, button_action ac
 /* free the memory associated with label dialogue */
 void label_dialogue_free(screen *s);
 
+/* Create a new decision dialogue. It needs to be freed by calling decision_dialogue_free. */
+decision_dialogue *decision_dialogue_create(char *title, char *label, button_action ok, void *ok_arg,
+                                            button_action cancel, void *cancel_arg);
+
+/* Free the memory associated with decision dialogue */
+void decision_dialogue_free(screen *s);
+
 /* Create a new file dialogue. It needs to be freed with 'file_dialogue_free' */
 file_dialogue *file_dialogue_create(char *title, enum file_selection_type type,
                                     char *path, button_action ok, button_action cancel);
@@ -98,6 +113,8 @@ progress_dialogue *progress_dialogue_create(char *title, int size);
 void progress_dialogue_free(screen *s);
 
 /* General dialogues */
-void create_file_error_dialogue(enum file_error err, void (*callback)());
+void create_file_error_dialogue(enum file_error err, void (*callback)(void));
+void create_warning_dialogue(char *txt, void (*ok_callback)(void *), void *ok_arg,
+                             void (*cancel_callback)(void *), void *cancel_arg);
 
 #endif

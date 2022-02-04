@@ -1,7 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "list_view.h"
-#include "../misc.h"
+#include "misc.h"
 
 enum type {
     HEADER,

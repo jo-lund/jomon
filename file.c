@@ -48,7 +48,7 @@ static inline uint32_t get_linktype(pcap_hdr_t *header);
 static inline uint16_t get_major_version(pcap_hdr_t *header);
 static inline uint16_t get_minor_version(pcap_hdr_t *header);
 
-FILE *open_file(const char *path, const char *mode, enum file_error *err)
+FILE *file_open(const char *path, const char *mode, enum file_error *err)
 {
     FILE *fp;
 
@@ -59,7 +59,7 @@ FILE *open_file(const char *path, const char *mode, enum file_error *err)
     return fp;
 }
 
-enum file_error read_file(iface_handle_t *handle, FILE *fp, packet_handler f)
+enum file_error file_read(iface_handle_t *handle, FILE *fp, packet_handler f)
 {
     unsigned char buf[BUFSIZE];
     enum file_error error = NO_ERROR;
@@ -146,7 +146,7 @@ int read_buf(iface_handle_t *handle, unsigned char *buf, size_t len)
     return 0;
 }
 
-void write_pcap(FILE *fp, vector_t *packets, progress_update fn)
+void file_write_pcap(FILE *fp, vector_t *packets, progress_update fn)
 {
     int bufidx = 0;
     unsigned char buf[BUFSIZE];
@@ -157,7 +157,7 @@ void write_pcap(FILE *fp, vector_t *packets, progress_update fn)
         struct packet *p;
         int n;
 
-        p = (struct packet *) vector_get_data(packets, i);
+        p = (struct packet *) vector_get(packets, i);
         n = write_data(buf + bufidx, BUFSIZE - bufidx, p);
         if (!n) { /* write buf to file */
             fwrite(buf, sizeof(unsigned char), bufidx, fp);
@@ -217,12 +217,14 @@ enum file_error errno_file_error(int err)
         return ACCESS_ERROR;
     case ENOENT:
         return NOT_FOUND_ERROR;
+    case EEXIST:
+        return FILE_EXIST_ERROR;
     default:
         return FOPEN_ERROR;
     }
 }
 
-char *get_file_error(enum file_error err)
+char *file_error(enum file_error err)
 {
     switch (err) {
     case FORMAT_ERROR:
@@ -239,6 +241,8 @@ char *get_file_error(enum file_error err)
         return "File does not exist.";
     case FOPEN_ERROR:
         return "Error opening file.";
+    case FILE_EXIST_ERROR:
+        return "File already exists.";
     default:
         return "";
     }
@@ -259,10 +263,10 @@ inline uint16_t get_minor_version(pcap_hdr_t *header)
     return swap_bytes ? ntohs(header->version_minor) : header->version_minor;
 }
 
-void write_ascii(FILE *fp, vector_t *packets, progress_update fn)
+void file_write_ascii(FILE *fp, vector_t *packets, progress_update fn)
 {
     for (int i = 0; i < vector_size(packets); i++) {
-        struct packet *p = vector_get_data(packets, i);
+        struct packet *p = vector_get(packets, i);
         unsigned char *payload = get_adu_payload(p);
         uint16_t len = get_adu_payload_len(p);
 
@@ -277,10 +281,10 @@ void write_ascii(FILE *fp, vector_t *packets, progress_update fn)
     }
 }
 
-void write_raw(FILE *fp, vector_t *packets, progress_update fn)
+void file_write_raw(FILE *fp, vector_t *packets, progress_update fn)
 {
     for (int i = 0; i < vector_size(packets); i++) {
-        struct packet *p = vector_get_data(packets, i);
+        struct packet *p = vector_get(packets, i);
         unsigned char *payload = get_adu_payload(p);
         uint16_t len = get_adu_payload_len(p);
 

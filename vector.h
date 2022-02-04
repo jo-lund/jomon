@@ -17,7 +17,7 @@ void vector_pop_back(vector_t *vector, vector_deallocate func);
 void *vector_back(vector_t *vector);
 
 /* Get the ith element. Return null if no element */
-void *vector_get_data(vector_t *vector, int i);
+void *vector_get(vector_t *vector, int i);
 
 /* Get the number of elements stored in the vector */
 int vector_size(vector_t *vector);

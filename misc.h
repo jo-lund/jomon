@@ -42,7 +42,7 @@ typedef struct {
     struct options {
         bool show_statistics;
         bool nogeoip;
-        bool use_ncurses;
+        bool text_mode;
         bool nopromiscuous;
         bool verbose;
         bool load_file;

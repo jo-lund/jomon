@@ -546,7 +546,7 @@ struct bpf_prog bpf_assemble(char *file)
     if (vector_size(bytecode) == 0)
         goto done;
 
-    struct bpf_insn *insn = vector_get_data(bytecode, vector_size(bytecode) - 1);
+    struct bpf_insn *insn = vector_get(bytecode, vector_size(bytecode) - 1);
 
     if (BPF_CLASS(insn->code) != BPF_RET) {
         error("Not a valid program");
@@ -556,7 +556,7 @@ struct bpf_prog bpf_assemble(char *file)
     struct bpf_insn *bc = malloc(sz * sizeof(struct bpf_insn));
 
     for (int i = 0; i < sz; i++)
-        bc[i] = * (struct bpf_insn *) vector_get_data(bytecode, i);
+        bc[i] = * (struct bpf_insn *) vector_get(bytecode, i);
     prog.bytecode = bc;
     prog.size = (uint16_t) sz;
 

@@ -5,26 +5,26 @@
 #include <menu.h>
 #include <sys/stat.h>
 #include "layout.h"
-#include "protocols.h"
-#include "../list.h"
-#include "../error.h"
-#include "../monitor.h"
-#include "../vector.h"
-#include "../decoder/decoder.h"
-#include "../stack.h"
-#include "../file.h"
-#include "layout_int.h"
-#include "../signal.h"
+#include "ui/print_protocol.h"
+#include "list.h"
+#include "error.h"
+#include "monitor.h"
+#include "vector.h"
+#include "decoder/decoder.h"
+#include "stack.h"
+#include "file.h"
+#include "layout.h"
+#include "signal.h"
 #include "dialogue.h"
 #include "hexdump.h"
 #include "menu.h"
-#include "../hashmap.h"
-#include "../decoder/tcp_analyzer.h"
-#include "../attributes.h"
+#include "hashmap.h"
+#include "decoder/tcp_analyzer.h"
+#include "attributes.h"
 #include "conversation_screen.h"
 #include "main_screen_int.h"
 #include "dialogue.h"
-#include "../process.h"
+#include "process.h"
 
 #define TCP_PAGE_SIZE 1000
 
@@ -276,7 +276,7 @@ static void conversation_screen_render(conversation_screen *cs)
     s->selectionbar = 0;
     s->top = 0;
     for (int i = 0; i < my && i < vector_size(cs->base.packet_ref); i++) {
-        write_to_buf(buf, MAXLINE, vector_get_data(cs->base.packet_ref, i));
+        write_to_buf(buf, MAXLINE, vector_get(cs->base.packet_ref, i));
         printnlw(s->win, buf, strlen(buf), i, 0, cs->base.scrollx);
     }
     cs->base.outy = vector_size(cs->base.packet_ref) > my ? my :
@@ -358,7 +358,7 @@ static void save_handle_ok(void *file)
     enum file_error err;
     FILE *fp;
 
-    if ((fp = open_file((const char *) file, "w", &err)) == NULL) {
+    if ((fp = file_open((const char *) file, "w", &err)) == NULL) {
         create_file_error_dialogue(err, create_save_dialogue);
     } else {
         char title[MAXLINE];
@@ -370,13 +370,13 @@ static void save_handle_ok(void *file)
         push_screen((screen *) pd);
         switch (tcp_mode) {
         case NORMAL:
-            write_pcap(fp, cs->base.packet_ref, show_progress);
+            file_write_pcap(fp, cs->base.packet_ref, show_progress);
             break;
         case ASCII:
-            write_ascii(fp, cs->base.packet_ref, show_progress);
+            file_write_ascii(fp, cs->base.packet_ref, show_progress);
             break;
         case RAW:
-            write_raw(fp, cs->base.packet_ref, show_progress);
+            file_write_raw(fp, cs->base.packet_ref, show_progress);
             break;
         default:
             break;
@@ -451,7 +451,7 @@ static void buffer_tcppage(conversation_screen *cs, int (*buffer_fn)
     push_screen((screen *) pd);
     mx = getmaxx(((screen *) cs)->win) - 1;
     for (int i = 0; i < vector_size(cs->base.packet_ref); i++) {
-        struct packet *p = vector_get_data(cs->base.packet_ref, i);
+        struct packet *p = vector_get(cs->base.packet_ref, i);
         unsigned char *payload = get_adu_payload(p);
         uint16_t len;
         int n;
@@ -544,7 +544,7 @@ static void print_tcppage(conversation_screen *cs)
     werase(s->win);
     my = getmaxy(s->win);
     while (i < my + tcp_page.top && i < vector_size(tcp_page.buf)) {
-        attr = vector_get_data(tcp_page.buf, i);
+        attr = vector_get(tcp_page.buf, i);
         wattron(s->win, attr->col);
         waddstr(s->win, attr->line);
         wattroff(s->win, attr->col);
@@ -587,7 +587,7 @@ void print_header(conversation_screen *cs)
 
     werase(cs->base.header);
     for (int i = 0; i < vector_size(cs->base.packet_ref); i++) {
-        struct packet *p = vector_get_data(cs->base.packet_ref, i);
+        struct packet *p = vector_get(cs->base.packet_ref, i);
         uint16_t len = get_adu_payload_len(p);
 
         if (i == 0) {
