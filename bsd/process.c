@@ -170,3 +170,8 @@ char *process_get_name(struct tcp_connection_v4 *conn)
         return pinfo->name;
     return NULL;
 }
+
+hashmap_t *process_get_processes(void)
+{
+    return NULL;
+}
