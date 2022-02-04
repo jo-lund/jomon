@@ -33,6 +33,7 @@ static void create_screens(void);
 static void create_menu(void);
 static void change_theme(int i);
 static void options(int i);
+static int screen_cache_type(screen *s);
 
 static int themes[NUM_THEMES][NUM_ELEMENTS] = {
     [DEFAULT] = {
@@ -187,9 +188,17 @@ static void ncurses_event(int event)
                                  vector_back(packets));
         break;
     case UI_ALARM:
-        s = screen_cache_get(STAT_SCREEN);
-        if (s && s->focus)
+        s = stack_top(screen_stack);
+        switch (screen_cache_type(s)) {
+        case STAT_SCREEN:
             stat_screen_print(s);
+            break;
+        case CONNECTION_SCREEN:
+            SCREEN_REFRESH(s);
+            break;
+        default:
+            break;
+        }
         break;
     case UI_RESIZE:
         layout_resize();
@@ -254,6 +263,15 @@ void screen_cache_clear(void)
             screen_cache[i] = NULL;
         }
     }
+}
+
+static int screen_cache_type(screen *s)
+{
+    for (int i = 0; i < NUM_SCREENS; i++) {
+        if (s == screen_cache[i])
+            return i;
+    }
+    return -1;
 }
 
 static void print_file(void)

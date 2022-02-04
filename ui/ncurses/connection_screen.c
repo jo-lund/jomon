@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
+#include <unistd.h>
 #include "connection_screen.h"
 #include "help_screen.h"
 #include "menu.h"
@@ -58,7 +59,8 @@ static enum page conn_mode;
 static void connection_screen_init(screen *s);
 static void connection_screen_refresh(screen *s);
 static void connection_screen_get_input(screen *s);
-static void connection_screen_got_focus(screen *s UNUSED, screen *oldscr UNUSED);
+static void connection_screen_got_focus(screen *s, screen *oldscr UNUSED);
+static void connection_screen_lost_focus();
 static unsigned int connection_screen_get_size(screen *s);
 static void connection_screen_on_back(screen *s);
 static void connection_screen_render(connection_screen *cs);
@@ -72,6 +74,7 @@ static screen_operations csop = {
     .screen_refresh = connection_screen_refresh,
     .screen_get_input = connection_screen_get_input,
     .screen_got_focus = connection_screen_got_focus,
+    .screen_lost_focus = connection_screen_lost_focus,
     .screen_get_data_size = connection_screen_get_size,
     .screen_on_back = connection_screen_on_back
 };
@@ -92,10 +95,10 @@ static screen_header header[] = {
 };
 
 static screen_header proc_header[] = {
-    { "Local Process", 40 },
+    { "Local Process", 35 },
     { "Pid", 10 },
     { "User", 20 },
-    { "Connections", 14 },
+    { "Connections", 13 },
     { "Bytes Sent", 12 },
     { "Bytes Received", 12 }
 };
@@ -283,6 +286,12 @@ void connection_screen_got_focus(screen *s, screen *oldscr UNUSED)
         tcp_analyzer_subscribe(update_connection);
         active = true;
     }
+    alarm(1);
+}
+
+void connection_screen_lost_focus()
+{
+    alarm(0);
 }
 
 void connection_screen_on_back(screen *s)
@@ -350,32 +359,20 @@ void update_connection(struct tcp_connection_v4 *conn, bool new_connection)
 {
     connection_screen *cs = (connection_screen *) screen_cache_get(CONNECTION_SCREEN);
 
-    if (conn_mode != CONNECTION_PAGE)
+    if (!new_connection)
         return;
-    if (new_connection) {
+    if (conn_mode == PROCESS_PAGE) {
+        if (cs->base.focus) {
+            update_screen_buf((screen *) cs);
+            actionbar_refresh(actionbar, (screen *) cs);
+        }
+    } else {
         vector_push_back(cs->screen_buf, conn);
         if (cs->base.focus) {
             werase(cs->header);
             print_conn_header(cs);
             actionbar_refresh(actionbar, (screen *) cs);
         }
-    } else if (cs->base.focus) {
-        int y = 0;
-
-        while (y < cs->base.lines && cs->base.top + y < vector_size(cs->screen_buf)) {
-            if (vector_get(cs->screen_buf, cs->base.top + y) == conn) {
-                wmove(cs->base.win, y, 0);
-                wclrtoeol(cs->base.win);
-                print_connection(cs, conn, y);
-                if (cs->base.show_selectionbar && y == cs->base.selectionbar)
-                    mvwchgat(cs->base.win, cs->base.selectionbar - cs->base.top, 0, -1, A_NORMAL,
-                             PAIR_NUMBER(get_theme_colour(SELECTIONBAR)), NULL);
-                wrefresh(cs->base.win);
-                break;
-            }
-            y++;
-        }
-        actionbar_refresh(actionbar, (screen *) cs);
     }
 }
 
