@@ -3,7 +3,7 @@
 #include <ctype.h>
 #include <inttypes.h>
 #include "stat_screen.h"
-#include "layout_int.h"
+#include "layout.h"
 #include "../interface.h"
 #include "../decoder/decoder.h"
 #include "menu.h"

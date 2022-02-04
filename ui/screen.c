@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include "screen.h"
-#include "layout_int.h"
+#include "layout.h"
 #include "menu.h"
 #include "../misc.h"
 

@@ -23,4 +23,10 @@
 #define FALLTHROUGH
 #endif
 
+#if __has_attribute(constructor)
+#define CONSTRUCTOR __attribute__((constructor))
+#else
+#define CONSTRUCTOR
+#endif
+
 #endif

@@ -2,7 +2,7 @@
 #include <string.h>
 #include <limits.h>
 #include "hexdump.h"
-#include "layout_int.h"
+#include "layout.h"
 #include "../decoder/decoder.h"
 #include "../list.h"
 #include "../monitor.h"

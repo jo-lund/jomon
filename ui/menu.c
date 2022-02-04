@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "menu.h"
-#include "layout_int.h"
+#include "layout.h"
 #include "main_screen.h"
 #include "../monitor.h"
 

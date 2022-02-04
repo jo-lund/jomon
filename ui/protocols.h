@@ -8,6 +8,8 @@
 #define NUM_WIDTH 10
 #define TIME_WIDTH 20
 
+struct packet;
+
 /* write packet to buffer */
 void write_to_buf(char *buf, int size, struct packet *p);
 

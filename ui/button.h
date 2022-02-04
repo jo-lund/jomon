@@ -1,7 +1,7 @@
 #ifndef BUTTON_H
 #define BUTTON_H
 
-#include "layout_int.h"
+#include "layout.h"
 
 struct screen;
 

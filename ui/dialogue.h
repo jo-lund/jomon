@@ -1,12 +1,12 @@
 #ifndef DIALOGUE_H
 #define DIALOGUE_H
 
-#include "layout_int.h"
+#include "layout.h"
 #include "button.h"
+#include "screen.h"
 #include "../misc.h"
 #include "../vector.h"
 #include "../file.h"
-#include "screen.h"
 
 #define DIALOGUE_SET_TITLE(o, d, t) ((o)->dialogue_set_title(d, t))
 #define DIALOGUE_RENDER(o) ((o)->dialogue_render(o))

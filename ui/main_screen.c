@@ -13,7 +13,6 @@
 #include "../decoder/decoder.h"
 #include "../stack.h"
 #include "../file.h"
-#include "layout_int.h"
 #include "../signal.h"
 #include "dialogue.h"
 #include "main_screen.h"
@@ -507,7 +506,9 @@ void main_screen_load_handle_ok(void *file)
             set_filepath();
             pop_screen();
             SCREEN_FREE((screen *) pd);
-            print_file();
+            ms->base.top = 0;
+            ms->base.show_selectionbar = true;
+            main_screen_refresh((screen *) ms);
         } else {
             pop_screen();
             SCREEN_FREE((screen *) pd);

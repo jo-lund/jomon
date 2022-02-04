@@ -13,7 +13,7 @@
 #include "../decoder/decoder.h"
 #include "../stack.h"
 #include "../file.h"
-#include "layout_int.h"
+#include "layout.h"
 #include "../signal.h"
 #include "dialogue.h"
 #include "hexdump.h"

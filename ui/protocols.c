@@ -11,7 +11,6 @@
 #include <stdlib.h>
 #include <time.h>
 #include "layout.h"
-#include "layout_int.h"
 #include "protocols.h"
 #include "../misc.h"
 #include "hexdump.h"

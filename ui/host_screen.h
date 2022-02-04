@@ -1,9 +1,9 @@
 #ifndef HOST_SCREEN_H
 #define HOST_SCREEN_H
 
-#include "layout_int.h"
-#include "../vector.h"
+#include "layout.h"
 #include "screen.h"
+#include "../vector.h"
 
 typedef struct {
     screen base;
