@@ -325,10 +325,9 @@ void connection_screen_get_input(screen *s)
         connection_screen_refresh(s);
         break;
     default:
-        if (conn_mode == CONNECTION_PAGE) {
-            ungetch(c);
-            screen_get_input(s);
-        }
+        s->have_selectionbar = (conn_mode == CONNECTION_PAGE);
+        ungetch(c);
+        screen_get_input(s);
         break;
     }
 }
