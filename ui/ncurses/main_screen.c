@@ -896,6 +896,8 @@ void filter_packets(main_screen *ms)
         if (bpf_run_filter(bpf, p->buf, p->len) != 0)
             vector_push_back(ms->packet_ref, p);
     }
+    if (ms->subwindow.win)
+        delete_subwindow(ms, false);
     input_mode = INPUT_NONE;
     werase(status);
     actionbar_refresh(actionbar, (screen *) ms);
