@@ -2,7 +2,7 @@
 #include "screen.h"
 #include "layout.h"
 #include "menu.h"
-#include "../misc.h"
+#include "misc.h"
 
 extern main_menu *menu;
 

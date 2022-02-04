@@ -1,6 +1,6 @@
 #include "help_screen.h"
 #include "screen.h"
-#include "../monitor.h"
+#include "monitor.h"
 #include "actionbar.h"
 
 static void help_screen_got_focus(screen *s UNUSED, screen *old UNUSED)

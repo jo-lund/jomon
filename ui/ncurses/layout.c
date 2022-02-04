@@ -1,22 +1,21 @@
 #include <string.h>
 #include <assert.h>
 #include "layout.h"
-#include "protocols.h"
 #include "main_screen.h"
 #include "stat_screen.h"
 #include "help_screen.h"
 #include "connection_screen.h"
 #include "dialogue.h"
-#include "../vector.h"
-#include "../stack.h"
 #include "menu.h"
 #include "host_screen.h"
 #include "screen.h"
 #include "conversation_screen.h"
-#include "../monitor.h"
-#include "../terminal.h"
 #include "actionbar.h"
-#include "ui.h"
+#include "ui/ui.h"
+#include "vector.h"
+#include "stack.h"
+#include "monitor.h"
+#include "terminal.h"
 
 #define NUM_COLOURS 8
 #define COLOUR_IDX(f, b) ((b == -1) ? (f) + 1 : (b) + 1 + ((f) + 1) * NUM_COLOURS)

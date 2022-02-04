@@ -3,7 +3,7 @@
 
 #include "layout.h"
 #include "screen.h"
-#include "../vector.h"
+#include "vector.h"
 
 typedef struct {
     screen base;

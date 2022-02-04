@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <ncurses.h>
-#include "../list.h"
+#include "list.h"
 
 /*
  * Convenience macros that will call the functions defined in list_view.

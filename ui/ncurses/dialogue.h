@@ -4,9 +4,9 @@
 #include "layout.h"
 #include "button.h"
 #include "screen.h"
-#include "../misc.h"
-#include "../vector.h"
-#include "../file.h"
+#include "misc.h"
+#include "vector.h"
+#include "file.h"
 
 #define DIALOGUE_SET_TITLE(o, d, t) ((o)->dialogue_set_title(d, t))
 #define DIALOGUE_RENDER(o) ((o)->dialogue_render(o))

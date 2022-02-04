@@ -4,13 +4,13 @@
 #include <inttypes.h>
 #include "stat_screen.h"
 #include "layout.h"
-#include "../interface.h"
-#include "../decoder/decoder.h"
+#include "interface.h"
+#include "decoder/decoder.h"
 #include "menu.h"
 #include "screen.h"
 #include "actionbar.h"
-#include "../monitor.h"
-#include "../system_information.h"
+#include "monitor.h"
+#include "system_information.h"
 
 #define KIB 1024
 #define MIB (KIB * KIB)

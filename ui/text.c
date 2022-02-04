@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include "ui.h"
-#include "protocols.h" // TODO: Fix this
-#include "../monitor.h"
-#include "../vector.h"
-#include "../decoder/packet.h"
+#include "print_protocol.h"
+#include "monitor.h"
+#include "vector.h"
+#include "decoder/packet.h"
 
 extern vector_t *packets;
 
