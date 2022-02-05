@@ -331,6 +331,7 @@ void connection_screen_get_input(screen *s)
             s->show_selectionbar = false;
         conn_mode = (conn_mode + 1) % num_pages;
         update_screen_buf(s);
+        s->top = 0;
         connection_screen_refresh(s);
         break;
     default:
