@@ -9,16 +9,14 @@
 #include <errno.h>
 #include <stdio.h>
 #include <pwd.h>
-#include "../process.h"
-#include "../misc.h"
-#include "../util.h"
-#include "../hash.h"
-#include "../decoder/tcp_analyzer.h"
-#include "../list.h"
+#include "process.h"
+#include "misc.h"
+#include "hash.h"
+#include "decoder/tcp_analyzer.h"
+#include "list.h"
 
-#include "../monitor.h"
-
-/* General algorithm to get the process related to the specific connection:
+/*
+ * General algorithm to get the process related to the specific connection:
  *
  * 1. Traverse /proc/pid
  * 2. For each pid traverse /proc/pid/fd/
@@ -53,7 +51,6 @@ static hashmap_t *inode_cache; /* processes keyed on inode */
 static hashmap_t *proc_cache; /* processes keyed on pid */
 static hashmap_t *tcp_cache;
 static hashmap_t *proc_conn; /* processes with open connections */
-
 static int nl_sockfd;
 
 static void load_cache(void);
