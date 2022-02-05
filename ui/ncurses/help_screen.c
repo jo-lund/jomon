@@ -13,7 +13,7 @@ static void help_screen_lost_focus(screen *s UNUSED, screen *old UNUSED)
     actionbar->visible = true;
 }
 
-static void help_screen_get_input(screen *s UNUSED)
+static void help_screen_get_input(screen *s)
 {
     wgetch(s->win); /* remove character from input queue */
     pop_screen();
