@@ -9,12 +9,13 @@
 #include <netinet/in_pcb.h>
 #include <netinet/tcp_var.h>
 #include <arpa/inet.h>
-#include "../process.h"
-#include "../attributes.h"
-#include "../hashmap.h"
-#include "../decoder/tcp_analyzer.h"
-#include "../monitor.h"
-#include "../hash.h"
+#include <pwd.h>
+#include "process.h"
+#include "attributes.h"
+#include "hashmap.h"
+#include "decoder/tcp_analyzer.h"
+#include "monitor.h"
+#include "hash.h"
 
 #define SIZE 512
 
@@ -29,6 +30,7 @@ struct tcp_elem {
 static hashmap_t *data_cache; /* processes keyed on file descriptor specific data */
 static hashmap_t *tcp_cache;
 static hashmap_t *string_table;
+static hashmap_t *proc_conn; /* processes with open connections */
 
 static char *get_name(int pid)
 {
@@ -97,12 +99,22 @@ static void get_tcp(void)
 static void update_cache(struct tcp_connection_v4 *conn, bool new_conn)
 {
     if (new_conn) {
+        struct tcp_elem *tcp;
+        struct process *p;
+
         if (conn->endp->src != ctx.local_addr->sin_addr.s_addr &&
             conn->endp->dst != ctx.local_addr->sin_addr.s_addr)
             return;
         process_load_cache();
         if (!hashmap_contains(tcp_cache, conn->endp))
             get_tcp();
+        if ((tcp = hashmap_get(tcp_cache, conn->endp)) == NULL)
+            return;
+        if ((p = hashmap_get(data_cache, UINT_TO_PTR(tcp->sock)))) {
+            if (!p->conn)
+                p->conn = list_init(NULL);
+            list_push_back(p->conn, conn);
+        }
     }
 }
 
@@ -111,6 +123,7 @@ void process_init(void)
     data_cache = hashmap_init(SIZE, hashfnv_uint64, compare_uint);
     tcp_cache = hashmap_init(SIZE, hash_tcp_v4, compare_tcp_v4);
     string_table = hashmap_init(64, hashfnv_string, compare_string);
+    proc_conn = hashmap_init(16, NULL, NULL);
     hashmap_set_free_data(data_cache, free);
     hashmap_set_free_key(tcp_cache, free);
     hashmap_set_free_key(string_table, free);
@@ -122,6 +135,7 @@ void process_free(void)
     hashmap_free(data_cache);
     hashmap_free(tcp_cache);
     hashmap_free(string_table);
+    hashmap_free(proc_conn);
     tcp_analyzer_unsubscribe(update_cache);
 }
 
@@ -146,9 +160,19 @@ void process_load_cache(void)
     for (i = 0, p = xf; i < nfiles; i++, p++) {
         if (p->xf_type == DTYPE_SOCKET &&
             !hashmap_contains(data_cache, UINT_TO_PTR(p->xf_data))) {
+            struct passwd *pw;
+            char *user;
+
             pinfo = malloc(sizeof(*pinfo));
             pinfo->pid = p->xf_pid;
             pinfo->name = get_name(pinfo->pid);
+            if ((pw = getpwuid(p->xf_uid))) {
+                if ((user = hashmap_get_key(string_table, pw->pw_name)) == NULL) {
+                    user = strdup(pw->pw_name);
+                    hashmap_insert(string_table, user, NULL);
+                }
+                pinfo->user = user;
+            }
             hashmap_insert(data_cache, UINT_TO_PTR(p->xf_data), pinfo);
         }
     }
@@ -173,5 +197,13 @@ char *process_get_name(struct tcp_connection_v4 *conn)
 
 hashmap_t *process_get_processes(void)
 {
-    return NULL;
+    struct process *p;
+    const hashmap_iterator *it;
+
+    hashmap_clear(proc_conn);
+    HASHMAP_FOREACH(tcp_cache, it) {
+        if ((p = hashmap_get(data_cache, UINT_TO_PTR(((struct tcp_elem *) it->data)->sock))) && p->conn)
+            hashmap_insert(proc_conn, INT_TO_PTR(p->pid), p);
+    }
+    return proc_conn;
 }
