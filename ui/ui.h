@@ -5,7 +5,6 @@
 
 struct ui {
     char *name;
-    bool active;
     void (*init)(void);
     void (*fini)(void);
     void (*draw)(void);

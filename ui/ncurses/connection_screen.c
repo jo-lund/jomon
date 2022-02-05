@@ -395,7 +395,7 @@ void print_conn_header(connection_screen *cs)
     wprintw(cs->header,  ": %d", vector_size(cs->screen_buf));
     y += 4;
     for (unsigned int i = 0; i < size; i++, p++) {
-        mvwprintw(cs->header, y, x, p->txt);
+        mvwprintw(cs->header, y, x, "%s", p->txt);
         x += p->width;
     }
     mvwchgat(cs->header, y, 0, -1, A_NORMAL, PAIR_NUMBER(get_theme_colour(HEADER)), NULL);

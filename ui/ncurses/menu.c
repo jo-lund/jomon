@@ -162,15 +162,15 @@ void print_menu(list_t *items)
             case MENU_SINGLE_SELECT:
             case MENU_MULTI_SELECT:
                 if (om->opts[i].selected) {
-                    mvwprintw(om->content, y++, 1, selected_txt);
+                    mvwprintw(om->content, y++, 1, "%s", selected_txt);
                 } else {
-                    mvwprintw(om->content, y++, 1, unselected_txt);
+                    mvwprintw(om->content, y++, 1, "%s", unselected_txt);
                 }
-                wprintw(om->content, om->opts[i].txt);
+                wprintw(om->content, "%s", om->opts[i].txt);
                 break;
             case MENU_NORMAL:
             default:
-                mvwprintw(om->content, y++, 1, om->opts[i].txt);
+                mvwprintw(om->content, y++, 1, "%s", om->opts[i].txt);
                 break;
             }
         }
