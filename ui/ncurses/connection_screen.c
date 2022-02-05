@@ -217,8 +217,6 @@ static void print_connection(connection_screen *cs, struct tcp_connection_v4 *co
     format_bytes(entry[BYTES_BA].val, entry[BYTES_BA].buf, MAX_WIDTH);
     if (!ctx.opt.load_file)
         entry[PROCESS].str = process_get_name(conn);
-    if (conn->state == CLOSED || conn->state == RESET)
-        attrs = get_theme_colour(DISABLE);
     for (unsigned int i = 0; i < header_size; i++) {
         if (i % 2 == 0) {
             printat(cs->base.win, y, x, attrs, "%s", entry[i].buf);
