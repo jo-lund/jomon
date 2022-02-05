@@ -48,6 +48,8 @@ static void help_screen_render(void)
     wprintw(win, ": Show help");
     printat(win, ++y, 0, subcol, "%12s", "F2");
     wprintw(win, ": Show menu");
+    printat(win, ++y, 0, subcol, "%12s", "Esc x F3");
+    wprintw(win, ": Go back");
     printat(win, ++y, 0, subcol, "%12s", "F10 q");
     wprintw(win, ": Quit");
     y += 2;
@@ -57,7 +59,7 @@ static void help_screen_render(void)
     printat(win, ++y, 0, subcol, "%12s", "F4");
     wprintw(win, ": Stop packet scan");
     printat(win, ++y, 0, subcol, "%12s", "F5");
-    wprintw(win, ": Save file in pcap format");
+    wprintw(win, ": Save file in pcap format (or ascii and raw format for TCP stream)");
     printat(win, ++y, 0, subcol, "%12s", "F6");
     wprintw(win, ": Load file in pcap format");
     printat(win, ++y, 0, subcol, "%12s", "F7");
@@ -91,7 +93,7 @@ static void help_screen_render(void)
     printat(win, ++y, 0, subcol, "%12s", "e");
     wprintw(win, ": Switch between bytes and output in human readable format");
     printat(win, ++y, 0, subcol, "%12s", "E");
-    wprintw(win, ": Change network rate");
+    wprintw(win, ": Change network data rate unit");
     printat(win, ++y, 0, subcol, "%12s", "p");
     wprintw(win, ": Show network or CPU & memory statistics");
     printat(win, ++y, 0, subcol, "%12s", "v");
