@@ -15,6 +15,7 @@ static void help_screen_lost_focus(screen *s UNUSED, screen *old UNUSED)
 
 static void help_screen_get_input(screen *s UNUSED)
 {
+    wgetch(s->win); /* remove character from input queue */
     pop_screen();
 }
 
