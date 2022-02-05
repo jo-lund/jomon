@@ -633,7 +633,7 @@ void print_header(conversation_screen *cs)
         printat(cs->base.header, 2, 0, txtcol, "Mode");
         wprintw(cs->base.header, ": Normal");
         for (unsigned int i = 0; i < ARRAY_SIZE(main_header); i++) {
-            mvwprintw(cs->base.header, 4, x, main_header[i].txt);
+            mvwprintw(cs->base.header, 4, x, "%s", main_header[i].txt);
             x += main_header[i].width;
         }
         break;

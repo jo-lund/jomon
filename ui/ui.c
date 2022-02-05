@@ -46,7 +46,7 @@ void ui_event(int event)
 void ui_set_active(const char *name)
 {
     for (int i = 0; i < NCOMPONENTS; i++) {
-        if (strcmp(name, uis[i]->name) == 0) {
+        if (uis[i] && strcmp(name, uis[i]->name) == 0) {
             active = uis[i];
             break;
         }

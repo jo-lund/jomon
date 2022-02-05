@@ -650,7 +650,7 @@ void print_header(main_screen *ms)
     wprintw(ms->header, ": %s", mac);
     y += 2;
     for (unsigned int i = 0; i < ARRAY_SIZE(main_header); i++) {
-        mvwprintw(ms->header, y, x, main_header[i].txt);
+        mvwprintw(ms->header, y, x, "%s", main_header[i].txt);
         x += main_header[i].width;
     }
     mvwchgat(ms->header, HEADER_HEIGHT - 1, 0, -1, A_NORMAL,
@@ -663,7 +663,7 @@ void handle_input_mode(main_screen *ms, const char *str)
     case INPUT_FILTER:
     case INPUT_GOTO:
         werase(status);
-        mvwprintw(status, 0, 0, str);
+        mvwprintw(status, 0, 0, "%s", str);
         curs_set(1);
         wrefresh(status);
         break;
