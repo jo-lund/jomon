@@ -7,6 +7,7 @@
 static struct ui *uis[NCOMPONENTS];
 static unsigned int uidx = 0;
 static struct ui *active = NULL;
+static bool initialized = false;
 
 void ui_register(struct ui *ui, bool is_default)
 {
@@ -21,25 +22,29 @@ void ui_register(struct ui *ui, bool is_default)
 
 void ui_init(void)
 {
-    if (active && active->init)
+    if (active && active->init) {
         active->init();
+        initialized = true;
+    }
 }
 
 void ui_fini(void)
 {
-    if (active && active->fini)
+    if (initialized && active && active->fini) {
         active->fini();
+        initialized = false;
+    }
 }
 
 void ui_draw(void)
 {
-    if (active && active->draw)
+    if (initialized && active && active->draw)
         active->draw();
 }
 
 void ui_event(int event)
 {
-    if (active && active->event)
+    if (initialized && active && active->event)
         active->event(event);
 }
 
