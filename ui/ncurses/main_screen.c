@@ -384,7 +384,7 @@ void main_screen_get_input(screen *s)
 
         if (!ctx.capturing && euid == 0) {
             main_screen_clear(ms);
-            ctx.capturing = true;
+            start_scan();
             print_header(ms);
             wnoutrefresh(s->win);
             wnoutrefresh(ms->header);
@@ -393,17 +393,14 @@ void main_screen_get_input(screen *s)
             actionbar_update(s, "F5", NULL, true);
             actionbar_update(s, "F6", NULL, true);
             doupdate();
-            start_scan();
         }
         break;
     }
     case KEY_F(4):
         if (ctx.capturing) {
-            if (!s->show_selectionbar) {
+            if (!s->show_selectionbar)
                 main_screen_set_interactive(ms, true);
-            }
             stop_scan();
-            ctx.capturing = false;
             actionbar_update(s, "F3", NULL, false);
             actionbar_update(s, "F4", NULL, true);
             actionbar_update(s, "F5", NULL, !vector_size(ms->packet_ref));
@@ -507,6 +504,7 @@ void main_screen_load_handle_ok(void *file)
             SCREEN_FREE((screen *) pd);
             ms->base.top = 0;
             ms->base.show_selectionbar = true;
+            ctx.opt.load_file = true;
             main_screen_refresh((screen *) ms);
         } else {
             pop_screen();
@@ -624,7 +622,7 @@ void print_header(main_screen *ms)
 
     werase(ms->header);
 
-    if (ctx.filename[0]) {
+    if (ctx.filename[0] && ctx.opt.load_file) {
         strncpy(file, ctx.filename, MAXPATH - 1);
         printat(ms->header, y, 0, txtcol, "Filename");
         wprintw(ms->header, ": %s", get_file_part(file));

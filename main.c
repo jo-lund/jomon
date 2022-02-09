@@ -336,6 +336,7 @@ void stop_scan(void)
 {
     iface_close(handle);
     fd_changed = true;
+    ctx.capturing = false;
 }
 
 void start_scan(void)
@@ -349,6 +350,8 @@ void start_scan(void)
     free_packets(NULL);
     iface_activate(handle, ctx.device, &bpf);
     fd_changed = true;
+    ctx.capturing = true;
+    ctx.opt.load_file = false;
 }
 
 bool handle_packet(iface_handle_t *handle, unsigned char *buffer, uint32_t n,

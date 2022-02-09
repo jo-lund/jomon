@@ -231,6 +231,18 @@ static void print_connection(connection_screen *cs, struct tcp_connection_v4 *co
     }
 }
 
+static void update_header(void)
+{
+    if (ctx.opt.load_file) {
+        header_size = ARRAY_SIZE(header) - 1;
+        num_pages = 1;
+        conn_mode = CONNECTION_PAGE;
+    } else {
+        header_size = ARRAY_SIZE(header);
+        num_pages = 2;
+    }
+}
+
 connection_screen *connection_screen_create(void)
 {
     connection_screen *cs;
@@ -258,13 +270,6 @@ void connection_screen_init(screen *s)
     scrollok(s->win, TRUE);
     nodelay(s->win, TRUE);
     keypad(s->win, TRUE);
-    if (ctx.opt.load_file) {
-        header_size = ARRAY_SIZE(header) - 1;
-        num_pages = 1;
-    } else {
-        header_size = ARRAY_SIZE(header);
-        num_pages = 2;
-    }
 }
 
 void connection_screen_free(screen *s)
@@ -280,6 +285,7 @@ void connection_screen_free(screen *s)
 void connection_screen_got_focus(screen *s, screen *oldscr UNUSED)
 {
     if (!active) {
+        update_header();
         update_screen_buf(s);
         tcp_analyzer_subscribe(update_connection);
         active = true;
@@ -329,7 +335,8 @@ void connection_screen_get_input(screen *s)
             s->show_selectionbar = false;
         conn_mode = (conn_mode + 1) % num_pages;
         update_screen_buf(s);
-        s->top = 0;
+        if (num_pages > 1)
+            s->top = 0;
         connection_screen_refresh(s);
         break;
     default:
