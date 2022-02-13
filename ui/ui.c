@@ -22,8 +22,9 @@ void ui_register(struct ui *ui, bool is_default)
 
 void ui_init(void)
 {
-    if (active && active->init) {
-        active->init();
+    if (active) {
+        if (active->init)
+            active->init();
         initialized = true;
     }
 }
