@@ -296,6 +296,7 @@ void connection_screen_free(screen *s)
 void connection_screen_got_focus(screen *s, screen *oldscr UNUSED)
 {
     if (!active) {
+        s->top = 0;
         update_header();
         update_screen_buf(s);
         tcp_analyzer_subscribe(update_connection);
