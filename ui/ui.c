@@ -23,7 +23,7 @@ void ui_register(struct ui *ui, bool is_default)
 void ui_init(void)
 {
     if (active) {
-        if (active->init)
+        if (!initialized && active->init)
             active->init();
         initialized = true;
     }
@@ -31,8 +31,9 @@ void ui_init(void)
 
 void ui_fini(void)
 {
-    if (initialized && active && active->fini) {
-        active->fini();
+    if (active) {
+        if (initialized && active->fini)
+            active->fini();
         initialized = false;
     }
 }
