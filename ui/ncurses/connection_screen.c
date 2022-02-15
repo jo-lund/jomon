@@ -52,9 +52,17 @@ struct cs_entry {
     };
 };
 
+enum filter_mode {
+    GREY_OUT_CLOSED,
+    REMOVE_CLOSED,
+    SHOW_ALL,
+    NUM_MODES
+};
+
 extern main_menu *menu;
 static bool active = false;
-static enum page conn_mode;
+static enum page view;
+static enum filter_mode mode;
 
 static void connection_screen_init(screen *s);
 static void connection_screen_refresh(screen *s);
@@ -109,7 +117,7 @@ static unsigned int num_pages;
 static void update_screen_buf(screen *s)
 {
     vector_clear(((connection_screen *) s)->screen_buf, NULL);
-    if (conn_mode == CONNECTION_PAGE) {
+    if (view == CONNECTION_PAGE) {
         hashmap_t *sessions = tcp_analyzer_get_sessions();
         const hashmap_iterator *it;
 
@@ -217,6 +225,8 @@ static void print_connection(connection_screen *cs, struct tcp_connection_v4 *co
     format_bytes(entry[BYTES_BA].val, entry[BYTES_BA].buf, MAX_WIDTH);
     if (!ctx.opt.load_file)
         entry[PROCESS].str = process_get_name(conn);
+    if (mode == GREY_OUT_CLOSED && (conn->state == CLOSED || conn->state == RESET))
+        attrs = get_theme_colour(DISABLE);
     for (unsigned int i = 0; i < header_size; i++) {
         if (i % 2 == 0) {
             printat(cs->base.win, y, x, attrs, "%s", entry[i].buf);
@@ -236,7 +246,7 @@ static void update_header(void)
     if (ctx.opt.load_file) {
         header_size = ARRAY_SIZE(header) - 1;
         num_pages = 1;
-        conn_mode = CONNECTION_PAGE;
+        view = CONNECTION_PAGE;
     } else {
         header_size = ARRAY_SIZE(header);
         num_pages = 2;
@@ -263,10 +273,11 @@ void connection_screen_init(screen *s)
     s->win = newwin(my - CONN_HEADER - actionbar_getmaxy(actionbar), mx, CONN_HEADER, 0);
     s->have_selectionbar = true;
     s->lines = getmaxy(stdscr) - CONN_HEADER - actionbar_getmaxy(actionbar);
-    conn_mode = CONNECTION_PAGE;
+    view = CONNECTION_PAGE;
     cs->header = newwin(CONN_HEADER, mx, 0, 0);
     cs->y = 0;
     cs->screen_buf = vector_init(1024);
+    mode = GREY_OUT_CLOSED;
     scrollok(s->win, TRUE);
     nodelay(s->win, TRUE);
     keypad(s->win, TRUE);
@@ -330,17 +341,21 @@ void connection_screen_get_input(screen *s)
         cvs->stream = vector_get(cs->screen_buf, s->selectionbar);
         screen_stack_move_to_top((screen *) cvs);
         break;
+    case 'f':
+        mode = (mode + 1) % NUM_MODES;
+        connection_screen_refresh(s);
+        break;
     case 'p':
-        if (conn_mode == CONNECTION_PAGE && s->show_selectionbar)
+        if (view == CONNECTION_PAGE && s->show_selectionbar)
             s->show_selectionbar = false;
-        conn_mode = (conn_mode + 1) % num_pages;
+        view = (view + 1) % num_pages;
         update_screen_buf(s);
         if (num_pages > 1)
             s->top = 0;
         connection_screen_refresh(s);
         break;
     default:
-        s->have_selectionbar = (conn_mode == CONNECTION_PAGE);
+        s->have_selectionbar = (view == CONNECTION_PAGE);
         ungetch(c);
         screen_get_input(s);
         break;
@@ -367,7 +382,7 @@ void update_connection(struct tcp_connection_v4 *conn, bool new_connection)
 
     if (!new_connection)
         return;
-    if (conn_mode == PROCESS_PAGE) {
+    if (view == PROCESS_PAGE) {
         if (cs->base.focus) {
             update_screen_buf((screen *) cs);
             actionbar_refresh(actionbar, (screen *) cs);
@@ -389,17 +404,33 @@ void print_conn_header(connection_screen *cs)
     screen_header *p;
     unsigned int size;
 
-    if (conn_mode == CONNECTION_PAGE) {
+    if (view == CONNECTION_PAGE) {
         p = header;
         size = header_size;
         printat(cs->header, y, 0, get_theme_colour(HEADER_TXT), "TCP connections");
+        wprintw(cs->header,  ": %d", vector_size(cs->screen_buf));
+        printat(cs->header, ++y, 0, get_theme_colour(HEADER_TXT), "View");
+        switch (mode) {
+        case GREY_OUT_CLOSED:
+            wprintw(cs->header,  ": Normal");
+            break;
+        case REMOVE_CLOSED:
+            wprintw(cs->header,  ": Active");
+            break;
+        case SHOW_ALL:
+            wprintw(cs->header,  ": All");
+            break;
+        default:
+            break;
+        }
+        y += 3;
     } else {
         p = proc_header;
         size = ARRAY_SIZE(proc_header);
         printat(cs->header, y, 0, get_theme_colour(HEADER_TXT), "Processes");
+        wprintw(cs->header,  ": %d", vector_size(cs->screen_buf));
+        y += 4;
     }
-    wprintw(cs->header,  ": %d", vector_size(cs->screen_buf));
-    y += 4;
     for (unsigned int i = 0; i < size; i++, p++) {
         mvwprintw(cs->header, y, x, "%s", p->txt);
         x += p->width;
@@ -413,10 +444,18 @@ void print_all_connections(connection_screen *cs)
     int i = cs->base.top;
 
     while (cs->y < cs->base.lines && i < vector_size(cs->screen_buf)) {
-        if (conn_mode == CONNECTION_PAGE)
-            print_connection(cs, vector_get(cs->screen_buf, i), cs->y);
-        else
+        if (view == CONNECTION_PAGE) {
+            struct tcp_connection_v4 *conn;
+
+            conn = vector_get(cs->screen_buf, i);
+            if (mode == REMOVE_CLOSED && (conn->state == CLOSED || conn->state == RESET)) {
+                i++;
+                continue;
+            }
+            print_connection(cs, conn, cs->y);
+        } else {
             print_process(cs, vector_get(cs->screen_buf, i), cs->y);
+        }
         cs->y++;
         i++;
     }
