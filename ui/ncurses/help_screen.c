@@ -130,5 +130,6 @@ screen *help_screen_create(void)
     s = screen_create(&op);
     getmaxyx(stdscr, my, mx);
     s->win = newwin(my, mx, 0, 0);
+    keypad(s->win, TRUE);
     return s;
 }
