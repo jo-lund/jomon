@@ -327,7 +327,7 @@ void main_screen_get_input(screen *s)
             } else {
                 delete_subwindow(ms, true);
                 add_elements(ms, p);
-                create_subwindow(ms, ms->lvw->size + 1, ms->main_line.line_number + s->top);
+                create_subwindow(ms, ms->lvw->size + 1, ms->main_line.line_number);
             }
             main_screen_refresh((screen *) ms);
         }
