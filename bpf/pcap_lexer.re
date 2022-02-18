@@ -1,13 +1,27 @@
 #include <string.h>
+#include <netinet/ip_icmp.h>
 #include "util.h"
 #include "pcap_lexer.h"
 #include "parse.h"
-#include "../mempool.h"
+#include "mempool.h"
 
 #define YYFILL(n) {}
 #define YYLIMIT input->lim
 #define YYMARKER input->mar
 #define TOKENLEN (input->cur - input->tok)
+
+#define TCPFLAGS 13
+#define TCP_FIN 0x1
+#define TCP_SYN 0x2
+#define TCP_RST 0x4
+#define TCP_PSH 0x8
+#define TCP_ACK 0x10
+#define TCP_URG 0x20
+#define TCP_ECE 0x40
+#define TCP_CWR 0x80
+
+#define ICMPTYPE 0
+#define ICMPCODE 0x1
 
 /*!re2c re2c:define:YYCTYPE = "unsigned char"; */
 
@@ -93,6 +107,34 @@ scan:
       "src" { return PCAP_SRC; }
       "dst" { return PCAP_DST; }
       "protochain" { return PCAP_PROTOCHAIN; }
+
+      /* offsets and field values */
+      "tcpflags" { parser->val.intval = TCPFLAGS; return PCAP_INT; }
+      "tcp-fin" { parser->val.intval = TCP_FIN; return PCAP_INT; }
+      "tcp-syn" { parser->val.intval = TCP_SYN; return PCAP_INT; }
+      "tcp-rst" { parser->val.intval = TCP_RST; return PCAP_INT; }
+      "tcp-psh" { parser->val.intval = TCP_PSH; return PCAP_INT; }
+      "tcp-ack" { parser->val.intval = TCP_ACK; return PCAP_INT; }
+      "tcp-urg" { parser->val.intval = TCP_URG; return PCAP_INT; }
+      "tcp-ece" { parser->val.intval = TCP_ECE; return PCAP_INT; }
+      "tcp-cwr" { parser->val.intval = TCP_CWR; return PCAP_INT; }
+      "icmptype" { parser->val.intval = ICMPTYPE; return PCAP_INT; }
+      "icmpcode" { parser->val.intval = ICMPCODE; return PCAP_INT; }
+      "icmp-echoreply" { parser->val.intval = ICMP_ECHOREPLY; return PCAP_INT; }
+      "icmp-unreach" { parser->val.intval = ICMP_UNREACH; return PCAP_INT; }
+      "icmp-sourcequench" { parser->val.intval = ICMP_SOURCEQUENCH; return PCAP_INT; }
+      "icmp-redirect" { parser->val.intval = ICMP_REDIRECT; return PCAP_INT; }
+      "icmp-echo"  { parser->val.intval = ICMP_ECHO; return PCAP_INT; }
+      "icmp-routeradvert"  { parser->val.intval = ICMP_ROUTERADVERT; return PCAP_INT; }
+      "icmp-routersolicit" { parser->val.intval = ICMP_ROUTERSOLICIT; return PCAP_INT; }
+      "icmp-timxceed" { parser->val.intval = ICMP_TIMXCEED; return PCAP_INT; }
+      "icmp-paramprob" { parser->val.intval = ICMP_PARAMPROB; return PCAP_INT; }
+      "icmp-tstamp" { parser->val.intval = ICMP_TSTAMP; return PCAP_INT; }
+      "icmp-tstampreply" { parser->val.intval = ICMP_TSTAMPREPLY; return PCAP_INT; }
+      "icmp-ireq" { parser->val.intval = ICMP_IREQ; return PCAP_INT; }
+      "icmp-ireqreply" { parser->val.intval = ICMP_IREQREPLY; return PCAP_INT; }
+      "icmp-maskreq" { parser->val.intval = ICMP_MASKREQ; return PCAP_INT; }
+      "icmp-maskreply" { parser->val.intval = ICMP_MASKREPLY; return PCAP_INT; }
 
       /* operators */
       "and" { return PCAP_LAND; }
