@@ -93,6 +93,7 @@ static int get_lbp(int token)
     case PCAP_ARP:
     case PCAP_RARP:
     case PCAP_ICMP:
+    case PCAP_ICMP6:
     case PCAP_TCP:
     case PCAP_UDP:
         return lbp[token];
@@ -249,6 +250,7 @@ static struct node *nud(int token, struct block **b)
     case PCAP_TCP:
     case PCAP_UDP:
     case PCAP_ICMP:
+    case PCAP_ICMP6:
     case PCAP_IP6:
         if (match(PCAP_LBRACKET)) {
             return parse_offset(token, b);

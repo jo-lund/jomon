@@ -21,6 +21,14 @@
 #define ETH_FRAME_TYPE_OFFSET 12
 #define ETH_OFFSET 0
 #define NETWORK_OFFSET ETHER_HDR_LEN
+#define IP4_PROTOCOL_OFFSET 23
+#define IP6_NEXT_HDR_OFFSET 20
+
+enum network {
+    IP4,
+    IP6,
+    BOTH
+};
 
 static vector_t *code;
 static uint32_t regs[NUM_REGS];
@@ -61,9 +69,10 @@ static const char *instable[] = {
 #define is_proto(c)                                                     \
     ((c) == PCAP_ETHER || (c) == PCAP_IP || (c) == PCAP_IP6             \
      || (c) == PCAP_ARP || (c) == PCAP_RARP || (c) == PCAP_TCP          \
-     || (c) == PCAP_UDP || (c) == PCAP_ICMP)
+     || (c) == PCAP_UDP || (c) == PCAP_ICMP || (c) == PCAP_ICMP6)
 
-#define is_transport(c) ((c) == PCAP_UDP || (c) == PCAP_TCP || (c) == PCAP_ICMP)
+#define is_transport(c) \
+    ((c) == PCAP_UDP || (c) == PCAP_TCP || (c) == PCAP_ICMP || (c) == PCAP_ICMP6)
 
 DEFINE_ALLOC(struct proto_offset, offset);
 
@@ -295,16 +304,28 @@ static void gen_network(struct node *n, uint16_t ethertype)
     regs[A] = 0;
 }
 
-static void gen_transport(struct block *b, struct node *n, uint32_t prot)
+static void gen_transport(struct block *b, struct node *n, uint32_t prot, int network)
 {
     struct bpf_insn *insn;
     struct proto_offset *npoff;
 
-    /* Block 1: Check if IPV4 */
-    gen_network(n, ETHERTYPE_IP); /* TODO: If not IPV4, check for IPV6 */
+    /* Block 1: Check if IPV4/IPV6 */
+    switch (network) {
+    case IP4:
+        gen_network(n, ETHERTYPE_IP);
+        n->k = IP4_PROTOCOL_OFFSET;
+        break;
+    case IP6:
+        gen_network(n, ETHERTYPE_IPV6);
+        n->k = IP6_NEXT_HDR_OFFSET; /* TODO: Check IPV6 fragmentation header */
+        break;
+    case BOTH:
+        gen_network(n, ETHERTYPE_IP); /* TODO: If not IPV4, check for IPV6 */
+        n->k = IP4_PROTOCOL_OFFSET;
+        break;
+    }
 
     /* Block 2: Check if TCP/UDP/ICMP */
-    n->k = 23;
     n->size = 1;
     gen_lda(n, BPF_ABS);
     n->poff->next = alloc_offset();
@@ -383,17 +404,22 @@ static void genexpr(struct block *b, struct node *n, int op, int offset)
         gen_proto(b, n, op, offset);
         break;
     case PCAP_TCP:
-        gen_transport(b, n, IPPROTO_TCP);
+        gen_transport(b, n, IPPROTO_TCP, BOTH);
         offset = NETWORK_OFFSET;
         gen_proto(b, n, op, offset);
         break;
     case PCAP_UDP:
-        gen_transport(b, n, IPPROTO_UDP);
+        gen_transport(b, n, IPPROTO_UDP, BOTH);
         offset = NETWORK_OFFSET;
         gen_proto(b, n, op, offset);
         break;
     case PCAP_ICMP:
-        gen_transport(b, n, IPPROTO_ICMP);
+        gen_transport(b, n, IPPROTO_ICMP, IP4);
+        offset = NETWORK_OFFSET;
+        gen_proto(b, n, op, offset);
+        break;
+    case PCAP_ICMP6:
+        gen_transport(b, n, IPPROTO_ICMPV6, IP6);
         offset = NETWORK_OFFSET;
         gen_proto(b, n, op, offset);
         break;
