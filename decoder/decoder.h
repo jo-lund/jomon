@@ -5,6 +5,7 @@
 #include "packet_dns.h"
 #include "packet_nbns.h"
 #include "packet_icmp.h"
+#include "packet_icmp6.h"
 #include "packet_igmp.h"
 #include "packet_http.h"
 #include "packet_arp.h"

@@ -13,6 +13,7 @@ static register_function decoder_functions[] = {
     register_arp,
     register_ip,
     register_icmp,
+    register_icmp6,
     register_igmp,
     register_pim,
     register_udp,

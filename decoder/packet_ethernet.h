@@ -11,7 +11,6 @@
 #define ETH_802_3_MAX 1500
 #define LLC_HDR_LEN 3
 #define SNAP_HDR_LEN 5
-
 #define ETH_802_LLC 0xffff
 #define LLC_PAYLOAD_LEN(eth) ((eth)->ethertype - LLC_HDR_LEN)
 

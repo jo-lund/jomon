@@ -7,6 +7,7 @@
 #include <net/if_arp.h>
 #include <netinet/igmp.h>
 #include <netinet/ip_icmp.h>
+#include <netinet/icmp6.h>
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
@@ -332,6 +333,62 @@ void print_icmp(char *buf, int n, void *data)
         break;
     default:
         PRINT_INFO(buf, n, "%s", get_icmp_type(icmp->type));
+        break;
+    }
+}
+
+void print_icmp6(char *buf, int n, void *data)
+{
+    struct packet_data *pdata = data;
+    struct icmp6_info *icmp6 = pdata->data;
+    char addr[INET6_ADDRSTRLEN];
+
+    PRINT_PROTOCOL(buf, n, "ICMP6");
+    switch (icmp6->type) {
+    case ICMP6_DST_UNREACH:
+        PRINT_INFO(buf, n, "%s", get_icmp6_dest_unreach(icmp6->code));
+        break;
+    case ICMP6_PACKET_TOO_BIG:
+        PRINT_INFO(buf, n, "Packet too big message: MTU = %d", icmp6->mtu);
+        break;
+    case ICMP6_TIME_EXCEEDED:
+        PRINT_INFO(buf, n, "%s", get_icmp6_time_exceeded(icmp6->code));
+        break;
+    case ICMP6_PARAM_PROB:
+        PRINT_INFO(buf, n, "%s: Pointer = %d", get_icmp6_parameter_problem(icmp6->code),
+                   icmp6->pointer);
+        break;
+    case ICMP6_ECHO_REQUEST:
+    case ICMP6_ECHO_REPLY:
+        PRINT_INFO(buf, n, "%s: id = %u  seq = %u", get_icmp6_type(icmp6->type), icmp6->echo.id,
+                   icmp6->echo.seq);
+        break;
+    case ND_ROUTER_SOLICIT:
+        PRINT_INFO(buf, n, "%s", get_icmp6_type(icmp6->type));
+        break;
+    case ND_ROUTER_ADVERT:
+        PRINT_INFO(buf, n, "%s", get_icmp6_type(icmp6->type));
+        break;
+    case ND_NEIGHBOR_SOLICIT:
+        inet_ntop(AF_INET6, (struct in_addr *) icmp6->target_addr, addr, sizeof(addr));
+        PRINT_INFO(buf, n, "Neighbor solicitation for %s", addr);
+        break;
+    case ND_NEIGHBOR_ADVERT:
+        inet_ntop(AF_INET6, (struct in_addr *) icmp6->neigh_adv.target_addr, addr, sizeof(addr));
+        PRINT_INFO(buf, n, "Neighbor advertisement. Target address: %s", addr);
+        break;
+    case ND_REDIRECT:
+    {
+        char target[INET6_ADDRSTRLEN];
+        char dest[INET6_ADDRSTRLEN];
+
+        inet_ntop(AF_INET6, (struct in_addr *) icmp6->redirect.target_addr, target, sizeof(target));
+        inet_ntop(AF_INET6, (struct in_addr *) icmp6->redirect.dest_addr, dest, sizeof(dest));
+        PRINT_INFO(buf, n, "Redirect. Target: %s  Destination: %s", target, dest);
+        break;
+    }
+    default:
+        PRINT_INFO(buf, n, "%s", get_icmp6_type(icmp6->type));
         break;
     }
 }

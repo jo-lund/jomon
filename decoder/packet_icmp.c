@@ -5,10 +5,12 @@
 #include <netinet/ip_icmp.h>
 #include "packet_ip.h"
 #include "packet_icmp.h"
-#include "../attributes.h"
+#include "attributes.h"
 
 #define ICMP_HDR_LEN 8
 
+static packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                                struct packet_data *pdata);
 extern void add_icmp_information(void *w, void *sw, void *data);
 extern void print_icmp(char *buf, int n, void *data);
 
@@ -20,7 +22,7 @@ static struct protocol_info icmp_prot = {
     .add_pdu = add_icmp_information
 };
 
-void register_icmp()
+void register_icmp(void)
 {
     register_protocol(&icmp_prot, IP_PROTOCOL, IPPROTO_ICMP);
 }
@@ -28,7 +30,8 @@ void register_icmp()
 packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buffer, int n,
                          struct packet_data *pdata)
 {
-    if (n < ICMP_HDR_LEN) return DECODE_ERR;
+    if (n < ICMP_HDR_LEN)
+        return DECODE_ERR;
 
     struct icmp_info *info;
     struct icmp *icmp = (struct icmp *) buffer;
