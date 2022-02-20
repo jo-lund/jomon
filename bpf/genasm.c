@@ -23,6 +23,7 @@
 #define NETWORK_OFFSET ETHER_HDR_LEN
 #define IP4_PROTOCOL_OFFSET 23
 #define IP6_NEXT_HDR_OFFSET 20
+#define IP6_HDR_LEN 40
 
 enum network {
     IP4,
@@ -73,6 +74,8 @@ static const char *instable[] = {
 
 #define is_transport(c) \
     ((c) == PCAP_UDP || (c) == PCAP_TCP || (c) == PCAP_ICMP || (c) == PCAP_ICMP6)
+
+#define is_ip6(c) ((c) == PCAP_ICMP6)
 
 DEFINE_ALLOC(struct proto_offset, offset);
 
@@ -339,7 +342,7 @@ static void gen_transport(struct block *b, struct node *n, uint32_t prot, int ne
     regs[A] = 0;
 
     /* Block 3: Only accept unfragmented or frag 0 IPv4 packets */
-    if (b->relop) {
+    if (b->relop && network != IP6) {
         n->k = 20;
         n->size = 2;
         gen_lda(n, BPF_ABS);
@@ -364,9 +367,15 @@ static void gen_proto(struct block *b, struct node *n, int op, int offset)
     genexpr(b, n->left, n->op, offset);
     if (is_proto(op)) {
         if (is_transport(op)) {
-            gen_lmsh(14);
-            n->op = PCAP_ADD;
-            gen_alux(n);
+            if (is_ip6(op)) {
+                n->k = IP6_HDR_LEN + offset;
+                n->size = 1;
+                gen_lda(n, BPF_ABS);
+            } else {
+                gen_lmsh(14);
+                n->op = PCAP_ADD;
+                gen_alux(n);
+            }
         } else {
             gen_tax();
             gen_ldind(n, offset);
@@ -468,8 +477,14 @@ static void genexpr(struct block *b, struct node *n, int op, int offset)
         if (is_proto(op)) {
             n->k += offset;
             if (is_transport(op)) {
-                gen_lmsh(14);
-                gen_ldind(n, n->k);
+                if (is_ip6(op)) {
+                    n->k += IP6_HDR_LEN;
+                    n->size = 1;
+                    gen_lda(n, BPF_ABS);
+                } else {
+                    gen_lmsh(14);
+                    gen_ldind(n, n->k);
+                }
             } else {
                 gen_lda(n, BPF_ABS);
             }

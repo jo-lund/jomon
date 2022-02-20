@@ -1,5 +1,9 @@
 #include <string.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
 #include <netinet/ip_icmp.h>
+#include <netinet/icmp6.h>
 #include "util.h"
 #include "pcap_lexer.h"
 #include "parse.h"
@@ -22,6 +26,12 @@
 
 #define ICMPTYPE 0
 #define ICMPCODE 0x1
+#define ICMP6TYPE 0
+#define ICMP6CODE 0x1
+#ifndef __FreeBSD__
+#define ICMP6_NI_QUERY 139
+#define ICMP6_NI_REPLY 140
+#endif
 
 /*!re2c re2c:define:YYCTYPE = "unsigned char"; */
 
@@ -135,6 +145,25 @@ scan:
       "icmp-ireqreply" { parser->val.intval = ICMP_IREQREPLY; return PCAP_INT; }
       "icmp-maskreq" { parser->val.intval = ICMP_MASKREQ; return PCAP_INT; }
       "icmp-maskreply" { parser->val.intval = ICMP_MASKREPLY; return PCAP_INT; }
+      "icmp6type" { parser->val.intval = ICMP6TYPE; return PCAP_INT; }
+      "icmp6code" { parser->val.intval = ICMP6CODE; return PCAP_INT; }
+      "icmp6-destinationrunreach" { parser->val.intval = ICMP6_DST_UNREACH; return PCAP_INT; }
+      "icmp6-packettoobig" { parser->val.intval = ICMP6_PACKET_TOO_BIG; return PCAP_INT; }
+      "icmp6-timeexceeded" { parser->val.intval = ICMP6_TIME_EXCEEDED; return PCAP_INT; }
+      "icmp6-parameterproblem" { parser->val.intval = ICMP6_PARAM_PROB; return PCAP_INT; }
+      "icmp6-echo" { parser->val.intval = ICMP6_ECHO_REQUEST; return PCAP_INT; }
+      "icmp6-echoreply" { parser->val.intval = ICMP6_ECHO_REPLY; return PCAP_INT; }
+      "icmp6-multicastlistenerquery" { parser->val.intval = MLD_LISTENER_QUERY; return PCAP_INT; }
+      "icmp6-multicastlistenerreportv1" { parser->val.intval = MLD_LISTENER_REPORT; return PCAP_INT; }
+      "icmp6-multicastlistenerdone" { parser->val.intval = MLD_LISTENER_REDUCTION; return PCAP_INT; }
+      "icmp6-routersolicit" { parser->val.intval = ND_ROUTER_SOLICIT; return PCAP_INT; }
+      "icmp6-routeradvert" { parser->val.intval = ND_ROUTER_ADVERT; return PCAP_INT; }
+      "icmp6-neighborsolicit" { parser->val.intval = ND_NEIGHBOR_SOLICIT; return PCAP_INT; }
+      "icmp6-neighboradvert" { parser->val.intval = ND_NEIGHBOR_ADVERT; return PCAP_INT; }
+      "icmp6-redirect" { parser->val.intval = ND_REDIRECT; return PCAP_INT; }
+      "icmp6-routerrenum" { parser->val.intval = ICMP6_ROUTER_RENUMBERING; return PCAP_INT; }
+      "icmp6-nodeinformationquery" { parser->val.intval = ICMP6_NI_QUERY; return PCAP_INT; }
+      "icmp6-nodeinformationresponse" { parser->val.intval = ICMP6_NI_REPLY; return PCAP_INT; }
 
       /* operators */
       "and" { return PCAP_LAND; }
