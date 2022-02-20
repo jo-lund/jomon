@@ -147,7 +147,7 @@ scan:
       "icmp-maskreply" { parser->val.intval = ICMP_MASKREPLY; return PCAP_INT; }
       "icmp6type" { parser->val.intval = ICMP6TYPE; return PCAP_INT; }
       "icmp6code" { parser->val.intval = ICMP6CODE; return PCAP_INT; }
-      "icmp6-destinationrunreach" { parser->val.intval = ICMP6_DST_UNREACH; return PCAP_INT; }
+      "icmp6-destinationunreach" { parser->val.intval = ICMP6_DST_UNREACH; return PCAP_INT; }
       "icmp6-packettoobig" { parser->val.intval = ICMP6_PACKET_TOO_BIG; return PCAP_INT; }
       "icmp6-timeexceeded" { parser->val.intval = ICMP6_TIME_EXCEEDED; return PCAP_INT; }
       "icmp6-parameterproblem" { parser->val.intval = ICMP6_PARAM_PROB; return PCAP_INT; }
