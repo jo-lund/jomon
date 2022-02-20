@@ -367,15 +367,22 @@ void print_icmp6(char *buf, int n, void *data)
         PRINT_INFO(buf, n, "%s", get_icmp6_type(icmp6->type));
         break;
     case ND_ROUTER_ADVERT:
-        PRINT_INFO(buf, n, "%s", get_icmp6_type(icmp6->type));
+        if (icmp6->option && icmp6->option->type == ND_OPT_SOURCE_LINKADDR) {
+            char link[HW_ADDRSTRLEN];
+
+            HW_ADDR_NTOP(link, icmp6->option->source_addr);
+            PRINT_INFO(buf, n, "Router Advertisement from %s", link);
+        } else {
+            PRINT_INFO(buf, n, "Router Advertisement");
+        }
         break;
     case ND_NEIGHBOR_SOLICIT:
         inet_ntop(AF_INET6, (struct in_addr *) icmp6->target_addr, addr, sizeof(addr));
-        PRINT_INFO(buf, n, "Neighbor solicitation for %s", addr);
+        PRINT_INFO(buf, n, "Neighbor Solicitation for %s", addr);
         break;
     case ND_NEIGHBOR_ADVERT:
         inet_ntop(AF_INET6, (struct in_addr *) icmp6->neigh_adv.target_addr, addr, sizeof(addr));
-        PRINT_INFO(buf, n, "Neighbor advertisement. Target address: %s", addr);
+        PRINT_INFO(buf, n, "Neighbor Advertisement. Target address: %s", addr);
         break;
     case ND_REDIRECT:
     {

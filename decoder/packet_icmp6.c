@@ -1,12 +1,13 @@
 #include <stdint.h>
 #include <sys/types.h>
+#include <netinet/in.h>
 #include <netinet/icmp6.h>
 #include "packet_icmp6.h"
 #include "packet_ip.h"
 #include "attributes.h"
 #include "util.h"
 
-#define ICMP6_HDR_LEN 8
+#define ICMP6_HDR_LEN 4
 #define PARSE_IP6ADDR(addr, buf, n) \
     do {                            \
         memcpy(addr, buf, 16);      \
@@ -22,17 +23,20 @@ extern void print_icmp6(char *buf, int n, void *data);
 static struct packet_flags router_adv_flags[] = {
     { "Managed address configuration", 1, NULL },
     { "Other configuration", 1, NULL },
+    { "Reserved", 6, NULL }
 };
 
 static struct packet_flags prefix_info[] = {
     { "On-link", 1, NULL },
     { "Autonomous address-configuration", 1, NULL },
+    { "Reserved", 6, NULL }
 };
 
 static struct packet_flags neigh_adv_flags[] = {
     { "Router", 1, NULL },
     { "Solicited", 1, NULL },
-    { "Override", 1, NULL }
+    { "Override", 1, NULL },
+    { "Reserved", 29, NULL }
 };
 
 static struct protocol_info icmp6_prot = {
@@ -52,8 +56,8 @@ static int parse_linkaddr(uint8_t **addr, int len, unsigned char **buf)
 {
     *addr = mempool_alloc(len);
     memcpy(*addr, *buf, len);
-    *buf += len * 8;
-    return len * 8;
+    *buf += len;
+    return len;
 }
 
 static packet_error parse_data(struct packet_data *pdata, unsigned char *buf, int n)
@@ -83,28 +87,32 @@ static packet_error parse_options(struct icmp6_info *icmp6, struct packet_data *
         case ND_OPT_SOURCE_LINKADDR:
             if ((*opt)->length * 8 > n)
                 return DECODE_ERR;
-            n -= parse_linkaddr(&(*opt)->source_addr, (*opt)->length * 8 - 2, &buf) - 2;
+            n -= 2;
+            n -= parse_linkaddr(&(*opt)->source_addr, (*opt)->length * 8 - 2, &buf);
             break;
         case ND_OPT_TARGET_LINKADDR:
             if ((*opt)->length * 8 > n)
                 return DECODE_ERR;
-            n -= parse_linkaddr(&(*opt)->target_addr, (*opt)->length * 8 - 2, &buf) - 2;
+            n -= 2;
+            n -= parse_linkaddr(&(*opt)->target_addr, (*opt)->length * 8 - 2, &buf);
             break;
         case ND_OPT_PREFIX_INFORMATION:
             if ((*opt)->length != 4 && (*opt)->length * 8 > n)
                 return DECODE_ERR;
-            (*opt)->prefix_info.prefix_length = buf[3];
-            (*opt)->prefix_info.l = (buf[4] & 0x80) >> 7;
-            (*opt)->prefix_info.a = (buf[4] & 0x40) >> 6;
+            (*opt)->prefix_info.prefix_length = buf[0];
+            (*opt)->prefix_info.l = (buf[1] & 0x80) >> 7;
+            (*opt)->prefix_info.a = (buf[1] & 0x40) >> 6;
             buf += 2;
+            n -= 4;
             (*opt)->prefix_info.valid_lifetime = read_uint32be(&buf);
             (*opt)->prefix_info.pref_lifetime =  read_uint32be(&buf);
             buf += 4; /* skip reserved bytes */
-            if ((*opt)->prefix_info.prefix_length > n)
+            n -= 12;
+            if (n < 16)
                 return DECODE_ERR;
-            (*opt)->prefix_info.prefix = mempool_copy(buf, (*opt)->prefix_info.prefix_length);
-            buf += (*opt)->prefix_info.prefix_length;
-            n -= (*opt)->prefix_info.prefix_length;
+            (*opt)->prefix_info.prefix = mempool_copy(buf, 16);
+            buf += 16;
+            n -= 16;
             break;
         case ND_OPT_MTU:
             buf += 2; /* skip reserved bytes */
@@ -146,34 +154,42 @@ packet_error handle_icmp6(struct protocol_info *pinfo, unsigned char *buf, int n
     icmp6->type = buf[0];
     icmp6->code = buf[1];
     icmp6->checksum = get_uint16be(buf + 2);
+    buf += ICMP6_HDR_LEN;
+    n -= ICMP6_HDR_LEN;
     switch (icmp6->type) {
-    case ICMP6_PACKET_TOO_BIG:
-        icmp6->checksum = get_uint32be(buf + 4);
-        goto parse_ip6;
-    case ICMP6_PARAM_PROB:
-        icmp6->pointer = get_uint32be(buf + 4);
-        FALLTHROUGH;
     case ICMP6_DST_UNREACH:
     case ICMP6_TIME_EXCEEDED:
-    parse_ip6:
-        if (n > ICMP6_HDR_LEN)
+        buf += 4; /* skip unused bytes */
+        n -= 4;
+        if (n > 0)
+            return parse_data(pdata, buf + ICMP6_HDR_LEN, n - ICMP6_HDR_LEN);
+        break;
+    case ICMP6_PACKET_TOO_BIG:
+        icmp6->checksum = read_uint32be(&buf);
+        n -= 4;
+        if (n > 0)
+            return parse_data(pdata, buf + ICMP6_HDR_LEN, n - ICMP6_HDR_LEN);
+        break;
+    case ICMP6_PARAM_PROB:
+        icmp6->pointer = read_uint32be(&buf);
+        n -= 4;
+        if (n > 0)
             return parse_data(pdata, buf + ICMP6_HDR_LEN, n - ICMP6_HDR_LEN);
         break;
     case ICMP6_ECHO_REQUEST:
     case ICMP6_ECHO_REPLY:
-        icmp6->echo.id = get_uint16be(buf + 4);
-        icmp6->echo.seq = get_uint16be(buf + 6);
-        buf += ICMP6_HDR_LEN;
-        n -= ICMP6_HDR_LEN;
+        icmp6->echo.id = read_uint16be(&buf);
+        icmp6->echo.seq = read_uint16be(&buf);
+        n -= 4;
         if (n > 0)
             icmp6->echo.data = mempool_copy(buf, n);
         icmp6->echo.len = n;
         break;
     case ND_ROUTER_SOLICIT:
-        return parse_options(icmp6, pdata, buf + ICMP6_HDR_LEN, n - ICMP6_HDR_LEN);
+        buf += 4; /* skip reserved bytes */
+        n -= 4;
+        return parse_options(icmp6, pdata, buf, n);
     case ND_ROUTER_ADVERT:
-        buf += ICMP6_HDR_LEN;
-        n -= ICMP6_HDR_LEN;
         if (n < 12)
             return DECODE_ERR;
         icmp6->router_adv.cur_hop_limit = buf[0];
@@ -183,12 +199,13 @@ packet_error handle_icmp6(struct protocol_info *pinfo, unsigned char *buf, int n
         icmp6->router_adv.router_lifetime = read_uint16be(&buf);
         icmp6->router_adv.reachable_time = read_uint32be(&buf);
         icmp6->router_adv.retrans_timer = read_uint32be(&buf);
+        n -= 12;
         if (n > 0)
             return parse_options(icmp6, pdata, buf, n);
         break;
     case ND_NEIGHBOR_SOLICIT:
-        buf += ICMP6_HDR_LEN;
-        n -= ICMP6_HDR_LEN;
+        buf += 4; /* skip reserved bytes */
+        n -= 4;
         if (n < 16)
             return DECODE_ERR;
         PARSE_IP6ADDR(icmp6->target_addr, buf, n);
@@ -196,8 +213,6 @@ packet_error handle_icmp6(struct protocol_info *pinfo, unsigned char *buf, int n
             return parse_options(icmp6, pdata, buf, n);
         break;
     case ND_NEIGHBOR_ADVERT:
-        buf += ICMP6_HDR_LEN;
-        n -= ICMP6_HDR_LEN;
         if (n < 5)
             return DECODE_ERR;
         icmp6->neigh_adv.r = (buf[0] & 0x80) >> 7;
@@ -209,8 +224,8 @@ packet_error handle_icmp6(struct protocol_info *pinfo, unsigned char *buf, int n
             return parse_options(icmp6, pdata, buf, n);
         break;
     case ND_REDIRECT:
-        buf += ICMP6_HDR_LEN + 4;
-        n -= ICMP6_HDR_LEN;
+        buf += 4; /* skip reserved bytes */
+        n -= 4;
         if (n < 32)
             return DECODE_ERR;
         PARSE_IP6ADDR(icmp6->redirect.target_addr, buf, n);

@@ -346,56 +346,77 @@ void add_icmp_information(void *w, void *sw, void *data)
     }
 }
 
-static void add_icmp6_options(list_view *lw, list_view_header *options, struct icmp6_info *icmp6)
+static void add_icmp6_options(list_view *lw, list_view_header *header, struct icmp6_info *icmp6)
 {
     struct icmp6_option *opt;
     char link[HW_ADDRSTRLEN];
     uint8_t flags;
-    list_view_header *hdr;
+    list_view_header *flag_hdr, *opt_hdr;
     struct tm_t tm;
+    char addr[INET6_ADDRSTRLEN];
 
     opt = icmp6->option;
     while (opt) {
         switch (opt->type) {
         case ND_OPT_SOURCE_LINKADDR:
             HW_ADDR_NTOP(link, opt->source_addr);
-            LV_ADD_TEXT_ELEMENT(lw, options, "Source link-layer address: %s", link);
+            opt_hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1,
+                                        "Source link-layer address: %s", link);
+            LV_ADD_TEXT_ELEMENT(lw, opt_hdr, "Type: %d", opt->type);
+            LV_ADD_TEXT_ELEMENT(lw, opt_hdr, "Length: %d (%d bytes)", opt->length, opt->length * 8);
+            LV_ADD_TEXT_ELEMENT(lw, opt_hdr, "Link-layer address: %s", link);
             break;
         case ND_OPT_TARGET_LINKADDR:
             HW_ADDR_NTOP(link, opt->target_addr);
-            LV_ADD_TEXT_ELEMENT(lw, options, "Target link-layer address: %s", link);
+            opt_hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1,
+                                        "Target link-layer address: %s", link);
+            LV_ADD_TEXT_ELEMENT(lw, opt_hdr, "Type: %d", opt->type);
+            LV_ADD_TEXT_ELEMENT(lw, opt_hdr, "Length: %d (%d bytes)", opt->length, opt->length * 8);
+            LV_ADD_TEXT_ELEMENT(lw, opt_hdr, "Link-layer address: %s", link);
             break;
         case ND_OPT_PREFIX_INFORMATION:
-            LV_ADD_TEXT_ELEMENT(lw, options, "Prefix length: %d",
-                                opt->prefix_info.prefix_length);
+            opt_hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1,
+                                        "Prefix information");
+            LV_ADD_TEXT_ELEMENT(lw, opt_hdr, "Type: %d", opt->type);
+            LV_ADD_TEXT_ELEMENT(lw, opt_hdr, "Length: %d (%d bytes)", opt->length, opt->length * 8);
+            LV_ADD_TEXT_ELEMENT(lw, opt_hdr, "Prefix length: %d", opt->prefix_info.prefix_length);
             flags = opt->prefix_info.l << 7 | opt->prefix_info.a << 6;
-            hdr = LV_ADD_SUB_HEADER(lw, options, selected[UI_FLAGS], UI_FLAGS, "Flags: 0x%x", flags);
-            add_flags(lw, hdr, flags, get_icmp6_prefix_flags(), get_icmp6_prefix_flags_size());
+            flag_hdr = LV_ADD_SUB_HEADER(lw, opt_hdr, selected[UI_FLAGS], UI_FLAGS, "Flags: 0x%x", flags);
+            add_flags(lw, flag_hdr, flags, get_icmp6_prefix_flags(), get_icmp6_prefix_flags_size());
             if (opt->prefix_info.valid_lifetime == ~0U) {
-                LV_ADD_TEXT_ELEMENT(lw, options, "Valid lifetime: Infinite");
+                LV_ADD_TEXT_ELEMENT(lw, opt_hdr, "Valid lifetime: Infinite");
             } else {
                 char buf[512];
 
                 tm = get_time(opt->prefix_info.valid_lifetime);
                 time_ntop(&tm, buf, 512);
-                LV_ADD_TEXT_ELEMENT(lw, options, "Valid lifetime: %s", buf);
+                LV_ADD_TEXT_ELEMENT(lw, opt_hdr, "Valid lifetime: %s", buf);
             }
             if (opt->prefix_info.pref_lifetime == ~0U) {
-                LV_ADD_TEXT_ELEMENT(lw, options, "Preferred lifetime: Infinite");
+                LV_ADD_TEXT_ELEMENT(lw, opt_hdr, "Preferred lifetime: Infinite");
             } else {
                 char buf[512];
 
                 tm = get_time(opt->prefix_info.pref_lifetime);
                 time_ntop(&tm, buf, 512);
-                LV_ADD_TEXT_ELEMENT(lw, options, "Preferred lifetime: %s", buf);
+                LV_ADD_TEXT_ELEMENT(lw, opt_hdr, "Preferred lifetime: %s", buf);
             }
-            // add prefix
+            inet_ntop(AF_INET6, (struct in_addr *) opt->prefix_info.prefix, addr, sizeof(addr));
+            LV_ADD_TEXT_ELEMENT(lw, opt_hdr, "Prefix: %s", addr);
             break;
         case ND_OPT_REDIRECTED_HEADER:
+            opt_hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1,
+                                        "Redirect header");
+            LV_ADD_TEXT_ELEMENT(lw, opt_hdr, "Type: %d", opt->type);
+            LV_ADD_TEXT_ELEMENT(lw, opt_hdr, "Length: %d (%d bytes)", opt->length, opt->length * 8);
             // Add ip
             break;
         case ND_OPT_MTU:
-            LV_ADD_TEXT_ELEMENT(lw, options, "Recommended MTU for the link: %d", opt->mtu);
+            opt_hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1,
+                                        "MTU: %d", opt->mtu);
+            LV_ADD_TEXT_ELEMENT(lw, opt_hdr, "Type: %d", opt->type);
+            LV_ADD_TEXT_ELEMENT(lw, opt_hdr, "Length: %d (%d bytes)", opt->length, opt->length * 8);
+            LV_ADD_TEXT_ELEMENT(lw, opt_hdr, "Recommended MTU for the link: %d", opt->mtu);
             break;
         default:
             break;
@@ -411,7 +432,6 @@ void add_icmp6_information(void *w, void *sw, void *data)
     struct packet_data *pdata = data;
     struct icmp6_info *icmp6 = pdata->data;
     char buf[1024];
-    list_view_header *options;
     uint8_t flags;
     list_view_header *flag_hdr;
     struct tm_t tm;
@@ -449,10 +469,8 @@ void add_icmp6_information(void *w, void *sw, void *data)
     case ND_ROUTER_SOLICIT:
         LV_ADD_TEXT_ELEMENT(lw, header, "Code: %d", icmp6->code);
         LV_ADD_TEXT_ELEMENT(lw, header, "Checksum: 0x%x", icmp6->checksum);
-        if (icmp6->option) {
-            options = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Options");
-            add_icmp6_options(lw, options, icmp6);
-        }
+        if (icmp6->option)
+            add_icmp6_options(lw, header, icmp6);
         break;
     case ND_ROUTER_ADVERT:
         LV_ADD_TEXT_ELEMENT(lw, header, "Code: %d", icmp6->code);
@@ -460,7 +478,7 @@ void add_icmp6_information(void *w, void *sw, void *data)
         LV_ADD_TEXT_ELEMENT(lw, header, "Cur Hop Limit: %d", icmp6->router_adv.cur_hop_limit);
         flags = icmp6->router_adv.m << 7 | icmp6->router_adv.o << 6;
         flag_hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_FLAGS], UI_FLAGS, "Flags: 0x%x", flags);
-        add_flags(lw, flag_hdr, flags, get_icmp6_prefix_flags(), get_icmp6_prefix_flags_size());
+        add_flags(lw, flag_hdr, flags, get_icmp6_router_adv_flags(), get_icmp6_router_adv_flags_size());
         tm = get_time(icmp6->router_adv.router_lifetime);
         time_ntop(&tm, buf, 1024);
         LV_ADD_TEXT_ELEMENT(lw, header, "Router lifetime: %s", buf);
@@ -468,20 +486,16 @@ void add_icmp6_information(void *w, void *sw, void *data)
         LV_ADD_TEXT_ELEMENT(lw, header, "Reachable time: %s", buf);
         get_time_from_ms_ut(icmp6->router_adv.retrans_timer, buf, 1024);
         LV_ADD_TEXT_ELEMENT(lw, header, "Retrans timer: %s", buf);
-        if (icmp6->option) {
-            options = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Options");
-            add_icmp6_options(lw, options, icmp6);
-        }
+        if (icmp6->option)
+            add_icmp6_options(lw, header, icmp6);
         break;
     case ND_NEIGHBOR_SOLICIT:
         LV_ADD_TEXT_ELEMENT(lw, header, "Code: %d", icmp6->code);
         LV_ADD_TEXT_ELEMENT(lw, header, "Checksum: 0x%x", icmp6->checksum);
         inet_ntop(AF_INET6, (struct in_addr *) icmp6->target_addr, addr, sizeof(addr));
         LV_ADD_TEXT_ELEMENT(lw, header, "Target address: %s", addr);
-        if (icmp6->option) {
-            options = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Options");
-            add_icmp6_options(lw, options, icmp6);
-        }
+        if (icmp6->option)
+            add_icmp6_options(lw, header, icmp6);
         break;
     case ND_NEIGHBOR_ADVERT:
         LV_ADD_TEXT_ELEMENT(lw, header, "Code: %d", icmp6->code);
@@ -491,10 +505,8 @@ void add_icmp6_information(void *w, void *sw, void *data)
         add_flags(lw, flag_hdr, flags, get_icmp6_prefix_flags(), get_icmp6_prefix_flags_size());
         inet_ntop(AF_INET6, (struct in_addr *) icmp6->target_addr, addr, sizeof(addr));
         LV_ADD_TEXT_ELEMENT(lw, header, "Target address: %s", addr);
-        if (icmp6->option) {
-            options = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Options");
-            add_icmp6_options(lw, options, icmp6);
-        }
+        if (icmp6->option)
+            add_icmp6_options(lw, header, icmp6);
         break;
     case ND_REDIRECT:
         LV_ADD_TEXT_ELEMENT(lw, header, "Code: %d", icmp6->code);
@@ -503,10 +515,8 @@ void add_icmp6_information(void *w, void *sw, void *data)
         LV_ADD_TEXT_ELEMENT(lw, header, "Target address: %s", addr);
         inet_ntop(AF_INET6, (struct in_addr *) icmp6->redirect.dest_addr, addr, sizeof(addr));
         LV_ADD_TEXT_ELEMENT(lw, header, "Destination address: %s", addr);
-        if (icmp6->option) {
-            options = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Options");
-            add_icmp6_options(lw, options, icmp6);
-        }
+        if (icmp6->option)
+            add_icmp6_options(lw, header, icmp6);
         break;
     default:
         break;
