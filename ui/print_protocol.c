@@ -46,24 +46,20 @@ static void print_error(char *buf, int size, struct packet *p);
 
 void write_to_buf(char *buf, int size, struct packet *p)
 {
-    if (p->perr != NO_ERR && p->perr != UNK_PROTOCOL) {
+    struct protocol_info *pinfo = NULL;
+
+    if (p->root->next)
+        pinfo = get_protocol(p->root->next->id);
+    if (pinfo) {
+        char time[TBUFLEN];
+        struct timeval t = p->time;
+
+        format_timeval(&t, time, TBUFLEN);
+        PRINT_NUMBER(buf, size, p->num);
+        PRINT_TIME(buf, size, time);
+        pinfo->print_pdu(buf, size, p);
+    } else if (p->len - ETHER_HDR_LEN)
         print_error(buf, size, p);
-    } else {
-        struct protocol_info *pinfo = NULL;
-
-        if (p->root->next)
-            pinfo = get_protocol(p->root->next->id);
-        if (pinfo) {
-            char time[TBUFLEN];
-            struct timeval t = p->time;
-
-            format_timeval(&t, time, TBUFLEN);
-            PRINT_NUMBER(buf, size, p->num);
-            PRINT_TIME(buf, size, time);
-            pinfo->print_pdu(buf, size, p);
-        } else if (p->len - ETHER_HDR_LEN)
-            print_error(buf, size, p);
-    }
 }
 
 static void print_error(char *buf, int size, struct packet *p)
