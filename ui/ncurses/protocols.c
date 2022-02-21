@@ -903,29 +903,31 @@ static void add_tcp_options(list_view *lw, list_view_header *header, struct tcp 
     options = parse_tcp_options(tcp->options, (tcp->offset - 5) * 4);
     h = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Options");
     n = list_begin(options);
-
     while (n) {
         struct tcp_options *opt = list_data(n);
         list_view_header *w;
 
         switch (opt->option_kind) {
         case TCP_OPT_NOP:
-            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER1, "No operation");
+            w = LV_ADD_SUB_HEADER(lw, h, selected[UI_SUBLAYER2], UI_SUBLAYER2, "No operation");
             LV_ADD_TEXT_ELEMENT(lw, w, "Option kind: %u", opt->option_kind);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option length: %u", opt->option_length);
             break;
         case TCP_OPT_MSS:
-            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER1, "Maximum segment size: %u", opt->mss);
+            w = LV_ADD_SUB_HEADER(lw, h, selected[UI_SUBLAYER2], UI_SUBLAYER2,
+                                  "Maximum segment size: %u", opt->mss);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option kind: %u", opt->option_kind);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option length: %u", opt->option_length);
             break;
         case TCP_OPT_WIN_SCALE:
-            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER1, "Window scale: %u", opt->win_scale);
+            w = LV_ADD_SUB_HEADER(lw, h, selected[UI_SUBLAYER2], UI_SUBLAYER2,
+                                  "Window scale: %u", opt->win_scale);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option kind: %u", opt->option_kind);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option length: %u", opt->option_length);
             break;
         case TCP_OPT_SAP:
-            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER1, "Selective Acknowledgement permitted");
+            w = LV_ADD_SUB_HEADER(lw, h, selected[UI_SUBLAYER2], UI_SUBLAYER2,
+                                  "Selective Acknowledgement permitted");
             LV_ADD_TEXT_ELEMENT(lw, w, "Option kind: %u", opt->option_kind);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option length: %u", opt->option_length);
             break;
@@ -933,7 +935,8 @@ static void add_tcp_options(list_view *lw, list_view_header *header, struct tcp 
         {
             const node_t *n = list_begin(opt->sack);
 
-            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER1, "Selective Acknowledgement");
+            w = LV_ADD_SUB_HEADER(lw, h, selected[UI_SUBLAYER2], UI_SUBLAYER2,
+                                  "Selective Acknowledgement");
             LV_ADD_TEXT_ELEMENT(lw, w, "Option kind: %u", opt->option_kind);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option length: %u", opt->option_length);
             while (n) {
@@ -946,7 +949,7 @@ static void add_tcp_options(list_view *lw, list_view_header *header, struct tcp 
             break;
         }
         case TCP_OPT_TIMESTAMP:
-            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER1, "Timestamp");
+            w = LV_ADD_SUB_HEADER(lw, h, selected[UI_SUBLAYER2], UI_SUBLAYER2, "Timestamp");
             LV_ADD_TEXT_ELEMENT(lw, w, "Option kind: %u", opt->option_kind);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option length: %u", opt->option_length);
             LV_ADD_TEXT_ELEMENT(lw, w, "Timestamp value: %u", opt->ts.ts_val);
