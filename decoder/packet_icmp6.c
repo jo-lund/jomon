@@ -82,23 +82,25 @@ static packet_error parse_options(struct icmp6_info *icmp6, struct packet_data *
         (*opt)->next = NULL;
         (*opt)->type = buf[0];
         (*opt)->length = buf[1];
+        if ((*opt)->length == 0)
+            goto error;
         buf += 2;
         switch ((*opt)->type) {
         case ND_OPT_SOURCE_LINKADDR:
             if ((*opt)->length * 8 > n)
-                return DECODE_ERR;
+                goto error;
             n -= 2;
             n -= parse_linkaddr(&(*opt)->source_addr, (*opt)->length * 8 - 2, &buf);
             break;
         case ND_OPT_TARGET_LINKADDR:
             if ((*opt)->length * 8 > n)
-                return DECODE_ERR;
+                goto error;
             n -= 2;
             n -= parse_linkaddr(&(*opt)->target_addr, (*opt)->length * 8 - 2, &buf);
             break;
         case ND_OPT_PREFIX_INFORMATION:
             if ((*opt)->length != 4 && (*opt)->length * 8 > n)
-                return DECODE_ERR;
+                goto error;
             (*opt)->prefix_info.prefix_length = buf[0];
             (*opt)->prefix_info.l = (buf[1] & 0x80) >> 7;
             (*opt)->prefix_info.a = (buf[1] & 0x40) >> 6;
@@ -109,7 +111,7 @@ static packet_error parse_options(struct icmp6_info *icmp6, struct packet_data *
             buf += 4; /* skip reserved bytes */
             n -= 12;
             if (n < 16)
-                return DECODE_ERR;
+                goto error;
             (*opt)->prefix_info.prefix = mempool_copy(buf, 16);
             buf += 16;
             n -= 16;
@@ -117,13 +119,13 @@ static packet_error parse_options(struct icmp6_info *icmp6, struct packet_data *
         case ND_OPT_MTU:
             buf += 2; /* skip reserved bytes */
             if ((*opt)->length != 1 && n < 8)
-                return DECODE_ERR;
+                goto error;
             (*opt)->mtu = read_uint32be(&buf);
             n -= 8;
             break;
         case ND_OPT_REDIRECTED_HEADER:
             if (n < 6)
-                return DECODE_ERR;
+                goto error;
             buf += 6;  /* skip reserved bytes */
             n -= 6;
             return parse_data(pdata, buf, n);
@@ -135,6 +137,11 @@ static packet_error parse_options(struct icmp6_info *icmp6, struct packet_data *
         opt = &(*opt)->next;
     }
     return NO_ERR;
+
+error:
+    mempool_free(*opt);
+    *opt = NULL;
+    return DECODE_ERR;
 }
 
 packet_error handle_icmp6(struct protocol_info *pinfo, unsigned char *buf, int n,
