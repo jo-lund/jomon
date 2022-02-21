@@ -432,6 +432,11 @@ static void genexpr(struct block *b, struct node *n, int op, int offset)
         offset = NETWORK_OFFSET;
         gen_proto(b, n, op, offset);
         break;
+    case PCAP_PIM:
+        gen_transport(b, n, IPPROTO_PIM, BOTH);
+        offset = NETWORK_OFFSET;
+        gen_proto(b, n, op, offset);
+        break;
     case PCAP_MUL:
     case PCAP_DIV:
     case PCAP_MOD:
