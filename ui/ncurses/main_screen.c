@@ -781,6 +781,10 @@ void set_filter(main_screen *ms, int c)
         curs_set(0);
         mvwinnstr(status, 0, 8, filter, MAXLINE);
         filter[numc] = '\0';
+        if (ms->subwindow.win) {
+            delete_subwindow(ms, false);
+            ms->main_line.selected = false;
+        }
         if (numc == 0) {
             clear_filter(ms);
         } else {
@@ -894,8 +898,6 @@ void filter_packets(main_screen *ms)
         if (bpf_run_filter(bpf, p->buf, p->len) != 0)
             vector_push_back(ms->packet_ref, p);
     }
-    if (ms->subwindow.win)
-        delete_subwindow(ms, false);
     input_mode = INPUT_NONE;
     werase(status);
     actionbar_refresh(actionbar, (screen *) ms);
