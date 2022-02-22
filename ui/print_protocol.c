@@ -378,7 +378,15 @@ void print_icmp6(char *buf, int n, void *data)
         break;
     case ND_NEIGHBOR_ADVERT:
         inet_ntop(AF_INET6, (struct in_addr *) icmp6->neigh_adv.target_addr, addr, sizeof(addr));
-        PRINT_INFO(buf, n, "Neighbor Advertisement. Target address: %s", addr);
+        if (icmp6->option && icmp6->option->type == ND_OPT_TARGET_LINKADDR) {
+            char link[HW_ADDRSTRLEN];
+
+            HW_ADDR_NTOP(link, icmp6->option->target_addr);
+            PRINT_INFO(buf, n, "Neighbor Advertisement  %s is at %s", addr, link);
+        } else {
+            PRINT_INFO(buf, n, "Neighbor Advertisement from %s", addr);
+        }
+
         break;
     case ND_REDIRECT:
     {

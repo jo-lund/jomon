@@ -49,7 +49,7 @@ struct icmp6_info {
             unsigned int r : 1; /* router flag */
             unsigned int s : 1; /* solicited flag */
             unsigned int o : 1; /* override flag */
-            uint8_t *target_addr;
+            uint8_t target_addr[16];
         } neigh_adv;
         struct {
             uint8_t target_addr[16];

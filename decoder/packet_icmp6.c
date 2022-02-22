@@ -224,9 +224,9 @@ packet_error handle_icmp6(struct protocol_info *pinfo, unsigned char *buf, int n
             return DECODE_ERR;
         icmp6->neigh_adv.r = (buf[0] & 0x80) >> 7;
         icmp6->neigh_adv.s = (buf[0] & 0x40) >> 6;
-        icmp6->neigh_adv.o = (buf[0] & 0x40) >> 5;
+        icmp6->neigh_adv.o = (buf[0] & 0x20) >> 5;
         buf += 4; /* skip flags and reserved bytes */
-        n -= parse_linkaddr(&icmp6->neigh_adv.target_addr, n, &buf);
+        PARSE_IP6ADDR(icmp6->neigh_adv.target_addr, buf, n);
         if (n > 0)
             return parse_options(icmp6, pdata, buf, n);
         break;

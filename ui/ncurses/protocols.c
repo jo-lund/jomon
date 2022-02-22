@@ -31,7 +31,7 @@ extern int hexmode;
  * its width (which is the number of bits in the flag), and, based on the value of
  * the flag, a description of the specific field value, see decoder/packet.h.
  */
-static void add_flags(list_view *lw, list_view_header *header, uint16_t flags,
+static void add_flags(list_view *lw, list_view_header *header, uint32_t flags,
                       struct packet_flags *pf, int num_flags)
 {
     char buf[MAXLINE];
@@ -432,7 +432,7 @@ void add_icmp6_information(void *w, void *sw, void *data)
     struct packet_data *pdata = data;
     struct icmp6_info *icmp6 = pdata->data;
     char buf[1024];
-    uint8_t flags;
+    uint32_t flags;
     list_view_header *flag_hdr;
     struct tm_t tm;
     char addr[INET6_ADDRSTRLEN];
@@ -500,10 +500,12 @@ void add_icmp6_information(void *w, void *sw, void *data)
     case ND_NEIGHBOR_ADVERT:
         LV_ADD_TEXT_ELEMENT(lw, header, "Code: %d", icmp6->code);
         LV_ADD_TEXT_ELEMENT(lw, header, "Checksum: 0x%x", icmp6->checksum);
-        flags = icmp6->neigh_adv.r << 7 | icmp6->neigh_adv.s << 6 | icmp6->neigh_adv.o << 5;
-        flag_hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_FLAGS], UI_FLAGS, "Flags: 0x%x", flags);
-        add_flags(lw, flag_hdr, flags, get_icmp6_prefix_flags(), get_icmp6_prefix_flags_size());
-        inet_ntop(AF_INET6, (struct in_addr *) icmp6->target_addr, addr, sizeof(addr));
+        flags = icmp6->neigh_adv.r << 31 | icmp6->neigh_adv.s << 30 | icmp6->neigh_adv.o << 29;
+        flag_hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_FLAGS], UI_FLAGS,
+                                     "Flags: 0x%x", flags);
+        add_flags(lw, flag_hdr, flags, get_icmp6_neigh_adv_flags(),
+                  get_icmp6_neigh_adv_flags_size());
+        inet_ntop(AF_INET6, (struct in_addr *) icmp6->neigh_adv.target_addr, addr, sizeof(addr));
         LV_ADD_TEXT_ELEMENT(lw, header, "Target address: %s", addr);
         if (icmp6->option)
             add_icmp6_options(lw, header, icmp6);
