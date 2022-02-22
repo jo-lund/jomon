@@ -1143,11 +1143,11 @@ void print_selected_packet(main_screen *ms)
             /* update the selection status of the selectable subwindow line */
             screen_line = ms->base.selectionbar - ms->base.top;
             subline = screen_line - ms->subwindow.top;
-            data = LV_GET_DATA(ms->lvw, subline);
+            if ((data = LV_GET_DATA(ms->lvw, subline)) == -1)
+                return;
             LV_SET_EXPANDED(ms->lvw, subline, !LV_GET_EXPANDED(ms->lvw, subline));
-            if (data >= 0 && data < NUM_LAYERS) {
+            if (data >= 0 && data < NUM_LAYERS)
                 selected[data] = LV_GET_EXPANDED(ms->lvw, subline);
-            }
             if (ms->subwindow.win)
                 delete_subwindow(ms, false);
             create_subwindow(ms, ms->lvw->size + 1, prev_selection);
