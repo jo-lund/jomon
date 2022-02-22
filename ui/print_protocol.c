@@ -173,7 +173,7 @@ void print_arp(char *buf, int n, void *data)
     PRINT_PROTOCOL(buf, n, "ARP");
     switch (arp->op) {
     case ARPOP_REQUEST:
-        PRINT_INFO(buf, n, "Request: Looking for hardware address of %s", tip);
+        PRINT_INFO(buf, n, "Request: Looking for hardware address for %s", tip);
         break;
     case ARPOP_REPLY:
         HW_ADDR_NTOP(sha, arp->sha);
