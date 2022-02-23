@@ -365,7 +365,20 @@ void connection_screen_get_input(screen *s)
 
 static unsigned int connection_screen_get_size(screen *s)
 {
-    return vector_size(((connection_screen *) s)->screen_buf);
+    if (mode == REMOVE_CLOSED) {
+        connection_screen *cs = (connection_screen *) s;
+        unsigned int c = 0;
+        struct tcp_connection_v4 *conn;
+
+        for (int i = 0; i < vector_size(cs->screen_buf); i++) {
+            conn = vector_get(cs->screen_buf, i);
+            if (conn->state != CLOSED && conn->state != RESET)
+                c++;
+        }
+        return c;
+    } else {
+        return vector_size(((connection_screen *) s)->screen_buf);
+    }
 }
 
 void connection_screen_render(connection_screen *cs)
@@ -409,7 +422,7 @@ void print_conn_header(connection_screen *cs)
         p = header;
         size = header_size;
         printat(cs->header, y, 0, get_theme_colour(HEADER_TXT), "TCP connections");
-        wprintw(cs->header,  ": %d", vector_size(cs->screen_buf));
+        wprintw(cs->header,  ": %d", connection_screen_get_size((screen *) cs));
         printat(cs->header, ++y, 0, get_theme_colour(HEADER_TXT), "View");
         switch (mode) {
         case GREY_OUT_CLOSED:
