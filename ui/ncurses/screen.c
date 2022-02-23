@@ -8,8 +8,6 @@ extern main_menu *menu;
 
 static void handle_keydown(screen *s)
 {
-    if (!s->op->screen_get_data_size)
-        return;
     if (s->show_selectionbar) {
         if ((unsigned int) s->selectionbar < SCREEN_GET_DATA_SIZE(s)) {
             s->selectionbar++;
@@ -44,9 +42,6 @@ static void handle_keyup(screen *s)
 
 static void scroll_page(screen *s, int num_lines)
 {
-    if (!s->op->screen_get_data_size)
-        return;
-
     int i = abs(num_lines);
     int c = 0;
 
@@ -67,6 +62,18 @@ static void scroll_page(screen *s, int num_lines)
     }
     if (c > 0)
         SCREEN_REFRESH(s);
+}
+
+static void handle_end(screen *s, int my)
+{
+    unsigned int size;
+
+    size = SCREEN_GET_DATA_SIZE(s);
+    if (size >= (unsigned int) my)
+        s->top = size - my;
+    if (s->show_selectionbar)
+        s->selectionbar = size - 1;
+    SCREEN_REFRESH(s);
 }
 
 screen *screen_create(screen_operations *defop)
@@ -160,11 +167,13 @@ void screen_get_input(screen *s)
         handle_keyup(s);
         break;
     case KEY_DOWN:
-        handle_keydown(s);
+        if (s->op->screen_get_data_size)
+            handle_keydown(s);
         break;
     case ' ':
     case KEY_NPAGE:
-        scroll_page(s, my);
+        if (s->op->screen_get_data_size)
+            scroll_page(s, my);
         break;
     case 'b':
     case KEY_PPAGE:
@@ -177,6 +186,8 @@ void screen_get_input(screen *s)
         SCREEN_REFRESH(s);
         break;
     case KEY_END:
+        if (s->op->screen_get_data_size)
+            handle_end(s, my);
         break;
     default:
         break;
