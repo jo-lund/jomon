@@ -129,6 +129,7 @@ void screen_get_input(screen *s)
         break;
     case 'p':
         if (s->num_pages > 0) {
+            s->top = 0;
             s->page = (s->page + 1) % s->num_pages;
             SCREEN_REFRESH(s);
         }
