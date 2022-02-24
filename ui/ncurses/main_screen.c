@@ -42,7 +42,6 @@ enum input_mode {
 extern vector_t *packets;
 extern main_menu *menu;
 bool selected[NUM_LAYERS];
-bool numeric = true;
 int hexmode = HEXMODE_NORMAL;
 char load_filepath[MAXPATH + 1];
 file_dialogue *load_dialogue;
@@ -331,9 +330,6 @@ void main_screen_get_input(screen *s)
             }
             main_screen_refresh((screen *) ms);
         }
-        break;
-    case 'n':
-        numeric = !numeric;
         break;
     case KEY_UP:
         main_screen_handle_keyup(ms, my);

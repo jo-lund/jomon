@@ -47,6 +47,7 @@ typedef struct {
         bool verbose;
         bool load_file;
         int dmode;
+        bool numeric;
     } opt;
     struct sockaddr_in *local_addr;
     unsigned char mac[ETHER_ADDR_LEN];

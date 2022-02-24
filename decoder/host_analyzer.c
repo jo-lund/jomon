@@ -17,8 +17,9 @@ static publisher_t *host_changed_publisher;
 
 static void handle_ip4(struct packet *p);
 static void update_host(void *paddr, char *name);
+static bool local_ip4(const uint32_t addr);
 
-void host_analyzer_init()
+void host_analyzer_init(void)
 {
     local_hosts = hashmap_init(TBLSZ, hashdjb_uint32, compare_uint);
     remote_hosts = hashmap_init(TBLSZ, hashdjb_uint32, compare_uint);
@@ -26,7 +27,7 @@ void host_analyzer_init()
     dns_cache_subscribe(update_host);
 }
 
-void host_analyzer_free()
+void host_analyzer_free(void)
 {
     hashmap_free(local_hosts);
     hashmap_free(remote_hosts);
@@ -48,12 +49,12 @@ void host_analyzer_investigate(struct packet *p)
     }
 }
 
-hashmap_t *host_analyzer_get_local()
+hashmap_t *host_analyzer_get_local(void)
 {
     return local_hosts;
 }
 
-hashmap_t *host_analyzer_get_remote()
+hashmap_t *host_analyzer_get_remote(void)
 {
     return remote_hosts;
 }
@@ -68,10 +69,17 @@ void host_analyzer_unsubscribe(analyzer_host_fn fn)
     remove_subscription2(host_changed_publisher, (publisher_fn2) (void *) fn);
 }
 
-void host_analyzer_clear()
+void host_analyzer_clear(void)
 {
     hashmap_clear(local_hosts);
     hashmap_clear(remote_hosts);
+}
+
+struct host_info *host_get_ip4host(uint32_t addr)
+{
+    if (local_ip4(addr))
+        return hashmap_get(local_hosts, UINT_TO_PTR(addr));
+    return hashmap_get(remote_hosts, UINT_TO_PTR(addr));
 }
 
 static bool filter_address(const uint32_t addr)

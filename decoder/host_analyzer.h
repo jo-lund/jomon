@@ -23,13 +23,14 @@ struct packet;
  */
 typedef void (*analyzer_host_fn)(struct host_info *, bool);
 
-void host_analyzer_init();
-void host_analyzer_free();
+void host_analyzer_init(void);
+void host_analyzer_free(void);
 void host_analyzer_investigate(struct packet *p);
-hashmap_t *host_analyzer_get_local();
-hashmap_t *host_analyzer_get_remote();
+hashmap_t *host_analyzer_get_local(void);
+hashmap_t *host_analyzer_get_remote(void);
 void host_analyzer_subscribe(analyzer_host_fn fn);
 void host_analyzer_unsubscribe(analyzer_host_fn fn);
-void host_analyzer_clear();
+void host_analyzer_clear(void);
+struct host_info *host_get_ip4host(uint32_t addr);
 
 #endif

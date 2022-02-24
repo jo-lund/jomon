@@ -134,6 +134,10 @@ void screen_get_input(screen *s)
             SCREEN_REFRESH(s);
         }
         break;
+    case 'n':
+        ctx.opt.numeric = !ctx.opt.numeric;
+        SCREEN_REFRESH(s);
+        break;
     case 'p':
         if (s->num_pages > 0) {
             s->top = 0;

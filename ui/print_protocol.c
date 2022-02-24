@@ -17,6 +17,7 @@
 #include "util.h"
 #include "string.h"
 #include "misc.h"
+#include "decoder/host_analyzer.h"
 
 #define HOSTNAMELEN 255 /* maximum 255 according to rfc1035 */
 #define TBUFLEN 16
@@ -242,12 +243,29 @@ void print_ipv4(char *buf, int n, void *data)
     struct packet *p = data;
     struct packet_data *pdata = p->root->next;
     struct ipv4_info *ip = pdata->data;
-    char src[INET_ADDRSTRLEN];
-    char dst[INET_ADDRSTRLEN];
+    char src[HOSTNAMELEN+1];
+    char dst[HOSTNAMELEN+1];
     struct protocol_info *pinfo = NULL;
 
-    inet_ntop(AF_INET, &ip->src, src, INET_ADDRSTRLEN);
-    inet_ntop(AF_INET, &ip->dst, dst, INET_ADDRSTRLEN);
+    if (ctx.opt.numeric) {
+        inet_ntop(AF_INET, &ip->src, src, INET_ADDRSTRLEN);
+        inet_ntop(AF_INET, &ip->dst, dst, INET_ADDRSTRLEN);
+    } else {
+        struct host_info *host;
+
+        if ((host = host_get_ip4host(ip->src)) && host->name) {
+            strncpy(src, host->name, HOSTNAMELEN);
+            string_truncate(src, HOSTNAMELEN, ADDR_WIDTH - 1);
+        } else {
+            inet_ntop(AF_INET, &ip->src, src, INET_ADDRSTRLEN);
+        }
+        if ((host = host_get_ip4host(ip->dst)) && host->name) {
+            strncpy(dst, host->name, HOSTNAMELEN);
+            string_truncate(dst, HOSTNAMELEN, ADDR_WIDTH - 1);
+        } else {
+            inet_ntop(AF_INET, &ip->dst, dst, INET_ADDRSTRLEN);
+        }
+    }
     PRINT_ADDRESS(buf, n, src, dst);
     if (pdata->next)
         pinfo = get_protocol(pdata->next->id);

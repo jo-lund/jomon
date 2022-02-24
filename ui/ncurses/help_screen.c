@@ -45,6 +45,8 @@ static void help_screen_render(void)
     wprintw(win, ": Show hosts");
     printat(win, ++y, x, subcol, "%12s", "i");
     wprintw(win, ": Enter interactive mode (main screen and connection list)");
+    printat(win, ++y, x, subcol, "%12s", "n");
+    wprintw(win, ": Change between numerical or resolved addresses");
     printat(win, ++y, x, subcol, "%12s", "p/P");
     wprintw(win, ": Switch to next/previous page (where applicable)");
     printat(win, ++y, x, subcol, "%12s", "F1");

@@ -33,7 +33,7 @@
 #include "bpf/genasm.h"
 #include "ui/ui.h"
 
-#define SHORT_OPTS "F:i:f:r:Gdhlpstv"
+#define SHORT_OPTS "F:i:f:r:GdhlnNpstv"
 #define BPF_DUMP_MODES 3
 
 enum bpf_dump_mode {
@@ -98,6 +98,7 @@ int main(int argc, char **argv)
     ctx.opt.load_file = false;
     ctx.opt.nogeoip = false;
     ctx.opt.show_statistics = false;
+    ctx.opt.numeric = false;
     while ((opt = getopt_long(argc, argv, SHORT_OPTS, long_options, &idx)) != -1) {
         switch (opt) {
         case 'F':
@@ -105,6 +106,8 @@ int main(int argc, char **argv)
             break;
         case 'G':
             ctx.opt.nogeoip = true;
+            break;
+        case 'N':
             break;
         case 'd':
             ctx.opt.dmode++;
@@ -118,6 +121,9 @@ int main(int argc, char **argv)
         case 'l':
             list_interfaces();
             exit(0);
+        case 'n':
+            ctx.opt.numeric = true;
+            break;
         case 'p':
             ctx.opt.nopromiscuous = true;
             break;
@@ -149,11 +155,11 @@ int main(int argc, char **argv)
     decoder_init();
     debug_init();
     tcp_analyzer_init();
+    dns_cache_init();
+    host_analyzer_init();
     if (ctx.opt.text_mode) {
         ui_set_active("text");
     } else {
-        dns_cache_init();
-        host_analyzer_init();
         if (!ctx.opt.load_file)
             process_init();
         setup_signal(SIGWINCH, sig_winch, 0);
@@ -184,9 +190,8 @@ int main(int argc, char **argv)
         ctx.capturing = false;
         handle = iface_handle_create(buf, SNAPLEN, handle_packet);
         ctx.handle = handle;
-        if ((fp = file_open(ctx.filename, "r", &err)) == NULL) {
+        if ((fp = file_open(ctx.filename, "r", &err)) == NULL)
             err_sys("Error: %s", ctx.filename);
-        }
         if ((err = file_read(handle, fp, handle_packet)) != NO_ERROR) {
             fclose(fp);
             err_quit("Error in %s: %s", ctx.filename, file_error(err));
@@ -234,17 +239,19 @@ static void print_bpf(void)
 
 static void print_help(char *prg)
 {
-    printf("Usage: %s [-dhlpstvG] [-f filter] [-F filter-file] [-i interface] [-r path]\n"
+    printf("Usage: %s [-dGhlNnpstv] [-f filter] [-F filter-file] [-i interface] [-r path]\n"
            "Options:\n"
-           "     -G, --no-geoip         Don't use GeoIP information\n"
            "     -d                     Dump packet filter as BPF assembly and exit\n"
            "     -dd                    Dump packet filter as C code fragment and exit\n"
            "     -ddd                   Dump packet filter as decimal numbers and exit\n"
            "     -F                     Read packet filter from file (BPF assembly)\n"
            "     -f                     Specify packet filter (tcpdump syntax)\n"
+           "     -G, --no-geoip         Don't use GeoIP information\n"
            "     -h, --help             Print this help summary\n"
            "     -i, --interface        Specify network interface\n"
            "     -l, --list-interfaces  List available interfaces\n"
+           "     -n                     Use numerical addresses\n"
+           "     -N                     Only print the hostname (don't print the FQDN)\n"
            "     -p                     Don't put the interface into promiscuous mode\n"
            "     -r                     Read file in pcap format\n"
            "     -s, --statistics       Show statistics page\n"
@@ -305,13 +312,11 @@ void finish(int status)
 {
     ui_fini();
     vector_free(packets, NULL);
-    if (!ctx.opt.text_mode) {
-        host_analyzer_free();
-        dns_cache_free();
-        debug_free();
-        if (!ctx.opt.load_file)
-            process_free();
-    }
+    if (!ctx.opt.text_mode && !ctx.opt.load_file)
+        process_free();
+    host_analyzer_free();
+    dns_cache_free();
+    debug_free();
     tcp_analyzer_free();
     if (promiscuous_mode)
         iface_set_promiscuous(handle, ctx.device, false);
