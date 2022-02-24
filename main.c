@@ -122,7 +122,7 @@ int main(int argc, char **argv)
             ctx.opt.nopromiscuous = true;
             break;
         case 'r':
-            strcpy(ctx.filename, optarg);
+            strncpy(ctx.filename, optarg, MAXPATH - 1);
             ctx.opt.load_file = true;
             break;
         case 's':
