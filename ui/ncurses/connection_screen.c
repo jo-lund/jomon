@@ -302,12 +302,14 @@ void connection_screen_got_focus(screen *s, screen *oldscr UNUSED)
         tcp_analyzer_subscribe(update_connection);
         active = true;
     }
-    alarm(1);
+    if (ctx.capturing)
+        alarm(1);
 }
 
 void connection_screen_lost_focus()
 {
-    alarm(0);
+    if (ctx.capturing)
+        alarm(0);
 }
 
 void connection_screen_on_back(screen *s)
@@ -343,6 +345,7 @@ void connection_screen_get_input(screen *s)
         screen_stack_move_to_top((screen *) cvs);
         break;
     case 'f':
+        s->top = 0;
         mode = (mode + 1) % NUM_MODES;
         connection_screen_refresh(s);
         break;
