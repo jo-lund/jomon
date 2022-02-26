@@ -6,10 +6,6 @@
 #define HASHMAP_FOREACH(m, i) \
     for ((i) = hashmap_first(m); (i); (i) = hashmap_next(m, (i)))
 
-#define HASHMAP_MAP(m, i, f) \
-    HASHMAP_FOREACH(m, i)    \
-        f(it->data)
-
 typedef struct hashmap hashmap_t;
 typedef void (*hashmap_deallocate)(void *);
 

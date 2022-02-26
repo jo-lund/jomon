@@ -114,33 +114,32 @@ static screen_header proc_header[] = {
 static unsigned int header_size;
 static unsigned int num_pages;
 
-static void filter_close(struct tcp_connection_v4 *conn)
+static void update_screen_buf(screen *s)
 {
     connection_screen *cs;
 
-    cs = (connection_screen *) screen_cache_get(CONNECTION_SCREEN);
-    if (mode == REMOVE_CLOSED) {
-        if (conn->state != CLOSED && conn->state != RESET)
-            vector_push_back(cs->screen_buf, conn);
-    } else {
-        vector_push_back(cs->screen_buf, conn);
-    }
-}
-
-static void update_screen_buf(screen *s)
-{
-    vector_clear(((connection_screen *) s)->screen_buf, NULL);
+    cs = (connection_screen *) s;
+    vector_clear(cs->screen_buf, NULL);
     if (view == CONNECTION_PAGE) {
         hashmap_t *sessions = tcp_analyzer_get_sessions();
         const hashmap_iterator *it;
+        struct tcp_connection_v4 *conn;
 
-        HASHMAP_MAP(sessions, it, filter_close);
+        HASHMAP_FOREACH(sessions, it) {
+            conn = it->data;
+            if (mode == REMOVE_CLOSED) {
+                if (conn->state != CLOSED && conn->state != RESET)
+                    vector_push_back(cs->screen_buf, conn);
+            } else {
+                vector_push_back(cs->screen_buf, conn);
+            }
+        }
     } else {
         hashmap_t *procs = process_get_processes();
         const hashmap_iterator *it;
 
         HASHMAP_FOREACH(procs, it)
-            vector_push_back(((connection_screen *) s)->screen_buf, it->data);
+            vector_push_back(cs->screen_buf, it->data);
     }
 }
 
