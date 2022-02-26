@@ -114,6 +114,19 @@ static screen_header proc_header[] = {
 static unsigned int header_size;
 static unsigned int num_pages;
 
+static void filter_close(struct tcp_connection_v4 *conn)
+{
+    connection_screen *cs;
+
+    cs = (connection_screen *) screen_cache_get(CONNECTION_SCREEN);
+    if (mode == REMOVE_CLOSED) {
+        if (conn->state != CLOSED && conn->state != RESET)
+            vector_push_back(cs->screen_buf, conn);
+    } else {
+        vector_push_back(cs->screen_buf, conn);
+    }
+}
+
 static void update_screen_buf(screen *s)
 {
     vector_clear(((connection_screen *) s)->screen_buf, NULL);
@@ -121,8 +134,7 @@ static void update_screen_buf(screen *s)
         hashmap_t *sessions = tcp_analyzer_get_sessions();
         const hashmap_iterator *it;
 
-        HASHMAP_FOREACH(sessions, it)
-            vector_push_back(((connection_screen *) s)->screen_buf, it->data);
+        HASHMAP_MAP(sessions, it, filter_close);
     } else {
         hashmap_t *procs = process_get_processes();
         const hashmap_iterator *it;
@@ -347,6 +359,7 @@ void connection_screen_get_input(screen *s)
     case 'f':
         s->top = 0;
         mode = (mode + 1) % NUM_MODES;
+        update_screen_buf(s);
         connection_screen_refresh(s);
         break;
     case 'p':
@@ -368,20 +381,7 @@ void connection_screen_get_input(screen *s)
 
 static unsigned int connection_screen_get_size(screen *s)
 {
-    if (mode == REMOVE_CLOSED) {
-        connection_screen *cs = (connection_screen *) s;
-        unsigned int c = 0;
-        struct tcp_connection_v4 *conn;
-
-        for (int i = 0; i < vector_size(cs->screen_buf); i++) {
-            conn = vector_get(cs->screen_buf, i);
-            if (conn->state != CLOSED && conn->state != RESET)
-                c++;
-        }
-        return c;
-    } else {
-        return vector_size(((connection_screen *) s)->screen_buf);
-    }
+    return vector_size(((connection_screen *) s)->screen_buf);
 }
 
 void connection_screen_render(connection_screen *cs)
@@ -461,18 +461,10 @@ void print_all_connections(connection_screen *cs)
     int i = cs->base.top;
 
     while (cs->y < cs->base.lines && i < vector_size(cs->screen_buf)) {
-        if (view == CONNECTION_PAGE) {
-            struct tcp_connection_v4 *conn;
-
-            conn = vector_get(cs->screen_buf, i);
-            if (mode == REMOVE_CLOSED && (conn->state == CLOSED || conn->state == RESET)) {
-                i++;
-                continue;
-            }
-            print_connection(cs, conn, cs->y);
-        } else {
+        if (view == CONNECTION_PAGE)
+            print_connection(cs, vector_get(cs->screen_buf, i), cs->y);
+        else
             print_process(cs, vector_get(cs->screen_buf, i), cs->y);
-        }
         cs->y++;
         i++;
     }
