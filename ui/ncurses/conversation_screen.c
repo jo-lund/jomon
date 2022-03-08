@@ -120,6 +120,7 @@ void conversation_screen_init(screen *s)
     main_screen_init(s);
     cs->stream = NULL;
     cs->base.packet_ref = NULL;
+    s->show_selectionbar = true;
     memset(&tcp_page, 0, sizeof(struct tcp_page));
     tcp_page.buf = vector_init(TCP_PAGE_SIZE);
 }
@@ -165,8 +166,11 @@ void conversation_screen_lost_focus(screen *s, screen *newscr)
 
     ((main_screen *) s)->follow_stream = false;
     tcp_analyzer_unsubscribe(add_packet);
-    if (newscr->fullscreen)
+    if (newscr->fullscreen) {
         vector_free(cs->base.packet_ref, NULL);
+        s->top = 0;
+        s->selectionbar = 0;
+    }
 }
 
 static void conversation_screen_on_back(screen *s)
@@ -176,7 +180,6 @@ static void conversation_screen_on_back(screen *s)
     tcp_mode = NORMAL;
     vector_clear(tcp_page.buf, free_tcp_attr);
     tcp_page.top = 0;
-
 }
 
 void conversation_screen_get_input(screen *s)
@@ -272,16 +275,10 @@ static void conversation_screen_render(conversation_screen *cs)
     char buf[MAXLINE];
     int my = getmaxy(s->win);
 
-    main_screen_clear((main_screen *) cs);
-    s->selectionbar = 0;
-    s->top = 0;
     for (int i = 0; i < my && i < vector_size(cs->base.packet_ref); i++) {
         write_to_buf(buf, MAXLINE, vector_get(cs->base.packet_ref, i));
         printnlw(s->win, buf, strlen(buf), i, 0, cs->base.scrollx);
     }
-    cs->base.outy = vector_size(cs->base.packet_ref) > my ? my :
-        vector_size(cs->base.packet_ref);
-    main_screen_set_interactive((main_screen *) cs, true);
 }
 
 static void goto_home(conversation_screen *cs)
