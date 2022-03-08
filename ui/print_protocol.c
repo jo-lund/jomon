@@ -51,7 +51,7 @@ void write_to_buf(char *buf, int size, struct packet *p)
 
     if (p->root->next)
         pinfo = get_protocol(p->root->next->id);
-    if (pinfo) {
+    if (pinfo && p->root->next->data) {
         char time[TBUFLEN];
         struct timeval t = p->time;
 
@@ -267,9 +267,7 @@ void print_ipv4(char *buf, int n, void *data)
         }
     }
     PRINT_ADDRESS(buf, n, src, dst);
-    if (pdata->next)
-        pinfo = get_protocol(pdata->next->id);
-    if (pinfo) {
+    if (pdata->next && pdata->next->data && (pinfo = get_protocol(pdata->next->id))) {
         pinfo->print_pdu(buf, n, pdata->next);
     } else {
         PRINT_PROTOCOL(buf, n, "IPv4");
