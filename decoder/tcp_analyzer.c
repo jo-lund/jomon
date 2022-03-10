@@ -6,8 +6,9 @@
 
 static hashmap_t *connection_table = NULL;
 static publisher_t *conn_changed_publisher;
+static int nconnections = 0;
 
-void tcp_analyzer_init()
+void tcp_analyzer_init(void)
 {
     connection_table = hashmap_init(TBLSZ, hash_tcp_v4, compare_tcp_v4);
     conn_changed_publisher = publisher_init();
@@ -83,13 +84,12 @@ struct tcp_connection_v4 *tcp_analyzer_create_connection(struct tcp_endpoint_v4 
 {
     struct tcp_connection_v4 *new_conn;
     struct tcp_endpoint_v4 *new_endp;
-    static int i = 0;
 
     new_endp = mempool_copy(endp, sizeof(struct tcp_endpoint_v4));
     new_conn = mempool_alloc(sizeof(struct tcp_connection_v4));
     new_conn->endp = new_endp;
     new_conn->packets = list_init(&d_alloc);
-    new_conn->num = i++;
+    new_conn->num = nconnections++;
     new_conn->data = NULL;
     hashmap_insert(connection_table, new_endp, new_conn);
     return new_conn;
@@ -108,7 +108,7 @@ void tcp_analyzer_remove_connection(struct tcp_endpoint_v4 *endp)
         hashmap_remove(connection_table, endp);
 }
 
-hashmap_t *tcp_analyzer_get_sessions()
+hashmap_t *tcp_analyzer_get_sessions(void)
 {
     return connection_table;
 }
@@ -144,13 +144,14 @@ char *tcp_analyzer_get_connection_state(enum connection_state state)
     }
 }
 
-void tcp_analyzer_clear()
+void tcp_analyzer_clear(void)
 {
     if (connection_table)
         hashmap_clear(connection_table);
+    nconnections = 0;
 }
 
-void tcp_analyzer_free()
+void tcp_analyzer_free(void)
 {
     hashmap_free(connection_table);
     publisher_free(conn_changed_publisher);
