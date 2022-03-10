@@ -160,7 +160,7 @@ int main(int argc, char **argv)
     if (ctx.opt.text_mode) {
         ui_set_active("text");
     } else {
-        if (!ctx.opt.load_file)
+        if (!ctx.opt.load_file || geteuid() == 0)
             process_init();
         setup_signal(SIGWINCH, sig_winch, 0);
     }
