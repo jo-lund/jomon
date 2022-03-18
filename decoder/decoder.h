@@ -11,6 +11,7 @@
 #include "packet_arp.h"
 #include "packet_stp.h"
 #include "packet_ip.h"
+#include "packet_ip6.h"
 #include "packet_tcp.h"
 #include "packet_udp.h"
 #include "packet_nbds.h"

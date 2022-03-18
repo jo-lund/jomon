@@ -7,8 +7,6 @@
 #include "packet_udp.h"
 #include "packet_pim.h"
 
-#define IPV6_FIXED_HEADER_LEN 40
-
 struct ipv4_info {
     unsigned int version : 4;
     unsigned int ihl     : 4; /* Internet Header Length */
@@ -29,37 +27,17 @@ struct ipv4_info {
 #define ipv4_dst(p) get_ipv4(p)->dst
 #define ipv4_protocol(p) get_ipv4(p)->protocol
 
-struct ipv6_info {
-    unsigned int version : 4;
-    uint8_t tc;
-    unsigned int flow_label : 20;
-    uint16_t payload_len;
-    uint8_t next_header;
-    uint8_t hop_limit;
-    uint8_t src[16]; /* stored in network byte order */
-    uint8_t dst[16]; /* stored in network byte order */
-};
-
-#define get_ipv6(p) ((struct ipv6_info *)(p)->root->next->data)
-#define ipv6_src(p) get_ipv6(p)->src
-#define ipv6_dst(p) get_ipv6(p)->dst
-#define ipv6_protocol(p) get_ipv6(p)->next_header
-
 char *get_ip_dscp(uint8_t dscp);
 char *get_ip_transport_protocol(uint8_t protocol);
 
 /* Get the IPv4 packet flags */
-struct packet_flags *get_ipv4_flags();
-int get_ipv4_flags_size();
+struct packet_flags *get_ipv4_flags(void);
+int get_ipv4_flags_size(void);
 
 /* Get the IPv4 fragment offset field */
 uint16_t get_ipv4_foffset(struct ipv4_info *ip);
 
 /* internal to the decoder */
-void register_ip();
-packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                         struct packet_data *pdata);
-packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                         struct packet_data *pdata);
+void register_ip(void);
 
 #endif
