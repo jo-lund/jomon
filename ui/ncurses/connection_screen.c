@@ -115,7 +115,6 @@ static screen_header proc_header[] = {
 };
 
 static unsigned int header_size;
-static unsigned int num_pages;
 
 static int cmp_conn(const void *p1, const void *p2)
 {
@@ -266,15 +265,15 @@ static void print_connection(connection_screen *cs, struct tcp_connection_v4 *co
     }
 }
 
-static void update_header(void)
+static void update_header(screen *s)
 {
     if (ctx.opt.load_file) {
         header_size = ARRAY_SIZE(header) - 1;
-        num_pages = 1;
+        s->num_pages = 1;
         view = CONNECTION_PAGE;
     } else {
         header_size = ARRAY_SIZE(header);
-        num_pages = 2;
+        s->num_pages = 2;
     }
 }
 
@@ -322,7 +321,7 @@ void connection_screen_got_focus(screen *s, screen *oldscr UNUSED)
 {
     if (!active) {
         s->top = 0;
-        update_header();
+        update_header(s);
         update_screen_buf(s);
         tcp_analyzer_subscribe(update_connection);
         active = true;
@@ -376,11 +375,13 @@ void connection_screen_get_input(screen *s)
         connection_screen_refresh(s);
         break;
     case 'p':
+        if (s->num_pages == 1)
+            return;
         if (view == CONNECTION_PAGE && s->show_selectionbar)
             s->show_selectionbar = false;
-        view = (view + 1) % num_pages;
+        view = (view + 1) % s->num_pages;
         update_screen_buf(s);
-        if (num_pages > 1)
+        if (s->num_pages > 1)
             s->top = 0;
         connection_screen_refresh(s);
         break;
