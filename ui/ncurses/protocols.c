@@ -1894,97 +1894,81 @@ void add_dhcp_information(void *w, void *sw, void *data)
 }
 
 static void add_tls_extensions(list_view *lw, list_view_header *header,
-                               unsigned char *data, uint16_t len)
+                               struct tls_extension *ext)
 {
-    list_t *extensions;
     list_view_header *sub;
 
-    extensions = parse_tls_extensions(data, len);
-    if (extensions) {
-        const node_t *n = list_begin(extensions);
+    while (ext) {
+        switch(ext->type) {
+        case SUPPORTED_GROUPS:
+        {
+            char *group;
 
-        while (n) {
-            struct tls_extension *ext = list_data(n);
-
-            switch(ext->type) {
-            case SUPPORTED_GROUPS:
-            {
-                char *group;
-
-                sub = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1,
-                                        "Extension: Supported groups");
-                for (int i = 0; i < ext->supported_groups.length / 2; i++) {
-                    if ((group = get_supported_group(ntohs(ext->supported_groups.named_group_list[i])))) {
-                        LV_ADD_TEXT_ELEMENT(lw, sub, "%s", group);
-                    }
+            sub = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1,
+                                    "Extension: Supported groups");
+            LV_ADD_TEXT_ELEMENT(lw, sub, "Length: %u", ext->supported_groups.length);
+            for (int i = 0; i < ext->supported_groups.length / 2; i++) {
+                if ((group = get_supported_group(ntohs(ext->supported_groups.named_group_list[i])))) {
+                    LV_ADD_TEXT_ELEMENT(lw, sub, "%s", group);
                 }
-                break;
             }
-            case SIGNATURE_ALGORITHMS:
-            {
-                char *alg;
-
-                sub = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1,
-                                        "Extension: Signature algorithms");
-                for (int i = 0; i < ext->signature_algorithms.length / 2; i++) {
-                    if ((alg = get_signature_scheme(ntohs(ext->signature_algorithms.types[i])))) {
-                        LV_ADD_TEXT_ELEMENT(lw, sub, "%s", alg);
-                    }
-                }
-                break;
-            }
-            case SUPPORTED_VERSIONS:
-            {
-                int len = ext->supported_versions.length;
-
-                sub = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1,
-                                        "Extension: Supported version");
-                while (len > 0) {
-                    LV_ADD_TEXT_ELEMENT(lw, sub, "%s",
-                                        get_tls_version(*ext->supported_versions.versions));
-                    len -= 2;
-                }
-                break;
-            }
-            case COOKIE:
-            {
-                char *buf = malloc(ext->cookie.length * 2);
-
-                sub = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1,
-                                        "Extension: Cookie");
-                for (int i = 0; i < ext->cookie.length; i++) {
-                    snprintf(buf + 2 * i, 3, "%02x", ext->cookie.ptr[i]);
-                }
-                LV_ADD_TEXT_ELEMENT(lw, sub, "%s", buf);
-                free(buf);
-                break;
-            }
-            default:
-                break;
-            }
-            n = list_next(n);
+            break;
         }
+        case SIGNATURE_ALGORITHMS:
+        {
+            char *alg;
+
+            sub = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1,
+                                    "Extension: Signature algorithms");
+            LV_ADD_TEXT_ELEMENT(lw, sub, "Length: %u", ext->signature_algorithms.length);
+            for (int i = 0; i < ext->signature_algorithms.length / 2; i++) {
+                if ((alg = get_signature_scheme(ntohs(ext->signature_algorithms.types[i])))) {
+                    LV_ADD_TEXT_ELEMENT(lw, sub, "%s", alg);
+                }
+            }
+            break;
+        }
+        case SUPPORTED_VERSIONS:
+            sub = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1,
+                                    "Extension: Supported version");
+            LV_ADD_TEXT_ELEMENT(lw, sub, "Length: %u", ext->supported_versions.length);
+            for (int i = 0; i < ext->supported_versions.length / 2; i++)
+                LV_ADD_TEXT_ELEMENT(lw, sub, "%s",
+                                    get_tls_version(ntohs(ext->supported_versions.versions[i])));
+            break;
+        case COOKIE:
+        {
+            char *buf = malloc(ext->cookie.length * 2);
+
+            sub = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1,
+                                    "Extension: Cookie");
+            for (int i = 0; i < ext->cookie.length; i++) {
+                snprintf(buf + 2 * i, 3, "%02x", ext->cookie.ptr[i]);
+            }
+            LV_ADD_TEXT_ELEMENT(lw, sub, "%s", buf);
+            free(buf);
+            break;
+        }
+        default:
+            break;
+        }
+        ext = ext->next;
     }
-    free_tls_extensions(extensions);
 }
 
-static void add_tls_client_hello(list_view *lw, list_view_header *header,
-                                 struct tls_handshake_client_hello *hello)
+static void add_tls_client_hello(list_view *lw, list_view_header *hdr, struct tls_handshake *hs)
 {
-    list_view_header *hdr;
+    struct tls_handshake_client_hello *hello;
     list_view_header *sub;
     char buf[65];
 
-    hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Client Hello");
-    LV_ADD_TEXT_ELEMENT(lw, hdr, "Protocol Version: %s",
-                        get_tls_version(hello->legacy_version));
-    for (int i = 0; i < 32; i++) {
+    hello = hs->client_hello;
+    LV_ADD_TEXT_ELEMENT(lw, hdr, "Protocol Version: %s", get_tls_version(hello->legacy_version));
+    for (int i = 0; i < 32; i++)
         snprintf(buf + 2 * i, 3, "%02x", hello->random_bytes[i]);
-    }
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Random bytes: %s", buf);
-    for (int i = 0; i < hello->session_length; i++) {
+    for (int i = 0; i < hello->session_length; i++)
         snprintf(buf + 2 * i, 3, "%02x", hello->session_id[i]);
-    }
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Session id length: %d", hello->session_length);
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Session id: %s", buf);
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Cipher suite length: %d", hello->cipher_length);
@@ -1995,31 +1979,28 @@ static void add_tls_client_hello(list_view *lw, list_view_header *header,
                             ntohs(hello->cipher_suites[i]));
     }
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Compression length: %d", hello->compression_length);
-    add_tls_extensions(lw, hdr, hello->data, hello->data_len);
+    add_tls_extensions(lw, hdr, hs->ext);
 }
 
-static void add_tls_server_hello(list_view *lw, list_view_header *header,
-                                 struct tls_handshake_server_hello *hello)
+static void add_tls_server_hello(list_view *lw, list_view_header *hdr, struct tls_handshake *hs)
 {
-    list_view_header *hdr;
+    struct tls_handshake_server_hello *hello;
     char buf[65];
 
-    hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Server Hello");
+    hello = hs->server_hello;
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Protocol Version: %s",
                         get_tls_version(hello->legacy_version));
-    for (int i = 0; i < 32; i++) {
+    for (int i = 0; i < 32; i++)
         snprintf(buf + 2 * i, 3, "%02x", hello->random_bytes[i]);
-    }
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Random bytes: %s", buf);
-    for (int i = 0; i < hello->session_length; i++) {
+    for (int i = 0; i < hello->session_length; i++)
         snprintf(buf + 2 * i, 3, "%02x", hello->session_id[i]);
-    }
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Session id length: %d", hello->session_length);
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Session id: %s", buf);
-    LV_ADD_TEXT_ELEMENT(lw, hdr, "Cipher suite: %s",
-                        get_tls_cipher_suite(ntohs(hello->cipher_suite)));
+    LV_ADD_TEXT_ELEMENT(lw, hdr, "Cipher suite: %s (0x%x)",
+                        get_tls_cipher_suite(hello->cipher_suite), hello->cipher_suite);
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Compression: %d", hello->compression_method);
-    add_tls_extensions(lw, hdr, hello->data, hello->data_len);
+    add_tls_extensions(lw, hdr, hs->ext);
 }
 
 static void add_tls_handshake(list_view *lw, list_view_header *header,
@@ -2035,10 +2016,10 @@ static void add_tls_handshake(list_view *lw, list_view_header *header,
                             handshake->length[1] << 8 | handshake->length[2]);
         switch (handshake->type) {
         case TLS_CLIENT_HELLO:
-            add_tls_client_hello(lw, hdr, handshake->client_hello);
+            add_tls_client_hello(lw, hdr, handshake);
             break;
         case TLS_SERVER_HELLO:
-            add_tls_server_hello(lw, hdr, handshake->server_hello);
+            add_tls_server_hello(lw, hdr, handshake);
             break;
         default:
             break;

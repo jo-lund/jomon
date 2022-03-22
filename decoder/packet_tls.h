@@ -171,49 +171,8 @@ struct tls_handshake {
         struct tls_handshake_client_hello *client_hello;
         struct tls_handshake_server_hello *server_hello;
     };
+    struct tls_extension *ext;
 };
-
-struct tls_handshake_client_hello {
-    /* In previous versions of TLS, the version field was used for
-       version negotiation and represented the highest version number
-       supported by the client. Experience has shown that many servers
-       do not properly implement version negotiation, leading to "version
-       intolerance" in which the server rejects an otherwise acceptable
-       ClientHello with a version number higher than it supports.  In
-       TLS 1.3, the client indicates its version preferences in the
-       "supported_versions" extension and the legacy_version field MUST be
-       set to 0x0303, which is the version number for TLS 1.2. TLS 1.3
-       ClientHellos are identified as having a legacy_version of 0x0303 and
-       a supported_versions extension present with 0x0304 as the highest
-       version indicated therein. */
-    uint16_t legacy_version;
-    uint8_t random_bytes[32];
-    uint8_t *session_id; /* between 0 and 32 bytes */
-    uint8_t session_length;
-    uint16_t *cipher_suites; /* between 2 and 2^16 - 2 */
-    uint16_t cipher_length;
-    uint8_t *compression_methods; /* not used for TLS 1.3 and should be set to 0 */
-    uint8_t compression_length;
-    unsigned char *data; /* extensions */
-    uint16_t data_len;
-};
-
-struct tls_handshake_server_hello {
-    uint16_t legacy_version;
-    uint8_t random_bytes[32];
-    uint8_t *session_id; /* the contents of the client's session id */
-    uint8_t session_length;
-    /* the single cipher suite selected by the server from the list in
-       ClientHello */
-    uint16_t cipher_suite;
-    /* Not used for TLS 1.3 and should be set to 0. For TLS 1.2 and below it is
-       the single compression algorithm selected by the server from the list in
-       ClientHello. */
-    uint8_t compression_method;
-    unsigned char *data; /* extensions */
-    uint16_t data_len;
-};
-
 
 /* tag-length-value encoded extension structures */
 struct tls_extension {
@@ -237,6 +196,44 @@ struct tls_extension {
             uint16_t length;
         } supported_groups;
     };
+    struct tls_extension *next;
+};
+
+struct tls_handshake_client_hello {
+    /* In previous versions of TLS, the version field was used for
+       version negotiation and represented the highest version number
+       supported by the client. Experience has shown that many servers
+       do not properly implement version negotiation, leading to "version
+       intolerance" in which the server rejects an otherwise acceptable
+       ClientHello with a version number higher than it supports.  In
+       TLS 1.3, the client indicates its version preferences in the
+       "supported_versions" extension and the legacy_version field MUST be
+       set to 0x0303, which is the version number for TLS 1.2. TLS 1.3
+       ClientHellos are identified as having a legacy_version of 0x0303 and
+       a supported_versions extension present with 0x0304 as the highest
+       version indicated therein. */
+    uint16_t legacy_version;
+    uint8_t random_bytes[32];
+    uint8_t *session_id; /* between 0 and 32 bytes */
+    uint8_t session_length;
+    uint16_t *cipher_suites; /* between 2 and 2^16 - 2 */
+    uint16_t cipher_length;
+    uint8_t *compression_methods; /* not used for TLS 1.3 and should be set to 0 */
+    uint8_t compression_length;
+};
+
+struct tls_handshake_server_hello {
+    uint16_t legacy_version;
+    uint8_t random_bytes[32];
+    uint8_t *session_id; /* the contents of the client's session id */
+    uint8_t session_length;
+    /* the single cipher suite selected by the server from the list in
+       ClientHello */
+    uint16_t cipher_suite;
+    /* Not used for TLS 1.3 and should be set to 0. For TLS 1.2 and below it is
+       the single compression algorithm selected by the server from the list in
+       ClientHello. */
+    uint8_t compression_method;
 };
 
 struct tls_alert {
@@ -273,10 +270,7 @@ char *get_tls_handshake_type(uint8_t type);
 char *get_tls_cipher_suite(uint16_t suite);
 char *get_signature_scheme(uint16_t type);
 char *get_supported_group(uint16_t type);
-list_t *parse_tls_extensions(unsigned char *data, uint16_t len);
-void free_tls_extensions(list_t *extensions);
-
-void register_tls();
+void register_tls(void);
 packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buffer, int len,
                         struct packet_data *pdata);
 

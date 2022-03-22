@@ -367,8 +367,6 @@ static packet_error parse_client_hello(unsigned char **buf, uint16_t n,
                                        struct tls_handshake *handshake);
 static packet_error parse_server_hello(unsigned char **buf, uint16_t len,
                                        struct tls_handshake *handshake);
-static enum pool prev;
-
 static struct protocol_info tls_prot = {
     .short_name = "TLS",
     .long_name = "Transport Layer Security",
@@ -387,7 +385,8 @@ void register_tls()
 packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
                         struct packet_data *pdata)
 {
-    if (n < TLS_HEADER_SIZE || n > TLS_MAX_SIZE) return DECODE_ERR;
+    if (n < TLS_HEADER_SIZE || n > TLS_MAX_SIZE)
+        return DECODE_ERR;
 
     uint16_t data_len = 0;
     struct tls_info **pptr;
@@ -457,12 +456,13 @@ done:
 
 static packet_error parse_handshake(unsigned char **buf, uint16_t len, struct tls_info *tls)
 {
-    if (len < TLS_HANDSHAKE_HEADER) return DECODE_ERR;
+    if (len < TLS_HANDSHAKE_HEADER)
+        return DECODE_ERR;
 
     packet_error err = NO_ERR;
     unsigned char *ptr = *buf;
 
-    tls->handshake = mempool_alloc(sizeof(struct tls_handshake));
+    tls->handshake = mempool_calloc(struct tls_handshake);
     tls->handshake->type = ptr[0];
     memcpy(tls->handshake->length, ptr + 1, 3);
     ptr += 4;
@@ -485,10 +485,95 @@ static packet_error parse_handshake(unsigned char **buf, uint16_t len, struct tl
     return err;
 }
 
+static packet_error parse_tls_extensions(struct tls_handshake *hs, unsigned char **buf, uint16_t len)
+{
+    int length = len;
+    unsigned char *data = *buf;
+    struct tls_extension **ext = &hs->ext;
+
+    length = read_uint16be(&data);
+    if (length > len)
+        goto error;
+    while (length > 0) {
+        *ext = mempool_calloc(struct tls_extension);
+        (*ext)->type = read_uint16be(&data);
+        (*ext)->length = read_uint16be(&data);
+        length -= 4;
+        switch ((*ext)->type) {
+        case SERVER_NAME:
+        case MAX_FRAGMENT_LENGTH:
+        case STATUS_REQUEST:
+            break;
+        case SUPPORTED_GROUPS:
+            (*ext)->supported_groups.length = get_uint16be(data);
+            if ((*ext)->length > length || (*ext)->supported_versions.length > (*ext)->length)
+                goto error;
+            (*ext)->supported_groups.named_group_list = mempool_copy(data + 2, (*ext)->supported_versions.length);
+            break;
+        case SIGNATURE_ALGORITHMS:
+            (*ext)->signature_algorithms.length = get_uint16be(data);
+            if ((*ext)->length > length || (*ext)->supported_versions.length > (*ext)->length)
+                goto error;
+            (*ext)->signature_algorithms.types = mempool_copy(data + 2, (*ext)->signature_algorithms.length);
+            break;
+        case USE_SRTP:
+        case HEARTBEAT:
+        case APPLICATION_LAYER_PROTOCOL_NEGOTIATION:
+        case SIGNED_CERTIFICATE_TIMESTAMP:
+        case CLIENT_CERTIFICATE_TYPE:
+        case SERVER_CERTIFICATE_TYPE:
+        case PADDING:
+        case PRE_SHARED_KEY:
+        case EARLY_DATA:
+            break;
+        case SUPPORTED_VERSIONS:
+            if ((*ext)->length > length)
+                goto error;
+            if (((*ext)->length & 0x1) == 0) { /* No length field */
+                (*ext)->supported_versions.length = (*ext)->length;
+                (*ext)->supported_versions.versions = mempool_copy(data, (*ext)->length);
+            } else {
+                if (*data > length)
+                    goto error;
+                (*ext)->supported_versions.length = *data;
+                (*ext)->supported_versions.versions = mempool_copy(data + 1, (*ext)->supported_versions.length);
+            }
+            break;
+        case COOKIE:
+            if ((*ext)->length < length) {
+                (*ext)->cookie.ptr = mempool_copy(data, (*ext)->length);
+                (*ext)->cookie.length = (*ext)->length;
+            }
+            break;
+        case PSK_KEY_EXCHANGE_MODES:
+        case CERTIFICATE_AUTHORITIES:
+        case OID_FILTERS:
+        case POST_HANDSHAKE_AUTH:
+        case SIGNATURE_ALGORITHMS_CERT:
+        case KEY_SHARE:
+        default:
+            break;
+        }
+        length -= (*ext)->length;
+        data += (*ext)->length;
+        ext = &(*ext)->next;
+    }
+    *buf = data;
+    return NO_ERR;
+
+error:
+    if (hs->ext) {
+        mempool_free(hs->ext);
+        hs->ext = NULL;
+    }
+    return DECODE_ERR;
+}
+
 static packet_error parse_client_hello(unsigned char **buf, uint16_t len,
                                        struct tls_handshake *handshake)
 {
-    if (len < TLS_MIN_CLIENT_HELLO) return DECODE_ERR;
+    if (len < TLS_MIN_CLIENT_HELLO)
+        return DECODE_ERR;
 
     unsigned char *ptr = *buf;
 
@@ -524,17 +609,16 @@ static packet_error parse_client_hello(unsigned char **buf, uint16_t len,
         ptr += handshake->client_hello->compression_length + 1;
         len = len - (handshake->client_hello->compression_length + 1);
     }
-    handshake->client_hello->data = mempool_copy(ptr, len);
-    handshake->client_hello->data_len = len;
-    ptr += len;
     *buf = ptr;
+    parse_tls_extensions(handshake, buf, len);
     return NO_ERR;
 }
 
 static packet_error parse_server_hello(unsigned char **buf, uint16_t len,
                                        struct tls_handshake *handshake)
 {
-    if (len < TLS_MIN_CLIENT_HELLO) return DECODE_ERR;
+    if (len < TLS_MIN_CLIENT_HELLO)
+        return DECODE_ERR;
 
     unsigned char *ptr = *buf;
 
@@ -556,95 +640,9 @@ static packet_error parse_server_hello(unsigned char **buf, uint16_t len,
     handshake->server_hello->compression_method = ptr[0];
     ptr++;
     len--;
-    handshake->server_hello->data = mempool_copy(ptr, len);
-    handshake->server_hello->data_len = len;
-    ptr += len;
     *buf = ptr;
+    parse_tls_extensions(handshake, buf, len);
     return NO_ERR;
-}
-
-list_t *parse_tls_extensions(unsigned char *data, uint16_t len)
-{
-    allocator_t alloc = {
-        .alloc = mempool_alloc,
-        .dealloc = NULL
-    };
-    list_t *extensions;
-    int length = len;
-
-    prev = mempool_set(POOL_SHORT);
-    extensions = list_init(&alloc);
-    length -= 2;
-    data += 2;
-    while (length > 0) {
-        struct tls_extension *ext = mempool_alloc(sizeof(struct tls_extension));
-
-        ext->type = get_uint16be(data);
-        ext->length = get_uint16be(data + 2);
-        data += 4;
-        length -= 4;
-        switch (ext->type) {
-        case SERVER_NAME:
-        case MAX_FRAGMENT_LENGTH:
-        case STATUS_REQUEST:
-            break;
-        case SUPPORTED_GROUPS:
-            if (ext->length < length) {
-                ext->supported_groups.named_group_list = mempool_copy(data, ext->length);
-                ext->supported_groups.length = ext->length;
-                list_push_back(extensions, ext);
-            }
-            break;
-        case SIGNATURE_ALGORITHMS:
-            if (ext->length < length) {
-                ext->signature_algorithms.types = mempool_copy(data, ext->length);
-                ext->signature_algorithms.length = ext->length;
-                list_push_back(extensions, ext);
-            }
-            break;
-        case USE_SRTP:
-        case HEARTBEAT:
-        case APPLICATION_LAYER_PROTOCOL_NEGOTIATION:
-        case SIGNED_CERTIFICATE_TIMESTAMP:
-        case CLIENT_CERTIFICATE_TYPE:
-        case SERVER_CERTIFICATE_TYPE:
-        case PADDING:
-        case PRE_SHARED_KEY:
-        case EARLY_DATA:
-            break;
-        case SUPPORTED_VERSIONS:
-            if (ext->length < length) {
-                ext->supported_versions.versions = mempool_copy(data, ext->length);
-                ext->supported_versions.length = ext->length;
-                list_push_back(extensions, ext);
-            }
-            break;
-        case COOKIE:
-            if (ext->length < length) {
-                ext->cookie.ptr = mempool_copy(data, ext->length);
-                ext->cookie.length = ext->length;
-                list_push_back(extensions, ext);
-            }
-            break;
-        case PSK_KEY_EXCHANGE_MODES:
-        case CERTIFICATE_AUTHORITIES:
-        case OID_FILTERS:
-        case POST_HANDSHAKE_AUTH:
-        case SIGNATURE_ALGORITHMS_CERT:
-        case KEY_SHARE:
-        default:
-            break;
-        }
-        length -= ext->length;
-        data += ext->length;
-    }
-    return extensions;
-}
-
-void free_tls_extensions(list_t *extensions)
-{
-    mempool_free(extensions);
-    mempool_set(prev);
 }
 
 char *get_tls_version(uint16_t version)
