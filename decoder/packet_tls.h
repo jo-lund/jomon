@@ -171,6 +171,7 @@ struct tls_handshake {
         struct tls_handshake_client_hello *client_hello;
         struct tls_handshake_server_hello *server_hello;
     };
+    uint16_t ext_length;
     struct tls_extension *ext;
 };
 
@@ -271,7 +272,6 @@ char *get_tls_cipher_suite(uint16_t suite);
 char *get_signature_scheme(uint16_t type);
 char *get_supported_group(uint16_t type);
 void register_tls(void);
-packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buffer, int len,
-                        struct packet_data *pdata);
+
 
 #endif

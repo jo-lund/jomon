@@ -361,6 +361,8 @@ enum tls_state {
 
 extern void print_tls(char *buf, int n, void *data);
 extern void add_tls_information(void *widget, void *subwidget, void *data);
+static packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buffer,
+                                int len, struct packet_data *pdata);
 static packet_error parse_handshake(unsigned char **buf, uint16_t n,
                                     struct tls_info *tls);
 static packet_error parse_client_hello(unsigned char **buf, uint16_t n,
@@ -375,7 +377,7 @@ static struct protocol_info tls_prot = {
     .add_pdu = add_tls_information
 };
 
-void register_tls()
+void register_tls(void)
 {
     register_protocol(&tls_prot, PORT, HTTPS);
     register_protocol(&tls_prot, PORT, IMAPS);
@@ -487,13 +489,13 @@ static packet_error parse_handshake(unsigned char **buf, uint16_t len, struct tl
 
 static packet_error parse_tls_extensions(struct tls_handshake *hs, unsigned char **buf, uint16_t len)
 {
-    int length = len;
+    int length;
     unsigned char *data = *buf;
     struct tls_extension **ext = &hs->ext;
 
-    length = read_uint16be(&data);
-    if (length > len)
+    if ((hs->ext_length = read_uint16be(&data)) > len)
         goto error;
+    length = hs->ext_length;
     while (length > 0) {
         *ext = mempool_calloc(struct tls_extension);
         (*ext)->type = read_uint16be(&data);
@@ -562,9 +564,9 @@ static packet_error parse_tls_extensions(struct tls_handshake *hs, unsigned char
     return NO_ERR;
 
 error:
-    if (hs->ext) {
-        mempool_free(hs->ext);
-        hs->ext = NULL;
+    if (*ext) {
+        mempool_free(*ext);
+        *ext = NULL;
     }
     return DECODE_ERR;
 }

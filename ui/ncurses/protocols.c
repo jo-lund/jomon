@@ -1979,6 +1979,7 @@ static void add_tls_client_hello(list_view *lw, list_view_header *hdr, struct tl
                             ntohs(hello->cipher_suites[i]));
     }
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Compression length: %d", hello->compression_length);
+    LV_ADD_TEXT_ELEMENT(lw, hdr, "Extension length: %u", hs->ext_length);
     add_tls_extensions(lw, hdr, hs->ext);
 }
 
@@ -2000,6 +2001,7 @@ static void add_tls_server_hello(list_view *lw, list_view_header *hdr, struct tl
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Cipher suite: %s (0x%x)",
                         get_tls_cipher_suite(hello->cipher_suite), hello->cipher_suite);
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Compression: %d", hello->compression_method);
+    LV_ADD_TEXT_ELEMENT(lw, hdr, "Extension length: %u", hs->ext_length);
     add_tls_extensions(lw, hdr, hs->ext);
 }
 
