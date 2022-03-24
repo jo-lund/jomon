@@ -721,7 +721,7 @@ void print_tls(char *buf, int n, void *data)
         if (tls->type == TLS_HANDSHAKE) {
             snprintcat(records, MAXLINE, ", %s", get_tls_handshake_type(tls->handshake->type));
         } else {
-            snprintcat(records, MAXLINE, ", %s", type);
+            snprintcat(records, MAXLINE, ", %s", get_tls_type(tls->type));
         }
         tls = tls->next;
     }
