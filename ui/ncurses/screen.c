@@ -32,12 +32,13 @@ static void handle_keyup(screen *s)
         } else if (s->selectionbar > 0) {
             s->selectionbar--;
         }
+        SCREEN_REFRESH(s);
     } else {
         if (s->top > 0) {
             s->top--;
+            SCREEN_REFRESH(s);
         }
     }
-    SCREEN_REFRESH(s);
 }
 
 static void scroll_page(screen *s, int num_lines)
