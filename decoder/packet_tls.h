@@ -79,6 +79,7 @@ enum extension_type {
     MAX_FRAGMENT_LENGTH = 1,                     /* RFC 6066 */
     STATUS_REQUEST = 5,                          /* RFC 6066 */
     SUPPORTED_GROUPS = 10,                       /* RFC 8422, 7919 */
+    EC_POINT_FORMATS = 11,                       /* RFC 8422, 4492 */
     SIGNATURE_ALGORITHMS = 13,                   /* RFC 8446 */
     USE_SRTP = 14,                               /* RFC 5764 */
     HEARTBEAT = 15,                              /* RFC 6520 */
@@ -87,6 +88,7 @@ enum extension_type {
     CLIENT_CERTIFICATE_TYPE = 19,                /* RFC 7250 */
     SERVER_CERTIFICATE_TYPE = 20,                /* RFC 7250 */
     PADDING = 21,                                /* RFC 7685 */
+    SESSION_TICKET = 35,                         /* RFC 5077 */
     PRE_SHARED_KEY = 41,                         /* RFC 8446 */
     EARLY_DATA = 42,                             /* RFC 8446 */
     SUPPORTED_VERSIONS = 43,                     /* RFC 8446 */
@@ -164,6 +166,12 @@ enum named_group {
     FFDHE8192 = 0x0104
 };
 
+enum ec_point_format {
+    UNCOMPRESSED,
+    ANSIX962_COMPRESSED_PRIME,
+    ANSIX962_COMPRESSED_CHAR2
+};
+
 struct tls_handshake {
     uint8_t type;
     uint8_t length[3];
@@ -184,10 +192,7 @@ struct tls_extension {
             uint16_t *versions;
             uint16_t length;
         } supported_versions;
-        struct {
-            uint8_t *ptr;
-            uint16_t length;
-        } cookie;
+        uint8_t *data;
         struct {
             uint16_t *types;
             uint16_t length;
@@ -196,6 +201,10 @@ struct tls_extension {
             uint16_t *named_group_list;
             uint16_t length;
         } supported_groups;
+        struct {
+            uint8_t *format_list;
+            uint8_t length;
+        } ec_point;
     };
     struct tls_extension *next;
 };
@@ -265,13 +274,13 @@ struct tls_info {
     struct tls_info *next;
 };
 
+void register_tls(void);
 char *get_tls_version(uint16_t version);
 char *get_tls_type(uint8_t type);
 char *get_tls_handshake_type(uint8_t type);
 char *get_tls_cipher_suite(uint16_t suite);
 char *get_signature_scheme(uint16_t type);
 char *get_supported_group(uint16_t type);
-void register_tls(void);
-
+char *get_ec_point_format(uint8_t format);
 
 #endif

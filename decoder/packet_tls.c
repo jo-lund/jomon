@@ -512,6 +512,12 @@ static packet_error parse_tls_extensions(struct tls_handshake *hs, unsigned char
                 goto error;
             (*ext)->supported_groups.named_group_list = mempool_copy(data + 2, (*ext)->supported_versions.length);
             break;
+        case EC_POINT_FORMATS:
+            if ((*ext)->length > length || *data > length)
+                goto error;
+            (*ext)->ec_point.length = *data;
+            (*ext)->ec_point.format_list = mempool_copy(data + 1, *data);
+            break;
         case SIGNATURE_ALGORITHMS:
             (*ext)->signature_algorithms.length = get_uint16be(data);
             if ((*ext)->length > length || (*ext)->supported_versions.length > (*ext)->length)
@@ -524,7 +530,6 @@ static packet_error parse_tls_extensions(struct tls_handshake *hs, unsigned char
         case SIGNED_CERTIFICATE_TIMESTAMP:
         case CLIENT_CERTIFICATE_TYPE:
         case SERVER_CERTIFICATE_TYPE:
-        case PADDING:
         case PRE_SHARED_KEY:
         case EARLY_DATA:
             break;
@@ -541,11 +546,12 @@ static packet_error parse_tls_extensions(struct tls_handshake *hs, unsigned char
                 (*ext)->supported_versions.versions = mempool_copy(data + 1, (*ext)->supported_versions.length);
             }
             break;
+        case SESSION_TICKET:
         case COOKIE:
-            if ((*ext)->length < length) {
-                (*ext)->cookie.ptr = mempool_copy(data, (*ext)->length);
-                (*ext)->cookie.length = (*ext)->length;
-            }
+            if ((*ext)->length > length)
+                goto error;
+            if ((*ext)->length > 0)
+                (*ext)->data = mempool_copy(data, (*ext)->length);
             break;
         case PSK_KEY_EXCHANGE_MODES:
         case CERTIFICATE_AUTHORITIES:
@@ -799,4 +805,18 @@ char *get_supported_group(uint16_t type)
     default:
         return NULL;
     }
+}
+
+char *get_ec_point_format(uint8_t format)
+{
+    switch (format) {
+    case UNCOMPRESSED:
+        return "uncompressed";
+    case ANSIX962_COMPRESSED_PRIME:
+        return "ansix962_compressed_prime";
+    case ANSIX962_COMPRESSED_CHAR2:
+        return "ansix962_compressed_char2";
+    default:
+        return NULL;
+    };
 }

@@ -1914,6 +1914,19 @@ static void add_tls_extensions(list_view *lw, list_view_header *header,
             }
             break;
         }
+        case EC_POINT_FORMATS:
+            sub = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1,
+                                    "Extension: EC Point Formats");
+            LV_ADD_TEXT_ELEMENT(lw, sub, "Length: %u", ext->ec_point.length);
+            for (int i = 0; i < ext->ec_point.length; i++) {
+                char *format;
+
+                if ((format = get_ec_point_format(ext->ec_point.format_list[i])))
+                    LV_ADD_TEXT_ELEMENT(lw, sub, "%s", format);
+                else
+                    LV_ADD_TEXT_ELEMENT(lw, sub, "%d", ext->ec_point.format_list[i]);
+            }
+            break;
         case SIGNATURE_ALGORITHMS:
         {
             char *alg;
@@ -1936,19 +1949,32 @@ static void add_tls_extensions(list_view *lw, list_view_header *header,
                 LV_ADD_TEXT_ELEMENT(lw, sub, "%s",
                                     get_tls_version(ntohs(ext->supported_versions.versions[i])));
             break;
-        case COOKIE:
+        case SESSION_TICKET:
         {
-            char *buf = malloc(ext->cookie.length * 2);
+            list_view_header *w;
 
             sub = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1,
-                                    "Extension: Cookie");
-            for (int i = 0; i < ext->cookie.length; i++) {
-                snprintf(buf + 2 * i, 3, "%02x", ext->cookie.ptr[i]);
+                                    "Extension: Session ticket");
+            LV_ADD_TEXT_ELEMENT(lw, sub, "Length: %u", ext->length);
+            if (ext->length > 0) {
+                w = LV_ADD_SUB_HEADER(lw, sub, selected[UI_SUBLAYER2], UI_SUBLAYER2, "Data");
+                add_hexdump(lw, w, hexmode, ext->data, ext->length);
             }
-            LV_ADD_TEXT_ELEMENT(lw, sub, "%s", buf);
-            free(buf);
             break;
         }
+        case COOKIE:
+            sub = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1,
+                                    "Extension: Cookie");
+            LV_ADD_TEXT_ELEMENT(lw, sub, "Length: %u", ext->length);
+            if (ext->length > 0) {
+                char *buf = malloc(ext->length * 2);
+
+                for (int i = 0; i < ext->length; i++)
+                    snprintf(buf + 2 * i, 3, "%02x", ext->data[i]);
+                LV_ADD_TEXT_ELEMENT(lw, sub, "%s", buf);
+                free(buf);
+            }
+            break;
         default:
             break;
         }
