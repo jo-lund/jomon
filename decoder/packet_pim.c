@@ -1,13 +1,12 @@
-#include "packet_pim.h"
-#include "packet.h"
-#include "../util.h"
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <arpa/inet.h>
-#include "../attributes.h"
+#include "packet_pim.h"
+#include "packet.h"
 #include "packet_ip.h"
+#include "monitor.h"
 
 #define PIM_HEADER_LEN 4
 
@@ -24,6 +23,9 @@ static bool parse_src_address(unsigned char **data, int *n, struct pim_source_ad
 static bool parse_grp_address(unsigned char **data, int *n, struct pim_group_addr *gaddr);
 static bool parse_unicast_address(unsigned char **data, int *n,
                                   struct pim_unicast_addr *uaddr);
+static packet_error handle_pim(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                               struct packet_data *pdata);
+
 extern void add_pim_information(void *w, void *sw, void *data);
 extern void print_pim(char *buf, int n, void *data);
 
@@ -35,7 +37,7 @@ static struct protocol_info pim_prot = {
     .add_pdu = add_pim_information
 };
 
-void register_pim()
+void register_pim(void)
 {
     register_protocol(&pim_prot, IP_PROTOCOL, IPPROTO_PIM);
 }
@@ -350,7 +352,7 @@ bool parse_address(unsigned char **data, int *n, pim_addr *addr, uint8_t family,
         *n -= 16;
         break;
     default:
-        printf("PIM: Unknown address family: %d\n", family);
+        DEBUG("PIM: Unknown address family: %d\n", family);
         return false;
     }
     *data = ptr;
