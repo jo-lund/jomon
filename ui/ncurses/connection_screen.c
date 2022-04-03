@@ -257,7 +257,7 @@ static void print_connection(connection_screen *cs, struct tcp_connection_v4 *co
         } else {
             if (i == PROCESS) {
                 if (entry[i].str)
-                    printat(cs->base.win, y, x, attrs, "%s", entry[i].str);
+                    printatnlw(cs->base.win, y, x, attrs, 0, "%s", entry[i].str);
             } else
                 printat(cs->base.win, y, x, attrs, "%d", entry[i].val);
         }
