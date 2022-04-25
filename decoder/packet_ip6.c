@@ -1,4 +1,6 @@
+#include <sys/types.h>
 #include <stdint.h>
+#include <netinet/in.h>
 #include <netinet/ip6.h>
 #include "packet_ip6.h"
 #include "packet.h"
