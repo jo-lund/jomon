@@ -12,16 +12,16 @@ STRIP := strip
 CFLAGS += -std=gnu11 -fwrapv -Wall -Wextra -Wno-override-init
 CPPFLAGS += -iquote $(CURDIR)
 LIBS += -lncurses
-ifeq ($(CONFIG_GEOIP),0)
-    sources = $(filter-out geoip.c,$(wildcard *.c decoder/*.c ui/*.c ui/ncurses/*.c))
-else
+sources = $(filter-out geoip.c,$(wildcard *.c decoder/*.c ui/*.c ui/ncurses/*.c))
+ifeq ($(HAVE_GEOIP),1)
     LIBS += -lGeoIP
-    sources = $(wildcard *.c decoder/*.c ui/*.c ui/ncurses/*.c)
+    sources += geoip.c
+    CPPFLAGS += -DHAVE_GEOIP
 endif
-ifeq ($(HAVE_OBSTACK),0)
-    sources += $(wildcard compat/*.c)
-else
+ifeq ($(HAVE_OBSTACK),1)
     CPPFLAGS += -DHAVE_OBSTACK
+else
+    sources += $(wildcard compat/*.c)
 endif
 ifeq ($(MACHINE),Linux)
     sources += $(wildcard linux/*.c)

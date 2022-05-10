@@ -6,14 +6,14 @@
 
 static GeoIP *gip;
 
-bool geoip_init()
+bool geoip_init(void)
 {
     if (!(gip = GeoIP_open(GEOIP_PATH, GEOIP_STANDARD)))
         return false;
     return true;
 }
 
-void geoip_free()
+void geoip_free(void)
 {
     if (gip)
         GeoIP_delete(gip);
@@ -71,4 +71,9 @@ char *geoip_get_city(char *addr)
         GeoIPRecord_delete(record);
     }
     return city;
+}
+
+void geoip_print_version(void)
+{
+    printf("libGeoIP %s\n", GeoIP_lib_version());
 }

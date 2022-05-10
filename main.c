@@ -239,6 +239,7 @@ static void print_bpf(void)
 
 static void print_help(char *prg)
 {
+    geoip_print_version();
     printf("Usage: %s [-dGhlNnpstv] [-f filter] [-F filter-file] [-i interface] [-r path]\n"
            "Options:\n"
            "     -d                     Dump packet filter as BPF assembly and exit\n"

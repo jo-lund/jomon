@@ -27,6 +27,9 @@ char *geoip_get_country(char *addr);
  */
 char *geoip_get_city(char *addr);
 
+/* Print library version */
+void geoip_print_version(void);
+
 #else
 
 static inline bool geoip_init(void)
@@ -54,5 +57,8 @@ static inline char *geoip_get_city(char *addr UNUSED)
     return NULL;
 }
 
+static inline void geoip_print_version(void)
+{
+}
 #endif
 #endif
