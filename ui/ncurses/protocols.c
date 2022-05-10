@@ -2062,6 +2062,7 @@ void add_tls_information(void *w, void *sw, void *data)
     struct packet_data *pdata = data;
     struct tls_info *tls = pdata->data;
     list_view_header *record;
+    list_view_header *sub;
 
     while (tls) {
         if (tls->type == TLS_HANDSHAKE) {
@@ -2079,6 +2080,10 @@ void add_tls_information(void *w, void *sw, void *data)
         switch (tls->type) {
         case TLS_HANDSHAKE:
             add_tls_handshake(lw, record, tls->handshake);
+            break;
+        case TLS_APPLICATION_DATA:
+            sub = LV_ADD_SUB_HEADER(lw, record, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Data");
+            add_hexdump(lw, sub, hexmode, tls->data, tls->length);
             break;
         default:
             break;

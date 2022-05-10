@@ -189,7 +189,7 @@ packet_error handle_icmp6(struct protocol_info *pinfo, unsigned char *buf, int n
         icmp6->echo.seq = read_uint16be(&buf);
         n -= 4;
         if (n > 0)
-            icmp6->echo.data = mempool_copy(buf, n);
+            icmp6->echo.data = buf;
         icmp6->echo.len = n;
         break;
     case ND_ROUTER_SOLICIT:

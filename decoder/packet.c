@@ -76,7 +76,7 @@ bool decode_packet(iface_handle_t *h, unsigned char *buffer, size_t len, struct 
     (*p)->root->id = get_protocol_id(DATALINK, h->linktype);
     if ((pinfo = get_protocol((*p)->root->id)) == NULL)
         return false;
-    if (((*p)->perr = pinfo->decode(pinfo, buffer, len, (*p)->root)) == DATALINK_ERR) {
+    if (((*p)->perr = pinfo->decode(pinfo, (*p)->buf, len, (*p)->root)) == DATALINK_ERR) {
         free_packets(*p);
         return false;
     }

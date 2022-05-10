@@ -210,7 +210,7 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
     pdata->data = smtp;
     pdata->len = n;
     if (smtp_state->state == DATA || smtp_state->state == BDAT) {
-        smtp->data = mempool_copy(buf, n);
+        smtp->data = (char *) buf;
         smtp->len = n;
         if (smtp_state->state == DATA && strncmp(smtp->data, "\r\n.\r\n", 5) == 0) {
             smtp_state->state = NORMAL;

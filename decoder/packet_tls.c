@@ -425,8 +425,11 @@ packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
             state = CCS;
             break;
         case TLS_ALERT:
-        case TLS_APPLICATION_DATA:
         case TLS_HEARTBEAT:
+            buf += record_len;
+            break;
+        case TLS_APPLICATION_DATA:
+            (*pptr)->data = buf;
             buf += record_len;
             break;
         case TLS_HANDSHAKE:
