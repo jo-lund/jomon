@@ -11,7 +11,11 @@ MACHINE := $(shell uname -s)
 STRIP := strip
 CFLAGS += -std=gnu11 -fwrapv -Wall -Wextra -Wno-override-init
 CPPFLAGS += -iquote $(CURDIR)
-LIBS += -lncurses
+LIBS := -lncurses
+UNIT_LIBS := -lcheck -lm -lpthread -lrt
+ifneq ($(wildcard /etc/debian_version),)
+     UNIT_LIBS += -lsubunit
+endif
 sources = $(filter-out geoip.c,$(wildcard *.c decoder/*.c ui/*.c ui/ncurses/*.c))
 ifeq ($(HAVE_GEOIP),1)
     LIBS += -lGeoIP
@@ -47,6 +51,7 @@ test-objs += $(bpf-objs) \
 	$(BUILDDIR)/util.o \
 	$(BUILDDIR/stack.o) \
 	$(BUILDDIR)/string.o
+
 
 .PHONY : all
 all : release
@@ -114,4 +119,4 @@ test : $(testdir)/test
 	@$<
 
 $(testdir)/test : $(test-objs)
-	@$(CC) $(CFLAGS) $(CPPFLAGS) $(test-objs) -o $@ -lcheck -lm -lpthread -lrt
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(test-objs) -o $@ $(LIBS) $(UNIT_LIBS)
