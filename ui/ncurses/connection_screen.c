@@ -12,7 +12,6 @@
 #include "conversation_screen.h"
 #include "actionbar.h"
 
-#define NUM_WIDTH 10
 #define ADDR_WIDTH 17
 #define PORT_WIDTH 10
 #define STATE_WIDTH 14
@@ -25,7 +24,6 @@
 #define CONN_HEADER 5
 
 enum cs_val {
-    NUMBER,
     ADDRA,
     PORTA,
     ADDRB,
@@ -90,7 +88,6 @@ static screen_operations csop = {
 };
 
 static screen_header header[] = {
-    { "Stream", NUM_WIDTH },
     { "IP Address A", ADDR_WIDTH },
     { "Port A", PORT_WIDTH },
     { "IP Address B", ADDR_WIDTH },
@@ -116,14 +113,6 @@ static screen_header proc_header[] = {
 
 static unsigned int header_size;
 
-static int cmp_conn(const void *p1, const void *p2)
-{
-    struct tcp_connection_v4 *c1 = *(struct tcp_connection_v4 **) p1;
-    struct tcp_connection_v4 *c2 = *(struct tcp_connection_v4 **) p2;
-
-    return c1->num - c2->num;
-}
-
 static void update_screen_buf(screen *s)
 {
     connection_screen *cs;
@@ -144,8 +133,6 @@ static void update_screen_buf(screen *s)
                 vector_push_back(cs->screen_buf, conn);
             }
         }
-        if (vector_size(cs->screen_buf) > 0)
-            qsort(vector_data(cs->screen_buf), vector_size(cs->screen_buf), sizeof(conn), cmp_conn);
     } else {
         hashmap_t *procs = process_get_processes();
         const hashmap_iterator *it;
@@ -223,7 +210,6 @@ static void print_connection(connection_screen *cs, struct tcp_connection_v4 *co
     inet_ntop(AF_INET, &conn->endp->src, entry[ADDRA].buf, INET_ADDRSTRLEN);
     inet_ntop(AF_INET, &conn->endp->dst, entry[ADDRB].buf, INET_ADDRSTRLEN);
     p = list_data(n);
-    entry[NUMBER].val = conn->num;
     entry[ADDRA].val = conn->endp->src;
     entry[PORTA].val = conn->endp->sport;
     entry[ADDRB].val = conn->endp->dst;
@@ -252,7 +238,7 @@ static void print_connection(connection_screen *cs, struct tcp_connection_v4 *co
     if (mode == GREY_OUT_CLOSED && (conn->state == CLOSED || conn->state == RESET))
         attrs = get_theme_colour(DISABLE);
     for (unsigned int i = 0; i < header_size; i++) {
-        if (i % 2 == 1) {
+        if (i % 2 == 0) {
             printat(cs->base.win, y, x, attrs, "%s", entry[i].buf);
         } else {
             if (i == PROCESS) {
