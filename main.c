@@ -354,6 +354,7 @@ void start_scan(void)
     clear_statistics();
     vector_clear(packets, NULL);
     free_packets(NULL);
+    process_clear_cache();
     iface_activate(handle, ctx.device, &bpf);
     fd_changed = true;
     ctx.capturing = true;

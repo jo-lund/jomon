@@ -336,6 +336,8 @@ void process_load_cache(void)
 void process_clear_cache(void)
 {
     hashmap_clear(inode_cache);
+    hashmap_clear(tcp_cache);
+    hashmap_clear(proc_cache);
 }
 
 void process_free(void)
