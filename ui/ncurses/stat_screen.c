@@ -198,6 +198,15 @@ static void print_rate(screen *s, struct linkdef *link)
     wprintw(s->win, "\t%4d packets/s", link->pps);
 }
 
+static int get_colour(unsigned int val, unsigned int limit)
+{
+	if (val <= limit / 3)
+		return 3;
+	if (val < (limit - (limit / 3)))
+		return 4;
+    return 2;
+}
+
 void print_netstat(void)
 {
     int y = 0;
@@ -209,7 +218,6 @@ void print_netstat(void)
     get_netstat(ctx.device, &rx, &tx);
     calculate_rate();
     printat(s->win, y++, 0, hdrcol, "Network statistics for %s", ctx.device);
-
     printat(s->win, ++y, 0, subcol, "%13s", "Upload rate");
     print_rate(s, &tx);
     printat(s->win, ++y, 0, subcol, "%13s", "Download rate");
@@ -272,17 +280,37 @@ void print_hwstat(void)
     printat(s->win, y++, 29, subcol, "Virtual memory size");
     wprintw(s->win, ":  %s", format_bytes(mem.proc.vm_size * 1024, buf, ARRAY_SIZE(buf)));
     if (cpustat[0][0].idle != 0 && cpustat[1][0].idle != 0) {
+        int cx, cy;
+        unsigned int load;
+
+        cx = 10;
+        cy = y + 11;
+        printat(s->win, y + 1, 1, subcol, "CPU load");
+        cy++;
+        for (int i = 0; i < 10; i++) {
+            mvwprintw(s->win, cy - i, 2, "%3d%%", (i + 1) * 10);
+            waddch(s->win, ACS_VLINE);
+        }
+        mvwaddch(s->win, cy + 1, 6, ACS_VLINE);
         for (int i = 0; i < hw.num_cpu; i++) {
+            cy = y + 12;
             idle = cpustat[!cpuidx][i].idle - cpustat[cpuidx][i].idle;
-            printat(s->win, ++y, 0, subcol, " CPU%d idle", i);
-            wprintw(s->win, ": %4lu %%", idle);
+            load = (idle > 100) ? 0 : (100 - idle);
+            for (unsigned int j = 0; j < load / 10.0; j++) {
+                wattron(s->win, COLOR_PAIR(get_colour(j, 10)));
+                mvwaddch(s->win, cy - j, cx, ACS_CKBOARD);
+                wattroff(s->win, COLOR_PAIR(get_colour(j, 10)));
+            }
+            printat(s->win, cy + 1, cx - 2, subcol, "CPU%d", i);
+            mvwprintw(s->win, cy + 2, cx - 1, "%u", load);
+            cx += 5;
         }
     }
     wnoutrefresh(s->win);
     doupdate();
 }
 
-void calculate_rate()
+void calculate_rate(void)
 {
     if (!rx.prev_bytes && !tx.prev_bytes) {
         rx.prev_bytes = rx.tot_bytes;
