@@ -1,8 +1,9 @@
-#include "hashmap.h"
-#include "hash.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include "hashmap.h"
+#include "hash.h"
+#include "util.h"
 
 struct hash_elem {
     void *key;
@@ -21,7 +22,6 @@ struct hashmap {
     unsigned int buckets;
 };
 
-static inline unsigned int clp2(unsigned int x);
 static bool insert_elem(hashmap_t *map, struct hash_elem *tbl, unsigned int size,
                         unsigned int hash_val, void *key, void *data, bool update);
 static struct hash_elem *find_elem(hashmap_t *map, void *key);
@@ -306,18 +306,6 @@ bool insert_elem(hashmap_t *map, struct hash_elem *tbl, unsigned int size,
         insert_helper(tbl, i, size, hash_val, key, data, pc);
     }
     return true;
-}
-
-/* Computes the least power of two greater than or equal to x */
-inline unsigned int clp2(unsigned int x)
-{
-    x--;
-    x = x | (x >> 1);
-    x = x | (x >> 2);
-    x = x | (x >> 4);
-    x = x | (x >> 8);
-    x = x | (x >> 16);
-    return x + 1;
 }
 
 static inline const hashmap_iterator *get_next_iterator(hashmap_t *map, int i)

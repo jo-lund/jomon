@@ -175,4 +175,17 @@ static inline uint32_t read_uint32le(unsigned char **buf)
     return val;
 }
 
+/* Computes the least power of two greater than or equal to x */
+static inline unsigned int clp2(unsigned int x)
+{
+    x--;
+    x = x | (x >> 1);
+    x = x | (x >> 2);
+    x = x | (x >> 4);
+    x = x | (x >> 8);
+    x = x | (x >> 16);
+    return x + 1;
+}
+
+
 #endif

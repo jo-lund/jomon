@@ -11,9 +11,11 @@
 #include "actionbar.h"
 #include "monitor.h"
 #include "system_information.h"
+#include "ringbuffer.h"
 
 #define KIB 1024
 #define MIB (KIB * KIB)
+#define IV 60
 
 enum page {
     NET_STAT,
@@ -41,6 +43,8 @@ static int cpuidx = 0;
 static bool show_packet_stats = true;
 static bool formatted_output = true;
 static enum rate rate = MIBS;
+static ringbuffer_t *rx_rate;
+static ringbuffer_t *tx_rate;
 
 static void calculate_rate(void);
 static void print_netstat(void);
@@ -85,6 +89,8 @@ void stat_screen_init(screen *s)
     cpustat = calloc(2, sizeof(struct cputime *));
     for (int i = 0; i < 2; i++)
         cpustat[i] = malloc(hw.num_cpu * sizeof(struct cputime));
+    rx_rate = ringbuffer_init(60);
+    tx_rate = ringbuffer_init(60);
 }
 
 void stat_screen_free(screen *s)
@@ -92,6 +98,8 @@ void stat_screen_free(screen *s)
     for (int i = 0; i < 2; i++)
         free(cpustat[i]);
     free(cpustat);
+    ringbuffer_free(rx_rate);
+    ringbuffer_free(tx_rate);
     screen_free(s);
 }
 
@@ -165,12 +173,12 @@ static void print_protocol_stat(struct protocol_info *pinfo, void *arg)
     char buf[16];
 
     if (pinfo->num_packets) {
-        printat(s->win, ++*y, 0, subcol, "%13s", pinfo->short_name);
+        printat(s->win, ++*y, 0, subcol, "%10s", pinfo->short_name);
         wprintw(s->win, ": %8u", pinfo->num_packets);
         if (formatted_output)
-            wprintw(s->win, "%13s", format_bytes(pinfo->num_bytes, buf, 16));
+            wprintw(s->win, "%14s", format_bytes(pinfo->num_bytes, buf, 16));
         else
-            wprintw(s->win, "%13" PRIu64, pinfo->num_bytes);
+            wprintw(s->win, "%14" PRIu64, pinfo->num_bytes);
     }
 }
 
@@ -207,6 +215,43 @@ static int get_colour(unsigned int val, unsigned int limit)
     return 2;
 }
 
+static int print_graph(screen *s, int col, char *info, ringbuffer_t *rate, int y, int x)
+{
+    unsigned int max, step;
+    int ry, rx;
+    unsigned int pps, mpps;
+    int m;
+
+    ry = y + 12;
+    rx = x + 2;
+    pps = PTR_TO_UINT(ringbuffer_first(rate));
+    mpps = 10;
+    for (int i = 0; i < ringbuffer_size(rate); i++) {
+        if (pps > mpps)
+            mpps = pps;
+        pps = PTR_TO_UINT(ringbuffer_next(rate));
+    }
+    step = (mpps - 1) / 10 + 1;
+    max = step * 10;
+    for (unsigned int i = 0, j = 0; j <= 10; i += step, j++) {
+        if (i > 0)
+            mvwprintw(s->win, ry - j, rx, "%5d", i);
+        mvwaddch(s->win, ry - j, rx + 5, ACS_VLINE);
+    }
+    pps = PTR_TO_UINT(ringbuffer_first(rate));
+    for (int i = 0; i < ringbuffer_size(rate); i++) {
+        for (unsigned int j = 0, k = 0; j < max && j < pps; j += step, k++) {
+            wattron(s->win, col);
+            mvwaddch(s->win, ry - k, i + rx + 6, ACS_CKBOARD);
+            wattroff(s->win, col);
+        }
+        pps = PTR_TO_UINT(ringbuffer_next(rate));
+    }
+    m = (rx + rx + 68) / 2 - (strlen(info) / 2);
+    mvwprintw(s->win, ++ry, m, "%s", info);
+    return ry;
+}
+
 void print_netstat(void)
 {
     int y = 0;
@@ -218,17 +263,18 @@ void print_netstat(void)
     get_netstat(ctx.device, &rx, &tx);
     calculate_rate();
     printat(s->win, y++, 0, hdrcol, "Network statistics for %s", ctx.device);
-    printat(s->win, ++y, 0, subcol, "%13s", "Upload rate");
-    print_rate(s, &tx);
-    printat(s->win, ++y, 0, subcol, "%13s", "Download rate");
+    printat(s->win, ++y, 2, subcol, "%13s", "Download rate");
     print_rate(s, &rx);
+    print_graph(s, subcol, "packets/s", rx_rate, y, 0);
+    printat(s->win, y, 78, subcol, "%13s", "Upload rate");
+    print_rate(s, &tx);
+    y += print_graph(s, subcol, "packets/s", tx_rate, y, 80);
     if (get_iwstat(ctx.device, &stat)) {
-        y += 2;
-        printat(s->win, ++y, 0, subcol, "%13s", "Link quality");
+        printat(s->win, ++y, 2, subcol, "%13s", "Link quality");
         wprintw(s->win, ": %8u/%u", stat.qual, stat.max_qual);
-        printat(s->win, ++y, 0, subcol, "%13s", "Level");
+        printat(s->win, ++y, 2, subcol, "%13s", "Level");
         wprintw(s->win, ": %8d dBm", (int8_t) stat.level);
-        printat(s->win, ++y, 0, subcol, "%13s", "Noise");
+        printat(s->win, ++y, 2, subcol, "%13s", "Noise");
         wprintw(s->win, ": %8d dBm", (int8_t) stat.noise);
     }
     if (show_packet_stats) {
@@ -236,13 +282,13 @@ void print_netstat(void)
 
         if (total_packets) {
             y += 2;
-            printat(s->win, y, 0, subcol, "%23s %12s", "Packets", "Bytes");
-            printat(s->win, ++y, 0, subcol, "%13s", "Total");
+            printat(s->win, y, 0, subcol, "%20s %13s", "Packets", "Bytes");
+            printat(s->win, ++y, 0, subcol, "%10s", "Total");
             wprintw(s->win, ": %8u", total_packets);
             if (formatted_output)
-                wprintw(s->win, "%13s", format_bytes(total_bytes, buf, 16));
+                wprintw(s->win, "%14s", format_bytes(total_bytes, buf, 16));
             else
-                wprintw(s->win, "%13" PRIu64, total_bytes);
+                wprintw(s->win, "%14" PRIu64, total_bytes);
             traverse_protocols(print_protocol_stat, &y);
         }
     }
@@ -322,7 +368,9 @@ void calculate_rate(void)
     rx.kbps = (double) (rx.tot_bytes - rx.prev_bytes) / 1024;
     tx.kbps = (double) (tx.tot_bytes - tx.prev_bytes) / 1024;
     rx.pps = rx.num_packets - rx.prev_packets;
+    ringbuffer_push(rx_rate, UINT_TO_PTR(rx.pps));
     tx.pps = tx.num_packets - tx.prev_packets;
+    ringbuffer_push(tx_rate, UINT_TO_PTR(tx.pps));
     rx.prev_bytes = rx.tot_bytes;
     tx.prev_bytes = tx.tot_bytes;
     rx.prev_packets = rx.num_packets;
