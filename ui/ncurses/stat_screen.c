@@ -15,7 +15,9 @@
 
 #define KIB 1024
 #define MIB (KIB * KIB)
-#define IV 60
+#define TX_RATE_X 78
+#define WIRELESS_Y 17
+#define PACKETS_Y 21
 
 enum page {
     NET_STAT,
@@ -32,6 +34,12 @@ enum rate {
     NUM_RATES
 };
 
+enum redraw {
+    RATE,
+    PACKETS,
+    ALL,
+};
+
 extern main_menu *menu;
 
 static struct linkdef rx; /* data received */
@@ -45,10 +53,12 @@ static bool formatted_output = true;
 static enum rate rate = MIBS;
 static ringbuffer_t *rx_rate;
 static ringbuffer_t *tx_rate;
+static enum redraw redraw = ALL;
+static bool wireless;
 
 static void calculate_rate(void);
-static void print_netstat(void);
-static void print_hwstat(void);
+static void print_netstat(screen *s);
+static void print_hwstat(screen *s);
 static void stat_screen_free(screen *s);
 static void stat_screen_init(screen *s);
 static void stat_screen_get_input(screen *s);
@@ -91,6 +101,7 @@ void stat_screen_init(screen *s)
         cpustat[i] = malloc(hw.num_cpu * sizeof(struct cputime));
     rx_rate = ringbuffer_init(60);
     tx_rate = ringbuffer_init(60);
+    wireless = is_wireless(ctx.device);
 }
 
 void stat_screen_free(screen *s)
@@ -132,14 +143,17 @@ void stat_screen_get_input(screen *s)
     switch (c) {
     case 'e':
         formatted_output = !formatted_output;
+        redraw = PACKETS;
         stat_screen_print(s);
         break;
     case 'E':
         rate = (rate + 1) % NUM_RATES;
+        redraw = RATE;
         stat_screen_print(s);
         break;
     case 'v':
         show_packet_stats = !show_packet_stats;
+        redraw = PACKETS;
         stat_screen_print(s);
         break;
     default:
@@ -147,17 +161,19 @@ void stat_screen_get_input(screen *s)
         screen_get_input(s);
         break;
     }
+    redraw = ALL;
 }
 
 void stat_screen_print(screen *s)
 {
-    werase(s->win);
+    if (redraw == ALL)
+        werase(s->win);
     switch (s->page) {
     case NET_STAT:
-        print_netstat();
+        print_netstat(s);
         break;
     case HW_STAT:
-        print_hwstat();
+        print_hwstat(s);
         break;
     default:
         break;
@@ -173,7 +189,7 @@ static void print_protocol_stat(struct protocol_info *pinfo, void *arg)
     char buf[16];
 
     if (pinfo->num_packets) {
-        printat(s->win, ++*y, 0, subcol, "%10s", pinfo->short_name);
+        printat(s->win, ++*y, 5, subcol, "%10s", pinfo->short_name);
         wprintw(s->win, ": %8u", pinfo->num_packets);
         if (formatted_output)
             wprintw(s->win, "%14s", format_bytes(pinfo->num_bytes, buf, 16));
@@ -203,7 +219,6 @@ static void print_rate(screen *s, struct linkdef *link)
     default:
         break;
     }
-    wprintw(s->win, "\t%4d packets/s", link->pps);
 }
 
 static int get_colour(unsigned int val, unsigned int limit)
@@ -215,13 +230,18 @@ static int get_colour(unsigned int val, unsigned int limit)
     return 2;
 }
 
-static int print_graph(screen *s, int col, char *info, ringbuffer_t *rate, int y, int x)
+static void print_graph(screen *s, int col, ringbuffer_t *rate, int y, int x, char *info, ...)
 {
     unsigned int max, step;
     int ry, rx;
     unsigned int pps, mpps;
     int m;
+    char buf[MAXLINE];
+    va_list ap;
 
+    va_start(ap, info);
+    vsnprintf(buf, MAXLINE - 1, info, ap);
+    va_end(ap);
     ry = y + 12;
     rx = x + 2;
     pps = PTR_TO_UINT(ringbuffer_first(rate));
@@ -247,60 +267,88 @@ static int print_graph(screen *s, int col, char *info, ringbuffer_t *rate, int y
         }
         pps = PTR_TO_UINT(ringbuffer_next(rate));
     }
-    m = (rx + rx + 68) / 2 - (strlen(info) / 2);
-    mvwprintw(s->win, ++ry, m, "%s", info);
-    return ry;
+    m = (rx + rx + 68) / 2 - (strlen(buf) / 2);
+    mvwprintw(s->win, ++ry, m, "%s", buf);
 }
 
-void print_netstat(void)
+static void print_packet_stat(screen *s, int col, int y)
 {
-    int y = 0;
+    char buf[16];
+
+    if (total_packets) {
+        y += 2;
+        printat(s->win, y, 5, col, "%20s %13s", "Packets", "Bytes");
+        printat(s->win, ++y, 5, col, "%10s", "Total");
+        wprintw(s->win, ": %8u", total_packets);
+        if (formatted_output)
+            wprintw(s->win, "%14s", format_bytes(total_bytes, buf, 16));
+        else
+            wprintw(s->win, "%14" PRIu64, total_bytes);
+        traverse_protocols(print_protocol_stat, &y);
+    }
+}
+
+void print_netstat(screen *s)
+{
+    int y;
     struct wireless stat;
-    screen *s = screen_cache_get(STAT_SCREEN);
     int hdrcol = get_theme_colour(HEADER_TXT);
     int subcol = get_theme_colour(SUBHEADER_TXT);
 
-    get_netstat(ctx.device, &rx, &tx);
-    calculate_rate();
-    printat(s->win, y++, 0, hdrcol, "Network statistics for %s", ctx.device);
-    printat(s->win, ++y, 2, subcol, "%13s", "Download rate");
-    print_rate(s, &rx);
-    print_graph(s, subcol, "packets/s", rx_rate, y, 0);
-    printat(s->win, y, 78, subcol, "%13s", "Upload rate");
-    print_rate(s, &tx);
-    y += print_graph(s, subcol, "packets/s", tx_rate, y, 80);
-    if (get_iwstat(ctx.device, &stat)) {
-        printat(s->win, ++y, 2, subcol, "%13s", "Link quality");
-        wprintw(s->win, ": %8u/%u", stat.qual, stat.max_qual);
-        printat(s->win, ++y, 2, subcol, "%13s", "Level");
-        wprintw(s->win, ": %8d dBm", (int8_t) stat.level);
-        printat(s->win, ++y, 2, subcol, "%13s", "Noise");
-        wprintw(s->win, ": %8d dBm", (int8_t) stat.noise);
-    }
-    if (show_packet_stats) {
-        char buf[16];
-
-        if (total_packets) {
-            y += 2;
-            printat(s->win, y, 0, subcol, "%20s %13s", "Packets", "Bytes");
-            printat(s->win, ++y, 0, subcol, "%10s", "Total");
-            wprintw(s->win, ": %8u", total_packets);
-            if (formatted_output)
-                wprintw(s->win, "%14s", format_bytes(total_bytes, buf, 16));
-            else
-                wprintw(s->win, "%14" PRIu64, total_bytes);
-            traverse_protocols(print_protocol_stat, &y);
+    switch (redraw) {
+    case RATE:
+        y = 2;
+        wmove(s->win, y, 0);
+        wclrtoeol(s->win);
+        printat(s->win, y, 2, subcol, "%13s", "Download rate");
+        print_rate(s, &rx);
+        printat(s->win, y, TX_RATE_X, subcol, "%13s", "Upload rate");
+        print_rate(s, &tx);
+        break;
+    case PACKETS:
+        if (show_packet_stats) {
+            y = wireless ? PACKETS_Y : WIRELESS_Y;
+            print_packet_stat(s, subcol, y);
+        } else {
+            y = wireless ? PACKETS_Y : WIRELESS_Y;
+            wmove(s->win, y, 0);
+            wclrtobot(s->win);
         }
+        break;
+    case ALL:
+    default:
+        y = 0;
+        get_netstat(ctx.device, &rx, &tx);
+        calculate_rate();
+        printat(s->win, y++, 0, hdrcol, "Network statistics for %s", ctx.device);
+        printat(s->win, ++y, 2, subcol, "%13s", "Download rate");
+        print_rate(s, &rx);
+        print_graph(s, subcol, rx_rate, y, 0, "%4d packets/s", rx.pps);
+        printat(s->win, y, TX_RATE_X, subcol, "%13s", "Upload rate");
+        print_rate(s, &tx);
+        print_graph(s, subcol, tx_rate, y, TX_RATE_X, "%4d packets/s", tx.pps);
+        y += 15;
+        if (wireless && get_iwstat(ctx.device, &stat)) {
+            printat(s->win, ++y, 2, subcol, "%13s", "Link quality");
+            wprintw(s->win, ": %8u/%u", stat.qual, stat.max_qual);
+            printat(s->win, ++y, 2, subcol, "%13s", "Level");
+            wprintw(s->win, ": %8d dBm", (int8_t) stat.level);
+            printat(s->win, ++y, 2, subcol, "%13s", "Noise");
+            wprintw(s->win, ": %8d dBm", (int8_t) stat.noise);
+            y++;
+        }
+        if (show_packet_stats)
+            print_packet_stat(s, subcol, y);
+        break;
     }
     wnoutrefresh(s->win);
     doupdate();
 }
 
-void print_hwstat(void)
+void print_hwstat(screen *s)
 {
     int y = 0;
     unsigned long idle;
-    screen *s = screen_cache_get(STAT_SCREEN);
     int hdrcol = get_theme_colour(HEADER_TXT);
     int subcol = get_theme_colour(SUBHEADER_TXT);
     char buf[16];
