@@ -13,9 +13,9 @@
 #include <linux/if_packet.h>
 #include <linux/net_tstamp.h>
 #include <sys/mman.h>
-#include "../monitor.h"
-#include "../interface.h"
-#include "../error.h"
+#include <linux/wireless.h>
+#include "monitor.h"
+#include "interface.h"
 
 #define BLOCKSIZE (4 * 1024 * 1024)
 #define FRAMESIZE 65536
@@ -271,4 +271,21 @@ void get_local_mac(char *dev, unsigned char *mac)
     }
     memcpy(mac, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN);
     close(sockfd);
+}
+
+bool is_wireless(char *dev)
+{
+    int sockfd;
+    struct iwreq iw;
+    bool ret;
+
+    ret = false;
+    memset(&iw, 0, sizeof(struct iwreq));
+    strncpy(iw.ifr_ifrn.ifrn_name, dev, IFNAMSIZ - 1);
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
+        return false;
+    if ((ioctl(sockfd, SIOCGIWNAME, &iw)) != -1)
+        ret = true;
+    close(sockfd);
+    return ret;
 }

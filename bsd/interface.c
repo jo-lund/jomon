@@ -183,3 +183,8 @@ void get_local_mac(char *dev UNUSED, unsigned char *mac)
     }
     freeifaddrs(ifhead);
 }
+
+bool is_wireless(char *dev UNUSED)
+{
+    return false;
+}

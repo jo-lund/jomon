@@ -64,4 +64,7 @@ void get_local_address(char *dev, struct sockaddr *addr);
 /* get the local MAC address */
 void get_local_mac(char *dev, unsigned char *mac);
 
+/* Check if the interface is wireless */
+bool is_wireless(char *dev);
+
 #endif
