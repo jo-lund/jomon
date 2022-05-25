@@ -387,7 +387,7 @@ void print_hwstat(screen *s)
         }
         mvwaddch(s->win, cy + 1, 6, ACS_VLINE);
         for (int i = 0; i < hw.num_cpu; i++) {
-            cy = y + 12;
+            cy = y + 13;
             idle = cpustat[!cpuidx][i].idle - cpustat[cpuidx][i].idle;
             load = (idle > 100) ? 0 : (100 - idle);
             for (unsigned int j = 0; j < load / 10.0; j++) {
@@ -395,8 +395,8 @@ void print_hwstat(screen *s)
                 mvwaddch(s->win, cy - j, cx, ACS_CKBOARD);
                 wattroff(s->win, COLOR_PAIR(get_colour(j, 10)));
             }
-            printat(s->win, cy + 1, cx - 2, subcol, "CPU%d", i);
-            mvwprintw(s->win, cy + 2, cx - 1, "%u", load);
+            printat(s->win, ++cy, cx - 2, subcol, "CPU%d", i);
+            mvwprintw(s->win, ++cy, cx - 1, "%u", load);
             cx += 5;
         }
     }
