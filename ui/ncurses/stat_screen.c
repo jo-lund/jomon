@@ -138,30 +138,40 @@ void stat_screen_lost_focus()
 
 void stat_screen_get_input(screen *s)
 {
-    int c = wgetch(s->win);
+    int c;
 
-    switch (c) {
-    case 'e':
-        formatted_output = !formatted_output;
-        redraw = PACKETS;
-        stat_screen_print(s);
+    switch (s->page) {
+    case NET_STAT:
+        c = wgetch(s->win);
+        switch (c) {
+        case 'e':
+            formatted_output = !formatted_output;
+            redraw = PACKETS;
+            stat_screen_print(s);
+            break;
+        case 'E':
+            rate = (rate + 1) % NUM_RATES;
+            redraw = RATE;
+            stat_screen_print(s);
+            break;
+        case 'v':
+            show_packet_stats = !show_packet_stats;
+            redraw = PACKETS;
+            stat_screen_print(s);
+            break;
+        default:
+            ungetch(c);
+            screen_get_input(s);
+            break;
+        }
+        redraw = ALL;
         break;
-    case 'E':
-        rate = (rate + 1) % NUM_RATES;
-        redraw = RATE;
-        stat_screen_print(s);
-        break;
-    case 'v':
-        show_packet_stats = !show_packet_stats;
-        redraw = PACKETS;
-        stat_screen_print(s);
-        break;
-    default:
-        ungetch(c);
+    case HW_STAT:
         screen_get_input(s);
         break;
+    default:
+        break;
     }
-    redraw = ALL;
 }
 
 void stat_screen_print(screen *s)
