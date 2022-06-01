@@ -1212,8 +1212,10 @@ void add_elements(main_screen *ms, struct packet *p)
         pinfo = get_protocol(pdata->id);
         idx += pdata->len;
         if (pinfo && i < NUM_LAYERS) {
-            header = LV_ADD_HEADER(ms->lvw, pinfo->long_name, selected[i], i);
-            pinfo->add_pdu(ms->lvw, header, pdata);
+            if (pdata && pdata->data) {
+                header = LV_ADD_HEADER(ms->lvw, pinfo->long_name, selected[i], i);
+                pinfo->add_pdu(ms->lvw, header, pdata);
+            }
         }
         i++;
         pdata = pdata->next;

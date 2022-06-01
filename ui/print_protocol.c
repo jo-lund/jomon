@@ -197,9 +197,7 @@ void print_llc(char *buf, int n, void *data)
     HW_ADDR_NTOP(smac, eth_src(p));
     HW_ADDR_NTOP(dmac, eth_dst(p));
     PRINT_ADDRESS(buf, n, smac, dmac);
-    if (pdata->next)
-        pinfo = get_protocol(pdata->next->id);
-    if (pinfo) {
+    if (pdata->next && pdata->next->data && (pinfo = get_protocol(pdata->next->id))) {
         pinfo->print_pdu(buf, n, pdata->next);
     } else {
         PRINT_PROTOCOL(buf, n, "LLC");
@@ -287,9 +285,7 @@ void print_ipv6(char *buf, int n, void *data)
     inet_ntop(AF_INET6, ip->src, src, INET6_ADDRSTRLEN);
     inet_ntop(AF_INET6, ip->dst, dst, INET6_ADDRSTRLEN);
     PRINT_ADDRESS(buf, n, src, dst);
-    if (pdata->next)
-        pinfo = get_protocol(pdata->next->id);
-    if (pinfo) {
+    if (pdata->next && pdata->next->data && (pinfo = get_protocol(pdata->next->id))) {
         pinfo->print_pdu(buf, n, pdata->next);
     } else {
         PRINT_PROTOCOL(buf, n, "IPv6");
