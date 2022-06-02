@@ -117,7 +117,7 @@ enum dns_section_count {
 };
 
 struct dns_txt_rr {
-    int len;
+    unsigned int len;
     char *txt;
 };
 
@@ -287,12 +287,12 @@ char *get_dns_class_extended(uint16_t rrclass);
 int get_dns_max_namelen(struct dns_resource_record *record, int n);
 
 /* Get the DNS flags */
-struct packet_flags *get_dns_flags();
-int get_dns_flags_size();
+struct packet_flags *get_dns_flags(void);
+int get_dns_flags_size(void);
 
 /* Get the LLMNR flags */
-struct packet_flags *get_llmnr_flags();
-int get_llmnr_flags_size();
+struct packet_flags *get_llmnr_flags(void);
+int get_llmnr_flags_size(void);
 
 /*
  * Parse the DNS pseudo opt resource record. The list needs to be freed with
@@ -302,7 +302,7 @@ list_t *parse_dns_options(struct dns_resource_record *rr);
 void free_dns_options(list_t *opt);
 
 /* internal to the decoder */
-void register_dns();
+void register_dns(void);
 packet_error handle_dns(struct protocol_info *pinfo, unsigned char *buffer, int n,
                         struct packet_data *pdata);
 int parse_dns_name(unsigned char *buffer, int n, unsigned char *ptr, int plen, char name[]);

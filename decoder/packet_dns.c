@@ -32,7 +32,7 @@ static int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char *
                              int dlen, struct dns_info *dns);
 static int parse_dns_question(unsigned char *buffer, int n, unsigned char **data,
                               int dlen, struct dns_info *dns);
-static char *parse_dns_txt(unsigned char **data);
+static uint8_t parse_dns_txt(unsigned char **data, unsigned int dlen, char **txt);
 static void free_opt_rr(void *data);
 static bool parse_type_bitmaps(unsigned char **data, uint16_t rdlen,
                                struct dns_resource_record *record);
@@ -61,7 +61,7 @@ static struct protocol_info llmnr_prot = {
     .add_pdu = add_dns_information
 };
 
-void register_dns()
+void register_dns(void)
 {
     register_protocol(&dns_prot, PORT, DNS);
     register_protocol(&mdns_prot, PORT, MDNS);
@@ -69,7 +69,7 @@ void register_dns()
 }
 
 /*
- * Handle DNS messages. Will return false if not DNS.
+ * Handle DNS messages.
  *
  * Format of message (http://tools.ietf.org/html/rfc1035):
  * +---------------------+
@@ -125,7 +125,8 @@ packet_error handle_dns(struct protocol_info *pinfo, unsigned char *buffer, int 
     int num_records = 0;
     struct dns_info *dns;
 
-    if (n < DNS_HDRLEN) return DECODE_ERR;
+    if (n < DNS_HDRLEN)
+        return DECODE_ERR;
     dns = mempool_alloc(sizeof(struct dns_info));
     pdata->data = dns;
     pdata->len = n;
@@ -166,9 +167,8 @@ packet_error handle_dns(struct protocol_info *pinfo, unsigned char *buffer, int 
          * ARCOUNT will typically be 0, 1, or 2, depending on whether EDNS0
          * (RFC 2671) or TSIG (RFC 2845) are used
          */
-        if (dns->section_count[ARCOUNT] > 2) {
-            return DECODE_ERR;
-        }
+        if (dns->section_count[ARCOUNT] > 2)
+            goto error;
     }
     ptr += DNS_HDRLEN;
     plen -= DNS_HDRLEN;
@@ -177,9 +177,8 @@ packet_error handle_dns(struct protocol_info *pinfo, unsigned char *buffer, int 
     if (dns->section_count[QDCOUNT] > 0) {
         int len = parse_dns_question(buffer, n, &ptr, plen, dns);
 
-        if (len == -1) {
-            return DECODE_ERR;
-        }
+        if (len == -1)
+            goto error;
         plen -= len;
     }
 
@@ -187,23 +186,26 @@ packet_error handle_dns(struct protocol_info *pinfo, unsigned char *buffer, int 
     for (int i = ANCOUNT; i < 4; i++) {
         num_records += dns->section_count[i];
     }
-    if (num_records > n) {
-        return DECODE_ERR;
-    }
+    if (num_records > n)
+        goto error;
     if (num_records) {
         dns->record = mempool_alloc(num_records * sizeof(struct dns_resource_record));
         for (int i = 0; i < num_records; i++) {
             int len = parse_dns_record(i, buffer, n, &ptr, plen, dns);
 
-            if (len == -1) {
-                return DECODE_ERR;
-            }
+            if (len == -1)
+                goto error;
             plen -= len;
         }
     }
     pinfo->num_packets++;
     pinfo->num_bytes += n;
     return NO_ERR;
+
+error:
+    mempool_free(dns);
+    pdata->data = NULL;
+    return DECODE_ERR;
 }
 
 int parse_dns_question(unsigned char *buffer, int n, unsigned char **data,
@@ -234,27 +236,31 @@ int parse_dns_question(unsigned char *buffer, int n, unsigned char **data,
 /*
  * Parse a DNS resource record.
  * int i is the recource record index.
+ *
+ * Returns the length of the record
  */
 int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
                      int dlen, struct dns_info *dns)
 {
     int len;
-    uint16_t rdlen;
+    uint16_t rdlen; /* length of the rdata field */
     unsigned char *ptr = *data;
 
     len = parse_dns_name(buffer, n, ptr, dlen, dns->record[i].name);
-    if (len == -1 || len > dlen) return -1;
+    if (len == -1 || len > dlen)
+        return -1;
     ptr += len;
     dlen -= len;
     dns->record[i].type = get_uint16be(ptr);
     dns->record[i].rrclass = get_uint16be(ptr + 2);
     dns->record[i].ttl = get_uint32be(ptr + 4);
     rdlen = get_uint16be(ptr + 8);
-    if (rdlen > dlen) {
+    if (dlen <= 10)
         return -1;
-    }
     ptr += 10; /* skip to rdata field */
     dlen -= 10;
+    if (rdlen > dlen || rdlen == 0)
+        return -1;
     len += 10 + rdlen;
     switch (dns->record[i].type) {
     case DNS_TYPE_A:
@@ -268,7 +274,8 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
     {
         int name_len = parse_dns_name(buffer, n, ptr, dlen, dns->record[i].rdata.nsdname);
 
-        if (name_len == -1) return -1;
+        if (name_len == -1)
+            return -1;
         ptr += name_len;
         break;
     }
@@ -276,7 +283,8 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
     {
         int name_len = parse_dns_name(buffer, n, ptr, dlen, dns->record[i].rdata.cname);
 
-        if (name_len == -1) return -1;
+        if (name_len == -1)
+            return -1;
         ptr += name_len;
         break;
     }
@@ -284,10 +292,12 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
     {
         int name_len = parse_dns_name(buffer, n, ptr, dlen, dns->record[i].rdata.soa.mname);
 
-        if (name_len == -1) return -1;
+        if (name_len == -1)
+            return -1;
         ptr += name_len;
         name_len = parse_dns_name(buffer, n, ptr, dlen, dns->record[i].rdata.soa.rname);
-        if (name_len == -1) return -1;
+        if (name_len == -1)
+            return -1;
         ptr += name_len;
         dns->record[i].rdata.soa.serial = get_uint32be(ptr);
         dns->record[i].rdata.soa.refresh = get_uint32be(ptr + 4);
@@ -301,7 +311,8 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
     {
         int name_len = parse_dns_name(buffer, n, ptr, dlen, dns->record[i].rdata.ptrdname);
 
-        if (name_len == -1) return -1;
+        if (name_len == -1)
+            return -1;
         ptr += name_len;
         break;
     }
@@ -314,25 +325,21 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
         ptr += rdlen;
         break;
     case DNS_TYPE_HINFO:
-        dns->record[i].rdata.hinfo.cpu = parse_dns_txt(&ptr);
-        dns->record[i].rdata.hinfo.os = parse_dns_txt(&ptr);
+        dlen -= parse_dns_txt(&ptr, dlen, &dns->record[i].rdata.hinfo.cpu);
+        parse_dns_txt(&ptr, dlen, &dns->record[i].rdata.hinfo.os);
         break;
     case DNS_TYPE_TXT:
     {
-        int j = 0;
+        unsigned int j = 0;
 
         dns->record[i].rdata.txt = list_init(&d_alloc);
         while (j < rdlen) {
             struct dns_txt_rr *rr;
-            int len = 0;
 
             rr = mempool_alloc(sizeof(struct dns_txt_rr));
-            rr->txt = parse_dns_txt(&ptr);
-            if (rr->txt) {
-                len = strlen(rr->txt);
-            }
-            rr->len = len;
-            j += len + 1;
+            rr->len = parse_dns_txt(&ptr, dlen, &rr->txt);
+            dlen -= rr->len;
+            j += rr->len + 1;
             list_push_back(dns->record[i].rdata.txt, rr);
         }
         break;
@@ -344,7 +351,8 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
         dns->record[i].rdata.mx.preference = get_uint16be(ptr);
         ptr += 2;
         name_len = parse_dns_name(buffer, n, ptr, dlen, dns->record[i].rdata.mx.exchange);
-        if (name_len == -1) return -1;
+        if (name_len == -1)
+            return -1;
         ptr += name_len;
         break;
     }
@@ -357,7 +365,8 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
         dns->record[i].rdata.srv.port = get_uint16be(ptr + 4);
         ptr += 6;
         name_len = parse_dns_name(buffer, n, ptr, dlen, dns->record[i].rdata.srv.target);
-        if (name_len == -1) return -1;
+        if (name_len == -1)
+            return -1;
         ptr += name_len;
         break;
     }
@@ -373,9 +382,11 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
         int name_len;
 
         name_len = parse_dns_name(buffer, n, ptr, dlen, dns->record[i].rdata.nsec.nd_name);
-        if (name_len == -1) return -1;
+        if (name_len == -1)
+            return -1;
         ptr += name_len;
-        if (!parse_type_bitmaps(&ptr, rdlen - name_len, &dns->record[i])) return -1;
+        if (!parse_type_bitmaps(&ptr, rdlen - name_len, &dns->record[i]))
+            return -1;
         break;
     }
     default:
@@ -406,9 +417,8 @@ int parse_dns_name(unsigned char *buffer, int n, unsigned char *ptr, int plen, c
     unsigned int name_ptr_len = 0;
     int c = 0;
 
-    if (!label_length) {
-        return 1; /* length octet */
-    }
+    if (!label_length)
+        return -1;
     while (label_length && c < n) {
         /*
          * The max size of a label is 63 bytes, so a length with the first 2 bits
@@ -425,8 +435,8 @@ int parse_dns_name(unsigned char *buffer, int n, unsigned char *ptr, int plen, c
         if ((label_length & 0xc0) == 0xc0) {
             uint16_t offset = (ptr[0] & 0x3f) << 8 | ptr[1];
 
-            if (offset > n) return len + DNS_PTR_LEN;
-
+            if (offset > n)
+                return -1;
             label_length = buffer[offset];
             ptr = buffer + offset; /* ptr will point to start of label */
             plen = n - offset;
@@ -470,22 +480,21 @@ int parse_dns_name(unsigned char *buffer, int n, unsigned char *ptr, int plen, c
  * Parse DNS character strings. The strings are formatted as one byte length
  * field followed by that number of bytes.
  *
- * Returns the character string formatted as a C string, which needs to be freed
- * by the caller.
+ * The character string is stored in the txt argument formatted as a C string.
+ * Returns the length of this string.
  */
-char *parse_dns_txt(unsigned char **data)
+uint8_t parse_dns_txt(unsigned char **data, unsigned int dlen, char **txt)
 {
-    char *txt = NULL;
     uint8_t len;
     unsigned char *ptr = *data;
 
     len = *ptr++;
-    if (len) {
-        txt = mempool_copy0(ptr, len);
+    if (len && len < dlen) {
+        *txt = mempool_copy0(ptr, len);
         ptr += len;
     }
     *data = ptr;
-    return txt;
+    return len;
 }
 
 list_t *parse_dns_options(struct dns_resource_record *rr)
@@ -737,22 +746,22 @@ int get_dns_max_namelen(struct dns_resource_record *record, int n)
     return maxlen;
 }
 
-struct packet_flags *get_dns_flags()
+struct packet_flags *get_dns_flags(void)
 {
     return dns_flags;
 }
 
-int get_dns_flags_size()
+int get_dns_flags_size(void)
 {
     return sizeof(dns_flags) / sizeof(struct packet_flags);
 }
 
-struct packet_flags *get_llmnr_flags()
+struct packet_flags *get_llmnr_flags(void)
 {
     return llmnr_flags;
 }
 
-int get_llmnr_flags_size()
+int get_llmnr_flags_size(void)
 {
     return sizeof(llmnr_flags) / sizeof(struct packet_flags);
 }
