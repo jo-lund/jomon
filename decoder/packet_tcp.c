@@ -29,7 +29,7 @@ static struct protocol_info tcp_prot = {
     .add_pdu = add_tcp_information
 };
 
-void register_tcp()
+void register_tcp(void)
 {
     register_protocol(&tcp_prot, IP_PROTOCOL, IPPROTO_TCP);
 }
@@ -103,7 +103,8 @@ packet_error handle_tcp(struct protocol_info *pinfo, unsigned char *buffer, int 
     struct tcp *info;
 
     tcp = (struct tcphdr *) buffer;
-    if (n < tcp->th_off * 4) return DECODE_ERR;
+    if (n < tcp->th_off * 4)
+        return DECODE_ERR;
 
     /* bogus header length */
     if (tcp->th_off < 5)
@@ -167,6 +168,10 @@ list_t *parse_tcp_options(unsigned char *data, int len)
 
         opt->option_kind = *data;
         opt->option_length = *++data; /* length of value + 1 byte tag and 1 byte length */
+        if (opt->option_kind != TCP_OPT_NOP && opt->option_length == 0) {
+            free(opt);
+            return options;
+        }
         switch (opt->option_kind) {
         case TCP_OPT_END:
             free(opt);
