@@ -593,21 +593,21 @@ static packet_error parse_client_hello(unsigned char **buf, uint16_t len,
     memcpy(handshake->client_hello->random_bytes, ptr + 2, 32);
     ptr += 34;
     len -= 34;
-    if ((handshake->client_hello->session_length = ptr[0]) > len) {
+    if ((handshake->client_hello->session_length = ptr[0]) + 1 > len) {
         return DECODE_ERR;
     }
     handshake->client_hello->session_id =
         mempool_copy(ptr + 1, handshake->client_hello->session_length);
     ptr += handshake->client_hello->session_length + 1;
     len = len - (handshake->client_hello->session_length + 1);
-    if ((handshake->client_hello->cipher_length = get_uint16be(ptr)) > len) {
+    if ((handshake->client_hello->cipher_length = get_uint16be(ptr)) + 2 > len) {
         return DECODE_ERR;
     }
     handshake->client_hello->cipher_suites =
         mempool_copy(ptr + 2, handshake->client_hello->cipher_length);
     ptr += handshake->client_hello->cipher_length + 2;
     len = len - (handshake->client_hello->cipher_length + 2);
-    if ((handshake->client_hello->compression_length = ptr[0]) > len) {
+    if ((handshake->client_hello->compression_length = ptr[0]) + 1 > len) {
         return DECODE_ERR;
     }
     if (handshake->client_hello->compression_length == 0) {
