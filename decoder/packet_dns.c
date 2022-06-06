@@ -382,7 +382,7 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
         int name_len;
 
         name_len = parse_dns_name(buffer, n, ptr, dlen, dns->record[i].rdata.nsec.nd_name);
-        if (name_len == -1)
+        if (name_len == -1 || name_len > rdlen)
             return -1;
         ptr += name_len;
         if (!parse_type_bitmaps(&ptr, rdlen - name_len, &dns->record[i]))
@@ -488,6 +488,7 @@ uint8_t parse_dns_txt(unsigned char **data, unsigned int dlen, char **txt)
     uint8_t len;
     unsigned char *ptr = *data;
 
+    *txt = NULL;
     len = *ptr++;
     if (len && len < dlen) {
         *txt = mempool_copy0(ptr, len);
