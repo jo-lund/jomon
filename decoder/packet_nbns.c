@@ -36,7 +36,7 @@ static struct protocol_info nbns_prot = {
     .add_pdu = add_nbns_information
 };
 
-void register_nbns()
+void register_nbns(void)
 {
     register_protocol(&nbns_prot, PORT, NBNS);
 }
@@ -67,7 +67,8 @@ void register_nbns()
 packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int n,
                          struct packet_data *pdata)
 {
-    if (n < DNS_HDRLEN) return DECODE_ERR;
+    if (n < DNS_HDRLEN)
+        return DECODE_ERR;
 
     unsigned char *ptr = buffer;
     int plen = n;
@@ -97,7 +98,7 @@ packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int
 
     if (nbns->r) { /* response */
         if (nbns->section_count[QDCOUNT] != 0) { /* QDCOUNT is always 0 for responses */
-            return DECODE_ERR;
+            goto error;
         }
         ptr += DNS_HDRLEN;
         plen -= DNS_HDRLEN;
@@ -108,19 +109,22 @@ packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int
         while (i < 4) {
             num_records += nbns->section_count[i++];
         }
+        if (num_records == 0)
+            goto error;
         nbns->record = mempool_alloc(num_records * sizeof(struct nbns_rr));
         for (int j = 0; j < num_records; j++) {
             int len = parse_nbns_record(j, buffer, n, &ptr, plen, nbns);
 
-            if (len == -1) return DECODE_ERR;
+            if (len == -1)
+                goto error;
             plen -= len;
         }
     } else { /* request */
         if (nbns->aa) { /* authoritative answer is only to be set in responses */
-            return DECODE_ERR;
+            goto error;
         }
         if (nbns->section_count[QDCOUNT] == 0) { /* QDCOUNT must be non-zero for requests */
-            return DECODE_ERR;
+            goto error;
         }
         ptr += DNS_HDRLEN;
         plen -= DNS_HDRLEN;
@@ -129,7 +133,8 @@ packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int
         char name[DNS_NAMELEN];
         int len = parse_dns_name(buffer, n, ptr, plen, name);
 
-        if (len == -1) return DECODE_ERR;
+        if (len == -1)
+            goto error;
         ptr += len;
         plen -= len;
         decode_nbns_name(nbns->question.qname, name);
@@ -140,7 +145,7 @@ packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int
 
         /* Additional records section */
         if (nbns->section_count[ARCOUNT] > (unsigned int) n) {
-            return DECODE_ERR;
+            goto error;
         }
         if (nbns->section_count[ARCOUNT]) {
             nbns->record = mempool_alloc(nbns->section_count[ARCOUNT] *
@@ -148,7 +153,8 @@ packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int
             for (unsigned int i = 0; i < nbns->section_count[ARCOUNT]; i++) {
                 int len = parse_nbns_record(i, buffer, n, &ptr, plen, nbns);
 
-                if (len == -1) return DECODE_ERR;
+                if (len == -1)
+                    goto error;
                 plen -= len;
             }
         }
@@ -156,6 +162,11 @@ packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int
     pinfo->num_packets++;
     pinfo->num_bytes += n;
     return NO_ERR;
+
+error:
+    mempool_free(nbns);
+    pdata->data = NULL;
+    return DECODE_ERR;
 }
 
 /*
