@@ -242,7 +242,7 @@ int parse_dns_question(unsigned char *buffer, int n, unsigned char **data,
 int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
                      int dlen, struct dns_info *dns)
 {
-    int len;
+    int len; /* length of resource record */
     uint16_t rdlen; /* length of the rdata field */
     unsigned char *ptr = *data;
 
@@ -255,11 +255,11 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
     dns->record[i].rrclass = get_uint16be(ptr + 2);
     dns->record[i].ttl = get_uint32be(ptr + 4);
     rdlen = get_uint16be(ptr + 8);
-    if (dlen <= 10)
+    if (dlen < 10)
         return -1;
     ptr += 10; /* skip to rdata field */
     dlen -= 10;
-    if (rdlen > dlen || rdlen == 0)
+    if (rdlen > dlen)
         return -1;
     len += 10 + rdlen;
     switch (dns->record[i].type) {
@@ -274,7 +274,7 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
     {
         int name_len = parse_dns_name(buffer, n, ptr, dlen, dns->record[i].rdata.nsdname);
 
-        if (name_len == -1)
+        if (name_len == -1 || name_len > dlen)
             return -1;
         ptr += name_len;
         break;
@@ -283,7 +283,7 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
     {
         int name_len = parse_dns_name(buffer, n, ptr, dlen, dns->record[i].rdata.cname);
 
-        if (name_len == -1)
+        if (name_len == -1 || name_len > dlen)
             return -1;
         ptr += name_len;
         break;
@@ -292,26 +292,27 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
     {
         int name_len = parse_dns_name(buffer, n, ptr, dlen, dns->record[i].rdata.soa.mname);
 
-        if (name_len == -1)
+        if (name_len == -1 || name_len > dlen)
             return -1;
         ptr += name_len;
         name_len = parse_dns_name(buffer, n, ptr, dlen, dns->record[i].rdata.soa.rname);
-        if (name_len == -1)
+        if (name_len == -1 || name_len > dlen)
             return -1;
         ptr += name_len;
-        dns->record[i].rdata.soa.serial = get_uint32be(ptr);
-        dns->record[i].rdata.soa.refresh = get_uint32be(ptr + 4);
-        dns->record[i].rdata.soa.retry = get_uint32be(ptr + 8);
-        dns->record[i].rdata.soa.expire = get_uint32be(ptr + 12);
-        dns->record[i].rdata.soa.minimum = get_uint32be(ptr + 16);
-        ptr += 20;
+        if (dlen < 20)
+            return -1;
+        dns->record[i].rdata.soa.serial = read_uint32be(&ptr);
+        dns->record[i].rdata.soa.refresh = read_uint32be(&ptr);
+        dns->record[i].rdata.soa.retry = read_uint32be(&ptr);
+        dns->record[i].rdata.soa.expire = read_uint32be(&ptr);
+        dns->record[i].rdata.soa.minimum = read_uint32be(&ptr);
         break;
     }
     case DNS_TYPE_PTR:
     {
         int name_len = parse_dns_name(buffer, n, ptr, dlen, dns->record[i].rdata.ptrdname);
 
-        if (name_len == -1)
+        if (name_len == -1 || name_len > dlen)
             return -1;
         ptr += name_len;
         break;
@@ -348,10 +349,9 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
     {
         int name_len;
 
-        dns->record[i].rdata.mx.preference = get_uint16be(ptr);
-        ptr += 2;
+        dns->record[i].rdata.mx.preference = read_uint16be(&ptr);
         name_len = parse_dns_name(buffer, n, ptr, dlen, dns->record[i].rdata.mx.exchange);
-        if (name_len == -1)
+        if (name_len == -1 || name_len > dlen)
             return -1;
         ptr += name_len;
         break;
@@ -360,12 +360,13 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
     {
         int name_len;
 
-        dns->record[i].rdata.srv.priority = get_uint16be(ptr);
-        dns->record[i].rdata.srv.weight = get_uint16be(ptr + 2);
-        dns->record[i].rdata.srv.port = get_uint16be(ptr + 4);
-        ptr += 6;
+        if (dlen < 6)
+            return -1;
+        dns->record[i].rdata.srv.priority = read_uint16be(&ptr);
+        dns->record[i].rdata.srv.weight = read_uint16be(&ptr);
+        dns->record[i].rdata.srv.port = read_uint16be(&ptr);
         name_len = parse_dns_name(buffer, n, ptr, dlen, dns->record[i].rdata.srv.target);
-        if (name_len == -1)
+        if (name_len == -1 || name_len > dlen)
             return -1;
         ptr += name_len;
         break;
@@ -418,7 +419,7 @@ int parse_dns_name(unsigned char *buffer, int n, unsigned char *ptr, int plen, c
     int c = 0;
 
     if (!label_length)
-        return -1;
+        name[0] = '\0';
     while (label_length && c < n) {
         /*
          * The max size of a label is 63 bytes, so a length with the first 2 bits
