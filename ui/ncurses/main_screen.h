@@ -4,6 +4,7 @@
 #include "list_view.h"
 #include "screen.h"
 #include "vector.h"
+#include "rbtree.h"
 
 typedef struct main_screen {
     screen base;
@@ -31,6 +32,7 @@ typedef struct main_screen {
     int scrollx; /* the amount scrolled on the x-axis */
     vector_t *packet_ref;
     bool follow_stream;
+    rbtree_t *marked;
 } main_screen;
 
 struct packet;

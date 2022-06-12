@@ -27,6 +27,7 @@
 #include "dialogue.h"
 #include "bpf/pcap_parser.h"
 #include "actionbar.h"
+#include "hash.h"
 
 /* Get the y screen coordinate. The argument is the main_screen coordinate */
 #define GET_SCRY(y) ((y) + HEADER_HEIGHT)
@@ -58,10 +59,6 @@ static bool check_line(main_screen *ms);
 static void print_header(main_screen *ms);
 static void print_selected_packet(main_screen *ms);
 static int print_lines(main_screen *ms, int from, int to, int y);
-static void create_load_dialogue(void);
-static void create_save_dialogue(void);
-static bool read_show_progress(iface_handle_t *handle, unsigned char *buffer,
-                               uint32_t n, struct timeval *t);
 static void print_new_packets(main_screen *ms);
 static void follow_tcp_stream(main_screen *ms);
 static void scroll_window(main_screen *ms);
@@ -70,6 +67,8 @@ static void set_filter(main_screen *ms, int c);
 static void clear_filter(main_screen *ms);
 static void filter_packets(main_screen *ms);
 static void handle_input_mode(main_screen *ms, const char *str);
+static void main_screen_save_handle_ok(void *file);
+static void main_screen_export_handle_ok(void *file);
 
 /* Handles subwindow layout */
 static void create_subwindow(main_screen *ms, int num_lines, int lineno);
@@ -102,9 +101,10 @@ static void add_actionbar_elems(screen *s)
     actionbar_add(s, "F4", "Stop", !ctx.capturing);
     actionbar_add(s, "F5", "Save", ctx.capturing ||
                   vector_size(((main_screen *) s)->packet_ref) == 0);
-    actionbar_add(s, "F6", "Load", ctx.capturing);
-    actionbar_add(s, "F7", "View (dec)", false);
-    actionbar_add(s, "F8", "Filter", false);
+    actionbar_add(s, "F6", "Export", rbtree_size(((main_screen *) s)->marked) == 0);
+    actionbar_add(s, "F7", "Load", ctx.capturing);
+    actionbar_add(s, "F8", "View (dec)", false);
+    actionbar_add(s, "F9", "Filter", false);
     actionbar_add(s, "F10", "Quit", false);
 }
 
@@ -170,6 +170,7 @@ void main_screen_init(screen *s)
     keypad(s->win, TRUE);
     scrollok(s->win, TRUE);
     ms->packet_ref = packets;
+    ms->marked = rbtree_init(compare_uint, NULL);
     set_filepath();
     status = newwin(1, mx, my - 1, 0);
     add_actionbar_elems(s);
@@ -179,6 +180,7 @@ void main_screen_free(screen *s)
 {
     main_screen *ms = (main_screen *) s;
 
+    rbtree_free(ms->marked);
     delwin(ms->subwindow.win);
     delwin(ms->header);
     delwin(ms->base.win);
@@ -249,6 +251,16 @@ void main_screen_refresh(screen *s)
                                 ms->subwindow.top, SELECTIONBAR);
         refresh_pad(ms, &ms->subwindow, 0, ms->scrollx, false);
     }
+    if (rbtree_size(ms->marked) > 0) {
+        const rbtree_node_t *n;
+
+        RBTREE_FOREACH(ms->marked, n) {
+            if (PTR_TO_UINT(rbtree_get_key(n)) - 1 >= (uint32_t) ms->base.top &&
+                PTR_TO_UINT(rbtree_get_key(n)) - 1 < (uint32_t) ms->base.top + my)
+                mvwchgat(ms->base.win, PTR_TO_UINT(rbtree_get_key(n)) - 1 - s->top, 0, -1, A_BOLD,
+                         PAIR_NUMBER(get_theme_colour(MARK)), NULL);
+        }
+    }
     if (s->show_selectionbar && !inside_subwindow(ms))
         UPDATE_SELECTIONBAR(s->win, s->selectionbar - s->top, SELECTIONBAR);
     print_header(ms);
@@ -278,6 +290,185 @@ void main_screen_print_packet(main_screen *ms, struct packet *p)
         write_to_buf(buf, MAXLINE, p);
         main_screen_update(ms, buf);
     }
+}
+
+static void create_load_dialogue(void)
+{
+    if (!load_dialogue) {
+        load_dialogue = file_dialogue_create(" Load capture file ", FS_LOAD, load_filepath,
+                                  main_screen_load_handle_ok, main_screen_load_handle_cancel);
+        push_screen((screen *) load_dialogue);
+    }
+}
+
+static void create_save_dialogue(void)
+{
+    if (!save_dialogue) {
+        save_dialogue = file_dialogue_create(" Save as pcap ", FS_SAVE, load_filepath,
+                                             main_screen_save_handle_ok,
+                                             main_screen_save_handle_cancel);
+        push_screen((screen *) save_dialogue);
+    }
+}
+
+static void create_export_dialogue(void)
+{
+    if (!save_dialogue) {
+        save_dialogue = file_dialogue_create(" Export marked packets as pcap ", FS_SAVE, load_filepath,
+                                             main_screen_export_handle_ok, main_screen_save_handle_cancel);
+        push_screen((screen *) save_dialogue);
+    }
+}
+
+static bool read_show_progress(iface_handle_t *handle, unsigned char *buffer, uint32_t n,
+                               struct timeval *t)
+{
+    struct packet *p;
+    main_screen *ms = (main_screen *) screen_cache_get(MAIN_SCREEN);
+
+    if (!decode_packet(handle, buffer, n, &p)) {
+        return false;
+    }
+    p->time.tv_sec = t->tv_sec;
+    p->time.tv_usec = t->tv_usec;
+    if (p->perr != DECODE_ERR) {
+        tcp_analyzer_check_stream(p);
+        host_analyzer_investigate(p);
+    }
+    if (bpf.size > 0)  {
+        vector_push_back(packets, p);
+        if (bpf_run_filter(bpf, p->buf, p->len) != 0)
+            vector_push_back(ms->packet_ref, p);
+    } else {
+        vector_push_back(ms->packet_ref, p);
+    }
+    PROGRESS_DIALOGUE_UPDATE(pd, n);
+    return true;
+}
+
+void main_screen_load_handle_ok(void *file)
+{
+    enum file_error err;
+    FILE *fp;
+
+    /* don't allow filenames containing ".." */
+    if (strstr((const char *) file, "..")) {
+        create_file_error_dialogue(ACCESS_ERROR, create_load_dialogue);
+    } else if ((fp = file_open((const char *) file, "r", &err)) == NULL) {
+        create_file_error_dialogue(err, create_load_dialogue);
+    } else {
+        struct stat buf[sizeof(struct stat)];
+        char filename[MAXPATH + 1];
+        char title[MAXLINE];
+        main_screen *ms = (main_screen *) screen_cache_get(MAIN_SCREEN);
+        int n;
+
+        strcpy(filename, file);
+        get_file_part(filename);
+        if ((n = snprintf(title, MAXLINE, " Loading %s ", filename)) >= MAXLINE)
+            string_truncate(title, MAXLINE, MAXLINE - 1);
+        clear_statistics();
+        vector_clear(ms->packet_ref, NULL);
+        if (bpf.size > 0)
+            vector_clear(packets, NULL);
+        free_packets(NULL);
+        lstat((const char *) file, buf);
+        pd = progress_dialogue_create(title, buf->st_size);
+        push_screen((screen *) pd);
+        err = file_read(ctx.handle, fp, read_show_progress);
+        if (err == NO_ERROR) {
+            main_screen_clear(ms);
+            rbtree_clear(ms->marked);
+            strcpy(ctx.filename, (const char *) file);
+            set_filepath();
+            pop_screen();
+            SCREEN_FREE((screen *) pd);
+            ms->base.top = 0;
+            ms->base.show_selectionbar = true;
+            ctx.opt.load_file = true;
+            main_screen_refresh((screen *) ms);
+        } else {
+            pop_screen();
+            SCREEN_FREE((screen *) pd);
+            memset(ctx.filename, 0, MAXPATH);
+            decode_error = true;
+            create_file_error_dialogue(err, create_load_dialogue);
+        }
+        fclose(fp);
+    }
+    SCREEN_FREE((screen *) load_dialogue);
+    load_dialogue = NULL;
+}
+
+void main_screen_load_handle_cancel(void *d UNUSED)
+{
+    SCREEN_FREE((screen *) load_dialogue);
+    load_dialogue = NULL;
+    if (decode_error) {
+        main_screen *ms;
+
+        ms = (main_screen *) screen_cache_get(MAIN_SCREEN);
+        main_screen_clear(ms);
+        print_header(ms);
+        wnoutrefresh(ms->header);
+        wnoutrefresh(ms->base.win);
+        doupdate();
+        decode_error = false;
+    }
+}
+
+void main_screen_save(vector_t *data, const char *file)
+{
+    enum file_error err;
+    FILE *fp;
+
+    if ((fp = file_open(file, "w", &err)) == NULL) {
+        create_file_error_dialogue(err, create_save_dialogue);
+    } else {
+        char title[MAXLINE];
+
+        get_file_part( (char *) file);
+        snprintf(title, MAXLINE, " Saving %s ", (char *) file);
+        pd = progress_dialogue_create(title, total_bytes);
+        push_screen((screen *) pd);
+        file_write_pcap(fp, data, main_screen_write_show_progress);
+        pop_screen();
+        SCREEN_FREE((screen *) pd);
+        fclose(fp);
+    }
+    SCREEN_FREE((screen *) save_dialogue);
+    save_dialogue = NULL;
+}
+
+void main_screen_export_handle_ok(void *file)
+{
+    const rbtree_node_t *n;
+    vector_t *tmp;
+    main_screen *ms = (main_screen *) screen_cache_get(MAIN_SCREEN);
+
+    tmp = vector_init(rbtree_size(ms->marked));
+    RBTREE_FOREACH(ms->marked, n)
+        vector_push_back(tmp, vector_get(ms->packet_ref, PTR_TO_UINT(rbtree_get_key(n)) - 1));
+    main_screen_save(tmp, (const char *) file);
+    vector_free(tmp, NULL);
+}
+
+void main_screen_save_handle_ok(void *file)
+{
+    main_screen *ms = (main_screen *) screen_cache_get(MAIN_SCREEN);
+
+    main_screen_save(ms->packet_ref, (const char *) file);
+}
+
+void main_screen_save_handle_cancel(void *d UNUSED)
+{
+    SCREEN_FREE((screen *) save_dialogue);
+    save_dialogue = NULL;
+}
+
+void main_screen_write_show_progress(int size)
+{
+    PROGRESS_DIALOGUE_UPDATE(pd, size);
 }
 
 void main_screen_get_input(screen *s)
@@ -388,6 +579,7 @@ void main_screen_get_input(screen *s)
             actionbar_update(s, "F4", NULL, false);
             actionbar_update(s, "F5", NULL, true);
             actionbar_update(s, "F6", NULL, true);
+            actionbar_update(s, "F7", NULL, true);
             doupdate();
         }
         break;
@@ -400,7 +592,8 @@ void main_screen_get_input(screen *s)
             actionbar_update(s, "F3", NULL, false);
             actionbar_update(s, "F4", NULL, true);
             actionbar_update(s, "F5", NULL, !vector_size(ms->packet_ref));
-            actionbar_update(s, "F6", NULL, false);
+            actionbar_update(s, "F6", NULL, !rbtree_size(ms->marked));
+            actionbar_update(s, "F7", NULL, false);
         }
         break;
     case KEY_F(5):
@@ -409,11 +602,15 @@ void main_screen_get_input(screen *s)
         }
         break;
     case KEY_F(6):
+        if (!ctx.capturing && rbtree_size(ms->marked) > 0)
+            create_export_dialogue();
+        break;
+    case KEY_F(7):
         if (!ctx.capturing) {
             create_load_dialogue();
         }
         break;
-    case KEY_F(7):
+    case KEY_F(8):
         view_mode = (view_mode + 1) % NUM_VIEWS;
         if (ms->subwindow.win) {
             struct packet *p;
@@ -429,168 +626,29 @@ void main_screen_get_input(screen *s)
             }
             main_screen_refresh((screen *) ms);
         }
-        actionbar_update(s, "F7", (view_mode == DECODED_VIEW) ? "View (dec)" :
+        actionbar_update(s, "F8", (view_mode == DECODED_VIEW) ? "View (dec)" :
                          "View (hex)", false);
         break;
     case 'e':
-    case KEY_F(8):
+    case KEY_F(9):
         input_mode = (input_mode == INPUT_FILTER) ? INPUT_NONE : INPUT_FILTER;
         handle_input_mode(ms, "Filter: ");
+        break;
+    case 'M':
+        if (!ctx.capturing) {
+            if (rbtree_contains(ms->marked, UINT_TO_PTR(s->selectionbar + 1)))
+                rbtree_remove(ms->marked, UINT_TO_PTR(s->selectionbar + 1));
+            else
+                rbtree_insert(ms->marked, UINT_TO_PTR(s->selectionbar + 1), NULL);
+            actionbar_update(s, "F6", NULL, rbtree_size(ms->marked) == 0);
+            main_screen_handle_keydown(ms, my);
+        }
         break;
     default:
         ungetch(c);
         screen_get_input(s);
         break;
     }
-}
-
-void create_load_dialogue(void)
-{
-    if (!load_dialogue) {
-        load_dialogue = file_dialogue_create(" Load capture file ", FS_LOAD, load_filepath,
-                                  main_screen_load_handle_ok, main_screen_load_handle_cancel);
-        push_screen((screen *) load_dialogue);
-    }
-}
-
-void create_save_dialogue(void)
-{
-    if (!save_dialogue) {
-        save_dialogue = file_dialogue_create(" Save as pcap ", FS_SAVE, load_filepath,
-                                             main_screen_save_handle_ok, main_screen_save_handle_cancel);
-        push_screen((screen *) save_dialogue);
-    }
-}
-
-void main_screen_load_handle_ok(void *file)
-{
-    enum file_error err;
-    FILE *fp;
-
-    /* don't allow filenames containing ".." */
-    if (strstr((const char *) file, "..")) {
-        create_file_error_dialogue(ACCESS_ERROR, create_load_dialogue);
-    } else if ((fp = file_open((const char *) file, "r", &err)) == NULL) {
-        create_file_error_dialogue(err, create_load_dialogue);
-    } else {
-        struct stat buf[sizeof(struct stat)];
-        char filename[MAXPATH + 1];
-        char title[MAXLINE];
-        main_screen *ms = (main_screen *) screen_cache_get(MAIN_SCREEN);
-        int n;
-
-        strcpy(filename, file);
-        get_file_part(filename);
-        if ((n = snprintf(title, MAXLINE, " Loading %s ", filename)) >= MAXLINE)
-            string_truncate(title, MAXLINE, MAXLINE - 1);
-        clear_statistics();
-        vector_clear(ms->packet_ref, NULL);
-        if (bpf.size > 0)
-            vector_clear(packets, NULL);
-        free_packets(NULL);
-        lstat((const char *) file, buf);
-        pd = progress_dialogue_create(title, buf->st_size);
-        push_screen((screen *) pd);
-        err = file_read(ctx.handle, fp, read_show_progress);
-        if (err == NO_ERROR) {
-            main_screen_clear(ms);
-            strcpy(ctx.filename, (const char *) file);
-            set_filepath();
-            pop_screen();
-            SCREEN_FREE((screen *) pd);
-            ms->base.top = 0;
-            ms->base.show_selectionbar = true;
-            ctx.opt.load_file = true;
-            main_screen_refresh((screen *) ms);
-        } else {
-            pop_screen();
-            SCREEN_FREE((screen *) pd);
-            memset(ctx.filename, 0, MAXPATH);
-            decode_error = true;
-            create_file_error_dialogue(err, create_load_dialogue);
-        }
-        fclose(fp);
-    }
-    SCREEN_FREE((screen *) load_dialogue);
-    load_dialogue = NULL;
-}
-
-void main_screen_load_handle_cancel(void *d UNUSED)
-{
-    SCREEN_FREE((screen *) load_dialogue);
-    load_dialogue = NULL;
-    if (decode_error) {
-        main_screen *ms;
-
-        ms = (main_screen *) screen_cache_get(MAIN_SCREEN);
-        main_screen_clear(ms);
-        print_header(ms);
-        wnoutrefresh(ms->header);
-        wnoutrefresh(ms->base.win);
-        doupdate();
-        decode_error = false;
-    }
-}
-
-void main_screen_save_handle_ok(void *file)
-{
-    enum file_error err;
-    FILE *fp;
-
-    if ((fp = file_open((const char *) file, "w", &err)) == NULL) {
-        create_file_error_dialogue(err, create_save_dialogue);
-    } else {
-        char title[MAXLINE];
-        main_screen *ms = (main_screen *) screen_cache_get(MAIN_SCREEN);
-
-        get_file_part(file);
-        snprintf(title, MAXLINE, " Saving %s ", (char *) file);
-        pd = progress_dialogue_create(title, total_bytes);
-        push_screen((screen *) pd);
-        file_write_pcap(fp, ms->packet_ref, main_screen_write_show_progress);
-        pop_screen();
-        SCREEN_FREE((screen *) pd);
-        fclose(fp);
-    }
-    SCREEN_FREE((screen *) save_dialogue);
-    save_dialogue = NULL;
-}
-
-void main_screen_save_handle_cancel(void *d UNUSED)
-{
-    SCREEN_FREE((screen *) save_dialogue);
-    save_dialogue = NULL;
-}
-
-void main_screen_write_show_progress(int size)
-{
-    PROGRESS_DIALOGUE_UPDATE(pd, size);
-}
-
-bool read_show_progress(iface_handle_t *handle, unsigned char *buffer, uint32_t n,
-                        struct timeval *t)
-{
-    struct packet *p;
-    main_screen *ms = (main_screen *) screen_cache_get(MAIN_SCREEN);
-
-    if (!decode_packet(handle, buffer, n, &p)) {
-        return false;
-    }
-    p->time.tv_sec = t->tv_sec;
-    p->time.tv_usec = t->tv_usec;
-    if (p->perr != DECODE_ERR) {
-        tcp_analyzer_check_stream(p);
-        host_analyzer_investigate(p);
-    }
-    if (bpf.size > 0)  {
-        vector_push_back(packets, p);
-        if (bpf_run_filter(bpf, p->buf, p->len) != 0)
-            vector_push_back(ms->packet_ref, p);
-    } else {
-        vector_push_back(ms->packet_ref, p);
-    }
-    PROGRESS_DIALOGUE_UPDATE(pd, n);
-    return true;
 }
 
 /* scroll the window if necessary */

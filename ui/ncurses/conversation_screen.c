@@ -25,6 +25,7 @@
 #include "main_screen_int.h"
 #include "dialogue.h"
 #include "process.h"
+#include "actionbar.h"
 
 #define TCP_PAGE_SIZE 1000
 
@@ -75,6 +76,7 @@ static void scroll_page(conversation_screen *cs, int num_lines);
 static void goto_home(conversation_screen *cs);
 static void goto_end(conversation_screen *cs);
 static void create_save_dialogue(void);
+static void create_export_dialogue(void);
 
 static screen_operations csop = {
     .screen_init = conversation_screen_init,
@@ -133,6 +135,7 @@ void conversation_screen_free(screen *s)
     if (((main_screen *) s)->lvw) {
         free_list_view(((main_screen *) s)->lvw);
     }
+    rbtree_free(((main_screen *) s)->marked);
     delwin(s->win);
     free(s);
 }
@@ -157,6 +160,7 @@ void conversation_screen_got_focus(screen *s, screen *oldscr)
     if (oldscr->fullscreen) {
         cs->base.packet_ref = vector_init(list_size(cs->stream->packets));
         fill_screen_buffer(cs);
+        actionbar_update(s, "F7", NULL, true);
     }
 }
 
@@ -170,6 +174,7 @@ void conversation_screen_lost_focus(screen *s, screen *newscr)
         vector_free(cs->base.packet_ref, NULL);
         s->top = 0;
         s->selectionbar = 0;
+        actionbar_update(s, "F7", NULL, ctx.capturing);
     }
 }
 
@@ -255,7 +260,11 @@ void conversation_screen_get_input(screen *s)
             create_save_dialogue();
         }
         break;
-    case KEY_F(6): /* should not be enabled */
+    case KEY_F(6):
+        if (!ctx.capturing && rbtree_size(cs->base.marked) > 0)
+            create_export_dialogue();
+        break;
+    case KEY_F(7): /* should not be enabled */
         break;
     default:
         ungetch(c);
@@ -386,6 +395,20 @@ static void save_handle_ok(void *file)
     save_dialogue = NULL;
 }
 
+static void export_handle_ok(void *file)
+{
+    const rbtree_node_t *n;
+    vector_t *tmp;
+    conversation_screen *cs;
+
+    cs = (conversation_screen *) screen_cache_get(CONVERSATION_SCREEN);
+    tmp = vector_init(rbtree_size(cs->base.marked));
+    RBTREE_FOREACH(cs->base.marked, n)
+        vector_push_back(tmp, vector_get(cs->base.packet_ref, PTR_TO_UINT(rbtree_get_key(n)) - 1));
+    main_screen_save(tmp, (const char *) file);
+    vector_free(tmp, NULL);
+}
+
 static void create_save_dialogue(void)
 {
     if (!save_dialogue) {
@@ -406,6 +429,15 @@ static void create_save_dialogue(void)
         }
         save_dialogue = file_dialogue_create(info, FS_SAVE, load_filepath, save_handle_ok,
                                              main_screen_save_handle_cancel);
+        push_screen((screen *) save_dialogue);
+    }
+}
+
+static void create_export_dialogue(void)
+{
+    if (!save_dialogue) {
+        save_dialogue = file_dialogue_create(" Export marked packets as pcap ", FS_SAVE, load_filepath,
+                                             export_handle_ok, main_screen_save_handle_cancel);
         push_screen((screen *) save_dialogue);
     }
 }

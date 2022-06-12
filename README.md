@@ -12,12 +12,12 @@ for geolocation (optional). The BPF scanner/lexical analyzer is made with the
 help of re2c.
 
 ### BPF
-To e.g. catch all IPv4 packets with options, you can write
+To for example catch all IPv4 packets with options, you can write
 ```
 ip[0] & 0xf != 5
 ```
 
-This works both as a display filter (use **e** or **F8** in the ncurses ui) and
+This works both as a display filter (use **e** or **F9** in the ncurses ui) and
 capture filter (with the **-f** option on the command line). The equivalent
 assembly
 ```
@@ -77,6 +77,3 @@ Process view
 
 Follow stream ascii mode
 ![ascii-mode](https://user-images.githubusercontent.com/18684676/152643215-6c065711-38a5-44a2-a254-c45235618226.png)
-
-
-

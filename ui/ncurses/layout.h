@@ -34,6 +34,7 @@ enum elements {
     SRC_TXT,
     DST_TXT,
     ERR_BKGD,
+    MARK,
     NUM_ELEMENTS
 };
 

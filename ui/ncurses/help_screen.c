@@ -66,10 +66,12 @@ static void help_screen_render(void)
     printat(win, ++y, x, subcol, "%12s", "F5");
     wprintw(win, ": Save file in pcap format (or ascii and raw format for TCP stream)");
     printat(win, ++y, x, subcol, "%12s", "F6");
-    wprintw(win, ": Load file in pcap format");
+    wprintw(win, ": Export marked packets in pcap format");
     printat(win, ++y, x, subcol, "%12s", "F7");
+    wprintw(win, ": Load file in pcap format");
+    printat(win, ++y, x, subcol, "%12s", "F8");
     wprintw(win, ": Change between decoded view or hexdump");
-    printat(win, ++y, x, subcol, "%12s", "F8 e");
+    printat(win, ++y, x, subcol, "%12s", "F9 e");
     wprintw(win, ": Add a display filter (tcpdump syntax)");
     y += 2;
     printat(win, y, x, hdrcol, "Connection screen keyboard shortcuts");
@@ -100,6 +102,8 @@ static void help_screen_render(void)
     wprintw(win, ": Close packet window/Quit interactive mode");
     printat(win, ++y, x, subcol, "%12s", "i");
     wprintw(win, ": Quit interactive mode");
+    printat(win, ++y, x, subcol, "%12s", "M");
+    wprintw(win, ": Mark/unmark packet");
     y += 2;
     printat(win, y, x, hdrcol, "Statistics screen keyboard shortcuts");
     printat(win, ++y, x, subcol, "%12s", "e");
