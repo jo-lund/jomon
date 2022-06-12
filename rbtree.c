@@ -31,6 +31,7 @@ struct rbtree {
     rbtree_deallocate free_data;
     rbtree_compare comp;
     allocator_t allocator;
+    int size;
 };
 
 #define INIT_NODE(n, p, k, d)                   \
@@ -69,6 +70,7 @@ rbtree_t *rbtree_init(rbtree_compare fn, allocator_t *allocator)
     tree->root = tree->nil;
     tree->nil->colour = BLACK;
     tree->comp = fn;
+    tree->size = 0;
     return tree;
 }
 
@@ -79,6 +81,13 @@ void rbtree_free(rbtree_t *tree)
         tree->allocator.dealloc(tree->nil);
         tree->allocator.dealloc(tree);
     }
+}
+
+void rbtree_clear(rbtree_t *tree)
+{
+    free_nodes(tree, tree->root);
+    tree->size = 0;
+    tree->root = tree->nil;
 }
 
 void rbtree_insert(rbtree_t *tree, void *key, void *data)
@@ -136,6 +145,7 @@ void rbtree_insert(rbtree_t *tree, void *key, void *data)
         }
     }
     tree->root->colour = BLACK;
+    tree->size++;
 }
 
 rbtree_node_t *insert_node(rbtree_t *tree, void *key, void *data)
@@ -209,6 +219,7 @@ void rbtree_remove(rbtree_t *tree, void *key)
             }
             if (y != z) {
                 z->key = y->key;
+                z->data = y->data;
             }
 
             /* if the deleted node is red, we still have a red-black tree */
@@ -224,6 +235,7 @@ void rbtree_remove(rbtree_t *tree, void *key)
             if (tree->allocator.dealloc) {
                 tree->allocator.dealloc(y);
             }
+            tree->size--;
             break;
         }
     }
@@ -420,6 +432,26 @@ void *rbtree_data(rbtree_t *tree, void *key)
         }
     }
     return NULL;
+}
+
+bool rbtree_contains(rbtree_t *tree, void *key)
+{
+    rbtree_node_t *n = tree->root;
+
+    while (n != tree->nil) {
+        if (tree->comp(key, n->key) < 0)
+            n = n->left;
+        else if (tree->comp(key, n->key) > 0)
+            n = n->right;
+        else
+            return true;
+    }
+    return false;
+}
+
+int rbtree_size(rbtree_t *tree)
+{
+    return tree->size;
 }
 
 void free_nodes(rbtree_t *tree, rbtree_node_t *n)

@@ -50,8 +50,8 @@ test-objs += $(bpf-objs) \
 	$(BUILDDIR)/debug.o \
 	$(BUILDDIR)/util.o \
 	$(BUILDDIR/stack.o) \
-	$(BUILDDIR)/string.o
-
+	$(BUILDDIR)/string.o \
+	$(BUILDDIR)/rbtree.o
 
 .PHONY : all
 all : release

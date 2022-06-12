@@ -8,6 +8,7 @@ int main()
 
     sr = srunner_create(hashmap_suite());
     srunner_add_suite(sr, bpf_suite());
+    srunner_add_suite(sr, rbtree_suite());
     srunner_run_all(sr, CK_NORMAL);
     number_failed = srunner_ntests_failed(sr);
     srunner_free(sr);

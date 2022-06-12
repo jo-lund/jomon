@@ -1,6 +1,7 @@
 #ifndef RBTREE_H
 #define RBTREE_H
 
+#include <stdbool.h>
 #include "alloc.h"
 
 #define RBTREE_FOREACH(m, n) \
@@ -50,6 +51,15 @@ void *rbtree_get_data(const rbtree_node_t *node);
 
 /* Returns the data associated with the specific key */
 void *rbtree_data(rbtree_t *tree, void *key);
+
+/* Does rbtree have an element with the specified key? */
+bool rbtree_contains(rbtree_t *tree, void *key);
+
+/* Get the number of elements in the tree */
+int rbtree_size(rbtree_t *tree);
+
+/* Clear the content of the tree */
+void rbtree_clear(rbtree_t *tree);
 
 /* Frees all memory used by rbtree */
 void rbtree_free(rbtree_t *tree);
