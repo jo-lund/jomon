@@ -173,7 +173,7 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
     bool conn_created = false;
 
      /* only support for TCP and IPv4 */
-    if (pdata->transport != TCP)
+    if (pdata->transport != IPPROTO_TCP)
         return DECODE_ERR;
     if ((root = get_root(pdata)) == NULL)
         return DECODE_ERR;

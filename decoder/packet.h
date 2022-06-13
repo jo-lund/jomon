@@ -58,11 +58,6 @@ enum port {
     LLMNR = 5355     /* Link-Local Multicast Name Resolution */
 };
 
-enum transport {
-    TCP,
-    UDP
-};
-
 typedef enum {
     NO_ERR,
     DECODE_ERR,

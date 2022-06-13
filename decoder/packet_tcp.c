@@ -148,7 +148,7 @@ packet_error handle_tcp(struct protocol_info *pinfo, unsigned char *buffer, int 
     if (payload_len > 0) {
         for (int i = 0; i < 2; i++) {
             error = call_data_decoder(get_protocol_id(PORT, *((uint16_t *) info + i)), pdata,
-                                      TCP, buffer + info->offset * 4, payload_len);
+                                      IPPROTO_TCP, buffer + info->offset * 4, payload_len);
             if (error != UNK_PROTOCOL)
                 return error;
         }
