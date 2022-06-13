@@ -439,6 +439,8 @@ int parse_dns_name(unsigned char *buffer, int n, unsigned char *ptr, int plen, c
             if (offset > n)
                 return -1;
             label_length = buffer[offset];
+            if (c == 0 && label_length == 0)
+                return -1;
             ptr = buffer + offset; /* ptr will point to start of label */
             plen = n - offset;
 
