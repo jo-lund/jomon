@@ -416,6 +416,8 @@ packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
             }
         }
         record_len = (*pptr)->length;
+        if (record_len + TLS_HEADER_SIZE > n)
+            return DECODE_ERR;
         data_len += record_len + TLS_HEADER_SIZE;
         buf += TLS_HEADER_SIZE;
         switch ((*pptr)->type) {
@@ -503,6 +505,8 @@ static packet_error parse_tls_extensions(struct tls_handshake *hs, unsigned char
         *ext = mempool_calloc(struct tls_extension);
         (*ext)->type = read_uint16be(&data);
         (*ext)->length = read_uint16be(&data);
+        if ((*ext)->length > length)
+            goto error;
         length -= 4;
         switch ((*ext)->type) {
         case SERVER_NAME:
@@ -511,19 +515,19 @@ static packet_error parse_tls_extensions(struct tls_handshake *hs, unsigned char
             break;
         case SUPPORTED_GROUPS:
             (*ext)->supported_groups.length = get_uint16be(data);
-            if ((*ext)->length > length || (*ext)->supported_versions.length > (*ext)->length)
+            if ((*ext)->supported_versions.length > (*ext)->length)
                 goto error;
             (*ext)->supported_groups.named_group_list = mempool_copy(data + 2, (*ext)->supported_versions.length);
             break;
         case EC_POINT_FORMATS:
-            if ((*ext)->length > length || *data > length)
+            if (*data > length)
                 goto error;
             (*ext)->ec_point.length = *data;
             (*ext)->ec_point.format_list = mempool_copy(data + 1, *data);
             break;
         case SIGNATURE_ALGORITHMS:
             (*ext)->signature_algorithms.length = get_uint16be(data);
-            if ((*ext)->length > length || (*ext)->supported_versions.length > (*ext)->length)
+            if ((*ext)->supported_versions.length > (*ext)->length)
                 goto error;
             (*ext)->signature_algorithms.types = mempool_copy(data + 2, (*ext)->signature_algorithms.length);
             break;
@@ -537,8 +541,6 @@ static packet_error parse_tls_extensions(struct tls_handshake *hs, unsigned char
         case EARLY_DATA:
             break;
         case SUPPORTED_VERSIONS:
-            if ((*ext)->length > length)
-                goto error;
             if (((*ext)->length & 0x1) == 0) { /* No length field */
                 (*ext)->supported_versions.length = (*ext)->length;
                 (*ext)->supported_versions.versions = mempool_copy(data, (*ext)->length);
@@ -551,8 +553,6 @@ static packet_error parse_tls_extensions(struct tls_handshake *hs, unsigned char
             break;
         case SESSION_TICKET:
         case COOKIE:
-            if ((*ext)->length > length)
-                goto error;
             if ((*ext)->length > 0)
                 (*ext)->data = mempool_copy(data, (*ext)->length);
             break;
@@ -638,7 +638,7 @@ static packet_error parse_server_hello(unsigned char **buf, uint16_t len,
     memcpy(handshake->server_hello->random_bytes, ptr + 2, 32);
     ptr += 34;
     len -= 34;
-    if ((handshake->server_hello->session_length = ptr[0]) > len) {
+    if ((handshake->server_hello->session_length = ptr[0]) + 1 > len) {
         return DECODE_ERR;
     }
     handshake->server_hello->session_id =
