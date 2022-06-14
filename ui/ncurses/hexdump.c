@@ -123,7 +123,7 @@ void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_a
         item = LV_ADD_TEXT_ELEMENT(arg->h_arg.lvw, arg->h_arg.header, "%s", buf);
         item->attr = A_BOLD;
     } else {
-        printat(arg->h_arg.win, arg->h_arg.y, arg->h_arg.x, A_BOLD, "%s", buf);
+        mvprintat(arg->h_arg.win, arg->h_arg.y, arg->h_arg.x, A_BOLD, "%s", buf);
         ctx.pdata = arg->h_arg.p->root;
         ctx.pinfo = NULL;
         ctx.layer = 0;
@@ -253,5 +253,5 @@ void print_char(WINDOW *win, char *buf, struct protocol_ctx *ctx, int i, int j, 
 
 void print_protocol(WINDOW *win, struct hd_layer *prot)
 {
-    printat(win, -1, -1, hd_colour[prot->layer], "  %s", prot->name);
+    printat(win, hd_colour[prot->layer], "  %s", prot->name);
 }

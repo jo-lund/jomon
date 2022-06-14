@@ -286,7 +286,7 @@ static void conversation_screen_render(conversation_screen *cs)
 
     for (int i = 0; i < my && i < vector_size(cs->base.packet_ref); i++) {
         write_to_buf(buf, MAXLINE, vector_get(cs->base.packet_ref, i));
-        printnlw(s->win, buf, strlen(buf), i, 0, cs->base.scrollx);
+        mvprintnlw(s->win, i, 0, cs->base.scrollx, buf);
     }
 }
 
@@ -634,32 +634,31 @@ void print_header(conversation_screen *cs)
         }
     }
     inet_ntop(AF_INET, &cli_addr, addr, sizeof(addr));
-    printat(cs->base.header, 0, 0, txtcol, "Client address");
+    mvprintat(cs->base.header, 0, 0, txtcol, "Client address");
     if (tcp_mode == NORMAL)
         wprintw(cs->base.header, ": %s:%d", addr, cli_port);
     else
-        printat(cs->base.header, -1, -1, get_theme_colour(SRC_TXT), ": %s:%d",
+        printat(cs->base.header, get_theme_colour(SRC_TXT), ": %s:%d",
                 addr, cli_port);
-    printat(cs->base.header, 0, 38, txtcol, "Packets");
+    mvprintat(cs->base.header, 0, 38, txtcol, "Packets");
     wprintw(cs->base.header, ": %d", cli_packets);
-    printat(cs->base.header, 0, 55, txtcol, "Bytes");
+    mvprintat(cs->base.header, 0, 55, txtcol, "Bytes");
     format_bytes(cli_bytes, buf, 64);
     wprintw(cs->base.header, ": %s", buf);
     inet_ntop(AF_INET, &srv_addr, addr, sizeof(addr));
-    printat(cs->base.header, 1, 0, txtcol, "Server address");
+    mvprintat(cs->base.header, 1, 0, txtcol, "Server address");
     if (tcp_mode == NORMAL)
         wprintw(cs->base.header, ": %s:%d", addr, srv_port);
     else
-        printat(cs->base.header, -1, -1, get_theme_colour(DST_TXT), ": %s:%d",
-                addr, srv_port);
-    printat(cs->base.header, 1, 38, txtcol, "Packets");
+        printat(cs->base.header, get_theme_colour(DST_TXT), ": %s:%d", addr, srv_port);
+    mvprintat(cs->base.header, 1, 38, txtcol, "Packets");
     wprintw(cs->base.header, ": %d", srv_packets);
-    printat(cs->base.header, 1, 55, txtcol, "Bytes");
+    mvprintat(cs->base.header, 1, 55, txtcol, "Bytes");
     format_bytes(srv_bytes, buf, 64);
     wprintw(cs->base.header, ": %s", buf);
     switch (tcp_mode) {
     case NORMAL:
-        printat(cs->base.header, 2, 0, txtcol, "Mode");
+        mvprintat(cs->base.header, 2, 0, txtcol, "Mode");
         wprintw(cs->base.header, ": Normal");
         for (unsigned int i = 0; i < ARRAY_SIZE(main_header); i++) {
             mvwprintw(cs->base.header, 4, x, "%s", main_header[i].txt);
@@ -667,11 +666,11 @@ void print_header(conversation_screen *cs)
         }
         break;
     case ASCII:
-        printat(cs->base.header, 2, 0, txtcol, "Mode");
+        mvprintat(cs->base.header, 2, 0, txtcol, "Mode");
         wprintw(cs->base.header, ": Ascii");
         break;
     case RAW:
-        printat(cs->base.header, 2, 0, txtcol, "Mode");
+        mvprintat(cs->base.header, 2, 0, txtcol, "Mode");
         wprintw(cs->base.header, ": Raw");
         break;
     default:

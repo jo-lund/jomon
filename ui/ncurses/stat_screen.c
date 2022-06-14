@@ -199,7 +199,7 @@ static void print_protocol_stat(struct protocol_info *pinfo, void *arg)
     char buf[16];
 
     if (pinfo->num_packets) {
-        printat(s->win, ++*y, 5, subcol, "%10s", pinfo->short_name);
+        mvprintat(s->win, ++*y, 5, subcol, "%10s", pinfo->short_name);
         wprintw(s->win, ": %8u", pinfo->num_packets);
         if (formatted_output)
             wprintw(s->win, "%14s", format_bytes(pinfo->num_bytes, buf, 16));
@@ -287,8 +287,8 @@ static void print_packet_stat(screen *s, int col, int y)
 
     if (total_packets) {
         y += 2;
-        printat(s->win, y, 5, col, "%20s %13s", "Packets", "Bytes");
-        printat(s->win, ++y, 5, col, "%10s", "Total");
+        mvprintat(s->win, y, 5, col, "%20s %13s", "Packets", "Bytes");
+        mvprintat(s->win, ++y, 5, col, "%10s", "Total");
         wprintw(s->win, ": %8u", total_packets);
         if (formatted_output)
             wprintw(s->win, "%14s", format_bytes(total_bytes, buf, 16));
@@ -310,9 +310,9 @@ void print_netstat(screen *s)
         y = 2;
         wmove(s->win, y, 0);
         wclrtoeol(s->win);
-        printat(s->win, y, 2, subcol, "%13s", "Download rate");
+        mvprintat(s->win, y, 2, subcol, "%13s", "Download rate");
         print_rate(s, &rx);
-        printat(s->win, y, TX_RATE_X, subcol, "%13s", "Upload rate");
+        mvprintat(s->win, y, TX_RATE_X, subcol, "%13s", "Upload rate");
         print_rate(s, &tx);
         break;
     case PACKETS:
@@ -330,20 +330,20 @@ void print_netstat(screen *s)
         y = 0;
         get_netstat(ctx.device, &rx, &tx);
         calculate_rate();
-        printat(s->win, y++, 0, hdrcol, "Network statistics for %s", ctx.device);
-        printat(s->win, ++y, 2, subcol, "%13s", "Download rate");
+        mvprintat(s->win, y++, 0, hdrcol, "Network statistics for %s", ctx.device);
+        mvprintat(s->win, ++y, 2, subcol, "%13s", "Download rate");
         print_rate(s, &rx);
         print_graph(s, subcol, rx_rate, y, 0, "%4d packets/s", rx.pps);
-        printat(s->win, y, TX_RATE_X, subcol, "%13s", "Upload rate");
+        mvprintat(s->win, y, TX_RATE_X, subcol, "%13s", "Upload rate");
         print_rate(s, &tx);
         print_graph(s, subcol, tx_rate, y, TX_RATE_X, "%4d packets/s", tx.pps);
         y += 15;
         if (wireless && get_iwstat(ctx.device, &stat)) {
-            printat(s->win, ++y, 2, subcol, "%13s", "Link quality");
+            mvprintat(s->win, ++y, 2, subcol, "%13s", "Link quality");
             wprintw(s->win, ": %8u/%u", stat.qual, stat.max_qual);
-            printat(s->win, ++y, 2, subcol, "%13s", "Level");
+            mvprintat(s->win, ++y, 2, subcol, "%13s", "Level");
             wprintw(s->win, ": %8d dBm", (int8_t) stat.level);
-            printat(s->win, ++y, 2, subcol, "%13s", "Noise");
+            mvprintat(s->win, ++y, 2, subcol, "%13s", "Noise");
             wprintw(s->win, ": %8d dBm", (int8_t) stat.noise);
             y++;
         }
@@ -366,22 +366,22 @@ void print_hwstat(screen *s)
     get_memstat(&mem);
     get_cpustat(cpustat[cpuidx]);
     cpuidx = (cpuidx + 1) % 2;
-    printat(s->win, y++, 0, hdrcol, "Memory and CPU statistics");
-    printat(s->win, ++y, 0, subcol, "%18s", "Total memory");
+    mvprintat(s->win, y++, 0, hdrcol, "Memory and CPU statistics");
+    mvprintat(s->win, ++y, 0, subcol, "%18s", "Total memory");
     wprintw(s->win, ": %6s", format_bytes(mem.total_ram * 1024, buf, ARRAY_SIZE(buf)));
-    printat(s->win, ++y, 0, subcol, "%18s", "Memory used");
+    mvprintat(s->win, ++y, 0, subcol, "%18s", "Memory used");
     wprintw(s->win, ": %6s", format_bytes((mem.total_ram - mem.free_ram) * 1024,
                                               buf, ARRAY_SIZE(buf)));
-    printat(s->win, -1, -1, subcol, "%10s", "Buffers");
+    printat(s->win, subcol, "%10s", "Buffers");
     wprintw(s->win, ": %6s", format_bytes(mem.buffers * 1024, buf, ARRAY_SIZE(buf)));
-    printat(s->win, -1, -1, subcol, "%8s", "Cache");
+    printat(s->win, subcol, "%8s", "Cache");
     wprintw(s->win, ": %6s", format_bytes(mem.cached * 1024, buf, ARRAY_SIZE(buf)));
     y += 2;
-    printat(s->win, y, 0, subcol, "%18s", "Pid");
+    mvprintat(s->win, y, 0, subcol, "%18s", "Pid");
     wprintw(s->win, ":  %d", mem.proc.pid);
-    printat(s->win, ++y, 0, subcol, "%18s", "Resident set size");
+    mvprintat(s->win, ++y, 0, subcol, "%18s", "Resident set size");
     wprintw(s->win, ":  %s", format_bytes(mem.proc.vm_rss * 1024, buf, ARRAY_SIZE(buf)));
-    printat(s->win, y++, 29, subcol, "Virtual memory size");
+    mvprintat(s->win, y++, 29, subcol, "Virtual memory size");
     wprintw(s->win, ":  %s", format_bytes(mem.proc.vm_size * 1024, buf, ARRAY_SIZE(buf)));
     if (cpustat[0][0].idle != 0 && cpustat[1][0].idle != 0) {
         int cx, cy;
@@ -389,7 +389,7 @@ void print_hwstat(screen *s)
 
         cx = 10;
         cy = y + 11;
-        printat(s->win, y + 1, 1, subcol, "CPU load");
+        mvprintat(s->win, y + 1, 1, subcol, "CPU load");
         cy++;
         for (int i = 0; i < 10; i++) {
             mvwprintw(s->win, cy - i, 2, "%3d%%", (i + 1) * 10);
@@ -405,7 +405,7 @@ void print_hwstat(screen *s)
                 mvwaddch(s->win, cy - j, cx, ACS_CKBOARD);
                 wattroff(s->win, COLOR_PAIR(get_colour(j, 10)));
             }
-            printat(s->win, ++cy, cx - 2, subcol, "CPU%d", i);
+            mvprintat(s->win, ++cy, cx - 2, subcol, "CPU%d", i);
             mvwprintw(s->win, ++cy, cx - 1, "%u", load);
             cx += 5;
         }

@@ -118,24 +118,27 @@ struct screen *screen_stack_prev(void);
  */
 void screen_stack_move_to_top(struct screen *s);
 
+//void printnlw(WINDOW *win, char *str, int len, int y, int x, int scrollx);
+
 /*
  * When the scrollok option is enabled ncurses will wrap long lines at the
  * bottom of the screen. This function will print without line wrapping.
  */
-void printnlw(WINDOW *win, char *str, int len, int y, int x, int scrollx);
+void mvprintnlw(WINDOW *win, int y, int x, int scrollx, const char *fmt, ...);
 
 /*
- * Print without line wrap with the specified attributes
+ * Print text in window with the specified attributes. It will start to print at
+ * the current cursor location.
  */
-void printatnlw(WINDOW *win, int y, int x, int attrs, int scrollx,
-                const char *fmt, ...);
+void printat(WINDOW *win, int attrs, const char *fmt, ...);
 
 /*
- * Print text in window with the given attributes. If 'y' and 'x' are -1, it will
- * start to print at the current cursor location.
+ * Print text in window with the specified attributes. It will move the cursor
+ * location to the given coordinates before printing.
  */
-void printat(WINDOW *win, int y, int x, int attrs, const char *fmt, ...);
+void mvprintat(WINDOW *win, int y, int x, int attrs, const char *fmt, ...);
 
+/* Return the element colour based on which theme is active */
 int get_theme_colour(enum elements elem);
 
 #endif

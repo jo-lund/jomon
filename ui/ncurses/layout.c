@@ -387,7 +387,7 @@ void screen_stack_move_to_top(screen *s)
     }
 }
 
-void printat(WINDOW *win, int y, int x, int attrs, const char *fmt, ...)
+void printat(WINDOW *win, int attrs, const char *fmt, ...)
 {
     char buf[MAXLINE];
     va_list ap;
@@ -396,16 +396,11 @@ void printat(WINDOW *win, int y, int x, int attrs, const char *fmt, ...)
     vsnprintf(buf, MAXLINE - 1, fmt, ap);
     va_end(ap);
     wattron(win, attrs);
-    if (y == -1 && x == -1) {
-        waddstr(win, buf);
-    } else {
-        mvwprintw(win, y, x, "%s", buf);
-    }
+    waddstr(win, buf);
     wattroff(win, attrs);
 }
 
-void printatnlw(WINDOW *win, int y, int x, int attrs, int scrollx,
-                const char *fmt, ...)
+void mvprintat(WINDOW *win, int y, int x, int attrs, const char *fmt, ...)
 {
     char buf[MAXLINE];
     va_list ap;
@@ -414,20 +409,25 @@ void printatnlw(WINDOW *win, int y, int x, int attrs, int scrollx,
     vsnprintf(buf, MAXLINE - 1, fmt, ap);
     va_end(ap);
     wattron(win, attrs);
-    printnlw(win, buf, strlen(buf), y, x, scrollx);
+    mvwprintw(win, y, x, "%s", buf);
     wattroff(win, attrs);
 }
 
-void printnlw(WINDOW *win, char *str, int len, int y, int x, int scrollx)
+void mvprintnlw(WINDOW *win, int y, int x, int scrollx, const char *fmt, ...)
 {
-    int mx = getmaxx(win);
+    char buf[MAXLINE];
+    va_list ap;
+    int mx, len;
 
-    if (mx + scrollx - 1 < len + x && mx + scrollx - 1 - x > 0) {
-        str[mx + scrollx - 1 - x] = '\0';
-    }
-    if (scrollx < len) {
-        mvwprintw(win, y, x, "%s", str + scrollx);
-    }
+    mx = getmaxx(win);
+    va_start(ap, fmt);
+    vsnprintf(buf, MAXLINE - 1, fmt, ap);
+    va_end(ap);
+    len = strlen(buf);
+    if (mx + scrollx - 1 < len + x && mx + scrollx - 1 - x > 0)
+        buf[mx + scrollx - 1 - x] = '\0';
+    if (scrollx < len)
+        mvwprintw(win, y, x, "%s", buf + scrollx);
 }
 
 void colours_init(void)

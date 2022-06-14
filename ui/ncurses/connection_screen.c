@@ -239,13 +239,16 @@ static void print_connection(connection_screen *cs, struct tcp_connection_v4 *co
         attrs = get_theme_colour(DISABLE);
     for (unsigned int i = 0; i < header_size; i++) {
         if (i % 2 == 0) {
-            printat(cs->base.win, y, x, attrs, "%s", entry[i].buf);
+            mvprintat(cs->base.win, y, x, attrs, "%s", entry[i].buf);
         } else {
             if (i == PROCESS) {
-                if (entry[i].str)
-                    printatnlw(cs->base.win, y, x, attrs, 0, "%s", entry[i].str);
+                if (entry[i].str) {
+                    wattron(cs->base.win, attrs);
+                    mvprintnlw(cs->base.win, y, x, 0, "%s", entry[i].str);
+                    wattroff(cs->base.win, attrs);
+                }
             } else
-                printat(cs->base.win, y, x, attrs, "%d", entry[i].val);
+                mvprintat(cs->base.win, y, x, attrs, "%d", entry[i].val);
         }
         x += header[i].width;
     }
@@ -424,9 +427,9 @@ void print_conn_header(connection_screen *cs)
     if (view == CONNECTION_PAGE) {
         p = header;
         size = header_size;
-        printat(cs->header, y, 0, get_theme_colour(HEADER_TXT), "TCP connections");
+        mvprintat(cs->header, y, 0, get_theme_colour(HEADER_TXT), "TCP connections");
         wprintw(cs->header,  ": %d", connection_screen_get_size((screen *) cs));
-        printat(cs->header, ++y, 0, get_theme_colour(HEADER_TXT), "View");
+        mvprintat(cs->header, ++y, 0, get_theme_colour(HEADER_TXT), "View");
         switch (mode) {
         case GREY_OUT_CLOSED:
             wprintw(cs->header,  ": Normal");
@@ -444,7 +447,7 @@ void print_conn_header(connection_screen *cs)
     } else {
         p = proc_header;
         size = ARRAY_SIZE(proc_header);
-        printat(cs->header, y, 0, get_theme_colour(HEADER_TXT), "Processes");
+        mvprintat(cs->header, y, 0, get_theme_colour(HEADER_TXT), "Processes");
         wprintw(cs->header,  ": %d", vector_size(cs->screen_buf));
         y += 4;
     }

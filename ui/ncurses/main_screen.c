@@ -198,7 +198,7 @@ void main_screen_update(main_screen *ms, char *buf)
         my = getmaxy(ms->base.win);
         if (!ms->base.show_selectionbar || (ms->base.show_selectionbar && ms->outy < my)) {
             scroll_window(ms);
-            printnlw(ms->base.win, buf, strlen(buf), ms->outy, 0, ms->scrollx);
+            mvprintnlw(ms->base.win, ms->outy, 0, ms->scrollx, buf);
             ms->outy++;
             wrefresh(ms->base.win);
             if (input_mode == INPUT_FILTER || input_mode == INPUT_GOTO)
@@ -678,27 +678,27 @@ void print_header(main_screen *ms)
 
     if (ctx.filename[0] && ctx.opt.load_file) {
         strncpy(file, ctx.filename, MAXPATH - 1);
-        printat(ms->header, y, 0, txtcol, "Filename");
+        mvprintat(ms->header, y, 0, txtcol, "Filename");
         wprintw(ms->header, ": %s", get_file_part(file));
     } else {
-        printat(ms->header, y, 0, txtcol, "Device");
+        mvprintat(ms->header, y, 0, txtcol, "Device");
         wprintw(ms->header, ": %s", ctx.device);
     }
-    printat(ms->header, y, maxx / 2, txtcol, "Display filter");
+    mvprintat(ms->header, y, maxx / 2, txtcol, "Display filter");
     if (bpf.size != 0)
         wprintw(ms->header, ": %s", bpf_filter);
     else
         wprintw(ms->header, ": None");
     inet_ntop(AF_INET, &ctx.local_addr->sin_addr, addr, sizeof(addr));
-    printat(ms->header, ++y, 0, txtcol, "IPv4 address");
+    mvprintat(ms->header, ++y, 0, txtcol, "IPv4 address");
     wprintw(ms->header, ": %s", addr);
-    printat(ms->header, y, maxx / 2, txtcol, "Follow stream");
+    mvprintat(ms->header, y, maxx / 2, txtcol, "Follow stream");
     if (ms->follow_stream)
         wprintw(ms->header, ": %u", ((conversation_screen *) ms)->stream->num);
     else
         wprintw(ms->header, ": None");
     HW_ADDR_NTOP(mac, ctx.mac);
-    printat(ms->header, ++y, 0, txtcol, "MAC");
+    mvprintat(ms->header, ++y, 0, txtcol, "MAC");
     wprintw(ms->header, ": %s", mac);
     y += 2;
     for (unsigned int i = 0; i < ARRAY_SIZE(main_header); i++) {
@@ -981,7 +981,7 @@ void print_new_packets(main_screen *ms)
 
         p = vector_get(ms->packet_ref, c);
         write_to_buf(buffer, MAXLINE, p);
-        printnlw(ms->base.win, buffer, strlen(buffer), i, 0, ms->scrollx);
+        mvprintnlw(ms->base.win, i, 0, ms->scrollx, buffer);
     }
     ms->base.top = c + 1;
     ms->outy = my;
@@ -1162,12 +1162,12 @@ int print_lines(main_screen *ms, int from, int to, int y)
                 int n = strlen(buffer);
 
                 if (ms->scrollx < n) {
-                    printnlw(ms->base.win, buffer, n, y++, 0, ms->scrollx);
+                    mvprintnlw(ms->base.win, y++, 0, ms->scrollx, buffer);
                 } else {
                     y++;
                 }
             } else {
-                printnlw(ms->base.win, buffer, strlen(buffer), y++, 0, ms->scrollx);
+                mvprintnlw(ms->base.win, y++, 0, ms->scrollx, buffer);
             }
             from++;
         }

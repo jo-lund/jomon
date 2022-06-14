@@ -133,7 +133,7 @@ void dialogue_render(dialogue *this)
             string_truncate(this->title, len, mx - 2);
             len = mx - 2;
         }
-        printat(win, 0, (mx - len) / 2, A_BOLD, this->title);
+        mvprintat(win, 0, (mx - len) / 2, A_BOLD, this->title);
     }
 }
 
@@ -349,8 +349,8 @@ void file_dialogue_render(file_dialogue *this)
     wbkgd(this->dir.win, get_theme_colour(FD_INPUT_BKGD));
     wbkgd(this->input.win, get_theme_colour(FD_INPUT_BKGD));
     w = getmaxx(scr->win) - 13;
-    printat(scr->win, 2, 8, A_BOLD, "Name");
-    printat(scr->win, 2, w, A_BOLD, "Size");
+    mvprintat(scr->win, 2, 8, A_BOLD, "Name");
+    mvprintat(scr->win, 2, w, A_BOLD, "Size");
     mvwchgat(scr->win, 2, 7, w - 2, A_NORMAL, PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
     werase(this->input.win);
     wprintw(this->input.win, FILE_INPUT_TEXT);
@@ -615,11 +615,11 @@ void file_dialogue_print(struct file_dialogue *this, struct file_info *info, int
 
     w = getmaxx(this->list.win) - strlen(info->name) - 2;
     if (S_ISDIR(info->stat->st_mode)) {
-        printat(this->list.win, i, 1, A_BOLD | get_theme_colour(FD_TEXT), "%s%*s", info->name, w,
-                format_bytes(info->stat->st_size, buf, FORMAT_BUF_LEN));
+        mvprintat(this->list.win, i, 1, A_BOLD | get_theme_colour(FD_TEXT), "%s%*s", info->name, w,
+                  format_bytes(info->stat->st_size, buf, FORMAT_BUF_LEN));
     } else {
-        printat(this->list.win, i, 1, get_theme_colour(FD_TEXT), "%s%*s", info->name, w,
-                format_bytes(info->stat->st_size, buf, FORMAT_BUF_LEN));
+        mvprintat(this->list.win, i, 1, get_theme_colour(FD_TEXT), "%s%*s", info->name, w,
+                  format_bytes(info->stat->st_size, buf, FORMAT_BUF_LEN));
     }
 }
 
