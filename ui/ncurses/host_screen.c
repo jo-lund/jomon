@@ -178,9 +178,9 @@ void print_host_header(host_screen *hs)
     int y = 0;
 
     if (hs->base.page == LOCAL) {
-        printat(hs->header, y, 0, get_theme_colour(HEADER_TXT), "Local hosts");
+        mvprintat(hs->header, y, 0, get_theme_colour(HEADER_TXT), "Local hosts");
     } else {
-        printat(hs->header, y, 0, get_theme_colour(HEADER_TXT), "Remote hosts");
+        mvprintat(hs->header, y, 0, get_theme_colour(HEADER_TXT), "Remote hosts");
     }
     wprintw(hs->header,  ": %d", vector_size(hs->screen_buf));
     y += 4;
