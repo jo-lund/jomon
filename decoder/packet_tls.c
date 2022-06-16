@@ -600,7 +600,8 @@ static packet_error parse_client_hello(unsigned char **buf, uint16_t len,
         mempool_copy(ptr + 1, handshake->client_hello->session_length);
     ptr += handshake->client_hello->session_length + 1;
     len = len - (handshake->client_hello->session_length + 1);
-    if ((handshake->client_hello->cipher_length = get_uint16be(ptr)) + 2 > len) {
+    if (len < 2 ||
+        (handshake->client_hello->cipher_length = get_uint16be(ptr)) + 2 > len) {
         return DECODE_ERR;
     }
     handshake->client_hello->cipher_suites =
@@ -645,6 +646,8 @@ static packet_error parse_server_hello(unsigned char **buf, uint16_t len,
         mempool_copy(ptr + 1, handshake->server_hello->session_length);
     ptr += handshake->server_hello->session_length + 1;
     len = len - (handshake->server_hello->session_length + 1);
+    if (len < 3) /* cipher suite and compression_method */
+        return DECODE_ERR;
     handshake->server_hello->cipher_suite = get_uint16be(ptr);
     ptr += 2;
     len -= 2;

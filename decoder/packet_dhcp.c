@@ -173,10 +173,11 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
             break;
         case DHCP_TIME_OFFSET:
             opt->length = *buffer++;
-            if (opt->length != 4)
+            n--;
+            if (opt->length != 4 || opt->length > n)
                 return DECODE_ERR;
             opt->i32val = (int32_t) read_uint32be(&buffer);
-            n -= 5;
+            n -= 4;
             list_push_back(dhcp->options, opt);
             break;
         case DHCP_ROUTER:
@@ -206,7 +207,7 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
         case DHCP_STDA_SERVER:
             opt->length = *buffer++;
             n--;
-            if (opt->length % 4 != 0)
+            if (opt->length % 4 != 0 || opt->length > n)
                 return DECODE_ERR;
             opt->bytes = parse_bytes(&buffer, opt->length);
             n -= opt->length;
@@ -215,7 +216,7 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
         case DHCP_PATH_MTU_PLATEAU_TABLE:
             opt->length = *buffer++;
             n--;
-            if (opt->length % 2 != 0)
+            if (opt->length % 2 != 0 || opt->length > n)
                 return DECODE_ERR;
             opt->bytes = parse_bytes(&buffer, opt->length);
             n -= opt->length;
@@ -236,17 +237,18 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
         case DHCP_NETBIOS_NT:
         case DHCP_OPTION_OVERLOAD:
             opt->length = *buffer++;
-            if (opt->length != 1)
+            n--;
+            if (opt->length != 1 || opt->length > n)
                 return DECODE_ERR;
             opt->byte = *buffer++;
-            n -= 2;
+            n--;
             list_push_back(dhcp->options, opt);
             break;
         case DHCP_POLICY_FILTER:
         case DHCP_STATIC_ROUTE:
             opt->length = *buffer++;
             n--;
-            if (opt->length < 8 && opt->length % 8 != 0)
+            if ((opt->length < 8 && opt->length % 8 != 0) || opt->length > n)
                 return DECODE_ERR;
             opt->bytes = parse_bytes(&buffer, opt->length);
             n -= opt->length;
@@ -266,10 +268,11 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
         case DHCP_VENDOR_SPECIFIC:
         case DHCP_UUID_CLIENT_ID:
             opt->length = *buffer++;
-            if (opt->length < 1)  /* minimum length is 1 */
+            n--;
+            if (opt->length < 1 || opt->length > n)  /* minimum length is 1 */
                 return DECODE_ERR;
             opt->bytes = parse_bytes(&buffer, opt->length);
-            n = n - opt->length - 1;
+            n -= opt->length;
             list_push_back(dhcp->options, opt);
             break;
         case DHCP_FILE_BOOT_SIZE:
@@ -277,10 +280,11 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
         case DHCP_MAXIMUM_MESSAGE_SIZE:
         case DHCP_INTERFACE_MTU:
             opt->length = *buffer++;
-            if (opt->length != 2)
+            n--;
+            if (opt->length != 2 || opt->length > n)
                 return DECODE_ERR;
             opt->u16val = read_uint16be(&buffer);
-            n -= 3;
+            n -= 2;
             list_push_back(dhcp->options, opt);
             break;
         case DHCP_SUBNET_MASK:
@@ -295,23 +299,26 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
         case DHCP_ARP_CACHE_TIMEOUT:
         case DHCP_TCP_KEEPALIVE_INTERVAL:
             opt->length = *buffer++;
-            if (opt->length != 4)
+            n--;
+            if (opt->length != 4 || opt->length > n)
                 return DECODE_ERR;
             opt->u32val = read_uint32be(&buffer);
-            n -= 5;
+            n -= 4;
             list_push_back(dhcp->options, opt);
             break;
         case DHCP_CLIENT_IDENTIFIER:
             opt->length = *buffer++;
-            if (opt->length < 2)  /* minimum length is 2 */
+            n--;
+            if (opt->length < 2 || opt->length > n)  /* minimum length is 2 */
                 return DECODE_ERR;
             opt->bytes = parse_bytes(&buffer, opt->length);
-            n = n - opt->length - 1;
+            n -= opt->length;
             list_push_back(dhcp->options, opt);
             break;
         case DHCP_CLIENT_FQDN:
             opt->length = *buffer++;
-            if (opt->length < 3)
+            n--;
+            if (opt->length < 3 || opt->length > n)
                 return DECODE_ERR;
             opt->fqdn.flags = buffer[0];
             opt->fqdn.rcode1 = buffer[1];
@@ -319,27 +326,29 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
             opt->fqdn.name = mempool_alloc(opt->length - 2); /* name + null byte */
             memcpy(opt->fqdn.name, buffer + 3, opt->length - 3);
             buffer += opt->length;
-            n = n - opt->length - 1;
+            n -= opt->length;
             opt->fqdn.name[opt->length - 3] = '\0';
             list_push_back(dhcp->options, opt);
             break;
         case DHCP_CLIENT_NDI:
             opt->length = *buffer++;
-            if (opt->length != 3)
+            n--;
+            if (opt->length != 3 || opt->length > n)
                 return DECODE_ERR;
             opt->ndi.type = buffer[0];
             opt->ndi.maj = buffer[1];
             opt->ndi.min = buffer[2];
             buffer += opt->length;
-            n = n - opt->length - 1;
+            n -= opt->length;
             list_push_back(dhcp->options, opt);
             break;
         case DHCP_CLIENT_SA:
             opt->length = *buffer++;
+            n--;
             if (opt->length != 2 || n < 2)
                 return DECODE_ERR;
             opt->byte = *++buffer;
-            n -= 3;
+            n -= 2;
             buffer++;
             list_push_back(dhcp->options, opt);
             break;
@@ -350,6 +359,10 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
         default:
             opt->length = *buffer++;
             n--;
+            if (opt->length > n)
+                return DECODE_ERR;
+            buffer += opt->length;
+            n -= opt->length;
             DEBUG("DHCP option not supported: %d", opt->tag);
         }
     }
