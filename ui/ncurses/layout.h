@@ -118,8 +118,6 @@ struct screen *screen_stack_prev(void);
  */
 void screen_stack_move_to_top(struct screen *s);
 
-//void printnlw(WINDOW *win, char *str, int len, int y, int x, int scrollx);
-
 /*
  * When the scrollok option is enabled ncurses will wrap long lines at the
  * bottom of the screen. This function will print without line wrapping.
