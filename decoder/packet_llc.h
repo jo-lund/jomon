@@ -16,8 +16,6 @@ struct eth_802_llc {
 #define llc_control(p) get_llc(p)->control
 
 enum eth_802_type get_eth802_type(struct packet *p);
-void register_llc();
-packet_error handle_llc(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                        struct packet_data *pdata);
+void register_llc(void);
 
 #endif

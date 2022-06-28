@@ -4,6 +4,9 @@
 extern void add_llc_information(void *w, void *sw, void *data);
 extern void print_llc(char *buf, int n, void *data);
 
+static packet_error handle_llc(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                               struct packet_data *pdata);
+
 static struct protocol_info llc_prot = {
     .short_name = "LLC",
     .long_name = "Logical Link Control",
@@ -12,7 +15,7 @@ static struct protocol_info llc_prot = {
     .add_pdu = add_llc_information
 };
 
-void register_llc()
+void register_llc(void)
 {
     register_protocol(&llc_prot, ETH802_3, ETH_802_LLC);
 }
@@ -20,6 +23,9 @@ void register_llc()
 packet_error handle_llc(struct protocol_info *pinfo, unsigned char *buffer, int n,
                         struct packet_data *pdata)
 {
+    if (n < LLC_HDR_LEN)
+        return DECODE_ERR;
+
     struct eth_802_llc *llc;
     struct protocol_info *psub;
     uint32_t id;
