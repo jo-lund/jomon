@@ -70,18 +70,17 @@ static void free_process(void *p)
 static char *get_name(int pid)
 {
     char cmdline[MAXPATH];
-    char tmp[1024];
     FILE *fp;
 
     snprintf(cmdline, MAXPATH, "/proc/%d/cmdline", pid);
     if ((fp = fopen(cmdline, "r")) == NULL)
         return NULL;
-    if (fgets(tmp, 1024, fp) == NULL) {
+    if (fgets(cmdline, MAXPATH, fp) == NULL) {
         fclose(fp);
         return NULL;
     }
     fclose(fp);
-    return strdup(tmp);
+    return strdup(cmdline);
 }
 
 char *get_username(uint32_t uid)

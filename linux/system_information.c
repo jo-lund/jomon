@@ -20,7 +20,7 @@
             i++;                                \
         }                                       \
         sscanf(buf + i, s, &val);               \
-    } while (0);
+    } while (0)
 
 bool get_netstat(char *dev, struct linkdef *rx, struct linkdef *tx)
 {
