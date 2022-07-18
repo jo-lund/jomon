@@ -849,15 +849,17 @@ void set_filter(main_screen *ms, int c)
             bpf = prog;
             strncpy(bpf_filter, filter, MAXLINE);
             filter_packets(ms);
+            if (vector_size(ms->packet_ref) == 0)
+                ms->base.show_selectionbar = false;
+            input_mode = INPUT_NONE;
+            werase(status);
+            actionbar_refresh(actionbar, (screen *) ms);
+            ms->base.top = 0;
+            ms->base.selectionbar = 0;
         }
-        if (ms->base.show_selectionbar && vector_size(ms->packet_ref) > 0)
-            UPDATE_SELECTIONBAR(ms->base.win, ms->base.selectionbar - ms->base.top, SELECTIONBAR);
-        print_header(ms);
-        wnoutrefresh(ms->header);
-        wnoutrefresh(ms->base.win);
-        doupdate();
         wbkgd(status, get_theme_colour(BACKGROUND));
         numc = 0;
+        main_screen_refresh((screen *) ms);
         break;
     case KEY_ESC:
         curs_set(0);
@@ -935,27 +937,12 @@ void clear_filter(main_screen *ms)
 
 void filter_packets(main_screen *ms)
 {
-    int my;
-
     ms->packet_ref = vector_init(PACKET_TABLE_SIZE);
     for (int i = 0; i < vector_size(packets); i++) {
         struct packet *p = vector_get(packets, i);
 
         if (bpf_run_filter(bpf, p->buf, p->len) != 0)
             vector_push_back(ms->packet_ref, p);
-    }
-    input_mode = INPUT_NONE;
-    werase(status);
-    actionbar_refresh(actionbar, (screen *) ms);
-    werase(ms->base.win);
-    my = getmaxy(ms->base.win);
-    if (!ms->base.show_selectionbar && ctx.capturing &&
-        vector_size(ms->packet_ref) > my) {
-        print_new_packets(ms);
-    } else {
-        ms->outy = print_lines(ms, 0, my, 0);
-        ms->base.top = 0;
-        ms->base.selectionbar = 0;
     }
 }
 
@@ -1110,24 +1097,14 @@ void main_screen_set_interactive(main_screen *ms, bool interactive_mode)
     if (interactive_mode) {
         ms->base.show_selectionbar = true;
         ms->base.selectionbar = ms->base.top;
-        UPDATE_SELECTIONBAR(ms->base.win, 0, SELECTIONBAR);
-        wrefresh(ms->base.win);
     } else {
-        int my;
-
-        my = getmaxy(ms->base.win);
         if (ms->subwindow.win) {
             delete_subwindow(ms, true);
             ms->main_line.selected = false;
         }
-        if (ms->outy >= my && ctx.capturing) {
-            print_new_packets(ms);
-        } else {
-            UPDATE_SELECTIONBAR(ms->base.win, ms->base.selectionbar - ms->base.top, BACKGROUND);
-        }
         ms->base.show_selectionbar = false;
-        wrefresh(ms->base.win);
     }
+    main_screen_refresh((screen *) ms);
 }
 
 /*
