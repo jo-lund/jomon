@@ -747,42 +747,34 @@ void main_screen_goto_line(main_screen *ms, int c)
         }
         wrefresh(status);
     } else if (num && (c == '\n' || c == KEY_ENTER)) {
-        if ((ms->subwindow.win && num > ms->subwindow.num_lines + vector_size(ms->packet_ref)) ||
-            (!ms->subwindow.win && num > vector_size(ms->packet_ref))) {
+        if (num > ms->subwindow.num_lines + vector_size(ms->packet_ref))
             return;
-        }
 
         int my;
 
         my = getmaxy(ms->base.win);
-        if (num >= ms->base.top && num < ms->base.top + my) {
-            UPDATE_SELECTIONBAR(ms->base.win, ms->base.selectionbar, BACKGROUND);
+        if (num >= ms->base.top && num < ms->base.top + my - ms->subwindow.num_lines) {
             if (ms->subwindow.win && num > ms->base.top + ms->subwindow.top) {
                 ms->base.selectionbar = num - 1 + ms->subwindow.num_lines;
             } else {
                 ms->base.selectionbar = num - 1;
             }
-            UPDATE_SELECTIONBAR(ms->base.win, ms->base.selectionbar, SELECTIONBAR);
         } else {
-            werase(ms->base.win);
-            UPDATE_SELECTIONBAR(ms->base.win, ms->base.selectionbar, BACKGROUND);
+            if (ms->subwindow.win)
+                delete_subwindow(ms, false);
             if (num + my - 1 > vector_size(ms->packet_ref)) {
-                print_lines(ms, vector_size(ms->packet_ref) - my, vector_size(ms->packet_ref), 0);
                 ms->base.top = vector_size(ms->packet_ref) - my;
                 ms->base.selectionbar = num - 1;
-                UPDATE_SELECTIONBAR(ms->base.win, ms->base.selectionbar - ms->base.top, SELECTIONBAR);
             } else {
-                print_lines(ms, num - 1, num + my - 1, 0);
                 ms->base.selectionbar = ms->base.top = num - 1;
-                UPDATE_SELECTIONBAR(ms->base.win, 0, SELECTIONBAR);
             }
         }
-        wrefresh(ms->base.win);
         curs_set(0);
         werase(status);
         input_mode = INPUT_NONE;
         num = 0;
         actionbar_refresh(actionbar, (screen *) ms);
+        main_screen_refresh((screen *) ms);
     } else if (c == KEY_ESC) {
         curs_set(0);
         werase(status);

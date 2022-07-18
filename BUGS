@@ -1,4 +1,2 @@
 * KNOWN BUGS:
 - Resizing of window causes problems with layout.
-- If you go to a line (with "go to line") on the current screen and the selection
-  line is on bolded text, the text will disappear.
