@@ -851,12 +851,12 @@ void set_filter(main_screen *ms, int c)
             filter_packets(ms);
             if (vector_size(ms->packet_ref) == 0)
                 ms->base.show_selectionbar = false;
-            input_mode = INPUT_NONE;
-            werase(status);
-            actionbar_refresh(actionbar, (screen *) ms);
-            ms->base.top = 0;
-            ms->base.selectionbar = 0;
         }
+        input_mode = INPUT_NONE;
+        werase(status);
+        actionbar_refresh(actionbar, (screen *) ms);
+        ms->base.top = 0;
+        ms->base.selectionbar = 0;
         wbkgd(status, get_theme_colour(BACKGROUND));
         numc = 0;
         main_screen_refresh((screen *) ms);
@@ -914,25 +914,12 @@ void set_filter(main_screen *ms, int c)
 void clear_filter(main_screen *ms)
 {
     if (bpf.size > 0) {
-        int my = getmaxy(ms->base.win);
-
         free(bpf.bytecode);
         bpf.size = 0;
         vector_free(ms->packet_ref, NULL);
         ms->packet_ref = packets;
-        werase(ms->base.win);
-        if (ctx.capturing && vector_size(packets) >= my) {
-            print_new_packets(ms);
-        } else {
-            ms->outy = print_lines(ms, 0, getmaxy(ms->base.win), 0);
-            ms->base.top = 0;
-            ms->base.selectionbar = 0;
-        }
     }
     memset(bpf_filter, 0, sizeof(bpf_filter));
-    input_mode = INPUT_NONE;
-    werase(status);
-    actionbar_refresh(actionbar, (screen *) ms);
 }
 
 void filter_packets(main_screen *ms)
