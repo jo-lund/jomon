@@ -4,7 +4,7 @@ endif
 
 include config.mk
 
-testdir := tests
+TESTDIR := tests
 BUILDDIR := build
 TARGETDIR := bin
 MACHINE := $(shell uname -s)
@@ -29,8 +29,10 @@ else
 endif
 ifeq ($(MACHINE),Linux)
     sources += $(wildcard linux/*.c)
-else ifeq ($(MACHINE),FreeBSD)
+else
+ifeq ($(MACHINE),FreeBSD)
     sources += $(wildcard bsd/*.c)
+endif
 endif
 objects = $(patsubst %.c,$(BUILDDIR)/%.o,$(sources))
 bpf-objs = \
@@ -41,7 +43,7 @@ bpf-objs = \
 	$(BUILDDIR)/bpf/pcap_parser.o \
 	$(BUILDDIR)/bpf/genasm.o
 objects += $(bpf-objs)
-test-objs = $(patsubst %.c,%.o,$(wildcard $(testdir)/*.c))
+test-objs = $(patsubst %.c,%.o,$(wildcard $(TESTDIR)/*.c))
 test-objs += $(bpf-objs) \
 	$(BUILDDIR)/stack.o \
 	$(BUILDDIR)/vector.o \
@@ -62,7 +64,7 @@ debug : CPPFLAGS += -DMONITOR_DEBUG
 debug : $(TARGETDIR)/monitor
 
 .PHONY : release
-release : CFLAGS += -Os
+release : CFLAGS += -O2
 release : $(TARGETDIR)/monitor
 
 $(TARGETDIR)/monitor : $(objects)
@@ -97,7 +99,7 @@ clean :
 	@echo "Cleaning..."
 	@rm -rf bin
 	@rm -rf build
-	@rm -f $(test-objs) $(testdir)/test
+	@rm -f $(test-objs) $(TESTDIR)/test
 	@rm -f bpf/lexer.c bpf/pcap_lexer.c
 
 .PHONY : distclean
@@ -107,7 +109,7 @@ distclean : clean
 .PHONY : testclean
 testclean :
 	@echo "Cleaning..."
-	@rm -f $(test-objs) $(testdir)/test
+	@rm -f $(test-objs) $(TESTDIR)/test
 
 .PHONY : tags
 tags :
@@ -115,8 +117,8 @@ tags :
 	@find . -name "*.h" -o -name "*.c" | etags -
 
 test : CFLAGS += -Os
-test : $(testdir)/test
+test : $(TESTDIR)/test
 	@$<
 
-$(testdir)/test : $(test-objs)
+$(TESTDIR)/test : $(test-objs)
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(test-objs) -o $@ $(LIBS) $(UNIT_LIBS)
