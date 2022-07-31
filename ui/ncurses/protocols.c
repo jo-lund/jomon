@@ -902,7 +902,7 @@ static void add_tcp_options(list_view *lw, list_view_header *header, struct tcp 
     const node_t *n;
     list_view_header *h;
 
-    options = parse_tcp_options(tcp->options, (tcp->offset - 5) * 4);
+    options = parse_tcp_options(&tcp->options, (tcp->offset - 5) * 4);
     h = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Options");
     n = list_begin(options);
     while (n) {
@@ -957,6 +957,19 @@ static void add_tcp_options(list_view *lw, list_view_header *header, struct tcp 
             LV_ADD_TEXT_ELEMENT(lw, w, "Timestamp value: %u", opt->ts.ts_val);
             LV_ADD_TEXT_ELEMENT(lw, w, "Timestamp echo reply: %u", opt->ts.ts_ecr);
             break;
+        case TCP_OPT_TFO:
+            w = LV_ADD_SUB_HEADER(lw, h, selected[UI_SUBLAYER2], UI_SUBLAYER2, "TCP Fast Open");
+            LV_ADD_TEXT_ELEMENT(lw, w, "Option kind: %u", opt->option_kind);
+            LV_ADD_TEXT_ELEMENT(lw, w, "Option length: %u", opt->option_length);
+            if (opt->cookie) {
+                char buf[33];
+
+                for (int i = 0; i < opt->option_length - 2; i++)
+                    snprintf(buf + 2 * i, 33 - 2 * i, "%02x", opt->cookie[i]);
+                LV_ADD_TEXT_ELEMENT(lw, w, "Fast Open cookie: %s", buf);
+            } else {
+                LV_ADD_TEXT_ELEMENT(lw, w, "Fast Open cookie request");
+            }
         default:
             break;
         }

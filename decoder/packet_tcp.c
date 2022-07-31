@@ -156,18 +156,19 @@ packet_error handle_tcp(struct protocol_info *pinfo, unsigned char *buffer, int 
     return error;
 }
 
-list_t *parse_tcp_options(unsigned char *data, int len)
+list_t *parse_tcp_options(unsigned char **data, int len)
 {
     list_t *options;
+    unsigned char *p = *data;
 
     options = list_init(NULL);
 
     /* the data is based on a tag-length-value encoding scheme */
     while (len > 0) {
-        struct tcp_options *opt = malloc(sizeof(struct tcp_options));
+        struct tcp_options *opt = calloc(1, sizeof(struct tcp_options));
 
-        opt->option_kind = *data;
-        opt->option_length = *++data; /* length of value + 1 byte tag and 1 byte length */
+        opt->option_kind = *p;
+        opt->option_length = *++p; /* length of value + 1 byte tag and 1 byte length */
         if (opt->option_kind != TCP_OPT_NOP && opt->option_length == 0) {
             free(opt);
             return options;
@@ -180,21 +181,21 @@ list_t *parse_tcp_options(unsigned char *data, int len)
             opt->option_length = 1; /* NOP only contains the kind byte */
             break;
         case TCP_OPT_MSS:
-            data++; /* skip length field */
+            p++; /* skip length field */
             if (opt->option_length == 4) {
-                opt->mss = data[0] << 8 | data[1];
+                opt->mss = p[0] << 8 | p[1];
             }
-            data += opt->option_length - 2;
+            p += opt->option_length - 2;
             break;
         case TCP_OPT_WIN_SCALE:
-            data++; /* skip length field */
+            p++; /* skip length field */
             if (opt->option_length == 3) {
-                opt->win_scale = *data;
+                opt->win_scale = *p;
             }
-            data += opt->option_length - 2;
+            p += opt->option_length - 2;
             break;
         case TCP_OPT_SAP: /* 2 bytes */
-            data++; /* skip length field */
+            p++; /* skip length field */
             opt->sack_permitted = true;
             break;
         case TCP_OPT_SACK:
@@ -202,24 +203,30 @@ list_t *parse_tcp_options(unsigned char *data, int len)
             int num_blocks = (opt->option_length - 2) / 8;
             struct tcp_sack_block *b;
 
-            data++; /* skip length field */
+            p++; /* skip length field */
             opt->sack = list_init(NULL);
             while (num_blocks--) {
                 b = malloc(sizeof(struct tcp_sack_block));
-                b->left_edge = data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3];
-                b->right_edge = data[4] << 24 | data[5] << 16 | data[6] << 8 | data[7];
+                b->left_edge = p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3];
+                b->right_edge = p[4] << 24 | p[5] << 16 | p[6] << 8 | p[7];
                 list_push_back(opt->sack, b);
-                data += 8; /* each block is 8 bytes */
+                p += 8; /* each block is 8 bytes */
             }
             break;
         }
         case TCP_OPT_TIMESTAMP:
-            data++; /* skip length field */
+            p++; /* skip length field */
             if (opt->option_length == 10) {
-                opt->ts.ts_val = data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3];
-                opt->ts.ts_ecr = data[4] << 24 | data[5] << 16 | data[6] << 8 | data[7];
+                opt->ts.ts_val = p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3];
+                opt->ts.ts_ecr = p[4] << 24 | p[5] << 16 | p[6] << 8 | p[7];
             }
-            data += opt->option_length - 2;
+            p += opt->option_length - 2;
+            break;
+        case TCP_OPT_TFO:
+            p++; /* skip length field */
+            if (opt->option_length > 2 && opt->option_length <= 16)
+                opt->cookie = *data + (p - *data);
+            p += opt->option_length - 2;
             break;
         }
         list_push_back(options, opt);
@@ -243,12 +250,12 @@ void free_options(void *data)
     free(opt);
 }
 
-struct packet_flags *get_tcp_flags()
+struct packet_flags *get_tcp_flags(void)
 {
     return tcp_flags;
 }
 
-int get_tcp_flags_size()
+int get_tcp_flags_size(void)
 {
     return sizeof(tcp_flags) / sizeof(struct packet_flags);
 }

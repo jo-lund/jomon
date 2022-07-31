@@ -12,6 +12,7 @@
 #define TCP_OPT_SAP 4       /* selective acknowledgement permitted */
 #define TCP_OPT_SACK 5      /* selective acknowledgement */
 #define TCP_OPT_TIMESTAMP 8 /* timestamp and echo of previous timestamp */
+#define TCP_OPT_TFO 34      /* TCP Fast Open (RFC 7413) */
 
 #define tcp_member(packet, member) ({ \
     struct packet_data *pdata = get_packet_data(packet, get_protocol_id(IP_PROTOCOL, IPPROTO_TCP)); \
@@ -52,6 +53,7 @@ struct tcp_options {
             uint32_t ts_val; /* timestamp value */
             uint32_t ts_ecr; /* timestamp echo reply */
         } ts;
+        unsigned char *cookie;
     };
 };
 
@@ -64,14 +66,14 @@ struct tcp_sack_block {
  * Parses and returns the TCP options in the TCP header.
  * The list needs to be freed with 'free_tcp_options' after use.
  */
-list_t *parse_tcp_options(unsigned char *data, int len);
+list_t *parse_tcp_options(unsigned char **data, int len);
 void free_tcp_options(list_t *options);
 
-struct packet_flags *get_tcp_flags();
-int get_tcp_flags_size();
+struct packet_flags *get_tcp_flags(void);
+int get_tcp_flags_size(void);
 
 /* should be internal to the decoder */
-void register_tcp();
+void register_tcp(void);
 packet_error handle_tcp(struct protocol_info *pinfo, unsigned char *buffer, int n,
                         struct packet_data *pdata);
 
