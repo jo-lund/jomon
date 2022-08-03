@@ -21,7 +21,7 @@ static screen_header main_header[] = {
     { "Info", 0 }
 };
 
-extern char load_filepath[MAXPATH + 1];
+extern char load_filepath[MAXPATH];
 extern file_dialogue *load_dialogue;
 extern file_dialogue *save_dialogue;
 

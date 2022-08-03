@@ -37,7 +37,7 @@
 
 typedef struct {
     char *device;
-    char filename[MAXPATH + 1];
+    char filename[MAXPATH];
     bool capturing;
     struct options {
         bool show_statistics;

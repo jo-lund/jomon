@@ -40,11 +40,17 @@ enum input_mode {
     INPUT_FILTER
 };
 
+enum key_mode {
+    KEY_NORMAL,
+    KEY_CTRL,
+    KEY_ALT
+};
+
 extern vector_t *packets;
 extern main_menu *menu;
 bool selected[NUM_LAYERS];
 int hexmode = HEXMODE_NORMAL;
-char load_filepath[MAXPATH + 1];
+char load_filepath[MAXPATH];
 file_dialogue *load_dialogue;
 file_dialogue *save_dialogue;
 static enum input_mode input_mode;
@@ -54,6 +60,7 @@ static bool decode_error = false;
 static struct bpf_prog bpf;
 static char bpf_filter[MAXLINE];
 static WINDOW *status;
+static enum key_mode key_mode = KEY_NORMAL;
 
 static bool check_line(main_screen *ms);
 static void print_header(main_screen *ms);
@@ -522,9 +529,15 @@ void main_screen_get_input(screen *s)
             main_screen_refresh((screen *) ms);
         }
         break;
+    case KEY_CTRL_UP:
+        key_mode = KEY_CTRL;
+        FALLTHROUGH;
     case KEY_UP:
         main_screen_handle_keyup(ms, my);
         break;
+    case KEY_CTRL_DOWN:
+        key_mode = KEY_CTRL;
+        FALLTHROUGH;
     case KEY_DOWN:
         main_screen_handle_keydown(ms, my);
         break;
@@ -649,6 +662,7 @@ void main_screen_get_input(screen *s)
         screen_get_input(s);
         break;
     }
+    key_mode = KEY_NORMAL;
 }
 
 /* scroll the window if necessary */
@@ -677,7 +691,7 @@ void print_header(main_screen *ms)
     werase(ms->header);
 
     if (ctx.filename[0] && ctx.opt.load_file) {
-        strncpy(file, ctx.filename, MAXPATH - 1);
+        strncpy(file, ctx.filename, MAXPATH);
         mvprintat(ms->header, y, 0, txtcol, "Filename");
         wprintw(ms->header, ": %s", get_file_part(file));
     } else {
@@ -963,6 +977,50 @@ static inline bool check_line(main_screen *ms)
         ms->subwindow.num_lines - 1;
 }
 
+static void goto_selectable(main_screen *ms, int num_lines, int c)
+{
+    int subline;
+    int scroll;
+
+    if (!ms->subwindow.win || !inside_subwindow(ms))
+        return;
+    subline = ms->base.selectionbar - ms->base.top - ms->subwindow.top;
+    if (c == KEY_DOWN) {
+        if (view_mode == HEXDUMP_VIEW && inside_subwindow(ms)) {
+            ms->base.selectionbar += (ms->subwindow.num_lines - subline);
+        } else {
+            while (inside_subwindow(ms) && LV_GET_DATA(ms->lvw, subline) == -1 &&
+               ms->base.selectionbar < vector_size(ms->packet_ref) +
+                   ms->subwindow.num_lines - 1) {
+                ms->base.selectionbar++;
+                subline++;
+            }
+        }
+        if (ms->base.selectionbar - ms->base.top >= num_lines - 1) {
+            scroll = ms->base.selectionbar - (ms->base.top + num_lines - 1);
+            ms->base.top += scroll;
+            refresh_pad(ms, &ms->subwindow, -scroll, ms->scrollx, false);
+        }
+    } else {
+        if (view_mode == HEXDUMP_VIEW && inside_subwindow(ms)) {
+            ms->base.selectionbar -= (subline + 1);
+        } else {
+            while (inside_subwindow(ms) && LV_GET_DATA(ms->lvw, subline) == -1 &&
+                   ms->base.selectionbar > 0) {
+                ms->base.selectionbar--;
+                subline--;
+            }
+        }
+        if (ms->base.selectionbar <= ms->base.top) {
+            scroll = ms->base.top - ms->base.selectionbar;
+            if (ms->base.top - scroll < 0)
+                scroll = ms->base.top;
+            ms->base.top -= scroll;
+            refresh_pad(ms, &ms->subwindow, scroll, ms->scrollx, false);
+        }
+    }
+}
+
 void main_screen_scroll_column(main_screen *ms, int scrollx)
 {
     if ((scrollx < 0 && ms->scrollx) || scrollx > 0) {
@@ -973,9 +1031,8 @@ void main_screen_scroll_column(main_screen *ms, int scrollx)
 
 void main_screen_handle_keyup(main_screen *ms, int num_lines UNUSED)
 {
-    if (!ms->base.show_selectionbar) {
+    if (!ms->base.show_selectionbar)
         main_screen_set_interactive(ms, true);
-    }
 
     /* scroll screen if the selection bar is at the top */
     if (ms->base.top > 0 && ms->base.selectionbar == ms->base.top) {
@@ -983,12 +1040,15 @@ void main_screen_handle_keyup(main_screen *ms, int num_lines UNUSED)
         ms->base.top--;
         if (ms->subwindow.win) {
             refresh_pad(ms, &ms->subwindow, 1, ms->scrollx, false);
+            if (key_mode == KEY_CTRL)
+                goto_selectable(ms, num_lines, KEY_UP);
         }
-        main_screen_refresh((screen *) ms);
     } else if (ms->base.selectionbar > 0) {
         ms->base.selectionbar--;
-        main_screen_refresh((screen *) ms);
+        if (key_mode == KEY_CTRL)
+            goto_selectable(ms, num_lines, KEY_UP);
     }
+    main_screen_refresh((screen *) ms);
 }
 
 void main_screen_handle_keydown(main_screen *ms, int num_lines)
@@ -1004,12 +1064,15 @@ void main_screen_handle_keydown(main_screen *ms, int num_lines)
         ms->base.selectionbar++;
         if (ms->subwindow.win) {
             refresh_pad(ms, &ms->subwindow, -1, ms->scrollx, false);
+            if (key_mode == KEY_CTRL)
+                goto_selectable(ms, num_lines, KEY_DOWN);
         }
-        main_screen_refresh((screen *) ms);
     } else {
         ms->base.selectionbar++;
-        main_screen_refresh((screen *) ms);
+        if (key_mode == KEY_CTRL)
+            goto_selectable(ms, num_lines, KEY_DOWN);
     }
+    main_screen_refresh((screen *) ms);
 }
 
 void main_screen_scroll_page(main_screen *ms, int num_lines)

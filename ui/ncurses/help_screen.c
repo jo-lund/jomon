@@ -84,6 +84,10 @@ static void help_screen_render(void)
     mvprintat(win, y, x, hdrcol, "Keyboard shortcuts in interactive mode");
     mvprintat(win, ++y, x, subcol, "%12s", "Arrows");
     wprintw(win, ": Scroll the packet list");
+    mvprintat(win, ++y, x, subcol, "%12s", "Ctrl+down");
+    wprintw(win, ": Go to next selectable item");
+    mvprintat(win, ++y, x, subcol, "%12s", "Ctrl+up");
+    wprintw(win, ": Go to previous selectable item");
     mvprintat(win, ++y, x, subcol, "%12s", "Space pgdown");
     wprintw(win, ": Scroll page down");
     mvprintat(win, ++y, x, subcol, "%12s", "b pgup");
