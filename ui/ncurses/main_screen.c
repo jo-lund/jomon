@@ -311,7 +311,7 @@ static void create_load_dialogue(void)
 static void create_save_dialogue(void)
 {
     if (!save_dialogue) {
-        save_dialogue = file_dialogue_create(" Save as pcap ", FS_SAVE, load_filepath,
+        save_dialogue = file_dialogue_create(" Save displayed packets as pcap ", FS_SAVE, load_filepath,
                                              main_screen_save_handle_ok,
                                              main_screen_save_handle_cancel);
         push_screen((screen *) save_dialogue);
@@ -648,7 +648,7 @@ void main_screen_get_input(screen *s)
         handle_input_mode(ms, "Filter: ");
         break;
     case 'M':
-        if (!ctx.capturing) {
+        if (!ctx.capturing && !inside_subwindow(ms)) {
             if (rbtree_contains(ms->marked, UINT_TO_PTR(s->selectionbar + 1)))
                 rbtree_remove(ms->marked, UINT_TO_PTR(s->selectionbar + 1));
             else
