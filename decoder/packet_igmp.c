@@ -29,18 +29,6 @@ static struct protocol_info igmp_prot = {
     .add_pdu = add_igmp_information
 };
 
-static int parse_address(uint32_t *addrs, int count, unsigned char **buf, int n)
-{
-    unsigned char *p = *buf;
-
-    for (int i = 0; i < count && (unsigned int) n >= sizeof(uint32_t); i++) {
-        *addrs++ = read_uint32le(&p); /* store in big-endian format */
-        n -= sizeof(uint32_t);
-    }
-    *buf = p;
-    return n;
-}
-
 void register_igmp(void)
 {
     register_protocol(&igmp_prot, IP_PROTOCOL, IPPROTO_IGMP);
@@ -120,7 +108,7 @@ packet_error handle_igmp(struct protocol_info *pinfo, unsigned char *buffer, int
             if (igmp->query->nsources * 4 > n)
                 return DECODE_ERR;
             igmp->query->src_addrs = mempool_alloc(igmp->query->nsources * 4);
-            parse_address(igmp->query->src_addrs, igmp->query->nsources, &buffer, n);
+            parse_ipv4_addr(igmp->query->src_addrs, igmp->query->nsources, &buffer, n);
         }
         break;
     case IGMP_v3_HOST_MEMBERSHIP_REPORT:
@@ -140,7 +128,7 @@ packet_error handle_igmp(struct protocol_info *pinfo, unsigned char *buffer, int
                 if (igmp->records[i].nsources * 4 > n)
                     return DECODE_ERR;
                 igmp->records[i].src_addrs = mempool_alloc(igmp->records[i].nsources * 4);
-                n = parse_address(igmp->records[i].src_addrs, igmp->records[i].nsources, &buffer, n);
+                n = parse_ipv4_addr(igmp->records[i].src_addrs, igmp->records[i].nsources, &buffer, n);
             }
         }
         break;

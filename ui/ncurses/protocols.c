@@ -192,6 +192,84 @@ void add_stp_information(void *w, void *sw, void *data)
     }
 }
 
+static void add_ipv4_options(struct ipv4_info *ip, list_view *lw, list_view_header *hdr)
+{
+    struct ipv4_options *opt;
+    list_view_header *opt_hdr;
+    int nelem;
+    char time[32];
+    char addr[INET_ADDRSTRLEN];
+
+    opt_hdr = LV_ADD_SUB_HEADER(lw, hdr, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Options");
+    opt = ip->opt;
+    while (opt) {
+        list_view_header *sub, *type_hdr;
+
+        sub = LV_ADD_SUB_HEADER(lw, opt_hdr, selected[UI_SUBLAYER2], UI_SUBLAYER2, get_ipv4_opt_type(opt->type));
+        type_hdr = LV_ADD_SUB_HEADER(lw, sub, selected[UI_SUBLAYER2], UI_SUBLAYER2, "Type: %u", opt->type);
+        add_flags(lw, type_hdr, opt->type, get_ipv4_opt_flags(), get_ipv4_opt_flags_size());
+        LV_ADD_TEXT_ELEMENT(lw, sub, "Length: %u", opt->length);
+        switch (GET_IP_OPTION_NUMBER(opt->type)) {
+        case IP_OPT_SECURITY:
+            LV_ADD_TEXT_ELEMENT(lw, sub, "Security: %s", get_ipv4_security(opt->security.security));
+            LV_ADD_TEXT_ELEMENT(lw, sub, "Compartments: %d", opt->security.compartments);
+            LV_ADD_TEXT_ELEMENT(lw, sub, "Handling restrictions: 0x%x", opt->security.restrictions);
+            break;
+        case IP_OPT_LSR:
+        case IP_OPT_RR:
+        case IP_OPT_SSR:
+            nelem = (opt->length - 3) / 4;
+            for (int i = 0; i < nelem; i++) {
+                inet_ntop(AF_INET, ip->opt->route.route_data + i, addr, INET_ADDRSTRLEN);
+                LV_ADD_TEXT_ELEMENT(lw, sub, "Route data %d: %s", i + 1, addr);
+            }
+            break;
+        case IP_OPT_TIMESTAMP:
+            LV_ADD_TEXT_ELEMENT(lw, sub, "Pointer: %d", opt->timestamp.pointer);
+            LV_ADD_TEXT_ELEMENT(lw, sub, "Overflow: %d", opt->timestamp.oflw);
+            LV_ADD_TEXT_ELEMENT(lw, sub, "Flags: %d", opt->timestamp.flg);
+            switch (opt->timestamp.flg) {
+            case IP_TS_ONLY:
+                nelem = (opt->length - 4) / 4;
+                for (int i = 0; i < nelem; i++) {
+                    if (IP_STANDARD_TS(*opt->timestamp.ts->timestamp))
+                        LV_ADD_TEXT_ELEMENT(lw, sub, "Timestamp: %s",
+                                            get_time_from_ms_ut(*opt->timestamp.ts->timestamp, time, 32));
+                    else
+                        LV_ADD_TEXT_ELEMENT(lw, sub, "Timestamp: %d", opt->timestamp.ts->timestamp);
+                }
+                break;
+            case IP_TS_ADDR:
+            case IP_TS_PRESPECIFIED:
+                nelem = (opt->length - 4) / 8;
+                for (int i = 0; i < nelem; i++) {
+                    if (IP_STANDARD_TS(*opt->timestamp.ts->timestamp))
+                        LV_ADD_TEXT_ELEMENT(lw, sub, "Timestamp: %s",
+                                            get_time_from_ms_ut(*opt->timestamp.ts->timestamp, time, 32));
+                    else
+                        LV_ADD_TEXT_ELEMENT(lw, sub, "Timestamp: %d", opt->timestamp.ts->timestamp);
+                    inet_ntop(AF_INET, ip->opt->route.route_data + i, addr, INET_ADDRSTRLEN);
+                    LV_ADD_TEXT_ELEMENT(lw, sub, "Address %d: %s", i + 1, addr);
+                }
+                break;
+            default:
+                break;
+            }
+            break;
+        case IP_OPT_STREAM_ID:
+            LV_ADD_TEXT_ELEMENT(lw, sub, "Stream ID: %d", opt->stream_id);
+            break;
+        case IP_OPT_ROUTER_ALERT:
+            LV_ADD_TEXT_ELEMENT(lw, sub, "%s (%d)", get_router_alert_option(opt->router_alert),
+                                opt->router_alert);
+            break;
+        default:
+            break;
+        }
+        opt = opt->next;
+    }
+}
+
 void add_ipv4_information(void *w, void *sw, void *data)
 {
     list_view *lw = w;
@@ -211,7 +289,7 @@ void add_ipv4_information(void *w, void *sw, void *data)
     LV_ADD_TEXT_ELEMENT(lw, header, "Version: %u", ip->version);
     LV_ADD_TEXT_ELEMENT(lw, header, "Internet Header Length (IHL): %u", ip->ihl);
     snprintf(buf, MAXLINE, "Differentiated Services Code Point (DSCP): 0x%x", ip->dscp);
-    if ((dscp = get_ip_dscp(ip->dscp))) {
+    if ((dscp = get_ipv4_dscp(ip->dscp))) {
         snprintcat(buf, MAXLINE, " %s", dscp);
     }
     LV_ADD_TEXT_ELEMENT(lw, header, "%s", buf);
@@ -259,6 +337,8 @@ void add_ipv4_information(void *w, void *sw, void *data)
         LV_ADD_TEXT_ELEMENT(lw, header,"Destination IP address: %s (GeoIP: %s)",
                          dst, geoip_get_location(dst, buf, MAXLINE));
     }
+    if (ip->ihl > 5 && ip->opt)
+        add_ipv4_options(ip, lw, header);
 }
 
 void add_ipv6_information(void *w, void *sw, void *data)
@@ -569,7 +649,7 @@ void add_igmp_information(void *w, void *sw, void *data)
         LV_ADD_TEXT_ELEMENT(lw, header, "QQIC: %d", igmp->query->qqic);
         LV_ADD_TEXT_ELEMENT(lw, header, "Number of sources: %d", igmp->query->nsources);
         for (int i = 0; i < igmp->query->nsources; i++) {
-            inet_ntop(AF_INET, igmp->query->src_addrs++, addr, INET_ADDRSTRLEN);
+            inet_ntop(AF_INET, igmp->query->src_addrs + i, addr, INET_ADDRSTRLEN);
             LV_ADD_TEXT_ELEMENT(lw, header, "Source address %d: %s", i + 1, addr);
         }
         break;
