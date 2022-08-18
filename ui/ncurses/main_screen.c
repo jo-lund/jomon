@@ -391,7 +391,7 @@ void main_screen_load_handle_ok(void *file)
             pop_screen();
             SCREEN_FREE((screen *) pd);
             ms->base.top = 0;
-            ms->base.show_selectionbar = true;
+            ms->base.show_selectionbar = vector_size(ms->packet_ref) > 0;
             ctx.opt.load_file = true;
             main_screen_refresh((screen *) ms);
         } else {
