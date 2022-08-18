@@ -47,21 +47,25 @@ packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buffer, int
     switch (icmp->icmp_type) {
     case ICMP_ECHOREPLY:
     case ICMP_ECHO:
-        info->echo.id = ntohs(icmp->icmp_id);
-        info->echo.seq_num = ntohs(icmp->icmp_seq);
+        info->id = ntohs(icmp->icmp_id);
+        info->seq_num = ntohs(icmp->icmp_seq);
+        if (n > ICMP_HDR_LEN) {
+            info->echo.data = buffer + ICMP_HDR_LEN;
+            info->echo.len = n - ICMP_HDR_LEN;
+        }
         break;
     case ICMP_TSTAMP:
     case ICMP_TSTAMPREPLY:
-        info->echo.id = ntohs(icmp->icmp_id);
-        info->echo.seq_num = ntohs(icmp->icmp_seq);
+        info->id = ntohs(icmp->icmp_id);
+        info->seq_num = ntohs(icmp->icmp_seq);
         info->timestamp.originate = ntohl(icmp->icmp_otime);
         info->timestamp.receive = ntohl(icmp->icmp_rtime);
         info->timestamp.transmit = ntohl(icmp->icmp_ttime);
         break;
     case ICMP_MASKREQ:
     case ICMP_MASKREPLY:
-        info->echo.id = ntohs(icmp->icmp_id);
-        info->echo.seq_num = ntohs(icmp->icmp_seq);
+        info->id = ntohs(icmp->icmp_id);
+        info->seq_num = ntohs(icmp->icmp_seq);
         info->addr_mask = icmp->icmp_mask;
         break;
     case ICMP_PARAMPROB:
@@ -84,6 +88,12 @@ packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buffer, int
             pdata->next->id = id;
             return pinfo->decode(pinfo, buffer + ICMP_HDR_LEN, n - ICMP_HDR_LEN, pdata->next);
         }
+        break;
+    case ICMP_INFO_REQUEST:
+    case ICMP_INFO_REPLY:
+        info->id = ntohs(icmp->icmp_id);
+        info->seq_num = ntohs(icmp->icmp_seq);
+        break;
     default:
         break;
     }

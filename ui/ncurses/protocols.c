@@ -374,18 +374,18 @@ void add_icmp_information(void *w, void *sw, void *data)
     list_view_header *header = sw;
     struct packet_data *pdata = data;
     struct icmp_info *icmp = pdata->data;
-
     char addr[INET_ADDRSTRLEN];
     char time[32];
+    list_view_header *data_hdr;
 
     LV_ADD_TEXT_ELEMENT(lw, header, "Type: %d (%s)", icmp->type, get_icmp_type(icmp->type));
     switch (icmp->type) {
     case ICMP_ECHOREPLY:
     case ICMP_ECHO:
-        LV_ADD_TEXT_ELEMENT(lw, header, "Code: %d", icmp->code);
-        LV_ADD_TEXT_ELEMENT(lw, header, "Checksum: %d", icmp->checksum);
-        LV_ADD_TEXT_ELEMENT(lw, header, "Identifier: 0x%x", icmp->echo.id);
-        LV_ADD_TEXT_ELEMENT(lw, header, "Sequence number: %d", icmp->echo.seq_num);
+        LV_ADD_TEXT_ELEMENT(lw, header, "Identifier: 0x%x", icmp->id);
+        LV_ADD_TEXT_ELEMENT(lw, header, "Sequence number: %d", icmp->seq_num);
+        data_hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Data");
+        add_hexdump(lw, data_hdr, hexmode, icmp->echo.data, icmp->echo.len);
         break;
     case ICMP_UNREACH:
         LV_ADD_TEXT_ELEMENT(lw, header, "Code: %d (%s)", icmp->code, get_icmp_dest_unreach_code(icmp->code));
@@ -401,8 +401,8 @@ void add_icmp_information(void *w, void *sw, void *data)
     case ICMP_TSTAMPREPLY:
         LV_ADD_TEXT_ELEMENT(lw, header, "Code: %d", icmp->code);
         LV_ADD_TEXT_ELEMENT(lw, header, "Checksum: %d", icmp->checksum);
-        LV_ADD_TEXT_ELEMENT(lw, header, "Identifier: 0x%x", icmp->echo.id);
-        LV_ADD_TEXT_ELEMENT(lw, header, "Sequence number: %d", icmp->echo.seq_num);
+        LV_ADD_TEXT_ELEMENT(lw, header, "Identifier: 0x%x", icmp->id);
+        LV_ADD_TEXT_ELEMENT(lw, header, "Sequence number: %d", icmp->seq_num);
         LV_ADD_TEXT_ELEMENT(lw, header, "Originate timestamp: %s",
                          get_time_from_ms_ut(icmp->timestamp.originate, time, 32));
         LV_ADD_TEXT_ELEMENT(lw, header, "Receive timestamp: %s",
@@ -415,9 +415,14 @@ void add_icmp_information(void *w, void *sw, void *data)
         inet_ntop(AF_INET, &icmp->addr_mask, addr, INET_ADDRSTRLEN);
         LV_ADD_TEXT_ELEMENT(lw, header, "Code: %d", icmp->code);
         LV_ADD_TEXT_ELEMENT(lw, header, "Checksum: %d", icmp->checksum);
-        LV_ADD_TEXT_ELEMENT(lw, header, "Identifier: 0x%x", icmp->echo.id);
-        LV_ADD_TEXT_ELEMENT(lw, header, "Sequence number: %d", icmp->echo.seq_num);
+        LV_ADD_TEXT_ELEMENT(lw, header, "Identifier: 0x%x", icmp->id);
+        LV_ADD_TEXT_ELEMENT(lw, header, "Sequence number: %d", icmp->seq_num);
         LV_ADD_TEXT_ELEMENT(lw, header, "Address mask: %s", addr);
+        break;
+    case ICMP_INFO_REQUEST:
+    case ICMP_INFO_REPLY:
+        LV_ADD_TEXT_ELEMENT(lw, header, "Identifier: 0x%x", icmp->id);
+        LV_ADD_TEXT_ELEMENT(lw, header, "Sequence number: %d", icmp->seq_num);
         break;
     default:
         LV_ADD_TEXT_ELEMENT(lw, header, "Code: %d", icmp->code);

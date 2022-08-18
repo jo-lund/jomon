@@ -8,16 +8,20 @@ struct icmp_info {
     uint8_t type;
     uint8_t code;
     uint16_t checksum;
+
     union {
-        struct { /* echo request/reply */
+        struct {
             uint16_t id;
             uint16_t seq_num;
-        } echo;
+        };
         uint32_t gateway; /* gateway address, used in redirect messages */
+        uint8_t pointer; /* parameter problem message */
     };
-
-    /* id and sequence numbers are used as for echo messages */
     union {
+        struct { /* echo request/reply */
+            unsigned char *data;
+            uint16_t len;
+        } echo;
         struct { /* timestamp request/reply */
             /* the timestamps are 32 bits of milliseconds since midnight UT */
             uint32_t originate;
@@ -25,7 +29,6 @@ struct icmp_info {
             uint32_t transmit;
         } timestamp;
         uint32_t addr_mask; /* address mask request/reply */
-        uint8_t pointer; /* parameter problem message */
     };
 };
 

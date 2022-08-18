@@ -305,10 +305,10 @@ void print_icmp(char *buf, int n, void *data)
     PRINT_PROTOCOL(buf, n, "ICMP");
     switch (icmp->type) {
     case ICMP_ECHOREPLY:
-        PRINT_INFO(buf, n, "Echo reply:   id = 0x%x  seq = %d", icmp->echo.id, icmp->echo.seq_num);
+        PRINT_INFO(buf, n, "Echo reply:   id = 0x%x  seq = %d", icmp->id, icmp->seq_num);
         break;
     case ICMP_ECHO:
-        PRINT_INFO(buf, n, "Echo request: id = 0x%x  seq = %d", icmp->echo.id, icmp->echo.seq_num);
+        PRINT_INFO(buf, n, "Echo request: id = 0x%x  seq = %d", icmp->id, icmp->seq_num);
         break;
     case ICMP_UNREACH:
         PRINT_INFO(buf, n, "%s", get_icmp_dest_unreach_code(icmp->code));
@@ -319,25 +319,25 @@ void print_icmp(char *buf, int n, void *data)
         break;
     case ICMP_TSTAMP:
         PRINT_INFO(buf, n, "Timestamp request: id = 0x%x  seq = %d, originate = %s, receive = %s, transmit = %s",
-                   icmp->echo.id, icmp->echo.seq_num, get_time_from_ms_ut(icmp->timestamp.originate, org, 32),
+                   icmp->id, icmp->seq_num, get_time_from_ms_ut(icmp->timestamp.originate, org, 32),
                    get_time_from_ms_ut(icmp->timestamp.receive, rcvd, 32),
                    get_time_from_ms_ut(icmp->timestamp.transmit, xmit, 32));
         break;
     case ICMP_TSTAMPREPLY:
         PRINT_INFO(buf, n, "Timestamp reply  : id = 0x%x  seq = %d, originate = %s, receive = %s, transmit = %s",
-                   icmp->echo.id, icmp->echo.seq_num, get_time_from_ms_ut(icmp->timestamp.originate, org, 32),
+                   icmp->id, icmp->seq_num, get_time_from_ms_ut(icmp->timestamp.originate, org, 32),
                    get_time_from_ms_ut(icmp->timestamp.receive, rcvd, 32),
                    get_time_from_ms_ut(icmp->timestamp.transmit, xmit, 32));
         break;
     case ICMP_MASKREQ:
         inet_ntop(AF_INET, &icmp->addr_mask, addr, INET_ADDRSTRLEN);
         PRINT_INFO(buf, n, "Address mask request: id = 0x%x  seq = %d, mask = %s",
-                   icmp->echo.id, icmp->echo.seq_num, addr);
+                   icmp->id, icmp->seq_num, addr);
         break;
     case ICMP_MASKREPLY:
         inet_ntop(AF_INET, &icmp->addr_mask, addr, INET_ADDRSTRLEN);
         PRINT_INFO(buf, n, "Address mask reply:   id = 0x%x  seq = %d, mask = %s",
-                   icmp->echo.id, icmp->echo.seq_num, addr);
+                   icmp->id, icmp->seq_num, addr);
         break;
     default:
         PRINT_INFO(buf, n, "%s", get_icmp_type(icmp->type));
