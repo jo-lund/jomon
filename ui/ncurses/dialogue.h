@@ -58,7 +58,6 @@ typedef struct file_dialogue {
     container dir;
     container input;
     char path[MAXPATH + 1];
-    int i;
     int num_files;
     int top;
     int list_height;

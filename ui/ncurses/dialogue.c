@@ -57,23 +57,6 @@ static void free_data(void *data)
     free(info);
 }
 
-static void show_selectionbar(file_dialogue *fd, int line)
-{
-    mvwchgat(fd->list.win, line, 0, -1, A_NORMAL, PAIR_NUMBER(get_theme_colour(SELECTIONBAR)), NULL);
-}
-
-static void remove_selectionbar(file_dialogue *fd, int line)
-{
-    struct file_info *info;
-
-    info = (struct file_info *) vector_get(fd->files, fd->i);
-    if (S_ISDIR(info->stat->st_mode)) {
-        mvwchgat(fd->list.win, line, 0, -1, A_BOLD, PAIR_NUMBER(get_theme_colour(FD_TEXT)), NULL);
-    } else {
-        mvwchgat(fd->list.win, line, 0, -1, A_NORMAL, PAIR_NUMBER(get_theme_colour(FD_TEXT)), NULL);
-    }
-}
-
 dialogue *dialogue_create(char *title)
 {
     int my, mx;
@@ -293,19 +276,22 @@ file_dialogue *file_dialogue_create(char *title, enum file_selection_type type,
     file_dialogue *fd;
     int my, mx;
     static screen_operations op;
+    screen *s;
 
     getmaxyx(stdscr, my, mx);
     fd = malloc(sizeof(file_dialogue));
     op = SCREEN_OPS(.screen_free = file_dialogue_free,
-                     .screen_get_input = file_dialogue_get_input);
-    fd->dialogue_base.screen_base.op = &op;
+                    .screen_get_input = file_dialogue_get_input);
+    s = (screen *) fd;
+    s->op = &op;
     dialogue_init((dialogue *) fd, title, my / 3 + 5, mx / 4 + 10);
+    s->have_selectionbar = true;
+    s->show_selectionbar = true;
     getmaxyx(((screen *) fd)->win, my, mx);
     fd->list_height = my - 10;
     fd->list.win = derwin(((screen *) fd)->win, fd->list_height, mx - 15, 3, 7);
     fd->dir.win = derwin(((screen *) fd)->win, 1, mx - 15, fd->list_height + 4, 7);
     fd->input.win = derwin(((screen *) fd)->win, 1, mx - 15, fd->list_height + 6, 7);
-    fd->i = 0;
     fd->num_files = 0;
     fd->top = 0;
     fd->has_focus = FS_LIST;
@@ -338,7 +324,7 @@ void file_dialogue_free(screen *s)
     }
 }
 
-void file_dialogue_render(file_dialogue *this)
+static void file_dialogue_render(file_dialogue *this)
 {
     int w;
     screen *scr;
@@ -358,23 +344,40 @@ void file_dialogue_render(file_dialogue *this)
     file_dialogue_update_dir(this, this->path);
     BUTTON_RENDER(this->ok);
     BUTTON_RENDER(this->cancel);
+}
+
+static void file_dialogue_refresh(struct file_dialogue *this)
+{
+    struct file_info *info;
+    screen *s;
+
+    s = (screen *) this;
+    werase(this->list.win);
+    for (int i = this->top, j = 0; i < this->top + this->list_height &&
+             i < vector_size(this->files); i++, j++) {
+        info = (struct file_info *) vector_get(this->files, i);
+        file_dialogue_print(this, info, j);
+    }
+    file_dialogue_update_input(this);
+    if (s->show_selectionbar)
+        UPDATE_SELECTIONBAR(this->list.win, s->selectionbar - this->top, SELECTIONBAR);
     wrefresh(this->list.win);
 }
 
-void file_dialogue_populate(file_dialogue *this, char *path)
+static void file_dialogue_populate(file_dialogue *this, char *path)
 {
     DIR *dir;
     struct dirent *ent;
     vector_t *entries;
+    screen *s;
 
+    s = (screen *) this;
     entries = vector_init(10);
     if ((dir = opendir(path))) {
         this->num_files = 0;
         if (vector_size(this->files) > 0) {
-            if (this->i > 0) {
-                remove_selectionbar(this, this->i);
-                this->i = 0;
-            }
+            if (s->selectionbar > 0)
+                s->selectionbar = 0;
             vector_clear(this->files, free_data);
         }
         while ((ent = readdir(dir))) {
@@ -412,15 +415,32 @@ void file_dialogue_populate(file_dialogue *this, char *path)
             vector_push_back(this->files, vector_get(entries, i));
         }
         vector_free(entries, NULL);
-        for (int i = 0; i < vector_size(this->files); i++) {
-            struct file_info *info;
-
-            info = (struct file_info *) vector_get(this->files, i);
-            file_dialogue_print(this, info, i);
-        }
-        show_selectionbar(this, this->i);
+        file_dialogue_refresh(this);
         closedir(dir);
     }
+}
+
+static void file_dialogue_scroll_page(struct file_dialogue *this, int nl)
+{
+    int l = abs(nl);
+    int c = 0;
+    screen *s;
+
+    s = (screen *) this;
+    if (nl > 0) {
+        while (c < l && this->top + this->list_height < vector_size(this->files)) {
+            this->top++;
+            s->selectionbar++;
+            c++;
+        }
+    } else {
+        while (c < l && this->top > 0) {
+            this->top--;
+            s->selectionbar--;
+            c++;
+        }
+    }
+    file_dialogue_refresh(this);
 }
 
 void file_dialogue_get_input(screen *s)
@@ -501,6 +521,16 @@ void file_dialogue_get_input(screen *s)
             }
         }
         break;
+    case ' ':
+    case KEY_NPAGE:
+        if (fd->has_focus == FS_LIST)
+            file_dialogue_scroll_page(fd, fd->list_height - 1);
+        break;
+    case 'b':
+    case KEY_PPAGE:
+        if (fd->has_focus == FS_LIST)
+            file_dialogue_scroll_page(fd, -(fd->list_height - 1));
+        break;
     default:
         if (fd->has_focus == FS_INPUT && isprint(c)) {
             waddch(fd->input.win, c);
@@ -549,9 +579,11 @@ static void file_dialogue_file_exist(struct file_dialogue *this)
 void file_dialogue_handle_enter(struct file_dialogue *this)
 {
     struct file_info *info;
+    screen *s;
 
+    s = (screen *) this;
     curs_set(0);
-    info = (struct file_info *) vector_get(this->files, this->i);
+    info = (struct file_info *) vector_get(this->files, s->selectionbar);
     switch (this->has_focus) {
     case FS_LIST:
         if (S_ISDIR(info->stat->st_mode)) {
@@ -627,7 +659,7 @@ void file_dialogue_update_input(struct file_dialogue *this)
 {
     struct file_info *info;
 
-    info = (struct file_info *) vector_get(this->files, this->i);
+    info = (struct file_info *) vector_get(this->files, ((screen *) this)->selectionbar);
     wmove(this->input.win, 0, FILE_INPUT_TEXTLEN);
     wclrtoeol(this->input.win);
     if (!S_ISDIR(info->stat->st_mode)) {
@@ -640,7 +672,7 @@ void file_dialogue_update_dir(struct file_dialogue *this, char *path)
 {
     struct file_info *info;
 
-    info = (struct file_info *) vector_get(this->files, this->i);
+    info = (struct file_info *) vector_get(this->files, ((screen *) this)->selectionbar);
     if (S_ISDIR(info->stat->st_mode)) {
         werase(this->dir.win);
         waddstr(this->dir.win, path);
@@ -650,29 +682,31 @@ void file_dialogue_update_dir(struct file_dialogue *this, char *path)
 
 void file_dialogue_update_focus(struct file_dialogue *this)
 {
-    this->has_focus = (this->has_focus + 1) % 4;
+    screen *s;
 
+    this->has_focus = (this->has_focus + 1) % 4;
+    s = (screen *) this;
     switch (this->has_focus) {
     case FS_LIST:
         BUTTON_SET_FOCUS(this->ok, false);
         BUTTON_SET_FOCUS(this->cancel, false);
-        show_selectionbar(this, this->i - this->top);
         BUTTON_RENDER(this->ok);
         BUTTON_RENDER(this->cancel);
-        wrefresh(this->list.win);
+        s->show_selectionbar = true;
+        file_dialogue_refresh(this);
         wrefresh(((screen *) this)->win);
         break;
     case FS_INPUT:
     {
         char buf[MAXPATH];
-        char *s;
+        char *str;
 
         mvwinnstr(this->input.win, 0, FILE_INPUT_TEXTLEN, buf, MAXPATH);
-        s = string_trim_whitespace(buf);
-        wmove(this->input.win, 0, FILE_INPUT_TEXTLEN + strlen(s));
+        str = string_trim_whitespace(buf);
+        wmove(this->input.win, 0, FILE_INPUT_TEXTLEN + strlen(str));
         curs_set(1);
-        remove_selectionbar(this, this->i - this->top);
-        wrefresh(this->list.win);
+        s->show_selectionbar = false;
+        file_dialogue_refresh(this);
         wrefresh(((screen *) this)->win);
         wrefresh(this->input.win);
         break;
@@ -695,44 +729,32 @@ void file_dialogue_update_focus(struct file_dialogue *this)
 
 void file_dialogue_handle_keydown(struct file_dialogue *this)
 {
+    screen *s = (screen *) this;
+
     if (this->has_focus == FS_LIST) {
-        if (this->i >= this->top + this->list_height - 1 &&
-            this->i < this->num_files - 1) {
-            remove_selectionbar(this, this->i - this->top);
-            wscrl(this->list.win, 1);
-            this->i++;
+        if (s->selectionbar >= this->top + this->list_height - 1 &&
+            s->selectionbar < this->num_files - 1) {
+            s->selectionbar++;
             this->top++;
-            file_dialogue_print(this, vector_get(this->files, this->i), this->list_height - 1);
-            file_dialogue_update_input(this);
-            show_selectionbar(this, this->list_height - 1);
-        } else if (this->i < this->num_files - 1) {
-            remove_selectionbar(this, this->i - this->top);
-            show_selectionbar(this, this->i - this->top + 1);
-            this->i++;
-            file_dialogue_update_input(this);
+        } else if (s->selectionbar < this->num_files - 1) {
+            s->selectionbar++;
         }
-        wrefresh(this->list.win);
+        file_dialogue_refresh(this);
     }
 }
 
 void file_dialogue_handle_keyup(struct file_dialogue *this)
 {
-    if (this->has_focus == FS_LIST) {
-        remove_selectionbar(this, this->i - this->top);
-        if (this->top == 0 && this->i - 1 < 0) {
+    screen *s = (screen *) this;
 
-        } else if (this->i == this->top) {
-            wscrl(this->list.win, -1);
+    if (this->has_focus == FS_LIST) {
+        if (s->selectionbar == this->top && this->top > 0) {
             this->top--;
-            this->i--;
-            file_dialogue_print(this, vector_get(this->files, this->i), 0);
-            file_dialogue_update_input(this);
-        } else {
-            this->i--;
-            file_dialogue_update_input(this);
+            s->selectionbar--;
+        } else if (s->selectionbar > 0) {
+            s->selectionbar--;
         }
-        show_selectionbar(this, this->i - this->top);
-        wrefresh(this->list.win);
+        file_dialogue_refresh(this);
     }
 }
 
