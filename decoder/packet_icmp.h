@@ -4,6 +4,11 @@
 #include <stdbool.h>
 #include "packet.h"
 
+#ifdef __FreeBSD__
+#define ICMP_INFO_REQUEST ICMP_IREQ
+#define ICMP_INFO_REPLY ICMP_IREQREPLY
+#endif
+
 struct icmp_info {
     uint8_t type;
     uint8_t code;
