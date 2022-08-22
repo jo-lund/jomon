@@ -524,12 +524,12 @@ void file_dialogue_get_input(screen *s)
     case ' ':
     case KEY_NPAGE:
         if (fd->has_focus == FS_LIST)
-            file_dialogue_scroll_page(fd, fd->list_height - 1);
+            file_dialogue_scroll_page(fd, fd->list_height);
         break;
     case 'b':
     case KEY_PPAGE:
         if (fd->has_focus == FS_LIST)
-            file_dialogue_scroll_page(fd, -(fd->list_height - 1));
+            file_dialogue_scroll_page(fd, -fd->list_height);
         break;
     default:
         if (fd->has_focus == FS_INPUT && isprint(c)) {
