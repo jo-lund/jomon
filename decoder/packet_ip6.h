@@ -19,6 +19,12 @@ struct ipv6_info {
 #define ipv6_dst(p) get_ipv6(p)->dst
 #define ipv6_protocol(p) get_ipv6(p)->next_header
 
+/*
+ * Parse 'count' number of ip6 addresses from buffer and store them in 'addrs'.
+ * Return the new length of buffer.
+ */
+int parse_ipv6_addr(uint8_t *addrs, int count, unsigned char **buf, int n);
+
 void register_ipv6(void);
 
 #endif

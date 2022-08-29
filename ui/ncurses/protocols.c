@@ -2189,3 +2189,50 @@ void add_tls_information(void *w, void *sw, void *data)
         tls = tls->next;
     }
 }
+
+void add_vrrp_information(void *w, void *sw, void *data)
+{
+    list_view *lv = w;
+    list_view_header *header = sw;
+    struct packet_data *pdata = data;
+    struct vrrp_info *vrrp = pdata->data;
+    char *type, *auth;
+
+    LV_ADD_TEXT_ELEMENT(lv, header, "Version: %u", vrrp->version);
+    if ((type = get_vrrp_type(vrrp->type)))
+        LV_ADD_TEXT_ELEMENT(lv, header, "Type: %s (%u)", type, vrrp->type);
+    else
+        LV_ADD_TEXT_ELEMENT(lv, header, "Type: %s (%u)", vrrp->type);
+    LV_ADD_TEXT_ELEMENT(lv, header, "Virtual router ID: %u", vrrp->vrid);
+    LV_ADD_TEXT_ELEMENT(lv, header, "Priority: %u", vrrp->priority);
+    LV_ADD_TEXT_ELEMENT(lv, header, "IP address count: %u", vrrp->count_ip);
+    if (vrrp->version < 3) {
+        if ((auth = get_vrrp_auth(vrrp->type)))
+            LV_ADD_TEXT_ELEMENT(lv, header, "Authentication type: %s (%u) [Reserved version 2]",
+                                auth, vrrp->v.auth_type);
+        else
+            LV_ADD_TEXT_ELEMENT(lv, header, "Authentication type: %u", vrrp->v.auth_type);
+        LV_ADD_TEXT_ELEMENT(lv, header, "Advertisement interval: %u s.", vrrp->v.advr_int);
+    } else {
+        LV_ADD_TEXT_ELEMENT(lv, header, "Maximum advertisement interval: %u cs.",
+                            vrrp->v3.max_advr_int);
+    }
+    LV_ADD_TEXT_ELEMENT(lv, header, "Checksum: 0x%x", vrrp->checksum);
+    if (get_protocol_key(pdata->prev->id) == ETHERTYPE_IP) {
+        char ip4_addr[INET_ADDRSTRLEN];
+
+        for (int i = 0; i < vrrp->count_ip; i++) {
+            inet_ntop(AF_INET, vrrp->ip4_addrs + i, ip4_addr, INET_ADDRSTRLEN);
+            LV_ADD_TEXT_ELEMENT(lv, header, "IPv4 Address: %s", ip4_addr);
+        }
+    } else {
+        char ip6_addr[INET6_ADDRSTRLEN];
+
+        for (int i = 0; i < vrrp->count_ip; i++) {
+            inet_ntop(AF_INET6, vrrp->ip6_addrs + i * 16, ip6_addr, INET6_ADDRSTRLEN);
+            LV_ADD_TEXT_ELEMENT(lv, header, "IPv6 Address: %s", ip6_addr);
+        }
+    }
+    if (vrrp->version < 3 && vrrp->v.auth_type == VRRP_V1_AUTH_STP)
+        LV_ADD_TEXT_ELEMENT(lv, header, "Authentication string: %s", vrrp->v.auth_str);
+}

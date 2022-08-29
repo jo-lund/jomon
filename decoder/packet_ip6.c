@@ -101,3 +101,15 @@ packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int
     }
     return NO_ERR;
 }
+
+int parse_ipv6_addr(uint8_t *addrs, int count, unsigned char **buf, int n)
+{
+    unsigned char *p = *buf;
+
+    for (int i = 0; i < count && (unsigned int) n >= 16; i++) {
+        memcpy(addrs, buf, 16);
+        n -= 16;
+    }
+    *buf = p;
+    return n;
+}

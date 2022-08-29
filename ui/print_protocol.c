@@ -797,3 +797,20 @@ void print_snmp(char *buf, int n, void *data)
         }
     }
 }
+
+void print_vrrp(char *buf, int n, void *data)
+{
+    struct vrrp_info *vrrp;
+    char *type;
+
+    vrrp = get_data_member(struct vrrp_info, data);
+    PRINT_PROTOCOL(buf, n, "VRRP");
+    if ((type = get_vrrp_type(vrrp->type))) {
+        if (vrrp->version < 3)
+            PRINT_INFO(buf, n, "%s  Version: %u  VRID: %u  Priority: %u  Time interval: %u",
+                       type, vrrp->version, vrrp->vrid, vrrp->priority, vrrp->v.advr_int);
+        else if (vrrp->version == 3)
+            PRINT_INFO(buf, n, "Type: %d  Version: %u  VRID: %u  Priority: %u  Time interval:> %u",
+                       vrrp->type, vrrp->version, vrrp->vrid, vrrp->priority, vrrp->v3.max_advr_int);
+    }
+}

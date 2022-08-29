@@ -26,5 +26,6 @@
 #include "packet_dhcp.h"
 #include "packet_smtp.h"
 #include "packet_ethernet.h"
+#include "packet_vrrp.h"
 
 #endif

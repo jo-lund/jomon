@@ -95,11 +95,18 @@ struct packet {
 struct packet_data {
     uint32_t id;
     uint8_t transport;
-    uint16_t len;
+    uint16_t len; /* length of the packet data as seen on the network */
     void *data;
     struct packet_data *prev;
     struct packet_data *next;
 };
+
+/*
+ * Get the packet_data's data member converted to 'type'
+ * type - data type
+ * p    - pointer to packet_data
+ */
+#define get_data_member(type, p) (type *) ((struct packet_data *) p)->data
 
 /* TODO: move this */
 void decoder_init(void);
