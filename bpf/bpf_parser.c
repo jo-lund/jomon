@@ -223,9 +223,9 @@ static bool parse_offset(int insn)
         if (!match(INT))
             goto error;
         return bpf_stm(insn, BPF_IND, parser.val.intval);
-    } else if (parser.token == INT) {
-        return bpf_stm(insn, BPF_ABS, parser.val.intval);
     }
+    if (parser.token == INT)
+        return bpf_stm(insn, BPF_ABS, parser.val.intval);
 
 error:
     token_error(parser.token);
@@ -296,11 +296,11 @@ error:
 
 static bool parse_ld(void)
 {
-    if (match('#')) {
+    if (match('#'))
         return parse_int(LD, BPF_IMM);
-    } else if (parser.token == 'M') {
+    if (parser.token == 'M')
         return parse_mem(LD, BPF_MEM);
-    } else if (parser.token == '[') {
+    if (parser.token == '[') {
         if (!parse_offset(LD))
             return false;
         if (!match(']')) {
@@ -332,9 +332,9 @@ static bool parse_ldx(void)
 {
     if (match('#'))
         return parse_int(LDX, BPF_IMM);
-    else if (parser.token == 'M')
+    if (parser.token == 'M')
         return parse_mem(LDX, BPF_MEM);
-    else if (parser.token == INT)
+    if (parser.token == INT)
         return parse_msh(LDX);
     return true;
 }
