@@ -70,10 +70,12 @@ static const char *instable[] = {
 #define is_proto(c)                                                     \
     ((c) == PCAP_ETHER || (c) == PCAP_IP || (c) == PCAP_IP6             \
      || (c) == PCAP_ARP || (c) == PCAP_RARP || (c) == PCAP_TCP          \
-     || (c) == PCAP_UDP || (c) == PCAP_ICMP || (c) == PCAP_ICMP6)
+     || (c) == PCAP_UDP || (c) == PCAP_ICMP || (c) == PCAP_ICMP6        \
+     || (c) == PCAP_VRRP)
 
 #define is_transport(c) \
-    ((c) == PCAP_UDP || (c) == PCAP_TCP || (c) == PCAP_ICMP || (c) == PCAP_ICMP6)
+    ((c) == PCAP_UDP || (c) == PCAP_TCP || (c) == PCAP_ICMP ||  \
+     (c) == PCAP_ICMP6 || (c) == PCAP_VRRP)
 
 #define is_ip6(c) ((c) == PCAP_ICMP6)
 
@@ -434,6 +436,11 @@ static void genexpr(struct block *b, struct node *n, int op, int offset)
         break;
     case PCAP_PIM:
         gen_transport(b, n, IPPROTO_PIM, BOTH);
+        offset = NETWORK_OFFSET;
+        gen_proto(b, n, op, offset);
+        break;
+    case PCAP_VRRP:
+        gen_transport(b, n, 112, BOTH);
         offset = NETWORK_OFFSET;
         gen_proto(b, n, op, offset);
         break;

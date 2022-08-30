@@ -97,6 +97,7 @@ static int get_lbp(int token)
     case PCAP_TCP:
     case PCAP_UDP:
     case PCAP_PIM:
+    case PCAP_VRRP:
         return lbp[token];
     default:
         DEBUG("%s: Unexpected token %d", __func__, token);
@@ -254,6 +255,7 @@ static struct node *nud(int token, struct block **b)
     case PCAP_ICMP6:
     case PCAP_IP6:
     case PCAP_PIM:
+    case PCAP_VRRP:
         if (match(PCAP_LBRACKET)) {
             return parse_offset(token, b);
         } else if (parser.token == PCAP_LAND || parser.token == PCAP_LOR ||
