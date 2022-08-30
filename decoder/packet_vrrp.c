@@ -86,6 +86,21 @@ char *get_vrrp_auth(uint8_t auth)
         return "Simple text password";
     case VRRP_V1_IP_AUTH_HDR:
         return "IP authentication header";
+    default:
+        return NULL;
     }
-    return NULL;
+}
+
+char *get_vrrp_priority(uint8_t priority)
+{
+    switch (priority) {
+    case VRRP_PRIORITY_MASTER_RELEASE:
+        return "Master has stopped participating in VRRP";
+    case VRRP_PRIORITY_BACKUP_DEFAULT:
+        return "Default backup priority";
+    case VRRP_PRIORITY_OWN_IP:
+        return "IP owner";
+    default:
+        return "Non-default backup priority";
+    }
 }

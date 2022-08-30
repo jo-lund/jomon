@@ -36,7 +36,7 @@ struct vrrp_info {
 
 char *get_vrrp_type(uint8_t type);
 char *get_vrrp_auth(uint8_t auth);
-
+char *get_vrrp_priority(uint8_t priority);
 void register_vrrp(void);
 
 #endif

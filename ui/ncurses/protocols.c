@@ -2204,7 +2204,8 @@ void add_vrrp_information(void *w, void *sw, void *data)
     else
         LV_ADD_TEXT_ELEMENT(lv, header, "Type: %s (%u)", vrrp->type);
     LV_ADD_TEXT_ELEMENT(lv, header, "Virtual router ID: %u", vrrp->vrid);
-    LV_ADD_TEXT_ELEMENT(lv, header, "Priority: %u", vrrp->priority);
+    LV_ADD_TEXT_ELEMENT(lv, header, "Priority: %s (%u)",
+                        get_vrrp_priority(vrrp->priority), vrrp->priority);
     LV_ADD_TEXT_ELEMENT(lv, header, "IP address count: %u", vrrp->count_ip);
     if (vrrp->version < 3) {
         if ((auth = get_vrrp_auth(vrrp->type)))
