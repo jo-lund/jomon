@@ -15,7 +15,7 @@ BUILD=".build_$$"
 PREFIX="/usr/local"
 HAVE_GEOIP=1
 HAVE_OBSTACK=1
-
+VERSION="0.1.0"
 ok="${GREEN}OK$NORMAL"
 fail="${RED}FAIL$NORMAL"
 
@@ -143,6 +143,7 @@ generate_config()
     fi
     echo "PREFIX=$PREFIX" >> config.mk
     echo "HAVE_OBSTACK=$HAVE_OBSTACK" >> config.mk
+    echo "VERSION=\"$VERSION\"" >> config.mk
     echo >> config.h
     echo "#endif" >> config.h
 }

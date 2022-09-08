@@ -54,7 +54,7 @@ static bool promiscuous_mode = false;
 
 static bool handle_packet(iface_handle_t *handle, unsigned char *buffer,
                           uint32_t n, struct timeval *t);
-static void print_help(char *prg) NORETURN;
+static void print_help(void) NORETURN;
 static void setup_signal(int signo, void (*handler)(int), int flags);
 static void run(void);
 static void print_bpf(void) NORETURN;
@@ -77,7 +77,6 @@ static void sig_winch()
 int main(int argc, char **argv)
 {
     unsigned char buf[SNAPLEN];
-    char *prg_name = argv[0];
     int opt;
     int idx;
     static struct option long_options[] = {
@@ -142,7 +141,7 @@ int main(int argc, char **argv)
             break;
         case 'h':
         default:
-            print_help(prg_name);
+            print_help();
         }
     }
     if (ctx.filter && ctx.filter_file)
@@ -237,10 +236,11 @@ static void print_bpf(void)
     exit(0);
 }
 
-static void print_help(char *prg)
+static void print_help(void)
 {
+    printf("monitor %s\n", VERSION);
     geoip_print_version();
-    printf("Usage: %s [-dGhlNnpstv] [-f filter] [-F filter-file] [-i interface] [-r path]\n"
+    printf("Usage: monitor [-dGhlNnpstv] [-f filter] [-F filter-file] [-i interface] [-r path]\n"
            "Options:\n"
            "     -d                     Dump packet filter as BPF assembly and exit\n"
            "     -dd                    Dump packet filter as C code fragment and exit\n"
@@ -257,8 +257,7 @@ static void print_help(char *prg)
            "     -r                     Read file in pcap format\n"
            "     -s, --statistics       Show statistics page\n"
            "     -t                     Use normal text output, i.e. don't use ncurses\n"
-           "     -v, --verbose          Print verbose information\n",
-           prg);
+           "     -v, --verbose          Print verbose information\n");
     exit(0);
 }
 

@@ -10,7 +10,7 @@ TARGETDIR := bin
 MACHINE := $(shell uname -s)
 STRIP := strip
 CFLAGS += -std=gnu11 -fwrapv -Wall -Wextra -Wno-override-init
-CPPFLAGS += -iquote $(CURDIR)
+CPPFLAGS += -iquote $(CURDIR) -DVERSION=\"$(VERSION)\"
 LIBS := -lncurses
 UNIT_LIBS := -lcheck -lm -lpthread -lrt
 ifneq ($(wildcard /etc/debian_version),)
