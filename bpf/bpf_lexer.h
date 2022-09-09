@@ -2,6 +2,7 @@
 #define BPF_LEXER_H
 
 enum bpf_token {
+    ERR_OVERFLOW = -1,
     LABEL = 1,
     INT,
     LD,
@@ -30,7 +31,7 @@ enum bpf_token {
     RET
 };
 
-#define BPF_NUM_TOKENS 26
+#define BPF_NUM_TOKENS 27
 
 struct bpf_parser;
 

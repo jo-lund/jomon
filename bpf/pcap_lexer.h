@@ -5,6 +5,7 @@
 #include <stdbool.h>
 
 enum pcap_token {
+    PCAP_ERR_OVERFLOW = -1,
     PCAP_EOF,
     PCAP_HOST,
     PCAP_NET,

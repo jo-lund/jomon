@@ -165,6 +165,8 @@ static void token_error(int token)
 {
     if (token == LABEL)
         error("Syntax error: %s", parser.val.str);
+    else if (token == ERR_OVERFLOW)
+        error("Integer overflow");
     else if (token < BPF_NUM_TOKENS)
         error("Syntax error: %s", get_token_string(token));
     else

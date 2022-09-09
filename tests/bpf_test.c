@@ -51,6 +51,21 @@ START_TEST(filter_test)
 }
 END_TEST
 
+#define FILTER_1 "ip[0] = 4294967295"
+#define FILTER_2 "ip[0] = 4294967296"
+
+START_TEST(overflow)
+{
+    struct bpf_prog bpf;
+
+    bpf = pcap_compile(FILTER_1);
+    ck_assert_msg(bpf.size > 0, "Error compiling: %s", FILTER_1);
+    free(bpf.bytecode);
+
+    bpf = pcap_compile(FILTER_2);
+    ck_assert_msg(bpf.size == 0, "Error: No overflow detected: %s", FILTER_2);
+}
+
 Suite *bpf_suite(void)
 {
     Suite *s;
@@ -61,6 +76,7 @@ Suite *bpf_suite(void)
     tc_core = tcase_create("Core");
     suite_add_tcase(s, tc_core);
     tcase_add_test(tc_core, filter_test);
+    tcase_add_test(tc_core, overflow);
     tcase_set_timeout(tc_core, 60);
     mempool_destruct();
     return s;

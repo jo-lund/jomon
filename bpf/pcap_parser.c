@@ -275,6 +275,9 @@ static struct node *nud(int token, struct block **b)
         (*b)->inverse = !(*b)->inverse;
         parser.token = get_token();
         return nud(parser.token, b);
+    case PCAP_ERR_OVERFLOW:
+        DEBUG("%s: Integer overflow", __func__);
+        longjmp(env, -1);
     default:
         DEBUG("%s: Unexpected token %d", __func__, token);
         longjmp(env, -1);

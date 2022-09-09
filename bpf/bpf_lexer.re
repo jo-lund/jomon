@@ -14,6 +14,7 @@
 int bpf_lex(struct bpf_parser *parser)
 {
     struct bpf_input *input = &parser->input;
+    bool error;
 
     if (input->eof && input->cur == input->eof)
         return 0;
@@ -34,15 +35,21 @@ scan:
 
       /* integers */
     "0" oct* {
-        parser->val.intval = getval(input->tok, input->cur, 8);
+        parser->val.intval = getval(input->tok, input->cur, 8, &error);
+        if (parser->val.intval == -1 && error)
+            return ERR_OVERFLOW;
         return INT;
     }
     [1-9] digit* {
-        parser->val.intval = getval(input->tok, input->cur, 10);
+        parser->val.intval = getval(input->tok, input->cur, 10, &error);
+        if (parser->val.intval == -1 && error)
+            return ERR_OVERFLOW;
         return INT;
     }
     '0x' hex+ {
-        parser->val.intval = gethexval(input->tok + 2, input->cur); /* skip '0x' */
+        parser->val.intval = gethexval(input->tok + 2, input->cur, &error); /* skip '0x' */
+        if (parser->val.intval == -1 && error)
+            return ERR_OVERFLOW;
         return INT;
     }
 

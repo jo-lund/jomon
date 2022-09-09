@@ -39,6 +39,7 @@ int pcap_lex(struct bpf_parser *parser)
 {
     struct bpf_input *input = &parser->input;
     unsigned char *o1, *o2, *o3, *o4;
+    bool error = false;
 
     if (input->cur == input->eof)
         return PCAP_EOF;
@@ -61,16 +62,22 @@ scan:
 
       /* integers */
       "0" oct* {
-        parser->val.intval = getval(input->tok, input->cur, 8);
-        return PCAP_INT;
+          parser->val.intval = getval(input->tok, input->cur, 8, &error);
+          if (parser->val.intval == -1 && error)
+              return PCAP_ERR_OVERFLOW;
+          return PCAP_INT;
       }
 
       [1-9] digit* {
-          parser->val.intval = getval(input->tok, input->cur, 10);
+          parser->val.intval = getval(input->tok, input->cur, 10, &error);
+          if (parser->val.intval == -1 && error)
+              return PCAP_ERR_OVERFLOW;
           return PCAP_INT;
       }
       '0x' hex+ {
-          parser->val.intval = gethexval(input->tok + 2, input->cur); /* skip '0x' */
+          parser->val.intval = gethexval(input->tok + 2, input->cur, &error); /* skip '0x' */
+          if (parser->val.intval == -1 && error)
+              return PCAP_ERR_OVERFLOW;
           return PCAP_INT;
       }
 
@@ -200,10 +207,10 @@ scan:
       dot = [.];
 
       @o1 octet dot @o2 octet dot @o3 octet dot @o4 octet {
-          parser->val.intval = getval(o4, input->cur, 10)
-              + (getval(o3, o4 - 1, 10) << 8)
-              + (getval(o2, o3 - 1, 10) << 16)
-              + (getval(o1, o2 - 1, 10) << 24);
+          parser->val.intval = getval(o4, input->cur, 10, &error)
+              + (getval(o3, o4 - 1, 10, &error) << 8)
+              + (getval(o2, o3 - 1, 10, &error) << 16)
+              + (getval(o1, o2 - 1, 10, &error) << 24);
           return PCAP_IPADDR;
       }
 
