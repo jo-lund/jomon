@@ -535,9 +535,9 @@ void print_dns(char *buf, int n, void *data)
     if (dns->qr == 0) {
         switch (dns->opcode) {
         case DNS_QUERY:
+            PRINT_INFO(buf, n, "Standard query");
             if (dns->question) {
-                PRINT_INFO(buf, n, "Standard query: ");
-                PRINT_INFO(buf, n, "%s ", dns->question[0].qname);
+                PRINT_INFO(buf, n, ": %s ", dns->question[0].qname);
                 PRINT_INFO(buf, n, "%s", get_dns_type(dns->question[0].qtype));
             }
             break;
