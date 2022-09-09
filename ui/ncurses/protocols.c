@@ -1572,13 +1572,13 @@ static void add_snmp_variables(list_view *lw, list_view_header *header, list_t *
 
         switch (var->type) {
         case SNMP_INTEGER_TAG:
-            hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "%s: %d",
+            hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER2], UI_SUBLAYER2, "%s: %d",
                                  var->object_name, var->object_syntax.ival);
             LV_ADD_TEXT_ELEMENT(lw, hdr, "Object name: %s", var->object_name);
             LV_ADD_TEXT_ELEMENT(lw, hdr, "Value: %d", var->object_syntax.ival);
             break;
         case SNMP_NULL_TAG:
-            hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "%s: null",
+            hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER2], UI_SUBLAYER2, "%s: null",
                                  var->object_name);
             LV_ADD_TEXT_ELEMENT(lw, hdr, "Object name: %s", var->object_name);
             LV_ADD_TEXT_ELEMENT(lw, hdr, "Value: null");
@@ -1598,12 +1598,12 @@ static void add_snmp_variables(list_view *lw, list_view_header *header, list_t *
                 snprintf(buf + 2 * i, 512 - 2 * i, "%02x", (unsigned char) var->object_syntax.pval[i]);
             }
             if (printable) {
-                hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "%s: %s",
+                hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER2], UI_SUBLAYER2, "%s: %s",
                                      var->object_name, var->object_syntax.pval);
                 LV_ADD_TEXT_ELEMENT(lw, hdr, "Object name: %s", var->object_name);
                 LV_ADD_TEXT_ELEMENT(lw, hdr, "Value: %s (%s)", var->object_syntax.pval, buf);
             } else {
-                hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "%s: %s",
+                hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER2], UI_SUBLAYER2, "%s: %s",
                                      var->object_name, buf);
                 LV_ADD_TEXT_ELEMENT(lw, hdr, "Object name: %s", var->object_name);
                 LV_ADD_TEXT_ELEMENT(lw, hdr, "Value: %s", buf);
@@ -1611,7 +1611,7 @@ static void add_snmp_variables(list_view *lw, list_view_header *header, list_t *
             break;
         }
         case SNMP_OBJECT_ID_TAG:
-            hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "%s: %s",
+            hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER2], UI_SUBLAYER2, "%s: %s",
                                  var->object_name, var->object_syntax.pval);
             LV_ADD_TEXT_ELEMENT(lw, hdr, "Object name: %s", var->object_name);
             LV_ADD_TEXT_ELEMENT(lw, hdr, "Value: %s", var->object_syntax.pval);
