@@ -80,7 +80,7 @@ static void main_screen_export_handle_ok(void *file);
 /* Handles subwindow layout */
 static void create_subwindow(main_screen *ms, int num_lines, int lineno);
 static void delete_subwindow(main_screen *ms, bool refresh);
-static bool inside_subwindow(main_screen *ms);
+static bool inside_subwindow(main_screen *ms, int line);
 static void refresh_pad(main_screen *ms, struct subwin_info *pad, int scrolly, int minx, bool update);
 static bool subwindow_on_screen(main_screen *ms);
 
@@ -253,22 +253,25 @@ void main_screen_refresh(screen *s)
         else
             add_winhexdump(ms->subwindow.win, 0, 2, hexmode,
                            vector_get(ms->packet_ref, ms->main_line.line_number));
-        if (inside_subwindow(ms))
+        if (inside_subwindow(ms, ms->base.selectionbar))
             UPDATE_SELECTIONBAR(ms->subwindow.win, s->selectionbar - s->top -
                                 ms->subwindow.top, SELECTIONBAR);
         refresh_pad(ms, &ms->subwindow, 0, ms->scrollx, false);
     }
     if (rbtree_size(ms->marked) > 0) {
         const rbtree_node_t *n;
+        int line;
 
         RBTREE_FOREACH(ms->marked, n) {
-            if (PTR_TO_UINT(rbtree_get_key(n)) - 1 >= (uint32_t) ms->base.top &&
-                PTR_TO_UINT(rbtree_get_key(n)) - 1 < (uint32_t) ms->base.top + my)
-                mvwchgat(ms->base.win, PTR_TO_UINT(rbtree_get_key(n)) - 1 - s->top, 0, -1, A_BOLD,
+            line = PTR_TO_UINT(rbtree_get_key(n)) - 1;
+            if (ms->subwindow.win && line - ms->base.top - ms->subwindow.top >= 0)
+                line += ms->subwindow.num_lines;
+            if (line >= ms->base.top && line < ms->base.top + my)
+                mvwchgat(ms->base.win, line, 0, -1, A_BOLD,
                          PAIR_NUMBER(get_theme_colour(MARK)), NULL);
         }
     }
-    if (s->show_selectionbar && !inside_subwindow(ms))
+    if (s->show_selectionbar && !inside_subwindow(ms, ms->base.selectionbar))
         UPDATE_SELECTIONBAR(s->win, s->selectionbar - s->top, SELECTIONBAR);
     print_header(ms);
     wnoutrefresh(ms->header);
@@ -499,7 +502,7 @@ void main_screen_get_input(screen *s)
     }
     switch (c) {
     case 'f':
-        if (s->show_selectionbar && !inside_subwindow(ms))
+        if (s->show_selectionbar && !inside_subwindow(ms, ms->base.selectionbar))
             follow_tcp_stream(ms);
         break;
     case 'g':
@@ -648,11 +651,16 @@ void main_screen_get_input(screen *s)
         handle_input_mode(ms, "Filter: ");
         break;
     case 'M':
-        if (!ctx.capturing && !inside_subwindow(ms)) {
-            if (rbtree_contains(ms->marked, UINT_TO_PTR(s->selectionbar + 1)))
-                rbtree_remove(ms->marked, UINT_TO_PTR(s->selectionbar + 1));
+        if (!ctx.capturing && !inside_subwindow(ms, ms->base.selectionbar)) {
+            int line = s->selectionbar;
+
+            if (ms->subwindow.win &&
+                line - ms->base.top - ms->subwindow.top >= ms->subwindow.num_lines)
+                line -= ms->subwindow.num_lines;
+            if (rbtree_contains(ms->marked, UINT_TO_PTR(line + 1)))
+                rbtree_remove(ms->marked, UINT_TO_PTR(line + 1));
             else
-                rbtree_insert(ms->marked, UINT_TO_PTR(s->selectionbar + 1), NULL);
+                rbtree_insert(ms->marked, UINT_TO_PTR(line + 1), NULL);
             actionbar_update(s, "F6", NULL, rbtree_size(ms->marked) == 0);
             main_screen_handle_keydown(ms, my);
         }
@@ -982,14 +990,14 @@ static void goto_selectable(main_screen *ms, int num_lines, int c)
     int subline;
     int scroll;
 
-    if (!ms->subwindow.win || !inside_subwindow(ms))
+    if (!ms->subwindow.win || !inside_subwindow(ms, ms->base.selectionbar))
         return;
     subline = ms->base.selectionbar - ms->base.top - ms->subwindow.top;
     if (c == KEY_DOWN) {
-        if (view_mode == HEXDUMP_VIEW && inside_subwindow(ms)) {
+        if (view_mode == HEXDUMP_VIEW && inside_subwindow(ms, ms->base.selectionbar)) {
             ms->base.selectionbar += (ms->subwindow.num_lines - subline);
         } else {
-            while (inside_subwindow(ms) && LV_GET_DATA(ms->lvw, subline) == -1 &&
+            while (inside_subwindow(ms, ms->base.selectionbar) && LV_GET_DATA(ms->lvw, subline) == -1 &&
                ms->base.selectionbar < vector_size(ms->packet_ref) +
                    ms->subwindow.num_lines - 1) {
                 ms->base.selectionbar++;
@@ -1002,10 +1010,10 @@ static void goto_selectable(main_screen *ms, int num_lines, int c)
             refresh_pad(ms, &ms->subwindow, -scroll, ms->scrollx, false);
         }
     } else {
-        if (view_mode == HEXDUMP_VIEW && inside_subwindow(ms)) {
+        if (view_mode == HEXDUMP_VIEW && inside_subwindow(ms, ms->base.selectionbar)) {
             ms->base.selectionbar -= (subline + 1);
         } else {
-            while (inside_subwindow(ms) && LV_GET_DATA(ms->lvw, subline) == -1 &&
+            while (inside_subwindow(ms, ms->base.selectionbar) && LV_GET_DATA(ms->lvw, subline) == -1 &&
                    ms->base.selectionbar > 0) {
                 ms->base.selectionbar--;
                 subline--;
@@ -1207,7 +1215,7 @@ void print_selected_packet(main_screen *ms)
     static int prev_selection = -1;
 
     if (prev_selection >= 0 && ms->subwindow.win) {
-        if (inside_subwindow(ms)) {
+        if (inside_subwindow(ms, ms->base.selectionbar)) {
             int subline;
             int32_t data;
 
@@ -1371,9 +1379,9 @@ void delete_subwindow(main_screen *ms, bool refresh)
 }
 
 /* Returns whether the selection line is inside the subwindow */
-static inline bool inside_subwindow(main_screen *ms)
+static inline bool inside_subwindow(main_screen *ms, int line)
 {
-    int subline = ms->base.selectionbar - ms->base.top - ms->subwindow.top;
+    int subline = line - ms->base.top - ms->subwindow.top;
 
     return ms->subwindow.win && subline >= 0 && subline < ms->subwindow.num_lines;
 }
