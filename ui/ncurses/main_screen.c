@@ -219,7 +219,7 @@ void main_screen_clear(main_screen *ms)
     ms->base.selectionbar = 0;
     ms->base.top = 0;
     ms->outy = 0;
-    main_screen_set_interactive(ms, false);
+    ms->base.show_selectionbar = false;
     werase(ms->header);
     werase(ms->base.win);
 }
