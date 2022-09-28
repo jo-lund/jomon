@@ -98,6 +98,7 @@ static int get_lbp(int token)
     case PCAP_UDP:
     case PCAP_PIM:
     case PCAP_VRRP:
+    case PCAP_LLC:
         return lbp[token];
     default:
         DEBUG("%s: Unexpected token %d", __func__, token);
@@ -269,6 +270,14 @@ static struct node *nud(int token, struct block **b)
             DEBUG("%s: Unexpected token %d", __func__, token);
             longjmp(env, -1);
         }
+    case PCAP_LLC:
+        state = PCAP_QUALIFIER;
+        make_leaf_node(n, token, 0);
+        (*b)->relop = 0;
+        (*b)->expr1 = n;
+        (*b)->op_inverse = true;
+        parser.token = get_token();
+        return n;
     case PCAP_LPAR:
         return parse_parexpr(b);
     case PCAP_NOT:

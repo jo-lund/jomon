@@ -1,0 +1,6 @@
+;;; not llc
+
+        ldh    [12]
+        jgt    #0x5dc, L1, L2
+L1:     ret    #-1
+L2:     ret    #0

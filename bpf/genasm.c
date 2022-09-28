@@ -24,6 +24,7 @@
 #define IP4_PROTOCOL_OFFSET 23
 #define IP6_NEXT_HDR_OFFSET 20
 #define IP6_HDR_LEN 40
+#define LLC_MAX 1500
 
 enum network {
     IP4,
@@ -293,7 +294,7 @@ static void gen_alux(struct node *n)
     regs[X] = 0;
 }
 
-static void gen_network(struct node *n, uint16_t ethertype)
+static void gen_network(struct node *n, uint16_t ethertype, uint16_t op)
 {
     struct bpf_insn *insn = calloc(1, sizeof(*insn));
 
@@ -302,7 +303,7 @@ static void gen_network(struct node *n, uint16_t ethertype)
     gen_lda(n, BPF_ABS);
     n->poff = alloc_offset();
     n->poff->offset = block_insn;
-    insn->code = BPF_JMP | BPF_JEQ | BPF_K;
+    insn->code = BPF_JMP | op | BPF_K;
     insn->k = ethertype;
     vector_push_back(code, insn);
     block_insn++;
@@ -317,15 +318,15 @@ static void gen_transport(struct block *b, struct node *n, uint32_t prot, int ne
     /* Block 1: Check if IPV4/IPV6 */
     switch (network) {
     case IP4:
-        gen_network(n, ETHERTYPE_IP);
+        gen_network(n, ETHERTYPE_IP, BPF_JEQ);
         n->k = IP4_PROTOCOL_OFFSET;
         break;
     case IP6:
-        gen_network(n, ETHERTYPE_IPV6);
+        gen_network(n, ETHERTYPE_IPV6, BPF_JEQ);
         n->k = IP6_NEXT_HDR_OFFSET; /* TODO: Check IPV6 fragmentation header */
         break;
     case BOTH:
-        gen_network(n, ETHERTYPE_IP); /* TODO: If not IPV4, check for IPV6 */
+        gen_network(n, ETHERTYPE_IP, BPF_JEQ); /* TODO: If not IPV4, check for IPV6 */
         n->k = IP4_PROTOCOL_OFFSET;
         break;
     }
@@ -395,24 +396,27 @@ static void genexpr(struct block *b, struct node *n, int op, int offset)
         gen_proto(b, n, op, offset);
         break;
     case PCAP_IP:
-        gen_network(n, ETHERTYPE_IP);
+        gen_network(n, ETHERTYPE_IP, BPF_JEQ);
         offset = NETWORK_OFFSET;
         gen_proto(b, n, op, offset);
         break;
     case PCAP_IP6:
-        gen_network(n, ETHERTYPE_IPV6);
+        gen_network(n, ETHERTYPE_IPV6, BPF_JEQ);
         offset = NETWORK_OFFSET;
         gen_proto(b, n, op, offset);
         break;
     case PCAP_ARP:
-        gen_network(n, ETHERTYPE_ARP);
+        gen_network(n, ETHERTYPE_ARP, BPF_JEQ);
         offset = NETWORK_OFFSET;
         gen_proto(b, n, op, offset);
         break;
     case PCAP_RARP:
-        gen_network(n, ETHERTYPE_REVARP);
+        gen_network(n, ETHERTYPE_REVARP, BPF_JEQ);
         offset = NETWORK_OFFSET;
         gen_proto(b, n, op, offset);
+        break;
+    case PCAP_LLC:
+        gen_network(n, LLC_MAX, BPF_JGT);
         break;
     case PCAP_TCP:
         gen_transport(b, n, IPPROTO_TCP, BOTH);
@@ -607,7 +611,7 @@ static int patch_jmp(struct block *b, struct block *e, int numi)
         if (b->p == NULL) {
             insn = vector_get(code, numi + b->insn - 1);
             if (insn && BPF_CLASS(insn->code) == BPF_JMP) {
-                if (b->inverse || b->op_inverse) {
+                if (b->inverse != b->op_inverse) {
                     set_jmp_offset(b, b->jt, e, &insn->jf, 0);
                     set_jmp_offset(b, b->jf, e, &insn->jt, 1);
                 } else {
