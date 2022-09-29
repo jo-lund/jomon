@@ -122,9 +122,16 @@ void screen_stack_move_to_top(struct screen *s);
 
 /*
  * When the scrollok option is enabled ncurses will wrap long lines at the
- * bottom of the screen. This function will print without line wrapping.
+ * bottom of the screen. This function will print without line wrapping. It will
+ * move the cursor location to the given coordinates before printing.
  */
 void mvprintnlw(WINDOW *win, int y, int x, int scrollx, const char *fmt, ...);
+
+/*
+ * Write the string 'str' to 'win' without line wrapping. It will move the cursor
+ * location to the given coordinates before printing.
+ */
+void mvputsnlw(WINDOW *win, int y, int x, int scrollx, char *str);
 
 /*
  * Print text in window with the specified attributes. It will start to print at

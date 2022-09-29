@@ -286,7 +286,7 @@ static void conversation_screen_render(conversation_screen *cs)
 
     for (int i = 0; i < my && i < vector_size(cs->base.packet_ref); i++) {
         write_to_buf(buf, MAXLINE, vector_get(cs->base.packet_ref, i));
-        mvprintnlw(s->win, i, 0, cs->base.scrollx, buf);
+        mvputsnlw(s->win, i, 0, cs->base.scrollx, buf);
     }
 }
 

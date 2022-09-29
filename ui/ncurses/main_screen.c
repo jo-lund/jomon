@@ -217,7 +217,7 @@ void main_screen_update(main_screen *ms, char *buf)
         my = getmaxy(ms->base.win);
         if (!ms->base.show_selectionbar || (ms->base.show_selectionbar && ms->outy < my)) {
             scroll_window(ms);
-            mvprintnlw(ms->base.win, ms->outy, 0, ms->scrollx, buf);
+            mvputsnlw(ms->base.win, ms->outy, 0, ms->scrollx, buf);
             ms->outy++;
             wrefresh(ms->base.win);
             if (input_mode == INPUT_FILTER || input_mode == INPUT_GOTO)
@@ -981,7 +981,7 @@ void print_new_packets(main_screen *ms)
 
         p = vector_get(ms->packet_ref, c);
         write_to_buf(buffer, MAXLINE, p);
-        mvprintnlw(ms->base.win, i, 0, ms->scrollx, buffer);
+        mvputsnlw(ms->base.win, i, 0, ms->scrollx, buffer);
     }
     ms->base.top = c + 1;
     ms->outy = my;
@@ -1201,12 +1201,12 @@ int print_lines(main_screen *ms, int from, int to, int y)
                 int n = strlen(buffer);
 
                 if (ms->scrollx < n) {
-                    mvprintnlw(ms->base.win, y++, 0, ms->scrollx, buffer);
+                    mvputsnlw(ms->base.win, y++, 0, ms->scrollx, buffer);
                 } else {
                     y++;
                 }
             } else {
-                mvprintnlw(ms->base.win, y++, 0, ms->scrollx, buffer);
+                mvputsnlw(ms->base.win, y++, 0, ms->scrollx, buffer);
             }
             from++;
         }

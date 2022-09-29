@@ -430,6 +430,17 @@ void mvprintnlw(WINDOW *win, int y, int x, int scrollx, const char *fmt, ...)
         mvwprintw(win, y, x, "%s", buf + scrollx);
 }
 
+void mvputsnlw(WINDOW *win, int y, int x, int scrollx, char *str)
+{
+    int mx = getmaxx(win);
+    int len = strlen(str);
+
+    if (mx + scrollx - 1 < len + x && mx + scrollx - 1 - x > 0)
+        str[mx + scrollx - 1 - x] = '\0';
+    if (scrollx < len)
+        mvwprintw(win, y, x, "%s", str + scrollx);
+}
+
 void colours_init(void)
 {
     use_default_colors();
