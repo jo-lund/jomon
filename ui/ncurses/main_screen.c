@@ -385,6 +385,10 @@ void main_screen_load_handle_ok(void *file)
         main_screen *ms = (main_screen *) screen_cache_get(MAIN_SCREEN);
         int n;
 
+        if (ms->subwindow.win) {
+            delete_subwindow(ms, false);
+            ms->main_line.selected = false;
+        }
         strcpy(filename, file);
         get_file_part(filename);
         if ((n = snprintf(title, MAXLINE, " Loading %s ", filename)) >= MAXLINE)
