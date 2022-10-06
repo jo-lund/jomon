@@ -602,6 +602,10 @@ void main_screen_get_input(screen *s)
         uid_t euid = geteuid();
 
         if (!ctx.capturing && euid == 0) {
+            if (ms->subwindow.win) {
+                delete_subwindow(ms, false);
+                ms->main_line.selected = false;
+            }
             main_screen_clear(ms);
             start_scan();
             print_header(ms);
