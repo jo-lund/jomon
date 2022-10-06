@@ -221,17 +221,18 @@ void linux_read_packet_mmap(iface_handle_t *handle)
     struct timeval val;
 
     bd = (struct tpacket_block_desc *) iov[handle->block_num].iov_base;
-    if ((bd->hdr.bh1.block_status & TP_STATUS_USER) == 0)
-        return;
-    hdr = (struct tpacket3_hdr *) ((unsigned char *) bd + bd->hdr.bh1.offset_to_first_pkt);
-    for (unsigned int i = 0; i < bd->hdr.bh1.num_pkts; i++) {
-        val.tv_sec = hdr->tp_sec;
-        val.tv_usec = hdr->tp_nsec;
-        handle->on_packet(handle, (unsigned char *) hdr + hdr->tp_mac, hdr->tp_snaplen, &val);
-        hdr = (struct tpacket3_hdr *) ((unsigned char *) hdr + hdr->tp_next_offset);
-    }
-    bd->hdr.bh1.block_status = TP_STATUS_KERNEL;
-    handle->block_num = (handle->block_num + 1) & (BLOCKNUMS - 1);
+    do {
+        hdr = (struct tpacket3_hdr *) ((unsigned char *) bd + bd->hdr.bh1.offset_to_first_pkt);
+        for (unsigned int i = 0; i < bd->hdr.bh1.num_pkts; i++) {
+            val.tv_sec = hdr->tp_sec;
+            val.tv_usec = hdr->tp_nsec;
+            handle->on_packet(handle, (unsigned char *) hdr + hdr->tp_mac, hdr->tp_snaplen, &val);
+            hdr = (struct tpacket3_hdr *) ((unsigned char *) hdr + hdr->tp_next_offset);
+        }
+        bd->hdr.bh1.block_status = TP_STATUS_KERNEL;
+        handle->block_num = (handle->block_num + 1) & (BLOCKNUMS - 1);
+        bd = (struct tpacket_block_desc *) iov[handle->block_num].iov_base;
+    } while ((bd->hdr.bh1.block_status & TP_STATUS_USER) == TP_STATUS_USER);
 }
 
 void linux_set_promiscuous(iface_handle_t *handle UNUSED, char *dev, bool enable)
