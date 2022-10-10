@@ -91,13 +91,6 @@ int main(int argc, char **argv)
 
     memset(&bpf, 0, sizeof(bpf));
     setlocale(LC_ALL, "");
-    ctx.opt.text_mode = false;
-    ctx.opt.nopromiscuous = false;
-    ctx.opt.verbose = false;
-    ctx.opt.load_file = false;
-    ctx.opt.nogeoip = false;
-    ctx.opt.show_statistics = false;
-    ctx.opt.numeric = false;
     while ((opt = getopt_long(argc, argv, SHORT_OPTS, long_options, &idx)) != -1) {
         switch (opt) {
         case 'F':
@@ -107,6 +100,7 @@ int main(int argc, char **argv)
             ctx.opt.nogeoip = true;
             break;
         case 'N':
+            ctx.opt.no_domain = true;
             break;
         case 'd':
             ctx.opt.dmode++;

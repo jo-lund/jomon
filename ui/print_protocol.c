@@ -236,6 +236,27 @@ void print_snap(char *buf, int n, void *data)
                snap->oui, snap->protocol_id);
 }
 
+/*
+ * Convert the network address 'src' into a string in 'dst', or store the
+ * host name if that is available.
+ */
+static void get_name_or_address(const uint32_t src, char *dst)
+{
+    struct host_info *host;
+    char *p;
+
+    if ((host = host_get_ip4host(src)) && host->name) {
+        strncpy(dst, host->name, HOSTNAMELEN);
+        if (ctx.opt.no_domain) {
+            if ((p = strchr(dst, '.')))
+                *p = '\0';
+        }
+        string_truncate(dst, HOSTNAMELEN, ADDR_WIDTH - 1);
+    } else {
+        inet_ntop(AF_INET, &src, dst, INET_ADDRSTRLEN);
+    }
+}
+
 void print_ipv4(char *buf, int n, void *data)
 {
     struct packet *p = data;
@@ -249,20 +270,8 @@ void print_ipv4(char *buf, int n, void *data)
         inet_ntop(AF_INET, &ip->src, src, INET_ADDRSTRLEN);
         inet_ntop(AF_INET, &ip->dst, dst, INET_ADDRSTRLEN);
     } else {
-        struct host_info *host;
-
-        if ((host = host_get_ip4host(ip->src)) && host->name) {
-            strncpy(src, host->name, HOSTNAMELEN);
-            string_truncate(src, HOSTNAMELEN, ADDR_WIDTH - 1);
-        } else {
-            inet_ntop(AF_INET, &ip->src, src, INET_ADDRSTRLEN);
-        }
-        if ((host = host_get_ip4host(ip->dst)) && host->name) {
-            strncpy(dst, host->name, HOSTNAMELEN);
-            string_truncate(dst, HOSTNAMELEN, ADDR_WIDTH - 1);
-        } else {
-            inet_ntop(AF_INET, &ip->dst, dst, INET_ADDRSTRLEN);
-        }
+        get_name_or_address(ip->src, src);
+        get_name_or_address(ip->dst, dst);
     }
     PRINT_ADDRESS(buf, n, src, dst);
     if (pdata->next && pdata->next->data && (pinfo = get_protocol(pdata->next->id))) {
