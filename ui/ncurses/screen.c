@@ -158,6 +158,7 @@ void screen_get_input(screen *s)
             pop_screen();
         }
         break;
+    case '?':
     case KEY_F(1):
         screen_stack_move_to_top(screen_cache_get(HELP_SCREEN));
         break;

@@ -49,7 +49,7 @@ static void help_screen_render(void)
     wprintw(win, ": Change between numerical or resolved addresses");
     mvprintat(win, ++y, x, subcol, "%12s", "p/P");
     wprintw(win, ": Switch to next/previous page (where applicable)");
-    mvprintat(win, ++y, x, subcol, "%12s", "F1");
+    mvprintat(win, ++y, x, subcol, "%12s", "? F1");
     wprintw(win, ": Show help");
     mvprintat(win, ++y, x, subcol, "%12s", "F2");
     wprintw(win, ": Show menu");
