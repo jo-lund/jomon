@@ -72,7 +72,6 @@ static void connection_screen_lost_focus();
 static unsigned int connection_screen_get_size(screen *s);
 static void connection_screen_on_back(screen *s);
 static void connection_screen_render(connection_screen *cs);
-static void update_connection(struct tcp_connection_v4 *c, bool new_connection);
 static void print_all_connections(connection_screen *cs);
 static void print_conn_header(connection_screen *cs);
 
@@ -311,8 +310,6 @@ void connection_screen_got_focus(screen *s, screen *oldscr UNUSED)
     if (!active) {
         s->top = 0;
         update_header(s);
-        update_screen_buf(s);
-        tcp_analyzer_subscribe(update_connection);
         active = true;
     }
     if (ctx.capturing)
@@ -327,7 +324,6 @@ void connection_screen_lost_focus()
 
 void connection_screen_on_back(screen *s)
 {
-    tcp_analyzer_unsubscribe(update_connection);
     vector_clear(((connection_screen *) s)->screen_buf, NULL);
     active = false;
 }
@@ -360,7 +356,6 @@ void connection_screen_get_input(screen *s)
     case 'f':
         s->top = 0;
         mode = (mode + 1) % NUM_MODES;
-        update_screen_buf(s);
         connection_screen_refresh(s);
         break;
     case 'p':
@@ -369,7 +364,6 @@ void connection_screen_get_input(screen *s)
         if (view == CONNECTION_PAGE && s->show_selectionbar)
             s->show_selectionbar = false;
         view = (view + 1) % s->num_pages;
-        update_screen_buf(s);
         if (s->num_pages > 1)
             s->top = 0;
         connection_screen_refresh(s);
@@ -391,30 +385,10 @@ void connection_screen_render(connection_screen *cs)
 {
     touchwin(cs->header);
     touchwin(cs->base.win);
+    update_screen_buf((screen *) cs);
     print_conn_header(cs);
     print_all_connections(cs);
     actionbar_refresh(actionbar, (screen *) cs);
-}
-
-void update_connection(struct tcp_connection_v4 *conn, bool new_connection)
-{
-    connection_screen *cs = (connection_screen *) screen_cache_get(CONNECTION_SCREEN);
-
-    if (!new_connection)
-        return;
-    if (view == PROCESS_PAGE) {
-        if (cs->base.focus) {
-            update_screen_buf((screen *) cs);
-            actionbar_refresh(actionbar, (screen *) cs);
-        }
-    } else {
-        vector_push_back(cs->screen_buf, conn);
-        if (cs->base.focus) {
-            werase(cs->header);
-            print_conn_header(cs);
-            actionbar_refresh(actionbar, (screen *) cs);
-        }
-    }
 }
 
 void print_conn_header(connection_screen *cs)
