@@ -27,13 +27,16 @@
 #define PRINT_NUMBER(buffer, n, i)                  \
     snprintf(buffer, n, "%-" STR(NUM_WIDTH) "u", i)
 #define PRINT_TIME(buffer, n, t)                    \
-    snprintcat(buffer, n, "%-" STR(TIME_WIDTH) "s", t)
+    snprintf(buffer + NUM_WIDTH, n - NUM_WIDTH, "%-" STR(TIME_WIDTH) "s", t)
 #define PRINT_ADDRESS(buffer, n, src, dst)                              \
-    snprintcat(buffer, n, "%-" STR(ADDR_WIDTH) "s" "%-" STR(ADDR_WIDTH) "s", src, dst)
+    snprintf(buffer + NUM_WIDTH + TIME_WIDTH, n - NUM_WIDTH - TIME_WIDTH, \
+             "%-" STR(ADDR_WIDTH) "s" "%-" STR(ADDR_WIDTH) "s", src, dst)
 #define PRINT_PROTOCOL(buffer, n, prot)                     \
-    snprintcat(buffer, n, "%-" STR(PROT_WIDTH) "s", prot)
-#define PRINT_INFO(buffer, n, fmt, ...)         \
-    snprintcat(buffer, n, fmt, ## __VA_ARGS__)
+    snprintf(buffer + NUM_WIDTH + TIME_WIDTH + 2 * ADDR_WIDTH, n - NUM_WIDTH - TIME_WIDTH - 2 * ADDR_WIDTH, \
+             "%-" STR(PROT_WIDTH) "s", prot)
+#define PRINT_INFO(buffer, n, fmt, ...) \
+    snprintcat(buffer, n, fmt, ##__VA_ARGS__)
+
 #define PRINT_LINE(buffer, n, i, t, src, dst, prot, fmt, ...)   \
     do {                                                        \
         PRINT_NUMBER(buffer, n, i);                             \
@@ -58,7 +61,7 @@ void write_to_buf(char *buf, int size, struct packet *p)
         format_timeval(&t, time, TBUFLEN);
         PRINT_NUMBER(buf, size, p->num);
         PRINT_TIME(buf, size, time);
-        pinfo->print_pdu(buf, size, p);
+        pinfo->print_pdu(buf, size, p->root->next);
     } else if (p->len - ETHER_HDR_LEN)
         print_error(buf, size, p);
 }
@@ -162,8 +165,8 @@ void print_nbns_record(struct nbns_info *info, int i, char *buf, int n)
 
 void print_arp(char *buf, int n, void *data)
 {
-    struct packet *p = data;
-    struct arp_info *arp = get_arp(p);
+    struct packet_data *pdata = data;
+    struct arp_info *arp = pdata->data;
     char sip[INET_ADDRSTRLEN];
     char tip[INET_ADDRSTRLEN];
     char sha[HW_ADDRSTRLEN];
@@ -188,21 +191,27 @@ void print_arp(char *buf, int n, void *data)
 
 void print_llc(char *buf, int n, void *data)
 {
-    struct packet *p = data;
-    struct packet_data *pdata = p->root->next;
+    struct packet_data *pdata = data;
+    struct eth_802_llc *llc = pdata->data;
     struct protocol_info *pinfo = NULL;
+    struct packet_data *root;
+    struct eth_info *eth;
     char smac[HW_ADDRSTRLEN];
     char dmac[HW_ADDRSTRLEN];
 
-    HW_ADDR_NTOP(smac, eth_src(p));
-    HW_ADDR_NTOP(dmac, eth_dst(p));
+    root = pdata;
+    while (root->prev)
+        root = root->prev;
+    eth = root->data;
+    HW_ADDR_NTOP(smac, eth->mac_src);
+    HW_ADDR_NTOP(dmac, eth->mac_dst);
     PRINT_ADDRESS(buf, n, smac, dmac);
     if (pdata->next && pdata->next->data && (pinfo = get_protocol(pdata->next->id))) {
         pinfo->print_pdu(buf, n, pdata->next);
     } else {
         PRINT_PROTOCOL(buf, n, "LLC");
         PRINT_INFO(buf, n, "SSAP: 0x%x  DSAP: 0x%x  Control: 0x%x",
-                   llc_ssap(p), llc_dsap(p), llc_control(p));
+                   llc->ssap, llc->dsap, llc->control);
     }
 }
 
@@ -259,8 +268,7 @@ static void get_name_or_address(const uint32_t src, char *dst)
 
 void print_ipv4(char *buf, int n, void *data)
 {
-    struct packet *p = data;
-    struct packet_data *pdata = p->root->next;
+    struct packet_data *pdata = data;
     struct ipv4_info *ip = pdata->data;
     char src[HOSTNAMELEN+1];
     char dst[HOSTNAMELEN+1];
@@ -284,8 +292,7 @@ void print_ipv4(char *buf, int n, void *data)
 
 void print_ipv6(char *buf, int n, void *data)
 {
-    struct packet *p = data;
-    struct packet_data *pdata = p->root->next;
+    struct packet_data *pdata = data;
     struct ipv6_info *ip = pdata->data;
     char src[INET6_ADDRSTRLEN];
     char dst[INET6_ADDRSTRLEN];

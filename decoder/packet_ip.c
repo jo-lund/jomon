@@ -79,6 +79,7 @@ static struct protocol_info ipv4_prot = {
 void register_ip(void)
 {
     register_protocol(&ipv4_prot, ETHERNET_II, ETHERTYPE_IP);
+    register_protocol(&ipv4_prot, IP_PROTOCOL, IPPROTO_IPIP);
 }
 
 static packet_error parse_options(struct ipv4_info *ip, unsigned char **buf, int n)
