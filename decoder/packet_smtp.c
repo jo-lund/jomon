@@ -212,7 +212,8 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
     if (smtp_state->state == DATA || smtp_state->state == BDAT) {
         smtp->data = (char *) buf;
         smtp->len = n;
-        if (smtp_state->state == DATA && strncmp(smtp->data, "\r\n.\r\n", 5) == 0) {
+        if (smtp_state->state == DATA && n >= 5 &&
+            strncmp(smtp->data + n - 5, "\r\n.\r\n", 5) == 0) {
             smtp_state->state = NORMAL;
         } else if (smtp_state->state == BDAT) {
             smtp_state->chunk_size -= n;
