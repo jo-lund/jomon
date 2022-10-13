@@ -33,7 +33,7 @@ L3: ret    #0
 can only be specified as a capture filter and read from file with the **-F**
 option on the command line.
 
-### Build
+### Build and installation
 
 ```
 $ ./configure
@@ -53,6 +53,12 @@ $ ./configure --disable-geoip
 Display help
 ```
 $ ./configure --help
+```
+
+#### Arch Linux
+To install on Arch Linux
+```
+$ pacman -S monitor
 ```
 
 #### FreeBSD
