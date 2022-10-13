@@ -1016,6 +1016,8 @@ static void goto_selectable(main_screen *ms, int num_lines, int c)
     if (c == KEY_DOWN) {
         if (view_mode == HEXDUMP_VIEW && inside_subwindow(ms, ms->base.selectionbar)) {
             ms->base.selectionbar += (ms->subwindow.num_lines - subline);
+            if (ms->base.selectionbar > vector_size(ms->packet_ref))
+                ms->base.selectionbar = vector_size(ms->packet_ref) - 1;
         } else {
             while (inside_subwindow(ms, ms->base.selectionbar) && LV_GET_DATA(ms->lvw, subline) == -1 &&
                ms->base.selectionbar < vector_size(ms->packet_ref) +
