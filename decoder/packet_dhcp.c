@@ -600,6 +600,10 @@ char *get_dhcp_option_type(uint8_t type)
         return "Client System Architecture";
     case DHCP_CLIENT_NDI:
         return "Client Network Interface Identifier";
+    case DHCP_CLASSLESS_STATIC_ROUTE:
+        return "Classless Static Route";
+    case DHCP_MS_CLASSLESS_STATIC_ROUTE:
+        return "Microsoft Classless Static Route";
     case 252:
         return "Private Use";
     case DHCP_END_OPTION:

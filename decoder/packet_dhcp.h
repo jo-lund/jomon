@@ -92,6 +92,8 @@
 #define DHCP_LDAP_SERVERS 95 /* RFC 3679 */
 #define DHCP_UUID_CLIENT_ID 97
 #define DHCP_DOMAIN_SEARCH 119 /* RFC 3397 */
+#define DHCP_CLASSLESS_STATIC_ROUTE 121 /* RFC 3442 */
+#define DHCP_MS_CLASSLESS_STATIC_ROUTE 249
 
 /* DHCP client architecture type */
 #define IA_X86_PC 0
