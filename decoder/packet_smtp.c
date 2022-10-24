@@ -127,10 +127,11 @@ static bool parse_line(struct smtp_info *smtp, struct smtp_data *data, char *buf
     p = buf + *i;
     while (*p == ' ') {
         p++;
-        ++*i;
+        if (++*i >= n)
+            return false;
     }
     c = *i;
-    while (isascii(*p) && *i < n) {
+    while (*i < n && isascii(*p)) {
         if (*p == '\r') {
             if (*++p == '\n') {
                 *i += 2;
@@ -239,7 +240,8 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
             rsp->code = 0;
             while (isdigit(*p) && j++ < REPLY_CODE_DIGITS) {
                 rsp->code = 10 * rsp->code + (*p++ - '0');
-                i++;
+                if (++i >= n)
+                    goto error;
             }
             if (isdigit(*p))
                 goto error;
@@ -295,7 +297,7 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
             int j = 0;
             unsigned char *s = p;
 
-            while (isprint(*p) && *p != ' ' && i < n) {
+            while (i < n && isprint(*p) && *p != ' ') {
                 if (i++ >= MAXLENGTH)
                     goto error;
                 p++;
