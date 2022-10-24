@@ -248,14 +248,12 @@ packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int
     uint32_t id;
     struct protocol_info *layer3;
 
-    pinfo->num_packets++;
-    pinfo->num_bytes += n;
     ipv4 = mempool_alloc(sizeof(struct ipv4_info));
     pdata->data = ipv4;
     ipv4->version = (buffer[0] & 0xf0) >> 4;
     ipv4->ihl = (buffer[0] & 0x0f);
     if (n < ipv4->ihl * 4 || ipv4->ihl < 5)
-        goto error;
+        goto ip_error;
     header_len = ipv4->ihl * 4;
     pdata->len = header_len;
 
@@ -282,24 +280,32 @@ packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int
     ipv4->opt = NULL;
     if (ipv4->ihl > 5) {
         if (parse_options(ipv4, &buffer, (ipv4->ihl - 5) * 4) != NO_ERR)
-            return DECODE_ERR;
+            goto ip_error;
     }
     if (ipv4->length < header_len || /* total length less than header length */
         ipv4->length > n) { /* total length greater than packet length */
-        return DECODE_ERR;
+        goto ip_error;
     }
     id = get_protocol_id(IP_PROTOCOL, ipv4->protocol);
     layer3 = get_protocol(id);
     if (layer3) {
+        packet_error err;
+
         pdata->next = mempool_alloc(sizeof(struct packet_data));
         memset(pdata->next, 0, sizeof(struct packet_data));
         pdata->next->prev = pdata;
         pdata->next->id = id;
-        return layer3->decode(layer3, buffer, n - header_len, pdata->next);
+        err = layer3->decode(layer3, buffer, n - header_len, pdata->next);
+        if (err != NO_ERR) {
+            mempool_free(pdata->next);
+            pdata->next = NULL;
+        }
     }
+    pinfo->num_packets++;
+    pinfo->num_bytes += n;
     return NO_ERR;
 
-error:
+ip_error:
     mempool_free(ipv4);
     pdata->data = NULL;
     return DECODE_ERR;

@@ -43,15 +43,12 @@ packet_error handle_udp(struct protocol_info *pinfo, unsigned char *buffer, int 
     struct udp_info *info;
 
     info = mempool_alloc(sizeof(struct udp_info));
-    pinfo->num_packets++;
-    pinfo->num_bytes += n;
     udp = (struct udphdr *) buffer;
     info->sport = ntohs(udp->uh_sport);
     info->dport = ntohs(udp->uh_dport);
     info->len = ntohs(udp->uh_ulen);
-    if (info->len < UDP_HDR_LEN || info->len > n) {
-        return DECODE_ERR;
-    }
+    if (info->len < UDP_HDR_LEN || info->len > n)
+        goto udp_error;
     info->checksum = ntohs(udp->uh_sum);
     pdata->data = info;
     pdata->len = UDP_HDR_LEN;
@@ -60,8 +57,15 @@ packet_error handle_udp(struct protocol_info *pinfo, unsigned char *buffer, int 
             error = call_data_decoder(get_protocol_id(PORT, *((uint16_t *) info + i)),
                                       pdata, IPPROTO_UDP, buffer + UDP_HDR_LEN, n - UDP_HDR_LEN);
             if (error != UNK_PROTOCOL)
-                return error;
+                return NO_ERR;
         }
     }
-    return error;
+    pinfo->num_packets++;
+    pinfo->num_bytes += n;
+    return NO_ERR;
+
+udp_error:
+    mempool_free(info);
+    pdata->data = NULL;
+    return DECODE_ERR;
 }

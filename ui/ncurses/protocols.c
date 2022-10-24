@@ -2202,7 +2202,7 @@ void add_vrrp_information(void *w, void *sw, void *data)
     if ((type = get_vrrp_type(vrrp->type)))
         LV_ADD_TEXT_ELEMENT(lv, header, "Type: %s (%u)", type, vrrp->type);
     else
-        LV_ADD_TEXT_ELEMENT(lv, header, "Type: %s (%u)", vrrp->type);
+        LV_ADD_TEXT_ELEMENT(lv, header, "Type: (%u)", vrrp->type);
     LV_ADD_TEXT_ELEMENT(lv, header, "Virtual router ID: %u", vrrp->vrid);
     LV_ADD_TEXT_ELEMENT(lv, header, "Priority: %s (%u)",
                         get_vrrp_priority(vrrp->priority), vrrp->priority);

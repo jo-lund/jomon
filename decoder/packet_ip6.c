@@ -74,8 +74,6 @@ packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int
     if ((unsigned int) n < header_len)
         return DECODE_ERR;
 
-    pinfo->num_packets++;
-    pinfo->num_bytes += n;
     ip6 = (struct ip6_hdr *) buffer;
     ipv6 = mempool_alloc(sizeof(struct ipv6_info));
     pdata->data = ipv6;
@@ -93,12 +91,20 @@ packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int
     // TODO: Handle IPv6 extension headers and errors
     struct protocol_info *layer3 = get_protocol(id);
     if (layer3) {
+        packet_error err;
+
         pdata->next = mempool_alloc(sizeof(struct packet_data));
         memset(pdata->next, 0, sizeof(struct packet_data));
         pdata->next->prev = pdata;
         pdata->next->id = id;
-        return layer3->decode(layer3, buffer + header_len, n - header_len, pdata->next);
+        err = layer3->decode(layer3, buffer + header_len, n - header_len, pdata->next);
+        if (err != NO_ERR) {
+            mempool_free(pdata->next);
+            pdata->next = NULL;
+        }
     }
+    pinfo->num_packets++;
+    pinfo->num_bytes += n;
     return NO_ERR;
 }
 
@@ -106,9 +112,10 @@ int parse_ipv6_addr(uint8_t *addrs, int count, unsigned char **buf, int n)
 {
     unsigned char *p = *buf;
 
-    for (int i = 0; i < count && (unsigned int) n >= 16; i++) {
-        memcpy(addrs, buf, 16);
+    for (int i = 0; i < count && n >= 16; i++) {
+        memcpy(addrs, p, 16);
         n -= 16;
+        p += 16;
     }
     *buf = p;
     return n;
