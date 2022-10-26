@@ -236,7 +236,7 @@ static void add_ipv4_options(struct ipv4_info *ip, list_view *lw, list_view_head
                         LV_ADD_TEXT_ELEMENT(lw, sub, "Timestamp: %s",
                                             get_time_from_ms_ut(*opt->timestamp.ts->timestamp, time, 32));
                     else
-                        LV_ADD_TEXT_ELEMENT(lw, sub, "Timestamp: %d", opt->timestamp.ts->timestamp);
+                        LV_ADD_TEXT_ELEMENT(lw, sub, "Timestamp: %d", *opt->timestamp.ts->timestamp);
                 }
                 break;
             case IP_TS_ADDR:
@@ -247,7 +247,7 @@ static void add_ipv4_options(struct ipv4_info *ip, list_view *lw, list_view_head
                         LV_ADD_TEXT_ELEMENT(lw, sub, "Timestamp: %s",
                                             get_time_from_ms_ut(*opt->timestamp.ts->timestamp, time, 32));
                     else
-                        LV_ADD_TEXT_ELEMENT(lw, sub, "Timestamp: %d", opt->timestamp.ts->timestamp);
+                        LV_ADD_TEXT_ELEMENT(lw, sub, "Timestamp: %d", *opt->timestamp.ts->timestamp);
                     inet_ntop(AF_INET, ip->opt->route.route_data + i, addr, INET_ADDRSTRLEN);
                     LV_ADD_TEXT_ELEMENT(lw, sub, "Address %d: %s", i + 1, addr);
                 }
@@ -314,7 +314,7 @@ void add_ipv4_information(void *w, void *sw, void *data)
             snprintcat(buf, MAXLINE, "More Fragments ");
     }
     snprintcat(buf, MAXLINE, "(0x%x)", flags);
-    hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_FLAGS], UI_FLAGS, "%s", buf, flags);
+    hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_FLAGS], UI_FLAGS, "%s", buf);
     add_flags(lw, hdr, flags, get_ipv4_flags(), get_ipv4_flags_size());
     LV_ADD_TEXT_ELEMENT(lw, header, "Fragment offset: %u", get_ipv4_foffset(ip));
     LV_ADD_TEXT_ELEMENT(lw, header, "Time to live: %u", ip->ttl);
@@ -1551,7 +1551,8 @@ void add_http_information(void *w, void *sw, void *data)
     LV_ADD_TEXT_ELEMENT(lw, header, "%s", http->start_line);
     n = rbtree_first(http->header);
     while (n) {
-        LV_ADD_TEXT_ELEMENT(lw, header, "%s: %s", rbtree_get_key(n), rbtree_get_data(n));
+        LV_ADD_TEXT_ELEMENT(lw, header, "%s: %s", (char *) rbtree_get_key(n),
+                            (char *) rbtree_get_data(n));
         n = rbtree_next(http->header, n);
     }
     if (http->len) {
@@ -1750,7 +1751,7 @@ void add_smtp_information(void *w, void *sw, void *data)
                     LV_ADD_TEXT_ELEMENT(lw, header, "Reply code %d", rsp->code);
                 DLIST_FOREACH(rsp->lines, line)
                     LV_ADD_TEXT_ELEMENT(lw, header, "Reply parameters: %s",
-                                        list_data(line));
+                                        (char *) list_data(line));
             }
         } else {
             const node_t *n;
@@ -1906,7 +1907,7 @@ static void add_dhcp_options(list_view *lw, list_view_header *header, struct dhc
         {
             list_view_header *fhdr;
 
-            fhdr = LV_ADD_SUB_HEADER(lw, opthdr, selected[UI_FLAGS], UI_FLAGS, "Flags", opt->fqdn.flags);
+            fhdr = LV_ADD_SUB_HEADER(lw, opthdr, selected[UI_FLAGS], UI_FLAGS, "Flags: 0x%x", opt->fqdn.flags);
             add_flags(lw, fhdr, opt->fqdn.flags, get_dhcp_fqdn_flags(), get_dhcp_fqdn_flags_size());
             LV_ADD_TEXT_ELEMENT(lw, opthdr, "RCODE1: 0x%x", opt->fqdn.rcode1);
             LV_ADD_TEXT_ELEMENT(lw, opthdr, "RCODE2: 0x%x", opt->fqdn.rcode2);

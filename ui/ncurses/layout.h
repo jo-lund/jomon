@@ -2,6 +2,7 @@
 #define LAYOUT_H
 
 #include <ncurses.h>
+#include "attributes.h"
 
 #define KEY_ESC 27
 #define KEY_CTRL_DOWN 0x20e
@@ -125,7 +126,7 @@ void screen_stack_move_to_top(struct screen *s);
  * bottom of the screen. This function will print without line wrapping. It will
  * move the cursor location to the given coordinates before printing.
  */
-void mvprintnlw(WINDOW *win, int y, int x, int scrollx, const char *fmt, ...);
+void mvprintnlw(WINDOW *win, int y, int x, int scrollx, const char *fmt, ...) PRINTF_FORMAT(5, 6);
 
 /*
  * Write the string 'str' to 'win' without line wrapping. It will move the cursor
@@ -137,13 +138,13 @@ void mvputsnlw(WINDOW *win, int y, int x, int scrollx, char *str);
  * Print text in window with the specified attributes. It will start to print at
  * the current cursor location.
  */
-void printat(WINDOW *win, int attrs, const char *fmt, ...);
+void printat(WINDOW *win, int attrs, const char *fmt, ...) PRINTF_FORMAT(3, 4);
 
 /*
  * Print text in window with the specified attributes. It will move the cursor
  * location to the given coordinates before printing.
  */
-void mvprintat(WINDOW *win, int y, int x, int attrs, const char *fmt, ...);
+void mvprintat(WINDOW *win, int y, int x, int attrs, const char *fmt, ...) PRINTF_FORMAT(5, 6);
 
 /* Return the element colour based on which theme is active */
 int get_theme_colour(enum elements elem);

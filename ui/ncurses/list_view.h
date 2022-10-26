@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <ncurses.h>
 #include "list.h"
+#include "attributes.h"
 
 /*
  * Convenience macros that will call the functions defined in list_view.
@@ -48,10 +49,11 @@ typedef struct lw {
 
     /* Adds a header as a sub element to another header */
     list_view_header* (*add_sub_header)(struct lw *this, list_view_header *header, bool expanded,
-                                      uint32_t data, char *txt, ...);
+                                      uint32_t data, char *txt, ...) PRINTF_FORMAT(5, 6);
 
     /* Adds a text element to the list view. */
-    list_view_item* (*add_text_element)(struct lw *this, list_view_header *header, char *txt, ...);
+    list_view_item* (*add_text_element)(struct lw *this, list_view_header *header, char *txt, ...)
+        PRINTF_FORMAT(3, 4);
 
     /* Sets the header on line 'i' to expanded */
     void (*set_expanded)(struct lw *this, int i, bool expanded);
@@ -69,7 +71,7 @@ typedef struct lw {
     void (*render)(struct lw *this, WINDOW *win);
 } list_view;
 
-list_view *create_list_view();
+list_view *create_list_view(void);
 void free_list_view(list_view *lw);
 
 #endif

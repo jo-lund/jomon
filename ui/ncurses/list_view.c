@@ -28,7 +28,7 @@ static int get_size(list_t *widgets);
 static bool header_expanded(list_view_header *header);
 static list_view_header *get_prev_subheader(list_t *subwidgets);
 
-list_view *create_list_view()
+list_view *create_list_view(void)
 {
     list_view *widget = malloc(sizeof(list_view));
 

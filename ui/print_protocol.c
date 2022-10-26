@@ -227,7 +227,7 @@ void print_stp(char *buf, int n, void *data)
         break;
     case RST:
         PRINT_INFO(buf, n, "Rapid Spanning Tree BPDU. Root Path Cost: %u  Port ID: 0x%x",
-                   stp->root_pc, stp->root_id);
+                   stp->root_pc, stp->port_id);
         break;
     case TCN:
         PRINT_INFO(buf, n, "Topology Change Notification BPDU");
@@ -242,7 +242,7 @@ void print_snap(char *buf, int n, void *data)
 
     PRINT_PROTOCOL(buf, n, "SNAP");
     PRINT_INFO(buf, n, "OUI: 0x%06x  Protocol Id: 0x%04x",
-               snap->oui, snap->protocol_id);
+               snap->oui[0] << 16 | snap->oui[1] << 8 | snap->oui[2], snap->protocol_id);
 }
 
 /*
@@ -694,7 +694,7 @@ void print_smtp(char *buf, int n, void *data)
                 rsp = list_data(node);
                 PRINT_INFO(buf, n, "%d%c", rsp->code, list_size(rsp->lines) > 1 ? '-' : ' ');
                 DLIST_FOREACH(rsp->lines, line) {
-                    PRINT_INFO(buf, n, "%s  ", list_data(line));
+                    PRINT_INFO(buf, n, "%s  ", (char *) list_data(line));
                 }
             }
         } else {

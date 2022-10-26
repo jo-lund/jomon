@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <string.h>
+#include "attributes.h"
 
 struct uint_string {
     uint32_t val;
@@ -25,7 +26,7 @@ static inline int cmp_str(const void *c1, const void *c2)
  *
  * Returns the number of bytes written.
  */
-int snprintcat(char *buf, int size, char *fmt, ...);
+int snprintcat(char *buf, int size, char *fmt, ...) PRINTF_FORMAT(3, 4);
 
 /* Converts str to lower case */
 char *string_tolower(char *str);

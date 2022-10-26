@@ -29,4 +29,10 @@
 #define CONSTRUCTOR
 #endif
 
+#if __has_attribute(format)
+#define PRINTF_FORMAT(x, y) __attribute__((format(printf, x, y)))
+#else
+#define PRINTF_FORMAT(x, y)
+#endif
+
 #endif
