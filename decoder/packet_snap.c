@@ -2,6 +2,8 @@
 #include "packet_llc.h"
 #include "../util.h"
 
+#define SNAP_HDR_LEN 5
+
 extern void add_snap_information(void *w, void *sw, void *data);
 extern void print_snap(char *buf, int n, void *data);
 
@@ -13,7 +15,7 @@ static struct protocol_info snap_prot = {
     .add_pdu = add_snap_information
 };
 
-void register_snap()
+void register_snap(void)
 {
     register_protocol(&snap_prot, ETH802_3, ETH_802_SNAP);
 }
@@ -22,6 +24,9 @@ packet_error handle_snap(struct protocol_info *pinfo, unsigned char *buffer, int
                          struct packet_data *pdata)
 {
     struct snap_info *snap;
+
+    if (n < SNAP_HDR_LEN)
+        return DECODE_ERR;
 
     pinfo->num_packets++;
     pinfo->num_bytes += n;
