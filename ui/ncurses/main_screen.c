@@ -279,7 +279,7 @@ void main_screen_refresh(screen *s)
             if (ms->subwindow.win && line - ms->base.top - ms->subwindow.top >= 0)
                 line += ms->subwindow.num_lines;
             if (line >= ms->base.top && line < ms->base.top + my)
-                mvwchgat(ms->base.win, line, 0, -1, A_BOLD,
+                mvwchgat(ms->base.win, line - ms->base.top, 0, -1, A_BOLD,
                          PAIR_NUMBER(get_theme_colour(MARK)), NULL);
         }
     }
