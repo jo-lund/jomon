@@ -232,22 +232,22 @@ static void add_ipv4_options(struct ipv4_info *ip, list_view *lw, list_view_head
             case IP_TS_ONLY:
                 nelem = (opt->length - 4) / 4;
                 for (int i = 0; i < nelem; i++) {
-                    if (IP_STANDARD_TS(*opt->timestamp.ts->timestamp))
+                    if (IP_STANDARD_TS(*opt->timestamp.ts.timestamp))
                         LV_ADD_TEXT_ELEMENT(lw, sub, "Timestamp: %s",
-                                            get_time_from_ms_ut(*opt->timestamp.ts->timestamp, time, 32));
+                                            get_time_from_ms_ut(*opt->timestamp.ts.timestamp, time, 32));
                     else
-                        LV_ADD_TEXT_ELEMENT(lw, sub, "Timestamp: %d", *opt->timestamp.ts->timestamp);
+                        LV_ADD_TEXT_ELEMENT(lw, sub, "Timestamp: %d", *opt->timestamp.ts.timestamp);
                 }
                 break;
             case IP_TS_ADDR:
             case IP_TS_PRESPECIFIED:
                 nelem = (opt->length - 4) / 8;
                 for (int i = 0; i < nelem; i++) {
-                    if (IP_STANDARD_TS(*opt->timestamp.ts->timestamp))
+                    if (IP_STANDARD_TS(*opt->timestamp.ts.timestamp))
                         LV_ADD_TEXT_ELEMENT(lw, sub, "Timestamp: %s",
-                                            get_time_from_ms_ut(*opt->timestamp.ts->timestamp, time, 32));
+                                            get_time_from_ms_ut(*opt->timestamp.ts.timestamp, time, 32));
                     else
-                        LV_ADD_TEXT_ELEMENT(lw, sub, "Timestamp: %d", *opt->timestamp.ts->timestamp);
+                        LV_ADD_TEXT_ELEMENT(lw, sub, "Timestamp: %d", *opt->timestamp.ts.timestamp);
                     inet_ntop(AF_INET, ip->opt->route.route_data + i, addr, INET_ADDRSTRLEN);
                     LV_ADD_TEXT_ELEMENT(lw, sub, "Address %d: %s", i + 1, addr);
                 }

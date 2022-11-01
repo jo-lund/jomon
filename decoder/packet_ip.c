@@ -27,6 +27,8 @@
 #define CS6 0X30
 #define CS7 0X38
 
+#define MIN_HEADER_LEN 20
+
 extern void add_ipv4_information(void *w, void *sw, void *data);
 extern void print_ipv4(char *buf, int n, void *data);
 static packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int n,
@@ -128,7 +130,7 @@ static packet_error parse_options(struct ipv4_info *ip, unsigned char **buf, int
             p++;
             n--;
             nelem = ((*opt)->length - 3) / 4;
-            (*opt)->route.route_data = mempool_alloc(nelem);
+            (*opt)->route.route_data = mempool_alloc(nelem * 4);
             n = parse_ipv4_addr((*opt)->route.route_data, nelem, &p, n);
             break;
         case IP_OPT_TIMESTAMP:
@@ -143,19 +145,20 @@ static packet_error parse_options(struct ipv4_info *ip, unsigned char **buf, int
             (*opt)->timestamp.flg = p[1] & 0x0f;
             if ((((*opt)->length - 4) & 3) != 0)
                 goto error;
-            (*opt)->timestamp.ts = mempool_alloc((*opt)->length - 4);
             switch ((*opt)->timestamp.flg) {
             case IP_TS_ONLY:
-                (*opt)->timestamp.ts->timestamp = mempool_copy(p, ((*opt)->length -4)/ 4);
+                (*opt)->timestamp.ts.timestamp = mempool_copy(p, ((*opt)->length - 4) / 4);
                 break;
             case IP_TS_ADDR:
             case IP_TS_PRESPECIFIED:
                 nelem = ((*opt)->length - 4) / 8;
-                (*opt)->timestamp.ts->timestamp = mempool_alloc(nelem);
-                (*opt)->timestamp.ts->addr = mempool_alloc(nelem);
+                if (nelem == 0)
+                    goto error;
+                (*opt)->timestamp.ts.timestamp = mempool_alloc(nelem * 4);
+                (*opt)->timestamp.ts.addr = mempool_alloc(nelem * 4);
                 for (int i = 0; i < nelem && n >= 8; i++) {
-                    memcpy((*opt)->timestamp.ts->addr + i, p, 4);
-                    memcpy((*opt)->timestamp.ts->timestamp + i, p + 4, 4);
+                    memcpy((*opt)->timestamp.ts.addr + i, p, 4);
+                    memcpy((*opt)->timestamp.ts.timestamp + i, p + 4, 4);
                     p += 8;
                     n -= 8;
                 }
@@ -248,13 +251,35 @@ packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int
     uint32_t id;
     struct protocol_info *layer3;
 
+    if (n < MIN_HEADER_LEN)
+        return DECODE_ERR;
+
     ipv4 = mempool_alloc(sizeof(struct ipv4_info));
     pdata->data = ipv4;
     ipv4->version = (buffer[0] & 0xf0) >> 4;
     ipv4->ihl = (buffer[0] & 0x0f);
-    if (n < ipv4->ihl * 4 || ipv4->ihl < 5)
-        goto ip_error;
     header_len = ipv4->ihl * 4;
+    if ((unsigned int) n < header_len || ipv4->ihl < 5) {
+        pdata->len = 0;
+        ipv4->dscp = 0;
+        ipv4->ecn = 0;
+        ipv4->length = 0;
+        ipv4->id = 0;
+        ipv4->foffset = 0;
+        ipv4->ttl = 0;
+        ipv4->protocol = 0;
+        ipv4->checksum = 0;
+        ipv4->src = 0;
+        ipv4->dst = 0;
+        ipv4->opt = NULL;
+        if ((unsigned int) n < header_len)
+            pdata->error = create_error_string("Packet length (%d) less than IP Internet header length (%d)",
+                                               n, ipv4->ihl * 4);
+        else
+            pdata->error = create_error_string("IP Internet header length (%u) is less than minimum value (5)",
+                                               ipv4->ihl);
+        return DECODE_ERR;
+    }
     pdata->len = header_len;
 
     /* Originally defined as type of service, but now defined as differentiated
@@ -279,36 +304,38 @@ packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int
     ipv4->dst = read_uint32le(&buffer);
     ipv4->opt = NULL;
     if (ipv4->ihl > 5) {
-        if (parse_options(ipv4, &buffer, (ipv4->ihl - 5) * 4) != NO_ERR)
-            goto ip_error;
+        if (parse_options(ipv4, &buffer, (ipv4->ihl - 5) * 4) != NO_ERR) {
+            if (ipv4->opt) {
+                mempool_free(ipv4->opt);
+                ipv4->opt = NULL;
+            }
+            pdata->error = create_error_string("IP options error");
+            return DECODE_ERR;
+        }
     }
-    if (ipv4->length < header_len || /* total length less than header length */
-        ipv4->length > n) { /* total length greater than packet length */
-        goto ip_error;
+    if (ipv4->length < header_len) {
+        pdata->error = create_error_string("IP total length (%d) less than header length (%d)",
+                                           ipv4->length, header_len);
+        return DECODE_ERR;
     }
+    if (ipv4->length > n) {
+        pdata->error = create_error_string("IP total length (%d) greater than packet length (%d)",
+                                           ipv4->length, n);
+        return DECODE_ERR;
+    }
+    pdata->error = NULL;
+    pinfo->num_packets++;
+    pinfo->num_bytes += n;
     id = get_protocol_id(IP_PROTOCOL, ipv4->protocol);
     layer3 = get_protocol(id);
     if (layer3) {
-        packet_error err;
-
         pdata->next = mempool_alloc(sizeof(struct packet_data));
         memset(pdata->next, 0, sizeof(struct packet_data));
         pdata->next->prev = pdata;
         pdata->next->id = id;
-        err = layer3->decode(layer3, buffer, n - header_len, pdata->next);
-        if (err != NO_ERR) {
-            mempool_free(pdata->next);
-            pdata->next = NULL;
-        }
+        return layer3->decode(layer3, buffer, n - header_len, pdata->next);
     }
-    pinfo->num_packets++;
-    pinfo->num_bytes += n;
     return NO_ERR;
-
-ip_error:
-    mempool_free(ipv4);
-    pdata->data = NULL;
-    return DECODE_ERR;
 }
 
 char *get_ipv4_dscp(uint8_t dscp)

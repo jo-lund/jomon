@@ -87,24 +87,19 @@ packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int
     memcpy(ipv6->src, ip6->ip6_src.s6_addr, 16);
     memcpy(ipv6->dst, ip6->ip6_dst.s6_addr, 16);
     id = get_protocol_id(IP_PROTOCOL, ipv6->next_header);
+    pinfo->num_packets++;
+    pinfo->num_bytes += n;
+    pdata->error = NULL;
 
     // TODO: Handle IPv6 extension headers and errors
     struct protocol_info *layer3 = get_protocol(id);
     if (layer3) {
-        packet_error err;
-
         pdata->next = mempool_alloc(sizeof(struct packet_data));
         memset(pdata->next, 0, sizeof(struct packet_data));
         pdata->next->prev = pdata;
         pdata->next->id = id;
-        err = layer3->decode(layer3, buffer + header_len, n - header_len, pdata->next);
-        if (err != NO_ERR) {
-            mempool_free(pdata->next);
-            pdata->next = NULL;
-        }
+        return layer3->decode(layer3, buffer + header_len, n - header_len, pdata->next);
     }
-    pinfo->num_packets++;
-    pinfo->num_bytes += n;
     return NO_ERR;
 }
 

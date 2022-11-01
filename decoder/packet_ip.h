@@ -53,7 +53,7 @@ struct ipv4_options {
         struct {
             uint32_t *addr;
             uint32_t *timestamp;
-        } *ts;
+        } ts;
     } timestamp;
     struct ipv4_options *next;
 };
