@@ -5,11 +5,12 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stddef.h>
-#include "../list.h"
+#include "list.h"
 #include "packet_ethernet.h"
-#include "../mempool.h"
-#include "../alloc.h"
-#include "../interface.h"
+#include "mempool.h"
+#include "alloc.h"
+#include "interface.h"
+#include "attributes.h"
 
 #define DATALINK 0
 #define ETH802_3 1
@@ -96,6 +97,7 @@ struct packet_data {
     uint32_t id;
     uint8_t transport;
     uint16_t len; /* length of the packet data as seen on the network */
+    char *error;
     void *data;
     struct packet_data *prev;
     struct packet_data *next;
@@ -146,6 +148,8 @@ struct packet_data *get_packet_data(const struct packet *p, uint32_t id);
 /* Should be internal to the decoder */
 packet_error call_data_decoder(uint32_t id, struct packet_data *pdata,
                                uint8_t transport, unsigned char *buf, int n);
+
+char *create_error_string(const char *fmt, ...) PRINTF_FORMAT(1, 2);
 
 static inline uint32_t get_protocol_id(uint16_t layer, uint16_t key)
 {

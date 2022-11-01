@@ -8,13 +8,15 @@
 #include <sys/socket.h>
 #include <ctype.h>
 #include <sys/types.h>
-#include "../monitor.h"
+#include <stdarg.h>
+#include <stdio.h>
+#include "monitor.h"
 #include "packet.h"
 #include "tcp_analyzer.h"
 #include "host_analyzer.h"
 #include "dns_cache.h"
 #include "register.h"
-#include "../hash.h"
+#include "hash.h"
 
 allocator_t d_alloc = {
     .alloc = mempool_alloc,
@@ -173,4 +175,16 @@ struct packet_data *get_packet_data(const struct packet *p, uint32_t id)
         pdata = pdata->next;
     }
     return NULL;
+}
+
+char *create_error_string(const char *fmt, ...)
+{
+    va_list ap;
+    char buf[MAXLINE];
+    int n;
+
+    va_start(ap, fmt);
+    n = vsnprintf(buf, MAXLINE - 1, fmt, ap);
+    va_end(ap);
+    return mempool_copy0(buf, n);
 }
