@@ -12,10 +12,12 @@
  * The first argument, 'o', is a pointer to the list_view.
  */
 #define LV_ADD_HEADER(o, text, expanded, data) (o)->add_header(o, text, expanded, data)
-#define LV_ADD_SUB_HEADER(o, w, expanded, data, text, ...)             \
+#define LV_ADD_SUB_HEADER(o, w, expanded, data, text, ...)          \
     (o)->add_sub_header(o, w, expanded, data, text, ## __VA_ARGS__)
-#define LV_ADD_TEXT_ELEMENT(o, h, text, ...)               \
-    (o)->add_text_element(o, h, text, ## __VA_ARGS__)
+#define LV_ADD_TEXT_ELEMENT(o, h, text, ...)                    \
+    (o)->add_text_element(o, h, A_NORMAL, text, ## __VA_ARGS__)
+#define LV_ADD_TEXT_ATTR(o, h, attr, text, ...)             \
+    (o)->add_text_element(o, h, attr, text, ## __VA_ARGS__)
 #define LV_SET_EXPANDED(o, i, expanded) (o)->set_expanded(o, i, expanded)
 #define LV_GET_EXPANDED(o, i) (o)->get_expanded(o, i)
 #define LV_GET_DATA(o, i) (o)->get_data(o, i)
@@ -52,8 +54,8 @@ typedef struct lw {
                                       uint32_t data, char *txt, ...) PRINTF_FORMAT(5, 6);
 
     /* Adds a text element to the list view. */
-    list_view_item* (*add_text_element)(struct lw *this, list_view_header *header, char *txt, ...)
-        PRINTF_FORMAT(3, 4);
+    list_view_item* (*add_text_element)(struct lw *this, list_view_header *header, int attr,
+                                        char *txt, ...) PRINTF_FORMAT(4, 5);
 
     /* Sets the header on line 'i' to expanded */
     void (*set_expanded)(struct lw *this, int i, bool expanded);

@@ -11,7 +11,8 @@ enum type {
 static list_view_header *add_header(list_view *this, char *text, bool expanded, uint32_t data);
 static list_view_header *add_sub_header(list_view *this, list_view_header *header, bool expanded,
                                       uint32_t data, char *text, ...);
-static list_view_item *add_text_element(list_view *this, list_view_header *header, char *txt, ...);
+static list_view_item *add_text_element(list_view *this, list_view_header *header, int attr,
+                                        char *txt, ...);
 static void add_separator(list_view *this, list_view_header *hdr);
 static void free_list_view_item(list_t *widgets);
 static void render(list_view *this, WINDOW *win);
@@ -131,7 +132,7 @@ list_view_header *add_header(list_view *this, char *txt, bool expanded, uint32_t
     return w;
 }
 
-list_view_item *add_text_element(list_view *this, list_view_header *header, char *txt, ...)
+list_view_item *add_text_element(list_view *this, list_view_header *header, int attr, char *txt, ...)
 {
     va_list ap;
     char buf[MAXLINE];
@@ -141,7 +142,7 @@ list_view_item *add_text_element(list_view *this, list_view_header *header, char
     vsnprintf(buf, MAXLINE - 1, txt, ap);
     strcat(buf, "\n");
     va_end(ap);
-    w = create_item(buf, A_NORMAL, TEXT);
+    w = create_item(buf, attr, TEXT);
     if (!header->subwidgets) {
         header->subwidgets = list_init(NULL);
     } else {

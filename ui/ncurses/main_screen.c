@@ -1321,6 +1321,9 @@ void add_elements(main_screen *ms, struct packet *p)
         if (pinfo && i < NUM_LAYERS) {
             if (pdata && pdata->data) {
                 header = LV_ADD_HEADER(ms->lvw, pinfo->long_name, selected[i], i);
+                if (pdata->error)
+                    LV_ADD_TEXT_ATTR(ms->lvw, header, get_theme_colour(ERR_BKGD),
+                                     "Packet error: %s", pdata->error);
                 pinfo->add_pdu(ms->lvw, header, pdata);
             }
         }
