@@ -3,6 +3,7 @@
 #include <string.h>
 #include "packet_udp.h"
 #include "packet_ip.h"
+#include "util.h"
 
 extern void add_udp_information(void *w, void *sw, void *data);
 extern void print_udp(char *buf, int n, void *data);
@@ -38,34 +39,35 @@ packet_error handle_udp(struct protocol_info *pinfo, unsigned char *buffer, int 
     if (n < UDP_HDR_LEN)
         return DECODE_ERR;
 
-    struct udphdr *udp;
     packet_error error = NO_ERR;
-    struct udp_info *info;
+    struct udp_info *udp;
 
-    info = mempool_alloc(sizeof(struct udp_info));
-    udp = (struct udphdr *) buffer;
-    info->sport = ntohs(udp->uh_sport);
-    info->dport = ntohs(udp->uh_dport);
-    info->len = ntohs(udp->uh_ulen);
-    if (info->len < UDP_HDR_LEN || info->len > n)
-        goto udp_error;
-    info->checksum = ntohs(udp->uh_sum);
-    pdata->data = info;
+    udp = mempool_alloc(sizeof(struct udp_info));
+    pdata->data = udp;
     pdata->len = UDP_HDR_LEN;
+    udp->sport = read_uint16be(&buffer);
+    udp->dport = read_uint16be(&buffer);
+    udp->len = read_uint16be(&buffer);
+    udp->checksum = read_uint16be(&buffer);
+    pinfo->num_packets++;
+    pinfo->num_bytes += n;
+    if (udp->len < UDP_HDR_LEN) {
+        pdata->error = create_error_string("UDP length (%d) less than minimum header length (8)",
+                                           udp->len);
+        return DECODE_ERR;
+    }
+    if (udp->len > n) {
+        pdata->error = create_error_string("UDP length (%d) greater than packet length (%d)",
+                                           udp->len, n);
+        return DECODE_ERR;
+    }
     if (n - UDP_HDR_LEN > 0) {
         for (int i = 0; i < 2; i++) {
-            error = call_data_decoder(get_protocol_id(PORT, *((uint16_t *) info + i)),
-                                      pdata, IPPROTO_UDP, buffer + UDP_HDR_LEN, n - UDP_HDR_LEN);
+            error = call_data_decoder(get_protocol_id(PORT, *((uint16_t *) udp + i)),
+                                      pdata, IPPROTO_UDP, buffer, n - UDP_HDR_LEN);
             if (error != UNK_PROTOCOL)
                 return NO_ERR;
         }
     }
-    pinfo->num_packets++;
-    pinfo->num_bytes += n;
     return NO_ERR;
-
-udp_error:
-    mempool_free(info);
-    pdata->data = NULL;
-    return DECODE_ERR;
 }

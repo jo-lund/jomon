@@ -3,6 +3,9 @@
 #include "packet_tcp.h"
 #include "packet_ip.h"
 #include "tcp_analyzer.h"
+#include "util.h"
+
+#define MIN_HEADER_LEN 20
 
 static struct packet_flags tcp_flags[] = {
     { "Reserved", 3, NULL },
@@ -97,58 +100,65 @@ void register_tcp(void)
 packet_error handle_tcp(struct protocol_info *pinfo, unsigned char *buffer, int n,
                         struct packet_data *pdata)
 {
-    struct tcphdr *tcp;
     packet_error error = NO_ERR;
     uint16_t payload_len;
-    struct tcp *info;
+    struct tcp *tcp;
+    unsigned char *p;
 
-    tcp = (struct tcphdr *) buffer;
-    if (n < tcp->th_off * 4)
+    if (n < MIN_HEADER_LEN)
         return DECODE_ERR;
 
-    /* bogus header length */
-    if (tcp->th_off < 5)
-        return DECODE_ERR;
-
-    info = mempool_alloc(sizeof(struct tcp));
-    pdata->data = info;
+    p = buffer;
+    tcp = mempool_alloc(sizeof(struct tcp));
+    pdata->data = tcp;
+    tcp->sport = read_uint16be(&p);
+    tcp->dport = read_uint16be(&p);
+    tcp->seq_num = read_uint32be(&p);
+    tcp->ack_num = read_uint32be(&p);
+    tcp->offset = p[0] >> 4;
+    tcp->ns = p[0] & 0x1;
+    tcp->cwr = (p[1] & 0x80) >> 7;
+    tcp->ece = (p[1] & 0x40) >> 6;
+    tcp->urg = (p[1] & TH_URG) >> 5;
+    tcp->ack = (p[1] & TH_ACK) >> 4;
+    tcp->psh = (p[1] & TH_PUSH) >> 3;
+    tcp->rst = (p[1] & TH_RST) >> 2;
+    tcp->syn = (p[1] & TH_SYN) >> 1;
+    tcp->fin = (p[1] & TH_FIN);
+    p += 2;
+    tcp->window = read_uint16be(&p);
+    tcp->checksum = read_uint16be(&p);
+    tcp->urg_ptr = read_uint16be(&p);
+    tcp->options = NULL;
+    payload_len = n - tcp->offset * 4;
+    pdata->len = tcp->offset * 4;
     pinfo->num_packets++;
     pinfo->num_bytes += n;
-    info->sport = ntohs(tcp->th_sport);
-    info->dport = ntohs(tcp->th_dport);
-    info->seq_num = ntohl(tcp->th_seq);
-    info->ack_num = ntohl(tcp->th_ack);
-    info->offset = tcp->th_off;
-    info->ns = tcp->th_x2 & 0x1;
-    info->cwr = (tcp->th_flags & 0x80) >> 7;
-    info->ece = (tcp->th_flags & 0x40) >> 6;
-    info->urg = (tcp->th_flags & TH_URG) >> 5;
-    info->ack = (tcp->th_flags & TH_ACK) >> 4;
-    info->psh = (tcp->th_flags & TH_PUSH) >> 3;
-    info->rst = (tcp->th_flags & TH_RST) >> 2;
-    info->syn = (tcp->th_flags & TH_SYN) >> 1;
-    info->fin = (tcp->th_flags & TH_FIN);
-    info->window = ntohs(tcp->th_win);
-    info->checksum = ntohs(tcp->th_sum);
-    info->urg_ptr = ntohs(tcp->th_urp);
-    payload_len = n - info->offset * 4;
-    pdata->len = info->offset * 4;
 
-    /* the minimum header without options is 20 bytes */
-    if (info->offset > 5) {
-        uint8_t options_len;
-
-        options_len = (info->offset - 5) * 4;
-        info->options = mempool_alloc(options_len);
-        memcpy(info->options, buffer + 20, options_len);
-    } else {
-        info->options = NULL;
+    /* bogus header length */
+    if (tcp->offset < 5) {
+        pdata->error = create_error_string("TCP data offset (%d) less than minimum value (5)",
+                                           tcp->offset);
+        return DECODE_ERR;
+    }
+    if (n < tcp->offset * 4) {
+        pdata->error = create_error_string("Packet length (%d) less than TCP header (%d)",
+                                           n, tcp->offset * 4);
+        return DECODE_ERR;
     }
 
+    /* the minimum header without options is 20 bytes */
+    if (tcp->offset > 5) {
+        uint8_t options_len;
+
+        options_len = (tcp->offset - 5) * 4;
+        tcp->options = mempool_alloc(options_len);
+        memcpy(tcp->options, buffer + MIN_HEADER_LEN, options_len);
+    }
     if (payload_len > 0) {
         for (int i = 0; i < 2; i++) {
-            error = call_data_decoder(get_protocol_id(PORT, *((uint16_t *) info + i)), pdata,
-                                      IPPROTO_TCP, buffer + info->offset * 4, payload_len);
+            error = call_data_decoder(get_protocol_id(PORT, *((uint16_t *) tcp + i)), pdata,
+                                      IPPROTO_TCP, buffer + tcp->offset * 4, payload_len);
             if (error != UNK_PROTOCOL)
                 return NO_ERR;
         }
