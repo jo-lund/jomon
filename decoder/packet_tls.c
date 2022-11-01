@@ -363,8 +363,8 @@ extern void print_tls(char *buf, int n, void *data);
 extern void add_tls_information(void *widget, void *subwidget, void *data);
 static packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buffer,
                                 int len, struct packet_data *pdata);
-static packet_error parse_handshake(unsigned char **buf, uint16_t n,
-                                    struct tls_info *tls);
+static packet_error parse_handshake(struct packet_data *pdata, unsigned char **buf,
+                                     uint16_t n, struct tls_info *tls);
 static packet_error parse_client_hello(unsigned char **buf, uint16_t n,
                                        struct tls_handshake *handshake);
 static packet_error parse_server_hello(unsigned char **buf, uint16_t len,
@@ -400,24 +400,23 @@ packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
     while (data_len < n) {
         uint16_t record_len;
 
-        *pptr = mempool_alloc(sizeof(struct tls_info));
+        *pptr = mempool_calloc(struct tls_info);
         (*pptr)->next = NULL;
         (*pptr)->type = buf[0];
         (*pptr)->version = get_uint16be(buf + 1);
         (*pptr)->length = get_uint16be(buf + 3);
-        if ((*pptr)->length > n) {
-             /* TODO: Need to support TCP reassembly */
+        if ((*pptr)->length + TLS_HEADER_SIZE > n) {
+            /* TODO: Need to support TCP reassembly */
+            mempool_free(*pptr);
+            *pptr = NULL;
             if (i == 0) {
+                pdata->prev->next = NULL;
+                mempool_free(pdata);
                 return UNK_PROTOCOL;
-            } else {
-                mempool_free(*pptr);
-                *pptr = NULL;
-                goto done;
             }
+            goto done;
         }
         record_len = (*pptr)->length;
-        if (record_len + TLS_HEADER_SIZE > n)
-            return DECODE_ERR;
         data_len += record_len + TLS_HEADER_SIZE;
         buf += TLS_HEADER_SIZE;
         switch ((*pptr)->type) {
@@ -441,8 +440,11 @@ packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
                 buf += record_len;
             } else {
                 // BUG: Need to handle this properly
-                if (parse_handshake(&buf, record_len, *pptr) != NO_ERR)
+                if (parse_handshake(pdata, &buf, record_len, *pptr) != NO_ERR) {
+                    pdata->data = tls;
+                    pdata->len = n;
                     return DECODE_ERR;
+                }
             }
             break;
         default:
@@ -461,11 +463,14 @@ done:
     return NO_ERR;
 }
 
-static packet_error parse_handshake(unsigned char **buf, uint16_t len, struct tls_info *tls)
+static packet_error parse_handshake(struct packet_data *pdata, unsigned char **buf, uint16_t len,
+                                    struct tls_info *tls)
 {
-    if (len < TLS_HANDSHAKE_HEADER)
+    if (len < TLS_HANDSHAKE_HEADER) {
+        pdata->error = create_error_string("TLS record length (%d) less than handshake header (%d)",
+                                           len, TLS_HANDSHAKE_HEADER);
         return DECODE_ERR;
-
+    }
     packet_error err = NO_ERR;
     unsigned char *ptr = *buf;
 
@@ -476,10 +481,12 @@ static packet_error parse_handshake(unsigned char **buf, uint16_t len, struct tl
     len -= 4;
     switch (tls->handshake->type) {
     case TLS_CLIENT_HELLO:
-        err = parse_client_hello(&ptr, len, tls->handshake);
+        if ((err = parse_client_hello(&ptr, len, tls->handshake)) != NO_ERR)
+            pdata->error = create_error_string("Error parsing Client Hello record");
         break;
     case TLS_SERVER_HELLO:
-        err = parse_server_hello(&ptr, len, tls->handshake);
+        if ((err = parse_server_hello(&ptr, len, tls->handshake)) != NO_ERR)
+            pdata->error = create_error_string("Error parsing Server Hello record");
         break;
     case TLS_HELLO_REQUEST:
         break;

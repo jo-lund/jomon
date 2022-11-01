@@ -106,10 +106,7 @@ packet_error call_data_decoder(uint32_t id, struct packet_data *p, uint8_t trans
         pdata->id = id;
         pdata->prev = p;
         p->next = pdata;
-        if ((err = pinfo->decode(pinfo, buf, n, pdata)) != NO_ERR) {
-            mempool_free(pdata);
-            p->next = NULL;
-        }
+        return pinfo->decode(pinfo, buf, n, pdata);
     }
     return err;
 }

@@ -13,7 +13,7 @@ struct udp_info {
 };
 
 /* internal to the decoder */
-void register_udp();
+void register_udp(void);
 packet_error handle_udp(struct protocol_info *pinfo, unsigned char *buffer, int n,
                         struct packet_data *pdata);
 

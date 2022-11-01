@@ -3,7 +3,7 @@
 #include <string.h>
 #include "packet.h"
 #include "packet_http.h"
-#include "../util.h"
+#include "util.h"
 
 /* It is recommended that all HTTP senders and recipients support, at a minimum,
    request-line lengths of 8000 octets, cf. RFC 7230 */
@@ -45,7 +45,7 @@ static struct protocol_info http_prot = {
     .add_pdu = add_http_information
 };
 
-void register_http()
+void register_http(void)
 {
     register_protocol(&http_prot, PORT, HTTP);
 }
@@ -60,12 +60,11 @@ packet_error handle_http(struct protocol_info *pinfo, unsigned char *buffer,
 {
     struct http_info *http;
 
-    http = mempool_alloc(sizeof(struct http_info));
+    http = mempool_calloc(struct http_info);
     pdata->data = http;
     pdata->len = len;
-    if (!parse_http(buffer, len, http)) {
+    if (!parse_http(buffer, len, http))
         return UNK_PROTOCOL;
-    }
     pinfo->num_packets++;
     pinfo->num_bytes += len;
     return NO_ERR;
@@ -85,17 +84,19 @@ bool parse_http(unsigned char *buffer, uint16_t len, struct http_info *http)
     n = len;
     ptr = buffer;
     if (!parse_start_line(&ptr, &n, http)) {
-        return false;
+        http->data = buffer;
+        http->len = n;
+        return true;
     }
 
     /* parse header fields */
     http->header = rbtree_init(rbcmp, &d_alloc);
     is_http = parse_http_header(&ptr, &n, http->header);
 
-    /* copy message body */
+    /* store message body */
     if (is_http) {
         if (n) {
-            http->data = mempool_copy(ptr, n);
+            http->data = ptr;
             http->len = n;
         } else {
             http->len = 0;

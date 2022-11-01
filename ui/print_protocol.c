@@ -489,7 +489,7 @@ void print_tcp(char *buf, int n, void *data)
 
     if (pdata->next)
         pinfo = get_protocol(pdata->next->id);
-    if (pinfo) {
+    if (pinfo && pinfo->print_pdu) {
         pinfo->print_pdu(buf, n, pdata->next);
     } else {
         PRINT_PROTOCOL(buf, n, "TCP");
@@ -660,7 +660,10 @@ void print_http(char *buf, int n, void *data)
     struct http_info *http = pdata->data;
 
     PRINT_PROTOCOL(buf, n, "HTTP");
-    PRINT_INFO(buf, n, "%s", http->start_line);
+    if (http->start_line)
+        PRINT_INFO(buf, n, "%s", http->start_line);
+    else
+        PRINT_INFO(buf, n, "Data");
 }
 
 void print_imap(char *buf, int n, void *data)
@@ -723,14 +726,14 @@ void print_tls(char *buf, int n, void *data)
     } else {
         PRINT_PROTOCOL(buf, n, "TLS");
     }
-    if (tls->type == TLS_HANDSHAKE) {
+    if (tls->type == TLS_HANDSHAKE && tls->handshake) {
         snprintf(records, MAXLINE, "%s", get_tls_handshake_type(tls->handshake->type));
     } else {
         snprintf(records, MAXLINE, "%s", type);
     }
     tls = tls->next;
     while (tls) {
-        if (tls->type == TLS_HANDSHAKE) {
+        if (tls->type == TLS_HANDSHAKE && tls->handshake) {
             snprintcat(records, MAXLINE, ", %s", get_tls_handshake_type(tls->handshake->type));
         } else {
             snprintcat(records, MAXLINE, ", %s", get_tls_type(tls->type));

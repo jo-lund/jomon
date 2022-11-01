@@ -224,8 +224,10 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
         goto ok;
     }
     if (isdigit(*p)) { /* response */
-        if (n < REPLY_CODE_DIGITS)
+        if (n < REPLY_CODE_DIGITS) {
+            pdata->error = create_error_string("Packet length too short (%d)", n);
             goto error;
+        }
         struct smtp_data data;
         struct smtp_rsp *rsp;
 
@@ -240,11 +242,15 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
             rsp->code = 0;
             while (isdigit(*p) && j++ < REPLY_CODE_DIGITS) {
                 rsp->code = 10 * rsp->code + (*p++ - '0');
-                if (++i >= n)
+                if (++i >= n) {
+                    pdata->error = create_error_string("Packet length too short (%d)", n);
                     goto error;
+                }
             }
-            if (isdigit(*p))
+            if (isdigit(*p)) {
+                pdata->error = create_error_string("Too many digits in reply code");
                 goto error;
+            }
             switch (smtp_state->state) {
             case WAIT_DATA:
                 if (rsp->code == 354)
@@ -271,8 +277,10 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
                     i++;
                 }
                 data.rsp = rsp;
-                if (!parse_line(smtp, &data, (char *) buf, n, &i))
+                if (!parse_line(smtp, &data, (char *) buf, n, &i)) {
+                    pdata->error = create_error_string("Error parsing line");
                     goto error;
+                }
                 p = buf + i;
             }
             list_push_back(smtp->rsps, rsp);
@@ -298,16 +306,20 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
             unsigned char *s = p;
 
             while (i < n && isprint(*p) && *p != ' ') {
-                if (i++ >= MAXLENGTH)
+                if (i++ >= MAXLENGTH) {
+                    pdata->error = create_error_string("Line too long (%d)", i);
                     goto error;
+                }
                 p++;
                 j++;
             }
             cmd = mempool_alloc(sizeof(*cmd));
             cmd->command = mempool_copy0(s, j);
             data.cmd = cmd;
-            if (!parse_line(smtp, &data, (char *) buf, n, &i))
+            if (!parse_line(smtp, &data, (char *) buf, n, &i)) {
+                pdata->error = create_error_string("Error parsing line");
                 goto error;
+            }
             p = buf + i;
             list_push_back(smtp->cmds, cmd);
             if (strcmp(cmd->command, "DATA") == 0)
@@ -320,8 +332,10 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
                 smtp_state->state = BDAT;
                 errno = 0;
                 smtp_state->chunk_size = strtol(cmd->params, &s, 10);
-                if (errno != 0)
+                if (errno != 0) {
+                    pdata->error = create_error_string("Command parameter error (%s)", cmd->params);
                     goto error;
+                }
                 while (*s == ' ')
                     s++;
                 if (strcmp(s, "LAST") == 0)
@@ -339,7 +353,6 @@ ok:
 error:
     if (conn_created)
         tcp_analyzer_remove_connection(&endp);
-    mempool_free(smtp);
     return DECODE_ERR;
 }
 

@@ -2,7 +2,7 @@
 #define PACKET_HTTP_H
 
 #include <stdbool.h>
-#include "../rbtree.h"
+#include "rbtree.h"
 
 struct http_info {
     char *start_line;
@@ -12,6 +12,6 @@ struct http_info {
 };
 
 /* internal to the decoder */
-void register_http();
+void register_http(void);
 
 #endif

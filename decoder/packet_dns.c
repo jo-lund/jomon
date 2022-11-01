@@ -8,6 +8,7 @@
 #include "dns_cache.h"
 
 #define DNS_PTR_LEN 2
+#define MAX_LABEL_LEN 63
 
 static struct packet_flags dns_flags[] = {
     { "Authoritative answer", 1, NULL },
@@ -127,7 +128,7 @@ packet_error handle_dns(struct protocol_info *pinfo, unsigned char *buffer, int 
 
     if (n < DNS_HDRLEN)
         return DECODE_ERR;
-    dns = mempool_alloc(sizeof(struct dns_info));
+    dns = mempool_calloc(struct dns_info);
     pdata->data = dns;
     pdata->len = n;
 
@@ -162,14 +163,6 @@ packet_error handle_dns(struct protocol_info *pinfo, unsigned char *buffer, int 
     }
     dns->question = NULL;
     dns->record = NULL;
-    if (!dns->qr) {  /* DNS query */
-        /*
-         * ARCOUNT will typically be 0, 1, or 2, depending on whether EDNS0
-         * (RFC 2671) or TSIG (RFC 2845) are used
-         */
-        if (dns->section_count[ARCOUNT] > 2)
-            goto error;
-    }
     ptr += DNS_HDRLEN;
     plen -= DNS_HDRLEN;
 
@@ -177,8 +170,10 @@ packet_error handle_dns(struct protocol_info *pinfo, unsigned char *buffer, int 
     if (dns->section_count[QDCOUNT] > 0) {
         int len = parse_dns_question(buffer, n, &ptr, plen, dns);
 
-        if (len == -1)
-            goto error;
+        if (len == -1) {
+            pdata->error = create_error_string("Error parsing DNS question section");
+            return DECODE_ERR;
+        }
         plen -= len;
     }
 
@@ -186,26 +181,26 @@ packet_error handle_dns(struct protocol_info *pinfo, unsigned char *buffer, int 
     for (int i = ANCOUNT; i < 4; i++) {
         num_records += dns->section_count[i];
     }
-    if (num_records > n)
-        goto error;
+    if (num_records > n) {
+        pdata->error = create_error_string("Number of DNS records (%d) greater than packet length (%d)",
+                                           num_records, n);
+        return DECODE_ERR;
+    }
     if (num_records) {
         dns->record = mempool_alloc(num_records * sizeof(struct dns_resource_record));
         for (int i = 0; i < num_records; i++) {
             int len = parse_dns_record(i, buffer, n, &ptr, plen, dns);
 
-            if (len == -1)
-                goto error;
+            if (len == -1) {
+                pdata->error = create_error_string("Error parsing DNS record");
+                return DECODE_ERR;
+            }
             plen -= len;
         }
     }
     pinfo->num_packets++;
     pinfo->num_bytes += n;
     return NO_ERR;
-
-error:
-    mempool_free(dns);
-    pdata->data = NULL;
-    return DECODE_ERR;
 }
 
 int parse_dns_question(unsigned char *buffer, int n, unsigned char **data,
@@ -462,10 +457,9 @@ int parse_dns_name(unsigned char *buffer, int n, unsigned char *ptr, int plen, c
                 compression = true;
             }
         } else {
-            if (label_length > (unsigned int) plen || len > (unsigned int) n ||
-                len + label_length >= DNS_NAMELEN) {
+            if (label_length > MAX_LABEL_LEN || label_length > (unsigned int) plen ||
+                len > (unsigned int) n || len + label_length >= DNS_NAMELEN)
                 return -1;
-            }
             memcpy(name + len, ptr + 1, label_length);
             len += label_length;
             name[len++] = '.';

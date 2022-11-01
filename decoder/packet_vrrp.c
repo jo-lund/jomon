@@ -53,29 +53,31 @@ static packet_error handle_vrrp(struct protocol_info *pinfo, unsigned char *buf,
     buf += MIN_VRRP_LEN;
     n -= MIN_VRRP_LEN;
     if (get_protocol_key(pdata->prev->id) == ETHERTYPE_IP) {
-        if (vrrp->count_ip * 4 > n)
-            goto error;
+        if (vrrp->count_ip * 4 > n) {
+            pdata->error = create_error_string("IP address count too big");
+            return DECODE_ERR;
+        }
         vrrp->ip4_addrs = mempool_alloc(vrrp->count_ip * 4);
         n = parse_ipv4_addr(vrrp->ip4_addrs, vrrp->count_ip, &buf, n);
     } else {
-        if (vrrp->count_ip * 16 > n)
-            goto error;
+        if (vrrp->count_ip * 16 > n) {
+            pdata->error = create_error_string("IPv6 address count too big");
+            return DECODE_ERR;
+        }
         vrrp->ip6_addrs = mempool_alloc(vrrp->count_ip * 16);
         n = parse_ipv6_addr(vrrp->ip6_addrs, vrrp->count_ip, &buf, n);
     }
     if (n > 0 && vrrp->version < 3) {
-        if (n != 8)
-            goto error;
+        if (n != 8) {
+            pdata->error = create_error_string("Authentication string should contain 8 bytes (%d)", n);
+            return DECODE_ERR;
+        }
         memcpy(vrrp->v.auth_str, buf, 8);
         vrrp->v.auth_str[8] = '\0';
     }
     pinfo->num_packets++;
     pinfo->num_bytes += n;
     return NO_ERR;
-
-error:
-    mempool_free(vrrp);
-    return DECODE_ERR;
 }
 
 char *get_vrrp_type(uint8_t type)

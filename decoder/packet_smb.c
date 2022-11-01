@@ -50,7 +50,7 @@ static struct protocol_info smb_prot = {
     .add_pdu = add_smb_information
 };
 
-void register_smb()
+void register_smb(void)
 {
     register_protocol(&smb_prot, PORT, SMB);
 }

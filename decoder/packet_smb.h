@@ -74,13 +74,13 @@ struct smb_info {
 };
 
 char *get_smb_command(uint8_t cmd);
-struct packet_flags *get_smb_flags();
-int get_smb_flags_size();
-struct packet_flags *get_smb_flags2();
-int get_smb_flags2_size();
+struct packet_flags *get_smb_flags(void);
+int get_smb_flags_size(void);
+struct packet_flags *get_smb_flags2(void);
+int get_smb_flags2_size(void);
 
 /* internal */
-void register_smb();
+void register_smb(void);
 packet_error handle_smb(struct protocol_info *pinfo, unsigned char *buffer, int n,
                         struct packet_data *pdata);
 

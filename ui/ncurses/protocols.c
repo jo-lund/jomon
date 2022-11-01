@@ -1547,20 +1547,26 @@ void add_http_information(void *w, void *sw, void *data)
     struct packet_data *pdata = data;
     struct http_info *http = pdata->data;
     const rbtree_node_t *n;
+    list_view_header *hdata;
 
-    LV_ADD_TEXT_ELEMENT(lw, header, "%s", http->start_line);
-    n = rbtree_first(http->header);
-    while (n) {
-        LV_ADD_TEXT_ELEMENT(lw, header, "%s: %s", (char *) rbtree_get_key(n),
-                            (char *) rbtree_get_data(n));
-        n = rbtree_next(http->header, n);
-    }
-    if (http->len) {
-        list_view_header *hdr;
 
-        hdr = LV_ADD_HEADER(lw, "Data", selected[UI_SUBLAYER1], UI_SUBLAYER1);
-        add_hexdump(lw, hdr, hexmode, http->data, http->len);
+    if (http->start_line && http->header) {
+        LV_ADD_TEXT_ELEMENT(lw, header, "%s", http->start_line);
+        n = rbtree_first(http->header);
+        while (n) {
+            LV_ADD_TEXT_ELEMENT(lw, header, "%s: %s", (char *) rbtree_get_key(n),
+                                (char *) rbtree_get_data(n));
+            n = rbtree_next(http->header, n);
+        }
+        if (http->len) {
+            hdata = LV_ADD_HEADER(lw, "Data", selected[UI_SUBLAYER1], UI_SUBLAYER1);
+            add_hexdump(lw, hdata, hexmode, http->data, http->len);
+        }
+    } else if (http->len) {
+        hdata = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Data");
+        add_hexdump(lw, hdata, hexmode, http->data, http->len);
     }
+
 }
 
 static void add_snmp_variables(list_view *lw, list_view_header *header, list_t *vars)
@@ -2164,7 +2170,7 @@ void add_tls_information(void *w, void *sw, void *data)
     list_view_header *sub;
 
     while (tls) {
-        if (tls->type == TLS_HANDSHAKE) {
+        if (tls->type == TLS_HANDSHAKE && tls->handshake) {
             record = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1,
                                        "TLS Record: Handshake: %s",
                                        get_tls_handshake_type(tls->handshake->type));
@@ -2178,7 +2184,8 @@ void add_tls_information(void *w, void *sw, void *data)
         LV_ADD_TEXT_ELEMENT(lw, record, "Length: %d", tls->length);
         switch (tls->type) {
         case TLS_HANDSHAKE:
-            add_tls_handshake(lw, record, tls->handshake);
+            if (tls->handshake)
+                add_tls_handshake(lw, record, tls->handshake);
             break;
         case TLS_APPLICATION_DATA:
             sub = LV_ADD_SUB_HEADER(lw, record, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Data");
