@@ -126,10 +126,12 @@ packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int
         }
     } else { /* request */
         if (nbns->aa) { /* authoritative answer is only to be set in responses */
+            memset(&nbns->question, 0, sizeof(nbns->question));
             pdata->error = create_error_string("Authoritative answer set in request");
             return DECODE_ERR;
         }
         if (nbns->section_count[QDCOUNT] == 0) { /* QDCOUNT must be non-zero for requests */
+            memset(&nbns->question, 0, sizeof(nbns->question));
             pdata->error = create_error_string("QDCOUNT error (%d)", nbns->section_count[QDCOUNT]);
             return DECODE_ERR;
         }
@@ -141,6 +143,7 @@ packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int
         int len = parse_dns_name(buffer, n, ptr, plen, name);
 
         if (len == -1) {
+            memset(&nbns->question, 0, sizeof(nbns->question));
             pdata->error = create_error_string("Error parsing NBNS question");
             return DECODE_ERR;
         }

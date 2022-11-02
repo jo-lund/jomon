@@ -487,7 +487,7 @@ void print_tcp(char *buf, int n, void *data)
     struct tcp *tcp = pdata->data;
     struct protocol_info *pinfo = NULL;
 
-    if (pdata->next)
+    if (pdata->next && pdata->next->data)
         pinfo = get_protocol(pdata->next->id);
     if (pinfo && pinfo->print_pdu) {
         pinfo->print_pdu(buf, n, pdata->next);
@@ -525,7 +525,7 @@ void print_udp(char *buf, int n, void *data)
     struct udp_info *udp = pdata->data;
     struct protocol_info *pinfo = NULL;
 
-    if (pdata->next)
+    if (pdata->next && pdata->next->data)
         pinfo = get_protocol(pdata->next->id);
     if (pinfo) {
         pinfo->print_pdu(buf, n, pdata->next);
@@ -595,7 +595,7 @@ void print_nbns(char *buf, int n, void *data)
         PRINT_INFO(buf, n, "Name %s request: ", string_tolower(opcode));
         PRINT_INFO(buf, n, "%s ", nbns->question.qname);
         PRINT_INFO(buf, n, "%s ", get_nbns_type(nbns->question.qtype));
-        if (nbns->section_count[ARCOUNT]) {
+        if (nbns->section_count[ARCOUNT] && nbns->record) {
             print_nbns_record(nbns, 0, buf, n);
         }
     } else {
@@ -623,9 +623,11 @@ void print_nbns(char *buf, int n, void *data)
         }
         strncpy(opcode, get_nbns_opcode(nbns->opcode), sizeof(opcode) - 1);
         PRINT_INFO(buf, n, "Name %s response: ", string_tolower(opcode));
-        PRINT_INFO(buf, n, "%s ", nbns->record[0].rrname);
-        PRINT_INFO(buf, n, "%s ", get_nbns_type(nbns->record[0].rrtype));
-        print_nbns_record(nbns, 0, buf, n);
+        if (nbns->record) {
+            PRINT_INFO(buf, n, "%s ", nbns->record[0].rrname);
+            PRINT_INFO(buf, n, "%s ", get_nbns_type(nbns->record[0].rrtype));
+            print_nbns_record(nbns, 0, buf, n);
+        }
     }
 }
 
@@ -800,6 +802,8 @@ void print_snmp(char *buf, int n, void *data)
     } else {
         PRINT_INFO(buf, n, "type: %d ", snmp->pdu_type);
     }
+    if (!snmp->trap && !snmp->pdu)
+        return;
     if (snmp->pdu_type == SNMP_TRAP) {
         vars = snmp->trap->varbind_list;
     } else {

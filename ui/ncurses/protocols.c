@@ -1473,7 +1473,7 @@ void add_nbns_information(void *w, void *sw, void *data)
         LV_ADD_TEXT_ELEMENT(lw, hdr, "Question name: %s, Question type: %s, Question class: IN (Internet)",
                          nbns->question.qname, get_nbns_type_extended(nbns->question.qtype));
     }
-    if (records) {
+    if (records > 0 && nbns->record) {
         list_view_header *hdr = NULL;
 
         if (answers) {
@@ -1669,6 +1669,8 @@ void add_snmp_information(void *w, void *sw, void *data)
 
     LV_ADD_TEXT_ELEMENT(lw, header, "Version: %d", snmp->version);
     LV_ADD_TEXT_ELEMENT(lw, header, "Community: %s", snmp->community);
+    if (!snmp->pdu && !snmp->trap)
+        return;
     switch (snmp->pdu_type) {
     case SNMP_GET_REQUEST:
         hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "GetRequest");

@@ -216,11 +216,17 @@ int parse_dns_question(unsigned char *buffer, int n, unsigned char **data,
     for (unsigned int i = 0; i < dns->section_count[QDCOUNT]; i++) {
         int name_len;
 
-        if ((name_len = parse_dns_name(buffer, n, ptr, dlen, dns->question[i].qname)) == -1)
+        if ((name_len = parse_dns_name(buffer, n, ptr, dlen, dns->question[i].qname)) == -1) {
+            memset(dns->question + i, 0, (dns->section_count[QDCOUNT] - i) *
+                   sizeof(struct dns_question));
             return -1;
+        }
         len += name_len;
-        if (len + 4 > dlen) /* name + qtype and qclass */
+        if (len + 4 > dlen) { /* name + qtype and qclass */
+            memset(dns->question + i, 0, (dns->section_count[QDCOUNT] - i) *
+                   sizeof(struct dns_question));
             return -1;
+        }
         ptr += name_len;
         dns->question[i].qtype = ptr[0] << 8 | ptr[1];
         dns->question[i].qclass = ptr[2] << 8 | ptr[3];
