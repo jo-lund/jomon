@@ -67,7 +67,7 @@ static packet_error parse_data(struct packet_data *pdata, unsigned char *buf, in
 
     id = get_protocol_id(ETHERNET_II, ETHERTYPE_IPV6);
     pinfo = get_protocol(id);
-    pdata->next = mempool_calloc(struct packet_data);
+    pdata->next = mempool_calloc(1, struct packet_data);
     pdata->next->id = id;
     return pinfo->decode(pinfo, buf, n, pdata->next);
 }

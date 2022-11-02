@@ -163,7 +163,7 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
     n -= 4;
     dhcp->options = list_init(&d_alloc);
     while (n > 0) {
-        struct dhcp_options *opt = mempool_calloc(struct dhcp_options);
+        struct dhcp_options *opt = mempool_calloc(1, struct dhcp_options);
 
         opt->tag = *buffer++;
         n--;

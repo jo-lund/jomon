@@ -84,7 +84,7 @@ packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buffer, int
 
             id = get_protocol_id(ETHERNET_II, ETHERTYPE_IP);
             pinfo = get_protocol(id);
-            pdata->next = mempool_calloc(struct packet_data);
+            pdata->next = mempool_calloc(1, struct packet_data);
             pdata->next->id = id;
             return pinfo->decode(pinfo, buffer + ICMP_HDR_LEN, n - ICMP_HDR_LEN, pdata->next);
         }

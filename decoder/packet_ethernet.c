@@ -96,7 +96,7 @@ packet_error handle_ethernet(struct protocol_info *pinfo, unsigned char *buffer,
         pinfo->long_name = "Ethernet II";
     }
     if (layer2) {
-        pdata->next = mempool_calloc(struct packet_data);
+        pdata->next = mempool_calloc(1, struct packet_data);
         pdata->next->prev = pdata;
         pdata->next->id = id;
         return layer2->decode(layer2, buffer + ETHER_HDR_LEN, n - ETHER_HDR_LEN,

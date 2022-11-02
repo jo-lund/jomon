@@ -74,7 +74,7 @@ bool decode_packet(iface_handle_t *h, unsigned char *buffer, size_t len, struct 
     *p = mempool_alloc(sizeof(struct packet));
     (*p)->buf = mempool_copy(buffer, len); /* store the original frame in buf */
     (*p)->len = len;
-    (*p)->root = mempool_calloc(struct packet_data);
+    (*p)->root = mempool_calloc(1, struct packet_data);
     (*p)->root->id = get_protocol_id(DATALINK, h->linktype);
     if ((pinfo = get_protocol((*p)->root->id)) == NULL)
         return false;

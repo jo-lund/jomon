@@ -3,10 +3,10 @@
 
 #include <string.h>
 
-#define mempool_calloc(type)                            \
+#define mempool_calloc(nmemb, type)                     \
     ({                                                  \
-        type *t = mempool_alloc(sizeof(*t));            \
-        memset(t, 0, sizeof(*t));                       \
+        type *t = mempool_alloc(nmemb * sizeof(*t));    \
+        memset(t, 0, nmemb * sizeof(*t));               \
     })
 
 enum pool {

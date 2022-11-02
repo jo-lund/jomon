@@ -400,7 +400,7 @@ packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
     while (data_len < n) {
         uint16_t record_len;
 
-        *pptr = mempool_calloc(struct tls_info);
+        *pptr = mempool_calloc(1, struct tls_info);
         (*pptr)->next = NULL;
         (*pptr)->type = buf[0];
         (*pptr)->version = get_uint16be(buf + 1);
@@ -474,7 +474,7 @@ static packet_error parse_handshake(struct packet_data *pdata, unsigned char **b
     packet_error err = NO_ERR;
     unsigned char *ptr = *buf;
 
-    tls->handshake = mempool_calloc(struct tls_handshake);
+    tls->handshake = mempool_calloc(1, struct tls_handshake);
     tls->handshake->type = ptr[0];
     memcpy(tls->handshake->length, ptr + 1, 3);
     ptr += 4;
@@ -509,7 +509,7 @@ static packet_error parse_tls_extensions(struct tls_handshake *hs, unsigned char
         goto error;
     length = hs->ext_length;
     while (length > 0) {
-        *ext = mempool_calloc(struct tls_extension);
+        *ext = mempool_calloc(1, struct tls_extension);
         (*ext)->type = read_uint16be(&data);
         (*ext)->length = read_uint16be(&data);
         if ((*ext)->length > length)

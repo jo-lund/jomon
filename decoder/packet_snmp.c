@@ -66,12 +66,14 @@ packet_error handle_snmp(struct protocol_info *pinfo, unsigned char *buffer, int
     uint8_t class;
     uint8_t tag;
     int msg_len;
-    unsigned char *ptr = buffer;
+    unsigned char *ptr;
     struct snmp_info *snmp;
 
-    if (n < MIN_MSG) return DECODE_ERR;
+    if (n < MIN_MSG)
+        return DECODE_ERR;
 
-    snmp = mempool_alloc(sizeof(struct snmp_info));
+    ptr = buffer;
+    snmp = mempool_calloc(1, struct snmp_info);
     pdata->data = snmp;
     pdata->len = n;
     if ((msg_len = parse_value(&ptr, n, &class, &tag, NULL)) == -1) {

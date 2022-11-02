@@ -60,7 +60,7 @@ packet_error handle_http(struct protocol_info *pinfo, unsigned char *buffer,
 {
     struct http_info *http;
 
-    http = mempool_calloc(struct http_info);
+    http = mempool_calloc(1, struct http_info);
     pdata->data = http;
     pdata->len = len;
     if (!parse_http(buffer, len, http))

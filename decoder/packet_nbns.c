@@ -114,7 +114,7 @@ packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int
             pdata->error = create_error_string("Number of records is 0");
             return DECODE_ERR;
         }
-        nbns->record = mempool_alloc(num_records * sizeof(struct nbns_rr));
+        nbns->record = mempool_calloc(num_records, struct nbns_rr);
         for (int j = 0; j < num_records; j++) {
             int len = parse_nbns_record(j, buffer, n, &ptr, plen, nbns);
 
@@ -159,8 +159,7 @@ packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int
             return DECODE_ERR;
         }
         if (nbns->section_count[ARCOUNT]) {
-            nbns->record = mempool_alloc(nbns->section_count[ARCOUNT] *
-                                           sizeof(struct nbns_rr));
+            nbns->record = mempool_calloc(nbns->section_count[ARCOUNT], struct nbns_rr);
             for (unsigned int i = 0; i < nbns->section_count[ARCOUNT]; i++) {
                 int len = parse_nbns_record(i, buffer, n, &ptr, plen, nbns);
 
