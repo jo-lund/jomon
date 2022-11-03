@@ -25,14 +25,16 @@ packet_error handle_snap(struct protocol_info *pinfo, unsigned char *buffer, int
 {
     struct snap_info *snap;
 
-    if (n < SNAP_HDR_LEN)
-        return DECODE_ERR;
-
-    pinfo->num_packets++;
-    pinfo->num_bytes += n;
     snap = mempool_alloc(sizeof(struct snap_info));
     pdata->data = snap;
     pdata->len = n;
+    if (n < SNAP_HDR_LEN) {
+        memset(snap, 0, sizeof(*snap));
+        pdata->error = create_error_string("Packet length (%d) less than SNAP header (%d)", n, SNAP_HDR_LEN);
+        return DECODE_ERR;
+    }
+    pinfo->num_packets++;
+    pinfo->num_bytes += n;
     memcpy(snap->oui, buffer, 3);
     buffer += 3;
     snap->protocol_id = get_uint16be(buffer);

@@ -70,13 +70,17 @@ packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int
     struct ipv6_info *ipv6;
     uint32_t id;
 
-    header_len = sizeof(struct ip6_hdr);
-    if ((unsigned int) n < header_len)
-        return DECODE_ERR;
-
     ip6 = (struct ip6_hdr *) buffer;
     ipv6 = mempool_alloc(sizeof(struct ipv6_info));
     pdata->data = ipv6;
+    header_len = sizeof(struct ip6_hdr);
+    if ((unsigned int) n < header_len) {
+        memset(ipv6, 0, sizeof(*ipv6));
+        pdata->len = n;
+        pdata->error = create_error_string("Packet length (%d) less than IP6 header length (%d)",
+                                           n, header_len);
+        return DECODE_ERR;
+    }
     pdata->len = header_len;
     ipv6->version = ip6->ip6_vfc >> 4;
     ipv6->tc = ip6->ip6_vfc & 0x0f;

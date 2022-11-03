@@ -16,7 +16,7 @@ static struct protocol_info udp_prot = {
     .add_pdu = add_udp_information
 };
 
-void register_udp()
+void register_udp(void)
 {
     register_protocol(&udp_prot, IP_PROTOCOL, IPPROTO_UDP);
 }
@@ -36,14 +36,18 @@ void register_udp()
 packet_error handle_udp(struct protocol_info *pinfo, unsigned char *buffer, int n,
                         struct packet_data *pdata)
 {
-    if (n < UDP_HDR_LEN)
-        return DECODE_ERR;
-
     packet_error error = NO_ERR;
     struct udp_info *udp;
 
     udp = mempool_alloc(sizeof(struct udp_info));
     pdata->data = udp;
+    if (n < UDP_HDR_LEN) {
+        memset(udp, 0, sizeof(*udp));
+        pdata->len = n;
+        pdata->error = create_error_string("Packet length (%d) less than UDP header length (%d)",
+                                           n, UDP_HDR_LEN);
+        return DECODE_ERR;
+    }
     pdata->len = UDP_HDR_LEN;
     udp->sport = read_uint16be(&buffer);
     udp->dport = read_uint16be(&buffer);
@@ -52,8 +56,8 @@ packet_error handle_udp(struct protocol_info *pinfo, unsigned char *buffer, int 
     pinfo->num_packets++;
     pinfo->num_bytes += n;
     if (udp->len < UDP_HDR_LEN) {
-        pdata->error = create_error_string("UDP length (%d) less than minimum header length (8)",
-                                           udp->len);
+        pdata->error = create_error_string("UDP length (%d) less than minimum header length (%d)",
+                                           udp->len, UDP_HDR_LEN);
         return DECODE_ERR;
     }
     if (udp->len > n) {

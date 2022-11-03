@@ -105,12 +105,16 @@ packet_error handle_tcp(struct protocol_info *pinfo, unsigned char *buffer, int 
     struct tcp *tcp;
     unsigned char *p;
 
-    if (n < MIN_HEADER_LEN)
-        return DECODE_ERR;
-
-    p = buffer;
     tcp = mempool_alloc(sizeof(struct tcp));
     pdata->data = tcp;
+    if (n < MIN_HEADER_LEN) {
+        memset(tcp, 0, sizeof(*tcp));
+        pdata->len = n;
+        pdata->error = create_error_string("Packet length (%d) less than minimum TCP header length (%d)",
+                                           n, MIN_HEADER_LEN);
+        return DECODE_ERR;
+    }
+    p = buffer;
     tcp->sport = read_uint16be(&p);
     tcp->dport = read_uint16be(&p);
     tcp->seq_num = read_uint32be(&p);

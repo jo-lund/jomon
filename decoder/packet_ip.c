@@ -251,11 +251,15 @@ packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int
     uint32_t id;
     struct protocol_info *layer3;
 
-    if (n < MIN_HEADER_LEN)
-        return DECODE_ERR;
-
     ipv4 = mempool_alloc(sizeof(struct ipv4_info));
     pdata->data = ipv4;
+    if (n < MIN_HEADER_LEN) {
+        memset(ipv4, 0, sizeof(*ipv4));
+        pdata->len = n;
+        pdata->error = create_error_string("Packet length (%d) less than IP header length (%d)",
+                                           n, MIN_HEADER_LEN);
+        return DECODE_ERR;
+    }
     ipv4->version = (buffer[0] & 0xf0) >> 4;
     ipv4->ihl = (buffer[0] & 0x0f);
     header_len = ipv4->ihl * 4;

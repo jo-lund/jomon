@@ -23,21 +23,23 @@ void register_llc(void)
 packet_error handle_llc(struct protocol_info *pinfo, unsigned char *buffer, int n,
                         struct packet_data *pdata)
 {
-    if (n < LLC_HDR_LEN)
-        return DECODE_ERR;
-
     struct eth_802_llc *llc;
     struct protocol_info *psub;
     uint32_t id;
 
-    pinfo->num_packets++;
-    pinfo->num_bytes += n;
     llc = mempool_alloc(sizeof(struct eth_802_llc));
     pdata->data = llc;
+    pdata->len = LLC_HDR_LEN;
+    if (n < LLC_HDR_LEN) {
+        memset(llc, 0, sizeof(*llc));
+        pdata->error = create_error_string("Packet length (%d) less than LLC header (%d)", n, LLC_HDR_LEN);
+        return DECODE_ERR;
+    }
+    pinfo->num_packets++;
+    pinfo->num_bytes += n;
     llc->dsap = buffer[0];
     llc->ssap = buffer[1];
     llc->control = buffer[2];
-    pdata->len = LLC_HDR_LEN;
     id = get_protocol_id(ETH802_3, (llc->dsap << 8) | llc->ssap);
     if ((llc->dsap << 8 | llc->ssap) == 0xffff) /* invalid id */
         return UNK_PROTOCOL;

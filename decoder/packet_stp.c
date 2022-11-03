@@ -42,26 +42,35 @@ void register_stp(void)
 packet_error handle_stp(struct protocol_info *pinfo, unsigned char *buffer, int n,
                         struct packet_data *pdata)
 {
-    /* the BPDU shall contain at least 4 bytes */
-    if (n < 4) return DECODE_ERR;
-
     struct stp_info *bpdu;
-    uint16_t protocol_id = buffer[0] << 8 | buffer[1];
+    uint16_t protocol_id;
 
-    /* protocol id 0x00 identifies the (Rapid) Spanning Tree Protocol */
-    if (protocol_id != 0x0) return DECODE_ERR;
-
-    pinfo->num_packets++;
-    pinfo->num_bytes += n;
     bpdu = mempool_alloc(sizeof(struct stp_info));
     pdata->data = bpdu;
     pdata->len = n;
+
+    /* the BPDU shall contain at least 4 bytes */
+    if (n < 4) {
+        memset(bpdu, 0, sizeof(*bpdu));
+        pdata->error = create_error_string("Packet length (%d) less than minimum BPDU size (4)", n);
+        return DECODE_ERR;
+    }
+    protocol_id = buffer[0] << 8 | buffer[1];
+
+    /* protocol id 0x00 identifies the (Rapid) Spanning Tree Protocol */
+    if (protocol_id != 0x0) {
+        memset(bpdu, 0, sizeof(*bpdu));
+        pdata->error = create_error_string("Unknown protocol id (%d)", protocol_id);
+        return UNK_PROTOCOL;
+    }
+    pinfo->num_packets++;
+    pinfo->num_bytes += n;
     bpdu->protocol_id = protocol_id;
     bpdu->version = buffer[2];
     bpdu->type = buffer[3];
 
     /* a configuration BPDU contains at least 35 bytes and RST BPDU 36 bytes */
-    if (n >= MIN_CONF_BPDU) {
+    if (n >= MIN_CONF_BPDU && (bpdu->type == CONFIG || bpdu->type == RST)) {
         bpdu->tcack = (buffer[4] & 0x80) >> 7;
         bpdu->agreement = (buffer[4] & 0x40) >> 6;
         bpdu->forwarding = (buffer[4] & 0x20) >> 5;
@@ -77,7 +86,8 @@ packet_error handle_stp(struct protocol_info *pinfo, unsigned char *buffer, int 
         bpdu->max_age = buffer[29] << 8 | buffer[30];
         bpdu->ht = buffer[31] << 8 | buffer[32];
         bpdu->fd = buffer[33] << 8 | buffer[34];
-        if (n > MIN_CONF_BPDU) bpdu->version1_len = buffer[35];
+        if (n > MIN_CONF_BPDU && bpdu->type == RST)
+            bpdu->version1_len = buffer[35];
     }
     return NO_ERR;
 }

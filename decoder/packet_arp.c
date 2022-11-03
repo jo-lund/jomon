@@ -54,15 +54,21 @@ void register_arp(void)
 packet_error handle_arp(struct protocol_info *pinfo, unsigned char *buffer, int n,
                         struct packet_data *pdata)
 {
-    if (n < ARP_SIZE) return DECODE_ERR;
-
-    struct ether_arp *arp_header;
     struct arp_info *arp;
+    struct ether_arp *arp_header;
 
+    arp = mempool_alloc(sizeof(struct arp_info));
+    pdata->data = arp;
+    pdata->len = n;
+    if (n < ARP_SIZE) {
+        memset(arp, 0, sizeof(*arp));
+        pdata->error = create_error_string("Packet length (%d) less than minimum ARP packet (%d)",
+                                           n, ARP_SIZE);
+        return DECODE_ERR;
+    }
     pinfo->num_packets++;
     pinfo->num_bytes += n;
     arp_header = (struct ether_arp *) buffer;
-    arp = mempool_alloc(sizeof(struct arp_info));
     memcpy(arp->sip, arp_header->arp_spa, 4); /* sender protocol address */
     memcpy(arp->tip, arp_header->arp_tpa, 4); /* target protocol address */
     memcpy(arp->sha, arp_header->arp_sha, ETHER_ADDR_LEN); /* sender hardware address */
@@ -72,8 +78,6 @@ packet_error handle_arp(struct protocol_info *pinfo, unsigned char *buffer, int 
     arp->pt = ntohs(arp_header->arp_pro);
     arp->hs = arp_header->arp_hln;
     arp->ps = arp_header->arp_pln;
-    pdata->data = arp;
-    pdata->len = n;
     return NO_ERR;
 }
 
