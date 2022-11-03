@@ -46,7 +46,18 @@
         PRINT_INFO(buffer, n, fmt, ## __VA_ARGS__);             \
     } while (0)
 
-static void print_error(char *buf, int size, struct packet *p);
+static void print_unknown(char *buf, int size, struct packet *p)
+{
+    char smac[HW_ADDRSTRLEN];
+    char dmac[HW_ADDRSTRLEN];
+    char time[TBUFLEN];
+
+    HW_ADDR_NTOP(smac, eth_src(p));
+    HW_ADDR_NTOP(dmac, eth_dst(p));
+    format_timeval(&p->time, time, TBUFLEN);
+    PRINT_LINE(buf, size, p->num, time, smac, dmac, "ETH II", "Ethertype: 0x%x",
+               ethertype(p));
+}
 
 void write_to_buf(char *buf, int size, struct packet *p)
 {
@@ -62,26 +73,8 @@ void write_to_buf(char *buf, int size, struct packet *p)
         PRINT_NUMBER(buf, size, p->num);
         PRINT_TIME(buf, size, time);
         pinfo->print_pdu(buf, size, p->root->next);
-    } else if (p->len - ETHER_HDR_LEN)
-        print_error(buf, size, p);
-}
-
-static void print_error(char *buf, int size, struct packet *p)
-{
-    char smac[HW_ADDRSTRLEN];
-    char dmac[HW_ADDRSTRLEN];
-    char time[TBUFLEN];
-
-    HW_ADDR_NTOP(smac, eth_src(p));
-    HW_ADDR_NTOP(dmac, eth_dst(p));
-    format_timeval(&p->time, time, TBUFLEN);
-    if (p->perr != NO_ERR && p->perr != UNK_PROTOCOL) {
-        PRINT_LINE(buf, size, p->num, time, smac, dmac,
-                   "ETH II", "Ethertype: 0x%x [decode error]", ethertype(p));
-    } else { /* not yet supported */
-        PRINT_LINE(buf, size, p->num, time, smac, dmac, "ETH II", "Ethertype: 0x%x",
-                   ethertype(p));
-    }
+    } else if (p->len - ETHER_HDR_LEN > 0)
+        print_unknown(buf, size, p);
 }
 
 void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t type)

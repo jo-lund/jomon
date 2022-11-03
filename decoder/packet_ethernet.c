@@ -99,8 +99,9 @@ packet_error handle_ethernet(struct protocol_info *pinfo, unsigned char *buffer,
         pdata->next = mempool_calloc(1, struct packet_data);
         pdata->next->prev = pdata;
         pdata->next->id = id;
-        return layer2->decode(layer2, buffer + ETHER_HDR_LEN, n - ETHER_HDR_LEN,
-                              pdata->next);
+        layer2->decode(layer2, buffer + ETHER_HDR_LEN, n - ETHER_HDR_LEN,
+                       pdata->next);
+        return NO_ERR;
     }
     return UNK_PROTOCOL;
 }

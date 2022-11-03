@@ -86,7 +86,6 @@ typedef void (*protocol_handler)(struct protocol_info *pinfo, void *arg);
  */
 struct packet {
     uint32_t num;
-    packet_error perr;
     struct timeval time;
     unsigned char *buf; /* contains the frame as seen on the network */
     unsigned int len;

@@ -353,10 +353,8 @@ static bool read_show_progress(iface_handle_t *handle, unsigned char *buffer, ui
     }
     p->time.tv_sec = t->tv_sec;
     p->time.tv_usec = t->tv_usec;
-    if (p->perr != DECODE_ERR) {
-        tcp_analyzer_check_stream(p);
-        host_analyzer_investigate(p);
-    }
+    tcp_analyzer_check_stream(p);
+    host_analyzer_investigate(p);
     if (bpf.size > 0)  {
         vector_push_back(packets, p);
         if (bpf_run_filter(bpf, p->buf, p->len) != 0)
@@ -1330,7 +1328,7 @@ void add_elements(main_screen *ms, struct packet *p)
         i++;
         pdata = pdata->next;
     }
-    if (p->perr != NO_ERR && (int) p->len - idx > 0) {
+    if ((int) p->len - idx > 0) {
         header = LV_ADD_HEADER(ms->lvw, "Data", selected[i], i);
         add_hexdump(ms->lvw, header, hexmode, p->buf + idx, p->len - idx);
     }

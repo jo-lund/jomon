@@ -23,6 +23,9 @@ void tcp_analyzer_check_stream(const struct packet *p)
 
     if (ethertype(p) == ETHERTYPE_IP &&
         (pdata = get_packet_data(p, get_protocol_id(IP_PROTOCOL, IPPROTO_TCP)))) {
+        if (pdata->error)
+            return;
+
         struct tcp *tcp = pdata->data;
         struct tcp_connection_v4 *conn;
         struct tcp_endpoint_v4 endp;

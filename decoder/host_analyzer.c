@@ -4,10 +4,10 @@
 #include "host_analyzer.h"
 #include "packet.h"
 #include "packet_ip.h"
-#include "../signal.h"
+#include "signal.h"
 #include "packet_dns.h"
 #include "dns_cache.h"
-#include "../hash.h"
+#include "hash.h"
 
 #define TBLSZ 1024
 
@@ -158,6 +158,11 @@ static void update_host(void *paddr, char *name)
 
 static void handle_ip4(struct packet *p)
 {
+    struct packet_data *pdata;
+
+    pdata = get_packet_data(p, get_protocol_id(ETHERNET_II, ETHERTYPE_IP));
+    if (pdata->error)
+        return;
     if (!filter_address(ipv4_src(p)))
         insert_host(ipv4_src(p), eth_src(p));
     if (!filter_address(ipv4_dst(p)))
