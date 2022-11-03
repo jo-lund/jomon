@@ -133,6 +133,8 @@ static bool parse_line(struct smtp_info *smtp, struct smtp_data *data, char *buf
     c = *i;
     while (*i < n && isascii(*p)) {
         if (*p == '\r') {
+            if (*i + 2 > n)
+                return false;
             if (*++p == '\n') {
                 *i += 2;
                 if (smtp->response)
@@ -206,7 +208,7 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
         return pinfo->decode(pinfo, buf, n, pdata);
     }
     p = buf;
-    smtp = mempool_alloc(sizeof(struct smtp_info));
+    smtp = mempool_calloc(1, struct smtp_info);
     smtp->data = NULL;
     pdata->data = smtp;
     pdata->len = n;

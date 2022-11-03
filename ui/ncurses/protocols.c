@@ -1314,7 +1314,7 @@ void add_dns_information(void *w, void *sw, void *data)
                              get_dns_class_extended(GET_MDNS_RRCLASS(dns->question[i].qclass)));
         }
     }
-    if (records) {
+    if (records > 0 && dns->record) {
         int len;
         list_view_header *hdr = NULL;
 
@@ -1742,7 +1742,7 @@ void add_smtp_information(void *w, void *sw, void *data)
         }
         free(buf);
     } else {
-        if (smtp->response) {
+        if (smtp->response && smtp->rsps) {
             const node_t *n;
 
             DLIST_FOREACH(smtp->rsps, n) {
@@ -1761,7 +1761,7 @@ void add_smtp_information(void *w, void *sw, void *data)
                     LV_ADD_TEXT_ELEMENT(lw, header, "Reply parameters: %s",
                                         (char *) list_data(line));
             }
-        } else {
+        } else if (smtp->cmds) {
             const node_t *n;
             struct smtp_cmd *cmd;
 

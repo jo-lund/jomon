@@ -688,7 +688,7 @@ void print_smtp(char *buf, int n, void *data)
     if (smtp->data) {
         PRINT_INFO(buf, n, "C: Mail data");
     } else {
-        if (smtp->response) {
+        if (smtp->response && smtp->rsps) {
             const node_t *node;
             struct smtp_rsp *rsp;
 
@@ -702,7 +702,7 @@ void print_smtp(char *buf, int n, void *data)
                     PRINT_INFO(buf, n, "%s  ", (char *) list_data(line));
                 }
             }
-        } else {
+        } else if (smtp->cmds) {
             const node_t *node;
             struct smtp_cmd *cmd;
 
