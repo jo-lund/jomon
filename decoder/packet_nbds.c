@@ -54,7 +54,8 @@ void register_nbds()
 packet_error handle_nbds(struct protocol_info *pinfo, unsigned char *buffer, int n,
                          struct packet_data *pdata)
 {
-    if (n < NBDS_HDRLEN) return DECODE_ERR;
+    if (n < NBDS_HDRLEN)
+        return UNK_PROTOCOL;
 
     struct nbds_info *nbds;
     unsigned char *ptr;
@@ -76,6 +77,7 @@ packet_error handle_nbds(struct protocol_info *pinfo, unsigned char *buffer, int
     case NBDS_DIRECT_GROUP:
     case NBDS_BROADCAST:
         if ((plen = parse_datagram(buffer, n, &ptr, plen, nbds, pdata)) == -1) {
+            pdata->error = create_error_string("Error parsing NBDS datagram");
             return DECODE_ERR;
         }
         break;
@@ -89,6 +91,7 @@ packet_error handle_nbds(struct protocol_info *pinfo, unsigned char *buffer, int
         char name[DNS_NAMELEN];
 
         if (parse_dns_name(buffer, n, ptr, plen, name) == -1) {
+            pdata->error = create_error_string("Error parsing name");
             return DECODE_ERR;
         }
         decode_nbns_name(nbds->msg.dest_name, name);
@@ -150,12 +153,12 @@ int parse_datagram(unsigned char *buffer, int n, unsigned char **data, int dlen,
     return dlen;
 }
 
-struct packet_flags *get_nbds_flags()
+struct packet_flags *get_nbds_flags(void)
 {
     return nbds_flags;
 }
 
-int get_nbds_flags_size()
+int get_nbds_flags_size(void)
 {
     return sizeof(nbds_flags) / sizeof(struct packet_flags);
 }

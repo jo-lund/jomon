@@ -139,6 +139,7 @@ static packet_error parse_options(struct icmp6_info *icmp6, struct packet_data *
     return NO_ERR;
 
 error:
+    pdata->error = create_error_string("Error parsing ICMP6 option");
     mempool_free(*opt);
     *opt = NULL;
     return DECODE_ERR;
@@ -148,7 +149,7 @@ packet_error handle_icmp6(struct protocol_info *pinfo, unsigned char *buf, int n
                           struct packet_data *pdata)
 {
     if (n < ICMP6_HDR_LEN)
-        return DECODE_ERR;
+        return UNK_PROTOCOL;
 
     struct icmp6_info *icmp6;
 
@@ -197,8 +198,11 @@ packet_error handle_icmp6(struct protocol_info *pinfo, unsigned char *buf, int n
         n -= 4;
         return parse_options(icmp6, pdata, buf, n);
     case ND_ROUTER_ADVERT:
-        if (n < 12)
+        if (n < 12) {
+            pdata->error =
+                create_error_string("Packet data length (%d) less than router advertisement message length (12)", n);
             return DECODE_ERR;
+        }
         icmp6->router_adv.cur_hop_limit = buf[0];
         icmp6->router_adv.m = (buf[1] & 0x80) >> 7;
         icmp6->router_adv.o = (buf[1] & 0x40) >> 6;
@@ -213,15 +217,21 @@ packet_error handle_icmp6(struct protocol_info *pinfo, unsigned char *buf, int n
     case ND_NEIGHBOR_SOLICIT:
         buf += 4; /* skip reserved bytes */
         n -= 4;
-        if (n < 16)
+        if (n < 16) {
+            pdata->error =
+                create_error_string("Packet data length (%d) less than neighbor solicitation  message length (16)", n);
             return DECODE_ERR;
+        }
         PARSE_IP6ADDR(icmp6->target_addr, buf, n);
         if (n > 0)
             return parse_options(icmp6, pdata, buf, n);
         break;
     case ND_NEIGHBOR_ADVERT:
-        if (n < 5)
+        if (n < 5) {
+            pdata->error =
+                create_error_string("Packet data length (%d) less than neighbor advertisement message length (5)", n);
             return DECODE_ERR;
+        }
         icmp6->neigh_adv.r = (buf[0] & 0x80) >> 7;
         icmp6->neigh_adv.s = (buf[0] & 0x40) >> 6;
         icmp6->neigh_adv.o = (buf[0] & 0x20) >> 5;
@@ -233,8 +243,11 @@ packet_error handle_icmp6(struct protocol_info *pinfo, unsigned char *buf, int n
     case ND_REDIRECT:
         buf += 4; /* skip reserved bytes */
         n -= 4;
-        if (n < 32)
+        if (n < 32) {
+            pdata->error =
+                create_error_string("Packet data length (%d) less than redirect message length (32)", n);
             return DECODE_ERR;
+        }
         PARSE_IP6ADDR(icmp6->redirect.target_addr, buf, n);
         PARSE_IP6ADDR(icmp6->redirect.dest_addr, buf, n);
         if (n > 0)

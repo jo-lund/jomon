@@ -120,7 +120,7 @@ packet_error handle_dhcp(struct protocol_info *pinfo, unsigned char *buffer, int
                          struct packet_data *pdata)
 {
     if (n < MIN_DHCP_MSG)
-        return DECODE_ERR;
+        return UNK_PROTOCOL;
 
     unsigned char *ptr = buffer;
     int len = n;

@@ -33,17 +33,29 @@ packet_error handle_imap(struct protocol_info *pinfo, unsigned char *buf, int n,
     pdata->len = n;
     imap->lines = list_init(&d_alloc);
     while (isascii(*buf)) {
-        if (c >= MAXLINE || i >= n) return DECODE_ERR;
+        if (c >= MAXLINE) {
+            pdata->error = create_error_string("IMAP max line length exceeded (%d)", c);
+            goto error;
+        }
+        if (i >= n) {
+            pdata->error = create_error_string("IMAP length greater than packet length (%d)", n);
+            goto error;
+        }
         if (*buf == '\r') {
             if (++i < n && *++buf == '\n') {
                 list_push_back(imap->lines, mempool_copy0(line, c));
-                if (i == n - 1) break;
+                if (i == n - 1)
+                    break;
                 i++;
                 buf++;
                 c = 0;
                 continue;
             } else {
-                return DECODE_ERR;
+                if (i >= n)
+                    pdata->error = create_error_string("IMAP length greater than packet length (%d)", n);
+                else
+                    pdata->error = create_error_string("IMAP EOL error");
+                goto error;
             }
         }
         line[c++] = *buf++;
@@ -54,6 +66,8 @@ packet_error handle_imap(struct protocol_info *pinfo, unsigned char *buf, int n,
         pinfo->num_bytes += n;
         return NO_ERR;
     }
+
+error:
     mempool_free(imap->lines);
     imap->lines = NULL;
     return DECODE_ERR;

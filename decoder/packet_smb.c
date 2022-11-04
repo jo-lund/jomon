@@ -59,11 +59,10 @@ packet_error handle_smb(struct protocol_info *pinfo, unsigned char *buffer, int 
                          struct packet_data *pdata)
 {
     if (n < SMB_HDR_LEN)
-        return DECODE_ERR;
-
+        return UNK_PROTOCOL;
     if (buffer[0] != 0xff || buffer[1] != 'S' ||
         buffer[2] != 'M' || buffer[3] != 'B')
-        return DECODE_ERR;
+        return UNK_PROTOCOL;
 
     struct smb_info *smb;
 

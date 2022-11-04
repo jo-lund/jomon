@@ -33,7 +33,8 @@ static packet_error handle_vrrp(struct protocol_info *pinfo, unsigned char *buf,
     struct vrrp_info *vrrp;
 
     if (n < MIN_VRRP_LEN)
-        return DECODE_ERR;
+        return UNK_PROTOCOL;
+
     vrrp = mempool_alloc(sizeof(*vrrp));
     pdata->data = vrrp;
     pdata->len = n;

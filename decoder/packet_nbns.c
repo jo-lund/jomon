@@ -68,7 +68,7 @@ packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int
                          struct packet_data *pdata)
 {
     if (n < DNS_HDRLEN)
-        return DECODE_ERR;
+        return UNK_PROTOCOL;
 
     unsigned char *ptr = buffer;
     int plen = n;

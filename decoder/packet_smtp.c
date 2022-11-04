@@ -177,12 +177,12 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
 
      /* only support for TCP and IPv4 */
     if (pdata->transport != IPPROTO_TCP)
-        return DECODE_ERR;
+        return UNK_PROTOCOL;
     if ((root = get_root(pdata)) == NULL)
-        return DECODE_ERR;
+        return UNK_PROTOCOL;
     if ((!root->next || root->next->id != get_protocol_id(ETHERNET_II, ETHERTYPE_IP)) ||
         !root->next->next)
-        return DECODE_ERR;
+        return UNK_PROTOCOL;
 
     ipv4 = root->next->data;
     tcp = root->next->next->data;
@@ -280,7 +280,7 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
                 }
                 data.rsp = rsp;
                 if (!parse_line(smtp, &data, (char *) buf, n, &i)) {
-                    pdata->error = create_error_string("Error parsing line");
+                    pdata->error = create_error_string("Error parsing SMTP line");
                     goto error;
                 }
                 p = buf + i;
@@ -319,7 +319,7 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
             cmd->command = mempool_copy0(s, j);
             data.cmd = cmd;
             if (!parse_line(smtp, &data, (char *) buf, n, &i)) {
-                pdata->error = create_error_string("Error parsing line");
+                pdata->error = create_error_string("Error parsing SMTP line");
                 goto error;
             }
             p = buf + i;

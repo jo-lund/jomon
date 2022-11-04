@@ -31,7 +31,7 @@ packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buffer, int
                          struct packet_data *pdata)
 {
     if (n < ICMP_HDR_LEN)
-        return DECODE_ERR;
+        return UNK_PROTOCOL;
 
     struct icmp_info *info;
     struct icmp *icmp = (struct icmp *) buffer;

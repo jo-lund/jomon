@@ -388,7 +388,7 @@ packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
                         struct packet_data *pdata)
 {
     if (n < TLS_HEADER_SIZE || n > TLS_MAX_SIZE)
-        return DECODE_ERR;
+        return UNK_PROTOCOL;
 
     uint16_t data_len = 0;
     struct tls_info **pptr;

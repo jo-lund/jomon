@@ -56,7 +56,8 @@ void register_pim(void)
 packet_error handle_pim(struct protocol_info *pinfo, unsigned char *buffer, int n,
                         struct packet_data *pdata)
 {
-    if (n < PIM_HEADER_LEN) return DECODE_ERR;
+    if (n < PIM_HEADER_LEN)
+        return UNK_PROTOCOL;
 
     struct pim_info *pim;
 

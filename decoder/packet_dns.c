@@ -127,7 +127,7 @@ packet_error handle_dns(struct protocol_info *pinfo, unsigned char *buffer, int 
     struct dns_info *dns;
 
     if (n < DNS_HDRLEN)
-        return DECODE_ERR;
+        return UNK_PROTOCOL;
     dns = mempool_calloc(1, struct dns_info);
     pdata->data = dns;
     pdata->len = n;
@@ -475,9 +475,10 @@ int parse_dns_name(unsigned char *buffer, int n, unsigned char *ptr, int plen, c
         }
         c++;
     }
-    if (len) {
+    if ((label_length & 0xc0) == 0xc0)
+        return -1;
+    if (len)
         name[len - 1] = '\0';
-    }
     len++; /* add null label */
     return compression ? name_ptr_len : len;
 }

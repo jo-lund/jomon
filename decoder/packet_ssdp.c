@@ -5,7 +5,8 @@
 
 extern void print_ssdp(char *buf, int n, void *data);
 extern void add_ssdp_information(void *widget, void *subwidget, void *data);
-static packet_error parse_ssdp(char *str, int n, list_t *msg_header);
+static packet_error parse_ssdp(struct packet_data *pdata, char *str, int n,
+                               list_t *msg_header);
 
 static struct protocol_info ssdp_prot = {
     .short_name = "SSDP",
@@ -15,7 +16,7 @@ static struct protocol_info ssdp_prot = {
     .add_pdu = add_ssdp_information
 };
 
-void register_ssdp()
+void register_ssdp(void)
 {
     register_protocol(&ssdp_prot, PORT, SSDP);
 }
@@ -44,7 +45,7 @@ packet_error handle_ssdp(struct protocol_info *pinfo, unsigned char *buffer, int
     pinfo->num_packets++;
     pinfo->num_bytes += n;
     ssdp->fields = list_init(&d_alloc);
-    return parse_ssdp((char *) buffer, n, ssdp->fields);
+    return parse_ssdp(pdata, (char *) buffer, n, ssdp->fields);
 }
 
 /*
@@ -53,8 +54,10 @@ packet_error handle_ssdp(struct protocol_info *pinfo, unsigned char *buffer, int
  *
  * Copies the lines delimited by CRLF, i.e. the start line and the SSDP message
  * header fields, to msg_header list.
+ *
+ * TODO: Use HTTP parser
  */
-packet_error parse_ssdp(char *str, int n, list_t *msg_header)
+packet_error parse_ssdp(struct packet_data *pdata, char *str, int n, list_t *msg_header)
 {
     char *token;
     char cstr[n + 1];
@@ -74,7 +77,9 @@ packet_error parse_ssdp(char *str, int n, list_t *msg_header)
         list_push_back(msg_header, field);
         token = strtok(NULL, "\r\n");
     }
-    if ((size_t) n != len)
+    if ((size_t) n != len) {
+        pdata->error = create_error_string("SSDP length (%lu) != packet data length (%d)", len, n);
         return DECODE_ERR;
+    }
     return NO_ERR;
 }

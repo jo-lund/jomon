@@ -75,7 +75,7 @@ packet_error handle_igmp(struct protocol_info *pinfo, unsigned char *buffer, int
                          struct packet_data *pdata)
 {
     if (n < IGMP_HDR_LEN)
-        return DECODE_ERR;
+        return UNK_PROTOCOL;
 
     struct igmp_info *igmp;
 
@@ -105,16 +105,21 @@ packet_error handle_igmp(struct protocol_info *pinfo, unsigned char *buffer, int
             n -= 4;
             if (n < 4)
                 break;
-            if (igmp->query->nsources * 4 > n)
+            if (igmp->query->nsources * 4 > n) {
+                pdata->error = create_error_string("Too many source addresses (%d) in query",
+                                                   igmp->query->nsources);
                 return DECODE_ERR;
+            }
             igmp->query->src_addrs = mempool_alloc(igmp->query->nsources * 4);
             parse_ipv4_addr(igmp->query->src_addrs, igmp->query->nsources, &buffer, n);
         }
         break;
     case IGMP_v3_HOST_MEMBERSHIP_REPORT:
         if (n > 0 && igmp->ngroups > 0) {
-            if (igmp->ngroups > n)
+            if (igmp->ngroups > n) {
+                pdata->error = create_error_string("Too many group records (%d)", igmp->ngroups);
                 return DECODE_ERR;
+            }
             igmp->records = mempool_alloc(sizeof(*igmp->records) * igmp->ngroups);
             for (int i = 0; i < igmp->ngroups && n >= 8; i++) {
                 igmp->records[i].type = buffer[0];
@@ -125,8 +130,11 @@ packet_error handle_igmp(struct protocol_info *pinfo, unsigned char *buffer, int
                 n -= 8;
                 if (n < 4)
                     break;
-                if (igmp->records[i].nsources * 4 > n)
+                if (igmp->records[i].nsources * 4 > n) {
+                    pdata->error = create_error_string("Too many source addresses (%d) in group record",
+                                                       igmp->records[i].nsources);
                     return DECODE_ERR;
+                }
                 igmp->records[i].src_addrs = mempool_alloc(igmp->records[i].nsources * 4);
                 n = parse_ipv4_addr(igmp->records[i].src_addrs, igmp->records[i].nsources, &buffer, n);
             }
