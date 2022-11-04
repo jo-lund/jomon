@@ -333,7 +333,7 @@ packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int
     id = get_protocol_id(IP_PROTOCOL, ipv4->protocol);
     layer3 = get_protocol(id);
     if (layer3) {
-        pdata->next = mempool_alloc(sizeof(struct packet_data));
+        pdata->next = mempool_calloc(1, struct packet_data);
         memset(pdata->next, 0, sizeof(struct packet_data));
         pdata->next->prev = pdata;
         pdata->next->id = id;

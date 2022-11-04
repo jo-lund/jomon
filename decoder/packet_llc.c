@@ -44,7 +44,7 @@ packet_error handle_llc(struct protocol_info *pinfo, unsigned char *buffer, int 
     if ((llc->dsap << 8 | llc->ssap) == 0xffff) /* invalid id */
         return UNK_PROTOCOL;
     if ((psub = get_protocol(id))) {
-        pdata->next = mempool_alloc(sizeof(struct packet_data));
+        pdata->next = mempool_calloc(1, struct packet_data);
         memset(pdata->next, 0, sizeof(struct packet_data));
         pdata->next->id = id;
         return psub->decode(psub, buffer + LLC_HDR_LEN, n - LLC_HDR_LEN, pdata->next);

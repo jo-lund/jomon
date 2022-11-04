@@ -139,7 +139,7 @@ int parse_datagram(unsigned char *buffer, int n, unsigned char **data, int dlen,
 
         id = get_protocol_id(PORT, SMB);
         if ((pinfo = get_protocol(id))) {
-            pdata->next = mempool_alloc(sizeof(struct packet_data));
+            pdata->next = mempool_calloc(1, struct packet_data);
             memset(pdata->next, 0, sizeof(struct packet_data));
             pdata->next->prev = pdata;
             pdata->next->id = id;

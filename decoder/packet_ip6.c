@@ -83,6 +83,8 @@ packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int
     }
     pdata->len = header_len;
     ipv6->version = ip6->ip6_vfc >> 4;
+    if (ipv6->version != 6)
+        pdata->error = create_error_string("IP6 version error %d != 6", ipv6->version);
     ipv6->tc = ip6->ip6_vfc & 0x0f;
     ipv6->flow_label = ntohl(ip6->ip6_flow);
     ipv6->payload_len = ntohs(ip6->ip6_plen);
@@ -93,16 +95,15 @@ packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int
     id = get_protocol_id(IP_PROTOCOL, ipv6->next_header);
     pinfo->num_packets++;
     pinfo->num_bytes += n;
-    pdata->error = NULL;
 
     // TODO: Handle IPv6 extension headers and errors
     struct protocol_info *layer3 = get_protocol(id);
     if (layer3) {
-        pdata->next = mempool_alloc(sizeof(struct packet_data));
+        pdata->next = mempool_calloc(1, struct packet_data);
         memset(pdata->next, 0, sizeof(struct packet_data));
         pdata->next->prev = pdata;
         pdata->next->id = id;
-        return layer3->decode(layer3, buffer + header_len, n - header_len, pdata->next);
+        layer3->decode(layer3, buffer + header_len, n - header_len, pdata->next);
     }
     return NO_ERR;
 }
