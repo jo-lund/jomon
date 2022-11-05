@@ -103,7 +103,10 @@ packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int
         memset(pdata->next, 0, sizeof(struct packet_data));
         pdata->next->prev = pdata;
         pdata->next->id = id;
-        layer3->decode(layer3, buffer + header_len, n - header_len, pdata->next);
+        if (layer3->decode(layer3, buffer + header_len, n - header_len, pdata->next) == UNK_PROTOCOL) {
+            mempool_free(pdata->next);
+            pdata->next = NULL;
+        }
     }
     return NO_ERR;
 }
