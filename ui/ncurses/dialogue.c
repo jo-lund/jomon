@@ -116,7 +116,7 @@ void dialogue_render(dialogue *this)
             string_truncate(this->title, len, mx - 2);
             len = mx - 2;
         }
-        mvprintat(win, 0, (mx - len) / 2, A_BOLD, this->title);
+        mvprintat(win, 0, (mx - len) / 2, A_BOLD, "%s", this->title);
     }
 }
 

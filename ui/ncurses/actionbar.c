@@ -67,7 +67,7 @@ void actionbar_refresh(actionbar_t *bar, screen *s)
         actionbar_elem *elem = list_data(n);
 
         if (elem->disabled)
-            printat(bar->base.win, disabled, elem->key);
+            printat(bar->base.win, disabled, "%s", elem->key);
         else
             wprintw(bar->base.win, "%s", elem->key);
         printat(bar->base.win, colour, "%-*s", ELEM_WIDTH, elem->text);

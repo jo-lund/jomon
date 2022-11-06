@@ -645,7 +645,7 @@ void print_ssdp(char *buf, int n, void *data)
     PRINT_PROTOCOL(buf, n, "SSDP");
     node = list_begin(ssdp->fields);
     if (node) {
-        PRINT_INFO(buf, n, (char *) list_data(node));
+        PRINT_INFO(buf, n, "%s", (char *) list_data(node));
     }
 }
 

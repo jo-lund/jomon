@@ -178,7 +178,7 @@ void print_menu(list_t *items)
             print_menu(om->subopts);
         }
         if (om->wheader) {
-            mvprintat(om->wheader, 0, 1, A_NORMAL, om->header);
+            mvprintat(om->wheader, 0, 1, A_NORMAL, "%s", om->header);
             wbkgd(om->wheader, get_theme_colour(MENU_BACKGROUND));
         }
         n = list_next(n);

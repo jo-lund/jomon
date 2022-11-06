@@ -84,7 +84,7 @@ void add_ethernet_information(void *w, void *sw, void *data)
     if ((type = get_ethernet_type(eth->ethertype))) {
         snprintcat(line, MAXLINE, " (%s)", type);
     }
-    LV_ADD_TEXT_ELEMENT(lw, header, line);
+    LV_ADD_TEXT_ELEMENT(lw, header, "%s", line);
 }
 
 void add_llc_information(void *w, void *sw, void *data)
@@ -205,7 +205,8 @@ static void add_ipv4_options(struct ipv4_info *ip, list_view *lw, list_view_head
     while (opt) {
         list_view_header *sub, *type_hdr;
 
-        sub = LV_ADD_SUB_HEADER(lw, opt_hdr, selected[UI_SUBLAYER2], UI_SUBLAYER2, get_ipv4_opt_type(opt->type));
+        sub = LV_ADD_SUB_HEADER(lw, opt_hdr, selected[UI_SUBLAYER2], UI_SUBLAYER2, "%s",
+                                get_ipv4_opt_type(opt->type));
         type_hdr = LV_ADD_SUB_HEADER(lw, sub, selected[UI_SUBLAYER2], UI_SUBLAYER2, "Type: %u", opt->type);
         add_flags(lw, type_hdr, opt->type, get_ipv4_opt_flags(), get_ipv4_opt_flags_size());
         LV_ADD_TEXT_ELEMENT(lw, sub, "Length: %u", opt->length);
