@@ -109,7 +109,7 @@ packet_error call_data_decoder(uint32_t id, struct packet_data *p, uint8_t trans
         p->next = pdata;
         if ((err = pinfo->decode(pinfo, buf, n, pdata)) == UNK_PROTOCOL) {
             pdata->prev->next = NULL;
-            free(pdata);
+            mempool_free(pdata);
         }
     }
     return err;
