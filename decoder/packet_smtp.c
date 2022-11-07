@@ -315,6 +315,10 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
                 p++;
                 j++;
             }
+            if (i >= n) {
+                pdata->error = create_error_string("SMTP line greater than packet data length (%d)", n);
+                goto error;
+            }
             cmd = mempool_alloc(sizeof(*cmd));
             cmd->command = mempool_copy0(s, j);
             data.cmd = cmd;

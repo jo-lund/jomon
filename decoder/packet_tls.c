@@ -405,7 +405,9 @@ packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
         (*pptr)->type = buf[0];
         (*pptr)->version = get_uint16be(buf + 1);
         (*pptr)->length = get_uint16be(buf + 3);
-        if ((*pptr)->length + TLS_HEADER_SIZE > n) {
+        record_len = (*pptr)->length;
+        data_len += record_len + TLS_HEADER_SIZE;
+        if (record_len + TLS_HEADER_SIZE > n || data_len > n) {
             /* TODO: Need to support TCP reassembly */
             mempool_free(*pptr);
             *pptr = NULL;
@@ -416,8 +418,6 @@ packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
             }
             goto done;
         }
-        record_len = (*pptr)->length;
-        data_len += record_len + TLS_HEADER_SIZE;
         buf += TLS_HEADER_SIZE;
         switch ((*pptr)->type) {
         case TLS_CHANGE_CIPHER_SPEC:

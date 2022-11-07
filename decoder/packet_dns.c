@@ -216,7 +216,7 @@ int parse_dns_question(unsigned char *buffer, int n, unsigned char **data,
     for (unsigned int i = 0; i < dns->section_count[QDCOUNT]; i++) {
         int name_len;
 
-        if ((name_len = parse_dns_name(buffer, n, ptr, dlen, dns->question[i].qname)) == -1) {
+        if ((name_len = parse_dns_name(buffer, n, ptr, dlen - len, dns->question[i].qname)) == -1) {
             memset(dns->question + i, 0, (dns->section_count[QDCOUNT] - i) *
                    sizeof(struct dns_question));
             return -1;
