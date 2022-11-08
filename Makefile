@@ -59,7 +59,7 @@ test-objs += $(bpf-objs) \
 all : release
 
 .PHONY : debug
-debug : CFLAGS += -g -fsanitize=address -fno-omit-frame-pointer
+debug : CFLAGS += -g -fsanitize=address,undefined -fno-omit-frame-pointer
 debug : CPPFLAGS += -DMONITOR_DEBUG
 debug : $(TARGETDIR)/monitor
 

@@ -4,6 +4,7 @@
 #include <netinet/ip6.h>
 #include "packet_ip6.h"
 #include "packet.h"
+#include "util.h"
 
 extern void add_ipv6_information(void *w, void *sw, void *data);
 extern void print_ipv6(char *buf, int n, void *data);
@@ -65,12 +66,10 @@ void register_ipv6(void)
 packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int n,
                          struct packet_data *pdata)
 {
-    struct ip6_hdr *ip6;
     unsigned int header_len;
     struct ipv6_info *ipv6;
     uint32_t id;
 
-    ip6 = (struct ip6_hdr *) buffer;
     ipv6 = mempool_alloc(sizeof(struct ipv6_info));
     pdata->data = ipv6;
     header_len = sizeof(struct ip6_hdr);
@@ -82,16 +81,18 @@ packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int
         return DECODE_ERR;
     }
     pdata->len = header_len;
-    ipv6->version = ip6->ip6_vfc >> 4;
+    ipv6->version = buffer[0] >> 4;
     if (ipv6->version != 6)
         pdata->error = create_error_string("IP6 version error %d != 6", ipv6->version);
-    ipv6->tc = ip6->ip6_vfc & 0x0f;
-    ipv6->flow_label = ntohl(ip6->ip6_flow);
-    ipv6->payload_len = ntohs(ip6->ip6_plen);
-    ipv6->next_header = ip6->ip6_nxt;
-    ipv6->hop_limit = ip6->ip6_hlim;
-    memcpy(ipv6->src, ip6->ip6_src.s6_addr, 16);
-    memcpy(ipv6->dst, ip6->ip6_dst.s6_addr, 16);
+    ipv6->tc = (buffer[0] & 0x0f) << 4 | (buffer[1] & 0xf0) >> 4;
+    ipv6->flow_label = (buffer[1] & 0x0f) << 16 | buffer[2] << 8 | buffer[3];
+    buffer += 4;
+    ipv6->payload_len = read_uint16be(&buffer);
+    ipv6->next_header = *buffer++;
+    ipv6->hop_limit = *buffer++;
+    memcpy(ipv6->src, buffer, 16);
+    memcpy(ipv6->dst, buffer + 16, 16);
+    buffer += 32;
     id = get_protocol_id(IP_PROTOCOL, ipv6->next_header);
     pinfo->num_packets++;
     pinfo->num_bytes += n;
@@ -103,7 +104,7 @@ packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int
         memset(pdata->next, 0, sizeof(struct packet_data));
         pdata->next->prev = pdata;
         pdata->next->id = id;
-        if (layer3->decode(layer3, buffer + header_len, n - header_len, pdata->next) == UNK_PROTOCOL) {
+        if (layer3->decode(layer3, buffer, n - header_len, pdata->next) == UNK_PROTOCOL) {
             mempool_free(pdata->next);
             pdata->next = NULL;
         }

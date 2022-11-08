@@ -17,6 +17,16 @@
 #define TZ 0
 #define SIGFIGS 0
 
+#define SWAP_UINT32(x)                      \
+    (((((uint32_t) (x)) & 0xff) << 24) |    \
+     ((((uint32_t) (x)) & 0xff00) << 8) |   \
+     ((((uint32_t) (x)) & 0xff0000) >> 8) | \
+     ((((uint32_t) (x)) >> 24) & 0xff))
+
+#define SWAP_UINT16(x)                   \
+    (((((uint16_t) (x)) & 0xff) << 8) |  \
+     ((((uint16_t) (x)) & 0xff00) >> 8))
+
 /* global header that starts the pcap file */
 typedef struct pcap_hdr_s {
     uint32_t magic_number;   /* magic number */
@@ -92,22 +102,20 @@ enum file_error read_header(iface_handle_t *handle, unsigned char *buf, size_t l
 {
     pcap_hdr_t *file_header;
 
-    if (len < sizeof(pcap_hdr_t)) return FORMAT_ERROR;
+    if (len < sizeof(pcap_hdr_t))
+        return FORMAT_ERROR;
 
     file_header = (pcap_hdr_t *) buf;
-    if (file_header->magic_number == 0xa1b2c3d4) {
+    if (file_header->magic_number == 0xa1b2c3d4)
         swap_bytes = false;
-    } else if (file_header->magic_number == 0xd4c3b2a1) {
+    else if (file_header->magic_number == 0xd4c3b2a1)
         swap_bytes = true;
-    } else {
+    else
         return FORMAT_ERROR;
-    }
-    if ((handle->linktype = get_linktype(file_header)) != LINKTYPE_ETHERNET) {
+    if ((handle->linktype = get_linktype(file_header)) != LINKTYPE_ETHERNET)
         return LINK_ERROR;
-    }
-    if (get_major_version(file_header) != 2 || get_minor_version(file_header) != 4) {
+    if (get_major_version(file_header) != 2 || get_minor_version(file_header) != 4)
         return VERSION_ERROR;
-    }
     return NO_ERROR;
 }
 
@@ -118,31 +126,32 @@ int read_buf(iface_handle_t *handle, unsigned char *buf, size_t len)
 
     while (n > 0) {
         uint32_t pkt_len;
-        pcaprec_hdr_t *pkt_hdr;
+        pcaprec_hdr_t pkt_hdr;
         struct timeval t;
 
-        if (n < sizeof(pcaprec_hdr_t)) {
+        if (n < sizeof(pcaprec_hdr_t))
             return n;
+        memcpy(&pkt_hdr, buf, sizeof(pcaprec_hdr_t));
+        if (swap_bytes) {
+            t.tv_sec = SWAP_UINT32(pkt_hdr.ts_sec);
+            t.tv_usec = SWAP_UINT32(pkt_hdr.ts_usec);
+            pkt_len = SWAP_UINT32(pkt_hdr.incl_len);
+        } else {
+            t.tv_sec = pkt_hdr.ts_sec;
+            t.tv_usec = pkt_hdr.ts_usec;
+            pkt_len = pkt_hdr.incl_len;
         }
-        pkt_hdr = (pcaprec_hdr_t *) buf;
-        pkt_len = swap_bytes ? ntohl(pkt_hdr->incl_len) : pkt_hdr->incl_len;
-        if (pkt_len > USHRT_MAX) {
+        if (pkt_len > USHRT_MAX)
             return -1;
-        }
-        if (pkt_len > n - sizeof(pcaprec_hdr_t)) {
+        if (pkt_len > n - sizeof(pcaprec_hdr_t))
             return n;
-        }
         buf += sizeof(pcaprec_hdr_t);
         n -= sizeof(pcaprec_hdr_t);
-        t.tv_sec = swap_bytes ? ntohl(pkt_hdr->ts_sec) : pkt_hdr->ts_sec;
-        t.tv_usec = swap_bytes ? ntohl(pkt_hdr->ts_usec) : pkt_hdr->ts_usec;
-        if (!pkt_handler(handle, buf, pkt_len, &t)) {
+        if (!pkt_handler(handle, buf, pkt_len, &t))
             return -1;
-        }
         n -= pkt_len;
         buf += pkt_len;
     }
-
     return 0;
 }
 
@@ -250,17 +259,17 @@ char *file_error(enum file_error err)
 
 inline uint32_t get_linktype(pcap_hdr_t *header)
 {
-    return swap_bytes ? ntohl(header->network) : header->network;
+    return swap_bytes ? SWAP_UINT32(header->network) : header->network;
 }
 
 inline uint16_t get_major_version(pcap_hdr_t *header)
 {
-    return swap_bytes ? ntohs(header->version_major) : header->version_major;
+    return swap_bytes ? SWAP_UINT16(header->version_major) : header->version_major;
 }
 
 inline uint16_t get_minor_version(pcap_hdr_t *header)
 {
-    return swap_bytes ? ntohs(header->version_minor) : header->version_minor;
+    return swap_bytes ? SWAP_UINT16(header->version_minor) : header->version_minor;
 }
 
 void file_write_ascii(FILE *fp, vector_t *packets, progress_update fn)

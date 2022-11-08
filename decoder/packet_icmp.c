@@ -6,6 +6,7 @@
 #include "packet_ip.h"
 #include "packet_icmp.h"
 #include "attributes.h"
+#include "util.h"
 
 #define ICMP_HDR_LEN 8
 
@@ -33,46 +34,61 @@ packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buffer, int
     if (n < ICMP_HDR_LEN)
         return UNK_PROTOCOL;
 
-    struct icmp_info *info;
-    struct icmp *icmp = (struct icmp *) buffer;
+    struct icmp_info *icmp;
 
-    info = mempool_alloc(sizeof(struct icmp_info));
-    pdata->data = info;
+    icmp = mempool_alloc(sizeof(struct icmp_info));
+    pdata->data = icmp;
     pdata->len = n;
     pinfo->num_packets++;
     pinfo->num_bytes += n;
-    info->type = icmp->icmp_type;
-    info->code = icmp->icmp_code;
-    info->checksum = htons(icmp->icmp_cksum);
-    switch (icmp->icmp_type) {
+    icmp->type = *buffer++;
+    icmp->code = *buffer++;
+    icmp->checksum = read_uint16be(&buffer);
+    switch (icmp->type) {
     case ICMP_ECHOREPLY:
     case ICMP_ECHO:
-        info->id = ntohs(icmp->icmp_id);
-        info->seq_num = ntohs(icmp->icmp_seq);
+        icmp->id = read_uint16be(&buffer);
+        icmp->seq_num = read_uint16be(&buffer);
         if (n > ICMP_HDR_LEN) {
-            info->echo.data = buffer + ICMP_HDR_LEN;
-            info->echo.len = n - ICMP_HDR_LEN;
+            icmp->echo.data = buffer;
+            icmp->echo.len = n - ICMP_HDR_LEN;
+        } else {
+            icmp->echo.data = NULL;
+            icmp->echo.len = 0;
         }
         break;
     case ICMP_TSTAMP:
     case ICMP_TSTAMPREPLY:
-        info->id = ntohs(icmp->icmp_id);
-        info->seq_num = ntohs(icmp->icmp_seq);
-        info->timestamp.originate = ntohl(icmp->icmp_otime);
-        info->timestamp.receive = ntohl(icmp->icmp_rtime);
-        info->timestamp.transmit = ntohl(icmp->icmp_ttime);
+        icmp->id = read_uint16be(&buffer);
+        icmp->seq_num = read_uint16be(&buffer);
+        if (n - ICMP_HDR_LEN < 12) {
+            icmp->timestamp.originate = 0;
+            icmp->timestamp.receive = 0;
+            icmp->timestamp.transmit = 0;
+            pdata->error = create_error_string("ICMP packet too short (%d)", n);
+            return DECODE_ERR;
+        }
+        icmp->timestamp.originate = read_uint32be(&buffer);
+        icmp->timestamp.receive = read_uint32be(&buffer);
+        icmp->timestamp.transmit = read_uint32be(&buffer);
         break;
     case ICMP_MASKREQ:
     case ICMP_MASKREPLY:
-        info->id = ntohs(icmp->icmp_id);
-        info->seq_num = ntohs(icmp->icmp_seq);
-        info->addr_mask = icmp->icmp_mask;
+        icmp->id = read_uint16be(&buffer);
+        icmp->seq_num = read_uint16be(&buffer);
+        if (n - ICMP_HDR_LEN < 4) {
+            pdata->error = create_error_string("ICMP packet too short (%d)", n);
+            return DECODE_ERR;
+        }
+        /* store in big endian format */
+        icmp->addr_mask = read_uint32le(&buffer);
         break;
     case ICMP_PARAMPROB:
-        info->pointer = icmp->icmp_pptr;
+        icmp->pointer = buffer[0];
         goto parse_ip;
     case ICMP_REDIRECT:
-        info->gateway = icmp->icmp_gwaddr.s_addr;
+        /* store in big endian format */
+        icmp->gateway = get_uint32le(buffer);
         FALLTHROUGH;
     case ICMP_UNREACH:
     case ICMP_TIMXCEED:
@@ -86,13 +102,14 @@ packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buffer, int
             pinfo = get_protocol(id);
             pdata->next = mempool_calloc(1, struct packet_data);
             pdata->next->id = id;
-            return pinfo->decode(pinfo, buffer + ICMP_HDR_LEN, n - ICMP_HDR_LEN, pdata->next);
+            /* buffer points on ICMP header + 4, i.e. need to add 4 bytes to get at data */
+            return pinfo->decode(pinfo, buffer + 4, n - ICMP_HDR_LEN, pdata->next);
         }
         break;
     case ICMP_INFO_REQUEST:
     case ICMP_INFO_REPLY:
-        info->id = ntohs(icmp->icmp_id);
-        info->seq_num = ntohs(icmp->icmp_seq);
+        icmp->id = read_uint16be(&buffer);
+        icmp->seq_num = read_uint16be(&buffer);
         break;
     default:
         break;
