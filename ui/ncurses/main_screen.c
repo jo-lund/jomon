@@ -148,9 +148,9 @@ static void set_filepath(void)
         strncpy(load_filepath + n, "/", MAXPATH - n);
         strncpy(tmp, ctx.filename, i);
         tmp[i] = '\0';
-        if (i > MAXPATH - n - 1)
+        if (i >= MAXPATH - n - 1)
             err_quit("Filename too large: %s", tmp);
-        strncpy(load_filepath + n + 1, tmp, i);
+        strncpy(load_filepath + n + 1, tmp, i + 1);
     } else {
         if (getcwd(load_filepath, MAXPATH) == NULL)
             err_sys("getcwd error");
