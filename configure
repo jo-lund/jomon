@@ -16,6 +16,7 @@ PREFIX="/usr/local"
 HAVE_GEOIP=1
 HAVE_OBSTACK=1
 VERSION="0.1.0"
+INDENT=40
 ok="${GREEN}OK$NORMAL"
 fail="${RED}FAIL$NORMAL"
 
@@ -34,7 +35,7 @@ usage()
 
 check_gcc()
 {
-    printf "[*] %-30s" "Checking for $CC... "
+    printf "[*] %-*s" "$INDENT" "Checking for $CC... "
 
     echo "int main() { return 0; }" > "$BUILD.c"
     $CC "$BUILD.c" -o "$BUILD" &> /dev/null
@@ -56,7 +57,7 @@ check_gcc()
 
 check_ncurses()
 {
-    printf "[*] %-30s" "Checking for libncurses... "
+    printf "[*] %-*s" "$INDENT" "Checking for libncurses... "
 
     echo -e "#include <ncurses.h>\nint main() { initscr(); endwin(); }" > "$BUILD.c"
     $CC "$BUILD.c" -o "$BUILD" -lncurses &> /dev/null
@@ -76,7 +77,7 @@ check_ncurses()
 
 check_geoip()
 {
-    printf "[*] %-30s" "Checking for libGeoIP... "
+    printf "[*] %-*s" "$INDENT" "Checking for libGeoIP... "
 
     cat >> "$BUILD.c" <<EOF
     #include <GeoIP.h>
@@ -103,7 +104,7 @@ EOF
 
 check_re2c()
 {
-    printf "[*] %-30s" "Checking for re2c... "
+    printf "[*] %-*s" "$INDENT" "Checking for re2c... "
 
     command -v re2c >/dev/null ||
         {
