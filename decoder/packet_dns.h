@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include "packet.h"
 
+#define DNS_ROOT_DOMAIN "<root domain>"
+#define DNS_RD_LEN 13
 #define DNS_HDRLEN 12
 #define DNS_NAMELEN 256 /* a DNS name is 255 bytes or less + null byte */
 

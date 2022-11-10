@@ -1236,30 +1236,31 @@ static void add_dns_record_hdr(list_view *lw, list_view_header *header, struct d
 {
     char buffer[MAXLINE];
     list_view_header *w;
+    char *type;
 
     /* the OPT resource record has special handling of the fixed parts of the record */
     if (dns->record[idx].type == DNS_TYPE_OPT) {
         if (!dns->record[idx].name[0]) { /* the name must be 0 (root domain) */
-            char *name = "<root domain>";
-
             if (max_record_name == 0) {
-                snprintf(buffer, MAXLINE, "%-*s", (int ) strlen(name) + 4, name);
+                snprintf(buffer, MAXLINE, "%-*s", DNS_RD_LEN + 4, DNS_ROOT_DOMAIN);
             } else {
-                snprintf(buffer, MAXLINE, "%-*s", max_record_name + 4, name);
+                snprintf(buffer, MAXLINE, "%-*s", max_record_name + 4, DNS_ROOT_DOMAIN);
             }
         } else {
             snprintf(buffer, MAXLINE, "%-*s", max_record_name + 4, dns->record[idx].name);
         }
         /* class is the requestor's UDP payload size*/
         snprintcat(buffer, MAXLINE, "%-6d", GET_MDNS_RRCLASS(dns->record[idx].rrclass));
-    } else {
+    } else if (dns->record[idx].name[0]) {
         snprintf(buffer, MAXLINE, "%-*s", max_record_name + 4, dns->record[idx].name);
         snprintcat(buffer, MAXLINE, "%-6s", get_dns_class(GET_MDNS_RRCLASS(dns->record[idx].rrclass)));
     }
-    snprintcat(buffer, MAXLINE, "%-8s", get_dns_type(dns->record[idx].type));
-    print_dns_record(dns, idx, buffer, MAXLINE, dns->record[idx].type);
-    w = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER2], UI_SUBLAYER2, "%s", buffer);
-    add_dns_record(lw, w, dns, idx, dns->record[idx].type);
+    if ((type = get_dns_type(dns->record[idx].type))) {
+        snprintcat(buffer, MAXLINE, "%-8s", type);
+        print_dns_record(dns, idx, buffer, MAXLINE, dns->record[idx].type);
+        w = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER2], UI_SUBLAYER2, "%s", buffer);
+        add_dns_record(lw, w, dns, idx, dns->record[idx].type);
+    }
 }
 
 void add_dns_information(void *w, void *sw, void *data)
@@ -1307,12 +1308,15 @@ void add_dns_information(void *w, void *sw, void *data)
                      dns->section_count[QDCOUNT], answers, authority, additional);
     if (dns->section_count[QDCOUNT]) {
         list_view_header *hdr;
+        char *type;
 
         hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Questions");
         for (unsigned int i = 0; i < dns->section_count[QDCOUNT]; i++) {
-            LV_ADD_TEXT_ELEMENT(lw, hdr, "QNAME: %s, QTYPE: %s, QCLASS: %s",
-                             dns->question[i].qname, get_dns_type_extended(dns->question[i].qtype),
-                             get_dns_class_extended(GET_MDNS_RRCLASS(dns->question[i].qclass)));
+            if ((type = get_dns_type_extended(dns->question[i].qtype)))
+                LV_ADD_TEXT_ELEMENT(lw, hdr, "QNAME: %s, QTYPE: %s, QCLASS: %s",
+                                    dns->question[i].qname,
+                                    type,
+                                    get_dns_class_extended(GET_MDNS_RRCLASS(dns->question[i].qclass)));
         }
     }
     if (records > 0 && dns->record) {

@@ -33,7 +33,7 @@ static int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char *
                              int dlen, struct dns_info *dns);
 static int parse_dns_question(unsigned char *buffer, int n, unsigned char **data,
                               int dlen, struct dns_info *dns);
-static uint8_t parse_dns_txt(unsigned char **data, unsigned int dlen, char **txt);
+static int8_t parse_dns_txt(unsigned char **data, unsigned int dlen, char **txt);
 static void free_opt_rr(void *data);
 static bool parse_type_bitmaps(unsigned char **data, uint16_t rdlen,
                                struct dns_resource_record *record);
@@ -330,9 +330,15 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
         ptr += rdlen;
         break;
     case DNS_TYPE_HINFO:
-        dlen -= parse_dns_txt(&ptr, dlen, &dns->record[i].rdata.hinfo.cpu);
-        parse_dns_txt(&ptr, dlen, &dns->record[i].rdata.hinfo.os);
+    {
+        int txt_len;
+
+        if ((txt_len = parse_dns_txt(&ptr, dlen, &dns->record[i].rdata.hinfo.cpu)) == -1)
+            return -1;
+        if (parse_dns_txt(&ptr, dlen - txt_len, &dns->record[i].rdata.hinfo.os) == -1)
+            return -1;
         break;
+    }
     case DNS_TYPE_TXT:
     {
         unsigned int j = 0;
@@ -340,9 +346,14 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
         dns->record[i].rdata.txt = list_init(&d_alloc);
         while (j < rdlen) {
             struct dns_txt_rr *rr;
+            int len;
 
             rr = mempool_alloc(sizeof(struct dns_txt_rr));
-            rr->len = parse_dns_txt(&ptr, dlen, &rr->txt);
+            if ((len = parse_dns_txt(&ptr, dlen, &rr->txt)) == -1) {
+                mempool_free(rr);
+                return -1;
+            }
+            rr->len = len;
             dlen -= rr->len;
             j += rr->len + 1;
             list_push_back(dns->record[i].rdata.txt, rr);
@@ -490,14 +501,16 @@ int parse_dns_name(unsigned char *buffer, int n, unsigned char *ptr, int plen, c
  * The character string is stored in the txt argument formatted as a C string.
  * Returns the length of this string.
  */
-uint8_t parse_dns_txt(unsigned char **data, unsigned int dlen, char **txt)
+int8_t parse_dns_txt(unsigned char **data, unsigned int dlen, char **txt)
 {
     uint8_t len;
     unsigned char *ptr = *data;
 
     *txt = NULL;
     len = *ptr++;
-    if (len && len < dlen) {
+    if (len >= dlen)
+        return -1;
+    if (len > 0) {
         *txt = mempool_copy0(ptr, len);
         ptr += len;
     }
@@ -597,7 +610,7 @@ char *get_dns_opcode(uint8_t opcode)
     case DNS_STATUS:
         return "Server status request";
     default:
-        return "";
+        return "unknown opcode";
     }
 }
 
@@ -627,7 +640,7 @@ char *get_dns_rcode(uint8_t rcode)
     case DNS_NOTZONE:
         return "Name not contained in zone";
     default:
-        return "";
+        return "Unknown code";
     }
 }
 
@@ -669,7 +682,7 @@ char *get_dns_type(uint16_t type)
     case DNS_QTYPE_STAR:
         return "*";
     default:
-        return "";
+        return "Unknown";
     }
 }
 
@@ -705,7 +718,7 @@ char *get_dns_type_extended(uint16_t type)
     case DNS_QTYPE_STAR:
         return "* (all records)";
     default:
-        return "";
+        return "Unknown type";
     }
 }
 
@@ -721,7 +734,7 @@ char *get_dns_class(uint16_t rrclass)
     case DNS_CLASS_HS:
         return "HS";
     default:
-        return "";
+        return "Unknown";
     }
 }
 
@@ -737,7 +750,7 @@ char *get_dns_class_extended(uint16_t rrclass)
     case DNS_CLASS_HS:
         return "HS (Hesiod)";
     default:
-        return "";
+        return "Unknown DNS class";
     }
 }
 

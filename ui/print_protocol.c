@@ -81,37 +81,45 @@ void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t t
 {
     switch (type) {
     case DNS_TYPE_A:
-    {
-        char addr[INET_ADDRSTRLEN];
+        if (info->record[i].rdata.address) {
+            char addr[INET_ADDRSTRLEN];
 
-        inet_ntop(AF_INET, (struct in_addr *) &info->record[i].rdata.address, addr, sizeof(addr));
-        snprintcat(buf, n, "%s", addr);
+            inet_ntop(AF_INET, (struct in_addr *) &info->record[i].rdata.address, addr, sizeof(addr));
+            snprintcat(buf, n, "%s", addr);
+        }
         break;
-    }
     case DNS_TYPE_NS:
-        snprintcat(buf, n, "%s", info->record[i].rdata.nsdname);
+        if (info->record[i].rdata.nsdname[0])
+            snprintcat(buf, n, "%s", info->record[i].rdata.nsdname);
         break;
     case DNS_TYPE_CNAME:
-        snprintcat(buf, n, "%s", info->record[i].rdata.cname);
+        if (info->record[i].rdata.cname[0])
+            snprintcat(buf, n, "%s", info->record[i].rdata.cname);
         break;
     case DNS_TYPE_PTR:
-        snprintcat(buf, n, "%s", info->record[i].rdata.ptrdname);
+        if (info->record[i].rdata.ptrdname[0])
+            snprintcat(buf, n, "%s", info->record[i].rdata.ptrdname);
         break;
     case DNS_TYPE_AAAA:
     {
-        char addr[INET6_ADDRSTRLEN];
+        static char addr[INET6_ADDRSTRLEN];
 
-        inet_ntop(AF_INET6, (struct in_addr *) info->record[i].rdata.ipv6addr, addr, sizeof(addr));
-        snprintcat(buf, n, "%s", addr);
+        if (memcmp(info->record[i].rdata.ipv6addr, addr, 16)) {
+            inet_ntop(AF_INET6, (struct in_addr *) info->record[i].rdata.ipv6addr, addr, sizeof(addr));
+            snprintcat(buf, n, "%s", addr);
+        }
         break;
     }
     case DNS_TYPE_HINFO:
-        snprintcat(buf, n, "%s ", info->record[i].rdata.hinfo.cpu);
-        snprintcat(buf, n, "%s", info->record[i].rdata.hinfo.os);
+        if (info->record[i].rdata.hinfo.cpu && info->record[i].rdata.hinfo.os) {
+            snprintcat(buf, n, "%s ", info->record[i].rdata.hinfo.cpu);
+            snprintcat(buf, n, "%s", info->record[i].rdata.hinfo.os);
+        }
         break;
     case DNS_TYPE_MX:
-        snprintcat(buf, n, "%u %s", info->record[i].rdata.mx.preference,
-                   info->record[i].rdata.mx.exchange);
+            if (info->record[i].rdata.mx.exchange[0])
+            snprintcat(buf, n, "%u %s", info->record[i].rdata.mx.preference,
+                       info->record[i].rdata.mx.exchange);
         break;
     default:
         break;
@@ -534,13 +542,12 @@ void print_dns(char *buf, int n, void *data)
     struct packet_data *pdata = data;
     struct dns_info *dns = pdata->data;
 
-    if (get_protocol_key(pdata->id) == DNS) {
+    if (get_protocol_key(pdata->id) == DNS)
         PRINT_PROTOCOL(buf, n, "DNS");
-    } else if (get_protocol_key(pdata->id) == MDNS) {
+    else if (get_protocol_key(pdata->id) == MDNS)
         PRINT_PROTOCOL(buf, n, "MDNS");
-    } else {
+    else
         PRINT_PROTOCOL(buf, n, "LLMNR");
-    }
     if (dns->qr == 0) {
         switch (dns->opcode) {
         case DNS_QUERY:
@@ -558,16 +565,16 @@ void print_dns(char *buf, int n, void *data)
             break;
         }
     } else {
-        if (dns->rcode == DNS_NO_ERROR) {
+        if (dns->rcode == DNS_NO_ERROR)
             PRINT_INFO(buf, n, "Response: ");
-        } else {
+        else
             PRINT_INFO(buf, n, "Response: %s ", get_dns_rcode(dns->rcode));
-        }
-        if (dns->question) {
+        if (dns->question)
             PRINT_INFO(buf, n, "%s ", dns->question[0].qname);
-        }
         if (dns->record) {
             for (unsigned int i = 0; i < dns->section_count[ANCOUNT]; i++) {
+                if (dns->record[i].type == 0)
+                    continue;
                 PRINT_INFO(buf, n, "%s ", get_dns_type(dns->record[i].type));
                 print_dns_record(dns, i, buf, n, dns->record[i].type);
                 PRINT_INFO(buf, n, " ");
