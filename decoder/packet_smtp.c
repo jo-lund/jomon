@@ -196,7 +196,7 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
         conn_created = true;
     }
     if (!conn->data) {
-        smtp_state = mempool_alloc(sizeof(*smtp_state));
+        smtp_state = mempool_calloc(1, struct smtp_conn_state);
         smtp_state->state = NORMAL;
         conn->data = smtp_state;
     } else {
@@ -267,8 +267,11 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
             }
             while (i < n && !last_line) {
                 while (isdigit(*p)) {
+                    if (++i >= n) {
+                        pdata->error = create_error_string("Error parsing SMTP line");
+                        goto error;
+                    }
                     p++;
-                    i++;
                 }
                 if (*p == '-') {
                     p++;
@@ -338,12 +341,16 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
                 smtp_state->state = BDAT;
                 errno = 0;
                 smtp_state->chunk_size = strtol(cmd->params, &s, 10);
-                if (errno != 0) {
+                if (errno != 0 || (smtp_state->chunk_size == 0 && *cmd->params == *s)) {
                     pdata->error = create_error_string("Command parameter error (%s)", cmd->params);
                     goto error;
                 }
-                while (*s == ' ')
-                    s++;
+                while (*s == ' ') {
+                    if (++s >= (char *) p) {
+                        pdata->error = create_error_string("Too many spaces in command argument");
+                        goto error;
+                    }
+                }
                 if (strcmp(s, "LAST") == 0)
                     smtp_state->last_chunk = true;
                 if (smtp_state->last_chunk && smtp_state->chunk_size == 0)
