@@ -523,7 +523,7 @@ void main_screen_get_input(screen *s)
         if (!s->show_selectionbar)
             return;
         input_mode = (input_mode == INPUT_GOTO) ? INPUT_NONE : INPUT_GOTO;
-        handle_input_mode(ms, "Go to line: ");
+        handle_input_mode(ms, "Go to packet: ");
         break;
     case 'i':
         main_screen_set_interactive(ms, !s->show_selectionbar);
@@ -769,10 +769,36 @@ void handle_input_mode(main_screen *ms, const char *str)
     }
 }
 
+static int find_packet(main_screen *ms, uint32_t num)
+{
+    uint32_t low = 0;
+    uint32_t high = vector_size(ms->packet_ref) - 1;
+    uint32_t mid;
+    struct packet *p;
+
+    while (low <= high) {
+        mid = low + (high - low) / 2;
+        p = vector_get(ms->packet_ref, mid);
+        if (num < p->num)
+            high = mid - 1;
+        else if (num > p->num)
+            low = mid + 1;
+        else
+            return mid;
+    }
+    return -1;
+}
+
 void main_screen_goto_line(main_screen *ms, int c)
 {
     static int num = 0;
+    static bool error = false;
 
+    if (error) {
+        wbkgd(status, get_theme_colour(BACKGROUND));
+        wrefresh(status);
+        error = false;
+    }
     if (isdigit(c) && num < INT_MAX / 10) {
         waddch(status, c);
         num = num * 10 + c - '0';
@@ -787,12 +813,26 @@ void main_screen_goto_line(main_screen *ms, int c)
         }
         wrefresh(status);
     } else if (num && (c == '\n' || c == KEY_ENTER)) {
-        if (num > ms->subwindow.num_lines + vector_size(ms->packet_ref))
-            return;
-
         int my;
 
         my = getmaxy(ms->base.win);
+        if (bpf.size > 0) {
+            int i;
+
+            if ((i = find_packet(ms, num)) == -1) {
+                wbkgd(status, get_theme_colour(ERR_BKGD));
+                wrefresh(status);
+                error = true;
+                return;
+            }
+            num = i + 1;
+        }
+        if (num > vector_size(ms->packet_ref)) {
+            wbkgd(status, get_theme_colour(ERR_BKGD));
+            wrefresh(status);
+            error = true;
+            return;
+        }
         if (num >= ms->base.top && num < ms->base.top + my - ms->subwindow.num_lines) {
             if (ms->subwindow.win && num > ms->base.top + ms->subwindow.top) {
                 ms->base.selectionbar = num - 1 + ms->subwindow.num_lines;
