@@ -255,13 +255,12 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
         return -1;
     ptr += len;
     dlen -= len;
-    dns->record[i].type = get_uint16be(ptr);
-    dns->record[i].rrclass = get_uint16be(ptr + 2);
-    dns->record[i].ttl = get_uint32be(ptr + 4);
-    rdlen = get_uint16be(ptr + 8);
     if (dlen < 10)
         return -1;
-    ptr += 10; /* skip to rdata field */
+    dns->record[i].type = read_uint16be(&ptr);
+    dns->record[i].rrclass = read_uint16be(&ptr);
+    dns->record[i].ttl = read_uint32be(&ptr);
+    rdlen = read_uint16be(&ptr);
     dlen -= 10;
     if (rdlen > dlen)
         return -1;

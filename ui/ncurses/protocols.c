@@ -654,7 +654,7 @@ void add_igmp_information(void *w, void *sw, void *data)
                   get_igmp_query_flags_size());
         LV_ADD_TEXT_ELEMENT(lw, header, "QQIC: %d", igmp->query->qqic);
         LV_ADD_TEXT_ELEMENT(lw, header, "Number of sources: %d", igmp->query->nsources);
-        for (int i = 0; i < igmp->query->nsources; i++) {
+        for (int i = 0; i < igmp->query->nsources && igmp->query->src_addrs; i++) {
             inet_ntop(AF_INET, igmp->query->src_addrs + i, addr, INET_ADDRSTRLEN);
             LV_ADD_TEXT_ELEMENT(lw, header, "Source address %d: %s", i + 1, addr);
         }
@@ -676,7 +676,7 @@ void add_igmp_information(void *w, void *sw, void *data)
             LV_ADD_TEXT_ELEMENT(lw, group, "Number of sources: %d", igmp->records[i].nsources);
             inet_ntop(AF_INET, &igmp->records[i].mcast_addr, addr, INET_ADDRSTRLEN);
             LV_ADD_TEXT_ELEMENT(lw, group, "Multicast address: %s", addr);
-            for (int j = 0; j < igmp->records[i].nsources; j++) {
+            for (int j = 0; j < igmp->records[i].nsources && igmp->records[i].src_addrs; j++) {
                 inet_ntop(AF_INET, igmp->records[i].src_addrs + j, addr, INET_ADDRSTRLEN);
                 LV_ADD_TEXT_ELEMENT(lw, group, "Source address %d: %s", j + 1, addr);
             }
@@ -1388,6 +1388,8 @@ static void add_nbns_record_hdr(list_view *lw, list_view_header *header, struct 
     char buffer[MAXLINE];
     list_view_header *hdr;
 
+    if (nbns->record[i].rrname[0] == 0)
+        return;
     snprintf(buffer, MAXLINE, "%s\t", nbns->record[i].rrname);
     snprintcat(buffer, MAXLINE, "IN\t");
     snprintcat(buffer, MAXLINE, "%s\t", get_nbns_type(nbns->record[i].rrtype));

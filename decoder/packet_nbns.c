@@ -149,6 +149,11 @@ packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int
         }
         ptr += len;
         plen -= len;
+        if (len < NBNS_NAME_MAP_LEN) {
+            memset(&nbns->question, 0, sizeof(nbns->question));
+            pdata->error = create_error_string("NBNS name error");
+            return DECODE_ERR;
+        }
         decode_nbns_name(nbns->question.qname, name);
         nbns->question.qtype = ptr[0] << 8 | ptr[1];
         nbns->question.qclass = ptr[2] << 8 | ptr[3];
@@ -209,18 +214,21 @@ int parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **data,
     int len;
 
     len = parse_dns_name(buffer, n, ptr, dlen, name);
-    if (len == -1) return -1;
+    if (len < NBNS_NAME_MAP_LEN || len > dlen)
+        return -1;
     ptr += len;
+    dlen -= dlen;
+    if (dlen < 10)
+        return -1;
     decode_nbns_name(nbns->record[i].rrname, name);
-    nbns->record[i].rrtype = get_uint16be(ptr);
-    nbns->record[i].rrclass = get_uint16be(ptr + 2);
-    nbns->record[i].ttl = get_uint32be(ptr + 4);
-    rdlen = get_uint16be(ptr + 8);
-    ptr += 10; /* skip to rdata field */
+    nbns->record[i].rrtype = read_uint16be(&ptr);
+    nbns->record[i].rrclass = read_uint16be(&ptr);
+    nbns->record[i].ttl = read_uint32be(&ptr);
+    rdlen = read_uint16be(&ptr);
     dlen -= 10;
-    if (rdlen > dlen) return -1;
+    if (rdlen > dlen)
+        return -1;
     len += 10 + rdlen;
-
     switch (nbns->record[i].rrtype) {
     case NBNS_NB:
         if (rdlen >= 6) {
@@ -240,7 +248,8 @@ int parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **data,
         char name[DNS_NAMELEN];
         int name_len = parse_dns_name(buffer, n, ptr, dlen, name);
 
-        if (name_len == -1) return -1;
+        if (name_len < NBNS_NAME_MAP_LEN)
+            return -1;
         ptr += name_len;
         decode_nbns_name(nbns->record[i].rdata.nsdname, name);
         break;
@@ -255,10 +264,13 @@ int parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **data,
     {
         uint8_t num_names;
 
+        if (dlen <= 0)
+            return -1;
         num_names = ptr[0];
-        if (num_names > MAX_NBNS_NAMES) {
+        if (num_names > dlen)
+            return -1;
+        if (num_names > MAX_NBNS_NAMES)
             num_names = MAX_NBNS_NAMES;
-        }
         ptr++;
         for (int j = 0; j < num_names; j++) {
             memcpy(nbns->record[i].rdata.nbstat[j].node_name, ptr, NBNS_NAMELEN);

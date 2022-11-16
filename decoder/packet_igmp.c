@@ -97,7 +97,7 @@ packet_error handle_igmp(struct protocol_info *pinfo, unsigned char *buffer, int
     switch (igmp->type) {
     case IGMP_HOST_MEMBERSHIP_QUERY:
         if (n >= 4) {
-            igmp->query = mempool_alloc(sizeof(*igmp->query));
+            igmp->query = mempool_calloc(1, struct igmp3_membership_query);
             igmp->query->flags = buffer[0];
             igmp->query->qqic = buffer[1];
             igmp->query->nsources = get_uint16be(&buffer[2]);
@@ -120,7 +120,7 @@ packet_error handle_igmp(struct protocol_info *pinfo, unsigned char *buffer, int
                 pdata->error = create_error_string("Too many group records (%d)", igmp->ngroups);
                 return DECODE_ERR;
             }
-            igmp->records = mempool_alloc(sizeof(*igmp->records) * igmp->ngroups);
+            igmp->records = mempool_calloc(igmp->ngroups, struct igmp3_membership_report);
             for (int i = 0; i < igmp->ngroups && n >= 8; i++) {
                 igmp->records[i].type = buffer[0];
                 igmp->records[i].aux_data_len = buffer[1];

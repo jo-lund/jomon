@@ -64,12 +64,12 @@ struct nbds_info {
     } msg;
 };
 
-struct packet_flags *get_nbds_flags();
-int get_nbds_flags_size();
+struct packet_flags *get_nbds_flags(void);
+int get_nbds_flags_size(void);
 char *get_nbds_message_type(uint8_t type);
 
 /* internal to the decoder */
-void register_nbds();
+void register_nbds(void);
 packet_error handle_nbds(struct protocol_info *pinfo, unsigned char *buffer, int n,
                          struct packet_data *pdata);
 

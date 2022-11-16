@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include "packet.h"
 
+#define NBNS_NAME_MAP_LEN 32
 #define NBNS_NAMELEN 17
 #define MAX_NBNS_NAMES 8
 #define MAX_NBNS_ADDR 8
