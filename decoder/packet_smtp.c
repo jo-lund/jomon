@@ -342,7 +342,7 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
                 errno = 0;
                 smtp_state->chunk_size = strtol(cmd->params, &s, 10);
                 if (errno != 0 || (smtp_state->chunk_size == 0 && *cmd->params == *s)) {
-                    pdata->error = create_error_string("Command parameter error (%s)", cmd->params);
+                    pdata->error = create_error_string("BDAT command parameter error");
                     goto error;
                 }
                 while (*s == ' ') {
