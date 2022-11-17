@@ -124,6 +124,8 @@ static bool parse_line(struct smtp_info *smtp, struct smtp_data *data, char *buf
     int c;
     char *p;
 
+    if (*i >= n)
+        return false;
     p = buf + *i;
     while (*p == ' ') {
         p++;

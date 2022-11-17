@@ -77,12 +77,14 @@ packet_error handle_nbds(struct protocol_info *pinfo, unsigned char *buffer, int
     case NBDS_BROADCAST:
         if (!parse_datagram(buffer, n, ptr, plen, nbds, pdata)) {
             pdata->error = create_error_string("Error parsing NBDS datagram");
+            nbds->msg.dgm = NULL;
             return DECODE_ERR;
         }
         break;
     case NBDS_ERROR:
         if (plen < 1) {
             pdata->error = create_error_string("NBDS datagram packet too short");
+            nbds->msg.error_code = 0;
             return DECODE_ERR;
         }
         nbds->msg.error_code = ptr[0];
@@ -95,6 +97,7 @@ packet_error handle_nbds(struct protocol_info *pinfo, unsigned char *buffer, int
 
         if (parse_dns_name(buffer, n, ptr, plen, name) < NBNS_NAME_MAP_LEN) {
             pdata->error = create_error_string("Error parsing NBDS name");
+            memset(nbds->msg.dest_name, 0, NBNS_NAMELEN);
             return DECODE_ERR;
         }
         decode_nbns_name(nbds->msg.dest_name, name);
