@@ -1642,13 +1642,13 @@ static void add_snmp_pdu(list_view *lw, list_view_header *header, struct snmp_pd
     char *error;
 
     LV_ADD_TEXT_ELEMENT(lw, header, "Request ID: %d", pdu->request_id);
-    if ((error = get_snmp_error_status(pdu))) {
+    if ((error = get_snmp_error_status(pdu)))
         LV_ADD_TEXT_ELEMENT(lw, header, "Error status: %s (%d)", error, pdu->error_status);
-    } else {
+    else
         LV_ADD_TEXT_ELEMENT(lw, header, "Error status: %d", pdu->error_status);
-    }
     LV_ADD_TEXT_ELEMENT(lw, header, "Error index: %d", pdu->error_index);
-    add_snmp_variables(lw, header, pdu->varbind_list);
+    if (pdu->varbind_list)
+        add_snmp_variables(lw, header, pdu->varbind_list);
 }
 
 static void add_snmp_trap(list_view *lw, list_view_header *header, struct snmp_trap *pdu)
@@ -1657,13 +1657,13 @@ static void add_snmp_trap(list_view *lw, list_view_header *header, struct snmp_t
 
     LV_ADD_TEXT_ELEMENT(lw, header, "Enterprise: %s", pdu->enterprise);
     LV_ADD_TEXT_ELEMENT(lw, header, "Agent address: %s", pdu->agent_addr);
-    if ((trap =get_snmp_trap_type(pdu))) {
+    if ((trap = get_snmp_trap_type(pdu)))
         LV_ADD_TEXT_ELEMENT(lw, header, "Trap type: %s (%d)", trap, pdu->trap_type);
-    } else {
+    else
         LV_ADD_TEXT_ELEMENT(lw, header, "Trap type: %d", pdu->trap_type);
-    }
     LV_ADD_TEXT_ELEMENT(lw, header, "Specific code: %d", pdu->specific_code);
-    add_snmp_variables(lw, header, pdu->varbind_list);
+    if (pdu->varbind_list)
+        add_snmp_variables(lw, header, pdu->varbind_list);
 }
 
 void add_snmp_information(void *w, void *sw, void *data)
