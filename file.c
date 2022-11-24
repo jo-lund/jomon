@@ -10,7 +10,7 @@
 #include "misc.h"
 #include "decoder/decoder.h"
 
-#define BUFSIZE 128 * 1024
+#define BUFSIZE (128 * 1024)
 #define MAGIC_NUMBER 0xa1b2c3d4
 #define MAJOR_VERSION 2
 #define MINOR_VERSION 4
