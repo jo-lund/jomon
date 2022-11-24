@@ -705,24 +705,24 @@ static void add_pim_hello(list_view *lw, list_view_header *header, struct pim_in
         case PIM_HOLDTIME:
             tm = get_time(hello->holdtime);
             time_ntop(&tm, time, 512);
-            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER1, "Holdtime: %s", time);
+            w = LV_ADD_SUB_HEADER(lw, h, selected[UI_SUBLAYER2], UI_SUBLAYER2, "Holdtime: %s", time);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option type: %u", hello->option_type);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option length: %u", hello->option_len);
             break;
         case PIM_LAN_PRUNE_DELAY:
-            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER1, "LAN Prune Delay");
+            w = LV_ADD_SUB_HEADER(lw, h, selected[UI_SUBLAYER2], UI_SUBLAYER2, "LAN Prune Delay");
             LV_ADD_TEXT_ELEMENT(lw, w, "Option type: %u", hello->option_type);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option length: %u", hello->option_len);
             LV_ADD_TEXT_ELEMENT(lw, w, "Propagation delay: %u ms", hello->lan_prune_delay.prop_delay);
             LV_ADD_TEXT_ELEMENT(lw, w, "Override interval: %u ms", hello->lan_prune_delay.override_interval);
             break;
         case PIM_DR_PRIORITY:
-            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER1, "DR Priority: %u", hello->dr_priority);
+            w = LV_ADD_SUB_HEADER(lw, h, selected[UI_SUBLAYER2], UI_SUBLAYER2, "DR Priority: %u", hello->dr_priority);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option type: %u", hello->option_type);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option length: %u", hello->option_len);
             break;
         case PIM_GENERATION_ID:
-            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER1, "Generation ID: %u", hello->gen_id);
+            w = LV_ADD_SUB_HEADER(lw, h, selected[UI_SUBLAYER2], UI_SUBLAYER2, "Generation ID: %u", hello->gen_id);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option type: %u", hello->option_type);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option length: %u", hello->option_len);
             break;
@@ -730,7 +730,7 @@ static void add_pim_hello(list_view *lw, list_view_header *header, struct pim_in
             memset(&time, 0, 512);
             tm = get_time(hello->state_refresh.interval);
             time_ntop(&tm, time, 512);
-            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER1, "State Refresh Capable");
+            w = LV_ADD_SUB_HEADER(lw, h, selected[UI_SUBLAYER2], UI_SUBLAYER2, "State Refresh Capable");
             LV_ADD_TEXT_ELEMENT(lw, w, "Option type: %u", hello->option_type);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option length: %u", hello->option_len);
             LV_ADD_TEXT_ELEMENT(lw, w, "Version: %u", hello->state_refresh.version);
@@ -738,7 +738,7 @@ static void add_pim_hello(list_view *lw, list_view_header *header, struct pim_in
             break;
         case PIM_ADDRESS_LIST:
         default:
-            w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER1, "Unknown option: %u", hello->option_type);
+            w = LV_ADD_SUB_HEADER(lw, h, selected[UI_SUBLAYER2], UI_SUBLAYER2, "Unknown option: %u", hello->option_type);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option type: %u", hello->option_type);
             LV_ADD_TEXT_ELEMENT(lw, w, "Option length: %u", hello->option_len);
             break;
@@ -755,7 +755,7 @@ static void add_pim_register(list_view *lw, list_view_header *header, struct pim
     LV_ADD_TEXT_ELEMENT(lw, h, "Border bit: %d", pim->reg->border);
     LV_ADD_TEXT_ELEMENT(lw, h, "Null-Register bit: %d", pim->reg->null);
     if (pim->reg->data) {
-        list_view_header *w = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER1, "Data");
+        list_view_header *w = LV_ADD_SUB_HEADER(lw, h, selected[UI_SUBLAYER2], UI_SUBLAYER2, "Data");
 
         add_hexdump(lw, w, hexmode, pim->reg->data, pim->reg->data_len);
     }
@@ -831,7 +831,7 @@ static void add_pim_join_prune(list_view *lw, list_view_header *header, struct p
     time_ntop(&tm, time, 512);
     LV_ADD_TEXT_ELEMENT(lw, h, "Holdtime: %s", time);
 
-    grp = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER1, "Groups (%d)", pim->jpg->num_groups);
+    grp = LV_ADD_SUB_HEADER(lw, h, selected[UI_SUBLAYER2], UI_SUBLAYER2, "Groups (%d)", pim->jpg->num_groups);
 
     for (int i = 0; i < pim->jpg->num_groups; i++) {
         list_view_header *joined;
@@ -843,7 +843,7 @@ static void add_pim_join_prune(list_view *lw, list_view_header *header, struct p
             free(addr);
         }
 
-        joined = LV_ADD_SUB_HEADER(lw, grp, false, UI_SUBLAYER1, "Joined sources (%d)",
+        joined = LV_ADD_SUB_HEADER(lw, grp, selected[UI_SUBLAYER2], UI_SUBLAYER2, "Joined sources (%d)",
                                 pim->jpg->groups[i].num_joined_src);
         for (int j = 0; j < pim->jpg->groups[i].num_joined_src; j++) {
             addr = get_pim_address(pim->jpg->groups[i].joined_src[j].addr_family,
@@ -854,7 +854,7 @@ static void add_pim_join_prune(list_view *lw, list_view_header *header, struct p
                 free(addr);
             }
         }
-        pruned = LV_ADD_SUB_HEADER(lw, grp, false, UI_SUBLAYER1, "Pruned sources (%d)",
+        pruned = LV_ADD_SUB_HEADER(lw, grp, selected[UI_SUBLAYER2], UI_SUBLAYER2, "Pruned sources (%d)",
                                 pim->jpg->groups[i].num_pruned_src);
         for (int j = 0; j < pim->jpg->groups[i].num_pruned_src; j++) {
             addr = get_pim_address(pim->jpg->groups[i].pruned_src[j].addr_family,
@@ -885,7 +885,8 @@ static void add_pim_bootstrap(list_view *lw, list_view_header *header, struct pi
     }
     addr = get_pim_address(pim->bootstrap->groups->gaddr.addr_family, &pim->bootstrap->groups->gaddr.addr);
     if (addr) {
-        grp = LV_ADD_SUB_HEADER(lw, h, false, UI_SUBLAYER1, "Group %s/%d", addr, pim->bootstrap->groups->gaddr.mask_len);
+        grp = LV_ADD_SUB_HEADER(lw, h, selected[UI_SUBLAYER2], UI_SUBLAYER2, "Group %s/%d",
+                                addr, pim->bootstrap->groups->gaddr.mask_len);
         LV_ADD_TEXT_ELEMENT(lw, grp, "RP count: %u", pim->bootstrap->groups->rp_count);
         LV_ADD_TEXT_ELEMENT(lw, grp, "Frag RP count: %u", pim->bootstrap->groups->frag_rp_count);
         for (int i = 0; i < pim->bootstrap->groups->frag_rp_count; i++) {
@@ -1306,7 +1307,7 @@ void add_dns_information(void *w, void *sw, void *data)
     }
     LV_ADD_TEXT_ELEMENT(lw, header, "Question: %d, Answer: %d, Authority: %d, Additional records: %d",
                      dns->section_count[QDCOUNT], answers, authority, additional);
-    if (dns->section_count[QDCOUNT]) {
+    if (dns->question && dns->section_count[QDCOUNT]) {
         list_view_header *hdr;
         char *type;
 
