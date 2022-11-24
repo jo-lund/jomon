@@ -27,6 +27,7 @@ packet_error handle_imap(struct protocol_info *pinfo, unsigned char *buf, int n,
     int i = 0;
     int c = 0;
     struct imap_info *imap;
+    bool valid = false;
 
     imap = mempool_alloc(sizeof(struct imap_info));
     pdata->data = imap;
@@ -35,14 +36,15 @@ packet_error handle_imap(struct protocol_info *pinfo, unsigned char *buf, int n,
     while (isascii(*buf)) {
         if (c >= MAXLINE) {
             pdata->error = create_error_string("IMAP max line length exceeded (%d)", c);
-            goto error;
+            return DECODE_ERR;
         }
         if (i >= n) {
             pdata->error = create_error_string("IMAP length greater than packet length (%d)", n);
-            goto error;
+            return DECODE_ERR;
         }
         if (*buf == '\r') {
             if (++i < n && *++buf == '\n') {
+                valid = true;
                 list_push_back(imap->lines, mempool_copy0(line, c));
                 if (i == n - 1)
                     break;
@@ -55,20 +57,17 @@ packet_error handle_imap(struct protocol_info *pinfo, unsigned char *buf, int n,
                     pdata->error = create_error_string("IMAP length greater than packet length (%d)", n);
                 else
                     pdata->error = create_error_string("IMAP EOL error");
-                goto error;
+                return DECODE_ERR;
             }
         }
         line[c++] = *buf++;
         i++;
     }
-    if (i > 1) {
+    if (valid) {
         pinfo->num_packets++;
         pinfo->num_bytes += n;
         return NO_ERR;
     }
-
-error:
-    mempool_free(imap->lines);
-    imap->lines = NULL;
+    pdata->error = create_error_string("Packet error: Not a valid IMAP string");
     return DECODE_ERR;
 }

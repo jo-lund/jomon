@@ -117,7 +117,7 @@ void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t t
         }
         break;
     case DNS_TYPE_MX:
-            if (info->record[i].rdata.mx.exchange[0])
+        if (info->record[i].rdata.mx.exchange[0])
             snprintcat(buf, n, "%u %s", info->record[i].rdata.mx.preference,
                        info->record[i].rdata.mx.exchange);
         break;
@@ -674,9 +674,8 @@ void print_imap(char *buf, int n, void *data)
     struct imap_info *imap = pdata->data;
 
     PRINT_PROTOCOL(buf, n, "IMAP");
-    if (imap->lines) {
+    if (imap->lines && list_size(imap->lines) > 0)
         PRINT_INFO(buf, n, "%s", (char *) list_front(imap->lines));
-    }
 }
 
 void print_smtp(char *buf, int n, void *data)
