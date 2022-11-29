@@ -152,7 +152,7 @@ static packet_error parse_options(struct ipv4_info *ip, unsigned char **buf, int
             case IP_TS_ADDR:
             case IP_TS_PRESPECIFIED:
                 nelem = ((*opt)->length - 4) / 8;
-                if (nelem == 0)
+                if (nelem == 0 || n < 8)
                     goto error;
                 (*opt)->timestamp.ts.timestamp = mempool_alloc(nelem * 4);
                 (*opt)->timestamp.ts.addr = mempool_alloc(nelem * 4);
@@ -261,6 +261,8 @@ packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int
         return DECODE_ERR;
     }
     ipv4->version = (buffer[0] & 0xf0) >> 4;
+    if (ipv4->version != 4)
+        pdata->error = create_error_string("IP4 version error %d != 4", ipv4->version);
     ipv4->ihl = (buffer[0] & 0x0f);
     header_len = ipv4->ihl * 4;
     if ((unsigned int) n < header_len || ipv4->ihl < 5) {
@@ -327,7 +329,6 @@ packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int
                                            ipv4->length, n);
         return DECODE_ERR;
     }
-    pdata->error = NULL;
     pinfo->num_packets++;
     pinfo->num_bytes += n;
     id = get_protocol_id(IP_PROTOCOL, ipv4->protocol);

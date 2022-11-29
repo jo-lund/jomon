@@ -245,11 +245,11 @@ static void add_ipv4_options(struct ipv4_info *ip, list_view *lw, list_view_head
                 nelem = (opt->length - 4) / 8;
                 for (int i = 0; i < nelem; i++) {
                     if (IP_STANDARD_TS(*opt->timestamp.ts.timestamp))
-                        LV_ADD_TEXT_ELEMENT(lw, sub, "Timestamp: %s",
-                                            get_time_from_ms_ut(*opt->timestamp.ts.timestamp, time, 32));
+                        LV_ADD_TEXT_ELEMENT(lw, sub, "Timestamp %d: %s", i + 1,
+                                            get_time_from_ms_ut(opt->timestamp.ts.timestamp[i], time, 32));
                     else
-                        LV_ADD_TEXT_ELEMENT(lw, sub, "Timestamp: %d", *opt->timestamp.ts.timestamp);
-                    inet_ntop(AF_INET, ip->opt->route.route_data + i, addr, INET_ADDRSTRLEN);
+                        LV_ADD_TEXT_ELEMENT(lw, sub, "Timestamp %d: %d", i + 1, opt->timestamp.ts.timestamp[i]);
+                    inet_ntop(AF_INET, opt->timestamp.ts.addr + i, addr, INET_ADDRSTRLEN);
                     LV_ADD_TEXT_ELEMENT(lw, sub, "Address %d: %s", i + 1, addr);
                 }
                 break;
@@ -1239,6 +1239,7 @@ static void add_dns_record_hdr(list_view *lw, list_view_header *header, struct d
     list_view_header *w;
     char *type;
 
+    buffer[0] = 0;
     /* the OPT resource record has special handling of the fixed parts of the record */
     if (dns->record[idx].type == DNS_TYPE_OPT) {
         if (!dns->record[idx].name[0]) { /* the name must be 0 (root domain) */
@@ -1256,12 +1257,11 @@ static void add_dns_record_hdr(list_view *lw, list_view_header *header, struct d
         snprintf(buffer, MAXLINE, "%-*s", max_record_name + 4, dns->record[idx].name);
         snprintcat(buffer, MAXLINE, "%-6s", get_dns_class(GET_MDNS_RRCLASS(dns->record[idx].rrclass)));
     }
-    if ((type = get_dns_type(dns->record[idx].type))) {
-        snprintcat(buffer, MAXLINE, "%-8s", type);
-        print_dns_record(dns, idx, buffer, MAXLINE, dns->record[idx].type);
-        w = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER2], UI_SUBLAYER2, "%s", buffer);
-        add_dns_record(lw, w, dns, idx, dns->record[idx].type);
-    }
+    type = get_dns_type(dns->record[idx].type);
+    snprintcat(buffer, MAXLINE, "%-8s", type);
+    print_dns_record(dns, idx, buffer, MAXLINE, dns->record[idx].type);
+    w = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER2], UI_SUBLAYER2, "%s", buffer);
+    add_dns_record(lw, w, dns, idx, dns->record[idx].type);
 }
 
 void add_dns_information(void *w, void *sw, void *data)
@@ -2237,14 +2237,14 @@ void add_vrrp_information(void *w, void *sw, void *data)
                             vrrp->v3.max_advr_int);
     }
     LV_ADD_TEXT_ELEMENT(lv, header, "Checksum: 0x%x", vrrp->checksum);
-    if (get_protocol_key(pdata->prev->id) == ETHERTYPE_IP) {
+    if (get_protocol_key(pdata->prev->id) == ETHERTYPE_IP && vrrp->ip4_addrs) {
         char ip4_addr[INET_ADDRSTRLEN];
 
         for (int i = 0; i < vrrp->count_ip; i++) {
             inet_ntop(AF_INET, vrrp->ip4_addrs + i, ip4_addr, INET_ADDRSTRLEN);
             LV_ADD_TEXT_ELEMENT(lv, header, "IPv4 Address: %s", ip4_addr);
         }
-    } else {
+    } else if (vrrp->ip6_addrs) {
         char ip6_addr[INET6_ADDRSTRLEN];
 
         for (int i = 0; i < vrrp->count_ip; i++) {
@@ -2252,6 +2252,6 @@ void add_vrrp_information(void *w, void *sw, void *data)
             LV_ADD_TEXT_ELEMENT(lv, header, "IPv6 Address: %s", ip6_addr);
         }
     }
-    if (vrrp->version < 3 && vrrp->v.auth_type == VRRP_V1_AUTH_STP)
+    if (vrrp->version < 3 && vrrp->v.auth_type == VRRP_V1_AUTH_STP && vrrp->v.auth_str[0] != '\0')
         LV_ADD_TEXT_ELEMENT(lv, header, "Authentication string: %s", vrrp->v.auth_str);
 }

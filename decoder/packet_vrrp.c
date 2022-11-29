@@ -55,6 +55,7 @@ static packet_error handle_vrrp(struct protocol_info *pinfo, unsigned char *buf,
     n -= MIN_VRRP_LEN;
     if (get_protocol_key(pdata->prev->id) == ETHERTYPE_IP) {
         if (vrrp->count_ip * 4 > n) {
+            vrrp->ip4_addrs = NULL;
             pdata->error = create_error_string("IP address count too big");
             return DECODE_ERR;
         }
@@ -62,6 +63,7 @@ static packet_error handle_vrrp(struct protocol_info *pinfo, unsigned char *buf,
         n = parse_ipv4_addr(vrrp->ip4_addrs, vrrp->count_ip, &buf, n);
     } else {
         if (vrrp->count_ip * 16 > n) {
+            vrrp->ip6_addrs = NULL;
             pdata->error = create_error_string("IPv6 address count too big");
             return DECODE_ERR;
         }
@@ -70,6 +72,7 @@ static packet_error handle_vrrp(struct protocol_info *pinfo, unsigned char *buf,
     }
     if (n > 0 && vrrp->version < 3) {
         if (n != 8) {
+            vrrp->v.auth_str[0] = '\0';
             pdata->error = create_error_string("Authentication string should contain 8 bytes (%d)", n);
             return DECODE_ERR;
         }
