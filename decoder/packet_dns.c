@@ -139,6 +139,7 @@ packet_error handle_dns(struct protocol_info *pinfo, unsigned char *buffer, int 
     if (pdata->transport == IPPROTO_TCP) {
         dns->length = get_uint16be(ptr);
         ptr += 2;
+        plen -= 2;
     } else {
         dns->length = 0;
     }
@@ -298,6 +299,7 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
         if (name_len == -1 || name_len > dlen)
             return -1;
         ptr += name_len;
+        dlen -= name_len;
         name_len = parse_dns_name(buffer, n, ptr, dlen, dns->record[i].rdata.soa.rname);
         if (name_len == -1 || name_len > dlen)
             return -1;
@@ -431,6 +433,7 @@ int parse_dns_name(unsigned char *buffer, int n, unsigned char *ptr, int plen, c
     bool compression = false;
     unsigned int name_ptr_len = 0;
     int c = 0;
+    bool valid = false;
 
     if (!label_length)
         name[0] = '\0';
@@ -473,7 +476,7 @@ int parse_dns_name(unsigned char *buffer, int n, unsigned char *ptr, int plen, c
                 compression = true;
             }
         } else {
-            if (label_length > MAX_LABEL_LEN || label_length > (unsigned int) plen ||
+            if (label_length > MAX_LABEL_LEN || label_length + 1 >= (unsigned int) plen ||
                 len > (unsigned int) n || len + label_length >= DNS_NAMELEN)
                 return -1;
             memcpy(name + len, ptr + 1, label_length);
@@ -482,10 +485,11 @@ int parse_dns_name(unsigned char *buffer, int n, unsigned char *ptr, int plen, c
             ptr += label_length + 1; /* skip length octet + rest of label */
             plen -= (label_length + 1);
             label_length = ptr[0];
+            valid = true;
         }
         c++;
     }
-    if ((label_length & 0xc0) == 0xc0)
+    if (compression && !valid)
         return -1;
     if (len)
         name[len - 1] = '\0';
@@ -529,11 +533,17 @@ list_t *parse_dns_options(struct dns_resource_record *rr)
     while (length > 0) {
         struct dns_opt_rr *opt_rr;
 
+        if (length < 4)
+            return opt;
         opt_rr = malloc(sizeof(struct dns_opt_rr));
         opt_rr->option_code = ptr[0] << 8 | ptr[1];
         opt_rr->option_length = ptr[2] << 8 | ptr[3];
         ptr += 4;
         length -= 4;
+        if (opt_rr->option_length > length) {
+            free(opt_rr);
+            return opt;
+        }
         opt_rr->data = malloc(opt_rr->option_length);
         memcpy(opt_rr->data, ptr, opt_rr->option_length);
         length -= opt_rr->option_length;
