@@ -353,7 +353,7 @@ bool parse_address(unsigned char **data, int *n, pim_addr *addr, uint8_t family,
         *n -= 16;
         break;
     default:
-        DEBUG("PIM: Unknown address family: %d\n", family);
+        DEBUG("PIM: Unknown address family: %d", family);
         return false;
     }
     *data = ptr;
