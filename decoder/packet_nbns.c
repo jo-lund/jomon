@@ -74,7 +74,7 @@ packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int
     int plen = n;
     struct nbns_info *nbns;
 
-    nbns = mempool_alloc(sizeof(struct nbns_info));
+    nbns = mempool_calloc(1, struct nbns_info);
     pdata->data = nbns;
     pdata->len = n;
     nbns->id = ptr[0] << 8 | ptr[1];
