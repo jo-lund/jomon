@@ -457,7 +457,7 @@ char *get_dhcp_option_type(uint8_t type)
     case DHCP_LOG_SERVER:
         return "Log Server";
     case DHCP_COOKIE_SERVER:
-        return "Cokkie Server";
+        return "Cookie Server";
     case DHCP_LPR_SERVER:
         return "LPR Server";
     case DHCP_RESOURCE_LOC_SERVER:
