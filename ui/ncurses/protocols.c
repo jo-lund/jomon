@@ -1421,15 +1421,16 @@ void add_nbds_information(void *w, void *sw, void *data)
     inet_ntop(AF_INET, &nbds->source_ip, src_addr, INET_ADDRSTRLEN);
     LV_ADD_TEXT_ELEMENT(lw, header, "Source IP: %s", src_addr);
     LV_ADD_TEXT_ELEMENT(lw, header, "Source port: %u", nbds->source_port);
-
     switch (nbds->msg_type) {
     case NBDS_DIRECT_UNIQUE:
     case NBDS_DIRECT_GROUP:
     case NBDS_BROADCAST:
-        LV_ADD_TEXT_ELEMENT(lw, header, "Datagram length: %u bytes", nbds->msg.dgm->dgm_length);
-        LV_ADD_TEXT_ELEMENT(lw, header, "Packet offset: %u", nbds->msg.dgm->packet_offset);
-        LV_ADD_TEXT_ELEMENT(lw, header, "Source name: %s", nbds->msg.dgm->src_name);
-        LV_ADD_TEXT_ELEMENT(lw, header, "Destination name: %s", nbds->msg.dgm->dest_name);
+        if (nbds->msg.dgm) {
+            LV_ADD_TEXT_ELEMENT(lw, header, "Datagram length: %u bytes", nbds->msg.dgm->dgm_length);
+            LV_ADD_TEXT_ELEMENT(lw, header, "Packet offset: %u", nbds->msg.dgm->packet_offset);
+            LV_ADD_TEXT_ELEMENT(lw, header, "Source name: %s", nbds->msg.dgm->src_name);
+            LV_ADD_TEXT_ELEMENT(lw, header, "Destination name: %s", nbds->msg.dgm->dest_name);
+        }
         break;
     case NBDS_ERROR:
         LV_ADD_TEXT_ELEMENT(lw, header, "Error code: %u", nbds->msg.error_code);
