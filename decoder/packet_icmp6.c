@@ -139,9 +139,9 @@ static packet_error parse_options(struct icmp6_info *icmp6, struct packet_data *
     return NO_ERR;
 
 error:
-    pdata->error = create_error_string("Error parsing ICMP6 option");
     mempool_free(*opt);
     *opt = NULL;
+    pdata->error = create_error_string("Error parsing ICMP6 option");
     return DECODE_ERR;
 }
 
