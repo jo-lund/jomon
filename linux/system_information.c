@@ -118,12 +118,14 @@ bool get_hwstat(struct hwstat *hw)
             int i = 10;
             int len;
 
-            while (isspace(buf[i]) || buf[i] == ':') {
+            while (isspace(buf[i]) || buf[i] == ':')
                 i++;
+            if ((len = strlen(buf + i) - 1) < CPU_MAX_NAME) {
+                strncpy(hw->cpu_name, buf + i, CPU_MAX_NAME - 1);
+                hw->cpu_name[len] = '\0';
+            } else {
+                hw->cpu_name[0] = '\0';
             }
-            len = strlen(buf + i) - 1;
-            strncpy(hw->cpu_name, buf + i, CPU_MAX_NAME);
-            hw->cpu_name[len] = '\0';
             break;
         }
     }
