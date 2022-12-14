@@ -100,7 +100,7 @@ clean :
 	@rm -rf bin
 	@rm -rf build
 	@rm -f $(test-objs) $(TESTDIR)/test
-	@rm -f bpf/lexer.c bpf/pcap_lexer.c
+	@rm -f bpf/bpf_lexer.c bpf/pcap_lexer.c
 
 .PHONY : distclean
 distclean : clean
