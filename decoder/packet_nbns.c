@@ -77,6 +77,17 @@ packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int
     nbns = mempool_calloc(1, struct nbns_info);
     pdata->data = nbns;
     pdata->len = n;
+
+    /*
+     * According to RFC 1002, messages sent over TCP are prefixed with a two
+     * byte length field
+     */
+    if (pdata->transport == IPPROTO_TCP) {
+        nbns->length = read_uint16be(&ptr);
+        plen -= 2;
+    } else {
+        nbns->length = 0;
+    }
     nbns->id = ptr[0] << 8 | ptr[1];
     nbns->opcode = (ptr[2] & 0x78) >> 3;
     nbns->aa = (ptr[2] & 0x04) >> 2;
@@ -114,6 +125,11 @@ packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int
             pdata->error = create_error_string("Number of records is 0");
             return DECODE_ERR;
         }
+        if (num_records > n) {
+            pdata->error = create_error_string("Number of records (%d) is greater than packet length %d",
+                                               num_records, n);
+            return DECODE_ERR;
+        }
         nbns->record = mempool_calloc(num_records, struct nbns_rr);
         for (int j = 0; j < num_records; j++) {
             int len = parse_nbns_record(j, buffer, n, &ptr, plen, nbns);
@@ -133,6 +149,12 @@ packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int
         if (nbns->section_count[QDCOUNT] == 0) { /* QDCOUNT must be non-zero for requests */
             memset(&nbns->question, 0, sizeof(nbns->question));
             pdata->error = create_error_string("QDCOUNT error (%d)", nbns->section_count[QDCOUNT]);
+            return DECODE_ERR;
+        }
+        if (nbns->section_count[ANCOUNT] > 0 || nbns->section_count[NSCOUNT] > 0) {
+            memset(&nbns->question, 0, sizeof(nbns->question));
+            pdata->error = create_error_string("ANCOUNT (%d) and NSCOUNT (%d) should be zero for requests",
+                                               nbns->section_count[ANCOUNT], nbns->section_count[NSCOUNT]);
             return DECODE_ERR;
         }
         ptr += DNS_HDRLEN;
@@ -162,7 +184,7 @@ packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int
 
         /* Additional records section */
         if (nbns->section_count[ARCOUNT] > (unsigned int) n) {
-            pdata->error = create_error_string("NBNS ARCOUNT (%d) greater than packet length (%d)",
+            pdata->error = create_error_string("ARCOUNT (%d) greater than packet length (%d)",
                                                nbns->section_count[ARCOUNT], n);
             return DECODE_ERR;
         }
@@ -380,22 +402,22 @@ char *get_nbns_node_type(uint8_t type)
     }
 }
 
-struct packet_flags *get_nbns_flags()
+struct packet_flags *get_nbns_flags(void)
 {
     return nbns_flags;
 }
 
-int get_nbns_flags_size()
+int get_nbns_flags_size(void)
 {
     return sizeof(nbns_flags) / sizeof(struct packet_flags);
 }
 
-struct packet_flags *get_nbns_nb_flags()
+struct packet_flags *get_nbns_nb_flags(void)
 {
     return nbns_nb_flags;
 }
 
-int get_nbns_nb_flags_size()
+int get_nbns_nb_flags_size(void)
 {
     return sizeof(nbns_nb_flags) / sizeof(struct packet_flags);
 }
