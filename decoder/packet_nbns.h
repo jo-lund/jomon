@@ -45,6 +45,7 @@
 #define NBNS_MNODE 2
 
 struct nbns_info {
+    uint16_t length; /* used by messages sent over TCP */
     uint16_t id; /* transaction ID */
     unsigned int r      : 1; /* 0 request, 1 response */
     unsigned int opcode : 4; /* packet type code */
@@ -110,13 +111,13 @@ char *get_nbns_rcode(uint8_t rcode);
 char *get_nbns_type(uint16_t qtype);
 char *get_nbns_type_extended(uint16_t qtype);
 char *get_nbns_node_type(uint8_t type);
-struct packet_flags *get_nbns_flags();
-int get_nbns_flags_size();
-struct packet_flags *get_nbns_nb_flags();
-int get_nbns_nb_flags_size();
+struct packet_flags *get_nbns_flags(void);
+int get_nbns_flags_size(void);
+struct packet_flags *get_nbns_nb_flags(void);
+int get_nbns_nb_flags_size(void);
 
 /* internal to the decoder */
-void register_nbns();
+void register_nbns(void);
 packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int n,
                          struct packet_data *pdata);
 void decode_nbns_name(char *dest, char *src);
