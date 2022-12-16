@@ -896,10 +896,16 @@ void main_screen_goto_end(main_screen *ms)
 void set_filter(main_screen *ms, int c)
 {
     static int numc = 0;
+    static bool error = false;
     struct bpf_prog prog;
     char filter[MAXLINE];
     int x, y;
 
+    if (error) {
+        wbkgd(status, get_theme_colour(BACKGROUND));
+        wrefresh(status);
+        error = false;
+    }
     switch (c) {
     case '\n':
     case KEY_ENTER:
@@ -920,6 +926,7 @@ void set_filter(main_screen *ms, int c)
                 wmove(status, y, x);
                 curs_set(1);
                 wrefresh(status);
+                error = true;
                 return;
             }
             if (bpf.size > 0) {
