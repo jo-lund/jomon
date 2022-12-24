@@ -36,12 +36,12 @@ struct tcp {
     uint16_t window;
     uint16_t checksum;
     uint16_t urg_ptr;
-    unsigned char *options;
+    struct tcp_options *opt;
 };
 
 struct tcp_options {
     uint8_t option_kind;
-    uint8_t option_length;
+    uint8_t option_length; /* length of value + 1 byte tag and 1 byte length */
     union {
         uint8_t nop; /* count of nop padding bytes */
         uint16_t mss;
@@ -55,19 +55,13 @@ struct tcp_options {
         } ts;
         unsigned char *cookie;
     };
+    struct tcp_options *next;
 };
 
 struct tcp_sack_block {
     uint32_t left_edge;
     uint32_t right_edge;
 };
-
-/*
- * Parses and returns the TCP options in the TCP header.
- * The list needs to be freed with 'free_tcp_options' after use.
- */
-list_t *parse_tcp_options(unsigned char **data, int len);
-void free_tcp_options(list_t *options);
 
 struct packet_flags *get_tcp_flags(void);
 int get_tcp_flags_size(void);

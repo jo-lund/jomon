@@ -985,15 +985,11 @@ void add_udp_information(void *w, void *sw, void *data)
 
 static void add_tcp_options(list_view *lw, list_view_header *header, struct tcp *tcp)
 {
-    list_t *options;
-    const node_t *n;
     list_view_header *h;
+    struct tcp_options *opt = tcp->opt;
 
-    options = parse_tcp_options(&tcp->options, (tcp->offset - 5) * 4);
     h = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Options");
-    n = list_begin(options);
-    while (n) {
-        struct tcp_options *opt = list_data(n);
+    while (opt) {
         list_view_header *w;
 
         switch (opt->option_kind) {
@@ -1060,9 +1056,8 @@ static void add_tcp_options(list_view *lw, list_view_header *header, struct tcp 
         default:
             break;
         }
-        n = list_next(n);
+        opt = opt->next;
     }
-    free_tcp_options(options);
 }
 
 void add_tcp_information(void *w, void *sw, void *data)
@@ -1108,9 +1103,8 @@ void add_tcp_information(void *w, void *sw, void *data)
     LV_ADD_TEXT_ELEMENT(lw, header, "Window size: %u", tcp->window);
     LV_ADD_TEXT_ELEMENT(lw, header, "Checksum: %u", tcp->checksum);
     LV_ADD_TEXT_ELEMENT(lw, header, "Urgent pointer: %u", tcp->urg_ptr);
-    if (tcp->options) {
+    if (tcp->opt)
         add_tcp_options(lw, header, tcp);
-    }
 }
 
 static void add_dns_txt(list_view *lw, list_view_header *w, struct dns_info *dns, int i)

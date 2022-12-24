@@ -4,6 +4,7 @@
 #include "packet_ip.h"
 #include "tcp_analyzer.h"
 #include "util.h"
+#include "debug.h"
 
 #define MIN_HEADER_LEN 20
 
@@ -20,7 +21,6 @@ static struct packet_flags tcp_flags[] = {
     { "FIN: No more data", 1, NULL}
 };
 
-static void free_options(void *data);
 extern void add_tcp_information(void *w, void *sw, void *data);
 extern void print_tcp(char *buf, int n, void *data);
 
@@ -36,6 +36,104 @@ void register_tcp(void)
 {
     register_protocol(&tcp_prot, IP_PROTOCOL, IPPROTO_TCP);
 }
+
+
+static packet_error parse_tcp_options(struct tcp *tcp, unsigned char *data, int len)
+{
+    struct tcp_options **opt;
+
+    opt = &tcp->opt;
+    while (len > 0) {
+        *opt = mempool_calloc(1, struct tcp_options);
+        (*opt)->option_kind = *data;
+        switch ((*opt)->option_kind) {
+        case TCP_OPT_END:
+            if (len < 2)
+                goto error;
+            (*opt)->option_length = *++data;
+            return NO_ERR;
+        case TCP_OPT_NOP:
+            data++;
+            (*opt)->option_length = 1; /* NOP only contains the kind byte */
+            break;
+        case TCP_OPT_MSS:
+            if (len < 4 || ((*opt)->option_length = data[1]) != 4)
+                goto error;
+            data += 2;
+            (*opt)->mss = read_uint16be(&data);
+            break;
+        case TCP_OPT_WIN_SCALE:
+            if (len < 3 || ((*opt)->option_length = data[1]) != 3)
+                goto error;
+            data += 2;
+            (*opt)->win_scale = *data;
+            data += (*opt)->option_length - 2;
+            break;
+        case TCP_OPT_SAP: /* 2 bytes */
+            if (len < 2 || ((*opt)->option_length = data[1]) != 2)
+                goto error;
+            data += 2;
+            (*opt)->sack_permitted = true;
+            break;
+        case TCP_OPT_SACK:
+        {
+            if (len < 2 || ((*opt)->option_length = data[1]) < 10)
+                goto error;
+
+            int num_blocks;
+            struct tcp_sack_block *b;
+
+            data += 2;
+            num_blocks = ((*opt)->option_length - 2) / 8;
+            if (len < num_blocks * 8)
+                goto error;
+            (*opt)->sack = list_init(&d_alloc);
+            while (num_blocks--) {
+                b = mempool_alloc(sizeof(struct tcp_sack_block));
+                b->left_edge = read_uint32be(&data);
+                b->right_edge = read_uint32be(&data);
+                list_push_back((*opt)->sack, b);
+            }
+            break;
+        }
+        case TCP_OPT_TIMESTAMP:
+            if (len < 10 || ((*opt)->option_length = data[1]) != 10)
+                goto error;
+            data += 2;
+            (*opt)->ts.ts_val = read_uint32be(&data);
+            (*opt)->ts.ts_ecr = read_uint32be(&data);
+            break;
+        case TCP_OPT_TFO:
+            if (len < 2)
+                goto error;
+            (*opt)->option_length = data[1];
+            if (len < (*opt)->option_length || (*opt)->option_length > 18)
+                goto error;
+            data += 2;
+            if ((*opt)->option_length >= 6 && (*opt)->option_length <= 18)
+                (*opt)->cookie = data;
+            data += (*opt)->option_length - 2;
+            break;
+        default:
+            DEBUG("TCP option %d not supported", (*opt)->option_kind);
+            if (len < 2 || ((*opt)->option_length = data[1]) > len)
+                goto error;
+            data += (*opt)->option_length;
+            break;
+        }
+        len -= (*opt)->option_length;
+        opt = &(*opt)->next;
+    }
+    return NO_ERR;
+
+error:
+    if (*opt) {
+        mempool_free(*opt);
+        *opt = NULL;
+    }
+    return DECODE_ERR;
+}
+
 
 /*
  * TCP header
@@ -133,7 +231,7 @@ packet_error handle_tcp(struct protocol_info *pinfo, unsigned char *buffer, int 
     tcp->window = read_uint16be(&p);
     tcp->checksum = read_uint16be(&p);
     tcp->urg_ptr = read_uint16be(&p);
-    tcp->options = NULL;
+    tcp->opt = NULL;
     payload_len = n - tcp->offset * 4;
     pdata->len = tcp->offset * 4;
     pinfo->num_packets++;
@@ -156,8 +254,14 @@ packet_error handle_tcp(struct protocol_info *pinfo, unsigned char *buffer, int 
         uint8_t options_len;
 
         options_len = (tcp->offset - 5) * 4;
-        tcp->options = mempool_alloc(options_len);
-        memcpy(tcp->options, buffer + MIN_HEADER_LEN, options_len);
+        if (parse_tcp_options(tcp, buffer + (p - buffer), options_len) != NO_ERR) {
+            if (tcp->opt) {
+                mempool_free(tcp->opt);
+                tcp->opt = NULL;
+            }
+            pdata->error = create_error_string("TCP options error");
+            return DECODE_ERR;
+        }
     }
     if (payload_len > 0) {
         for (int i = 0; i < 2; i++) {
@@ -168,100 +272,6 @@ packet_error handle_tcp(struct protocol_info *pinfo, unsigned char *buffer, int 
         }
     }
     return NO_ERR;
-}
-
-list_t *parse_tcp_options(unsigned char **data, int len)
-{
-    list_t *options;
-    unsigned char *p = *data;
-
-    options = list_init(NULL);
-
-    /* the data is based on a tag-length-value encoding scheme */
-    while (len > 0) {
-        struct tcp_options *opt = calloc(1, sizeof(struct tcp_options));
-
-        opt->option_kind = *p;
-        opt->option_length = *++p; /* length of value + 1 byte tag and 1 byte length */
-        if (opt->option_kind != TCP_OPT_NOP && opt->option_length == 0) {
-            free(opt);
-            return options;
-        }
-        switch (opt->option_kind) {
-        case TCP_OPT_END:
-            free(opt);
-            return options;
-        case TCP_OPT_NOP:
-            opt->option_length = 1; /* NOP only contains the kind byte */
-            break;
-        case TCP_OPT_MSS:
-            p++; /* skip length field */
-            if (opt->option_length == 4) {
-                opt->mss = p[0] << 8 | p[1];
-            }
-            p += opt->option_length - 2;
-            break;
-        case TCP_OPT_WIN_SCALE:
-            p++; /* skip length field */
-            if (opt->option_length == 3) {
-                opt->win_scale = *p;
-            }
-            p += opt->option_length - 2;
-            break;
-        case TCP_OPT_SAP: /* 2 bytes */
-            p++; /* skip length field */
-            opt->sack_permitted = true;
-            break;
-        case TCP_OPT_SACK:
-        {
-            int num_blocks = (opt->option_length - 2) / 8;
-            struct tcp_sack_block *b;
-
-            p++; /* skip length field */
-            opt->sack = list_init(NULL);
-            while (num_blocks--) {
-                b = malloc(sizeof(struct tcp_sack_block));
-                b->left_edge = p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3];
-                b->right_edge = p[4] << 24 | p[5] << 16 | p[6] << 8 | p[7];
-                list_push_back(opt->sack, b);
-                p += 8; /* each block is 8 bytes */
-            }
-            break;
-        }
-        case TCP_OPT_TIMESTAMP:
-            p++; /* skip length field */
-            if (opt->option_length == 10) {
-                opt->ts.ts_val = p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3];
-                opt->ts.ts_ecr = p[4] << 24 | p[5] << 16 | p[6] << 8 | p[7];
-            }
-            p += opt->option_length - 2;
-            break;
-        case TCP_OPT_TFO:
-            p++; /* skip length field */
-            if (opt->option_length > 2 && opt->option_length <= 16)
-                opt->cookie = *data + (p - *data);
-            p += opt->option_length - 2;
-            break;
-        }
-        list_push_back(options, opt);
-        len -= opt->option_length;
-    }
-    return options;
-}
-
-void free_tcp_options(list_t *list)
-{
-    list_free(list, free_options);
-}
-
-void free_options(void *data)
-{
-    struct tcp_options *opt = data;
-
-    if (opt->option_kind == TCP_OPT_SACK) {
-        list_free(opt->sack, free);
-    }
-    free(opt);
 }
 
 struct packet_flags *get_tcp_flags(void)
