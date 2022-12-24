@@ -172,6 +172,8 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
             list_push_back(dhcp->options, opt);
             break;
         case DHCP_TIME_OFFSET:
+            if (n <= 0)
+                return DECODE_ERR;
             opt->length = *buffer++;
             n--;
             if (opt->length != 4 || opt->length > n)
@@ -205,6 +207,8 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
         case DHCP_IRC_SERVER:
         case DHCP_STREETTALK_SERVER:
         case DHCP_STDA_SERVER:
+            if (n <= 0)
+                return DECODE_ERR;
             opt->length = *buffer++;
             n--;
             if (opt->length % 4 != 0 || opt->length > n)
@@ -214,6 +218,8 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
             list_push_back(dhcp->options, opt);
             break;
         case DHCP_PATH_MTU_PLATEAU_TABLE:
+            if (n <= 0)
+                return DECODE_ERR;
             opt->length = *buffer++;
             n--;
             if (opt->length % 2 != 0 || opt->length > n)
@@ -236,6 +242,8 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
         case DHCP_TCP_KEEPALIVE_GARBARGE:
         case DHCP_NETBIOS_NT:
         case DHCP_OPTION_OVERLOAD:
+            if (n <= 0)
+                return DECODE_ERR;
             opt->length = *buffer++;
             n--;
             if (opt->length != 1 || opt->length > n)
@@ -246,6 +254,8 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
             break;
         case DHCP_POLICY_FILTER:
         case DHCP_STATIC_ROUTE:
+            if (n <= 0)
+                return DECODE_ERR;
             opt->length = *buffer++;
             n--;
             if ((opt->length < 8 && opt->length % 8 != 0) || opt->length > n)
@@ -267,6 +277,8 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
         case DHCP_TFTP_SERVER_NAME:
         case DHCP_VENDOR_SPECIFIC:
         case DHCP_UUID_CLIENT_ID:
+            if (n <= 0)
+                return DECODE_ERR;
             opt->length = *buffer++;
             n--;
             if (opt->length < 1 || opt->length > n)  /* minimum length is 1 */
@@ -279,6 +291,8 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
         case DHCP_MAX_DATAGRAM_REASSEMBLY_SIZE:
         case DHCP_MAXIMUM_MESSAGE_SIZE:
         case DHCP_INTERFACE_MTU:
+            if (n <= 0)
+                return DECODE_ERR;
             opt->length = *buffer++;
             n--;
             if (opt->length != 2 || opt->length > n)
@@ -298,6 +312,8 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
         case DHCP_ROUTER_SOLICITATION_ADDRESS:
         case DHCP_ARP_CACHE_TIMEOUT:
         case DHCP_TCP_KEEPALIVE_INTERVAL:
+            if (n <= 0)
+                return DECODE_ERR;
             opt->length = *buffer++;
             n--;
             if (opt->length != 4 || opt->length > n)
@@ -307,6 +323,8 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
             list_push_back(dhcp->options, opt);
             break;
         case DHCP_CLIENT_IDENTIFIER:
+            if (n <= 0)
+                return DECODE_ERR;
             opt->length = *buffer++;
             n--;
             if (opt->length < 2 || opt->length > n)  /* minimum length is 2 */
@@ -316,6 +334,8 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
             list_push_back(dhcp->options, opt);
             break;
         case DHCP_CLIENT_FQDN:
+            if (n <= 0)
+                return DECODE_ERR;
             opt->length = *buffer++;
             n--;
             if (opt->length < 3 || opt->length > n)
@@ -331,6 +351,8 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
             list_push_back(dhcp->options, opt);
             break;
         case DHCP_CLIENT_NDI:
+            if (n <= 0)
+                return DECODE_ERR;
             opt->length = *buffer++;
             n--;
             if (opt->length != 3 || opt->length > n)
@@ -343,6 +365,8 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
             list_push_back(dhcp->options, opt);
             break;
         case DHCP_CLIENT_SA:
+            if (n <= 0)
+                return DECODE_ERR;
             opt->length = *buffer++;
             n--;
             if (opt->length != 2 || n < 2)
@@ -357,6 +381,8 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
             list_push_back(dhcp->options, opt);
             return NO_ERR;
         default:
+            if (n <= 0)
+                return DECODE_ERR;
             opt->length = *buffer++;
             n--;
             if (opt->length > n)

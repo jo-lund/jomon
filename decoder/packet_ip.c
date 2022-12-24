@@ -91,12 +91,13 @@ static packet_error parse_options(struct ipv4_info *ip, unsigned char **buf, int
     int nelem;
 
     opt = &ip->opt;
-    while (n >= 1) {
+    while (n > 0) {
         *opt = mempool_alloc(sizeof(*ip->opt));
         (*opt)->type = p[0];
         switch (GET_IP_OPTION_NUMBER((*opt)->type)) {
         case IP_OPT_END:
             *buf = ++p;
+            (*opt)->length = 1;
             (*opt)->next = NULL;
             return NO_ERR;
         case IP_OPT_NOP:
@@ -104,7 +105,7 @@ static packet_error parse_options(struct ipv4_info *ip, unsigned char **buf, int
             n--;
             break;
         case IP_OPT_SECURITY:
-            if (((*opt)->length = p[1]) < 2)
+            if (n < 2 || ((*opt)->length = p[1]) < 2)
                 goto error;
             p += 2;
             n -= 2;
@@ -120,7 +121,7 @@ static packet_error parse_options(struct ipv4_info *ip, unsigned char **buf, int
         case IP_OPT_LSR:
         case IP_OPT_RR:
         case IP_OPT_SSR:
-            if (((*opt)->length = p[1]) < 2)
+            if (n < 2 || ((*opt)->length = p[1]) < 2)
                 goto error;
             p += 2;
             n -= 2;
@@ -134,7 +135,7 @@ static packet_error parse_options(struct ipv4_info *ip, unsigned char **buf, int
             n = parse_ipv4_addr((*opt)->route.route_data, nelem, &p, n);
             break;
         case IP_OPT_TIMESTAMP:
-            if (((*opt)->length = p[1]) < 2)
+            if (n < 2 || ((*opt)->length = p[1]) < 2)
                 goto error;
             p += 2;
             n -= 2;
@@ -168,27 +169,27 @@ static packet_error parse_options(struct ipv4_info *ip, unsigned char **buf, int
             }
             break;
         case IP_OPT_STREAM_ID:
-            if (((*opt)->length = p[1]) < 2)
+            if (n < 2 || ((*opt)->length = p[1]) < 2)
                 goto error;
             p += 2;
             n -= 2;
-            if ((*opt)->length != 4)
+            if (n < 2 || (*opt)->length != 4)
                 goto error;
             (*opt)->stream_id = read_uint16be(&p);
             n -= 2;
             break;
         case IP_OPT_ROUTER_ALERT:
-            if (((*opt)->length = p[1]) < 2)
+            if (n < 2 || ((*opt)->length = p[1]) < 2)
                 goto error;
             p += 2;
             n -= 2;
-            if ((*opt)->length != 4)
+            if (n < 2 || (*opt)->length != 4)
                 goto error;
             (*opt)->router_alert = read_uint16be(&p);
             n -= 2;
             break;
         default:
-            if (((*opt)->length = p[1]) < 2)
+            if (n < 2 || ((*opt)->length = p[1]) < 2)
                 goto error;
             p += 2;
             n -= 2;
