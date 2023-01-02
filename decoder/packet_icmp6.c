@@ -283,7 +283,7 @@ char *get_icmp6_type(uint8_t type)
     case ND_REDIRECT:
         return "Redirect Message";
     default:
-        return NULL;
+        return "Unknown type";
     }
 }
 
@@ -305,7 +305,7 @@ char *get_icmp6_dest_unreach(uint8_t code)
     case ICMP6_DST_UNREACH_REJECT_ROUTE:
         return "Reject route to destination";
     default:
-        return NULL;
+        return "Unknown code";
     }
 }
 
@@ -317,7 +317,7 @@ char *get_icmp6_time_exceeded(uint8_t code)
     case ICMP6_TIME_EXCEED_REASSEMBLY:
         return "Fragment reassembly time exceeded";
     default:
-        return NULL;
+        return "Unknown code";
     }
 }
 
@@ -331,7 +331,7 @@ char *get_icmp6_parameter_problem(uint8_t code)
     case ICMP6_PARAMPROB_OPTION:
         return "Unrecognized IPv6 option encountered";
     default:
-        return NULL;
+        return "Unknown code";
     }
 }
 
