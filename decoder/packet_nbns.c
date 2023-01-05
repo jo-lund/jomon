@@ -326,7 +326,7 @@ char *get_nbns_opcode(uint8_t opcode)
     case NBNS_REFRESH:
         return "Refresh";
     default:
-        return "";
+        return "Unknown";
     }
 }
 
@@ -348,7 +348,7 @@ char *get_nbns_rcode(uint8_t rcode)
     case NBNS_CFT_ERR:
         return "Name in conflict error";
     default:
-        return "";
+        return "Unknown";
     }
 }
 
@@ -366,7 +366,7 @@ char *get_nbns_type(uint16_t qtype)
     case NBNS_NBSTAT:
         return "NBSTAT";
     default:
-        return "";
+        return "Unknown";
     }
 }
 
@@ -376,7 +376,7 @@ char *get_nbns_type_extended(uint16_t qtype)
     case NBNS_A:
         return "A (IP address)";
     case NBNS_NS:
-        return "NS (Name Server";
+        return "NS (Name Server)";
     case NBNS_NULL:
         return "NULL";
     case NBNS_NB:
@@ -384,7 +384,7 @@ char *get_nbns_type_extended(uint16_t qtype)
     case NBNS_NBSTAT:
         return "NBSTAT (NetBIOS NODE STATUS)";
     default:
-        return "";
+        return "Unknown";
     }
 }
 
@@ -398,7 +398,7 @@ char *get_nbns_node_type(uint8_t type)
     case NBNS_MNODE:
         return "M Node";
     default:
-        return "";
+        return "Unknown";
     }
 }
 
