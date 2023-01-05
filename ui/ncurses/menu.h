@@ -22,7 +22,7 @@ typedef struct main_menu {
     const node_t *current;
 } main_menu;
 
-main_menu *main_menu_create();
+main_menu *main_menu_create(void);
 option_menu *main_menu_add_options(main_menu *menu, menu_type type, char *header,
                                    char **opts, int num_opts, menu_handler fn);
 option_menu *main_menu_add_suboptions(option_menu *om, menu_type type, int sub_idx,

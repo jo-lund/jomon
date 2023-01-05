@@ -40,7 +40,7 @@ static void free_option_menu(void *d);
 static int get_cols(menu_type type, char **opts, int num_opts);
 static void handle_selectionbar(option_menu *om, int c);
 
-main_menu *main_menu_create()
+main_menu *main_menu_create(void)
 {
     static screen_operations op;
     main_menu *menu;
@@ -50,7 +50,7 @@ main_menu *main_menu_create()
     op = SCREEN_OPS(.screen_free = main_menu_free,
                     .screen_refresh = main_menu_refresh,
                     .screen_get_input = main_menu_get_input);
-    menu = malloc(sizeof(main_menu));
+    menu = calloc(1, sizeof(main_menu));
     menu->base.op = &op;
     menu->base.win = newwin(1, mx, my - 1, 0);
     menu->base.focus = false;
