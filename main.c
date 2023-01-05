@@ -33,7 +33,7 @@
 #include "bpf/genasm.h"
 #include "ui/ui.h"
 
-#define SHORT_OPTS "F:i:f:r:GdhlnNpstv"
+#define SHORT_OPTS "F:i:f:r:GVdhlnNpstv"
 #define BPF_DUMP_MODES 3
 
 enum bpf_dump_mode {
@@ -86,6 +86,7 @@ int main(int argc, char **argv)
         { "no-geoip", no_argument, NULL, 'G' },
         { "statistics", no_argument, NULL, 's' },
         { "verbose", no_argument, NULL, 'v' },
+        { "version", no_argument, NULL, 'V' },
         { NULL, 0, NULL, 0}
     };
 
@@ -102,6 +103,9 @@ int main(int argc, char **argv)
         case 'N':
             ctx.opt.no_domain = true;
             break;
+        case 'V':
+            printf("monitor version " VERSION "\n");
+            exit(0);
         case 'd':
             ctx.opt.dmode++;
             break;
@@ -232,9 +236,9 @@ static void print_bpf(void)
 
 static void print_help(void)
 {
-    printf("monitor %s\n", VERSION);
+    printf("monitor " VERSION "\n");
     geoip_print_version();
-    printf("Usage: monitor [-dGhlNnpstv] [-f filter] [-F filter-file] [-i interface] [-r path]\n"
+    printf("Usage: monitor [-dGhlNnpstvV] [-f filter] [-F filter-file] [-i interface] [-r path]\n"
            "Options:\n"
            "     -d                     Dump packet filter as BPF assembly and exit\n"
            "     -dd                    Dump packet filter as C code fragment and exit\n"
@@ -251,7 +255,8 @@ static void print_help(void)
            "     -r                     Read file in pcap format\n"
            "     -s, --statistics       Show statistics page\n"
            "     -t                     Use normal text output, i.e. don't use ncurses\n"
-           "     -v, --verbose          Print verbose information\n");
+           "     -v, --verbose          Print verbose information\n"
+           "     -V, --version          Print version\n");
     exit(0);
 }
 
