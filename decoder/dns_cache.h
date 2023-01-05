@@ -9,7 +9,7 @@ typedef void (*dns_cache_fn)(void *addr, char *name);
  *
  * Resources needs to be freed with dns_cache_free().
  */
-void dns_cache_init();
+void dns_cache_init(void);
 
 /* Inserts element in to the cache
  *
@@ -24,10 +24,10 @@ void dns_cache_remove(uint32_t addr);
 char *dns_cache_get(uint32_t addr);
 
 /* Clears the DNS cache */
-void dns_cache_clear();
+void dns_cache_clear(void);
 
 /* Frees all memory used by the DNS cache */
-void dns_cache_free();
+void dns_cache_free(void);
 
 void dns_cache_subscribe(dns_cache_fn fn);
 void dns_cache_unsubscribe(dns_cache_fn fn);

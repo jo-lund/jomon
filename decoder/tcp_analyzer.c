@@ -156,8 +156,10 @@ void tcp_analyzer_clear(void)
 
 void tcp_analyzer_free(void)
 {
-    hashmap_free(connection_table);
-    publisher_free(conn_changed_publisher);
-    connection_table = NULL;
-    conn_changed_publisher = NULL;
+    if (connection_table) {
+        hashmap_free(connection_table);
+        publisher_free(conn_changed_publisher);
+        connection_table = NULL;
+        conn_changed_publisher = NULL;
+    }
 }

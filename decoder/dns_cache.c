@@ -9,16 +9,18 @@
 static hashmap_t *dns_cache;
 static publisher_t *dns_cache_publisher;
 
-void dns_cache_init()
+void dns_cache_init(void)
 {
     dns_cache = hashmap_init(CACHE_SIZE, hashdjb_uint32, compare_uint);
     dns_cache_publisher = publisher_init();
 }
 
-void dns_cache_free()
+void dns_cache_free(void)
 {
-    hashmap_free(dns_cache);
-    publisher_free(dns_cache_publisher);
+    if (dns_cache) {
+        hashmap_free(dns_cache);
+        publisher_free(dns_cache_publisher);
+    }
 }
 
 void dns_cache_insert(uint32_t addr, char *name)

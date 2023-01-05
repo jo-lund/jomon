@@ -14,6 +14,7 @@
 static hashmap_t *local_hosts;
 static hashmap_t *remote_hosts;
 static publisher_t *host_changed_publisher;
+static bool initialized = false;
 
 static void handle_ip4(struct packet *p);
 static void update_host(void *paddr, char *name);
@@ -25,14 +26,18 @@ void host_analyzer_init(void)
     remote_hosts = hashmap_init(TBLSZ, hashdjb_uint32, compare_uint);
     host_changed_publisher = publisher_init();
     dns_cache_subscribe(update_host);
+    initialized = true;
 }
 
 void host_analyzer_free(void)
 {
-    hashmap_free(local_hosts);
-    hashmap_free(remote_hosts);
-    publisher_free(host_changed_publisher);
-    dns_cache_unsubscribe(update_host);
+    if (initialized) {
+        hashmap_free(local_hosts);
+        hashmap_free(remote_hosts);
+        publisher_free(host_changed_publisher);
+        dns_cache_unsubscribe(update_host);
+        initialized = false;
+    }
 }
 
 void host_analyzer_investigate(struct packet *p)
