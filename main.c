@@ -33,7 +33,7 @@
 #include "bpf/genasm.h"
 #include "ui/ui.h"
 
-#define SHORT_OPTS "F:i:f:r:GVdhlnNpstv"
+#define SHORT_OPTS "F:b:i:f:r:GVdhlnNpstv"
 #define BPF_DUMP_MODES 3
 
 enum bpf_dump_mode {
@@ -80,6 +80,7 @@ int main(int argc, char **argv)
     int opt;
     int idx;
     static struct option long_options[] = {
+        { "buffer-size", required_argument, NULL, 'b' },
         { "help", no_argument, NULL, 'h' },
         { "interface", required_argument, NULL, 'i' },
         { "list-interfaces", no_argument, NULL, 'l' },
@@ -94,6 +95,11 @@ int main(int argc, char **argv)
     setlocale(LC_ALL, "");
     while ((opt = getopt_long(argc, argv, SHORT_OPTS, long_options, &idx)) != -1) {
         switch (opt) {
+        case 'b':
+            ctx.opt.buffer_size = atoi(optarg) * 1024;
+            if (ctx.opt.buffer_size <= 0)
+                err_quit("Invalid buffer size: %s", optarg);
+            break;
         case 'F':
             ctx.filter_file = optarg;
             break;
@@ -238,25 +244,27 @@ static void print_help(void)
 {
     printf("monitor " VERSION "\n");
     geoip_print_version();
-    printf("Usage: monitor [-dGhlNnpstvV] [-f filter] [-F filter-file] [-i interface] [-r path]\n"
+    printf("Usage: monitor [-dGhlNnpstvV] [-b size] [-f filter] [-F filter-file] [-i interface] [-r path]\n"
            "Options:\n"
-           "     -d                     Dump packet filter as BPF assembly and exit\n"
-           "     -dd                    Dump packet filter as C code fragment and exit\n"
-           "     -ddd                   Dump packet filter as decimal numbers and exit\n"
-           "     -F                     Read packet filter from file (BPF assembly)\n"
-           "     -f                     Specify packet filter (tcpdump syntax)\n"
-           "     -G, --no-geoip         Don't use GeoIP information\n"
-           "     -h, --help             Print this help summary\n"
-           "     -i, --interface        Specify network interface\n"
-           "     -l, --list-interfaces  List available interfaces\n"
-           "     -n                     Use numerical addresses\n"
-           "     -N                     Only print the hostname (don't print the FQDN)\n"
-           "     -p                     Don't put the interface into promiscuous mode\n"
-           "     -r                     Read file in pcap format\n"
-           "     -s, --statistics       Show statistics page\n"
-           "     -t                     Use normal text output, i.e. don't use ncurses\n"
-           "     -v, --verbose          Print verbose information\n"
-           "     -V, --version          Print version\n");
+           "    -b, --buffer-size      Set the kernel capture buffer size to <size>, in units of KiB (1024 bytes)\n"
+           "                           Default: 4MB\n"
+           "    -d                     Dump packet filter as BPF assembly and exit\n"
+           "    -dd                    Dump packet filter as C code fragment and exit\n"
+           "    -ddd                   Dump packet filter as decimal numbers and exit\n"
+           "    -F                     Read packet filter from file (BPF assembly)\n"
+           "    -f                     Specify packet filter (tcpdump syntax)\n"
+           "    -G, --no-geoip         Don't use GeoIP information\n"
+           "    -h, --help             Print this help summary\n"
+           "    -i, --interface        Specify network interface\n"
+           "    -l, --list-interfaces  List available interfaces\n"
+           "    -n                     Use numerical addresses\n"
+           "    -N                     Only print the hostname (don't print the FQDN)\n"
+           "    -p                     Don't put the interface into promiscuous mode\n"
+           "    -r                     Read file in pcap format\n"
+           "    -s, --statistics       Show statistics page\n"
+           "    -t                     Use normal text output, i.e. don't use ncurses\n"
+           "    -v, --verbose          Print verbose information\n"
+           "    -V, --version          Print version\n");
     exit(0);
 }
 

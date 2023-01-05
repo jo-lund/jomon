@@ -17,9 +17,8 @@
 #include "monitor.h"
 #include "interface.h"
 
-#define BLOCKSIZE (4 * 1024 * 1024)
+#define BUFSIZE (4 * 1024 * 1024)
 #define FRAMESIZE 65536
-#define BLOCKNUMS 64
 
 static void linux_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf);
 static void linux_close(iface_handle_t *handle);
@@ -80,15 +79,31 @@ static unsigned int get_linktype(char *dev)
 static bool setup_packet_mmap(iface_handle_t *handle)
 {
     int val;
-    struct tpacket_req3 req = {
-        .tp_block_size = BLOCKSIZE,
-        .tp_block_nr = BLOCKNUMS,
-        .tp_frame_size = FRAMESIZE,
-        .tp_frame_nr = (BLOCKSIZE * BLOCKNUMS) / FRAMESIZE,
-        .tp_retire_blk_tov = 60, /* timeout in ms */
-        .tp_feature_req_word = TP_FT_REQ_FILL_RXHASH
-    };
+    unsigned int buffer_size;
+    unsigned int frames_per_block;
+    struct tpacket_req3 req;
 
+    req.tp_frame_size = FRAMESIZE;
+    if (ctx.opt.buffer_size == 0)
+        ctx.opt.buffer_size = BUFSIZE;
+
+    /* round up to a multiple of the frame size */
+    buffer_size = (ctx.opt.buffer_size + req.tp_frame_size - 1) / req.tp_frame_size;
+
+    /* the block size needs to be page aligned and should be big enough to at
+       least contain one frame */
+    req.tp_block_size = getpagesize();
+    while (req.tp_block_size < req.tp_frame_size)
+        req.tp_block_size *= 2;
+
+    frames_per_block = req.tp_block_size / req.tp_frame_size;
+    req.tp_block_nr = buffer_size / frames_per_block;
+    req.tp_frame_nr = frames_per_block * req.tp_block_nr;
+    req.tp_retire_blk_tov = 60; /* timeout in ms */
+    req.tp_feature_req_word = TP_FT_REQ_FILL_RXHASH;
+    req.tp_sizeof_priv = 0;
+    handle->block_size = req.tp_block_size;
+    handle->nblocks = req.tp_block_nr;
     val = TPACKET_V3;
     if (setsockopt(handle->fd, SOL_PACKET, PACKET_VERSION, &val, sizeof(val)) == -1)
         return false;
@@ -133,26 +148,23 @@ void linux_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf)
     handle->linktype = type;
 
     /* SOCK_RAW packet sockets include the link level header */
-    if ((handle->fd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {
+    if ((handle->fd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1)
         err_sys("socket error");
-    }
 
     /* use non-blocking socket */
-    if ((flag = fcntl(handle->fd, F_GETFL, 0)) == -1) {
+    if ((flag = fcntl(handle->fd, F_GETFL, 0)) == -1)
         err_sys("fcntl error");
-    }
-    if (fcntl(handle->fd, F_SETFL, flag | O_NONBLOCK) == -1) {
+    if (fcntl(handle->fd, F_SETFL, flag | O_NONBLOCK) == -1)
         err_sys("fcntl error");
-    }
 
     if (!setup_packet_mmap(handle)) {
         DEBUG("PACKET_MMAP TPACKET_V3 is not supported");
         handle->op->read_packet = linux_read_packet_recv;
+        handle->use_zerocopy = false;
 
         /* get timestamps */
-        if (setsockopt(handle->fd, SOL_SOCKET, SO_TIMESTAMP, &n, sizeof(n)) == -1) {
+        if (setsockopt(handle->fd, SOL_SOCKET, SO_TIMESTAMP, &n, sizeof(n)) == -1)
             err_sys("setsockopt error");
-        }
     }
     if (bpf->size > 0) {
         struct sock_fprog code = {
@@ -170,15 +182,14 @@ void linux_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf)
     ll_addr.sll_ifindex = get_interface_index(device);
 
     /* only receive packets on the specified interface */
-    if (bind(handle->fd, (struct sockaddr *) &ll_addr, sizeof(ll_addr)) == -1) {
+    if (bind(handle->fd, (struct sockaddr *) &ll_addr, sizeof(ll_addr)) == -1)
         err_sys("bind error");
-    }
 }
 
 void linux_close(iface_handle_t *handle)
 {
     if (handle->use_zerocopy) {
-        munmap(handle->buf, BLOCKSIZE * BLOCKNUMS);
+        munmap(handle->buf, handle->block_size * handle->nblocks);
         free(iov);
     }
     close(handle->fd);
@@ -200,9 +211,8 @@ void linux_read_packet_recv(iface_handle_t *handle)
     msg.msg_hdr.msg_iovlen = 1;
     msg.msg_hdr.msg_control = data;
     msg.msg_hdr.msg_controllen = 64;
-    if (recvmmsg(handle->fd, &msg, 1, 0, NULL) == -1) {
+    if (recvmmsg(handle->fd, &msg, 1, 0, NULL) == -1)
         err_sys("recvmmsg error");
-    }
     for (cmsg = CMSG_FIRSTHDR(&msg.msg_hdr); cmsg != NULL;
          cmsg = CMSG_NXTHDR(&msg.msg_hdr, cmsg)) {
         if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SO_TIMESTAMP) {
@@ -230,7 +240,7 @@ void linux_read_packet_mmap(iface_handle_t *handle)
             hdr = (struct tpacket3_hdr *) ((unsigned char *) hdr + hdr->tp_next_offset);
         }
         bd->hdr.bh1.block_status = TP_STATUS_KERNEL;
-        handle->block_num = (handle->block_num + 1) & (BLOCKNUMS - 1);
+        handle->block_num = (handle->block_num + 1) & (handle->nblocks - 1);
         bd = (struct tpacket_block_desc *) iov[handle->block_num].iov_base;
     } while ((bd->hdr.bh1.block_status & TP_STATUS_USER) == TP_STATUS_USER);
 }
@@ -240,21 +250,17 @@ void linux_set_promiscuous(iface_handle_t *handle UNUSED, char *dev, bool enable
     int sockfd;
     struct ifreq ifr;
 
-    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
         err_sys("socket error");
-    }
     strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
-    if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) == -1) {
+    if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) == -1)
         err_sys("ioctl error");
-    }
-    if (enable) {
+    if (enable)
         ifr.ifr_flags |= IFF_PROMISC;
-    } else {
+    else
         ifr.ifr_flags &= ~IFF_PROMISC;
-    }
-    if (ioctl(sockfd, SIOCSIFFLAGS, &ifr)) {
+    if (ioctl(sockfd, SIOCSIFFLAGS, &ifr))
         err_sys("ioctl error");
-    }
 }
 
 void get_local_mac(char *dev, unsigned char *mac)
@@ -264,12 +270,10 @@ void get_local_mac(char *dev, unsigned char *mac)
 
     strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
     ifr.ifr_addr.sa_family = AF_INET;
-    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
         err_sys("socket error");
-    }
-    if (ioctl(sockfd, SIOCGIFHWADDR, &ifr) == -1) {
+    if (ioctl(sockfd, SIOCGIFHWADDR, &ifr) == -1)
         err_sys("ioctl error");
-    }
     memcpy(mac, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN);
     close(sockfd);
 }

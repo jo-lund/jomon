@@ -49,6 +49,7 @@ typedef struct {
         bool numeric;
         bool no_domain;
         int dmode;
+        int buffer_size;
     } opt;
     struct sockaddr_in *local_addr;
     unsigned char mac[ETHER_ADDR_LEN];
