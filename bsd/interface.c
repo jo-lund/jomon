@@ -10,9 +10,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <machine/atomic.h>
-#include "../interface.h"
-#include "../monitor.h"
-#include "../error.h"
+#include <sys/mman.h>
+#include "interface.h"
+#include "monitor.h"
 
 #define NUM_BUFS 2
 #define BUFSIZE 65536
@@ -80,15 +80,15 @@ void bsd_activate(iface_handle_t *handle, char *dev, struct bpf_prog *bpf UNUSED
 
         handle->data = calloc(1, sizeof(struct handle_bsd));
         h = handle->data;
+        if (ctx.opt.buffer_size == 0)
+            ctx.opt.buffer_size = BUFSIZE;
         for (int i = 0; i < NUM_BUFS; i++) {
-            if ((h->buffers[i] = mmap(NULL, req.tp_block_size * req.tp_block_nr, PROT_READ | PROT_WRITE,
-                                      MAP_ANONYMOUS, -1, 0)) == MAP_FAILED)
+            if ((h->buffers[i] = mmap(NULL, ctx.opt.buffer_size, PROT_READ | PROT_WRITE,
+                                      MAP_ANON, -1, 0)) == MAP_FAILED)
                 err_sys("mmap error");
         }
         zbuf.bz_bufa = h->buffers[0];
         zbuf.bz_bufb = h->buffers[1];
-        if (ctx.opt.buffer_size == 0)
-            ctx.opt.buffer_size = BUFSIZE;
         zbuf.bz_buflen = ctx.opt.buffer_size;
         h->size = ctx.opt.buffer_size;
         if (ioctl(handle->fd, BIOCSETZBUF, &zbuf) == -1)
@@ -150,8 +150,8 @@ void bsd_read_packet_zbuf(iface_handle_t *handle)
     for (int i = 0; i < NUM_BUFS; i++) {
         if (buffer_check((struct bpf_zbuf_header *) h->buffers[i])) {
             zhdr = (struct bpf_zbuf_header *) h->buffers[i];
-            p = buffers[i] + zbuf_header_len;
-            while (p < buffers[i] + zhdr->bzh_kernel_len) {
+            p = h->buffers[i] + zbuf_header_len;
+            while (p < h->buffers[i] + zhdr->bzh_kernel_len) {
                 hdr = (struct bpf_hdr *) p;
                 handle->buf = p + hdr->bh_hdrlen;
                 handle->on_packet(handle, handle->buf, hdr->bh_caplen, &hdr->bh_tstamp);
