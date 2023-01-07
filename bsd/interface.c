@@ -23,7 +23,10 @@ static void bsd_read_packet_zbuf(iface_handle_t *handle);
 static void bsd_read_packet_buffer(iface_handle_t *handle);
 static void bsd_set_promiscuous(iface_handle_t *handle, char *dev, bool enable);
 
-static unsigned char buffers[NUM_BUFS][BUFSIZE];
+struct handle_bsd {
+    unsigned char *buffers[NUM_BUFS];
+    unsigned int size;
+};
 
 static struct iface_operations bsd_op = {
     .activate = bsd_activate,
@@ -73,9 +76,21 @@ void bsd_activate(iface_handle_t *handle, char *dev, struct bpf_prog *bpf UNUSED
     /* use zero-copy buffer mode if supported */
     mode = BPF_BUFMODE_ZBUF;
     if (ioctl(handle->fd, BIOCSETBUFMODE, &mode) != -1) {
-        zbuf.bz_bufa = buffers[0];
-        zbuf.bz_bufb = buffers[1];
-        zbuf.bz_buflen = BUFSIZE;
+        struct handle_bsd *h;
+
+        handle->data = calloc(1, sizeof(struct handle_bsd));
+        h = handle->data;
+        for (int i = 0; i < NUM_BUFS; i++) {
+            if ((h->buffers[i] = mmap(NULL, req.tp_block_size * req.tp_block_nr, PROT_READ | PROT_WRITE,
+                                      MAP_ANONYMOUS, -1, 0)) == MAP_FAILED)
+                err_sys("mmap error");
+        }
+        zbuf.bz_bufa = h->buffers[0];
+        zbuf.bz_bufb = h->buffers[1];
+        if (ctx.opt.buffer_size == 0)
+            ctx.opt.buffer_size = BUFSIZE;
+        zbuf.bz_buflen = ctx.opt.buffer_size;
+        h->size = ctx.opt.buffer_size;
         if (ioctl(handle->fd, BIOCSETZBUF, &zbuf) == -1)
             err_sys("ioctl error BIOCSETZBUF");
         handle->use_zerocopy = true;
@@ -111,6 +126,14 @@ void bsd_activate(iface_handle_t *handle, char *dev, struct bpf_prog *bpf UNUSED
 
 void bsd_close(iface_handle_t *handle)
 {
+    if (handle->use_zerocopy) {
+        struct handle_bsd *h;
+
+        h = handle->data;
+        munmap(h->buffers[0], h->size);
+        munmap(h->buffers[1], h->size);
+        free(handle->data);
+    }
     close(handle->fd);
     handle->fd = -1;
 }
@@ -121,10 +144,12 @@ void bsd_read_packet_zbuf(iface_handle_t *handle)
     struct bpf_zbuf_header *zhdr;
     unsigned char *p;
     struct bpf_hdr *hdr;
+    struct handle_bsd *h;
 
+    h = handle->data;
     for (int i = 0; i < NUM_BUFS; i++) {
-        if (buffer_check((struct bpf_zbuf_header *) buffers[i])) {
-            zhdr = (struct bpf_zbuf_header *) buffers[i];
+        if (buffer_check((struct bpf_zbuf_header *) h->buffers[i])) {
+            zhdr = (struct bpf_zbuf_header *) h->buffers[i];
             p = buffers[i] + zbuf_header_len;
             while (p < buffers[i] + zhdr->bzh_kernel_len) {
                 hdr = (struct bpf_hdr *) p;
@@ -132,7 +157,7 @@ void bsd_read_packet_zbuf(iface_handle_t *handle)
                 handle->on_packet(handle, handle->buf, hdr->bh_caplen, &hdr->bh_tstamp);
                 p += BPF_WORDALIGN(hdr->bh_hdrlen + hdr->bh_caplen);
             }
-            buffer_acknowledge((struct bpf_zbuf_header *) buffers[i]);
+            buffer_acknowledge((struct bpf_zbuf_header *) h->buffers[i]);
         }
     }
 }

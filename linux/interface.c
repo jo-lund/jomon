@@ -26,6 +26,12 @@ static void linux_read_packet_mmap(iface_handle_t *handle);
 static void linux_read_packet_recv(iface_handle_t *handle);
 static void linux_set_promiscuous(iface_handle_t *handle, char *dev, bool enable);
 
+struct handle_linux {
+    unsigned int block_num;
+    unsigned int block_size;
+    unsigned int nblocks;
+};
+
 static struct iface_operations linux_op = {
     .activate = linux_activate,
     .close = linux_close,
@@ -79,16 +85,19 @@ static unsigned int get_linktype(char *dev)
 static bool setup_packet_mmap(iface_handle_t *handle)
 {
     int val;
-    unsigned int buffer_size;
+    unsigned int nframes;
     unsigned int frames_per_block;
     struct tpacket_req3 req;
+    struct handle_linux *h;
 
+    handle->data = calloc(1, sizeof(struct handle_linux));
+    h = handle->data;
     req.tp_frame_size = FRAMESIZE;
     if (ctx.opt.buffer_size == 0)
         ctx.opt.buffer_size = BUFSIZE;
 
     /* round up to a multiple of the frame size */
-    buffer_size = (ctx.opt.buffer_size + req.tp_frame_size - 1) / req.tp_frame_size;
+    nframes = (ctx.opt.buffer_size + req.tp_frame_size - 1) / req.tp_frame_size;
 
     /* the block size needs to be page aligned and should be big enough to at
        least contain one frame */
@@ -97,13 +106,13 @@ static bool setup_packet_mmap(iface_handle_t *handle)
         req.tp_block_size *= 2;
 
     frames_per_block = req.tp_block_size / req.tp_frame_size;
-    req.tp_block_nr = buffer_size / frames_per_block;
+    req.tp_block_nr = nframes / frames_per_block;
     req.tp_frame_nr = frames_per_block * req.tp_block_nr;
     req.tp_retire_blk_tov = 60; /* timeout in ms */
     req.tp_feature_req_word = TP_FT_REQ_FILL_RXHASH;
     req.tp_sizeof_priv = 0;
-    handle->block_size = req.tp_block_size;
-    handle->nblocks = req.tp_block_nr;
+    h->block_size = req.tp_block_size;
+    h->nblocks = req.tp_block_nr;
     val = TPACKET_V3;
     if (setsockopt(handle->fd, SOL_PACKET, PACKET_VERSION, &val, sizeof(val)) == -1)
         return false;
@@ -189,8 +198,12 @@ void linux_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf)
 void linux_close(iface_handle_t *handle)
 {
     if (handle->use_zerocopy) {
-        munmap(handle->buf, handle->block_size * handle->nblocks);
+        struct handle_linux *h;
+
+        h = handle->data;
+        munmap(handle->buf, h->block_size * h->nblocks);
         free(iov);
+        free(handle->data);
     }
     close(handle->fd);
     handle->fd = -1;
@@ -229,8 +242,10 @@ void linux_read_packet_mmap(iface_handle_t *handle)
     struct tpacket_block_desc *bd;
     struct tpacket3_hdr *hdr;
     struct timeval val;
+    struct handle_linux *h;
 
-    bd = (struct tpacket_block_desc *) iov[handle->block_num].iov_base;
+    h = handle->data;
+    bd = (struct tpacket_block_desc *) iov[h->block_num].iov_base;
     do {
         hdr = (struct tpacket3_hdr *) ((unsigned char *) bd + bd->hdr.bh1.offset_to_first_pkt);
         for (unsigned int i = 0; i < bd->hdr.bh1.num_pkts; i++) {
@@ -240,8 +255,8 @@ void linux_read_packet_mmap(iface_handle_t *handle)
             hdr = (struct tpacket3_hdr *) ((unsigned char *) hdr + hdr->tp_next_offset);
         }
         bd->hdr.bh1.block_status = TP_STATUS_KERNEL;
-        handle->block_num = (handle->block_num + 1) & (handle->nblocks - 1);
-        bd = (struct tpacket_block_desc *) iov[handle->block_num].iov_base;
+        h->block_num = (h->block_num + 1) & (h->nblocks - 1);
+        bd = (struct tpacket_block_desc *) iov[h->block_num].iov_base;
     } while ((bd->hdr.bh1.block_status & TP_STATUS_USER) == TP_STATUS_USER);
 }
 
