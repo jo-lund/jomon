@@ -1,4 +1,5 @@
 # Monitor
+![Screenshot](https://user-images.githubusercontent.com/18684676/211202984-10aebda2-be93-4c91-9e7c-8967045866d9.png)
 
 Monitor is a network forensics and passive sniffer tool. It monitors all incoming/outgoing network
 traffic, without the use of libpcap, and the processes that are generating this
