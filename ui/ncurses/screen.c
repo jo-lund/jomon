@@ -2,7 +2,9 @@
 #include "screen.h"
 #include "layout.h"
 #include "menu.h"
+#include "dialogue.h"
 #include "misc.h"
+#include "util.h"
 
 extern main_menu *menu;
 
@@ -75,6 +77,11 @@ static void handle_end(screen *s, int my)
     if (s->show_selectionbar)
         s->selectionbar = size - 1;
     SCREEN_REFRESH(s);
+}
+
+static void handle_warning(void *arg)
+{
+    finish(PTR_TO_UINT(arg));
 }
 
 screen *screen_create(screen_operations *defop)
@@ -167,7 +174,11 @@ void screen_get_input(screen *s)
         break;
     case KEY_F(10):
     case 'q':
-        finish(0);
+        if (ctx.capturing)
+            create_warning_dialogue("Packet capture not saved. Do you really want to quit?",
+                                    handle_warning, UINT_TO_PTR(0), NULL, NULL);
+        else
+            finish(0);
         break;
     case KEY_UP:
         handle_keyup(s);
