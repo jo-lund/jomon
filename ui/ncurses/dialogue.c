@@ -189,10 +189,46 @@ enum decision_dialogue_focus {
 
 static void decision_dialogue_render(decision_dialogue *this)
 {
+    int i, w, lines;
+    size_t len;
+    char buf[MAXLINE];
+    char *p;
+
+    len = strlen(this->label);
+    w = ((dialogue *) this)->width - 10;
+    if (w < 0)
+        return;
+    lines = len / w + 1;
+    i = (7 - lines + 1) / 2 + 1;
     DIALOGUE_RENDER((dialogue *) this);
     BUTTON_RENDER(this->ok);
     BUTTON_RENDER(this->cancel);
-    mvwprintw(((screen *) this)->win, 5, 4, "%s", this->label);
+    p = this->label;
+    while (len > (size_t) w) {
+        if (isblank(p[w])) {
+            memcpy(buf, p, w);
+            p += w + 1;
+            buf[w] = '\0';
+        } else {
+            int j = w;
+
+            while (j > 0 && !isblank(p[j]))
+                j--;
+            if (j > 0) {
+                memcpy(buf, p, j);
+                p += j + 1; /* line + space */
+                buf[j] = '\0';
+            } else {
+                memcpy(buf, p, w);
+                p += w;
+                buf[w] = '\0';
+            }
+        }
+        mvwprintw(((screen *) this)->win, i, 5, "%s", buf);
+        len = strlen(p);
+        i++;
+    }
+    mvwprintw(((screen *) this)->win, i, 5, "%s", p);
 }
 
 static void decision_dialogue_get_input(screen *s)
