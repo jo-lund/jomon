@@ -883,6 +883,8 @@ static void add_pim_bootstrap(list_view *lw, list_view_header *header, struct pi
         LV_ADD_TEXT_ELEMENT(lw, h, "BSR address: %s", addr);
         free(addr);
     }
+    if (!pim->bootstrap->groups)
+        return;
     addr = get_pim_address(pim->bootstrap->groups->gaddr.addr_family, &pim->bootstrap->groups->gaddr.addr);
     if (addr) {
         grp = LV_ADD_SUB_HEADER(lw, h, selected[UI_SUBLAYER2], UI_SUBLAYER2, "Group %s/%d",
