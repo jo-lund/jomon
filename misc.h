@@ -56,6 +56,7 @@ typedef struct {
     char *filter;
     char *filter_file;
     iface_handle_t *handle;
+    bool pcap_saved;
 } main_context;
 
 extern main_context ctx;

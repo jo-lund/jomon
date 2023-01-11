@@ -7,6 +7,7 @@
 #include "util.h"
 
 extern main_menu *menu;
+extern vector_t *packets;
 
 static void handle_keydown(screen *s)
 {
@@ -174,7 +175,7 @@ void screen_get_input(screen *s)
         break;
     case KEY_F(10):
     case 'q':
-        if (ctx.capturing)
+        if (vector_size(packets) > 0 && !ctx.pcap_saved)
             create_warning_dialogue("Packet capture not saved. Do you really want to quit?",
                                     handle_warning, UINT_TO_PTR(0), NULL, NULL);
         else

@@ -191,6 +191,7 @@ int main(int argc, char **argv)
         FILE *fp;
 
         ctx.capturing = false;
+        ctx.pcap_saved = true;
         handle = iface_handle_create(buf, SNAPLEN, handle_packet);
         ctx.handle = handle;
         if ((fp = file_open(ctx.filename, "r", &err)) == NULL)

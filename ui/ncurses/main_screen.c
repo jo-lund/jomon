@@ -410,6 +410,7 @@ void main_screen_load_handle_ok(void *file)
             ms->base.top = 0;
             ms->base.show_selectionbar = vector_size(ms->packet_ref) > 0;
             ctx.opt.load_file = true;
+            ctx.pcap_saved = true;
             main_screen_refresh((screen *) ms);
         } else {
             pop_screen();
@@ -462,6 +463,7 @@ void main_screen_save(vector_t *data, const char *file)
     }
     SCREEN_FREE((screen *) save_dialogue);
     save_dialogue = NULL;
+    ctx.pcap_saved = true;
 }
 
 void main_screen_export_handle_ok(void *file)
@@ -606,6 +608,7 @@ void main_screen_get_input(screen *s)
             }
             main_screen_clear(ms);
             start_scan();
+            ctx.pcap_saved = false;
             print_header(ms);
             wnoutrefresh(s->win);
             wnoutrefresh(ms->header);
