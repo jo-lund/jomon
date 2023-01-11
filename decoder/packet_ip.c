@@ -336,7 +336,6 @@ packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int
     layer3 = get_protocol(id);
     if (layer3) {
         pdata->next = mempool_calloc(1, struct packet_data);
-        memset(pdata->next, 0, sizeof(struct packet_data));
         pdata->next->prev = pdata;
         pdata->next->id = id;
         if (layer3->decode(layer3, buffer, n - header_len, pdata->next) == UNK_PROTOCOL) {

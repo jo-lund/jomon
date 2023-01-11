@@ -45,7 +45,6 @@ packet_error handle_llc(struct protocol_info *pinfo, unsigned char *buffer, int 
         return UNK_PROTOCOL;
     if ((psub = get_protocol(id))) {
         pdata->next = mempool_calloc(1, struct packet_data);
-        memset(pdata->next, 0, sizeof(struct packet_data));
         pdata->next->id = id;
         return psub->decode(psub, buffer + LLC_HDR_LEN, n - LLC_HDR_LEN, pdata->next);
     }
