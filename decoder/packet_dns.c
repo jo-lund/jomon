@@ -33,7 +33,7 @@ static int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char *
                              int dlen, struct dns_info *dns);
 static int parse_dns_question(unsigned char *buffer, int n, unsigned char **data,
                               int dlen, struct dns_info *dns);
-static int8_t parse_dns_txt(unsigned char **data, unsigned int dlen, char **txt);
+static int parse_dns_txt(unsigned char **data, unsigned int dlen, char **txt);
 static void free_opt_rr(void *data);
 static bool parse_type_bitmaps(unsigned char **data, uint16_t rdlen,
                                struct dns_resource_record *record);
@@ -265,31 +265,34 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
     dlen -= 10;
     if (rdlen > dlen)
         return -1;
-    len += 10 + rdlen;
+    len += 10;
     switch (dns->record[i].type) {
     case DNS_TYPE_A:
-        if (rdlen == 4) {
-            dns->record[i].rdata.address = get_uint32le(ptr);
-            dns_cache_insert(dns->record[i].rdata.address, dns->record[i].name);
-        }
+        if (rdlen != 4)
+            return -1;
+        dns->record[i].rdata.address = get_uint32le(ptr);
+        dns_cache_insert(dns->record[i].rdata.address, dns->record[i].name);
         ptr += rdlen;
+        len += rdlen;
         break;
     case DNS_TYPE_NS:
     {
         int name_len = parse_dns_name(buffer, n, ptr, dlen, dns->record[i].rdata.nsdname);
 
-        if (name_len == -1 || name_len > dlen)
+        if (name_len == -1 || name_len != rdlen)
             return -1;
         ptr += name_len;
+        len += name_len;
         break;
     }
     case DNS_TYPE_CNAME:
     {
         int name_len = parse_dns_name(buffer, n, ptr, dlen, dns->record[i].rdata.cname);
 
-        if (name_len == -1 || name_len > dlen)
+        if (name_len == -1 || name_len != rdlen)
             return -1;
         ptr += name_len;
+        len += name_len;
         break;
     }
     case DNS_TYPE_SOA:
@@ -299,11 +302,14 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
         if (name_len == -1 || name_len > dlen)
             return -1;
         ptr += name_len;
+        len += name_len;
         dlen -= name_len;
         name_len = parse_dns_name(buffer, n, ptr, dlen, dns->record[i].rdata.soa.rname);
         if (name_len == -1 || name_len > dlen)
             return -1;
         ptr += name_len;
+        len += name_len;
+        dlen -= name_len;
         if (dlen < 20)
             return -1;
         dns->record[i].rdata.soa.serial = read_uint32be(&ptr);
@@ -311,24 +317,25 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
         dns->record[i].rdata.soa.retry = read_uint32be(&ptr);
         dns->record[i].rdata.soa.expire = read_uint32be(&ptr);
         dns->record[i].rdata.soa.minimum = read_uint32be(&ptr);
+        len += 20;
         break;
     }
     case DNS_TYPE_PTR:
     {
         int name_len = parse_dns_name(buffer, n, ptr, dlen, dns->record[i].rdata.ptrdname);
 
-        if (name_len == -1 || name_len > dlen)
+        if (name_len == -1 || name_len != rdlen)
             return -1;
         ptr += name_len;
+        len += name_len;
         break;
     }
     case DNS_TYPE_AAAA:
-        if (rdlen == 16) {
-            for (int j = 0; j < rdlen; j++) {
-                dns->record[i].rdata.ipv6addr[j] = ptr[j];
-            }
-        }
+        if (rdlen != 16)
+            return -1;
+        memcpy(dns->record[i].rdata.ipv6addr, ptr, 16);
         ptr += rdlen;
+        len += rdlen;
         break;
     case DNS_TYPE_HINFO:
     {
@@ -336,8 +343,10 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
 
         if ((txt_len = parse_dns_txt(&ptr, dlen, &dns->record[i].rdata.hinfo.cpu)) == -1)
             return -1;
-        if (parse_dns_txt(&ptr, dlen - txt_len, &dns->record[i].rdata.hinfo.os) == -1)
+        len += txt_len;
+        if ((txt_len = parse_dns_txt(&ptr, dlen - txt_len, &dns->record[i].rdata.hinfo.os)) == -1)
             return -1;
+        len += txt_len;
         break;
     }
     case DNS_TYPE_TXT:
@@ -347,16 +356,17 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
         dns->record[i].rdata.txt = list_init(&d_alloc);
         while (j < rdlen) {
             struct dns_txt_rr *rr;
-            int len;
+            int txt_len;
 
-            rr = mempool_alloc(sizeof(struct dns_txt_rr));
-            if ((len = parse_dns_txt(&ptr, dlen, &rr->txt)) == -1) {
+            rr = mempool_calloc(1, struct dns_txt_rr);
+            if ((txt_len = parse_dns_txt(&ptr, dlen, &rr->txt)) == -1) {
                 mempool_free(rr);
                 return -1;
             }
-            rr->len = len;
-            dlen -= rr->len;
-            j += rr->len + 1;
+            rr->len = txt_len - 1;
+            dlen -= txt_len;
+            j += txt_len;
+            len += txt_len;
             list_push_back(dns->record[i].rdata.txt, rr);
         }
         break;
@@ -366,10 +376,13 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
         int name_len;
 
         dns->record[i].rdata.mx.preference = read_uint16be(&ptr);
+        len += 2;
+        dlen -= 2;
         name_len = parse_dns_name(buffer, n, ptr, dlen, dns->record[i].rdata.mx.exchange);
         if (name_len == -1 || name_len > dlen)
             return -1;
         ptr += name_len;
+        len += name_len;
         break;
     }
     case DNS_TYPE_SRV:
@@ -381,10 +394,13 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
         dns->record[i].rdata.srv.priority = read_uint16be(&ptr);
         dns->record[i].rdata.srv.weight = read_uint16be(&ptr);
         dns->record[i].rdata.srv.port = read_uint16be(&ptr);
+        len += 6;
+        dlen -= 6;
         name_len = parse_dns_name(buffer, n, ptr, dlen, dns->record[i].rdata.srv.target);
         if (name_len == -1 || name_len > dlen)
             return -1;
         ptr += name_len;
+        len += name_len;
         break;
     }
     case DNS_TYPE_OPT:
@@ -392,6 +408,7 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
         if (rdlen) {
             dns->record[i].rdata.opt.data = mempool_copy(ptr, rdlen);
             ptr += rdlen;
+            len += rdlen;
         }
         break;
     case DNS_TYPE_NSEC:
@@ -404,10 +421,12 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
         ptr += name_len;
         if (!parse_type_bitmaps(&ptr, rdlen - name_len, &dns->record[i]))
             return -1;
+        len += rdlen;
         break;
     }
     default:
         ptr += rdlen;
+        len += rdlen;
         break;
     }
     *data = ptr; /* skip parsed dns record */
@@ -504,7 +523,7 @@ int parse_dns_name(unsigned char *buffer, int n, unsigned char *ptr, int plen, c
  * The character string is stored in the txt argument formatted as a C string.
  * Returns the length of this string.
  */
-int8_t parse_dns_txt(unsigned char **data, unsigned int dlen, char **txt)
+int parse_dns_txt(unsigned char **data, unsigned int dlen, char **txt)
 {
     uint8_t len;
     unsigned char *ptr = *data;
@@ -518,7 +537,7 @@ int8_t parse_dns_txt(unsigned char **data, unsigned int dlen, char **txt)
         ptr += len;
     }
     *data = ptr;
-    return len;
+    return len + 1;
 }
 
 list_t *parse_dns_options(struct dns_resource_record *rr)

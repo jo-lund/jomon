@@ -250,7 +250,7 @@ int parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **data,
     dlen -= 10;
     if (rdlen > dlen)
         return -1;
-    len += 10 + rdlen;
+    len += 10;
     switch (nbns->record[i].rrtype) {
     case NBNS_NB:
         if (rdlen >= 6) {
@@ -264,23 +264,26 @@ int parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **data,
             nbns->record[i].rdata.nb.num_addr = rdlen / 4;
         }
         ptr += rdlen;
+        len += rdlen + 2;
         break;
     case NBNS_NS:
     {
         char name[DNS_NAMELEN];
         int name_len = parse_dns_name(buffer, n, ptr, dlen, name);
 
-        if (name_len < NBNS_NAME_MAP_LEN)
+        if (name_len == -1 || name_len < NBNS_NAME_MAP_LEN || name_len > dlen)
             return -1;
         ptr += name_len;
+        len += name_len;
         decode_nbns_name(nbns->record[i].rdata.nsdname, name);
         break;
     }
     case NBNS_A:
-        if (rdlen == 4) {
-            nbns->record[i].rdata.nsdipaddr = get_uint32le(ptr);
-        }
+        if (rdlen != 4)
+            return -1;
+        nbns->record[i].rdata.nsdipaddr = get_uint32le(ptr);
         ptr += rdlen;
+        len += rdlen;
         break;
     case NBNS_NBSTAT:
     {
@@ -294,12 +297,19 @@ int parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **data,
         if (num_names > MAX_NBNS_NAMES)
             num_names = MAX_NBNS_NAMES;
         ptr++;
+        len++;
+        dlen--;
         for (int j = 0; j < num_names; j++) {
+            if (NBNS_NAMELEN + 2 > dlen)
+                return -1;
             memcpy(nbns->record[i].rdata.nbstat[j].node_name, ptr, NBNS_NAMELEN);
             nbns->record[i].rdata.nbstat[j].node_name[NBNS_NAMELEN-1] = '\0';
             ptr += NBNS_NAMELEN;
+            dlen -= NBNS_NAMELEN;
             nbns->record[i].rdata.nbstat[j].name_flags = ptr[0] << 8 | ptr[1];
             ptr += 2;
+            dlen -= 2;
+            len += NBNS_NAMELEN + 2;
         }
         // TODO: Include statistics
         break;
@@ -307,6 +317,7 @@ int parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **data,
     case NBNS_NULL:
     default:
         ptr += rdlen;
+        len += rdlen;
         break;
     }
     return len;

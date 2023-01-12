@@ -1251,7 +1251,7 @@ static void add_dns_record_hdr(list_view *lw, list_view_header *header, struct d
         snprintcat(buffer, MAXLINE, "%-6d", GET_MDNS_RRCLASS(dns->record[idx].rrclass));
     } else if (dns->record[idx].name[0]) {
         snprintf(buffer, MAXLINE, "%-*s", max_record_name + 4, dns->record[idx].name);
-        snprintcat(buffer, MAXLINE, "%-6s", get_dns_class(GET_MDNS_RRCLASS(dns->record[idx].rrclass)));
+        snprintcat(buffer, MAXLINE, "%-8s", get_dns_class(GET_MDNS_RRCLASS(dns->record[idx].rrclass)));
     }
     type = get_dns_type(dns->record[idx].type);
     snprintcat(buffer, MAXLINE, "%-8s", type);
