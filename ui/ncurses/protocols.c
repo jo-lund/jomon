@@ -767,12 +767,12 @@ static void add_pim_register_stop(list_view *lw, list_view_header *header, struc
     char *addr;
 
     h = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Register-Stop Message");
-    addr = get_pim_address(pim->assert->gaddr.addr_family, &pim->assert->gaddr.addr);
+    addr = get_pim_address(pim->reg_stop->gaddr.addr_family, &pim->reg_stop->gaddr.addr);
     if (addr) {
-        LV_ADD_TEXT_ELEMENT(lw, h, "Group address: %s/%d", addr, pim->assert->gaddr.mask_len);
+        LV_ADD_TEXT_ELEMENT(lw, h, "Group address: %s/%d", addr, pim->reg_stop->gaddr.mask_len);
         free(addr);
     }
-    addr = get_pim_address(pim->assert->saddr.addr_family, &pim->assert->saddr.addr);
+    addr = get_pim_address(pim->reg_stop->saddr.addr_family, &pim->reg_stop->saddr.addr);
     if (addr) {
         LV_ADD_TEXT_ELEMENT(lw, h, "Source address: %s", addr);
         free(addr);
@@ -830,9 +830,9 @@ static void add_pim_join_prune(list_view *lw, list_view_header *header, struct p
     tm = get_time(pim->jpg->holdtime);
     time_ntop(&tm, time, 512);
     LV_ADD_TEXT_ELEMENT(lw, h, "Holdtime: %s", time);
-
     grp = LV_ADD_SUB_HEADER(lw, h, selected[UI_SUBLAYER2], UI_SUBLAYER2, "Groups (%d)", pim->jpg->num_groups);
-
+    if (!pim->jpg->groups)
+        return;
     for (int i = 0; i < pim->jpg->num_groups; i++) {
         list_view_header *joined;
         list_view_header *pruned;
@@ -842,7 +842,6 @@ static void add_pim_join_prune(list_view *lw, list_view_header *header, struct p
             LV_ADD_TEXT_ELEMENT(lw, grp, "Group address %d: %s/%d", i + 1, addr, pim->jpg->groups[i].gaddr.mask_len);
             free(addr);
         }
-
         joined = LV_ADD_SUB_HEADER(lw, grp, selected[UI_SUBLAYER2], UI_SUBLAYER2, "Joined sources (%d)",
                                 pim->jpg->groups[i].num_joined_src);
         for (int j = 0; j < pim->jpg->groups[i].num_joined_src; j++) {
@@ -919,6 +918,8 @@ static void add_pim_candidate(list_view *lw, list_view_header *header, struct pi
         LV_ADD_TEXT_ELEMENT(lw, h, "RP address: %s", addr);
         free(addr);
     }
+    if (!pim->candidate->gaddrs)
+        return;
     for (int i = 0; i < pim->candidate->prefix_count; i++) {
         addr = get_pim_address(pim->candidate->gaddrs[i].addr_family, &pim->candidate->gaddrs[i].addr);
         if (addr) {
@@ -948,24 +949,29 @@ void add_pim_information(void *w, void *sw, void *data)
         add_pim_hello(lw, header, pim);
         break;
     case PIM_REGISTER:
-        add_pim_register(lw, header, pim);
+        if (pim->reg)
+            add_pim_register(lw, header, pim);
         break;
     case PIM_REGISTER_STOP:
-        add_pim_register_stop(lw, header, pim);
+        if (pim->reg_stop)
+            add_pim_register_stop(lw, header, pim);
         break;
     case PIM_ASSERT:
-        add_pim_assert(lw, header, pim);
+        if (pim->assert)
+            add_pim_assert(lw, header, pim);
         break;
     case PIM_JOIN_PRUNE:
     case PIM_GRAFT:
     case PIM_GRAFT_ACK:
-        add_pim_join_prune(lw, header, pim);
+        if (pim->jpg)
+            add_pim_join_prune(lw, header, pim);
         break;
     case PIM_BOOTSTRAP:
         add_pim_bootstrap(lw, header, pim);
         break;
     case PIM_CANDIDATE_RP_ADVERTISEMENT:
-        add_pim_candidate(lw, header, pim);
+        if (pim->candidate)
+            add_pim_candidate(lw, header, pim);
         break;
     default:
         break;

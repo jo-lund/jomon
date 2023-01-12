@@ -236,7 +236,6 @@ struct pim_info {
     unsigned int type : 4;
     uint16_t checksum;
     uint16_t len;
-
     union {
         unsigned char *hello;
         struct pim_register *reg;
