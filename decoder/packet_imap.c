@@ -68,6 +68,6 @@ packet_error handle_imap(struct protocol_info *pinfo, unsigned char *buf, int n,
         pinfo->num_bytes += n;
         return NO_ERR;
     }
-    pdata->error = create_error_string("Packet error: Not a valid IMAP string");
+    pdata->error = create_error_string("Not a valid IMAP string");
     return DECODE_ERR;
 }
