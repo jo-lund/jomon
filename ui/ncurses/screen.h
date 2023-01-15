@@ -56,7 +56,13 @@ typedef struct screen_operations {
 typedef struct {
     char *txt;
     int width;
+    int order;
 } screen_header;
+
+enum header_order {
+    HDR_INCREASING,
+    HDR_DECREASING
+};
 
 /* Create a screen object */
 screen *screen_create(screen_operations *op);

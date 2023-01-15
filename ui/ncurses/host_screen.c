@@ -54,7 +54,7 @@ static int cmphost(const void *p1, const void *p2)
     return (res < 0) ? -1 : (res > 0) ? 1 : 0;
 }
 
-host_screen *host_screen_create()
+host_screen *host_screen_create(void)
 {
     host_screen *hs;
 

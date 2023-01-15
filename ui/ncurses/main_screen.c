@@ -6,7 +6,6 @@
 #include <sys/stat.h>
 #include "layout.h"
 #include "list.h"
-#include "error.h"
 #include "monitor.h"
 #include "vector.h"
 #include "decoder/decoder.h"
@@ -21,7 +20,6 @@
 #include "hashmap.h"
 #include "decoder/tcp_analyzer.h"
 #include "decoder/host_analyzer.h"
-#include "attributes.h"
 #include "main_screen_int.h"
 #include "conversation_screen.h"
 #include "dialogue.h"
@@ -412,6 +410,7 @@ void main_screen_load_handle_ok(void *file)
             ctx.opt.load_file = true;
             ctx.pcap_saved = true;
             main_screen_refresh((screen *) ms);
+            publish0(new_file_publisher);
         } else {
             pop_screen();
             SCREEN_FREE((screen *) pd);

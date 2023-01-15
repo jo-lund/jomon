@@ -75,6 +75,14 @@ static screen_operations ssop = {
     .screen_lost_focus = stat_screen_lost_focus,
 };
 
+static void handle_alarm(void)
+{
+    screen *s = (screen *) screen_cache_get(STAT_SCREEN);
+
+    if (s->focus)
+        stat_screen_print(s);
+}
+
 screen *stat_screen_create(void)
 {
     return screen_create(&ssop);
@@ -102,6 +110,7 @@ void stat_screen_init(screen *s)
     rx_rate = ringbuffer_init(60);
     tx_rate = ringbuffer_init(60);
     wireless = is_wireless(ctx.device);
+    add_subscription0(alarm_publisher, handle_alarm);
 }
 
 void stat_screen_free(screen *s)

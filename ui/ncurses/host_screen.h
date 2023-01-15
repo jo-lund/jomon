@@ -12,7 +12,7 @@ typedef struct {
     vector_t *screen_buf;
 } host_screen;
 
-host_screen *host_screen_create();
+host_screen *host_screen_create(void);
 void host_screen_free(screen *s);
 
 #endif

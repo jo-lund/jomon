@@ -10,6 +10,7 @@ typedef struct {
     WINDOW *header;
     int y;
     vector_t *screen_buf;
+    int hpos;
 } connection_screen;
 
 connection_screen *connection_screen_create(void);

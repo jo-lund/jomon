@@ -24,6 +24,8 @@ extern void main_screen_refresh(screen *s);
 extern vector_t *packets;
 main_menu *menu;
 actionbar_t *actionbar;
+publisher_t *new_file_publisher;
+publisher_t *alarm_publisher;
 
 static struct screen *screen_cache[NUM_SCREENS];
 static _stack_t *screen_stack;
@@ -33,7 +35,6 @@ static void create_screens(void);
 static void create_menu(void);
 static void change_theme(int i);
 static void options(int i);
-static int screen_cache_type(screen *s);
 
 static int themes[NUM_THEMES][NUM_ELEMENTS] = {
     [DEFAULT] = {
@@ -177,31 +178,21 @@ static void ncurses_init(void)
     actionbar_add_default("F2", "Menu", false);
     actionbar_add_default("F3", "Back", false);
     actionbar_add_default("F10", "Quit", false);
+    new_file_publisher = publisher_init();
+    alarm_publisher = publisher_init();
     create_screens();
     create_menu();
 }
 
 static void ncurses_event(int event)
 {
-    screen *s;
-
     switch (event) {
     case UI_NEW_DATA:
         main_screen_print_packet((main_screen *) screen_cache[MAIN_SCREEN],
                                  vector_back(packets));
         break;
     case UI_ALARM:
-        s = stack_top(screen_stack);
-        switch (screen_cache_type(s)) {
-        case STAT_SCREEN:
-            stat_screen_print(s);
-            break;
-        case CONNECTION_SCREEN:
-            SCREEN_REFRESH(s);
-            break;
-        default:
-            break;
-        }
+        publish0(alarm_publisher);
         break;
     case UI_RESIZE:
         layout_resize();
@@ -219,6 +210,8 @@ static void ncurses_end(void)
     screen_cache_clear();
     main_menu_free((screen *) menu);
     actionbar_free(actionbar);
+    publisher_free(new_file_publisher);
+    publisher_free(alarm_publisher);
     endwin();
 }
 
@@ -266,15 +259,6 @@ void screen_cache_clear(void)
             screen_cache[i] = NULL;
         }
     }
-}
-
-static int screen_cache_type(screen *s)
-{
-    for (int i = 0; i < NUM_SCREENS; i++) {
-        if (s == screen_cache[i])
-            return i;
-    }
-    return -1;
 }
 
 static void print_file(void)

@@ -13,12 +13,12 @@ enum views {
 };
 
 static screen_header main_header[] = {
-    { "Number", NUM_WIDTH },
-    { "Time", TIME_WIDTH },
-    { "Source", ADDR_WIDTH },
-    { "Destination", ADDR_WIDTH },
-    { "Protocol", PROT_WIDTH },
-    { "Info", 0 }
+    { "Number", NUM_WIDTH, HDR_INCREASING },
+    { "Time", TIME_WIDTH, -1},
+    { "Source", ADDR_WIDTH, -1 },
+    { "Destination", ADDR_WIDTH, -1 },
+    { "Protocol", PROT_WIDTH, -1 },
+    { "Info", 0, -1 }
 };
 
 extern char load_filepath[MAXPATH];

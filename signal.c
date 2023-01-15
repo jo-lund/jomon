@@ -8,7 +8,7 @@ struct publisher {
     list_t *subscriptions2;
 };
 
-publisher_t *publisher_init()
+publisher_t *publisher_init(void)
 {
     publisher_t *p = malloc(sizeof(publisher_t));
 

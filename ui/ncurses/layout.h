@@ -3,6 +3,7 @@
 
 #include <ncurses.h>
 #include "attributes.h"
+#include "signal.h"
 
 #define KEY_ESC 27
 #define KEY_CTRL_DOWN 0x20e
@@ -75,6 +76,8 @@ typedef struct {
 
 extern bool selected[NUM_LAYERS];
 extern actionbar_t *actionbar;
+extern publisher_t *new_file_publisher;
+extern publisher_t *alarm_publisher;
 
 /* Allocates space for a new container. Needs to be freed with free_container() */
 container *create_container(void);
