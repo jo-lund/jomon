@@ -625,6 +625,7 @@ void connection_screen_init(screen *s)
     cs->y = 0;
     cs->screen_buf = vector_init(1024);
     cs->hpos = -1;
+    cs->hide_selectionbar = false;
     mode = GREY_OUT_CLOSED;
     scrollok(s->win, TRUE);
     nodelay(s->win, TRUE);
@@ -742,8 +743,13 @@ void connection_screen_get_input(screen *s)
         if (!tab_active) {
             tab_active = true;
             cs->hpos = -1;
+            if (s->show_selectionbar) {
+                cs->hide_selectionbar = true;
+                s->show_selectionbar = false;
+            }
         }
         handle_header_focus(s, KEY_RIGHT);
+        connection_screen_refresh(s);
         break;
     case KEY_LEFT:
         if (tab_active)
@@ -753,14 +759,26 @@ void connection_screen_get_input(screen *s)
         if (tab_active)
             handle_header_focus(s, KEY_RIGHT);
         break;
+    case 'i':
+        if (tab_active)
+            tab_active = false;
+        goto screen_handler;
     case KEY_ESC:
         if (tab_active) {
             tab_active = false;
-            mvwchgat(cs->header, 4, 0, -1, A_NORMAL, PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
-            wrefresh(cs->header);
+            if (cs->hide_selectionbar) {
+                s->show_selectionbar = true;
+                cs->hide_selectionbar = false;
+            }
+            connection_screen_refresh(s);
+            break;
+        } else if (s->show_selectionbar) {
+            s->show_selectionbar = false;
+            connection_screen_refresh(s);
             break;
         }
         FALLTHROUGH;
+    screen_handler:
     default:
         s->have_selectionbar = (view == CONNECTION_PAGE);
         ungetch(c);
