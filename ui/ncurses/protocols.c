@@ -549,8 +549,10 @@ void add_icmp6_information(void *w, void *sw, void *data)
         LV_ADD_TEXT_ELEMENT(lw, header, "Checksum: 0x%x", icmp6->checksum);
         LV_ADD_TEXT_ELEMENT(lw, header, "Identifier: 0x%x", icmp6->echo.id);
         LV_ADD_TEXT_ELEMENT(lw, header, "Sequence number: %d", icmp6->echo.seq);
-        for (unsigned int i = 0; i < icmp6->echo.len; i++)
-            snprintf(buf + 2 * i, 1024 - 2 * i, "%02x", icmp6->echo.data[i]);
+        if (icmp6->echo.data) {
+            for (unsigned int i = 0; i < icmp6->echo.len; i++)
+                snprintf(buf + 2 * i, 1024 - 2 * i, "%02x", icmp6->echo.data[i]);
+        }
         break;
     case ND_ROUTER_SOLICIT:
         LV_ADD_TEXT_ELEMENT(lw, header, "Code: %d", icmp6->code);
