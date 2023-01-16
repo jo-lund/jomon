@@ -2113,12 +2113,16 @@ static void add_tls_client_hello(list_view *lw, list_view_header *hdr, struct tl
     for (int i = 0; i < 32; i++)
         snprintf(buf + 2 * i, 3, "%02x", hello->random_bytes[i]);
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Random bytes: %s", buf);
+    if (!hello->session_id)
+        return;
     for (int i = 0; i < hello->session_length; i++)
         snprintf(buf + 2 * i, 3, "%02x", hello->session_id[i]);
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Session id length: %d", hello->session_length);
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Session id: %s", buf);
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Cipher suite length: %d", hello->cipher_length);
     sub = LV_ADD_SUB_HEADER(lw, hdr, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Ciper Suites");
+    if (!hello->cipher_suites)
+        return;
     for (int i = 0; i < hello->cipher_length / 2; i++) {
         LV_ADD_TEXT_ELEMENT(lw, sub, "%s (0x%04x)",
                             get_tls_cipher_suite(ntohs(hello->cipher_suites[i])),
@@ -2140,6 +2144,8 @@ static void add_tls_server_hello(list_view *lw, list_view_header *hdr, struct tl
     for (int i = 0; i < 32; i++)
         snprintf(buf + 2 * i, 3, "%02x", hello->random_bytes[i]);
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Random bytes: %s", buf);
+    if (!hello->session_id)
+        return;
     for (int i = 0; i < hello->session_length; i++)
         snprintf(buf + 2 * i, 3, "%02x", hello->session_id[i]);
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Session id length: %d", hello->session_length);
@@ -2164,10 +2170,12 @@ static void add_tls_handshake(list_view *lw, list_view_header *header,
                             handshake->length[1] << 8 | handshake->length[2]);
         switch (handshake->type) {
         case TLS_CLIENT_HELLO:
-            add_tls_client_hello(lw, hdr, handshake);
+            if (handshake->client_hello)
+                add_tls_client_hello(lw, hdr, handshake);
             break;
         case TLS_SERVER_HELLO:
-            add_tls_server_hello(lw, hdr, handshake);
+            if (handshake->server_hello)
+                add_tls_server_hello(lw, hdr, handshake);
             break;
         default:
             break;

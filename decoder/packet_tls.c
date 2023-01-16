@@ -595,7 +595,7 @@ static packet_error parse_client_hello(unsigned char **buf, uint16_t len,
 
     unsigned char *ptr = *buf;
 
-    handshake->client_hello = mempool_alloc(sizeof(struct tls_handshake_client_hello));
+    handshake->client_hello = mempool_calloc(1, struct tls_handshake_client_hello);
     handshake->client_hello->legacy_version = get_uint16be(ptr);
     memcpy(handshake->client_hello->random_bytes, ptr + 2, 32);
     ptr += 34;
@@ -641,7 +641,7 @@ static packet_error parse_server_hello(unsigned char **buf, uint16_t len,
 
     unsigned char *ptr = *buf;
 
-    handshake->server_hello = mempool_alloc(sizeof(struct tls_handshake_server_hello));
+    handshake->server_hello = mempool_calloc(1, struct tls_handshake_server_hello);
     handshake->server_hello->legacy_version = get_uint16be(ptr);
     memcpy(handshake->server_hello->random_bytes, ptr + 2, 32);
     ptr += 34;
