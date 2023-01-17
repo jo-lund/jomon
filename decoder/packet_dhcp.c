@@ -158,13 +158,14 @@ packet_error handle_dhcp(struct protocol_info *pinfo, unsigned char *buffer, int
 
 static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp_info *dhcp)
 {
+    struct dhcp_options *opt = NULL;
+
     /* the first 4 bytes of the options field is the magic cookie */
     dhcp->magic_cookie = read_uint32be(&buffer);
     n -= 4;
     dhcp->options = list_init(&d_alloc);
     while (n > 0) {
-        struct dhcp_options *opt = mempool_calloc(1, struct dhcp_options);
-
+        opt = mempool_calloc(1, struct dhcp_options);
         opt->tag = *buffer++;
         n--;
         switch (opt->tag) {
@@ -173,11 +174,11 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
             break;
         case DHCP_TIME_OFFSET:
             if (n <= 0)
-                return DECODE_ERR;
+                goto error;
             opt->length = *buffer++;
             n--;
             if (opt->length != 4 || opt->length > n)
-                return DECODE_ERR;
+                goto error;
             opt->i32val = (int32_t) read_uint32be(&buffer);
             n -= 4;
             list_push_back(dhcp->options, opt);
@@ -208,22 +209,22 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
         case DHCP_STREETTALK_SERVER:
         case DHCP_STDA_SERVER:
             if (n <= 0)
-                return DECODE_ERR;
+                goto error;
             opt->length = *buffer++;
             n--;
             if (opt->length % 4 != 0 || opt->length > n)
-                return DECODE_ERR;
+                goto error;
             opt->bytes = parse_bytes(&buffer, opt->length);
             n -= opt->length;
             list_push_back(dhcp->options, opt);
             break;
         case DHCP_PATH_MTU_PLATEAU_TABLE:
             if (n <= 0)
-                return DECODE_ERR;
+                goto error;
             opt->length = *buffer++;
             n--;
             if (opt->length % 2 != 0 || opt->length > n)
-                return DECODE_ERR;
+                goto error;
             opt->bytes = parse_bytes(&buffer, opt->length);
             n -= opt->length;
             list_push_back(dhcp->options, opt);
@@ -243,11 +244,11 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
         case DHCP_NETBIOS_NT:
         case DHCP_OPTION_OVERLOAD:
             if (n <= 0)
-                return DECODE_ERR;
+                goto error;
             opt->length = *buffer++;
             n--;
             if (opt->length != 1 || opt->length > n)
-                return DECODE_ERR;
+                goto error;
             opt->byte = *buffer++;
             n--;
             list_push_back(dhcp->options, opt);
@@ -255,11 +256,11 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
         case DHCP_POLICY_FILTER:
         case DHCP_STATIC_ROUTE:
             if (n <= 0)
-                return DECODE_ERR;
+                goto error;
             opt->length = *buffer++;
             n--;
             if ((opt->length < 8 && opt->length % 8 != 0) || opt->length > n)
-                return DECODE_ERR;
+                goto error;
             opt->bytes = parse_bytes(&buffer, opt->length);
             n -= opt->length;
             list_push_back(dhcp->options, opt);
@@ -278,11 +279,11 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
         case DHCP_VENDOR_SPECIFIC:
         case DHCP_UUID_CLIENT_ID:
             if (n <= 0)
-                return DECODE_ERR;
+                goto error;
             opt->length = *buffer++;
             n--;
             if (opt->length < 1 || opt->length > n)  /* minimum length is 1 */
-                return DECODE_ERR;
+                goto error;
             opt->bytes = parse_bytes(&buffer, opt->length);
             n -= opt->length;
             list_push_back(dhcp->options, opt);
@@ -292,11 +293,11 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
         case DHCP_MAXIMUM_MESSAGE_SIZE:
         case DHCP_INTERFACE_MTU:
             if (n <= 0)
-                return DECODE_ERR;
+                goto error;
             opt->length = *buffer++;
             n--;
             if (opt->length != 2 || opt->length > n)
-                return DECODE_ERR;
+                goto error;
             opt->u16val = read_uint16be(&buffer);
             n -= 2;
             list_push_back(dhcp->options, opt);
@@ -313,33 +314,33 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
         case DHCP_ARP_CACHE_TIMEOUT:
         case DHCP_TCP_KEEPALIVE_INTERVAL:
             if (n <= 0)
-                return DECODE_ERR;
+                goto error;
             opt->length = *buffer++;
             n--;
             if (opt->length != 4 || opt->length > n)
-                return DECODE_ERR;
+                goto error;
             opt->u32val = read_uint32be(&buffer);
             n -= 4;
             list_push_back(dhcp->options, opt);
             break;
         case DHCP_CLIENT_IDENTIFIER:
             if (n <= 0)
-                return DECODE_ERR;
+                goto error;
             opt->length = *buffer++;
             n--;
             if (opt->length < 2 || opt->length > n)  /* minimum length is 2 */
-                return DECODE_ERR;
+                goto error;
             opt->bytes = parse_bytes(&buffer, opt->length);
             n -= opt->length;
             list_push_back(dhcp->options, opt);
             break;
         case DHCP_CLIENT_FQDN:
             if (n <= 0)
-                return DECODE_ERR;
+                goto error;
             opt->length = *buffer++;
             n--;
             if (opt->length < 3 || opt->length > n)
-                return DECODE_ERR;
+                goto error;
             opt->fqdn.flags = buffer[0];
             opt->fqdn.rcode1 = buffer[1];
             opt->fqdn.rcode2 = buffer[2];
@@ -352,11 +353,11 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
             break;
         case DHCP_CLIENT_NDI:
             if (n <= 0)
-                return DECODE_ERR;
+                goto error;
             opt->length = *buffer++;
             n--;
             if (opt->length != 3 || opt->length > n)
-                return DECODE_ERR;
+                goto error;
             opt->ndi.type = buffer[0];
             opt->ndi.maj = buffer[1];
             opt->ndi.min = buffer[2];
@@ -366,11 +367,11 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
             break;
         case DHCP_CLIENT_SA:
             if (n <= 0)
-                return DECODE_ERR;
+                goto error;
             opt->length = *buffer++;
             n--;
             if (opt->length != 2 || n < 2)
-                return DECODE_ERR;
+                goto error;
             opt->byte = *++buffer;
             n -= 2;
             buffer++;
@@ -382,16 +383,20 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
             return NO_ERR;
         default:
             if (n <= 0)
-                return DECODE_ERR;
+                goto error;
             opt->length = *buffer++;
             n--;
             if (opt->length > n)
-                return DECODE_ERR;
+                goto error;
             buffer += opt->length;
             n -= opt->length;
             DEBUG("DHCP option not supported: %d", opt->tag);
         }
     }
+
+error:
+    if (opt)
+        mempool_free(opt);
     return DECODE_ERR;
 }
 
