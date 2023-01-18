@@ -393,6 +393,7 @@ static packet_error parse_dhcp_options(unsigned char *buffer, int n, struct dhcp
             DEBUG("DHCP option not supported: %d", opt->tag);
         }
     }
+    return DECODE_ERR;
 
 error:
     if (opt)
