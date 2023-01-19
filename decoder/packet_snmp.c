@@ -39,6 +39,8 @@ static packet_error parse_pdu(unsigned char *buffer, int n, struct snmp_info *sn
 static list_t *parse_variables(unsigned char *buffer, int n);
 static int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag,
                        snmp_value *value);
+static packet_error handle_snmp(struct protocol_info *pinfo, unsigned char *buffer,
+                                int n, struct packet_data *pdata);
 
 static struct protocol_info snmp_prot = {
     .short_name = "SNMP",
@@ -48,7 +50,7 @@ static struct protocol_info snmp_prot = {
     .add_pdu = add_snmp_information
 };
 
-void register_snmp()
+void register_snmp(void)
 {
     register_protocol(&snmp_prot, PORT, SNMP);
     register_protocol(&snmp_prot, PORT, SNMPTRAP);
@@ -60,8 +62,8 @@ void register_snmp()
  * encodings use the definite-length form. Further, whenever permissible,
  * non-constructor encodings are used rather than constructor encodings.
  */
-packet_error handle_snmp(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                         struct packet_data *pdata)
+static packet_error handle_snmp(struct protocol_info *pinfo, unsigned char *buffer,
+                                int n, struct packet_data *pdata)
 {
     uint8_t class;
     uint8_t tag;
@@ -249,6 +251,9 @@ int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag, snmp_
     unsigned char *ptr = *data;
     unsigned int len_num_octets = 0;
 
+    if (n < 1)
+        return -1;
+
     /*
      * For low-tag-number form (tags 0 - 30), the first two bits specify the
      * class, and bit 6 indicates whether the encoding method is primitive or
@@ -257,23 +262,26 @@ int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag, snmp_
     *class = (*ptr & 0xc0) >> 6;
     *tag = *ptr & 0x1f;
     ptr++;
+    n--;
     if (*ptr & 0x80) { /* long form - for lengths between 0 and 2^1008 - 1 */
         len_num_octets = *ptr & 0x7f;
-        if (len_num_octets <= 4) { /* ignore length greater than 2^32 */
-            for (unsigned int i = 0; i < len_num_octets; i++) {
+         /* ignore length greater than 2^32 */
+        if (len_num_octets <= 4 && len_num_octets < (unsigned int) n) {
+            for (unsigned int i = 0; i < len_num_octets; i++)
                 len = len << 8 | *++ptr;
-            }
+            n -= len_num_octets;
         } else {
             return -1;
         }
     } else { /* short form */
         len = *ptr;
     }
-    if (len > (unsigned int) n) {
+    if (n < 1)
         return -1;
-    }
     ptr++; /* skip (last) length byte */
-
+    n--;
+    if (len > (unsigned int) n)
+        return -1;
     if (value && *class == APPLICATION) { /* application specific */
         switch (*tag) {
         case IP_ADDRESS:
@@ -282,7 +290,6 @@ int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag, snmp_
 
             if (len != 4)
                 return -1;
-
             value->pval = mempool_alloc(INET_ADDRSTRLEN);
             for (unsigned int i = 0; i < 3; i++) {
                 j += snprintf(value->pval + j, INET_ADDRSTRLEN - j, "%u.", *ptr++);
@@ -302,7 +309,6 @@ int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag, snmp_
             break;
         }
     }
-
     if (value && (*class == UNIVERSAL || *class == APPLICATION)) {
         switch (*tag) {
         case SNMP_INTEGER_TAG:
@@ -315,9 +321,7 @@ int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag, snmp_
             break;
         case SNMP_OCTET_STRING_TAG:
             if (len > 0) {
-                value->pval = mempool_alloc(len + 1);
-                memcpy(value->pval, ptr, len);
-                value->pval[len] = '\0';
+                value->pval = mempool_copy0(ptr, len);
                 value->plen = len;
                 ptr += len;
             } else {
@@ -333,6 +337,7 @@ int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag, snmp_
                 unsigned int i = 0;
                 unsigned int j = 0;
                 char c;
+                uint32_t vlen;
 
                 /*
                  * The first two oid components are encoded as x * 40 + y, where
@@ -348,9 +353,10 @@ int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag, snmp_
                     if (ptr[j] & 0x80) {
                         uint32_t v = 0;
 
-                        for (int k = 0; k < 4 && ptr[j] & 0x80; k++) {
+                        for (int k = 0; k < 4 && j < len && ptr[j] & 0x80; k++)
                             v = v << 7 | (ptr[j++] & 0x7f);
-                        }
+                        if (j >= len)
+                            return -1;
                         v = v << 7 | (ptr[j++] & 0x7f); /* last group */
                         i += snprintf(val + i, MAX_OID_LEN - i, "%d.", v);
                     } else {
@@ -361,9 +367,9 @@ int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag, snmp_
                     }
                 }
                 val[i-1] = '\0';
-                value->pval = mempool_alloc(strlen(val) + 1);
-                strcpy(value->pval, val);
-                value->plen = len;
+                vlen = i - 1;
+                value->pval = mempool_copy0(val, vlen);
+                value->plen = vlen;
                 ptr += len;
             } else {
                 value->pval = NULL;
