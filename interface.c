@@ -266,7 +266,7 @@ char *get_active_interface(int fd, char *buffer, int len)
                 size_t namelen = strlen(ifr->ifr_name);
 
                 device = malloc(namelen + 1);
-                strcpy(device, ifr->ifr_name);
+                memcpy(device, ifr->ifr_name, namelen);
                 device[namelen] = '\0';
                 return device;
             }
