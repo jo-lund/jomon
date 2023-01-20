@@ -25,6 +25,13 @@
 #define SCREEN_OPS(...) ((struct screen_operations)   \
         { SCREEN_DEFAULTS, __VA_ARGS__ })
 
+
+typedef struct {
+    char *txt;
+    int width;
+    int order;
+} screen_header;
+
 typedef struct screen {
     bool focus;
     WINDOW *win;
@@ -39,6 +46,11 @@ typedef struct screen {
     bool refreshing;
     bool fullscreen;
     bool resize;
+    screen_header *header;
+    unsigned int header_size;
+    int hpos;
+    bool tab_active;
+    bool hide_selectionbar;  /* hide selectionbar when tab is active */
     struct screen_operations *op;
 } screen;
 
@@ -52,12 +64,6 @@ typedef struct screen_operations {
     unsigned int (*screen_get_data_size)(screen *s);
     void (*screen_on_back)(screen *s);
 } screen_operations;
-
-typedef struct {
-    char *txt;
-    int width;
-    int order;
-} screen_header;
 
 enum header_order {
     HDR_INCREASING,
@@ -78,5 +84,7 @@ void screen_refresh(screen *s);
 
 /* Default function called on key input */
 void screen_get_input(screen *s);
+
+void screen_render_header_focus(screen *s, WINDOW *whdr);
 
 #endif

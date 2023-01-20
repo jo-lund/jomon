@@ -110,8 +110,6 @@ extern main_menu *menu;
 static bool active = false;
 static enum page view;
 static enum filter_mode mode;
-static bool tab_active = false;
-static unsigned int conn_header_size;
 static hashmap_t *connection_data = NULL;
 
 static int get_active_header_focus(screen_header *hdr, int size)
@@ -338,11 +336,11 @@ static void handle_alarm(void)
         if (view == CONNECTION_PAGE)
             qsort_r(vector_data(cs->screen_buf), vector_size(cs->screen_buf),
                     sizeof(struct tcp_connection_v4 *), cmp_conn,
-                    INT_TO_PTR(get_active_header_focus(conn_header, conn_header_size)));
+                    INT_TO_PTR(get_active_header_focus(s->header, s->header_size)));
         else
             qsort_r(vector_data(cs->screen_buf), vector_size(cs->screen_buf),
                     sizeof(struct process *), cmp_proc,
-                    INT_TO_PTR(get_active_header_focus(proc_header, ARRAY_SIZE(proc_header))));
+                    INT_TO_PTR(get_active_header_focus(s->header, s->header_size)));
         connection_screen_refresh(s);
     }
 }
@@ -447,7 +445,7 @@ static void print_connection(connection_screen *cs, struct tcp_connection_v4 *co
         entry[PROCESS].str = process_get_name(conn);
     if (mode == GREY_OUT_CLOSED && (conn->state == CLOSED || conn->state == RESET))
         attrs = get_theme_colour(DISABLE);
-    for (unsigned int i = 0; i < conn_header_size; i++) {
+    for (unsigned int i = 0; i < ((screen *) cs)->header_size; i++) {
         if (i % 2 == 0) {
             mvprintat(cs->base.win, y, x, attrs, "%s", entry[i].buf);
         } else {
@@ -462,42 +460,6 @@ static void print_connection(connection_screen *cs, struct tcp_connection_v4 *co
         }
         x += conn_header[i].width;
     }
-}
-
-static void handle_header_focus(screen *s, int key)
-{
-    int x = 0;
-    int i = 0;
-    connection_screen *cs;
-    unsigned int size;
-    screen_header *p;
-
-    cs = (connection_screen *) s;
-    if (view == CONNECTION_PAGE) {
-        size = conn_header_size;
-        p = conn_header;
-    } else {
-        size = ARRAY_SIZE(proc_header);
-        p = proc_header;
-    }
-    switch (key) {
-    case KEY_RIGHT:
-        cs->hpos = (cs->hpos + 1) % size;
-        break;
-    case KEY_LEFT:
-        if (cs->hpos == 0)
-            cs->hpos = size - 1;
-        else
-            cs->hpos = (cs->hpos - 1) % size;
-        break;
-    default:
-        break;
-    }
-    mvwchgat(cs->header, 4, 0, -1, A_NORMAL, PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
-    while (i < cs->hpos)
-        x += p[i++].width;
-    mvwchgat(cs->header, 4, x, p[i].width, A_NORMAL, PAIR_NUMBER(get_theme_colour(FOCUS)), NULL);
-    wrefresh(cs->header);
 }
 
 static void print_all_elements(connection_screen *cs)
@@ -524,80 +486,51 @@ static void print_header(connection_screen *cs)
 {
     int y = 0;
     int x = 0;
-    screen_header *p;
-    unsigned int size;
+    screen *s = (screen *) cs;
 
     if (view == CONNECTION_PAGE) {
-        p = conn_header;
-        size = conn_header_size;
-        mvprintat(cs->header, y, 0, get_theme_colour(HEADER_TXT), "TCP connections");
-        wprintw(cs->header,  ": %d", connection_screen_get_size((screen *) cs));
-        mvprintat(cs->header, ++y, 0, get_theme_colour(HEADER_TXT), "View");
+        mvprintat(cs->whdr, y, 0, get_theme_colour(HEADER_TXT), "TCP connections");
+        wprintw(cs->whdr,  ": %d", connection_screen_get_size((screen *) cs));
+        mvprintat(cs->whdr, ++y, 0, get_theme_colour(HEADER_TXT), "View");
         switch (mode) {
         case GREY_OUT_CLOSED:
-            wprintw(cs->header,  ": Normal");
+            wprintw(cs->whdr,  ": Normal");
             break;
         case REMOVE_CLOSED:
-            wprintw(cs->header,  ": Active");
+            wprintw(cs->whdr,  ": Active");
             break;
         case SHOW_ALL:
-            wprintw(cs->header,  ": All");
+            wprintw(cs->whdr,  ": All");
             break;
         default:
             break;
         }
         y += 3;
     } else {
-        p = proc_header;
-        size = ARRAY_SIZE(proc_header);
-        mvprintat(cs->header, y, 0, get_theme_colour(HEADER_TXT), "Processes");
-        wprintw(cs->header,  ": %d", vector_size(cs->screen_buf));
+        mvprintat(cs->whdr, y, 0, get_theme_colour(HEADER_TXT), "Processes");
+        wprintw(cs->whdr,  ": %d", vector_size(cs->screen_buf));
         y += 4;
     }
-    for (unsigned int i = 0; i < size; i++) {
-        mvwprintw(cs->header, y, x, "%s", p[i].txt);
-        x += p[i].width;
+    for (unsigned int i = 0; i < s->header_size; i++) {
+        mvwprintw(cs->whdr, y, x, "%s", s->header[i].txt);
+        x += s->header[i].width;
     }
-    mvwchgat(cs->header, y, 0, -1, A_NORMAL, PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
-    if (cs->hpos >= 0) {
-        if ((unsigned int ) cs->hpos >= size)
-            cs->hpos = size - 1;
-        x = 0;
-        for (unsigned int i = 0; i < size; i++) {
-            switch (p[i].order) {
-            case HDR_INCREASING:
-                mvprintat(cs->header, 4, x + p[i].width - 2, get_theme_colour(HEADER), "+");
-                break;
-            case HDR_DECREASING:
-                mvprintat(cs->header, 4, x + p[i].width - 2, get_theme_colour(HEADER), "-");
-                break;
-            default:
-                break;
-            }
-            x += p[i].width;
-        }
-        if (tab_active) {
-            int i = 0;
-
-            x = 0;
-            while (i < cs->hpos)
-                x += p[i++].width;
-            mvwchgat(cs->header, 4, x, p[i].width, A_NORMAL, PAIR_NUMBER(get_theme_colour(FOCUS)), NULL);
-        }
-    }
-    wrefresh(cs->header);
+    screen_render_header_focus(s, cs->whdr);
+    wrefresh(cs->whdr);
 }
 
 static void update_order(connection_screen *cs, screen_header *hdr, int size,
                          int (*cmp_elem)(const void *, const void *, void *))
 {
+    screen *s = (screen *) cs;
+
     for (int i = 0; i < size; i++) {
-        if (i != cs->hpos)
+        if (i != s->hpos)
             hdr[i].order = -1;
     }
-    hdr[cs->hpos].order = (hdr[cs->hpos].order + 1) % 2;
+    hdr[s->hpos].order = (hdr[s->hpos].order + 1) % 2;
     qsort_r(vector_data(cs->screen_buf), vector_size(cs->screen_buf),
-            sizeof(void *), cmp_elem, INT_TO_PTR(cs->hpos));
+            sizeof(void *), cmp_elem, INT_TO_PTR(s->hpos));
 }
 
 connection_screen *connection_screen_create(void)
@@ -620,12 +553,11 @@ void connection_screen_init(screen *s)
     s->win = newwin(my - CONN_HEADER - actionbar_getmaxy(actionbar), mx, CONN_HEADER, 0);
     s->have_selectionbar = true;
     s->lines = getmaxy(stdscr) - CONN_HEADER - actionbar_getmaxy(actionbar);
+    s->header = conn_header;
     view = CONNECTION_PAGE;
-    cs->header = newwin(CONN_HEADER, mx, 0, 0);
+    cs->whdr = newwin(CONN_HEADER, mx, 0, 0);
     cs->y = 0;
     cs->screen_buf = vector_init(1024);
-    cs->hpos = -1;
-    cs->hide_selectionbar = false;
     mode = GREY_OUT_CLOSED;
     scrollok(s->win, TRUE);
     nodelay(s->win, TRUE);
@@ -641,7 +573,7 @@ void connection_screen_free(screen *s)
 {
     connection_screen *cs = (connection_screen *) s;
 
-    delwin(cs->header);
+    delwin(cs->whdr);
     delwin(s->win);
     vector_free(cs->screen_buf, NULL);
     hashmap_free(connection_data);
@@ -653,11 +585,12 @@ void connection_screen_got_focus(screen *s, screen *oldscr UNUSED)
     if (!active) {
         s->top = 0;
         if (ctx.opt.load_file) {
-            conn_header_size = ARRAY_SIZE(conn_header) - 1;
+            s->header_size = ARRAY_SIZE(conn_header) - 1;
             s->num_pages = 1;
             view = CONNECTION_PAGE;
         } else {
-            conn_header_size = ARRAY_SIZE(conn_header);
+            s->header_size = (view = CONNECTION_PAGE) ? ARRAY_SIZE(conn_header) :
+                ARRAY_SIZE(proc_header);
             s->num_pages = 2;
         }
         active = true;
@@ -682,10 +615,10 @@ void connection_screen_refresh(screen *s)
     connection_screen *cs = (connection_screen *) s;
 
     werase(s->win);
-    werase(cs->header);
+    werase(cs->whdr);
     cs->y = 0;
     wbkgd(s->win, get_theme_colour(BACKGROUND));
-    wbkgd(cs->header, get_theme_colour(BACKGROUND));
+    wbkgd(cs->whdr, get_theme_colour(BACKGROUND));
     connection_screen_render(cs);
 }
 
@@ -698,11 +631,11 @@ void connection_screen_get_input(screen *s)
     switch (c) {
     case KEY_ENTER:
     case '\n':
-        if (tab_active) {
+        if (s->tab_active) {
             if (view == CONNECTION_PAGE)
-                update_order(cs, conn_header, conn_header_size, cmp_conn);
+                update_order(cs, s->header, s->header_size, cmp_conn);
             else
-                update_order(cs, proc_header, ARRAY_SIZE(proc_header), cmp_proc);
+                update_order(cs, s->header, s->header_size, cmp_proc);
             connection_screen_refresh(s);
         } else if (s->show_selectionbar) {
             cvs = (conversation_screen *) screen_cache_get(CONVERSATION_SCREEN);
@@ -718,7 +651,7 @@ void connection_screen_get_input(screen *s)
         update_screen_buf(s);
         qsort_r(vector_data(cs->screen_buf), vector_size(cs->screen_buf),
                 sizeof(struct tcp_connection_v4 *), cmp_conn,
-                INT_TO_PTR(get_active_header_focus(conn_header, conn_header_size)));
+                INT_TO_PTR(get_active_header_focus(s->header, s->header_size)));
         connection_screen_refresh(s);
         break;
     case 'p':
@@ -729,56 +662,22 @@ void connection_screen_get_input(screen *s)
         view = (view + 1) % s->num_pages;
         s->top = 0;
         update_screen_buf(s);
-        if (view == CONNECTION_PAGE)
+        if (view == CONNECTION_PAGE) {
+            s->header = conn_header;
+            s->header_size = (ctx.opt.load_file) ? ARRAY_SIZE(conn_header) - 1 :
+                ARRAY_SIZE(conn_header);
             qsort_r(vector_data(cs->screen_buf), vector_size(cs->screen_buf),
                     sizeof(struct tcp_connection_v4 *), cmp_conn,
-                    INT_TO_PTR(get_active_header_focus(conn_header, conn_header_size)));
-        else
+                    INT_TO_PTR(get_active_header_focus(s->header, s->header_size)));
+        } else {
+            s->header = proc_header;
+            s->header_size = ARRAY_SIZE(proc_header);
             qsort_r(vector_data(cs->screen_buf), vector_size(cs->screen_buf),
                     sizeof(struct process *), cmp_proc,
-                    INT_TO_PTR(get_active_header_focus(proc_header, ARRAY_SIZE(proc_header))));
+                    INT_TO_PTR(get_active_header_focus(s->header, s->header_size)));
+        }
         connection_screen_refresh(s);
         break;
-    case '\t':
-        if (!tab_active) {
-            tab_active = true;
-            cs->hpos = -1;
-            if (s->show_selectionbar) {
-                cs->hide_selectionbar = true;
-                s->show_selectionbar = false;
-            }
-        }
-        handle_header_focus(s, KEY_RIGHT);
-        connection_screen_refresh(s);
-        break;
-    case KEY_LEFT:
-        if (tab_active)
-            handle_header_focus(s, KEY_LEFT);
-        break;
-    case KEY_RIGHT:
-        if (tab_active)
-            handle_header_focus(s, KEY_RIGHT);
-        break;
-    case 'i':
-        if (tab_active)
-            tab_active = false;
-        goto screen_handler;
-    case KEY_ESC:
-        if (tab_active) {
-            tab_active = false;
-            if (cs->hide_selectionbar) {
-                s->show_selectionbar = true;
-                cs->hide_selectionbar = false;
-            }
-            connection_screen_refresh(s);
-            break;
-        } else if (s->show_selectionbar) {
-            s->show_selectionbar = false;
-            connection_screen_refresh(s);
-            break;
-        }
-        FALLTHROUGH;
-    screen_handler:
     default:
         s->have_selectionbar = (view == CONNECTION_PAGE);
         ungetch(c);
@@ -794,7 +693,7 @@ static unsigned int connection_screen_get_size(screen *s)
 
 void connection_screen_render(connection_screen *cs)
 {
-    touchwin(cs->header);
+    touchwin(cs->whdr);
     touchwin(cs->base.win);
     if (ctx.capturing || vector_size(cs->screen_buf) == 0)
         update_screen_buf((screen *) cs);

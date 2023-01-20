@@ -80,6 +80,24 @@ static void handle_end(screen *s, int my)
     SCREEN_REFRESH(s);
 }
 
+static void handle_header_focus(screen *s, int key)
+{
+    switch (key) {
+    case KEY_RIGHT:
+        s->hpos = (s->hpos + 1) % s->header_size;
+        break;
+    case KEY_LEFT:
+        if (s->hpos == 0)
+            s->hpos = s->header_size - 1;
+        else
+            s->hpos = (s->hpos - 1) % s->header_size;
+        break;
+    default:
+        break;
+    }
+    SCREEN_REFRESH(s);
+}
+
 static void handle_warning(void *arg)
 {
     finish(PTR_TO_UINT(arg));
@@ -109,6 +127,11 @@ void screen_init(screen *s)
     s->refreshing = false;
     s->fullscreen = true;
     s->resize = false;
+    s->header = NULL;
+    s->hpos = -1;
+    s->tab_active = false;
+    s->header_size = 0;
+    s->hide_selectionbar = false;
 }
 
 void screen_free(screen *s)
@@ -137,6 +160,11 @@ void screen_get_input(screen *s)
         screen_stack_move_to_top(screen_cache_get(HOST_SCREEN));
         break;
     case 'i':
+        if (s->header && s->tab_active) {
+            s->tab_active = false;
+            if (s->hide_selectionbar)
+                s->hide_selectionbar = false;
+        }
         if (s->have_selectionbar && SCREEN_GET_DATA_SIZE(s) > 0) {
             s->show_selectionbar = !s->show_selectionbar;
             s->selectionbar = s->top;
@@ -157,8 +185,22 @@ void screen_get_input(screen *s)
     case 's':
         screen_stack_move_to_top(screen_cache_get(STAT_SCREEN));
         break;
-    case 'x':
     case KEY_ESC:
+        if (s->tab_active) {
+            s->tab_active = false;
+            if (s->hide_selectionbar) {
+                s->show_selectionbar = true;
+                s->hide_selectionbar = false;
+            }
+            SCREEN_REFRESH(s);
+            break;
+        } else if (s->show_selectionbar) {
+            s->show_selectionbar = false;
+            SCREEN_REFRESH(s);
+            break;
+        }
+        FALLTHROUGH;
+    case 'x':
     case KEY_F(3):
         if (screen_stack_size() > 1) {
             if (s->op->screen_on_back)
@@ -207,7 +249,61 @@ void screen_get_input(screen *s)
         if (s->op->screen_get_data_size)
             handle_end(s, my);
         break;
+    case '\t':
+        if (!s->header)
+            return;
+        if (!s->tab_active) {
+            s->tab_active = true;
+            s->hpos = -1;
+            if (s->show_selectionbar) {
+                s->hide_selectionbar = true;
+                s->show_selectionbar = false;
+            }
+        }
+        handle_header_focus(s, KEY_RIGHT);
+        break;
+    case KEY_LEFT:
+        if (s->header && s->tab_active)
+            handle_header_focus(s, KEY_LEFT);
+        break;
+    case KEY_RIGHT:
+        if (s->header && s->tab_active)
+            handle_header_focus(s, KEY_RIGHT);
+        break;
     default:
         break;
+    }
+}
+
+void screen_render_header_focus(screen *s, WINDOW *whdr)
+{
+    mvwchgat(whdr, 4, 0, -1, A_NORMAL, PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
+    if (s->hpos >= 0) {
+        int x;
+
+        if ((unsigned int ) s->hpos >= s->header_size)
+            s->hpos = s->header_size - 1;
+        x = 0;
+        for (unsigned int i = 0; i < s->header_size; i++) {
+            switch (s->header[i].order) {
+            case HDR_INCREASING:
+                mvprintat(whdr, 4, x + s->header[i].width - 2, get_theme_colour(HEADER), "+");
+                break;
+            case HDR_DECREASING:
+                mvprintat(whdr, 4, x + s->header[i].width - 2, get_theme_colour(HEADER), "-");
+                break;
+            default:
+                break;
+            }
+            x += s->header[i].width;
+        }
+        if (s->tab_active) {
+            int i = 0;
+
+            x = 0;
+            while (i < s->hpos)
+                x += s->header[i++].width;
+            mvwchgat(whdr, 4, x, s->header[i].width, A_NORMAL, PAIR_NUMBER(get_theme_colour(FOCUS)), NULL);
+        }
     }
 }

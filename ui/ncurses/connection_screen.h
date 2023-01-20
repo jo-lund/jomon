@@ -7,11 +7,9 @@
 
 typedef struct {
     screen base;
-    WINDOW *header;
+    WINDOW *whdr;
     int y;
     vector_t *screen_buf;
-    int hpos;
-    bool hide_selectionbar;
 } connection_screen;
 
 connection_screen *connection_screen_create(void);
