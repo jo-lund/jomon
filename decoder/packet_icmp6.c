@@ -175,19 +175,19 @@ packet_error handle_icmp6(struct protocol_info *pinfo, unsigned char *buf, int n
         buf += 4; /* skip unused bytes */
         n -= 4;
         if (n > 0)
-            return parse_data(pdata, buf + ICMP6_HDR_LEN, n - ICMP6_HDR_LEN);
+            return parse_data(pdata, buf, n);
         break;
     case ICMP6_PACKET_TOO_BIG:
         icmp6->checksum = read_uint32be(&buf);
         n -= 4;
         if (n > 0)
-            return parse_data(pdata, buf + ICMP6_HDR_LEN, n - ICMP6_HDR_LEN);
+            return parse_data(pdata, buf, n);
         break;
     case ICMP6_PARAM_PROB:
         icmp6->pointer = read_uint32be(&buf);
         n -= 4;
         if (n > 0)
-            return parse_data(pdata, buf + ICMP6_HDR_LEN, n - ICMP6_HDR_LEN);
+            return parse_data(pdata, buf, n);
         break;
     case ICMP6_ECHO_REQUEST:
     case ICMP6_ECHO_REPLY:
