@@ -247,8 +247,8 @@ static void print_help(void)
     geoip_print_version();
     printf("Usage: monitor [-dGhlNnpstvV] [-b size] [-f filter] [-F filter-file] [-i interface] [-r path]\n"
            "Options:\n"
-           "    -b, --buffer-size      Set the kernel capture buffer size to <size>, in units of KiB (1024 bytes)\n"
-           "                           Default: 4MB\n"
+           "    -b, --buffer-size      Set the kernel capture buffer size to <size>,\n"
+           "                           in units of KiB (1024 bytes). Default: 4MB\n"
            "    -d                     Dump packet filter as BPF assembly and exit\n"
            "    -dd                    Dump packet filter as C code fragment and exit\n"
            "    -ddd                   Dump packet filter as decimal numbers and exit\n"
