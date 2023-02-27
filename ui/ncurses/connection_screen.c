@@ -208,7 +208,6 @@ static void print_connection(connection_screen *cs, struct tcp_connection_v4 *co
     memset(entry, 0, sizeof(entry));
     inet_ntop(AF_INET, &conn->endp->src, entry[ADDRA].buf, INET_ADDRSTRLEN);
     inet_ntop(AF_INET, &conn->endp->dst, entry[ADDRB].buf, INET_ADDRSTRLEN);
-    p = list_data(n);
     entry[ADDRA].val = conn->endp->src;
     entry[PORTA].val = conn->endp->sport;
     entry[ADDRB].val = conn->endp->dst;
