@@ -54,7 +54,7 @@ packet_error handle_llc(struct protocol_info *pinfo, unsigned char *buffer, int 
 enum eth_802_type get_eth802_type(struct packet *p)
 {
     struct packet_data *pdata = get_packet_data(p, ETH_802_LLC);
-    struct eth_802_llc *llc = pdata->data;
+    struct eth_802_llc *llc = pdata ? pdata->data : NULL;
 
     if (llc) {
         /* DSAP and SSAP specify the upper layer protocols above LLC */
