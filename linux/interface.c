@@ -69,17 +69,22 @@ static int map_linktype(unsigned int type)
     }
 }
 
-static unsigned int get_linktype(char *dev)
+static int get_linktype(char *dev)
 {
     struct ifreq ifr;
     int sockfd;
+    int ret = -1;
 
     strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
-        return -1;
+        return ret;
     if (ioctl(sockfd, SIOCGIFHWADDR, &ifr) == -1)
-        return -1;
-    return ifr.ifr_hwaddr.sa_family;
+        goto done;
+    ret = ifr.ifr_hwaddr.sa_family;
+
+done:
+    close(sockfd);
+    return ret;
 }
 
 static bool setup_packet_mmap(iface_handle_t *handle)
@@ -276,6 +281,7 @@ void linux_set_promiscuous(iface_handle_t *handle UNUSED, char *dev, bool enable
         ifr.ifr_flags &= ~IFF_PROMISC;
     if (ioctl(sockfd, SIOCSIFFLAGS, &ifr))
         err_sys("ioctl error");
+    close(sockfd);
 }
 
 void get_local_mac(char *dev, unsigned char *mac)
