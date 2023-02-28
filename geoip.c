@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include "geoip.h"
 #include "config.h"
+#include "wrapper.h"
 
 static GeoIP *gip;
 
@@ -51,7 +52,7 @@ char *geoip_get_country(char *addr)
 
     if (record) {
         if (record->country_name)
-            name = strdup(record->country_name);
+            name = xstrdup(record->country_name);
         GeoIPRecord_delete(record);
     }
     return name;
@@ -67,7 +68,7 @@ char *geoip_get_city(char *addr)
 
     if (record) {
         if (record->city)
-            city = strdup(record->city);
+            city = xstrdup(record->city);
         GeoIPRecord_delete(record);
     }
     return city;

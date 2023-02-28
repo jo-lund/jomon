@@ -14,6 +14,7 @@
 #include "hash.h"
 #include "decoder/tcp_analyzer.h"
 #include "list.h"
+#include "wrapper.h"
 
 /*
  * General algorithm to get the process related to the specific connection:
@@ -80,7 +81,7 @@ static char *get_name(int pid)
         return NULL;
     }
     fclose(fp);
-    return strdup(cmdline);
+    return xstrdup(cmdline);
 }
 
 char *get_username(uint32_t uid)
@@ -89,7 +90,7 @@ char *get_username(uint32_t uid)
 
     if ((pw = getpwuid(uid)) == NULL)
         return NULL;
-    return strdup(pw->pw_name);
+    return xstrdup(pw->pw_name);
 }
 
 static void load_cache(void)

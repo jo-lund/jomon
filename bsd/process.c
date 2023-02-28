@@ -43,7 +43,7 @@ static char *get_name(int pid)
     if (sysctl(mib, ARRAY_SIZE(mib), &proc, &len, NULL, 0) == -1)
         return NULL;
     if ((name = hashmap_get_key(string_table, proc.ki_comm)) == NULL) {
-        name = strdup(proc.ki_comm);
+        name = xstrdup(proc.ki_comm);
         hashmap_insert(string_table, name, NULL);
     }
     return name;
@@ -168,7 +168,7 @@ void process_load_cache(void)
             pinfo->name = get_name(pinfo->pid);
             if ((pw = getpwuid(p->xf_uid))) {
                 if ((user = hashmap_get_key(string_table, pw->pw_name)) == NULL) {
-                    user = strdup(pw->pw_name);
+                    user = xstrdup(pw->pw_name);
                     hashmap_insert(string_table, user, NULL);
                 }
                 pinfo->user = user;

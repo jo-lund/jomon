@@ -426,7 +426,7 @@ static void file_dialogue_populate(file_dialogue *this, char *path)
                 continue;
             }
             info = malloc(sizeof(struct file_info));
-            info->name = strdup(ent->d_name);
+            info->name = xstrdup(ent->d_name);
             buf = malloc(sizeof(struct stat));
             snprintf(filepath, MAXPATH, "%s/%s", path, info->name);
             lstat(filepath, buf);

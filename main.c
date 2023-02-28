@@ -14,8 +14,7 @@
 #include <errno.h>
 #include <getopt.h>
 #include <locale.h>
-#include "misc.h"
-#include "error.h"
+#include "monitor.h"
 #include "interface.h"
 #include "decoder/packet.h"
 #include "decoder/tcp_analyzer.h"
@@ -24,9 +23,7 @@
 #include "mempool.h"
 #include "decoder/host_analyzer.h"
 #include "decoder/dns_cache.h"
-#include "attributes.h"
 #include "process.h"
-#include "debug.h"
 #include "geoip.h"
 #include "bpf/bpf_parser.h"
 #include "bpf/pcap_parser.h"
@@ -119,7 +116,7 @@ int main(int argc, char **argv)
             ctx.filter = optarg;
             break;
         case 'i':
-            ctx.device = strdup(optarg);
+            ctx.device = xstrdup(optarg);
             break;
         case 'l':
             list_interfaces();
