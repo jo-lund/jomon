@@ -58,7 +58,7 @@ host_screen *host_screen_create()
 {
     host_screen *hs;
 
-    hs = malloc(sizeof(host_screen));
+    hs = xmalloc(sizeof(host_screen));
     hs->base.op = &hsop;
     host_screen_init((screen *) hs);
     return hs;

@@ -50,7 +50,7 @@ main_menu *main_menu_create(void)
     op = SCREEN_OPS(.screen_free = main_menu_free,
                     .screen_refresh = main_menu_refresh,
                     .screen_get_input = main_menu_get_input);
-    menu = calloc(1, sizeof(main_menu));
+    menu = xcalloc(1, sizeof(main_menu));
     menu->base.op = &op;
     menu->base.win = newwin(1, mx, my - 1, 0);
     menu->base.focus = false;
@@ -67,10 +67,10 @@ option_menu *main_menu_add_options(main_menu *menu, menu_type type, char *header
     int rows = num_opts + 2;;
     int my = getmaxy(stdscr);
 
-    om = calloc(1, sizeof(option_menu));
+    om = xcalloc(1, sizeof(option_menu));
     om->type = type;
     om->header = header;
-    om->opts = calloc(num_opts, sizeof(option_elem));
+    om->opts = xcalloc(num_opts, sizeof(option_elem));
     for (int i = 0; i < num_opts; i++) {
         om->opts[i].txt = opts[i];
         om->opts[i].selected = false;
@@ -97,9 +97,9 @@ option_menu *main_menu_add_suboptions(option_menu *om, menu_type type, int sub_i
     int rows = num_opts + 2;;
     int my = getmaxy(stdscr);
 
-    sub = calloc(1, sizeof(option_menu));
+    sub = xcalloc(1, sizeof(option_menu));
     sub->type = type;
-    sub->opts = calloc(num_opts, sizeof(option_elem));
+    sub->opts = xcalloc(num_opts, sizeof(option_elem));
     for (int i = 0; i < num_opts; i++) {
         sub->opts[i].txt = opts[i];
         sub->opts[i].selected = false;

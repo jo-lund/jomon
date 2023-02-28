@@ -178,7 +178,7 @@ int main(int argc, char **argv)
         print_bpf();
     if (!ctx.device && !(ctx.device = get_default_interface()))
         err_quit("Cannot find active network device");
-    ctx.local_addr = malloc(sizeof(struct sockaddr_in));
+    ctx.local_addr = xmalloc(sizeof(struct sockaddr_in));
     get_local_address(ctx.device, (struct sockaddr *) ctx.local_addr);
     get_local_mac(ctx.device, ctx.mac);
     if (!ctx.opt.nogeoip && !geoip_init())

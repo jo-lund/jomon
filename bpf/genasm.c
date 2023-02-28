@@ -156,7 +156,7 @@ static int get_ldsize(int size)
 
 static void gen_tax(void)
 {
-    struct bpf_insn *insn = calloc(1, sizeof(*insn));
+    struct bpf_insn *insn = xcalloc(1, sizeof(*insn));
 
     insn->code = BPF_MISC | BPF_TAX;
     vector_push_back(code, insn);
@@ -166,7 +166,7 @@ static void gen_tax(void)
 
 static void gen_st(void)
 {
-    struct bpf_insn *insn = calloc(1, sizeof(*insn));
+    struct bpf_insn *insn = xcalloc(1, sizeof(*insn));
 
     insn->code = BPF_ST;
     insn->k = alloc_mem();
@@ -189,7 +189,7 @@ static void check_accumulator(void)
 
 static void gen_ldind(struct node *n, int k)
 {
-    struct bpf_insn *insn = calloc(1, sizeof(*insn));
+    struct bpf_insn *insn = xcalloc(1, sizeof(*insn));
 
     check_accumulator();
     insn->code = BPF_LD | get_ldsize(n->size) | BPF_IND;
@@ -200,7 +200,7 @@ static void gen_ldind(struct node *n, int k)
 
 static void gen_lda(struct node *n, int mode)
 {
-    struct bpf_insn *insn = calloc(1, sizeof(*insn));
+    struct bpf_insn *insn = xcalloc(1, sizeof(*insn));
 
     check_accumulator();
     insn->code = BPF_LD | get_ldsize(n->size) | BPF_K | mode;
@@ -211,7 +211,7 @@ static void gen_lda(struct node *n, int mode)
 
 static void gen_ldm(void)
 {
-    struct bpf_insn *insn = calloc(1, sizeof(*insn));
+    struct bpf_insn *insn = xcalloc(1, sizeof(*insn));
 
     check_accumulator();
     insn->code = BPF_LD | BPF_MEM;
@@ -223,7 +223,7 @@ static void gen_ldm(void)
 /* Need to check if index register is taken? */
 static void gen_lmsh(uint32_t k)
 {
-    struct bpf_insn *insn = calloc(1, sizeof(*insn));
+    struct bpf_insn *insn = xcalloc(1, sizeof(*insn));
 
     insn->code = BPF_LDX | BPF_B | BPF_MSH;
     insn->k = k;
@@ -271,7 +271,7 @@ static void set_alu_code(struct bpf_insn *insn, int op, int src)
 
 static void gen_alu(struct node *n)
 {
-    struct bpf_insn *insn = calloc(1, sizeof(*insn));
+    struct bpf_insn *insn = xcalloc(1, sizeof(*insn));
 
     set_alu_code(insn, n->op, BPF_K);
     if (n->right->op == PCAP_INT) {
@@ -285,7 +285,7 @@ static void gen_alu(struct node *n)
 
 static void gen_alux(struct node *n)
 {
-    struct bpf_insn *insn = calloc(1, sizeof(*insn));
+    struct bpf_insn *insn = xcalloc(1, sizeof(*insn));
 
     set_alu_code(insn, n->op, BPF_X);
     insn->k = 0;
@@ -296,7 +296,7 @@ static void gen_alux(struct node *n)
 
 static void gen_network(struct node *n, uint16_t ethertype, uint16_t op)
 {
-    struct bpf_insn *insn = calloc(1, sizeof(*insn));
+    struct bpf_insn *insn = xcalloc(1, sizeof(*insn));
 
     n->k = ETH_FRAME_TYPE_OFFSET;
     n->size = 2;
@@ -337,7 +337,7 @@ static void gen_transport(struct block *b, struct node *n, uint32_t prot, int ne
     n->poff->next = alloc_offset();
     npoff = n->poff->next;
     npoff->offset = block_insn;
-    insn = calloc(1, sizeof(*insn));
+    insn = xcalloc(1, sizeof(*insn));
     insn->code = BPF_JMP | BPF_JEQ | BPF_K;
     insn->k = prot;
     vector_push_back(code, insn);
@@ -353,7 +353,7 @@ static void gen_transport(struct block *b, struct node *n, uint32_t prot, int ne
         npoff = npoff->next;
         npoff->offset = block_insn;
         npoff->inverse = true;
-        insn = calloc(1, sizeof(*insn));
+        insn = xcalloc(1, sizeof(*insn));
         insn->code = BPF_JMP | BPF_JSET | BPF_K;
         insn->k = 0x1fff;
         vector_push_back(code, insn);
@@ -513,7 +513,7 @@ static void genexpr(struct block *b, struct node *n, int op, int offset)
 
 static void gen_ret(int k)
 {
-    struct bpf_insn *insn = calloc(1, sizeof(*insn));
+    struct bpf_insn *insn = xcalloc(1, sizeof(*insn));
 
     insn->code = BPF_RET;
     insn->k = k;
@@ -522,7 +522,7 @@ static void gen_ret(int k)
 
 static void gen_jmpins(struct block *b, int ins, bool inverse)
 {
-    struct bpf_insn *insn = calloc(1, sizeof(*insn));
+    struct bpf_insn *insn = xcalloc(1, sizeof(*insn));
 
     if (b->expr2->op == PCAP_INT) {
         insn->code = BPF_JMP | ins | BPF_K;
@@ -746,7 +746,7 @@ struct bpf_prog gencode(struct block *b)
     gen_ret(0);
     patch_jmp(b, NULL, 0);
     sz = vector_size(code);
-    bc = malloc(sz * sizeof(struct bpf_insn));
+    bc = xmalloc(sz * sizeof(struct bpf_insn));
     for (int i = 0; i < sz; i++)
         bc[i] = *(struct bpf_insn *) vector_get(code, i);
     prog.bytecode = bc;

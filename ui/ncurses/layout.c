@@ -224,7 +224,7 @@ static void ncurses_end(void)
 
 container *create_container(void)
 {
-    container *c = malloc(sizeof(container));
+    container *c = xmalloc(sizeof(container));
 
     c->focus = false;
     c->win = NULL;

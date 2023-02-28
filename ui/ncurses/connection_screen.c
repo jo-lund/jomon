@@ -268,7 +268,7 @@ connection_screen *connection_screen_create(void)
 {
     connection_screen *cs;
 
-    cs = malloc(sizeof(connection_screen));
+    cs = xmalloc(sizeof(connection_screen));
     cs->base.op = &csop;
     connection_screen_init((screen *) cs);
     return cs;

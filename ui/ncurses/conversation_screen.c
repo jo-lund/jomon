@@ -109,7 +109,7 @@ conversation_screen *conversation_screen_create(void)
 {
     conversation_screen *cs;
 
-    cs = malloc(sizeof(conversation_screen));
+    cs = xmalloc(sizeof(conversation_screen));
     ((screen *) cs)->op = &csop;
     conversation_screen_init((screen *) cs);
     return cs;
@@ -502,15 +502,15 @@ static void buffer_tcppage(conversation_screen *cs, int (*buffer_fn)
         if (len == 0)
             continue;
         n = snprintcat(buf, MAXLINE, "Packet %d\n", p->num);
-        attr = calloc(1, sizeof(struct tcp_page_attr));
-        attr->line = malloc(n + 1);
+        attr = xcalloc(1, sizeof(struct tcp_page_attr));
+        attr->line = xmalloc(n + 1);
         strncpy(attr->line, buf, n + 1);
         vector_push_back(tcp_page.buf, attr);
         n = len;
         while (n > 0) {
             int k;
 
-            attr = malloc(sizeof(struct tcp_page_attr));
+            attr = xmalloc(sizeof(struct tcp_page_attr));
             k = buffer_fn(payload, n, attr, j, mx);
             attr->col = col;
             vector_push_back(tcp_page.buf, attr);
@@ -527,10 +527,10 @@ static int buffer_ascii(unsigned char *payload, int len, struct tcp_page_attr *a
     int n;
 
     if (len < mx) {
-        attr->line = malloc(len + 2);
+        attr->line = xmalloc(len + 2);
         n = len;
     } else {
-        attr->line = malloc(mx + 2);
+        attr->line = xmalloc(mx + 2);
         n = mx;
     }
     for (int i = 0; i < n; i++) {
@@ -549,7 +549,7 @@ static int buffer_raw(unsigned char *payload, int len, struct tcp_page_attr *att
 {
     int n = len;
 
-    attr->line = malloc(mx + 2);
+    attr->line = xmalloc(mx + 2);
     for (int i = 0; i < len; i++) {
         if (mx - 2 * i < 0) {
             n = i;

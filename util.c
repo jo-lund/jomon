@@ -188,7 +188,7 @@ char *uuid_format(uint8_t *uuid)
     if (uuid == NULL)
         return NULL;
     len = UUID_LEN + 1;
-    str = malloc(len);
+    str = xmalloc(len);
     p = str;
     for (int i = 0; i < 4; i++) {
         snprintf(p, len, "%02x", *uuid++);

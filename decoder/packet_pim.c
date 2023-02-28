@@ -406,7 +406,7 @@ list_t *parse_hello_options(struct pim_info *pim)
 
     hello_list = list_init(NULL);
     while (len >= 4) {
-        opt = malloc(sizeof(struct pim_hello));
+        opt = xmalloc(sizeof(struct pim_hello));
         opt->option_type = ptr[0] << 8 | ptr[1];
         opt->option_len = ptr[2] << 8 | ptr[3]; /* length of option value */
         ptr += 4;
@@ -485,11 +485,11 @@ char *get_pim_address(uint8_t family, pim_addr *addr)
 
     switch (family) {
     case AF_IP:
-        ipaddr = malloc(INET_ADDRSTRLEN);
+        ipaddr = xmalloc(INET_ADDRSTRLEN);
         inet_ntop(AF_INET, addr, ipaddr, INET_ADDRSTRLEN);
         return ipaddr;
     case AF_IP6:
-        ipaddr = malloc(INET6_ADDRSTRLEN);
+        ipaddr = xmalloc(INET6_ADDRSTRLEN);
         inet_ntop(AF_INET6, addr, ipaddr, INET6_ADDRSTRLEN);
         return ipaddr;
     default:

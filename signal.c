@@ -10,7 +10,7 @@ struct publisher {
 
 publisher_t *publisher_init()
 {
-    publisher_t *p = malloc(sizeof(publisher_t));
+    publisher_t *p = xmalloc(sizeof(publisher_t));
 
     p->subscriptions0 = list_init(NULL);
     p->subscriptions1 = list_init(NULL);

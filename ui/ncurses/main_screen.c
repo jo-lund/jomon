@@ -161,7 +161,7 @@ main_screen *main_screen_create(void)
 {
     main_screen *ms;
 
-    ms = malloc(sizeof(main_screen));
+    ms = xmalloc(sizeof(main_screen));
     ms->base.op = &msop;
     main_screen_init((screen *) ms);
     return ms;

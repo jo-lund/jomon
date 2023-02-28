@@ -30,7 +30,7 @@ list_t *list_init(allocator_t *allocator)
         list->allocator.alloc = allocator->alloc;
         list->allocator.dealloc = allocator->dealloc;
     } else {
-        list = malloc(sizeof(list_t));
+        list = xmalloc(sizeof(list_t));
         allocator_init(&list->allocator);
     }
     list->head = NULL;

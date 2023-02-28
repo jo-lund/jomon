@@ -32,7 +32,7 @@ actionbar_t *actionbar_create(void)
     screens = hashmap_init(10, hashfnv_uint64, compare_uint);
     defaults = list_init(NULL);
     hashmap_set_free_data(screens, free_elem);
-    bar = malloc(sizeof(*bar));
+    bar = xmalloc(sizeof(*bar));
     getmaxyx(stdscr, my, mx);
     bar->base.win = newwin(STATUS_HEIGHT, mx, my - STATUS_HEIGHT, 0);
     bar->base.focus = false;
@@ -78,7 +78,7 @@ void actionbar_refresh(actionbar_t *bar, screen *s)
 void actionbar_add(screen *s, char *key, char *text, bool disabled)
 {
     list_t *elems;
-    actionbar_elem *elem = malloc(sizeof(*elem));
+    actionbar_elem *elem = xmalloc(sizeof(*elem));
 
     elem->key = key;
     elem->text = text;
@@ -116,7 +116,7 @@ void actionbar_update(screen *s, char *key, char *text, bool disabled)
 
 void actionbar_add_default(char *key, char *text, bool disabled)
 {
-    actionbar_elem *elem = malloc(sizeof(*elem));
+    actionbar_elem *elem = xmalloc(sizeof(*elem));
 
     elem->key = key;
     elem->text = text;

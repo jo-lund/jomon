@@ -89,7 +89,7 @@ screen *screen_create(screen_operations *defop)
 {
     screen *s;
 
-    s = malloc(sizeof(screen));
+    s = xmalloc(sizeof(screen));
     s->op = defop;
     SCREEN_INIT(s);
     return s;

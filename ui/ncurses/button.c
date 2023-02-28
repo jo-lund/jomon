@@ -3,6 +3,7 @@
 #include <ncurses.h>
 #include "button.h"
 #include "screen.h"
+#include "wrapper.h"
 
 static void button_set_action(button *b, button_action act, void *arg);
 static void button_render(button *b);
@@ -10,7 +11,7 @@ static void button_set_focus(button *b, bool has_focus);
 
 button *button_create(screen *scr, button_action act, void *arg, char *txt, int y, int x)
 {
-    button *b = malloc(sizeof(button));
+    button *b = xmalloc(sizeof(button));
 
     b->c.win = derwin(scr->win, 1, 12, y, x);
     b->c.focus = false;

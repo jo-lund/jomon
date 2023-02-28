@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include "vector.h"
+#include "wrapper.h"
 
 #define FACTOR 1.5
 
@@ -18,10 +19,10 @@ vector_t *vector_init(int sz)
 {
     vector_t *vector;
 
-    vector = malloc(sizeof(vector_t));
+    vector = xmalloc(sizeof(vector_t));
     vector->size = sz;
     vector->c = 0;
-    vector->buf = (item_t *) malloc(vector->size * sizeof(struct item));
+    vector->buf = (item_t *) xmalloc(vector->size * sizeof(struct item));
 
     return vector;
 }
@@ -31,7 +32,7 @@ void vector_push_back(vector_t *vector, void *data)
     if (vector->c >= vector->size) {
         item_t *newbuf;
 
-        newbuf = (item_t *) realloc(vector->buf, vector->size * sizeof(struct item) * FACTOR);
+        newbuf = (item_t *) xrealloc(vector->buf, vector->size * sizeof(struct item) * FACTOR);
         vector->buf = newbuf;
         vector->size = vector->size * FACTOR;
     }

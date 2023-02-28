@@ -96,9 +96,9 @@ void stat_screen_init(screen *s)
     memset(&hw, 0, sizeof(hw));
     memset(&mem, 0, sizeof(mem));
     get_hwstat(&hw);
-    cpustat = calloc(2, sizeof(struct cputime *));
+    cpustat = xcalloc(2, sizeof(struct cputime *));
     for (int i = 0; i < 2; i++)
-        cpustat[i] = malloc(hw.num_cpu * sizeof(struct cputime));
+        cpustat[i] = xmalloc(hw.num_cpu * sizeof(struct cputime));
     rx_rate = ringbuffer_init(60);
     tx_rate = ringbuffer_init(60);
     wireless = is_wireless(ctx.device);

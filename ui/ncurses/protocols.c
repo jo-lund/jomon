@@ -1735,7 +1735,7 @@ void add_smtp_information(void *w, void *sw, void *data)
     struct smtp_info *smtp = pdata->data;
 
     if (smtp->data) {
-        char *buf = malloc(smtp->len + 1);
+        char *buf = xmalloc(smtp->len + 1);
         unsigned int c = 0;
 
         for (unsigned int i = 0; i < smtp->len; i++) {
@@ -2087,7 +2087,7 @@ static void add_tls_extensions(list_view *lw, list_view_header *header,
                                     "Extension: Cookie");
             LV_ADD_TEXT_ELEMENT(lw, sub, "Length: %u", ext->length);
             if (ext->length > 0) {
-                char *buf = malloc(ext->length * 2);
+                char *buf = xmalloc(ext->length * 2);
 
                 for (int i = 0; i < ext->length; i++)
                     snprintf(buf + 2 * i, 3, "%02x", ext->data[i]);

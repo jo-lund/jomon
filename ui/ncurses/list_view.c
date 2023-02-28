@@ -31,7 +31,7 @@ static list_view_header *get_prev_subheader(list_t *subwidgets);
 
 list_view *create_list_view(void)
 {
-    list_view *widget = malloc(sizeof(list_view));
+    list_view *widget = xmalloc(sizeof(list_view));
 
     widget->add_header = add_header;
     widget->add_sub_header = add_sub_header;
@@ -77,9 +77,9 @@ list_view_item *create_item(char *txt, uint32_t attr, uint16_t type)
     int len;
     list_view_item *widget;
 
-    widget = malloc(sizeof(list_view_item));
+    widget = xmalloc(sizeof(list_view_item));
     len = strlen(txt);
-    elem = malloc(len + 1);
+    elem = xmalloc(len + 1);
     memcpy(elem, txt, len + 1);
     list_view_item_init(widget, elem, attr, type);
     return widget;
@@ -98,9 +98,9 @@ list_view_header *create_header(char *txt, bool expanded, uint16_t data, uint32_
     int len;
     list_view_header *widget;
 
-    widget = malloc(sizeof(list_view_header));
+    widget = xmalloc(sizeof(list_view_header));
     len = strlen(txt);
-    elem = malloc(len + 3);
+    elem = xmalloc(len + 3);
     if (expanded) {
         memcpy(elem, "- ", 2);
     } else {
