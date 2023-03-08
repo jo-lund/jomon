@@ -143,17 +143,11 @@ bool get_cpustat(struct cputime *cpu)
         return false;
     while (fgets(buf, MAXLINE, fp)) {
         if (strncmp(buf, "cpu", 3) == 0) {
-            int i = 3;
-
-            if (isdigit(buf[i])) {
-                i++;
-                while (isspace(buf[i])) {
-                    i++;
-                }
-                sscanf(buf + i, "%lu %lu %lu %lu", &cpu[c].user, &cpu[c].nice,
-                       &cpu[c].system, &cpu[c].idle);
-                c++;
-            }
+            if (!isdigit(buf[3]))
+                continue;
+            sscanf(buf, "%*s %lu %lu %lu %lu", &cpu[c].user, &cpu[c].nice,
+                   &cpu[c].system, &cpu[c].idle);
+            c++;
         }
     }
     fclose(fp);

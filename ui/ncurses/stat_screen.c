@@ -407,7 +407,7 @@ void print_hwstat(screen *s)
             }
             mvprintat(s->win, ++cy, cx - 2, subcol, "CPU%d", i);
             mvwprintw(s->win, ++cy, cx - 1, "%u", load);
-            cx += 5;
+            cx += 6;
         }
     }
     wnoutrefresh(s->win);
