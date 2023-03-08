@@ -34,6 +34,7 @@ static struct protocol_info stp_prot = {
 void register_stp(void)
 {
     register_protocol(&stp_prot, ETH802_3, ETH_802_STP);
+    register_protocol(&stp_prot, ETH802_3, 0x010b);
 }
 
 /*

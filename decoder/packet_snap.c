@@ -6,6 +6,8 @@
 
 extern void add_snap_information(void *w, void *sw, void *data);
 extern void print_snap(char *buf, int n, void *data);
+static packet_error handle_snap(struct protocol_info *pinfo, unsigned char *buffer,
+                                int n, struct packet_data *pdata);
 
 static struct protocol_info snap_prot = {
     .short_name = "SNAP",
@@ -24,7 +26,11 @@ packet_error handle_snap(struct protocol_info *pinfo, unsigned char *buffer, int
                          struct packet_data *pdata)
 {
     struct snap_info *snap;
+    uint16_t layer;
+    uint32_t id;
+    struct protocol_info *psub;
 
+    layer = 0;
     snap = mempool_alloc(sizeof(struct snap_info));
     pdata->data = snap;
     pdata->len = n;
@@ -37,9 +43,18 @@ packet_error handle_snap(struct protocol_info *pinfo, unsigned char *buffer, int
     pinfo->num_bytes += n;
     memcpy(snap->oui, buffer, 3);
     buffer += 3;
-    snap->protocol_id = get_uint16be(buffer);
-
-    /* TODO: handle sub-protocols */
+    snap->protocol_id = read_uint16be(&buffer);
+    if (snap->oui[0] == 0 && snap->oui[1] == 0 && snap->oui[2] == 0)
+        layer = ETHERNET_II;
+    else if (snap->oui[0] == 0 && snap->oui[1] == 0 && snap->oui[2] == 0xc)
+        layer = ETH802_3;
+    id = get_protocol_id(layer, snap->protocol_id);
+    if ((psub = get_protocol(id))) {
+        pdata->next = mempool_calloc(1, struct packet_data);
+        pdata->next->prev = pdata;
+        pdata->next->id = id;
+        psub->decode(psub, buffer, n - SNAP_HDR_LEN, pdata->next);
+    }
     return NO_ERR;
 }
 

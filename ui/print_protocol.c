@@ -240,10 +240,15 @@ void print_snap(char *buf, int n, void *data)
 {
     struct packet_data *pdata = data;
     struct snap_info *snap = pdata->data;
+    struct protocol_info *pinfo;
 
-    PRINT_PROTOCOL(buf, n, "SNAP");
-    PRINT_INFO(buf, n, "OUI: 0x%06x  Protocol Id: 0x%04x",
-               snap->oui[0] << 16 | snap->oui[1] << 8 | snap->oui[2], snap->protocol_id);
+    if (pdata->next && pdata->next->data && (pinfo = get_protocol(pdata->next->id))) {
+        pinfo->print_pdu(buf, n, pdata->next);
+    } else {
+        PRINT_PROTOCOL(buf, n, "SNAP");
+        PRINT_INFO(buf, n, "OUI: 0x%06x  Protocol Id: 0x%04x",
+                   snap->oui[0] << 16 | snap->oui[1] << 8 | snap->oui[2], snap->protocol_id);
+    }
 }
 
 /*
