@@ -25,6 +25,7 @@
 #define SCREEN_OPS(...) ((struct screen_operations)   \
         { SCREEN_DEFAULTS, __VA_ARGS__ })
 
+#define HEADER_HEIGHT 5
 
 typedef struct {
     char *txt;
@@ -48,7 +49,7 @@ typedef struct screen {
     bool resize;
     screen_header *header;
     unsigned int header_size;
-    int hpos;
+    unsigned int hpos;
     bool tab_active;
     bool hide_selectionbar;  /* hide selectionbar when tab is active */
     struct screen_operations *op;
@@ -86,5 +87,6 @@ void screen_refresh(screen *s);
 void screen_get_input(screen *s);
 
 void screen_render_header_focus(screen *s, WINDOW *whdr);
-
+void screen_update_order(screen *s, void *data, int size,
+                         int (*cmp_elem)(const void *, const void *, void *));
 #endif

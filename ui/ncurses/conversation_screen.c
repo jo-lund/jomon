@@ -131,7 +131,7 @@ void conversation_screen_free(screen *s)
 {
     vector_free(tcp_page.buf, free_tcp_attr);
     delwin(((main_screen *) s)->subwindow.win);
-    delwin(((main_screen *) s)->header);
+    delwin(((main_screen *) s)->whdr);
     if (((main_screen *) s)->lvw) {
         free_list_view(((main_screen *) s)->lvw);
     }
@@ -449,7 +449,7 @@ static void change_tcp_mode(conversation_screen *cs)
     vector_clear(tcp_page.buf, free_tcp_attr);
     switch (tcp_mode) {
     case NORMAL:
-        werase(cs->base.header);
+        werase(cs->base.whdr);
         werase(((screen *) cs)->win);
         main_screen_refresh((screen *) cs);
         break;
@@ -579,7 +579,7 @@ static void print_tcppage(conversation_screen *cs)
         wattroff(s->win, attr->col);
         i++;
     }
-    wnoutrefresh(cs->base.header);
+    wnoutrefresh(cs->base.whdr);
     wnoutrefresh(s->win);
     doupdate();
     scrollok(s->win, TRUE);
@@ -613,8 +613,9 @@ void print_header(conversation_screen *cs)
     char addr[INET_ADDRSTRLEN];
     char buf[64];
     int x = 0;
+    screen *s = (screen *) cs;
 
-    werase(cs->base.header);
+    werase(cs->base.whdr);
     for (int i = 0; i < vector_size(cs->base.packet_ref); i++) {
         struct packet *p = vector_get(cs->base.packet_ref, i);
         uint16_t len = get_adu_payload_len(p);
@@ -634,48 +635,48 @@ void print_header(conversation_screen *cs)
         }
     }
     inet_ntop(AF_INET, &cli_addr, addr, sizeof(addr));
-    mvprintat(cs->base.header, 0, 0, txtcol, "Client address");
+    mvprintat(cs->base.whdr, 0, 0, txtcol, "Client address");
     if (tcp_mode == NORMAL)
-        wprintw(cs->base.header, ": %s:%d", addr, cli_port);
+        wprintw(cs->base.whdr, ": %s:%d", addr, cli_port);
     else
-        printat(cs->base.header, get_theme_colour(SRC_TXT), ": %s:%d",
+        printat(cs->base.whdr, get_theme_colour(SRC_TXT), ": %s:%d",
                 addr, cli_port);
-    mvprintat(cs->base.header, 0, 38, txtcol, "Packets");
-    wprintw(cs->base.header, ": %d", cli_packets);
-    mvprintat(cs->base.header, 0, 55, txtcol, "Bytes");
+    mvprintat(cs->base.whdr, 0, 38, txtcol, "Packets");
+    wprintw(cs->base.whdr, ": %d", cli_packets);
+    mvprintat(cs->base.whdr, 0, 55, txtcol, "Bytes");
     format_bytes(cli_bytes, buf, 64);
-    wprintw(cs->base.header, ": %s", buf);
+    wprintw(cs->base.whdr, ": %s", buf);
     inet_ntop(AF_INET, &srv_addr, addr, sizeof(addr));
-    mvprintat(cs->base.header, 1, 0, txtcol, "Server address");
+    mvprintat(cs->base.whdr, 1, 0, txtcol, "Server address");
     if (tcp_mode == NORMAL)
-        wprintw(cs->base.header, ": %s:%d", addr, srv_port);
+        wprintw(cs->base.whdr, ": %s:%d", addr, srv_port);
     else
-        printat(cs->base.header, get_theme_colour(DST_TXT), ": %s:%d", addr, srv_port);
-    mvprintat(cs->base.header, 1, 38, txtcol, "Packets");
-    wprintw(cs->base.header, ": %d", srv_packets);
-    mvprintat(cs->base.header, 1, 55, txtcol, "Bytes");
+        printat(cs->base.whdr, get_theme_colour(DST_TXT), ": %s:%d", addr, srv_port);
+    mvprintat(cs->base.whdr, 1, 38, txtcol, "Packets");
+    wprintw(cs->base.whdr, ": %d", srv_packets);
+    mvprintat(cs->base.whdr, 1, 55, txtcol, "Bytes");
     format_bytes(srv_bytes, buf, 64);
-    wprintw(cs->base.header, ": %s", buf);
+    wprintw(cs->base.whdr, ": %s", buf);
     switch (tcp_mode) {
     case NORMAL:
-        mvprintat(cs->base.header, 2, 0, txtcol, "Mode");
-        wprintw(cs->base.header, ": Normal");
-        for (unsigned int i = 0; i < ARRAY_SIZE(main_header); i++) {
-            mvwprintw(cs->base.header, 4, x, "%s", main_header[i].txt);
-            x += main_header[i].width;
+        mvprintat(cs->base.whdr, 2, 0, txtcol, "Mode");
+        wprintw(cs->base.whdr, ": Normal");
+        for (unsigned int i = 0; i < s->header_size; i++) {
+            mvwprintw(cs->base.whdr, 4, x, "%s", s->header[i].txt);
+            x += s->header[i].width;
         }
         break;
     case ASCII:
-        mvprintat(cs->base.header, 2, 0, txtcol, "Mode");
-        wprintw(cs->base.header, ": Ascii");
+        mvprintat(cs->base.whdr, 2, 0, txtcol, "Mode");
+        wprintw(cs->base.whdr, ": Ascii");
         break;
     case RAW:
-        mvprintat(cs->base.header, 2, 0, txtcol, "Mode");
-        wprintw(cs->base.header, ": Raw");
+        mvprintat(cs->base.whdr, 2, 0, txtcol, "Mode");
+        wprintw(cs->base.whdr, ": Raw");
         break;
     default:
         break;
     }
-    mvwchgat(cs->base.header, HEADER_HEIGHT - 1, 0, -1, A_NORMAL,
+    mvwchgat(cs->base.whdr, HEADER_HEIGHT - 1, 0, -1, A_NORMAL,
              PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
 }

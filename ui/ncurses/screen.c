@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <stdlib.h>
 #include "screen.h"
 #include "layout.h"
@@ -128,7 +129,7 @@ void screen_init(screen *s)
     s->fullscreen = true;
     s->resize = false;
     s->header = NULL;
-    s->hpos = -1;
+    s->hpos = 0;
     s->tab_active = false;
     s->header_size = 0;
     s->hide_selectionbar = false;
@@ -254,13 +255,15 @@ void screen_get_input(screen *s)
             return;
         if (!s->tab_active) {
             s->tab_active = true;
-            s->hpos = -1;
+            s->hpos = 0;
             if (s->show_selectionbar) {
                 s->hide_selectionbar = true;
                 s->show_selectionbar = false;
             }
+            SCREEN_REFRESH(s);
+        } else {
+            handle_header_focus(s, KEY_RIGHT);
         }
-        handle_header_focus(s, KEY_RIGHT);
         break;
     case KEY_LEFT:
         if (s->header && s->tab_active)
@@ -277,33 +280,43 @@ void screen_get_input(screen *s)
 
 void screen_render_header_focus(screen *s, WINDOW *whdr)
 {
-    mvwchgat(whdr, 4, 0, -1, A_NORMAL, PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
-    if (s->hpos >= 0) {
-        int x;
+    int x;
 
-        if ((unsigned int ) s->hpos >= s->header_size)
-            s->hpos = s->header_size - 1;
-        x = 0;
-        for (unsigned int i = 0; i < s->header_size; i++) {
-            switch (s->header[i].order) {
-            case HDR_INCREASING:
-                mvprintat(whdr, 4, x + s->header[i].width - 2, get_theme_colour(HEADER), "+");
-                break;
-            case HDR_DECREASING:
-                mvprintat(whdr, 4, x + s->header[i].width - 2, get_theme_colour(HEADER), "-");
-                break;
-            default:
-                break;
-            }
-            x += s->header[i].width;
+    mvwchgat(whdr, HEADER_HEIGHT - 1, 0, -1, A_NORMAL, PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
+    if ((unsigned int ) s->hpos >= s->header_size)
+        s->hpos = s->header_size - 1;
+    x = 0;
+    for (unsigned int i = 0; i < s->header_size; i++) {
+        switch (s->header[i].order) {
+        case HDR_INCREASING:
+            mvprintat(whdr, HEADER_HEIGHT - 1, x + s->header[i].width - 2, get_theme_colour(HEADER), "+");
+            break;
+        case HDR_DECREASING:
+            mvprintat(whdr, HEADER_HEIGHT -1, x + s->header[i].width - 2, get_theme_colour(HEADER), "-");
+            break;
+        default:
+            break;
         }
-        if (s->tab_active) {
-            int i = 0;
-
-            x = 0;
-            while (i < s->hpos)
-                x += s->header[i++].width;
-            mvwchgat(whdr, 4, x, s->header[i].width, A_NORMAL, PAIR_NUMBER(get_theme_colour(FOCUS)), NULL);
-        }
+        x += s->header[i].width;
     }
+    if (s->tab_active) {
+        unsigned int i = 0;
+
+        x = 0;
+        while (i < s->hpos)
+            x += s->header[i++].width;
+        mvwchgat(whdr, HEADER_HEIGHT -1, x, s->header[i].width, A_NORMAL,
+                 PAIR_NUMBER(get_theme_colour(FOCUS)), NULL);
+    }
+}
+
+void screen_update_order(screen *s, void *data, int size,
+                         int (*cmp_elem)(const void *, const void *, void *))
+{
+    for (int i = 0; i < (int) s->header_size; i++) {
+        if (i != s->hpos)
+            s->header[i].order = -1;
+    }
+    s->header[s->hpos].order = (s->header[s->hpos].order + 1) % 2;
+    qsort_r(data, size, sizeof(void *), cmp_elem, INT_TO_PTR(s->hpos));
 }

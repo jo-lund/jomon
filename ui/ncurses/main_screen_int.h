@@ -3,22 +3,12 @@
 
 #include "ui/print_protocol.h"
 
-#define HEADER_HEIGHT 5
 #define NUM_COLS_SCROLL 4
 
 enum views {
     DECODED_VIEW,
     HEXDUMP_VIEW,
     NUM_VIEWS
-};
-
-static screen_header main_header[] = {
-    { "Number", NUM_WIDTH, HDR_INCREASING },
-    { "Time", TIME_WIDTH, -1},
-    { "Source", ADDR_WIDTH, -1 },
-    { "Destination", ADDR_WIDTH, -1 },
-    { "Protocol", PROT_WIDTH, -1 },
-    { "Info", 0, -1 }
 };
 
 extern char load_filepath[MAXPATH];

@@ -18,7 +18,7 @@ typedef struct main_screen {
                     current page */
         int num_lines;
     } subwindow;
-    WINDOW *header;
+    WINDOW *whdr;
     list_view *lvw;
     /* next available line, i.e. outy - 1 is the last line printed on the screen */
     int outy;

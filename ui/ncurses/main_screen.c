@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <menu.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include "layout.h"
 #include "list.h"
 #include "monitor.h"
@@ -87,6 +88,15 @@ static screen_operations msop = {
     .screen_free = main_screen_free,
     .screen_refresh = main_screen_refresh,
     .screen_get_input = main_screen_get_input
+};
+
+static screen_header main_header[] = {
+    { "Number", NUM_WIDTH, HDR_INCREASING },
+    { "Time", TIME_WIDTH, -1},
+    { "Source", ADDR_WIDTH, -1 },
+    { "Destination", ADDR_WIDTH, -1 },
+    { "Protocol", PROT_WIDTH, -1 },
+    { "Info", 0, -1 }
 };
 
 static inline void move_cursor(WINDOW *win)
@@ -173,11 +183,13 @@ void main_screen_init(screen *s)
     screen_init(s);
     getmaxyx(stdscr, my, mx);
     s->win = newwin(my - HEADER_HEIGHT - actionbar_getmaxy(actionbar), mx, HEADER_HEIGHT, 0);
+    s->header = main_header;
+    s->header_size = ARRAY_SIZE(main_header) - 1;
     ms->outy = 0;
     ms->scrolly = 0;
     ms->scrollx = 0;
     ms->lvw = NULL;
-    ms->header = newwin(HEADER_HEIGHT, mx, 0, 0);
+    ms->whdr = newwin(HEADER_HEIGHT, mx, 0, 0);
     ms->follow_stream = false;
     ms->subwindow.top = 0;
     ms->main_line.line_number = -1;
@@ -199,7 +211,7 @@ void main_screen_free(screen *s)
 
     rbtree_free(ms->marked);
     delwin(ms->subwindow.win);
-    delwin(ms->header);
+    delwin(ms->whdr);
     delwin(ms->base.win);
     if (ms->lvw)
         free_list_view(ms->lvw);
@@ -230,7 +242,7 @@ void main_screen_clear(main_screen *ms)
     ms->base.top = 0;
     ms->outy = 0;
     ms->base.show_selectionbar = false;
-    werase(ms->header);
+    werase(ms->whdr);
     werase(ms->base.win);
 }
 
@@ -243,7 +255,7 @@ void main_screen_refresh(screen *s)
     ms = (main_screen *) s;
     my = getmaxy(s->win);
     wbkgd(s->win, get_theme_colour(BACKGROUND));
-    wbkgd(ms->header, get_theme_colour(BACKGROUND));
+    wbkgd(ms->whdr, get_theme_colour(BACKGROUND));
     touchwin(s->win);
     if (s->resize) {
         int y, x;
@@ -284,7 +296,7 @@ void main_screen_refresh(screen *s)
     if (s->show_selectionbar && !inside_subwindow(ms, ms->base.selectionbar))
         UPDATE_SELECTIONBAR(s->win, s->selectionbar - s->top, SELECTIONBAR);
     print_header(ms);
-    wnoutrefresh(ms->header);
+    wnoutrefresh(ms->whdr);
     wnoutrefresh(s->win);
     doupdate();
 }
@@ -434,7 +446,7 @@ void main_screen_load_handle_cancel(void *d UNUSED)
         ms = (main_screen *) screen_cache_get(MAIN_SCREEN);
         main_screen_clear(ms);
         print_header(ms);
-        wnoutrefresh(ms->header);
+        wnoutrefresh(ms->whdr);
         wnoutrefresh(ms->base.win);
         doupdate();
         decode_error = false;
@@ -560,23 +572,19 @@ void main_screen_get_input(screen *s)
         main_screen_handle_keydown(ms, my);
         break;
     case KEY_LEFT:
+        if (s->tab_active)
+            goto screen_handler;
         main_screen_scroll_column(ms, -NUM_COLS_SCROLL);
         break;
     case KEY_RIGHT:
+        if (s->tab_active)
+            goto screen_handler;
         main_screen_scroll_column(ms, NUM_COLS_SCROLL);
         break;
     case KEY_ENTER:
     case '\n':
         if (s->show_selectionbar)
             print_selected_packet(ms);
-        break;
-    case KEY_ESC:
-            if (ms->subwindow.win) {
-                delete_subwindow(ms, true);
-                ms->main_line.selected = false;
-            } else if (s->show_selectionbar) {
-                main_screen_set_interactive(ms, false);
-            }
         break;
     case ' ':
     case KEY_NPAGE:
@@ -587,14 +595,12 @@ void main_screen_get_input(screen *s)
         main_screen_scroll_page(ms, -my);
         break;
     case KEY_HOME:
-        if (s->show_selectionbar) {
+        if (s->show_selectionbar)
             main_screen_goto_home(ms);
-        }
         break;
     case KEY_END:
-        if (s->show_selectionbar) {
+        if (s->show_selectionbar)
             main_screen_goto_end(ms);
-        }
         break;
     case KEY_F(3):
     {
@@ -610,7 +616,7 @@ void main_screen_get_input(screen *s)
             ctx.pcap_saved = false;
             print_header(ms);
             wnoutrefresh(s->win);
-            wnoutrefresh(ms->header);
+            wnoutrefresh(ms->whdr);
             actionbar_update(s, "F3", NULL, true);
             actionbar_update(s, "F4", NULL, false);
             actionbar_update(s, "F5", NULL, true);
@@ -633,18 +639,16 @@ void main_screen_get_input(screen *s)
         }
         break;
     case KEY_F(5):
-        if (!ctx.capturing && vector_size(ms->packet_ref) > 0) {
+        if (!ctx.capturing && vector_size(ms->packet_ref) > 0)
             create_save_dialogue();
-        }
         break;
     case KEY_F(6):
         if (!ctx.capturing && rbtree_size(ms->marked) > 0)
             create_export_dialogue();
         break;
     case KEY_F(7):
-        if (!ctx.capturing) {
+        if (!ctx.capturing)
             create_load_dialogue();
-        }
         break;
     case KEY_F(8):
         view_mode = (view_mode + 1) % NUM_VIEWS;
@@ -685,6 +689,14 @@ void main_screen_get_input(screen *s)
             main_screen_handle_keydown(ms, my);
         }
         break;
+    case KEY_ESC:
+        if (ms->subwindow.win) {
+            delete_subwindow(ms, true);
+            ms->main_line.selected = false;
+            break;
+        }
+        FALLTHROUGH;
+    screen_handler:
     default:
         ungetch(c);
         screen_get_input(s);
@@ -716,39 +728,37 @@ void print_header(main_screen *ms)
     int maxx = getmaxx(stdscr);
     char file[MAXPATH];
 
-    werase(ms->header);
-
+    werase(ms->whdr);
     if (ctx.filename[0] && ctx.opt.load_file) {
         strncpy(file, ctx.filename, MAXPATH);
-        mvprintat(ms->header, y, 0, txtcol, "Filename");
-        wprintw(ms->header, ": %s", get_file_part(file));
+        mvprintat(ms->whdr, y, 0, txtcol, "Filename");
+        wprintw(ms->whdr, ": %s", get_file_part(file));
     } else {
-        mvprintat(ms->header, y, 0, txtcol, "Device");
-        wprintw(ms->header, ": %s", ctx.device);
+        mvprintat(ms->whdr, y, 0, txtcol, "Device");
+        wprintw(ms->whdr, ": %s", ctx.device);
     }
-    mvprintat(ms->header, y, maxx / 2, txtcol, "Display filter");
+    mvprintat(ms->whdr, y, maxx / 2, txtcol, "Display filter");
     if (bpf.size != 0)
-        wprintw(ms->header, ": %s", bpf_filter);
+        wprintw(ms->whdr, ": %s", bpf_filter);
     else
-        wprintw(ms->header, ": None");
+        wprintw(ms->whdr, ": None");
     inet_ntop(AF_INET, &ctx.local_addr->sin_addr, addr, sizeof(addr));
-    mvprintat(ms->header, ++y, 0, txtcol, "IPv4 address");
-    wprintw(ms->header, ": %s", addr);
-    mvprintat(ms->header, y, maxx / 2, txtcol, "Follow stream");
+    mvprintat(ms->whdr, ++y, 0, txtcol, "IPv4 address");
+    wprintw(ms->whdr, ": %s", addr);
+    mvprintat(ms->whdr, y, maxx / 2, txtcol, "Follow stream");
     if (ms->follow_stream)
-        wprintw(ms->header, ": %u", ((conversation_screen *) ms)->stream->num);
+        wprintw(ms->whdr, ": %u", ((conversation_screen *) ms)->stream->num);
     else
-        wprintw(ms->header, ": None");
+        wprintw(ms->whdr, ": None");
     HW_ADDR_NTOP(mac, ctx.mac);
-    mvprintat(ms->header, ++y, 0, txtcol, "MAC");
-    wprintw(ms->header, ": %s", mac);
+    mvprintat(ms->whdr, ++y, 0, txtcol, "MAC");
+    wprintw(ms->whdr, ": %s", mac);
     y += 2;
     for (unsigned int i = 0; i < ARRAY_SIZE(main_header); i++) {
-        mvwprintw(ms->header, y, x, "%s", main_header[i].txt);
-        x += main_header[i].width;
+        mvwprintw(ms->whdr, y, x, "%s", ms->base.header[i].txt);
+        x += ms->base.header[i].width;
     }
-    mvwchgat(ms->header, HEADER_HEIGHT - 1, 0, -1, A_NORMAL,
-             PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
+    screen_render_header_focus((screen *) ms, ms->whdr);
 }
 
 void handle_input_mode(main_screen *ms, const char *str)
@@ -1217,6 +1227,8 @@ void main_screen_scroll_page(main_screen *ms, int num_lines)
 
 void main_screen_set_interactive(main_screen *ms, bool interactive_mode)
 {
+    screen *s = (screen *) ms;
+
     if (!vector_size(ms->packet_ref)) {
         ms->base.show_selectionbar = false;
         return;
@@ -1230,6 +1242,10 @@ void main_screen_set_interactive(main_screen *ms, bool interactive_mode)
             ms->main_line.selected = false;
         }
         ms->base.show_selectionbar = false;
+    }
+    if (s->tab_active) {
+        s->tab_active = false;
+        s->hide_selectionbar = false;
     }
     main_screen_refresh((screen *) ms);
 }

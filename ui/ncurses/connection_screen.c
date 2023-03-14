@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-#include <stdlib.h>
 #include "connection_screen.h"
 #include "help_screen.h"
 #include "menu.h"
@@ -108,7 +107,6 @@ static screen_header proc_header[] = {
 
 extern main_menu *menu;
 static bool active = false;
-static enum page view;
 static enum filter_mode mode;
 static hashmap_t *connection_data = NULL;
 
@@ -294,7 +292,7 @@ static void update_screen_buf(screen *s)
 
     cs = (connection_screen *) s;
     vector_clear(cs->screen_buf, NULL);
-    if (view == CONNECTION_PAGE) {
+    if (s->page == CONNECTION_PAGE) {
         hashmap_t *sessions = tcp_analyzer_get_sessions();
         const hashmap_iterator *it;
         struct tcp_connection_v4 *conn;
@@ -333,7 +331,7 @@ static void handle_alarm(void)
         connection_screen *cs = (connection_screen *) s;
 
         update_screen_buf(s);
-        if (view == CONNECTION_PAGE)
+        if (s->page == CONNECTION_PAGE)
             qsort_r(vector_data(cs->screen_buf), vector_size(cs->screen_buf),
                     sizeof(struct tcp_connection_v4 *), cmp_conn,
                     INT_TO_PTR(get_active_header_focus(s->header, s->header_size)));
@@ -467,7 +465,7 @@ static void print_all_elements(connection_screen *cs)
     int i = cs->base.top;
 
     while (cs->y < cs->base.lines && i < vector_size(cs->screen_buf)) {
-        if (view == CONNECTION_PAGE)
+        if (cs->base.page == CONNECTION_PAGE)
             print_connection(cs, vector_get(cs->screen_buf, i), cs->y);
         else
             print_process(cs, vector_get(cs->screen_buf, i), cs->y);
@@ -488,7 +486,7 @@ static void print_header(connection_screen *cs)
     int x = 0;
     screen *s = (screen *) cs;
 
-    if (view == CONNECTION_PAGE) {
+    if (s->page == CONNECTION_PAGE) {
         mvprintat(cs->whdr, y, 0, get_theme_colour(HEADER_TXT), "TCP connections");
         wprintw(cs->whdr,  ": %d", connection_screen_get_size((screen *) cs));
         mvprintat(cs->whdr, ++y, 0, get_theme_colour(HEADER_TXT), "View");
@@ -519,20 +517,6 @@ static void print_header(connection_screen *cs)
     wrefresh(cs->whdr);
 }
 
-static void update_order(connection_screen *cs, screen_header *hdr, int size,
-                         int (*cmp_elem)(const void *, const void *, void *))
-{
-    screen *s = (screen *) cs;
-
-    for (int i = 0; i < size; i++) {
-        if (i != s->hpos)
-            hdr[i].order = -1;
-    }
-    hdr[s->hpos].order = (hdr[s->hpos].order + 1) % 2;
-    qsort_r(vector_data(cs->screen_buf), vector_size(cs->screen_buf),
-            sizeof(void *), cmp_elem, INT_TO_PTR(s->hpos));
-}
-
 connection_screen *connection_screen_create(void)
 {
     connection_screen *cs;
@@ -554,10 +538,10 @@ void connection_screen_init(screen *s)
     s->have_selectionbar = true;
     s->lines = getmaxy(stdscr) - CONN_HEADER - actionbar_getmaxy(actionbar);
     s->header = conn_header;
-    view = CONNECTION_PAGE;
+    s->page = CONNECTION_PAGE;
     cs->whdr = newwin(CONN_HEADER, mx, 0, 0);
     cs->y = 0;
-    cs->screen_buf = vector_init(1024);
+    cs->screen_buf = vector_init(512);
     mode = GREY_OUT_CLOSED;
     scrollok(s->win, TRUE);
     nodelay(s->win, TRUE);
@@ -587,9 +571,9 @@ void connection_screen_got_focus(screen *s, screen *oldscr UNUSED)
         if (ctx.opt.load_file) {
             s->header_size = ARRAY_SIZE(conn_header) - 1;
             s->num_pages = 1;
-            view = CONNECTION_PAGE;
+            s->page = CONNECTION_PAGE;
         } else {
-            s->header_size = (view = CONNECTION_PAGE) ? ARRAY_SIZE(conn_header) :
+            s->header_size = (s->page == CONNECTION_PAGE) ? ARRAY_SIZE(conn_header) :
                 ARRAY_SIZE(proc_header);
             s->num_pages = 2;
         }
@@ -632,10 +616,12 @@ void connection_screen_get_input(screen *s)
     case KEY_ENTER:
     case '\n':
         if (s->tab_active) {
-            if (view == CONNECTION_PAGE)
-                update_order(cs, s->header, s->header_size, cmp_conn);
+            if (s->page == CONNECTION_PAGE)
+                screen_update_order(s, vector_data(cs->screen_buf),
+                                    vector_size(cs->screen_buf), cmp_conn);
             else
-                update_order(cs, s->header, s->header_size, cmp_proc);
+                screen_update_order(s, vector_data(cs->screen_buf),
+                                    vector_size(cs->screen_buf), cmp_proc);
             connection_screen_refresh(s);
         } else if (s->show_selectionbar) {
             cvs = (conversation_screen *) screen_cache_get(CONVERSATION_SCREEN);
@@ -644,7 +630,7 @@ void connection_screen_get_input(screen *s)
         }
         break;
     case 'f':
-        if (view == PROCESS_PAGE)
+        if (s->page == PROCESS_PAGE)
             return;
         s->top = 0;
         mode = (mode + 1) % NUM_MODES;
@@ -657,21 +643,23 @@ void connection_screen_get_input(screen *s)
     case 'p':
         if (s->num_pages == 1)
             return;
-        if (view == CONNECTION_PAGE && s->show_selectionbar)
+        if (s->page == CONNECTION_PAGE && s->show_selectionbar)
             s->show_selectionbar = false;
-        view = (view + 1) % s->num_pages;
+        s->page = (s->page + 1) % s->num_pages;
         s->top = 0;
         update_screen_buf(s);
-        if (view == CONNECTION_PAGE) {
+        if (s->page == CONNECTION_PAGE) {
             s->header = conn_header;
             s->header_size = (ctx.opt.load_file) ? ARRAY_SIZE(conn_header) - 1 :
                 ARRAY_SIZE(conn_header);
+            s->have_selectionbar = true;
             qsort_r(vector_data(cs->screen_buf), vector_size(cs->screen_buf),
                     sizeof(struct tcp_connection_v4 *), cmp_conn,
                     INT_TO_PTR(get_active_header_focus(s->header, s->header_size)));
         } else {
             s->header = proc_header;
             s->header_size = ARRAY_SIZE(proc_header);
+            s->have_selectionbar = false;
             qsort_r(vector_data(cs->screen_buf), vector_size(cs->screen_buf),
                     sizeof(struct process *), cmp_proc,
                     INT_TO_PTR(get_active_header_focus(s->header, s->header_size)));
@@ -679,7 +667,7 @@ void connection_screen_get_input(screen *s)
         connection_screen_refresh(s);
         break;
     default:
-        s->have_selectionbar = (view == CONNECTION_PAGE);
+        s->have_selectionbar = (s->page == CONNECTION_PAGE);
         ungetch(c);
         screen_get_input(s);
         break;
