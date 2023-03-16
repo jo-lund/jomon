@@ -313,10 +313,18 @@ void screen_render_header_focus(screen *s, WINDOW *whdr)
 void screen_update_order(screen *s, void *data, int size,
                          int (*cmp_elem)(const void *, const void *, void *))
 {
-    for (int i = 0; i < (int) s->header_size; i++) {
+    for (unsigned int i = 0; i < s->header_size; i++) {
         if (i != s->hpos)
             s->header[i].order = -1;
     }
     s->header[s->hpos].order = (s->header[s->hpos].order + 1) % 2;
     qsort_r(data, size, sizeof(void *), cmp_elem, INT_TO_PTR(s->hpos));
+}
+
+int screen_get_active_header_focus(screen *s)
+{
+    for (unsigned int i = 0; i < s->header_size; i++)
+        if (s->header[i].order != -1)
+            return i;
+    return -1;
 }

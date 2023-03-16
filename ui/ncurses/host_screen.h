@@ -7,7 +7,7 @@
 
 typedef struct {
     screen base;
-    WINDOW *header;
+    WINDOW *whdr;
     int y;
     vector_t *screen_buf;
 } host_screen;

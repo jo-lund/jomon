@@ -86,7 +86,10 @@ void screen_refresh(screen *s);
 /* Default function called on key input */
 void screen_get_input(screen *s);
 
+/* Non-virtual functions */
 void screen_render_header_focus(screen *s, WINDOW *whdr);
 void screen_update_order(screen *s, void *data, int size,
                          int (*cmp_elem)(const void *, const void *, void *));
+int screen_get_active_header_focus(screen *s);
+
 #endif

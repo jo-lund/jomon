@@ -110,14 +110,6 @@ static bool active = false;
 static enum filter_mode mode;
 static hashmap_t *connection_data = NULL;
 
-static int get_active_header_focus(screen_header *hdr, int size)
-{
-    for (int i = 0; i < size; i++)
-        if (hdr[i].order != -1)
-            return i;
-    return -1;
-}
-
 static int calculate_data(struct tcp_connection_v4 *conn, int d)
 {
     uint32_t *entry;
@@ -334,11 +326,11 @@ static void handle_alarm(void)
         if (s->page == CONNECTION_PAGE)
             qsort_r(vector_data(cs->screen_buf), vector_size(cs->screen_buf),
                     sizeof(struct tcp_connection_v4 *), cmp_conn,
-                    INT_TO_PTR(get_active_header_focus(s->header, s->header_size)));
+                    INT_TO_PTR(screen_get_active_header_focus(s)));
         else
             qsort_r(vector_data(cs->screen_buf), vector_size(cs->screen_buf),
                     sizeof(struct process *), cmp_proc,
-                    INT_TO_PTR(get_active_header_focus(s->header, s->header_size)));
+                    INT_TO_PTR(screen_get_active_header_focus(s)));
         connection_screen_refresh(s);
     }
 }
@@ -637,7 +629,7 @@ void connection_screen_get_input(screen *s)
         update_screen_buf(s);
         qsort_r(vector_data(cs->screen_buf), vector_size(cs->screen_buf),
                 sizeof(struct tcp_connection_v4 *), cmp_conn,
-                INT_TO_PTR(get_active_header_focus(s->header, s->header_size)));
+                INT_TO_PTR(screen_get_active_header_focus(s)));
         connection_screen_refresh(s);
         break;
     case 'p':
@@ -655,14 +647,14 @@ void connection_screen_get_input(screen *s)
             s->have_selectionbar = true;
             qsort_r(vector_data(cs->screen_buf), vector_size(cs->screen_buf),
                     sizeof(struct tcp_connection_v4 *), cmp_conn,
-                    INT_TO_PTR(get_active_header_focus(s->header, s->header_size)));
+                    INT_TO_PTR(screen_get_active_header_focus(s)));
         } else {
             s->header = proc_header;
             s->header_size = ARRAY_SIZE(proc_header);
             s->have_selectionbar = false;
             qsort_r(vector_data(cs->screen_buf), vector_size(cs->screen_buf),
                     sizeof(struct process *), cmp_proc,
-                    INT_TO_PTR(get_active_header_focus(s->header, s->header_size)));
+                    INT_TO_PTR(screen_get_active_header_focus(s)));
         }
         connection_screen_refresh(s);
         break;
