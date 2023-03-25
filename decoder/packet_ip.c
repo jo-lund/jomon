@@ -53,15 +53,15 @@ static char *option_class[] = {
 };
 
 static char *option_number[32] = {
-    [0] = "End of option list",
-    [1] = "No operation",
-    [2] = "Security",
-    [3] = "Loose Source Routing",
-    [4] = "Record Route",
-    [7] = "Strict Source Routing",
-    [8] = "Timestamp",
-    [9] = "Stream ID",
-    [20] = "Router Alert"
+    [IP_OPT_END]       = "End of option list",
+    [IP_OPT_NOP]       = "No operation",
+    [IP_OPT_SECURITY]  = "Security",
+    [IP_OPT_LSR]       = "Loose Source Routing",
+    [IP_OPT_TIMESTAMP] = "Timestamp",
+    [IP_OPT_RR]        = "Record Route",
+    [IP_OPT_STREAM_ID] = "Stream ID",
+    [IP_OPT_SSR]       = "Strict Source Routing",
+    [IP_OPT_ROUTER_ALERT] = "Router Alert"
 };
 
 static struct packet_flags opt_flags[] = {
