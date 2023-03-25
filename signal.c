@@ -2,15 +2,17 @@
 #include "signal.h"
 #include "list.h"
 
+/* Implementation of a publish/subscribe mechanism */
+
 struct publisher {
     list_t *subscriptions0;
     list_t *subscriptions1;
     list_t *subscriptions2;
 };
 
-publisher_t *publisher_init()
+publisher_t *publisher_init(void)
 {
-    publisher_t *p = xmalloc(sizeof(publisher_t));
+    publisher_t *p = malloc(sizeof(publisher_t));
 
     p->subscriptions0 = list_init(NULL);
     p->subscriptions1 = list_init(NULL);
