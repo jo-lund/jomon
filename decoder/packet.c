@@ -115,7 +115,7 @@ packet_error call_data_decoder(uint32_t id, struct packet_data *p, uint8_t trans
     return err;
 }
 
-unsigned char *get_adu_payload(struct packet *p)
+unsigned char *get_adu_payload(const struct packet *p)
 {
     struct packet_data *pdata = p->root;
     int i = 0;
@@ -130,7 +130,7 @@ unsigned char *get_adu_payload(struct packet *p)
     return NULL;
 }
 
-unsigned int get_adu_payload_len(struct packet *p)
+unsigned int get_adu_payload_len(const struct packet *p)
 {
     struct packet_data *pdata = p->root;
     unsigned int len = p->len;
@@ -161,7 +161,7 @@ void clear_statistics(void)
     dns_cache_clear();
 }
 
-bool is_tcp(struct packet *p)
+bool is_tcp(const struct packet *p)
 {
     return get_packet_data(p, get_protocol_id(IP_PROTOCOL, IPPROTO_TCP)) != NULL;
 }

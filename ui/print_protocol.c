@@ -830,7 +830,7 @@ void print_vrrp(char *buf, int n, void *data)
     struct vrrp_info *vrrp;
     char *type;
 
-    vrrp = get_data_member(struct vrrp_info, data);
+    vrrp = ((struct packet_data *) data)->data;
     PRINT_PROTOCOL(buf, n, "VRRP");
     if ((type = get_vrrp_type(vrrp->type))) {
         if (vrrp->version < 3)

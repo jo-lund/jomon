@@ -102,13 +102,6 @@ struct packet_data {
     struct packet_data *next;
 };
 
-/*
- * Get the packet_data's data member converted to 'type'
- * type - data type
- * p    - pointer to packet_data
- */
-#define get_data_member(type, p) (type *) ((struct packet_data *) p)->data
-
 /* TODO: move this */
 void decoder_init(void);
 void decoder_exit(void);
@@ -132,22 +125,25 @@ bool decode_packet(iface_handle_t *handle, unsigned char *buffer, size_t n,
 void free_packets(void *data);
 
 /* Return a pointer to the application payload */
-unsigned char *get_adu_payload(struct packet *p);
+unsigned char *get_adu_payload(const struct packet *p);
 
 /* Return the application payload length */
-unsigned int get_adu_payload_len(struct packet *p);
+unsigned int get_adu_payload_len(const struct packet *p);
 
 /* Clear packet statistics */
 void clear_statistics(void);
 
-bool is_tcp(struct packet *p);
+/* Is packet TCP? */
+bool is_tcp(const struct packet *p);
 
+/* Get packet data based on protocol id */
 struct packet_data *get_packet_data(const struct packet *p, uint32_t id);
 
 /* Should be internal to the decoder */
 packet_error call_data_decoder(uint32_t id, struct packet_data *pdata,
                                uint8_t transport, unsigned char *buf, int n);
 
+/* Allocate an error string on the assigned memory pool, see mempool.h */
 char *create_error_string(const char *fmt, ...) PRINTF_FORMAT(1, 2);
 
 static inline uint32_t get_protocol_id(uint16_t layer, uint16_t key)
