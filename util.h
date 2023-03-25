@@ -10,9 +10,9 @@
 /* hardware address length (format aa:bb:cc:dd:ee:ff) */
 #define HW_ADDRSTRLEN 18
 
-#define HW_ADDR_NTOP(dst, src)                                      \
-    snprintf(dst, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",   \
-             src[0], src[1], src[2], src[3], src[4], src[5])
+#define HW_ADDR_NTOP(dst, src)                                          \
+    snprintf(dst, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",       \
+             (src)[0], (src)[1], (src)[2], (src)[3], (src)[4], (src)[5])
 
 /* store an unsigned integer into a pointer */
 #define UINT_TO_PTR(i) ((void *) (uintptr_t) (i))
