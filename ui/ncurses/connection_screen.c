@@ -45,7 +45,7 @@ enum page {
 };
 
 struct cs_entry {
-    uint32_t val;
+    uint64_t val;
     union {
         char buf[MAX_WIDTH];
         char *str;
@@ -245,8 +245,9 @@ static void print_connection(connection_screen *cs, struct tcp_connection_v4 *co
                     mvprintnlw(cs->base.win, y, x, 0, "%s", entry[i].str);
                     wattroff(cs->base.win, attrs);
                 }
-            } else
-                mvprintat(cs->base.win, y, x, attrs, "%d", entry[i].val);
+            } else {
+                mvprintat(cs->base.win, y, x, attrs, "%lu", entry[i].val);
+            }
         }
         x += header[i].width;
     }
