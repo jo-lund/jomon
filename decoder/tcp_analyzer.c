@@ -2,7 +2,7 @@
 #include "tcp_analyzer.h"
 #include "packet_ip.h"
 
-#define TBLSZ 64 * 1024
+#define TBLSZ (64 * 1024)
 
 static hashmap_t *connection_table = NULL;
 static publisher_t *conn_changed_publisher;
