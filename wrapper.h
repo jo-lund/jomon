@@ -2,6 +2,7 @@
 #define WRAPPER_H
 
 #include <string.h>
+#include <stdlib.h>
 #include "error.h"
 
 static inline void *xmalloc(size_t size)

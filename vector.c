@@ -23,7 +23,6 @@ vector_t *vector_init(int sz)
     vector->size = sz;
     vector->c = 0;
     vector->buf = (item_t *) xmalloc(vector->size * sizeof(struct item));
-
     return vector;
 }
 
@@ -89,7 +88,6 @@ void vector_free(vector_t *vector, vector_deallocate func)
 {
     if (!vector)
         return;
-
     vector_clear(vector, func);
     vector->size = 0;
     free(vector->buf);
