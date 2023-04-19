@@ -11,8 +11,8 @@
 #define PARSE_IP6ADDR(addr, buf, n) \
     do {                            \
         memcpy(addr, buf, 16);      \
-        buf += 16;                  \
-        n -= 16;                    \
+        (buf) += 16;                \
+        (n) -= 16;                  \
     } while (0)
 
 static packet_error handle_icmp6(struct protocol_info *pinfo, unsigned char *buf, int n,
