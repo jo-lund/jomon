@@ -32,6 +32,17 @@ static void sig_timer(int sig UNUSED, siginfo_t *info, void *ucontext UNUSED)
     QUEUE_APPEND(&pending.head, (mon_timer_t *) info->si_ptr, link);
 }
 
+static void setup_sigaction(int signo, void (*handler)(int, siginfo_t *, void *), int flags)
+{
+    struct sigaction act;
+
+    act.sa_sigaction = handler;
+    sigemptyset(&act.sa_mask);
+    act.sa_flags = flags | SA_SIGINFO;
+    if (sigaction(signo, &act, NULL) == -1)
+        err_sys("sigaction error");
+}
+
 mon_timer_t *timer_init(bool recurring)
 {
     struct sigevent sigev;
