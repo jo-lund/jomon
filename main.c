@@ -29,6 +29,7 @@
 #include "bpf/pcap_parser.h"
 #include "bpf/genasm.h"
 #include "ui/ui.h"
+#include "timer.h"
 
 #define SHORT_OPTS "F:b:i:f:r:GVdhlnNpstv"
 #define BPF_DUMP_MODES 3
@@ -52,23 +53,34 @@ static bool promiscuous_mode = false;
 static bool handle_packet(iface_handle_t *handle, unsigned char *buffer,
                           uint32_t n, struct timeval *t);
 static void print_help(void) NORETURN;
-static void setup_signal(int signo, void (*handler)(int), int flags);
 static void run(void);
 static void print_bpf(void) NORETURN;
 
-static void sig_alarm()
+static void sig_callback(int sig)
 {
-    alarm_flag = 1;
+    switch (sig) {
+    case SIGALRM:
+        alarm_flag = 1;
+        break;
+    case SIGINT:
+        finish(1);
+    case SIGWINCH:
+        winch_flag = 1;
+        break;
+    default:
+        break;
+    }
 }
 
-static void sig_int()
+static void setup_signal(int signo, void (*handler)(int), int flags)
 {
-    finish(1);
-}
+    struct sigaction act;
 
-static void sig_winch()
-{
-    winch_flag = 1;
+    act.sa_handler = handler;
+    sigemptyset(&act.sa_mask);
+    act.sa_flags = flags;
+    if (sigaction(signo, &act, NULL) == -1)
+        err_sys("sigaction error");
 }
 
 int main(int argc, char **argv)
@@ -149,8 +161,8 @@ int main(int argc, char **argv)
         err_quit("Cannot set both a filter expression and a filter file");
     if (ctx.opt.dmode > BPF_DUMP_MODES)
         err_quit("Only -d, -dd, and -ddd are accepted");
-    setup_signal(SIGALRM, sig_alarm, SA_RESTART);
-    setup_signal(SIGINT, sig_int, 0);
+    setup_signal(SIGALRM, sig_callback, SA_RESTART);
+    setup_signal(SIGINT, sig_callback, 0);
     mempool_init();
     decoder_init();
     debug_init();
@@ -162,7 +174,7 @@ int main(int argc, char **argv)
     } else {
         if (!ctx.opt.load_file || geteuid() == 0)
             process_init();
-        setup_signal(SIGWINCH, sig_winch, 0);
+        setup_signal(SIGWINCH, sig_callback, 0);
     }
     packets = vector_init(PACKET_TABLE_SIZE);
     if (ctx.filter_file) {
@@ -266,18 +278,6 @@ static void print_help(void)
     exit(0);
 }
 
-static void setup_signal(int signo, void (*handler)(int), int flags)
-{
-    struct sigaction act;
-
-    act.sa_handler = handler;
-    sigemptyset(&act.sa_mask);
-    act.sa_flags = flags;
-    if (sigaction(signo, &act, NULL) == -1) {
-        err_sys("sigaction error");
-    }
-}
-
 static void run(void)
 {
     struct pollfd fds[] = {
@@ -286,6 +286,7 @@ static void run(void)
     };
 
     while (1) {
+        timer_run();
         if (alarm_flag) {
             alarm_flag = 0;
             ui_event(UI_ALARM);
@@ -295,7 +296,7 @@ static void run(void)
             winch_flag = 0;
             setup_signal(SIGWINCH, NULL, SA_RESETHAND);
             ui_event(UI_RESIZE);
-            setup_signal(SIGWINCH, sig_winch, 0);
+            setup_signal(SIGWINCH, sig_callback, 0);
         }
         if (fd_changed) {
             fds[0].fd = handle->fd;

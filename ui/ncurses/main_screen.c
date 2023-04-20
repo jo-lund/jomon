@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <menu.h>
 #include <sys/stat.h>
+#include <time.h>
 #include "layout.h"
 #include "list.h"
 #include "error.h"
@@ -76,6 +77,8 @@ static void filter_packets(main_screen *ms);
 static void handle_input_mode(main_screen *ms, const char *str);
 static void main_screen_save_handle_ok(void *file);
 static void main_screen_export_handle_ok(void *file);
+static void main_screen_got_focus(screen *s, screen *old);
+static void main_screen_lost_focus(screen *s, screen *new);
 
 /* Handles subwindow layout */
 static void create_subwindow(main_screen *ms, int num_lines, int lineno);
@@ -88,7 +91,9 @@ static screen_operations msop = {
     .screen_init = main_screen_init,
     .screen_free = main_screen_free,
     .screen_refresh = main_screen_refresh,
-    .screen_get_input = main_screen_get_input
+    .screen_get_input = main_screen_get_input,
+    .screen_got_focus = main_screen_got_focus,
+    .screen_lost_focus = main_screen_lost_focus,
 };
 
 static inline void move_cursor(WINDOW *win)
@@ -98,6 +103,16 @@ static inline void move_cursor(WINDOW *win)
     getyx(win, y, x);
     wmove(win, y, x);
     wrefresh(win);
+}
+
+static void timer_callback(void *arg)
+{
+    screen *s;
+
+    s = (screen *) arg;
+    wrefresh(s->win);
+    if (input_mode == INPUT_FILTER || input_mode == INPUT_GOTO)
+        move_cursor(status);
 }
 
 static void add_actionbar_elems(screen *s)
@@ -185,11 +200,13 @@ void main_screen_init(screen *s)
     ms->main_line.line_number = -1;
     ms->main_line.selected = false;
     memset(&ms->subwindow, 0, sizeof(ms->subwindow));
+    ms->packet_ref = packets;
+    ms->marked = rbtree_init(compare_uint, NULL);
+    ms->timer_callback = timer_callback;
+    ms->timer = timer_init(true);
     nodelay(s->win, TRUE); /* input functions must be non-blocking */
     keypad(s->win, TRUE);
     scrollok(s->win, TRUE);
-    ms->packet_ref = packets;
-    ms->marked = rbtree_init(compare_uint, NULL);
     set_filepath();
     status = newwin(1, mx, my - 1, 0);
     add_actionbar_elems(s);
@@ -199,6 +216,7 @@ void main_screen_free(screen *s)
 {
     main_screen *ms = (main_screen *) s;
 
+    timer_free(ms->timer);
     rbtree_free(ms->marked);
     delwin(ms->subwindow.win);
     delwin(ms->header);
@@ -209,20 +227,17 @@ void main_screen_free(screen *s)
     free(ms);
 }
 
-void main_screen_update(main_screen *ms, char *buf)
+void main_screen_update_window(main_screen *ms, char *buf)
 {
     int my;
 
-    if (ms->base.focus) {
-        my = getmaxy(ms->base.win);
-        if (!ms->base.show_selectionbar || (ms->base.show_selectionbar && ms->outy < my)) {
-            scroll_window(ms);
-            mvputsnlw(ms->base.win, ms->outy, 0, ms->scrollx, buf);
-            ms->outy++;
-            wrefresh(ms->base.win);
-            if (input_mode == INPUT_FILTER || input_mode == INPUT_GOTO)
-                move_cursor(status);
-        }
+    if (!ms->base.focus)
+        return;
+    my = getmaxy(ms->base.win);
+    if (!ms->base.show_selectionbar || (ms->base.show_selectionbar && ms->outy < my)) {
+        scroll_window(ms);
+        mvputsnlw(ms->base.win, ms->outy, 0, ms->scrollx, buf);
+        ms->outy++;
     }
 }
 
@@ -234,6 +249,23 @@ void main_screen_clear(main_screen *ms)
     ms->base.show_selectionbar = false;
     werase(ms->header);
     werase(ms->base.win);
+}
+
+void main_screen_got_focus(screen *s, screen *old UNUSED)
+{
+    struct timespec t = {
+        .tv_sec = 0,
+        .tv_nsec = MS_TO_NS(100)
+    };
+    main_screen *ms = (main_screen *) s;
+
+    timer_set_callback(ms->timer, timer_callback, s);
+    timer_enable(ms->timer, &t);
+}
+
+void main_screen_lost_focus(screen *s, screen *new UNUSED)
+{
+    timer_disable(((main_screen *) s)->timer);
 }
 
 void main_screen_refresh(screen *s)
@@ -293,12 +325,11 @@ void main_screen_refresh(screen *s)
 
 void main_screen_refresh_pad(main_screen *ms)
 {
-    if (ms->subwindow.win) {
+    if (ms->subwindow.win)
         refresh_pad(ms, &ms->subwindow, 0, ms->scrollx, true);
-    }
 }
 
-void main_screen_print_packet(main_screen *ms, struct packet *p)
+void main_screen_update(main_screen *ms, struct packet *p)
 {
     char buf[MAXLINE];
 
@@ -306,11 +337,11 @@ void main_screen_print_packet(main_screen *ms, struct packet *p)
         if (bpf_run_filter(bpf, p->buf, p->len) != 0) {
             vector_push_back(ms->packet_ref, p);
             write_to_buf(buf, MAXLINE, p);
-            main_screen_update(ms, buf);
+            main_screen_update_window(ms, buf);
         }
     } else {
         write_to_buf(buf, MAXLINE, p);
-        main_screen_update(ms, buf);
+        main_screen_update_window(ms, buf);
     }
 }
 

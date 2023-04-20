@@ -154,21 +154,30 @@ void conversation_screen_refresh(screen *s)
 void conversation_screen_got_focus(screen *s, screen *oldscr)
 {
     conversation_screen *cs = (conversation_screen *) s;
+    main_screen *ms = (main_screen *) cs;
+    struct timespec t = {
+        .tv_sec = 0,
+        .tv_nsec = MS_TO_NS(100)
+    };
 
-    ((main_screen *) s)->follow_stream = true;
+    ms->follow_stream = true;
     tcp_analyzer_subscribe(add_packet);
     if (oldscr->fullscreen) {
         cs->base.packet_ref = vector_init(list_size(cs->stream->packets));
         fill_screen_buffer(cs);
         actionbar_update(s, "F7", NULL, true);
     }
+    timer_set_callback(ms->timer, ms->timer_callback, s);
+    timer_enable(ms->timer, &t);
 }
 
 void conversation_screen_lost_focus(screen *s, screen *newscr)
 {
     conversation_screen *cs = (conversation_screen *) s;
+    main_screen *ms = (main_screen *) cs;
 
-    ((main_screen *) s)->follow_stream = false;
+    timer_disable(ms->timer);
+    ms->follow_stream = false;
     tcp_analyzer_unsubscribe(add_packet);
     if (newscr->fullscreen) {
         vector_free(cs->base.packet_ref, NULL);
@@ -595,7 +604,7 @@ void add_packet(struct tcp_connection_v4 *conn, bool new_connection)
     if (cs->stream == conn) {
         vector_push_back(cs->base.packet_ref, list_back(conn->packets));
         if (tcp_mode == NORMAL)
-            main_screen_print_packet((main_screen *) cs, list_back(conn->packets));
+            main_screen_update((main_screen *) cs, list_back(conn->packets));
     }
 }
 

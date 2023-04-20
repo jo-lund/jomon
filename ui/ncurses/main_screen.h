@@ -5,6 +5,7 @@
 #include "screen.h"
 #include "vector.h"
 #include "rbtree.h"
+#include "timer.h"
 
 typedef struct main_screen {
     screen base;
@@ -28,11 +29,12 @@ typedef struct main_screen {
      * when inspecting a packet
      */
     int scrolly;
-
     int scrollx; /* the amount scrolled on the x-axis */
     vector_t *packet_ref;
     bool follow_stream;
     rbtree_t *marked;
+    mon_timer_t *timer;
+    void (*timer_callback)(void *);
 } main_screen;
 
 struct packet;
@@ -41,7 +43,7 @@ main_screen *main_screen_create(void);
 void main_screen_init(screen *s);
 void main_screen_free(screen *s);
 void main_screen_set_interactive(main_screen *ms, bool interactive_mode);
-void main_screen_print_packet(main_screen *ms, struct packet *p);
+void main_screen_update(main_screen *ms, struct packet *p);
 
 /* refresh the entire pad */
 void main_screen_refresh_pad(main_screen *ms);

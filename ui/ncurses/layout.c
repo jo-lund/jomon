@@ -187,8 +187,14 @@ static void ncurses_event(int event)
 
     switch (event) {
     case UI_NEW_DATA:
-        main_screen_print_packet((main_screen *) screen_cache[MAIN_SCREEN],
-                                 vector_back(packets));
+        main_screen_update((main_screen *) screen_cache[MAIN_SCREEN],
+                           vector_back(packets));
+        break;
+    case UI_RESIZE:
+        layout_resize();
+        break;
+    case UI_INPUT:
+        SCREEN_GET_INPUT((screen *) stack_top(screen_stack));
         break;
     case UI_ALARM:
         s = stack_top(screen_stack);
@@ -202,12 +208,6 @@ static void ncurses_event(int event)
         default:
             break;
         }
-        break;
-    case UI_RESIZE:
-        layout_resize();
-        break;
-    case UI_INPUT:
-        SCREEN_GET_INPUT((screen *) stack_top(screen_stack));
         break;
     default:
         break;
