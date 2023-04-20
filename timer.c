@@ -6,6 +6,10 @@
 #include "queue.h"
 #include "util.h"
 
+#ifdef __FreeBSD__
+#define si_ptr si_value.sigval_ptr
+#endif
+
 struct timer {
     timer_t t;
     bool recurring;
