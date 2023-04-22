@@ -130,14 +130,7 @@ void conversation_screen_init(screen *s)
 void conversation_screen_free(screen *s)
 {
     vector_free(tcp_page.buf, free_tcp_attr);
-    delwin(((main_screen *) s)->subwindow.win);
-    delwin(((main_screen *) s)->header);
-    if (((main_screen *) s)->lvw) {
-        free_list_view(((main_screen *) s)->lvw);
-    }
-    rbtree_free(((main_screen *) s)->marked);
-    delwin(s->win);
-    free(s);
+    main_screen_free(s);
 }
 
 void conversation_screen_refresh(screen *s)
