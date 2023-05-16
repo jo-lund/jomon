@@ -171,10 +171,17 @@ static void print_process(connection_screen *cs, struct process *proc, int y)
     DLIST_FOREACH(proc->conn, n) {
         nconn++;
         conn = list_data(n);
-        entry[ADDRA].val = conn->endp->src;
-        entry[PORTA].val = conn->endp->sport;
-        entry[ADDRB].val = conn->endp->dst;
-        entry[PORTB].val = conn->endp->dport;
+        if (conn->endp->src == ctx.local_addr->sin_addr.s_addr) {
+            entry[ADDRA].val = conn->endp->src;
+            entry[PORTA].val = conn->endp->sport;
+            entry[ADDRB].val = conn->endp->dst;
+            entry[PORTB].val = conn->endp->dport;
+        } else {
+            entry[ADDRA].val = conn->endp->dst;
+            entry[PORTA].val = conn->endp->dport;
+            entry[ADDRB].val = conn->endp->src;
+            entry[PORTB].val = conn->endp->sport;
+        }
         DLIST_FOREACH(conn->packets, m) {
             p = list_data(m);
             if (entry[ADDRA].val == ipv4_src(p) && entry[PORTA].val == tcp_member(p, sport)) {
