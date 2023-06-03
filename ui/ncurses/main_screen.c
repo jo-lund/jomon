@@ -151,7 +151,7 @@ static void set_filepath(void)
 
     i = string_find_last(ctx.filename, '/');
     if (ctx.filename[0] == '/' && i > 0 && i < MAXPATH) {
-        strncpy(load_filepath, ctx.filename, i);
+        memcpy(load_filepath, ctx.filename, i);
         load_filepath[i] = '\0';
     } else if (i > 0 && i < MAXPATH) {
         char tmp[MAXPATH];
@@ -160,12 +160,14 @@ static void set_filepath(void)
         if (getcwd(load_filepath, MAXPATH) == NULL)
             err_sys("getcwd error");
         n = strlen(load_filepath);
-        strncpy(load_filepath + n, "/", MAXPATH - n);
-        strncpy(tmp, ctx.filename, i);
+        if (n == MAXPATH)
+            err_quit("File path too large: %s", load_filepath);
+        load_filepath[n] = '/';
+        memcpy(tmp, ctx.filename, i);
         tmp[i] = '\0';
         if (i >= MAXPATH - n - 1)
-            err_quit("Filename too large: %s", tmp);
-        strncpy(load_filepath + n + 1, tmp, i + 1);
+            err_quit("File path too large: %s", tmp);
+        memcpy(load_filepath + n + 1, tmp, i + 1);
     } else {
         if (getcwd(load_filepath, MAXPATH) == NULL)
             err_sys("getcwd error");
