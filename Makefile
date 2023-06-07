@@ -68,7 +68,7 @@ debug : $(TARGETDIR)/monitor
 release : CFLAGS += -O2
 release : $(TARGETDIR)/monitor
 
-$(TARGETDIR)/monitor : $(objects)
+$(TARGETDIR)/monitor : decoder/register.h $(objects)
 	@mkdir -p $(TARGETDIR)
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $(objects) $(LIBS)
 
@@ -77,6 +77,9 @@ bpf/bpf_lexer.c : bpf/bpf_lexer.re
 
 bpf/pcap_lexer.c : bpf/pcap_lexer.re
 	re2c -T -W $< -o $@
+
+decoder/register.h :
+	python3 scripts/genprotocols.py
 
 # Compile and generate dependency files
 $(BUILDDIR)/%.o : %.c
@@ -101,7 +104,7 @@ clean :
 	@rm -rf bin
 	@rm -rf build
 	@rm -f $(test-objs) $(TESTDIR)/test
-	@rm -f bpf/bpf_lexer.c bpf/pcap_lexer.c
+	@rm -f bpf/bpf_lexer.c bpf/pcap_lexer.c decoder/register.h
 
 .PHONY : distclean
 distclean : clean

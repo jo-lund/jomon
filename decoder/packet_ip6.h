@@ -25,6 +25,6 @@ struct ipv6_info {
  */
 int parse_ipv6_addr(uint8_t *addrs, int count, unsigned char **buf, int n);
 
-void register_ipv6(void);
+void register_ip6(void);
 
 #endif

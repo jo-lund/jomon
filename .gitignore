@@ -4,6 +4,7 @@ config.h
 bpf/bpf_lexer.c
 bpf/pcap_lexer.c
 TAGS
+decoder/register.h
 
 # Build results
 bin

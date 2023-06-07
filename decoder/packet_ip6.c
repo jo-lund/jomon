@@ -19,7 +19,7 @@ static struct protocol_info ipv6_prot = {
     .add_pdu = add_ipv6_information
 };
 
-void register_ipv6(void)
+void register_ip6(void)
 {
     register_protocol(&ipv6_prot, ETHERNET_II, ETHERTYPE_IPV6);
 }
