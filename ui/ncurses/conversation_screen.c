@@ -6,7 +6,6 @@
 #include <sys/stat.h>
 #include "layout.h"
 #include "ui/print_protocol.h"
-#include "list.h"
 #include "error.h"
 #include "monitor.h"
 #include "vector.h"
@@ -99,10 +98,10 @@ static void free_tcp_attr(void *arg)
 
 static void fill_screen_buffer(conversation_screen *cs)
 {
-    const node_t *n;
+    struct packet *p;
 
-    DLIST_FOREACH(cs->stream->packets, n)
-        vector_push_back(cs->base.packet_ref, list_data(n));
+    QUEUE_FOR_EACH(&cs->stream->packets, p, link)
+        vector_push_back(cs->base.packet_ref, p);
 }
 
 conversation_screen *conversation_screen_create(void)
@@ -156,7 +155,7 @@ void conversation_screen_got_focus(screen *s, screen *oldscr)
     ms->follow_stream = true;
     tcp_analyzer_subscribe(add_packet);
     if (oldscr->fullscreen) {
-        cs->base.packet_ref = vector_init(list_size(cs->stream->packets));
+        cs->base.packet_ref = vector_init(cs->stream->size);
         fill_screen_buffer(cs);
         actionbar_update(s, "F7", NULL, true);
     }
@@ -595,9 +594,9 @@ void add_packet(struct tcp_connection_v4 *conn, bool new_connection)
         return;
     cs = (conversation_screen *) screen_cache_get(CONVERSATION_SCREEN);
     if (cs->stream == conn) {
-        vector_push_back(cs->base.packet_ref, list_back(conn->packets));
+        vector_push_back(cs->base.packet_ref, QUEUE_LAST(&conn->packets, struct packet, link));
         if (tcp_mode == NORMAL)
-            main_screen_update((main_screen *) cs, list_back(conn->packets));
+            main_screen_update((main_screen *) cs, QUEUE_LAST(&conn->packets, struct packet, link));
     }
 }
 

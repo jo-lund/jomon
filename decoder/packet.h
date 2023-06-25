@@ -11,6 +11,7 @@
 #include "alloc.h"
 #include "interface.h"
 #include "attributes.h"
+#include "queue.h"
 
 #define DATALINK 0
 #define ETH802_3 1
@@ -90,6 +91,7 @@ struct packet {
     unsigned char *buf; /* contains the frame as seen on the network */
     unsigned int len;
     struct packet_data *root;
+    QUEUE_ENTRY(struct packet) link;
 };
 
 struct packet_data {

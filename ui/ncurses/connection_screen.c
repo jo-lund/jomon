@@ -145,7 +145,7 @@ static void print_process(connection_screen *cs, struct process *proc, int y)
 {
     char name[MAXPATH];
     int x = 0;
-    const node_t *n, *m;
+    const node_t *n;
     struct cs_entry entry[NUM_VALS];
     struct tcp_connection_v4 *conn;
     struct packet *p;
@@ -182,8 +182,7 @@ static void print_process(connection_screen *cs, struct process *proc, int y)
             entry[ADDRB].val = conn->endp->src;
             entry[PORTB].val = conn->endp->sport;
         }
-        DLIST_FOREACH(conn->packets, m) {
-            p = list_data(m);
+        QUEUE_FOR_EACH(&conn->packets, p, link) {
             if (entry[ADDRA].val == ipv4_src(p) && entry[PORTA].val == tcp_member(p, sport)) {
                 entry[BYTES_AB].val += p->len;
                 entry[PACKETS_AB].val++;
@@ -205,7 +204,6 @@ static void print_process(connection_screen *cs, struct process *proc, int y)
 
 static void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int y)
 {
-    const node_t *n = list_begin(conn->packets);
     struct packet *p;
     char *state;
     int x = 0;
@@ -219,8 +217,7 @@ static void print_connection(connection_screen *cs, struct tcp_connection_v4 *co
     entry[PORTA].val = conn->endp->sport;
     entry[ADDRB].val = conn->endp->dst;
     entry[PORTB].val = conn->endp->dport;
-    while (n) {
-        p = list_data(n);
+    QUEUE_FOR_EACH(&conn->packets, p, link) {
         if (entry[ADDRA].val == ipv4_src(p) && entry[PORTA].val == tcp_member(p, sport)) {
             entry[BYTES_AB].val += p->len;
             entry[PACKETS_AB].val++;
@@ -230,11 +227,10 @@ static void print_connection(connection_screen *cs, struct tcp_connection_v4 *co
             entry[PACKETS_BA].val++;
         }
         entry[BYTES].val += p->len;
-        n = list_next(n);
     }
     state = tcp_analyzer_get_connection_state(conn->state);
     strncpy(entry[STATE].buf, state, MAX_WIDTH - 1);
-    entry[PACKETS].val = list_size(conn->packets);
+    entry[PACKETS].val = conn->size;
     format_bytes(entry[BYTES].val, entry[BYTES].buf, MAX_WIDTH);
     format_bytes(entry[BYTES_AB].val, entry[BYTES_AB].buf, MAX_WIDTH);
     format_bytes(entry[BYTES_BA].val, entry[BYTES_BA].buf, MAX_WIDTH);

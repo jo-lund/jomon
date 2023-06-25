@@ -2,9 +2,10 @@
 #define TCP_ANALYZER_H
 
 #include "packet_ethernet.h"
-#include "../hashmap.h"
-#include "../signal.h"
-#include "../list.h"
+#include "hashmap.h"
+#include "signal.h"
+#include "list.h"
+#include "queue.h"
 
 enum connection_state {
     SYN_SENT,
@@ -25,7 +26,8 @@ struct tcp_endpoint_v4 {
 struct tcp_connection_v4 {
     struct tcp_endpoint_v4 *endp;
     enum connection_state state;
-    list_t *packets;
+    QUEUE_HEAD(, struct packet) packets;
+    uint32_t size;
     uint32_t num;
     void *data; /* Protocol related meta-data. Can be NULL */
 };
@@ -67,7 +69,7 @@ static inline int compare_tcp_v4(const void *t1, const void *t2)
 void tcp_analyzer_init(void);
 
 /* Analyze the packet and if TCP store the connection in a table */
-void tcp_analyzer_check_stream(const struct packet *p);
+void tcp_analyzer_check_stream(struct packet *p);
 
 /* Return the connection table */
 hashmap_t *tcp_analyzer_get_sessions(void);

@@ -14,7 +14,7 @@ void tcp_analyzer_init(void)
     conn_changed_publisher = publisher_init();
 }
 
-void tcp_analyzer_check_stream(const struct packet *p)
+void tcp_analyzer_check_stream(struct packet *p)
 {
     if (!connection_table)
         return;
@@ -36,32 +36,28 @@ void tcp_analyzer_check_stream(const struct packet *p)
         endp.dport = tcp_member(p, dport);
         conn = hashmap_get(connection_table, &endp);
         if (conn) {
-            bool is_new = list_size(conn->packets) == 0;
+            bool is_new = QUEUE_EMPTY(&conn->packets);
 
-            list_push_back(conn->packets, (struct packet *) p);
-            if (tcp->rst) {
+            QUEUE_APPEND(&conn->packets, p, link);
+            conn->size++;
+            if (tcp->rst)
                 conn->state = RESET;
-            }
             switch (conn->state) {
             case SYN_SENT:
-                if (tcp->syn && tcp->ack) {
+                if (tcp->syn && tcp->ack)
                     conn->state = SYN_RCVD;
-                }
                 break;
             case SYN_RCVD:
-                if (tcp->ack) {
+                if (tcp->ack)
                     conn->state = ESTABLISHED;
-                }
                 break;
             case ESTABLISHED:
-                if (tcp->fin) {
+                if (tcp->fin)
                     conn->state = CLOSING;
-                }
                 break;
             case CLOSING:
-                if (tcp->fin) {
+                if (tcp->fin)
                     conn->state = CLOSED;
-                }
             default:
                 break;
             }
@@ -77,7 +73,8 @@ void tcp_analyzer_check_stream(const struct packet *p)
                 new_conn->state = CLOSING;
             else /* already established session */
                 new_conn->state = ESTABLISHED;
-            list_push_back(new_conn->packets, (void *) p);
+            QUEUE_APPEND(&new_conn->packets, p, link);
+            new_conn->size++;
             publish2(conn_changed_publisher, new_conn, (void *) 0x1);
         }
     }
@@ -91,7 +88,8 @@ struct tcp_connection_v4 *tcp_analyzer_create_connection(struct tcp_endpoint_v4 
     new_endp = mempool_copy(endp, sizeof(struct tcp_endpoint_v4));
     new_conn = mempool_alloc(sizeof(struct tcp_connection_v4));
     new_conn->endp = new_endp;
-    new_conn->packets = list_init(&d_alloc);
+    QUEUE_INIT(&new_conn->packets);
+    new_conn->size = 0;
     new_conn->num = nconnections++;
     new_conn->data = NULL;
     hashmap_insert(connection_table, new_endp, new_conn);

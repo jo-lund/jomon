@@ -22,6 +22,11 @@
 
 #define QUEUE_NEXT(elem, entry) ((elem)->entry.next)
 
+#define QUEUE_EMPTY(head) ((head)->first == NULL)
+
+#define QUEUE_LAST(head, type, entry)                                   \
+    QUEUE_EMPTY(head) ? NULL : CONTAINER_OF((head)->last, type, entry.next)
+
 #define QUEUE_APPEND(head, elem, entry)                     \
     do {                                                    \
         QUEUE_NEXT(elem, entry) = NULL;                     \
