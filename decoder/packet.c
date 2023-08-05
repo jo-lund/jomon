@@ -25,29 +25,37 @@ allocator_t d_alloc = {
 
 uint32_t total_packets;
 uint64_t total_bytes;
-static hashmap_t *info;
-static hashmap_t *protocols;
+static rbtree_t *info;  /* store pointer to struct protocol_info with short name as key */
+static hashmap_t *protocols; /* store pointer to struct protocol_info with id as key */
 
 void decoder_init(void)
 {
-    info = hashmap_init(64, hashdjb_string, compare_string);
+    static int i = 0;
+    const rbtree_node_t *n;
+    struct protocol_info *pinfo;
+
+    info = rbtree_init(compare_string, NULL);
     protocols = hashmap_init(64, hashdjb_uint16, compare_uint);
     for (unsigned int i = 0; i < ARRAY_SIZE(decoder_functions); i++) {
         decoder_functions[i]();
+    }
+    RBTREE_FOREACH(info, n) {
+        pinfo = rbtree_get_data(n);
+        pinfo->idx = i++;
     }
 }
 
 void decoder_exit(void)
 {
     hashmap_free(protocols);
-    hashmap_free(info);
+    rbtree_free(info);
 }
 
 void register_protocol(struct protocol_info *pinfo, uint16_t layer, uint16_t key)
 {
     if (pinfo) {
         hashmap_insert(protocols, UINT_TO_PTR(get_protocol_id(layer, key)), pinfo);
-        hashmap_insert(info, pinfo->short_name, pinfo);
+        rbtree_insert(info, pinfo->short_name, pinfo);
     }
 }
 
@@ -58,11 +66,11 @@ struct protocol_info *get_protocol(uint32_t id)
 
 void traverse_protocols(protocol_handler fn, void *arg)
 {
-    const hashmap_iterator *it;
+    const rbtree_node_t *it;
     struct protocol_info *pinfo;
 
-    HASHMAP_FOREACH(info, it) {
-        pinfo = it->data;
+    RBTREE_FOREACH(info, it) {
+        pinfo = rbtree_get_data(it);
         fn(pinfo, arg);
     }
 }

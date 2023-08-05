@@ -73,6 +73,7 @@ struct protocol_info {
     char *long_name;
     uint64_t num_bytes;
     uint32_t num_packets;
+    int idx;
     packet_error (*decode)(struct protocol_info *pinfo, unsigned char *buf, int n,
                            struct packet_data *p);
     void (*print_pdu)(char *buf, int n, void *data);
@@ -88,7 +89,7 @@ struct packet {
     uint32_t num;
     struct timeval time;
     unsigned char *buf; /* contains the frame as seen on the network */
-    unsigned int len;
+    unsigned int len;   /* length of the entire packet */
     struct packet_data *root;
 };
 

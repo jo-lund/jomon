@@ -10,6 +10,8 @@
 #include "monitor.h"
 #include "vector.h"
 #include "decoder/decoder.h"
+#include "decoder/tcp_analyzer.h"
+#include "decoder/host_analyzer.h"
 #include "stack.h"
 #include "file.h"
 #include "signal.h"
@@ -18,9 +20,6 @@
 #include "hexdump.h"
 #include "menu.h"
 #include "connection_screen.h"
-#include "hashmap.h"
-#include "decoder/tcp_analyzer.h"
-#include "decoder/host_analyzer.h"
 #include "main_screen_int.h"
 #include "conversation_screen.h"
 #include "dialogue.h"
@@ -103,6 +102,8 @@ static screen_header main_header[] = {
     { "Protocol", PROT_WIDTH, -1 },
     { "Info", 0, -1 }
 };
+
+
 
 static inline void move_cursor(WINDOW *win)
 {
@@ -205,6 +206,7 @@ void main_screen_init(screen *s)
     scrollok(s->win, TRUE);
     ms->packet_ref = packets;
     ms->marked = rbtree_init(compare_uint, NULL);
+    ms->protocols = hashmap_init(PACKET_TABLE_SIZE, hashfnv_uint32, compare_uint);
     set_filepath();
     status = newwin(1, mx, my - 1, 0);
     add_actionbar_elems(s);
@@ -214,6 +216,7 @@ void main_screen_free(screen *s)
 {
     main_screen *ms = (main_screen *) s;
 
+    hashmap_free(ms->protocols);
     rbtree_free(ms->marked);
     delwin(ms->subwindow.win);
     delwin(ms->whdr);
@@ -418,6 +421,7 @@ void main_screen_load_handle_ok(void *file)
         if (err == NO_ERROR) {
             main_screen_clear(ms);
             rbtree_clear(ms->marked);
+            hashmap_clear(ms->protocols);
             strcpy(ctx.filename, (const char *) file);
             set_filepath();
             pop_screen();
@@ -544,18 +548,24 @@ static void get_address(const struct packet *p, const int dir, char *addr)
     }
 }
 
-static const char *get_protocol_name(const struct packet *p)
+static int get_protocol_idx(const struct packet *p)
 {
-    struct packet_data *pdata = p->root;
+    struct packet_data *pdata;
     struct protocol_info *pinfo;
+    main_screen *ms = (main_screen *) screen_cache_get(MAIN_SCREEN);
+    uint32_t idx;
 
+    if ((idx = PTR_TO_UINT(hashmap_get(ms->protocols, UINT_TO_PTR(p->num - 1)))))
+        return idx;
+    pdata = p->root;
     while (pdata->next) {
         if (pdata->id == get_protocol_id(IP_PROTOCOL, IPPROTO_ICMP))
             break;
         pdata = pdata->next;
     }
     pinfo = get_protocol(pdata->id);
-    return pinfo->short_name;
+    hashmap_insert(ms->protocols, UINT_TO_PTR(p->num - 1), UINT_TO_PTR(pinfo->idx));
+    return pinfo->idx;
 }
 
 static int cmp_addr(const struct packet *p1, const struct packet *p2, const int dir)
@@ -586,14 +596,12 @@ static int cmp_pkt(const void *d1, const void *d2, void *arg)
             timersub(&p2->time, &p1->time, &res);
         return (res.tv_sec != 0) ? res.tv_sec : res.tv_usec;
     case SOURCE:
-        return (main_header[pos].order == HDR_INCREASING) ? cmp_addr(p1, p2, pos) :
-            cmp_addr(p2, p1, pos);
     case DESTINATION:
         return (main_header[pos].order == HDR_INCREASING) ? cmp_addr(p1, p2, pos) :
             cmp_addr(p2, p1, pos);
     case PROTOCOL:
-        return (main_header[pos].order == HDR_INCREASING) ? strcmp(get_protocol_name(p1), get_protocol_name(p2)) :
-            strcmp(get_protocol_name(p2), get_protocol_name(p1));
+        return (main_header[pos].order == HDR_INCREASING) ? get_protocol_idx(p1) - get_protocol_idx(p2) :
+            get_protocol_idx(p2) - get_protocol_idx(p1);
     default:
         return 0;
     }
