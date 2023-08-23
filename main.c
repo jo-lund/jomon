@@ -63,6 +63,7 @@ static void sig_callback(int sig)
         alarm_flag = 1;
         break;
     case SIGINT:
+    case SIGQUIT:
         finish(1);
     case SIGWINCH:
         winch_flag = 1;
@@ -163,6 +164,7 @@ int main(int argc, char **argv)
         err_quit("Only -d, -dd, and -ddd are accepted");
     setup_signal(SIGALRM, sig_callback, SA_RESTART);
     setup_signal(SIGINT, sig_callback, 0);
+    setup_signal(SIGQUIT, sig_callback, 0);
     mempool_init();
     decoder_init();
     debug_init();
