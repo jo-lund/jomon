@@ -5,8 +5,6 @@
 #include "attributes.h"
 
 #define KEY_ESC 27
-#define KEY_CTRL_DOWN 0x20e
-#define KEY_CTRL_UP 0x237
 #define NUM_THEMES 3
 #define UPDATE_SELECTIONBAR(w, l, c) \
     mvwchgat(w, l, 0, -1, A_NORMAL, PAIR_NUMBER(get_theme_colour(c)), NULL)

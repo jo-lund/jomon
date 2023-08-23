@@ -581,15 +581,9 @@ void main_screen_get_input(screen *s)
             main_screen_refresh((screen *) ms);
         }
         break;
-    case KEY_CTRL_UP:
-        key_mode = KEY_CTRL;
-        FALLTHROUGH;
     case KEY_UP:
         main_screen_handle_keyup(ms, my);
         break;
-    case KEY_CTRL_DOWN:
-        key_mode = KEY_CTRL;
-        FALLTHROUGH;
     case KEY_DOWN:
         main_screen_handle_keydown(ms, my);
         break;
@@ -720,9 +714,20 @@ void main_screen_get_input(screen *s)
         }
         break;
     default:
+    {
+        const char *key = keyname(c);
+
+        if (strcmp(key, "kDN5") == 0) {
+            key_mode = KEY_CTRL;
+            main_screen_handle_keydown(ms, my);
+        } else if (strcmp(key, "kUP5") == 0) {
+            key_mode = KEY_CTRL;
+            main_screen_handle_keyup(ms, my);
+        }
         ungetch(c);
         screen_get_input(s);
         break;
+    }
     }
     key_mode = KEY_NORMAL;
 }
