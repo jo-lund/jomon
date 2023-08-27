@@ -634,7 +634,7 @@ void main_screen_get_input(screen *s)
                 ms->main_line.selected = false;
             }
             main_screen_clear(ms);
-            start_scan();
+            start_capture();
             ctx.pcap_saved = false;
             print_header(ms);
             wnoutrefresh(s->win);
@@ -652,7 +652,7 @@ void main_screen_get_input(screen *s)
         if (ctx.capturing) {
             if (!s->show_selectionbar)
                 main_screen_set_interactive(ms, true);
-            stop_scan();
+            stop_capture();
             actionbar_update(s, "F3", NULL, false);
             actionbar_update(s, "F4", NULL, true);
             actionbar_update(s, "F5", NULL, !vector_size(ms->packet_ref));

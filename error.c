@@ -26,7 +26,7 @@ void err_sys(const char *fmt, ...)
     va_start(ap, fmt);
     print_error(fmt, errno, ap);
     va_end(ap);
-    finish(1);
+    monitor_exit(1);
 }
 
 void err_quit(const char *fmt, ...)
@@ -36,7 +36,7 @@ void err_quit(const char *fmt, ...)
     va_start(ap, fmt);
     print_error(fmt, 0, ap);
     va_end(ap);
-    finish(1);
+    monitor_exit(1);
 }
 
 void err_msg(const char *fmt, ...)

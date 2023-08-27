@@ -63,8 +63,8 @@ typedef struct {
 
 extern main_context ctx;
 
-void finish(int status) NORETURN;
-void stop_scan(void);
-void start_scan(void);
+void monitor_exit(int status) NORETURN;
+void stop_capture(void);
+void start_capture(void);
 
 #endif

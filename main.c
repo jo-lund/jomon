@@ -65,7 +65,7 @@ static void sig_callback(int sig)
         break;
     case SIGINT:
     case SIGQUIT:
-        finish(1);
+        monitor_exit(1);
     case SIGWINCH:
         winch_flag = 1;
         break;
@@ -331,7 +331,7 @@ static void run(void)
     }
 }
 
-void finish(int status)
+void monitor_exit(int status)
 {
     if (ctx.opt.show_count) {
         if (ctx.capturing)
@@ -366,14 +366,14 @@ void finish(int status)
     exit(status);
 }
 
-void stop_scan(void)
+void stop_capture(void)
 {
     iface_close(ctx.handle);
     fd_changed = true;
     ctx.capturing = false;
 }
 
-void start_scan(void)
+void start_capture(void)
 {
     if (!ctx.opt.nopromiscuous && !promiscuous_mode) {
         iface_set_promiscuous(ctx.handle, ctx.device, true);
@@ -426,7 +426,7 @@ static void handle_count_and_exit(unsigned char *buf)
     if (ctx.opt.load_file) {
         printf("Reading from file %s\n", ctx.filename);
         load_file(buf, count_packets);
-        finish(0);
+        monitor_exit(0);
     } else {
         printf("Listening on %s\n", ctx.device);
         activate_interface(buf, count_packets);
