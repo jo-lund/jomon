@@ -15,9 +15,17 @@ extern void add_ethernet_information(void *w, void *sw, void *data);
 static packet_error handle_ethernet(struct protocol_info *pinfo, unsigned char *buffer,
                                     int n, struct packet_data *pdata);
 
-static struct protocol_info eth_prot = {
+static struct protocol_info eth2 = {
     .short_name = "ETH",
-    .long_name = "Ethernet",
+    .long_name = "Ethernet II",
+    .decode = handle_ethernet,
+    .print_pdu = NULL,
+    .add_pdu = add_ethernet_information
+};
+
+static struct protocol_info eth802 = {
+    .short_name = "ETH",
+    .long_name = "Ethernet 802.3",
     .decode = handle_ethernet,
     .print_pdu = NULL,
     .add_pdu = add_ethernet_information
@@ -25,7 +33,8 @@ static struct protocol_info eth_prot = {
 
 void register_ethernet(void)
 {
-    register_protocol(&eth_prot, DATALINK, LINKTYPE_ETHERNET);
+    register_protocol(&eth2, DATALINK, LINKTYPE_ETHERNET);
+    register_protocol(&eth802, DATALINK, LINKTYPE_IEEE802);
 }
 
 /*
@@ -67,8 +76,8 @@ void register_ethernet(void)
  * The K2 value is 0 (zero).
  */
 
-packet_error handle_ethernet(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                             struct packet_data *pdata)
+packet_error handle_ethernet(struct protocol_info *pinfo UNUSED, unsigned char *buffer,
+                             int n, struct packet_data *pdata)
 {
     if (n < ETHER_HDR_LEN || n > MAX_PACKET_SIZE)
         return DATALINK_ERR;
@@ -89,11 +98,10 @@ packet_error handle_ethernet(struct protocol_info *pinfo, unsigned char *buffer,
     if (eth->ethertype <= ETH_802_3_MAX) {
         id = get_protocol_id(ETH802_3, ETH_802_LLC);
         layer2 = get_protocol(id);
-        pinfo->long_name = "Ethernet 802.3";
+        pdata->id = get_protocol_id(DATALINK, LINKTYPE_IEEE802);
     } else {
         id = get_protocol_id(ETHERNET_II, eth->ethertype);
         layer2 = get_protocol(id);
-        pinfo->long_name = "Ethernet II";
     }
     if (layer2) {
         pdata->next = mempool_calloc(1, struct packet_data);
