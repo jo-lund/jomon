@@ -414,28 +414,28 @@ list_t *parse_hello_options(struct pim_info *pim)
         switch (opt->option_type) {
         case PIM_HOLDTIME:
             if (len < 2 || opt->option_len != 2)
-                goto done;
+                goto error;
             opt->holdtime = ptr[0] << 8 | ptr[1];
             break;
         case PIM_LAN_PRUNE_DELAY:
             if (len < 4 || opt->option_len != 4)
-                goto done;
+                goto error;
             opt->lan_prune_delay.prop_delay = ptr[0] << 8 | ptr[1];
             opt->lan_prune_delay.override_interval = ptr[2] << 8 | ptr[3];
             break;
         case PIM_DR_PRIORITY:
             if (len < 4 || opt->option_len != 4)
-                goto done;
+                goto error;
             opt->dr_priority = get_uint32be(ptr);
             break;
         case PIM_GENERATION_ID:
             if (len < 4 || opt->option_len != 4)
-                goto done;
+                goto error;
             opt->gen_id = get_uint32be(ptr);
             break;
         case PIM_STATE_REFRESH_CAPABLE:
             if (len < 4 || opt->option_len != 4) /* 2 bytes are reserved */
-                goto done;
+                goto error;
             opt->state_refresh.version = ptr[0];
             opt->state_refresh.interval = ptr[1];
             break;
@@ -447,7 +447,10 @@ list_t *parse_hello_options(struct pim_info *pim)
         ptr += opt->option_len;
         len -= opt->option_len;
     }
-done:
+    return hello_list;
+
+error:
+    free(opt);
     return hello_list;
 }
 
