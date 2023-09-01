@@ -27,7 +27,7 @@ struct arp_info {
 #define arp_psize(p) get_arp(p)->ps
 #define arp_opcode(p) get_arp(p)->op
 
-void register_arp();
+void register_arp(void);
 packet_error handle_arp(struct protocol_info *pinfo, unsigned char *buffer, int n,
                         struct packet_data *pdata);
 char *get_arp_hardware_type(uint16_t type);

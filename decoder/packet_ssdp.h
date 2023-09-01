@@ -10,7 +10,7 @@ struct ssdp_info {
 };
 
 /* internal to the decoder */
-void register_ssdp();
+void register_ssdp(void);
 packet_error handle_ssdp(struct protocol_info *pinfo, unsigned char *buffer, int n,
                          struct packet_data *pdata);
 

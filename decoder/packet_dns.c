@@ -650,9 +650,9 @@ char *get_dns_rcode(uint8_t rcode)
 {
     switch (rcode) {
     case DNS_FORMAT_ERROR:
-        return "Format error";;
+        return "Format error";
     case DNS_SERVER_FAILURE:
-        return "Server failure";;
+        return "Server failure";
     case DNS_NAME_ERROR:
         return "Name error";
     case DNS_NOT_IMPLEMENTED:

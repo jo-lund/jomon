@@ -150,7 +150,7 @@ char *create_error_string(const char *fmt, ...) PRINTF_FORMAT(1, 2);
 
 static inline uint32_t get_protocol_id(uint16_t layer, uint16_t key)
 {
-    return (layer << 16) | key;
+    return (uint32_t) (layer << 16) | key;
 }
 
 static inline uint16_t get_protocol_layer(uint32_t id)

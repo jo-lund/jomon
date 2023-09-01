@@ -15,7 +15,7 @@ static struct protocol_info imap_prot = {
     .add_pdu = add_imap_information
 };
 
-void register_imap()
+void register_imap(void)
 {
     register_protocol(&imap_prot, PORT, IMAP);
 }

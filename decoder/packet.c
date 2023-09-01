@@ -100,8 +100,6 @@ packet_error call_data_decoder(uint32_t id, struct packet_data *p, uint8_t trans
     struct packet_data *pdata;
 
     if ((pinfo = get_protocol(id))) {
-        packet_error err;
-
         pdata = mempool_calloc(1, struct packet_data);
         pdata->transport = transport;
         pdata->id = id;
