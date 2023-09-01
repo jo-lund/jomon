@@ -100,7 +100,7 @@ packet_error parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp)
     uint8_t class;
     uint8_t tag;
     unsigned char *ptr = buffer;
-    snmp_value val[2];
+    snmp_value val[2] = { 0 };
     int val_len;
 
     for (int i = 0; i < 2 && n > 0; i++) {
@@ -111,7 +111,6 @@ packet_error parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp)
     }
     if (n > 0) {
         /* common header */
-        // BUG: Need to check that the values are correct!
         snmp->version = val[0].ival;
         snmp->community = val[1].pval;
 
