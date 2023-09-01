@@ -23,7 +23,7 @@ struct tqueue {
     size_t len;
 };
 
-struct tqueue pending = { QUEUE_HEAD_INITIALIZER(pending.head), 0 };
+static struct tqueue pending = { QUEUE_HEAD_INITIALIZER(pending.head), 0 };
 
 static void sig_timer(int sig UNUSED, siginfo_t *info, void *ucontext UNUSED)
 {
