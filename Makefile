@@ -54,7 +54,9 @@ test-objs += $(bpf-objs) \
 	$(BUILDDIR)/util.o \
 	$(BUILDDIR/stack.o) \
 	$(BUILDDIR)/string.o \
-	$(BUILDDIR)/rbtree.o
+	$(BUILDDIR)/rbtree.o \
+	$(BUILDDIR)/error.o
+
 
 .PHONY : all
 all : release
@@ -120,7 +122,7 @@ tags :
 	@echo "Generating tags..."
 	@find . -name "*.h" -o -name "*.c" | etags -
 
-test : CFLAGS += -Os
+test : CFLAGS += -O2
 test : $(TESTDIR)/test
 	@$<
 

@@ -1,5 +1,11 @@
 #include <check.h>
+#include <stdlib.h>
 #include "test.h"
+
+void monitor_exit(int status)
+{
+    exit(status);
+}
 
 int main()
 {
