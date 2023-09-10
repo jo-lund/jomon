@@ -20,7 +20,6 @@ sources = $(filter-out geoip.c,$(wildcard *.c decoder/*.c ui/*.c ui/ncurses/*.c)
 ifeq ($(HAVE_GEOIP),1)
     LIBS += -lGeoIP
     sources += geoip.c
-    CPPFLAGS += -DHAVE_GEOIP
 endif
 ifeq ($(HAVE_OBSTACK),1)
     CPPFLAGS += -DHAVE_OBSTACK

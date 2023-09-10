@@ -153,6 +153,7 @@ generate_config()
     echo >> config.mk
     echo "CC=$CC" >> config.mk
     echo "HAVE_GEOIP=$HAVE_GEOIP" >> config.mk
+    echo "#define HAVE_GEOIP $HAVE_GEOIP" >> config.h
     if [[ "$HAVE_GEOIP" == 1 ]]; then
         echo "#define GEOIP_PATH \"$GEOIP_PATH/$GEOIP_DB\"" >> config.h
     fi
