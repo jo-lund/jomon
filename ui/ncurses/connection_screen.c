@@ -673,9 +673,12 @@ static unsigned int connection_screen_get_size(screen *s)
 
 void connection_screen_render(connection_screen *cs)
 {
+    screen *s;
+
+    s = (screen *) cs;
     touchwin(cs->whdr);
     touchwin(cs->base.win);
-    if (ctx.capturing || vector_size(cs->screen_buf) == 0)
+    if (!s->tab_active && (ctx.capturing || vector_size(cs->screen_buf)) == 0)
         update_screen_buf((screen *) cs);
     print_header(cs);
     print_all_elements(cs);

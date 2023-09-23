@@ -528,6 +528,8 @@ void main_screen_get_input(screen *s)
         break;
     }
     switch (c) {
+    case '\t':
+        break;
     case 'f':
         if (s->show_selectionbar && !inside_subwindow(ms, ms->base.selectionbar))
             follow_tcp_stream(ms);
