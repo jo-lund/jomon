@@ -5,7 +5,6 @@
 #include "screen.h"
 #include "vector.h"
 #include "rbtree.h"
-#include "hashmap.h"
 
 typedef struct main_screen {
     screen base;
@@ -34,7 +33,6 @@ typedef struct main_screen {
     vector_t *packet_ref;
     bool follow_stream;
     rbtree_t *marked;
-    hashmap_t *protocols;
 } main_screen;
 
 struct packet;
