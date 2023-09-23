@@ -32,11 +32,6 @@
 #define GET_SCRY(y) ((y) + HEADER_HEIGHT)
 
 #define FILTER_IDX 8
-#define NUMBER 0
-#define TIME 1
-#define SOURCE 2
-#define DESTINATION 3
-#define PROTOCOL 4
 
 enum input_mode {
     INPUT_NONE,
@@ -513,92 +508,6 @@ void main_screen_write_show_progress(int size)
     PROGRESS_DIALOGUE_UPDATE(pd, size);
 }
 
-static void get_address(const struct packet *p, const int dir, char *addr)
-{
-    struct packet_data *pdata;
-
-    if ((pdata = get_packet_data(p, get_protocol_id(ETHERNET_II, ETHERTYPE_IP)))) {
-        struct ipv4_info *ip;
-
-        ip = pdata->data;
-        get_name_or_address((dir == SOURCE) ? ip->src : ip->dst, addr);
-    } else if ((pdata = get_packet_data(p, get_protocol_id(ETHERNET_II, ETHERTYPE_IPV6)))) {
-        struct ipv6_info *ip6;
-
-        ip6 = pdata->data;
-        inet_ntop(AF_INET6, (dir == SOURCE) ? ip6->src : ip6->dst, addr, INET6_ADDRSTRLEN);
-    } else if ((pdata = get_packet_data(p, get_protocol_id(ETHERNET_II, ETHERTYPE_ARP)))) {
-        struct arp_info *arp;
-
-        arp = pdata->data;
-        inet_ntop(AF_INET, (dir == SOURCE) ? arp->sip : arp->tip, addr, INET_ADDRSTRLEN);
-    } else {
-        struct eth_info *eth;
-
-        pdata = get_packet_data(p, get_protocol_id(DATALINK, LINKTYPE_ETHERNET));
-        eth = pdata->data;
-        if (dir == SOURCE)
-            HW_ADDR_NTOP(addr, eth->mac_src);
-        else
-            HW_ADDR_NTOP(addr, eth->mac_dst);
-    }
-}
-
-static const char *get_protocol_name(const struct packet *p)
-{
-    struct packet_data *pdata = p->root;
-    struct protocol_info *pinfo;
-
-    while (pdata->next) {
-        if (pdata->id == get_protocol_id(IP_PROTOCOL, IPPROTO_ICMP))
-            break;
-        pdata = pdata->next;
-    }
-    pinfo = get_protocol(pdata->id);
-    return pinfo->short_name;
-}
-
-static int cmp_addr(const struct packet *p1, const struct packet *p2, const int dir)
-{
-    char addr1[HOSTNAMELEN+1];
-    char addr2[HOSTNAMELEN+1];
-
-    get_address(p1, dir, addr1);
-    get_address(p2, dir, addr2);
-    return strcmp(addr1, addr2);
-}
-
-static int cmp_pkt(const void *d1, const void *d2, void *arg)
-{
-    int pos = PTR_TO_INT(arg);
-    struct packet *p1 = *(struct packet **) d1;
-    struct packet *p2 = *(struct packet **) d2;
-    struct timeval res;
-
-    switch (pos) {
-    case NUMBER:
-        return (main_header[pos].order == HDR_INCREASING) ? p1->num - p2->num :
-            p2->num - p1->num;
-    case TIME:
-        if (main_header[pos].order == HDR_INCREASING)
-            timersub(&p1->time, &p2->time, &res);
-        else
-            timersub(&p2->time, &p1->time, &res);
-        return (res.tv_sec != 0) ? res.tv_sec : res.tv_usec;
-    case SOURCE:
-        return (main_header[pos].order == HDR_INCREASING) ? cmp_addr(p1, p2, pos) :
-            cmp_addr(p2, p1, pos);
-    case DESTINATION:
-        return (main_header[pos].order == HDR_INCREASING) ? cmp_addr(p1, p2, pos) :
-            cmp_addr(p2, p1, pos);
-    case PROTOCOL:
-        return (main_header[pos].order == HDR_INCREASING) ? strcmp(get_protocol_name(p1), get_protocol_name(p2)) :
-            strcmp(get_protocol_name(p2), get_protocol_name(p1));
-    default:
-        return 0;
-    }
-}
-
 void main_screen_get_input(screen *s)
 {
     int c = 0;
@@ -674,13 +583,8 @@ void main_screen_get_input(screen *s)
         break;
     case KEY_ENTER:
     case '\n':
-        if (s->tab_active) {
-            screen_update_order(s, vector_data(ms->packet_ref),
-                                vector_size(ms->packet_ref), cmp_pkt);
-            main_screen_refresh(s);
-        } else if (s->show_selectionbar) {
+        if (s->show_selectionbar)
             print_selected_packet(ms);
-        }
         break;
     case ' ':
     case KEY_NPAGE:

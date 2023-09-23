@@ -49,12 +49,6 @@ static void help_screen_render(void)
     wprintw(win, ": Change between numerical or resolved addresses");
     mvprintat(win, ++y, x, subcol, "%12s", "p/P");
     wprintw(win, ": Switch to next/previous page (where applicable)");
-    mvprintat(win, ++y, x, subcol, "%12s", "Tab");
-    wprintw(win, ": Select header and use ");
-    printat(win, A_BOLD, "Enter ");
-    wprintw(win, "to sort and ");
-    printat(win, A_BOLD, "Esc ");
-    wprintw(win, "to exit selection");
     mvprintat(win, ++y, x, subcol, "%12s", "? F1");
     wprintw(win, ": Show help");
     mvprintat(win, ++y, x, subcol, "%12s", "F2");

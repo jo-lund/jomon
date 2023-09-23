@@ -19,6 +19,7 @@
 #include "misc.h"
 #include "decoder/host_analyzer.h"
 
+#define HOSTNAMELEN 255 /* maximum 255 according to rfc1035 */
 #define TBUFLEN 16
 
 #define STR_HELPER(x) #x
@@ -249,7 +250,7 @@ void print_snap(char *buf, int n, void *data)
  * Convert the network address 'src' into a string in 'dst', or store the
  * host name if that is available.
  */
-void get_name_or_address(const uint32_t src, char *dst)
+static void get_name_or_address(const uint32_t src, char *dst)
 {
     struct host_info *host;
     char *p;
@@ -824,7 +825,7 @@ void print_vrrp(char *buf, int n, void *data)
     struct vrrp_info *vrrp;
     char *type;
 
-    vrrp = ((struct packet_data *) data)->data;
+    vrrp = get_data_member(struct vrrp_info, data);
     PRINT_PROTOCOL(buf, n, "VRRP");
     if ((type = get_vrrp_type(vrrp->type))) {
         if (vrrp->version < 3)
