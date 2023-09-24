@@ -8,5 +8,6 @@
 #include "misc.h"
 #include "error.h"
 #include "wrapper.h"
+#include "config.h"
 
 #endif

@@ -7,6 +7,8 @@
 #include <sys/socket.h>
 #include "bpf/bpf.h"
 
+#define IF_NAMESIZE 16
+
 #define LINKTYPE_ETHERNET 1
 #define LINKTYPE_IEEE802 6   /* IEEE 802.2 Ethernet/Token Ring/Token Bus */
 
@@ -33,6 +35,15 @@ struct iface_operations {
     void (*close)(iface_handle_t *handle);
     void (*read_packet)(iface_handle_t *handle);
     void (*set_promiscuous)(iface_handle_t *handle, char *device, bool enable);
+};
+
+struct interface {
+    char name[IF_NAMESIZE];        /* interface name */
+    unsigned short type;           /* interface type, e.g. Ethernet, Firewire etc. */
+    struct sockaddr_in *inaddr;    /* IPv4 address */
+    struct sockaddr_in6 *in6addr;  /* IPv6 address */
+    unsigned char addrlen;         /* hardware address length */
+    unsigned char hwaddr[8];       /* hardware address */
 };
 
 /* Create a new interface handle */

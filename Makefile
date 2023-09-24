@@ -34,6 +34,10 @@ ifeq ($(MACHINE),FreeBSD)
     sources += $(wildcard bsd/*.c)
 endif
 endif
+ifeq ($(BT_SUPPORT),0)
+    sources := $(filter-out $(wildcard */bluetooth.c),$(sources))
+endif
+
 objects = $(patsubst %.c,$(BUILDDIR)/%.o,$(sources))
 bpf-objs = \
 	$(BUILDDIR)/bpf/bpf_parser.o \

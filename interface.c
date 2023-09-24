@@ -18,21 +18,12 @@
 #include <unistd.h>
 #include <net/ethernet.h>
 #include "interface.h"
-#include "error.h"
-#include "wrapper.h"
+#include "monitor.h"
 
 #define MAX_NUM_INTERFACES 16
+#define WIDTH 8
 
 static char *get_active_interface(int fd, char *buffer, int len);
-
-struct interface {
-    char *name;                    /* interface name */
-    unsigned short type;           /* interface type, e.g. Ethernet, Firewire etc. */
-    struct sockaddr_in *inaddr;    /* IPv4 address */
-    struct sockaddr_in6 *in6addr;  /* IPv6 address */
-    unsigned char addrlen;         /* hardware address length */
-    unsigned char hwaddr[8];       /* hardware address */
-};
 
 void iface_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf)
 {
@@ -63,34 +54,33 @@ void iface_set_promiscuous(iface_handle_t *handle, char *dev, bool enable)
 void list_interfaces(void)
 {
     struct ifaddrs *ifp, *ifhead;
-    struct interface iflist[MAX_NUM_INTERFACES];
+    struct interface iflist[MAX_NUM_INTERFACES] = { 0 };
     int i;
     int c = 0;
 
     /* On Linux getifaddrs returns one entry per address, on Mac OS X and BSD one
        entry per interface */
-    if (getifaddrs(&ifp) == -1) {
+    if (getifaddrs(&ifp) == -1)
         err_sys("getifaddrs error");
-    }
     memset(iflist, 0, sizeof(iflist));
     ifhead = ifp;
 
     /* traverse the ifaddrs list and store the interface information in iflist */
     while (ifp) {
-        if (c >= MAX_NUM_INTERFACES) {
+        if (c >= MAX_NUM_INTERFACES)
             break;
-        }
+
         /* Check if the interface is stored in iflist */
         i = -1;
         for (int j = 0; j < MAX_NUM_INTERFACES; j++) {
-            if (iflist[j].name && strcmp(ifp->ifa_name, iflist[j].name) == 0) {
+            if (strcmp(ifp->ifa_name, iflist[j].name) == 0) {
                 i = j;
                 break;
             }
         }
         /* new interface -- insert in iflist */
         if (i == -1) {
-            iflist[c].name = ifp->ifa_name;
+            strncpy(iflist[c].name, ifp->ifa_name, IFNAMSIZ - 1);
             i = c++;
         }
 
@@ -129,18 +119,19 @@ void list_interfaces(void)
         }
         ifp = ifp->ifa_next;
     }
+#ifdef BT_SUPPORT
+    c += bt_interfaces(iflist + c, MAX_NUM_INTERFACES - c);
+#endif
 
     /* print out information for each interface */
     for (i = 0; i < c; i++) {
         int len = strlen(iflist[i].name);
-        int width = 8;
 
-        if (len >= 8) {
-            width = len + 1;
-            printf("%-*s", width, iflist[i].name);
-        } else {
-            printf("%-*s", width, iflist[i].name);
-        }
+        if (len >= WIDTH)
+            printf("%-*s", len + 1, iflist[i].name);
+        else
+            printf("%-*s", WIDTH, iflist[i].name);
+
         switch (iflist[i].type) {
 #if defined(MACOS) || defined(__FreeBSD__)
         case IFT_ETHER:
