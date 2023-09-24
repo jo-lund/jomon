@@ -34,6 +34,7 @@ static struct protocol_info stp_prot = {
 void register_stp(void)
 {
     register_protocol(&stp_prot, ETH802_3, ETH_802_STP);
+    register_protocol(&stp_prot, ETH802_3, 0x010b);
 }
 
 /*
@@ -119,7 +120,7 @@ int get_stp_flags_size(void)
 uint8_t get_stp_type(struct packet *p)
 {
     struct packet_data *pdata = get_packet_data(p, ETH_802_STP);
-    struct stp_info *stp = pdata->data;
+    struct stp_info *stp = pdata ? pdata->data : NULL;
 
     if (stp)
         return stp->type;
@@ -129,7 +130,7 @@ uint8_t get_stp_type(struct packet *p)
 uint16_t get_stp_port_id(struct packet *p)
 {
     struct packet_data *pdata = get_packet_data(p, ETH_802_STP);
-    struct stp_info *stp = pdata->data;
+    struct stp_info *stp = pdata ? pdata->data : NULL;
 
     if (stp)
         return stp->port_id;
@@ -139,7 +140,7 @@ uint16_t get_stp_port_id(struct packet *p)
 uint32_t get_stp_root_pc(struct packet *p)
 {
     struct packet_data *pdata = get_packet_data(p, ETH_802_STP);
-    struct stp_info *stp = pdata->data;
+    struct stp_info *stp = pdata ? pdata->data : NULL;
 
     if (stp)
         return stp->root_pc;

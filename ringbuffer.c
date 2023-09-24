@@ -14,9 +14,9 @@ ringbuffer_t *ringbuffer_init(const int sz)
 {
     ringbuffer_t *rb;
 
-    rb = calloc(1, sizeof(*rb));
+    rb = xcalloc(1, sizeof(*rb));
     rb->size = clp2(sz);
-    rb->buf = malloc(rb->size * sizeof(void*));
+    rb->buf = xmalloc(rb->size * sizeof(void*));
     return rb;
 }
 

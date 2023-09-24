@@ -14,6 +14,7 @@
 #include "hash.h"
 #include "decoder/tcp_analyzer.h"
 #include "list.h"
+#include "wrapper.h"
 
 /*
  * General algorithm to get the process related to the specific connection:
@@ -80,7 +81,7 @@ static char *get_name(int pid)
         return NULL;
     }
     fclose(fp);
-    return strdup(cmdline);
+    return xstrdup(cmdline);
 }
 
 char *get_username(uint32_t uid)
@@ -89,7 +90,7 @@ char *get_username(uint32_t uid)
 
     if ((pw = getpwuid(uid)) == NULL)
         return NULL;
-    return strdup(pw->pw_name);
+    return xstrdup(pw->pw_name);
 }
 
 static void load_cache(void)
@@ -142,7 +143,7 @@ static void load_cache(void)
                     if (!hashmap_get(inode_cache, UINT_TO_PTR(inode))) {
                         pid = strtol(dp->d_name, NULL, 10);
                         if ((pinfo = hashmap_get(proc_cache, INT_TO_PTR(pid))) == NULL) {
-                            pinfo = calloc(1, sizeof(struct process));
+                            pinfo = xcalloc(1, sizeof(struct process));
                             pinfo->pid = pid;
                             pinfo->name = get_name(pinfo->pid);
                             hashmap_insert(proc_cache, INT_TO_PTR(pid), pinfo);
@@ -237,7 +238,7 @@ static bool read_netlink_msg(void)
                 else
                     continue;
             }
-            tcp = malloc(sizeof(*tcp));
+            tcp = xmalloc(sizeof(*tcp));
             tcp->laddr = diag_msg->id.idiag_src[0];
             tcp->lport = ntohs(diag_msg->id.idiag_sport);
             tcp->raddr = diag_msg->id.idiag_dst[0];

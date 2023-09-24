@@ -41,5 +41,5 @@ void text_draw(void)
         write_to_buf(buf, MAXLINE, vector_get(packets, i));
         printf("%s\n", buf);
     }
-    finish(0);
+    monitor_exit(0);
 }

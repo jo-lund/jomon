@@ -13,9 +13,9 @@ struct ui {
 
 enum ui_event {
     UI_NEW_DATA,
-    UI_ALARM,
     UI_RESIZE,
-    UI_INPUT
+    UI_INPUT,
+    UI_ALARM
 };
 
 void ui_register(struct ui *ui, bool is_default);

@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include "stack.h"
+#include "wrapper.h"
 
 typedef struct item {
     void *data;
@@ -15,8 +16,8 @@ _stack_t *stack_init(unsigned int n)
 {
     _stack_t *stack;
 
-    stack = malloc(sizeof(_stack_t));
-    stack->buf = malloc(n * sizeof(item_t));
+    stack = xmalloc(sizeof(_stack_t));
+    stack->buf = xmalloc(n * sizeof(item_t));
     stack->top = 0;
     stack->size = n;
     return stack;

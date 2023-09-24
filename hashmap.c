@@ -32,9 +32,9 @@ hashmap_t *hashmap_init(unsigned int size, hash_fn h, hashmap_compare fn)
 {
     hashmap_t *map;
 
-    map = malloc(sizeof(hashmap_t));
+    map = xmalloc(sizeof(hashmap_t));
     map->buckets = clp2(size); /* set the size to a power of 2 */
-    map->table = calloc(map->buckets, sizeof(struct hash_elem));
+    map->table = xcalloc(map->buckets, sizeof(struct hash_elem));
     map->hash = h ? h : hashfnv_uint32;
     map->comp = fn ? fn : compare_uint;
     map->free_key = NULL;
@@ -51,7 +51,7 @@ bool hashmap_insert(hashmap_t *map, void *key, void *data)
         unsigned int capacity;
 
         capacity = map->buckets * 2;
-        tbl = calloc(capacity, sizeof(struct hash_elem));
+        tbl = xcalloc(capacity, sizeof(struct hash_elem));
         for (unsigned int j = 0; j < map->buckets; j++) {
             if (map->table[j].probe_count != 0) {
                 insert_elem(map, tbl, capacity, map->table[j].hash_val,

@@ -54,7 +54,7 @@ static inline bool buffer_check(struct bpf_zbuf_header *bzh)
 
 iface_handle_t *iface_handle_create(unsigned char *buf, size_t len, packet_handler fn)
 {
-    iface_handle_t *handle = calloc(1, sizeof(iface_handle_t));
+    iface_handle_t *handle = xcalloc(1, sizeof(iface_handle_t));
 
     handle->fd = -1;
     handle->op = &bsd_op;
@@ -78,7 +78,7 @@ void bsd_activate(iface_handle_t *handle, char *dev, struct bpf_prog *bpf UNUSED
     if (ioctl(handle->fd, BIOCSETBUFMODE, &mode) != -1) {
         struct handle_bsd *h;
 
-        handle->data = calloc(1, sizeof(struct handle_bsd));
+        handle->data = xcalloc(1, sizeof(struct handle_bsd));
         h = handle->data;
         if (ctx.opt.buffer_size == 0)
             ctx.opt.buffer_size = BUFSIZE;

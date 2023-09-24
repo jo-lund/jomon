@@ -5,11 +5,11 @@
 #endif
 #include <stdlib.h>
 #include "mempool.h"
+#include "wrapper.h"
 
-#define obstack_chunk_alloc malloc
+#define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
 #define CHUNK_SIZE (16 * 1024)
-
 #define NUM_POOLS 2
 
 struct mempool {

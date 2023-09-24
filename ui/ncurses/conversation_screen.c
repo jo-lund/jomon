@@ -6,7 +6,6 @@
 #include <sys/stat.h>
 #include "layout.h"
 #include "ui/print_protocol.h"
-#include "list.h"
 #include "error.h"
 #include "monitor.h"
 #include "vector.h"
@@ -99,17 +98,17 @@ static void free_tcp_attr(void *arg)
 
 static void fill_screen_buffer(conversation_screen *cs)
 {
-    const node_t *n;
+    struct packet *p;
 
-    DLIST_FOREACH(cs->stream->packets, n)
-        vector_push_back(cs->base.packet_ref, list_data(n));
+    QUEUE_FOR_EACH(&cs->stream->packets, p, link)
+        vector_push_back(cs->base.packet_ref, p);
 }
 
 conversation_screen *conversation_screen_create(void)
 {
     conversation_screen *cs;
 
-    cs = malloc(sizeof(conversation_screen));
+    cs = xmalloc(sizeof(conversation_screen));
     ((screen *) cs)->op = &csop;
     conversation_screen_init((screen *) cs);
     return cs;
@@ -130,14 +129,7 @@ void conversation_screen_init(screen *s)
 void conversation_screen_free(screen *s)
 {
     vector_free(tcp_page.buf, free_tcp_attr);
-    delwin(((main_screen *) s)->subwindow.win);
-    delwin(((main_screen *) s)->whdr);
-    if (((main_screen *) s)->lvw) {
-        free_list_view(((main_screen *) s)->lvw);
-    }
-    rbtree_free(((main_screen *) s)->marked);
-    delwin(s->win);
-    free(s);
+    main_screen_free(s);
 }
 
 void conversation_screen_refresh(screen *s)
@@ -154,21 +146,30 @@ void conversation_screen_refresh(screen *s)
 void conversation_screen_got_focus(screen *s, screen *oldscr)
 {
     conversation_screen *cs = (conversation_screen *) s;
+    main_screen *ms = (main_screen *) cs;
+    struct timespec t = {
+        .tv_sec = 0,
+        .tv_nsec = MS_TO_NS(100)
+    };
 
-    ((main_screen *) s)->follow_stream = true;
+    ms->follow_stream = true;
     tcp_analyzer_subscribe(add_packet);
     if (oldscr->fullscreen) {
-        cs->base.packet_ref = vector_init(list_size(cs->stream->packets));
+        cs->base.packet_ref = vector_init(cs->stream->size);
         fill_screen_buffer(cs);
         actionbar_update(s, "F7", NULL, true);
     }
+    timer_set_callback(ms->timer, ms->timer_callback, s);
+    timer_enable(ms->timer, &t);
 }
 
 void conversation_screen_lost_focus(screen *s, screen *newscr)
 {
     conversation_screen *cs = (conversation_screen *) s;
+    main_screen *ms = (main_screen *) cs;
 
-    ((main_screen *) s)->follow_stream = false;
+    timer_disable(ms->timer);
+    ms->follow_stream = false;
     tcp_analyzer_unsubscribe(add_packet);
     if (newscr->fullscreen) {
         vector_free(cs->base.packet_ref, NULL);
@@ -502,15 +503,15 @@ static void buffer_tcppage(conversation_screen *cs, int (*buffer_fn)
         if (len == 0)
             continue;
         n = snprintcat(buf, MAXLINE, "Packet %d\n", p->num);
-        attr = calloc(1, sizeof(struct tcp_page_attr));
-        attr->line = malloc(n + 1);
+        attr = xcalloc(1, sizeof(struct tcp_page_attr));
+        attr->line = xmalloc(n + 1);
         strncpy(attr->line, buf, n + 1);
         vector_push_back(tcp_page.buf, attr);
         n = len;
         while (n > 0) {
             int k;
 
-            attr = malloc(sizeof(struct tcp_page_attr));
+            attr = xmalloc(sizeof(struct tcp_page_attr));
             k = buffer_fn(payload, n, attr, j, mx);
             attr->col = col;
             vector_push_back(tcp_page.buf, attr);
@@ -527,10 +528,10 @@ static int buffer_ascii(unsigned char *payload, int len, struct tcp_page_attr *a
     int n;
 
     if (len < mx) {
-        attr->line = malloc(len + 2);
+        attr->line = xmalloc(len + 2);
         n = len;
     } else {
-        attr->line = malloc(mx + 2);
+        attr->line = xmalloc(mx + 2);
         n = mx;
     }
     for (int i = 0; i < n; i++) {
@@ -549,7 +550,7 @@ static int buffer_raw(unsigned char *payload, int len, struct tcp_page_attr *att
 {
     int n = len;
 
-    attr->line = malloc(mx + 2);
+    attr->line = xmalloc(mx + 2);
     for (int i = 0; i < len; i++) {
         if (mx - 2 * i < 0) {
             n = i;
@@ -593,9 +594,9 @@ void add_packet(struct tcp_connection_v4 *conn, bool new_connection)
         return;
     cs = (conversation_screen *) screen_cache_get(CONVERSATION_SCREEN);
     if (cs->stream == conn) {
-        vector_push_back(cs->base.packet_ref, list_back(conn->packets));
+        vector_push_back(cs->base.packet_ref, QUEUE_LAST(&conn->packets, struct packet, link));
         if (tcp_mode == NORMAL)
-            main_screen_print_packet((main_screen *) cs, list_back(conn->packets));
+            main_screen_update((main_screen *) cs, QUEUE_LAST(&conn->packets, struct packet, link));
     }
 }
 

@@ -2,6 +2,8 @@
 #include "signal.h"
 #include "list.h"
 
+/* Implementation of a publish/subscribe mechanism */
+
 struct publisher {
     list_t *subscriptions0;
     list_t *subscriptions1;

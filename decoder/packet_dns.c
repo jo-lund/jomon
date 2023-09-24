@@ -554,7 +554,7 @@ list_t *parse_dns_options(struct dns_resource_record *rr)
 
         if (length < 4)
             return opt;
-        opt_rr = malloc(sizeof(struct dns_opt_rr));
+        opt_rr = xmalloc(sizeof(struct dns_opt_rr));
         opt_rr->option_code = ptr[0] << 8 | ptr[1];
         opt_rr->option_length = ptr[2] << 8 | ptr[3];
         ptr += 4;
@@ -563,7 +563,7 @@ list_t *parse_dns_options(struct dns_resource_record *rr)
             free(opt_rr);
             return opt;
         }
-        opt_rr->data = malloc(opt_rr->option_length);
+        opt_rr->data = xmalloc(opt_rr->option_length);
         memcpy(opt_rr->data, ptr, opt_rr->option_length);
         length -= opt_rr->option_length;
         ptr += opt_rr->option_length;
@@ -650,9 +650,9 @@ char *get_dns_rcode(uint8_t rcode)
 {
     switch (rcode) {
     case DNS_FORMAT_ERROR:
-        return "Format error";;
+        return "Format error";
     case DNS_SERVER_FAILURE:
-        return "Server failure";;
+        return "Server failure";
     case DNS_NAME_ERROR:
         return "Name error";
     case DNS_NOT_IMPLEMENTED:

@@ -104,9 +104,9 @@ void stat_screen_init(screen *s)
     memset(&hw, 0, sizeof(hw));
     memset(&mem, 0, sizeof(mem));
     get_hwstat(&hw);
-    cpustat = calloc(2, sizeof(struct cputime *));
+    cpustat = xcalloc(2, sizeof(struct cputime *));
     for (int i = 0; i < 2; i++)
-        cpustat[i] = malloc(hw.num_cpu * sizeof(struct cputime));
+        cpustat[i] = xmalloc(hw.num_cpu * sizeof(struct cputime));
     rx_rate = ringbuffer_init(60);
     tx_rate = ringbuffer_init(60);
     wireless = is_wireless(ctx.device);
@@ -416,7 +416,7 @@ void print_hwstat(screen *s)
             }
             mvprintat(s->win, ++cy, cx - 2, subcol, "CPU%d", i);
             mvwprintw(s->win, ++cy, cx - 1, "%u", load);
-            cx += 5;
+            cx += 6;
         }
     }
     wnoutrefresh(s->win);

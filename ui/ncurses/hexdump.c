@@ -98,7 +98,7 @@ void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_a
     char *hex = "0123456789abcdef";
     char *offset = " offset ";
     struct protocol_ctx ctx = { 0 };
-    struct hd_layer *prot = malloc(sizeof(struct hd_layer));
+    struct hd_layer *prot = xmalloc(sizeof(struct hd_layer));
 
     protocols = list_init(NULL);
     prot->name = "Ethernet";
@@ -227,7 +227,7 @@ void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_a
 void print_char(WINDOW *win, char *buf, struct protocol_ctx *ctx, int i, int j, bool update)
 {
     if (update && j >= ctx->idx) {
-        struct hd_layer *prot = malloc(sizeof(struct hd_layer));
+        struct hd_layer *prot = xmalloc(sizeof(struct hd_layer));
 
         if (ctx->pdata->next) {
             ctx->pinfo = get_protocol(ctx->pdata->next->id);

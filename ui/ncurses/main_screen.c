@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <menu.h>
 #include <sys/stat.h>
-#include <sys/time.h>
+#include <time.h>
 #include "layout.h"
 #include "list.h"
 #include "monitor.h"
@@ -75,6 +75,8 @@ static void filter_packets(main_screen *ms);
 static void handle_input_mode(main_screen *ms, const char *str);
 static void main_screen_save_handle_ok(void *file);
 static void main_screen_export_handle_ok(void *file);
+static void main_screen_got_focus(screen *s, screen *old);
+static void main_screen_lost_focus(screen *s, screen *new);
 
 /* Handles subwindow layout */
 static void create_subwindow(main_screen *ms, int num_lines, int lineno);
@@ -87,7 +89,9 @@ static screen_operations msop = {
     .screen_init = main_screen_init,
     .screen_free = main_screen_free,
     .screen_refresh = main_screen_refresh,
-    .screen_get_input = main_screen_get_input
+    .screen_get_input = main_screen_get_input,
+    .screen_got_focus = main_screen_got_focus,
+    .screen_lost_focus = main_screen_lost_focus,
 };
 
 static screen_header main_header[] = {
@@ -106,6 +110,16 @@ static inline void move_cursor(WINDOW *win)
     getyx(win, y, x);
     wmove(win, y, x);
     wrefresh(win);
+}
+
+static void timer_callback(void *arg)
+{
+    screen *s;
+
+    s = (screen *) arg;
+    wrefresh(s->win);
+    if (input_mode == INPUT_FILTER || input_mode == INPUT_GOTO)
+        move_cursor(status);
 }
 
 static void add_actionbar_elems(screen *s)
@@ -144,7 +158,7 @@ static void set_filepath(void)
 
     i = string_find_last(ctx.filename, '/');
     if (ctx.filename[0] == '/' && i > 0 && i < MAXPATH) {
-        strncpy(load_filepath, ctx.filename, i);
+        memcpy(load_filepath, ctx.filename, i);
         load_filepath[i] = '\0';
     } else if (i > 0 && i < MAXPATH) {
         char tmp[MAXPATH];
@@ -153,12 +167,14 @@ static void set_filepath(void)
         if (getcwd(load_filepath, MAXPATH) == NULL)
             err_sys("getcwd error");
         n = strlen(load_filepath);
-        strncpy(load_filepath + n, "/", MAXPATH - n);
-        strncpy(tmp, ctx.filename, i);
+        if (n == MAXPATH)
+            err_quit("File path too large: %s", load_filepath);
+        load_filepath[n] = '/';
+        memcpy(tmp, ctx.filename, i);
         tmp[i] = '\0';
         if (i >= MAXPATH - n - 1)
-            err_quit("Filename too large: %s", tmp);
-        strncpy(load_filepath + n + 1, tmp, i + 1);
+            err_quit("File path too large: %s", tmp);
+        memcpy(load_filepath + n + 1, tmp, i + 1);
     } else {
         if (getcwd(load_filepath, MAXPATH) == NULL)
             err_sys("getcwd error");
@@ -169,7 +185,7 @@ main_screen *main_screen_create(void)
 {
     main_screen *ms;
 
-    ms = malloc(sizeof(main_screen));
+    ms = xmalloc(sizeof(main_screen));
     ms->base.op = &msop;
     main_screen_init((screen *) ms);
     return ms;
@@ -195,11 +211,13 @@ void main_screen_init(screen *s)
     ms->main_line.line_number = -1;
     ms->main_line.selected = false;
     memset(&ms->subwindow, 0, sizeof(ms->subwindow));
+    ms->packet_ref = packets;
+    ms->marked = rbtree_init(compare_uint, NULL);
+    ms->timer_callback = timer_callback;
+    ms->timer = timer_init(true);
     nodelay(s->win, TRUE); /* input functions must be non-blocking */
     keypad(s->win, TRUE);
     scrollok(s->win, TRUE);
-    ms->packet_ref = packets;
-    ms->marked = rbtree_init(compare_uint, NULL);
     set_filepath();
     status = newwin(1, mx, my - 1, 0);
     add_actionbar_elems(s);
@@ -209,6 +227,7 @@ void main_screen_free(screen *s)
 {
     main_screen *ms = (main_screen *) s;
 
+    timer_free(ms->timer);
     rbtree_free(ms->marked);
     delwin(ms->subwindow.win);
     delwin(ms->whdr);
@@ -219,20 +238,17 @@ void main_screen_free(screen *s)
     free(ms);
 }
 
-void main_screen_update(main_screen *ms, char *buf)
+void main_screen_update_window(main_screen *ms, char *buf)
 {
     int my;
 
-    if (ms->base.focus) {
-        my = getmaxy(ms->base.win);
-        if (!ms->base.show_selectionbar || (ms->base.show_selectionbar && ms->outy < my)) {
-            scroll_window(ms);
-            mvputsnlw(ms->base.win, ms->outy, 0, ms->scrollx, buf);
-            ms->outy++;
-            wrefresh(ms->base.win);
-            if (input_mode == INPUT_FILTER || input_mode == INPUT_GOTO)
-                move_cursor(status);
-        }
+    if (!ms->base.focus)
+        return;
+    my = getmaxy(ms->base.win);
+    if (!ms->base.show_selectionbar || (ms->base.show_selectionbar && ms->outy < my)) {
+        scroll_window(ms);
+        mvputsnlw(ms->base.win, ms->outy, 0, ms->scrollx, buf);
+        ms->outy++;
     }
 }
 
@@ -244,6 +260,23 @@ void main_screen_clear(main_screen *ms)
     ms->base.show_selectionbar = false;
     werase(ms->whdr);
     werase(ms->base.win);
+}
+
+void main_screen_got_focus(screen *s, screen *old UNUSED)
+{
+    struct timespec t = {
+        .tv_sec = 0,
+        .tv_nsec = MS_TO_NS(100)
+    };
+    main_screen *ms = (main_screen *) s;
+
+    timer_set_callback(ms->timer, timer_callback, s);
+    timer_enable(ms->timer, &t);
+}
+
+void main_screen_lost_focus(screen *s, screen *new UNUSED)
+{
+    timer_disable(((main_screen *) s)->timer);
 }
 
 void main_screen_refresh(screen *s)
@@ -303,12 +336,11 @@ void main_screen_refresh(screen *s)
 
 void main_screen_refresh_pad(main_screen *ms)
 {
-    if (ms->subwindow.win) {
+    if (ms->subwindow.win)
         refresh_pad(ms, &ms->subwindow, 0, ms->scrollx, true);
-    }
 }
 
-void main_screen_print_packet(main_screen *ms, struct packet *p)
+void main_screen_update(main_screen *ms, struct packet *p)
 {
     char buf[MAXLINE];
 
@@ -316,11 +348,11 @@ void main_screen_print_packet(main_screen *ms, struct packet *p)
         if (bpf_run_filter(bpf, p->buf, p->len) != 0) {
             vector_push_back(ms->packet_ref, p);
             write_to_buf(buf, MAXLINE, p);
-            main_screen_update(ms, buf);
+            main_screen_update_window(ms, buf);
         }
     } else {
         write_to_buf(buf, MAXLINE, p);
-        main_screen_update(ms, buf);
+        main_screen_update_window(ms, buf);
     }
 }
 
@@ -391,7 +423,6 @@ void main_screen_load_handle_ok(void *file)
         char filename[MAXPATH + 1];
         char title[MAXLINE];
         main_screen *ms = (main_screen *) screen_cache_get(MAIN_SCREEN);
-        int n;
 
         if (ms->subwindow.win) {
             delete_subwindow(ms, false);
@@ -399,7 +430,7 @@ void main_screen_load_handle_ok(void *file)
         }
         strcpy(filename, file);
         get_file_part(filename);
-        if ((n = snprintf(title, MAXLINE, " Loading %s ", filename)) >= MAXLINE)
+        if (snprintf(title, MAXLINE, " Loading %s ", filename) >= MAXLINE)
             string_truncate(title, MAXLINE, MAXLINE - 1);
         clear_statistics();
         vector_clear(ms->packet_ref, NULL);
@@ -561,15 +592,9 @@ void main_screen_get_input(screen *s)
             main_screen_refresh((screen *) ms);
         }
         break;
-    case KEY_CTRL_UP:
-        key_mode = KEY_CTRL;
-        FALLTHROUGH;
     case KEY_UP:
         main_screen_handle_keyup(ms, my);
         break;
-    case KEY_CTRL_DOWN:
-        key_mode = KEY_CTRL;
-        FALLTHROUGH;
     case KEY_DOWN:
         main_screen_handle_keydown(ms, my);
         break;
@@ -614,7 +639,7 @@ void main_screen_get_input(screen *s)
                 ms->main_line.selected = false;
             }
             main_screen_clear(ms);
-            start_scan();
+            start_capture();
             ctx.pcap_saved = false;
             print_header(ms);
             wnoutrefresh(s->win);
@@ -632,7 +657,7 @@ void main_screen_get_input(screen *s)
         if (ctx.capturing) {
             if (!s->show_selectionbar)
                 main_screen_set_interactive(ms, true);
-            stop_scan();
+            stop_capture();
             actionbar_update(s, "F3", NULL, false);
             actionbar_update(s, "F4", NULL, true);
             actionbar_update(s, "F5", NULL, !vector_size(ms->packet_ref));
@@ -700,9 +725,20 @@ void main_screen_get_input(screen *s)
         FALLTHROUGH;
     screen_handler:
     default:
+    {
+        const char *key = keyname(c);
+
+        if (strcmp(key, "kDN5") == 0) {
+            key_mode = KEY_CTRL;
+            main_screen_handle_keydown(ms, my);
+        } else if (strcmp(key, "kUP5") == 0) {
+            key_mode = KEY_CTRL;
+            main_screen_handle_keyup(ms, my);
+        }
         ungetch(c);
         screen_get_input(s);
         break;
+    }
     }
     key_mode = KEY_NORMAL;
 }
@@ -1384,7 +1420,7 @@ void add_elements(main_screen *ms, struct packet *p)
         pinfo = get_protocol(pdata->id);
         idx += pdata->len;
         if (pinfo && i < NUM_LAYERS) {
-            if (pdata && pdata->data) {
+            if (pdata->data) {
                 header = LV_ADD_HEADER(ms->lvw, pinfo->long_name, selected[i], i);
                 if (pdata->error)
                     LV_ADD_TEXT_ATTR(ms->lvw, header, get_theme_colour(ERR_BKGD),

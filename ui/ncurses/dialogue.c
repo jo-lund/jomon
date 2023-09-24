@@ -61,7 +61,7 @@ dialogue *dialogue_create(char *title)
 {
     int my, mx;
     static screen_operations op;
-    dialogue *d = malloc(sizeof(dialogue));
+    dialogue *d = xmalloc(sizeof(dialogue));
 
     op = SCREEN_OPS(.screen_free = dialogue_free);
     d->screen_base.op = &op;
@@ -127,7 +127,7 @@ label_dialogue *label_dialogue_create(char *title, char *label, button_action ac
     static screen_operations op;
 
     getmaxyx(stdscr, my, mx);
-    ld = malloc(sizeof(label_dialogue));
+    ld = xmalloc(sizeof(label_dialogue));
     op = SCREEN_OPS(.screen_free = label_dialogue_free,
                     .screen_get_input = label_dialogue_get_input);
     ld->dialogue_base.screen_base.op = &op;
@@ -281,7 +281,7 @@ decision_dialogue *decision_dialogue_create(char *title, char *label, button_act
     int width;
 
     getmaxyx(stdscr, my, mx);
-    dd = malloc(sizeof(decision_dialogue));
+    dd = xmalloc(sizeof(decision_dialogue));
     op = SCREEN_OPS(.screen_free = decision_dialogue_free,
                     .screen_get_input = decision_dialogue_get_input);
     dd->dialogue_base.screen_base.op = &op;
@@ -315,7 +315,7 @@ file_dialogue *file_dialogue_create(char *title, enum file_selection_type type,
     screen *s;
 
     getmaxyx(stdscr, my, mx);
-    fd = malloc(sizeof(file_dialogue));
+    fd = xmalloc(sizeof(file_dialogue));
     op = SCREEN_OPS(.screen_free = file_dialogue_free,
                     .screen_get_input = file_dialogue_get_input);
     s = (screen *) fd;
@@ -425,9 +425,9 @@ static void file_dialogue_populate(file_dialogue *this, char *path)
                 strcmp(ent->d_name, "..") != 0) {
                 continue;
             }
-            info = malloc(sizeof(struct file_info));
-            info->name = strdup(ent->d_name);
-            buf = malloc(sizeof(struct stat));
+            info = xmalloc(sizeof(struct file_info));
+            info->name = xstrdup(ent->d_name);
+            buf = xmalloc(sizeof(struct stat));
             snprintf(filepath, MAXPATH, "%s/%s", path, info->name);
             lstat(filepath, buf);
             info->stat = buf;
@@ -803,7 +803,7 @@ progress_dialogue *progress_dialogue_create(char *title, int size)
     static screen_operations op;
 
     getmaxyx(stdscr, my, mx);
-    pd = malloc(sizeof(progress_dialogue));
+    pd = xmalloc(sizeof(progress_dialogue));
     op = SCREEN_OPS(.screen_free = progress_dialogue_free);
     pd->dialogue_base.screen_base.op = &op;
     dialogue_init((dialogue *) pd, title, my / 5, mx / 6);

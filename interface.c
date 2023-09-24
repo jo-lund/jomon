@@ -19,6 +19,7 @@
 #include <net/ethernet.h>
 #include "interface.h"
 #include "error.h"
+#include "wrapper.h"
 
 #define MAX_NUM_INTERFACES 16
 
@@ -215,9 +216,7 @@ char *get_default_interface(void)
     lastlen = 0;
     len = 10 * sizeof(struct ifreq); /* initial guess of buffer size (10 interfaces) */
     while (1) {
-        if ((buffer = malloc(len)) == NULL) {
-            err_sys("Unable to allocate %d bytes\n", 0);
-        }
+        buffer = xmalloc(len);
         ifc.ifc_len = len;
         ifc.ifc_buf = buffer;
 
@@ -265,8 +264,8 @@ char *get_active_interface(int fd, char *buffer, int len)
             if (ifr->ifr_flags & IFF_UP && ifr->ifr_flags & IFF_RUNNING) {
                 size_t namelen = strlen(ifr->ifr_name);
 
-                device = malloc(namelen + 1);
-                strcpy(device, ifr->ifr_name);
+                device = xmalloc(namelen + 1);
+                memcpy(device, ifr->ifr_name, namelen);
                 device[namelen] = '\0';
                 return device;
             }

@@ -69,17 +69,22 @@ static int map_linktype(unsigned int type)
     }
 }
 
-static unsigned int get_linktype(char *dev)
+static int get_linktype(char *dev)
 {
     struct ifreq ifr;
     int sockfd;
+    int ret = -1;
 
     strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
-        return -1;
+        return ret;
     if (ioctl(sockfd, SIOCGIFHWADDR, &ifr) == -1)
-        return -1;
-    return ifr.ifr_hwaddr.sa_family;
+        goto done;
+    ret = ifr.ifr_hwaddr.sa_family;
+
+done:
+    close(sockfd);
+    return ret;
 }
 
 static bool setup_packet_mmap(iface_handle_t *handle)
@@ -90,7 +95,7 @@ static bool setup_packet_mmap(iface_handle_t *handle)
     struct tpacket_req3 req;
     struct handle_linux *h;
 
-    handle->data = calloc(1, sizeof(struct handle_linux));
+    handle->data = xcalloc(1, sizeof(struct handle_linux));
     h = handle->data;
     req.tp_frame_size = FRAMESIZE;
     if (ctx.opt.buffer_size == 0)
@@ -124,7 +129,7 @@ static bool setup_packet_mmap(iface_handle_t *handle)
     if ((handle->buf = mmap(NULL, req.tp_block_size * req.tp_block_nr, PROT_READ | PROT_WRITE,
                             MAP_SHARED, handle->fd, 0)) == MAP_FAILED)
         return false;
-    iov = malloc(req.tp_block_nr * sizeof(*iov));
+    iov = xmalloc(req.tp_block_nr * sizeof(*iov));
     for (unsigned int i = 0; i < req.tp_block_nr; i++) {
         iov[i].iov_base = handle->buf + (i * req.tp_block_size);
         iov[i].iov_len = req.tp_block_size;
@@ -135,7 +140,7 @@ static bool setup_packet_mmap(iface_handle_t *handle)
 
 iface_handle_t *iface_handle_create(unsigned char *buf, size_t len, packet_handler fn)
 {
-    iface_handle_t *handle = calloc(1, sizeof(iface_handle_t));
+    iface_handle_t *handle = xcalloc(1, sizeof(iface_handle_t));
 
     handle->fd = -1;
     handle->op = &linux_op;
@@ -276,6 +281,7 @@ void linux_set_promiscuous(iface_handle_t *handle UNUSED, char *dev, bool enable
         ifr.ifr_flags &= ~IFF_PROMISC;
     if (ioctl(sockfd, SIOCSIFFLAGS, &ifr))
         err_sys("ioctl error");
+    close(sockfd);
 }
 
 void get_local_mac(char *dev, unsigned char *mac)

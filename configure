@@ -15,10 +15,11 @@ BUILD=".build_$$"
 PREFIX="/usr/local"
 HAVE_GEOIP=1
 HAVE_OBSTACK=1
-VERSION="0.2.0"
+VERSION=$(git describe --abbrev=0)
+VERSION=${VERSION:1}
 INDENT=40
-ok="${GREEN}OK$NORMAL"
-fail="${RED}FAIL$NORMAL"
+OK="${GREEN}OK$NORMAL"
+FAIL="${RED}FAIL$NORMAL"
 
 usage()
 {
@@ -41,7 +42,7 @@ check_gcc()
     $CC "$BUILD.c" -o "$BUILD" &> /dev/null
 
     if [ ! -x "$BUILD" ]; then
-        printf "[$fail]\n\n"
+        printf "[$FAIL]\n\n"
         if [[ $CC == "gcc" || $CC == "clang" ]]; then
             printf "You need a functioning install of $CC. "
             printf "This can be installed with \"pacman -S $CC\" or equivalent "
@@ -52,7 +53,7 @@ check_gcc()
     fi
 
     rm -f "$BUILD.c" "$BUILD"
-    printf "[$ok]\n"
+    printf "[$OK]\n"
 }
 
 check_ncurses()
@@ -63,7 +64,7 @@ check_ncurses()
     $CC "$BUILD.c" -o "$BUILD" -lncurses &> /dev/null
 
     if [ ! -x "$BUILD" ]; then
-        printf "[$fail]\n\n"
+        printf "[$FAIL]\n\n"
         printf "You need a functioning install of libncurses. "
         printf "This can be installed with \"pacman -S ncurses\" or equivalent "
         printf "command for your distribution.\n"
@@ -72,7 +73,7 @@ check_ncurses()
     fi
 
     rm -f "$BUILD.c" "$BUILD"
-    printf "[$ok]\n"
+    printf "[$OK]\n"
 }
 
 check_geoip()
@@ -90,7 +91,7 @@ EOF
     $CC "$BUILD.c" -o "$BUILD" -lGeoIP  &> /dev/null
 
     if [ ! -x "$BUILD" ]; then
-        printf "[$fail]\n\n"
+        printf "[$FAIL]\n\n"
         printf "You need a functioning install of libGeoIP. "
         printf "This can be installed with \"pacman -S geoip geoip-database "
         printf "geoip-database-extra\" or equivalent command for your distribution.\n"
@@ -99,7 +100,7 @@ EOF
     fi
 
     rm -f "$BUILD.c" "$BUILD"
-    printf "[$ok]\n"
+    printf "[$OK]\n"
 }
 
 check_re2c()
@@ -108,13 +109,26 @@ check_re2c()
 
     command -v re2c >/dev/null ||
         {
-            printf "[$fail]\n\n"
+            printf "[$FAIL]\n\n"
             printf "re2c needs to be installed. This can be installed with ";
             printf "\"pacman -S re2c\" or equivalent command for your distribution.\n";
             exit 1;
         }
-    printf "[$ok]\n"
- }
+    printf "[$OK]\n"
+}
+
+check_python3()
+{
+    printf "[*] %-*s" "$INDENT" "Checking for python3... "
+    command -v python3 >/dev/null ||
+        {
+            printf "[$FAIL]\n\n"
+            printf "python3 needs to be installed. This can be installed with ";
+            printf "\"pacman -S python\" or equivalent command for your distribution.\n";
+            exit 1;
+        }
+    printf "[$OK]\n"
+}
 
 check_missing()
 {
@@ -139,6 +153,7 @@ generate_config()
     echo >> config.mk
     echo "CC=$CC" >> config.mk
     echo "HAVE_GEOIP=$HAVE_GEOIP" >> config.mk
+    echo "#define HAVE_GEOIP $HAVE_GEOIP" >> config.h
     if [[ "$HAVE_GEOIP" == 1 ]]; then
         echo "#define GEOIP_PATH \"$GEOIP_PATH/$GEOIP_DB\"" >> config.h
     fi
@@ -179,5 +194,6 @@ if [[ "$HAVE_GEOIP" == 1 ]]; then
     check_geoip
 fi
 check_re2c
+check_python3
 check_missing
 generate_config

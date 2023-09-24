@@ -50,6 +50,7 @@ typedef struct {
         bool no_domain;
         int dmode;
         int buffer_size;
+        bool show_count;
     } opt;
     struct sockaddr_in *local_addr;
     unsigned char mac[ETHER_ADDR_LEN];
@@ -57,12 +58,13 @@ typedef struct {
     char *filter_file;
     iface_handle_t *handle;
     bool pcap_saved;
+    uint32_t packet_count;
 } main_context;
 
 extern main_context ctx;
 
-void finish(int status) NORETURN;
-void stop_scan(void);
-void start_scan(void);
+void monitor_exit(int status) NORETURN;
+void stop_capture(void);
+void start_capture(void);
 
 #endif

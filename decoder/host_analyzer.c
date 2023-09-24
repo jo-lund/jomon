@@ -166,7 +166,7 @@ static void handle_ip4(struct packet *p)
     struct packet_data *pdata;
 
     pdata = get_packet_data(p, get_protocol_id(ETHERNET_II, ETHERTYPE_IP));
-    if (pdata->error)
+    if (pdata && pdata->error)
         return;
     if (!filter_address(ipv4_src(p)))
         insert_host(ipv4_src(p), eth_src(p));

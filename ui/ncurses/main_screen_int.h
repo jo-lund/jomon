@@ -31,6 +31,6 @@ void main_screen_scroll_column(main_screen *ms, int scrollx);
 void main_screen_goto_line(main_screen *ms, int c);
 void main_screen_goto_end(main_screen *ms);
 void main_screen_goto_home(main_screen *ms);
-
+void main_screen_update_window(main_screen *ms, char *buf);
 
 #endif

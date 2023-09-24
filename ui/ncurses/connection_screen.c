@@ -47,7 +47,7 @@ enum page {
 };
 
 struct cs_entry {
-    uint32_t val;
+    uint64_t val;
     union {
         char buf[MAX_WIDTH];
         char *str;
@@ -116,15 +116,13 @@ static int calculate_data(struct tcp_connection_v4 *conn, int d)
 
     if ((entry = hashmap_get(connection_data, conn)) == NULL) {
         struct packet *p;
-        const node_t *n = list_begin(conn->packets);
 
         entry = calloc(NUM_VALS, sizeof(*entry));
         entry[ADDRA] = conn->endp->src;
         entry[PORTA] = conn->endp->sport;
         entry[ADDRB] = conn->endp->dst;
         entry[PORTB] = conn->endp->dport;
-        while (n) {
-            p = list_data(n);
+        QUEUE_FOR_EACH(&conn->packets, p, link) {
             if (entry[ADDRA] == ipv4_src(p) && entry[PORTA] == tcp_member(p, sport)) {
                 entry[BYTES_AB] += p->len;
                 entry[PACKETS_AB]++;
@@ -134,7 +132,6 @@ static int calculate_data(struct tcp_connection_v4 *conn, int d)
                 entry[PACKETS_BA]++;
             }
             entry[BYTES] += p->len;
-            n = list_next(n);
         }
         hashmap_insert(connection_data, conn, entry);
     }
@@ -159,7 +156,7 @@ static int calculate_proc(struct process *proc, int d)
     uint32_t entry[NUM_VALS];
     struct packet *p;
     uint32_t nconn = 0;
-    const node_t *n, *m;
+    const node_t *n;
     struct tcp_connection_v4 *conn;
 
     memset(entry, 0, sizeof(entry));
@@ -172,8 +169,7 @@ static int calculate_proc(struct process *proc, int d)
         entry[PORTA] = conn->endp->sport;
         entry[ADDRB] = conn->endp->dst;
         entry[PORTB] = conn->endp->dport;
-        DLIST_FOREACH(conn->packets, m) {
-            p = list_data(m);
+        QUEUE_FOR_EACH(&conn->packets, p, link) {
             if (entry[ADDRA] == ipv4_src(p) && entry[PORTA] == tcp_member(p, sport)) {
                 entry[BYTES_AB] += p->len;
             } else if (entry[ADDRB] == ipv4_src(p) &&
@@ -251,9 +247,8 @@ static int cmp_conn(const void *p1, const void *p2, void *arg)
         return (conn_header[pos].order == HDR_INCREASING) ? c1->state - c2->state
             : c2->state - c1->state;
     case PACKETS:
-        return (conn_header[pos].order == HDR_INCREASING) ?
-            list_size(c1->packets) - list_size(c2->packets)
-            : list_size(c2->packets) - list_size(c1->packets);
+        return (conn_header[pos].order == HDR_INCREASING) ? c1->size - c2->size
+            : c2->size - c1->size;
     case BYTES:
     case PACKETS_AB:
     case BYTES_AB:
@@ -339,7 +334,7 @@ static void print_process(connection_screen *cs, struct process *proc, int y)
 {
     char name[MAXPATH];
     int x = 0;
-    const node_t *n, *m;
+    const node_t *n;
     struct cs_entry entry[NUM_VALS];
     struct tcp_connection_v4 *conn;
     struct packet *p;
@@ -365,12 +360,18 @@ static void print_process(connection_screen *cs, struct process *proc, int y)
     DLIST_FOREACH(proc->conn, n) {
         nconn++;
         conn = list_data(n);
-        entry[ADDRA].val = conn->endp->src;
-        entry[PORTA].val = conn->endp->sport;
-        entry[ADDRB].val = conn->endp->dst;
-        entry[PORTB].val = conn->endp->dport;
-        DLIST_FOREACH(conn->packets, m) {
-            p = list_data(m);
+        if (conn->endp->src == ctx.local_addr->sin_addr.s_addr) {
+            entry[ADDRA].val = conn->endp->src;
+            entry[PORTA].val = conn->endp->sport;
+            entry[ADDRB].val = conn->endp->dst;
+            entry[PORTB].val = conn->endp->dport;
+        } else {
+            entry[ADDRA].val = conn->endp->dst;
+            entry[PORTA].val = conn->endp->dport;
+            entry[ADDRB].val = conn->endp->src;
+            entry[PORTB].val = conn->endp->sport;
+        }
+        QUEUE_FOR_EACH(&conn->packets, p, link) {
             if (entry[ADDRA].val == ipv4_src(p) && entry[PORTA].val == tcp_member(p, sport)) {
                 entry[BYTES_AB].val += p->len;
                 entry[PACKETS_AB].val++;
@@ -392,7 +393,6 @@ static void print_process(connection_screen *cs, struct process *proc, int y)
 
 static void print_connection(connection_screen *cs, struct tcp_connection_v4 *conn, int y)
 {
-    const node_t *n = list_begin(conn->packets);
     struct packet *p;
     char *state;
     int x = 0;
@@ -411,8 +411,7 @@ static void print_connection(connection_screen *cs, struct tcp_connection_v4 *co
         for (int i = BYTES; i < PROCESS; i++)
             entry[i].val = val[i];
     } else {
-        while (n) {
-            p = list_data(n);
+        QUEUE_FOR_EACH(&conn->packets, p, link) {
             if (entry[ADDRA].val == ipv4_src(p) && entry[PORTA].val == tcp_member(p, sport)) {
                 entry[BYTES_AB].val += p->len;
                 entry[PACKETS_AB].val++;
@@ -422,12 +421,11 @@ static void print_connection(connection_screen *cs, struct tcp_connection_v4 *co
                 entry[PACKETS_BA].val++;
             }
             entry[BYTES].val += p->len;
-            n = list_next(n);
         }
     }
     state = tcp_analyzer_get_connection_state(conn->state);
     strncpy(entry[STATE].buf, state, MAX_WIDTH - 1);
-    entry[PACKETS].val = list_size(conn->packets);
+    entry[PACKETS].val = conn->size;
     format_bytes(entry[BYTES].val, entry[BYTES].buf, MAX_WIDTH);
     format_bytes(entry[BYTES_AB].val, entry[BYTES_AB].buf, MAX_WIDTH);
     format_bytes(entry[BYTES_BA].val, entry[BYTES_BA].buf, MAX_WIDTH);
@@ -445,8 +443,9 @@ static void print_connection(connection_screen *cs, struct tcp_connection_v4 *co
                     mvprintnlw(cs->base.win, y, x, 0, "%s", entry[i].str);
                     wattroff(cs->base.win, attrs);
                 }
-            } else
-                mvprintat(cs->base.win, y, x, attrs, "%d", entry[i].val);
+            } else {
+                mvprintat(cs->base.win, y, x, attrs, "%lu", entry[i].val);
+            }
         }
         x += conn_header[i].width;
     }
@@ -513,7 +512,7 @@ connection_screen *connection_screen_create(void)
 {
     connection_screen *cs;
 
-    cs = malloc(sizeof(connection_screen));
+    cs = xmalloc(sizeof(connection_screen));
     cs->base.op = &csop;
     connection_screen_init((screen *) cs);
     return cs;

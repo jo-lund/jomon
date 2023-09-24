@@ -179,7 +179,7 @@ static bool make_stm(uint16_t opcode, uint8_t jt, uint8_t jf, uint32_t k)
         error("Program exceeds max number of instructions: %u", BPF_MAXINSN);
         return false;
     }
-    struct bpf_insn *insn = malloc(sizeof(struct bpf_insn));
+    struct bpf_insn *insn = xmalloc(sizeof(struct bpf_insn));
 
     insn->code = opcode;
     insn->jt = jt;
@@ -387,7 +387,7 @@ static bool parse_label(void)
         error("Multiple defined label: %s", parser.val.str);
         return false;
     }
-    sym = malloc(sizeof(*sym));
+    sym = xmalloc(sizeof(*sym));
     sym->name = parser.val.str;
     sym->value = parser.line - 1;
     hashmap_insert(symbol_table, sym->name, sym);
@@ -555,7 +555,7 @@ struct bpf_prog bpf_assemble(char *file)
         goto done;
     }
     int sz = vector_size(bytecode);
-    struct bpf_insn *bc = malloc(sz * sizeof(struct bpf_insn));
+    struct bpf_insn *bc = xmalloc(sz * sizeof(struct bpf_insn));
 
     for (int i = 0; i < sz; i++)
         bc[i] = * (struct bpf_insn *) vector_get(bytecode, i);

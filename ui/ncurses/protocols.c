@@ -549,8 +549,10 @@ void add_icmp6_information(void *w, void *sw, void *data)
         LV_ADD_TEXT_ELEMENT(lw, header, "Checksum: 0x%x", icmp6->checksum);
         LV_ADD_TEXT_ELEMENT(lw, header, "Identifier: 0x%x", icmp6->echo.id);
         LV_ADD_TEXT_ELEMENT(lw, header, "Sequence number: %d", icmp6->echo.seq);
-        for (unsigned int i = 0; i < icmp6->echo.len; i++)
-            snprintf(buf + 2 * i, 1024 - 2 * i, "%02x", icmp6->echo.data[i]);
+        if (icmp6->echo.data) {
+            for (unsigned int i = 0; i < icmp6->echo.len; i++)
+                snprintf(buf + 2 * i, 1024 - 2 * i, "%02x", icmp6->echo.data[i]);
+        }
         break;
     case ND_ROUTER_SOLICIT:
         LV_ADD_TEXT_ELEMENT(lw, header, "Code: %d", icmp6->code);
@@ -1733,7 +1735,7 @@ void add_smtp_information(void *w, void *sw, void *data)
     struct smtp_info *smtp = pdata->data;
 
     if (smtp->data) {
-        char *buf = malloc(smtp->len + 1);
+        char *buf = xmalloc(smtp->len + 1);
         unsigned int c = 0;
 
         for (unsigned int i = 0; i < smtp->len; i++) {
@@ -2085,7 +2087,7 @@ static void add_tls_extensions(list_view *lw, list_view_header *header,
                                     "Extension: Cookie");
             LV_ADD_TEXT_ELEMENT(lw, sub, "Length: %u", ext->length);
             if (ext->length > 0) {
-                char *buf = malloc(ext->length * 2);
+                char *buf = xmalloc(ext->length * 2);
 
                 for (int i = 0; i < ext->length; i++)
                     snprintf(buf + 2 * i, 3, "%02x", ext->data[i]);
@@ -2111,12 +2113,16 @@ static void add_tls_client_hello(list_view *lw, list_view_header *hdr, struct tl
     for (int i = 0; i < 32; i++)
         snprintf(buf + 2 * i, 3, "%02x", hello->random_bytes[i]);
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Random bytes: %s", buf);
+    if (!hello->session_id)
+        return;
     for (int i = 0; i < hello->session_length; i++)
         snprintf(buf + 2 * i, 3, "%02x", hello->session_id[i]);
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Session id length: %d", hello->session_length);
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Session id: %s", buf);
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Cipher suite length: %d", hello->cipher_length);
     sub = LV_ADD_SUB_HEADER(lw, hdr, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Ciper Suites");
+    if (!hello->cipher_suites)
+        return;
     for (int i = 0; i < hello->cipher_length / 2; i++) {
         LV_ADD_TEXT_ELEMENT(lw, sub, "%s (0x%04x)",
                             get_tls_cipher_suite(ntohs(hello->cipher_suites[i])),
@@ -2138,6 +2144,8 @@ static void add_tls_server_hello(list_view *lw, list_view_header *hdr, struct tl
     for (int i = 0; i < 32; i++)
         snprintf(buf + 2 * i, 3, "%02x", hello->random_bytes[i]);
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Random bytes: %s", buf);
+    if (!hello->session_id)
+        return;
     for (int i = 0; i < hello->session_length; i++)
         snprintf(buf + 2 * i, 3, "%02x", hello->session_id[i]);
     LV_ADD_TEXT_ELEMENT(lw, hdr, "Session id length: %d", hello->session_length);
@@ -2162,10 +2170,12 @@ static void add_tls_handshake(list_view *lw, list_view_header *header,
                             handshake->length[1] << 8 | handshake->length[2]);
         switch (handshake->type) {
         case TLS_CLIENT_HELLO:
-            add_tls_client_hello(lw, hdr, handshake);
+            if (handshake->client_hello)
+                add_tls_client_hello(lw, hdr, handshake);
             break;
         case TLS_SERVER_HELLO:
-            add_tls_server_hello(lw, hdr, handshake);
+            if (handshake->server_hello)
+                add_tls_server_hello(lw, hdr, handshake);
             break;
         default:
             break;

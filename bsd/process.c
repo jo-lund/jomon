@@ -43,7 +43,7 @@ static char *get_name(int pid)
     if (sysctl(mib, ARRAY_SIZE(mib), &proc, &len, NULL, 0) == -1)
         return NULL;
     if ((name = hashmap_get_key(string_table, proc.ki_comm)) == NULL) {
-        name = strdup(proc.ki_comm);
+        name = xstrdup(proc.ki_comm);
         hashmap_insert(string_table, name, NULL);
     }
     return name;
@@ -56,12 +56,12 @@ static void get_tcp(void)
     struct xtcpcb *xtcp, *extcp;
     struct xinpcb *xin;
 
-    buf = malloc(size);
+    buf = xmalloc(size);
     while (sysctlbyname("net.inet.tcp.pcblist", buf, &size, NULL, 0) == -1) {
         if (errno != ENOMEM)
             return;
         size *= 2;
-        buf = realloc(buf, size);
+        buf = xrealloc(buf, size);
     }
     xtcp = buf;
     extcp = (struct xtcpcb *) ((char *) buf + size - sizeof(*extcp));
@@ -84,7 +84,7 @@ static void get_tcp(void)
             endp.dst = in->ie_faddr.s_addr;
             if (hashmap_contains(tcp_cache, &endp))
                 hashmap_remove(tcp_cache, &endp);
-            tcp = malloc(sizeof(*tcp));
+            tcp = xmalloc(sizeof(*tcp));
             tcp->laddr = endp.src;
             tcp->lport = endp.sport;
             tcp->raddr = endp.dst;
@@ -147,14 +147,14 @@ void process_load_cache(void)
     struct process *pinfo;
 
     len = sizeof(*xf);
-    xf = malloc(len);
+    xf = xmalloc(len);
 
     /* get the entire file table */
     while (sysctlbyname("kern.file", xf, &len, 0, 0) == -1) {
         if (errno != ENOMEM)
             return;
         len *= 2;
-        xf = realloc(xf, len);
+        xf = xrealloc(xf, len);
     }
     nfiles = len / sizeof(*xf);
     for (i = 0, p = xf; i < nfiles; i++, p++) {
@@ -163,12 +163,12 @@ void process_load_cache(void)
             struct passwd *pw;
             char *user;
 
-            pinfo = malloc(sizeof(*pinfo));
+            pinfo = xmalloc(sizeof(*pinfo));
             pinfo->pid = p->xf_pid;
             pinfo->name = get_name(pinfo->pid);
             if ((pw = getpwuid(p->xf_uid))) {
                 if ((user = hashmap_get_key(string_table, pw->pw_name)) == NULL) {
-                    user = strdup(pw->pw_name);
+                    user = xstrdup(pw->pw_name);
                     hashmap_insert(string_table, user, NULL);
                 }
                 pinfo->user = user;

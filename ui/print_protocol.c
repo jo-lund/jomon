@@ -59,7 +59,7 @@ static void print_unknown(char *buf, int size, struct packet *p)
                ethertype(p));
 }
 
-void write_to_buf(char *buf, int size, struct packet *p)
+void write_to_buf(char *buf, size_t size, struct packet *p)
 {
     struct protocol_info *pinfo = NULL;
 
@@ -240,10 +240,15 @@ void print_snap(char *buf, int n, void *data)
 {
     struct packet_data *pdata = data;
     struct snap_info *snap = pdata->data;
+    struct protocol_info *pinfo;
 
-    PRINT_PROTOCOL(buf, n, "SNAP");
-    PRINT_INFO(buf, n, "OUI: 0x%06x  Protocol Id: 0x%04x",
-               snap->oui[0] << 16 | snap->oui[1] << 8 | snap->oui[2], snap->protocol_id);
+    if (pdata->next && pdata->next->data && (pinfo = get_protocol(pdata->next->id))) {
+        pinfo->print_pdu(buf, n, pdata->next);
+    } else {
+        PRINT_PROTOCOL(buf, n, "SNAP");
+        PRINT_INFO(buf, n, "OUI: 0x%06x  Protocol Id: 0x%04x",
+                   snap->oui[0] << 16 | snap->oui[1] << 8 | snap->oui[2], snap->protocol_id);
+    }
 }
 
 /*
@@ -825,7 +830,7 @@ void print_vrrp(char *buf, int n, void *data)
     struct vrrp_info *vrrp;
     char *type;
 
-    vrrp = get_data_member(struct vrrp_info, data);
+    vrrp = ((struct packet_data *) data)->data;
     PRINT_PROTOCOL(buf, n, "VRRP");
     if ((type = get_vrrp_type(vrrp->type))) {
         if (vrrp->version < 3)

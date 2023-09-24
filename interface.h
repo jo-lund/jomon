@@ -8,6 +8,7 @@
 #include "bpf/bpf.h"
 
 #define LINKTYPE_ETHERNET 1
+#define LINKTYPE_IEEE802 6   /* IEEE 802.2 Ethernet/Token Ring/Token Bus */
 
 struct timeval;
 struct iface_handle;

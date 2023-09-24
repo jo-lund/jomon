@@ -20,7 +20,6 @@ sources = $(filter-out geoip.c,$(wildcard *.c decoder/*.c ui/*.c ui/ncurses/*.c)
 ifeq ($(HAVE_GEOIP),1)
     LIBS += -lGeoIP
     sources += geoip.c
-    CPPFLAGS += -DHAVE_GEOIP
 endif
 ifeq ($(HAVE_OBSTACK),1)
     CPPFLAGS += -DHAVE_OBSTACK
@@ -31,6 +30,7 @@ ifeq ($(MACHINE),Linux)
     sources += $(wildcard linux/*.c)
 else
 ifeq ($(MACHINE),FreeBSD)
+    LIBS += -lrt
     sources += $(wildcard bsd/*.c)
 endif
 endif
@@ -53,7 +53,9 @@ test-objs += $(bpf-objs) \
 	$(BUILDDIR)/util.o \
 	$(BUILDDIR/stack.o) \
 	$(BUILDDIR)/string.o \
-	$(BUILDDIR)/rbtree.o
+	$(BUILDDIR)/rbtree.o \
+	$(BUILDDIR)/error.o
+
 
 .PHONY : all
 all : release
@@ -67,7 +69,7 @@ debug : $(TARGETDIR)/monitor
 release : CFLAGS += -O2
 release : $(TARGETDIR)/monitor
 
-$(TARGETDIR)/monitor : $(objects)
+$(TARGETDIR)/monitor : decoder/register.h decoder/decoder.h $(objects)
 	@mkdir -p $(TARGETDIR)
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $(objects) $(LIBS)
 
@@ -76,6 +78,9 @@ bpf/bpf_lexer.c : bpf/bpf_lexer.re
 
 bpf/pcap_lexer.c : bpf/pcap_lexer.re
 	re2c -T -W $< -o $@
+
+decoder/decoder.h decoder/register.h :
+	python3 scripts/genprotocols.py
 
 # Compile and generate dependency files
 $(BUILDDIR)/%.o : %.c
@@ -100,7 +105,7 @@ clean :
 	@rm -rf bin
 	@rm -rf build
 	@rm -f $(test-objs) $(TESTDIR)/test
-	@rm -f bpf/bpf_lexer.c bpf/pcap_lexer.c
+	@rm -f bpf/bpf_lexer.c bpf/pcap_lexer.c decoder/register.h decoder/decoder.h
 
 .PHONY : distclean
 distclean : clean
@@ -116,7 +121,7 @@ tags :
 	@echo "Generating tags..."
 	@find . -name "*.h" -o -name "*.c" | etags -
 
-test : CFLAGS += -Os
+test : CFLAGS += -O2
 test : $(TESTDIR)/test
 	@$<
 

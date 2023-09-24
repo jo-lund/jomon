@@ -62,7 +62,7 @@ rbtree_t *rbtree_init(rbtree_compare fn, allocator_t *allocator)
         tree->allocator.alloc = allocator->alloc;
         tree->allocator.dealloc = allocator->dealloc;
     } else {
-        tree = calloc(1, sizeof(struct rbtree));
+        tree = xcalloc(1, sizeof(struct rbtree));
         allocator_init(&tree->allocator);
     }
     tree->nil = tree->allocator.alloc(sizeof(struct rbtree_node));

@@ -13,7 +13,5 @@ struct snap_info {
 uint32_t get_snap_oui(struct packet *p);
 uint16_t get_snap_id(struct packet *p);
 void register_snap(void);
-packet_error handle_snap(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                         struct packet_data *pdata);
 
 #endif

@@ -101,14 +101,14 @@ static void handle_header_focus(screen *s, int key)
 
 static void handle_warning(void *arg)
 {
-    finish(PTR_TO_UINT(arg));
+    monitor_exit(PTR_TO_UINT(arg));
 }
 
 screen *screen_create(screen_operations *defop)
 {
     screen *s;
 
-    s = malloc(sizeof(screen));
+    s = xmalloc(sizeof(screen));
     s->op = defop;
     SCREEN_INIT(s);
     return s;
@@ -222,7 +222,7 @@ void screen_get_input(screen *s)
             create_warning_dialogue("Packet capture not saved. Do you really want to quit?",
                                     handle_warning, UINT_TO_PTR(0), NULL, NULL);
         else
-            finish(0);
+            monitor_exit(0);
         break;
     case KEY_UP:
         handle_keyup(s);

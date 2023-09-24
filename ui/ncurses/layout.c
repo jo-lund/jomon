@@ -188,17 +188,17 @@ static void ncurses_event(int event)
 {
     switch (event) {
     case UI_NEW_DATA:
-        main_screen_print_packet((main_screen *) screen_cache[MAIN_SCREEN],
-                                 vector_back(packets));
-        break;
-    case UI_ALARM:
-        publish0(alarm_publisher);
+        main_screen_update((main_screen *) screen_cache[MAIN_SCREEN],
+                           vector_back(packets));
         break;
     case UI_RESIZE:
         layout_resize();
         break;
     case UI_INPUT:
         SCREEN_GET_INPUT((screen *) stack_top(screen_stack));
+        break;
+    case UI_ALARM:
+        publish0(alarm_publisher);
         break;
     default:
         break;
@@ -217,7 +217,7 @@ static void ncurses_end(void)
 
 container *create_container(void)
 {
-    container *c = malloc(sizeof(container));
+    container *c = xmalloc(sizeof(container));
 
     c->focus = false;
     c->win = NULL;
