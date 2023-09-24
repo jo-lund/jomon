@@ -95,7 +95,7 @@ static screen_operations msop = {
 };
 
 static screen_header main_header[] = {
-    { "Number", NUM_WIDTH, HDR_INCREASING },
+    { "Number", NUM_WIDTH, -1 },
     { "Time", TIME_WIDTH, -1},
     { "Source", ADDR_WIDTH, -1 },
     { "Destination", ADDR_WIDTH, -1 },
