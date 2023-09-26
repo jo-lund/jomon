@@ -48,12 +48,14 @@ packet_error handle_snap(struct protocol_info *pinfo, unsigned char *buffer, int
         layer = ETHERNET_II;
     else if (snap->oui[0] == 0 && snap->oui[1] == 0 && snap->oui[2] == 0xc)
         layer = ETH802_3;
-    id = get_protocol_id(layer, snap->protocol_id);
-    if ((psub = get_protocol(id))) {
-        pdata->next = mempool_calloc(1, struct packet_data);
-        pdata->next->prev = pdata;
-        pdata->next->id = id;
-        psub->decode(psub, buffer, n - SNAP_HDR_LEN, pdata->next);
+    if (layer > 0) {
+        id = get_protocol_id(layer, snap->protocol_id);
+        if ((psub = get_protocol(id))) {
+            pdata->next = mempool_calloc(1, struct packet_data);
+            pdata->next->prev = pdata;
+            pdata->next->id = id;
+            psub->decode(psub, buffer, n - SNAP_HDR_LEN, pdata->next);
+        }
     }
     return NO_ERR;
 }
