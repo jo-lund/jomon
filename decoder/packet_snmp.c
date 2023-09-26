@@ -28,7 +28,7 @@
 typedef struct {
     uint32_t plen;
     union {
-        uint32_t ival;
+        int64_t ival;
         char *pval;
     };
 } snmp_value;

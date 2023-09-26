@@ -47,7 +47,7 @@ struct snmp_varbind {
     uint8_t type;
     uint32_t plen;
     union {
-        int32_t ival;
+        int64_t ival;
         char *pval;
     } object_syntax;
 };

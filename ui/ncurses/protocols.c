@@ -1592,10 +1592,10 @@ static void add_snmp_variables(list_view *lw, list_view_header *header, list_t *
 
         switch (var->type) {
         case SNMP_INTEGER_TAG:
-            hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER2], UI_SUBLAYER2, "%s: %d",
+            hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER2], UI_SUBLAYER2, "%s: %ld",
                                  var->object_name, var->object_syntax.ival);
             LV_ADD_TEXT_ELEMENT(lw, hdr, "Object name: %s", var->object_name);
-            LV_ADD_TEXT_ELEMENT(lw, hdr, "Value: %d", var->object_syntax.ival);
+            LV_ADD_TEXT_ELEMENT(lw, hdr, "Value: %ld", var->object_syntax.ival);
             break;
         case SNMP_NULL_TAG:
             hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER2], UI_SUBLAYER2, "%s: null",
