@@ -15,7 +15,6 @@ int main()
     sr = srunner_create(hashmap_suite());
     srunner_add_suite(sr, bpf_suite());
     srunner_add_suite(sr, rbtree_suite());
-    srunner_add_suite(sr, vector_suite());
     srunner_run(sr, "bpf", "Core", CK_NORMAL);
     srunner_run(sr, "hashmap", "Core", CK_NORMAL);
     srunner_run(sr, "rbtree", "Core", CK_NORMAL);

@@ -4,13 +4,23 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <stdio.h>
-#include "../bpf/bpf.h"
-#include "../bpf/bpf_parser.h"
-#include "../bpf/pcap_parser.h"
-#include "../mempool.h"
-#include "../misc.h"
+#include "bpf/bpf.h"
+#include "bpf/bpf_parser.h"
+#include "bpf/pcap_parser.h"
+#include "misc.h"
+#include "mempool.h"
 
 #define PATH "tests/bpf/"
+
+static void setup(void)
+{
+    mempool_init();
+}
+
+static void teardown(void)
+{
+    mempool_destruct();
+}
 
 START_TEST(filter_test)
 {
@@ -65,19 +75,19 @@ START_TEST(overflow)
     bpf = pcap_compile(FILTER_2);
     ck_assert_msg(bpf.size == 0, "Error: No overflow detected: %s", FILTER_2);
 }
+END_TEST
 
 Suite *bpf_suite(void)
 {
     Suite *s;
     TCase *tc_core;
 
-    mempool_init();
     s = suite_create("bpf");
     tc_core = tcase_create("Core");
     suite_add_tcase(s, tc_core);
+    tcase_add_unchecked_fixture(tc_core, setup, teardown);
     tcase_add_test(tc_core, filter_test);
     tcase_add_test(tc_core, overflow);
     tcase_set_timeout(tc_core, 60);
-    mempool_destruct();
     return s;
 }
