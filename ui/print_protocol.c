@@ -59,7 +59,7 @@ static void print_unknown(char *buf, int size, struct packet *p)
                ethertype(p));
 }
 
-void write_to_buf(char *buf, size_t size, struct packet *p)
+void pkt2text(char *buf, size_t size, struct packet *p)
 {
     struct protocol_info *pinfo = NULL;
 

@@ -347,11 +347,11 @@ void main_screen_update(main_screen *ms, struct packet *p)
     if (bpf.size > 0) {
         if (bpf_run_filter(bpf, p->buf, p->len) != 0) {
             vector_push_back(ms->packet_ref, p);
-            write_to_buf(buf, MAXLINE, p);
+            pkt2text(buf, MAXLINE, p);
             main_screen_update_window(ms, buf);
         }
     } else {
-        write_to_buf(buf, MAXLINE, p);
+        pkt2text(buf, MAXLINE, p);
         main_screen_update_window(ms, buf);
     }
 }
@@ -1083,7 +1083,7 @@ void print_new_packets(main_screen *ms)
         char buffer[MAXLINE];
 
         p = vector_get(ms->packet_ref, c);
-        write_to_buf(buffer, MAXLINE, p);
+        pkt2text(buffer, MAXLINE, p);
         mvputsnlw(ms->base.win, i, 0, ms->scrollx, buffer);
     }
     ms->base.top = c + 1;
@@ -1307,7 +1307,7 @@ int print_lines(main_screen *ms, int from, int to, int y)
         } else {
             p = vector_get(ms->packet_ref, from);
             if (!p) break;
-            write_to_buf(buffer, MAXLINE, p);
+            pkt2text(buffer, MAXLINE, p);
             if (ms->scrollx) {
                 int n = strlen(buffer);
 
