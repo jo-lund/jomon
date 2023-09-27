@@ -43,18 +43,9 @@ bpf-objs = \
 	$(BUILDDIR)/bpf/pcap_parser.o \
 	$(BUILDDIR)/bpf/genasm.o
 objects += $(bpf-objs)
-test-objs = $(patsubst %.c,%.o,$(wildcard $(TESTDIR)/*.c))
-test-objs += $(bpf-objs) \
-	$(BUILDDIR)/stack.o \
-	$(BUILDDIR)/vector.o \
-	$(BUILDDIR)/hashmap.o \
-	$(BUILDDIR)/mempool.o \
-	$(BUILDDIR)/debug.o \
-	$(BUILDDIR)/util.o \
-	$(BUILDDIR/stack.o) \
-	$(BUILDDIR)/string.o \
-	$(BUILDDIR)/rbtree.o \
-	$(BUILDDIR)/error.o
+
+test-objs = $(filter-out $(BUILDDIR)/main.o,$(objects))
+test-objs += $(patsubst %.c,%.o,$(wildcard $(TESTDIR)/*.c))
 
 
 .PHONY : all
