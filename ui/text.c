@@ -28,7 +28,7 @@ void text_event(int event)
         struct packet *p;
 
         p = vector_back(packets);
-        write_to_buf(buf, MAXLINE, p);
+        pkt2text(buf, MAXLINE, p);
         printf("%s\n", buf);
     }
 }
@@ -38,7 +38,7 @@ void text_draw(void)
     for (int i = 0; i < vector_size(packets); i++) {
         char buf[MAXLINE];
 
-        write_to_buf(buf, MAXLINE, vector_get(packets, i));
+        pkt2text(buf, MAXLINE, vector_get(packets, i));
         printf("%s\n", buf);
     }
     jomon_exit(0);
