@@ -402,8 +402,11 @@ static bool handle_packet(iface_handle_t *handle, unsigned char *buf, uint32_t n
         return false;
     p->time.tv_sec = t->tv_sec;
     p->time.tv_usec = t->tv_usec;
-    tcp_analyzer_check_stream(p);
-    host_analyzer_investigate(p);
+    if (handle->linktype == LINKTYPE_ETHERNET ||
+        handle->linktype == LINKTYPE_IEEE802) {
+        tcp_analyzer_check_stream(p);
+        host_analyzer_investigate(p);
+    }
     vector_push_back(packets, p);
     if (ctx.capturing)
         ui_event(UI_NEW_DATA);

@@ -21,10 +21,10 @@
 
 /* hardware address length (format aa:bb:cc:dd:ee:ff) */
 #define HW_ADDRSTRLEN 18
-
-#define HW_ADDR_NTOP(dst, src)                                          \
-    snprintf(dst, HW_ADDRSTRLEN, "%02x:%02x:%02x:%02x:%02x:%02x",       \
-             (src)[0], (src)[1], (src)[2], (src)[3], (src)[4], (src)[5])
+#define HWSTR "%02x:%02x:%02x:%02x:%02x:%02x"
+#define HW2STR(x) (x)[0], (x)[1], (x)[2], (x)[3], (x)[4], (x)[5]
+#define HW_ADDR_NTOP(dst, src) \
+    snprintf(dst, HW_ADDRSTRLEN, HWSTR, HW2STR(src))
 
 /* store an unsigned integer into a pointer */
 #define UINT_TO_PTR(i) ((void *) (uintptr_t) (i))
@@ -41,6 +41,9 @@
 #ifndef MAX
 #define MAX(a, b) ({ typeof(a) _a = (a), _b = (b); _a > _b ? _a : _b; })
 #endif
+
+#define _STR(x) #x
+#define STR(x) _STR(x)
 
 struct timeval;
 struct timespec;

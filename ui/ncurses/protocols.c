@@ -18,7 +18,7 @@
 #include "decoder/decoder.h"
 #include "monitor.h"
 #include "list_view.h"
-#include "ui/print_protocol.h"
+#include "ui/print_eth.h"
 
 extern int hexmode;
 

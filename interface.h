@@ -11,6 +11,8 @@
 
 #define LINKTYPE_ETHERNET 1
 #define LINKTYPE_IEEE802 6   /* IEEE 802.2 Ethernet/Token Ring/Token Bus */
+#define LINKTYPE_BT_HCI_H4 187  /* Bluetooth HCI UART transport layer */
+#define LINKTYPE_BT_HCI_H4_WITH_PHDR 201  /* Bluetooth HCI UART transport layer */
 
 struct timeval;
 struct iface_handle;
