@@ -148,9 +148,9 @@ START_TEST(snmp_test)
                   snmp->pdu_type, pdu_type);
     ck_assert_msg(snmp->pdu->request_id == request_id, "SNMP request id error: %u != %u",
                   snmp->pdu->request_id, request_id);
-    ck_assert_msg(snmp->pdu->error_status == error_status, "SNMP request id error: %u != %u",
+    ck_assert_msg(snmp->pdu->error_status == error_status, "SNMP error status error: %u != %u",
                   snmp->pdu->error_status, error_status);
-    ck_assert_msg(snmp->pdu->request_id == request_id, "SNMP request id error: %u != %u",
+    ck_assert_msg(snmp->pdu->error_index == error_index, "SNMP error index error: %u != %u",
                   snmp->pdu->error_index, error_index);
     DLIST_FOREACH(snmp->pdu->varbind_list, n) {
         var = list_data(n);
