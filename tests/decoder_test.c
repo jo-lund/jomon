@@ -9,6 +9,7 @@
 #include "file.h"
 #include "decoder/packet.h"
 #include "decoder/decoder.h"
+#include "decoder/host_analyzer.h"
 #include "ui/print_protocol.h"
 
 #define PATH "tests/decoder/"
