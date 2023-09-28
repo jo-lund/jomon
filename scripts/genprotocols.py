@@ -22,8 +22,13 @@ def create_files():
         basename = os.path.basename(fn)
         if basename.startswith('packet_') and basename.endswith('.c'):
             names = basename[:-2].split('_')
-            fr.write("    register_%s,\n" % names[1])
-            fd.write("#include \"packet_%s.h\"\n" % names[1])
+            fr.write("    register")
+            fd.write("#include \"packet")
+            for n in names[1:]:
+                fr.write("_%s" % n)
+                fd.write("_%s" % n)
+            fr.write(",\n")
+            fd.write(".h\"\n")
     fr.write('};\n')
     fr.write("#endif\n")
     fd.write("#endif\n")
