@@ -1,6 +1,9 @@
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/hci.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
 #include "bluetooth.h"
+#include "monitor.h"
 
 #define BT_IFACE "bluetooth"
 
@@ -26,7 +29,7 @@ int bt_interfaces(struct interface *ifc, int cap)
             error = "ioctl error. Cannot get device info";
             goto done;
         }
-        snprintf(ifc[i].name, IFNAMSIZ, BT_IFACE"%u", i);
+        snprintf(ifc[i].name, IF_NAMESIZE, BT_IFACE"%u", i);
         memcpy(ifc[i].hwaddr, di.bdaddr.b, 6);
         ifc[i].type = di.type;
         ifc[i].addrlen = 6;
