@@ -63,24 +63,24 @@ static void stat_screen_free(screen *s);
 static void stat_screen_init(screen *s);
 static void stat_screen_get_input(screen *s);
 static void stat_screen_refresh(screen *s);
-static void stat_screen_got_focus();
-static void stat_screen_lost_focus();
 
 static screen_operations ssop = {
     .screen_init = stat_screen_init,
     .screen_free = stat_screen_free,
     .screen_refresh = stat_screen_refresh,
     .screen_get_input = stat_screen_get_input,
-    .screen_got_focus = stat_screen_got_focus,
-    .screen_lost_focus = stat_screen_lost_focus,
 };
 
 static void handle_alarm(void)
 {
     screen *s = (screen *) screen_cache_get(STAT_SCREEN);
 
-    if (s->focus)
+    if (s->focus) {
         stat_screen_print(s);
+    } else {
+        get_netstat(ctx.device, &rx, &tx);
+        calculate_rate();
+    }
 }
 
 screen *stat_screen_create(void)
@@ -133,16 +133,6 @@ void stat_screen_refresh(screen *s)
         memset(cpustat[i], 0, hw.num_cpu * sizeof(struct cputime));
     }
     stat_screen_print(s);
-}
-
-void stat_screen_got_focus()
-{
-    alarm(1);
-}
-
-void stat_screen_lost_focus()
-{
-    alarm(0);
 }
 
 void stat_screen_get_input(screen *s)

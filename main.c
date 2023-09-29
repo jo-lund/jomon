@@ -302,6 +302,7 @@ static void run(void)
         { STDIN_FILENO, POLLIN, 0 }
     };
 
+    alarm(1);
     while (1) {
         timer_run();
         if (alarm_flag) {

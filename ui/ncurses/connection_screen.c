@@ -65,7 +65,6 @@ static void connection_screen_init(screen *s);
 static void connection_screen_refresh(screen *s);
 static void connection_screen_get_input(screen *s);
 static void connection_screen_got_focus(screen *s, screen *oldscr UNUSED);
-static void connection_screen_lost_focus();
 static unsigned int connection_screen_get_size(screen *s);
 static void connection_screen_on_back(screen *s);
 static void connection_screen_render(connection_screen *cs);
@@ -76,7 +75,6 @@ static screen_operations csop = {
     .screen_refresh = connection_screen_refresh,
     .screen_get_input = connection_screen_get_input,
     .screen_got_focus = connection_screen_got_focus,
-    .screen_lost_focus = connection_screen_lost_focus,
     .screen_get_data_size = connection_screen_get_size,
     .screen_on_back = connection_screen_on_back
 };
@@ -570,14 +568,6 @@ void connection_screen_got_focus(screen *s, screen *oldscr UNUSED)
         }
         active = true;
     }
-    if (ctx.capturing)
-        alarm(1);
-}
-
-void connection_screen_lost_focus()
-{
-    if (ctx.capturing)
-        alarm(0);
 }
 
 void connection_screen_on_back(screen *s UNUSED)
