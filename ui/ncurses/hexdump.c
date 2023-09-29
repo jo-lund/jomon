@@ -98,13 +98,9 @@ void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_a
     char *hex = "0123456789abcdef";
     char *offset = " offset ";
     struct protocol_ctx ctx = { 0 };
-    struct hd_layer *prot = xmalloc(sizeof(struct hd_layer));
+    struct hd_layer *prot;
 
     protocols = list_init(NULL);
-    prot->name = "Ethernet";
-    prot->layer = 0;
-    list_push_back(protocols, prot);
-
     if (mode == HEXMODE_WIDE) {
         hexoffset = 64;
         snprintf(buf, 1024, "%1$-11s%2$s%2$s%2$s%2$s", offset, hex);
@@ -125,11 +121,14 @@ void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_a
     } else {
         mvprintat(arg->h_arg.win, arg->h_arg.y, arg->h_arg.x, A_BOLD, "%s", buf);
         ctx.pdata = arg->h_arg.p->root;
-        ctx.pinfo = NULL;
+        ctx.pinfo = get_protocol(ctx.pdata->id);
         ctx.layer = 0;
         ctx.idx = ctx.pdata->len;
+        prot = xmalloc(sizeof(struct hd_layer));
+        prot->name = ctx.pinfo->long_name;
+        prot->layer = 0;
+        list_push_back(protocols, prot);
     }
-
     while (num < len) {
         snprintf(buf, BUFSZ, "%08x  ", num);
         if (mode == HEXMODE_NORMAL) {
@@ -167,7 +166,6 @@ void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_a
                 mvwaddch(arg->h_arg.win, arg->h_arg.y, x++, buf[i]);
                 i++;
             }
-
             if (mode == HEXMODE_NORMAL) {
                 int k = 0;
 
