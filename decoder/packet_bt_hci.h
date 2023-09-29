@@ -68,7 +68,26 @@ enum hci_scan_type {
 enum hci_event_code {
     BT_HCI_INQUIRY_COMPLETE = 0x1,
     BT_HCI_INQUIRY_RESULT = 0x2,
-    BT_HCI_CMD_COMPLETE = 0xe
+    BT_HCI_CMD_COMPLETE = 0xe,
+    BT_HCI_CMD_STATUS = 0xf,
+    BT_HCI_EXT_INQ_RESULT = 0x2f,
+    BT_HCI_LE_META = 0x3e,
+};
+
+enum hci_le_meta_event {
+    BT_HCI_LE_CONN_COMPLETE = 0x1,
+    BT_HCI_LE_ADV_REPORT,
+    BT_HCI_LE_CONN_UPDATE,
+    BT_HCI_LE_READ_REMOTE_COMPLETE,
+    BT_HCI_LE_LONG_TERM_KEY_REQ,
+    BT_HCI_LE_REMOTE_CONN_PARAM_REQ,
+    BT_HCI_LE_DATA_LEN_CHANGE,
+    BT_HCI_LE_READ_LOC_PUB_KEY_COMPLETE,
+    BT_HCI_LE_GEN_DHKEY_COMPLETE,
+    BT_HCI_LE_ENHANCED_CONN_COMPLETE,
+    BT_HCI_LE_DIRECT_ADV_REPORT,
+    BT_HCI_LE_PHY_UPDATE_COMPLETE,
+    BT_HCI_LE_EXT_ADV_REPORT
 };
 
 struct hci_set_extended_scan_params {
@@ -102,6 +121,49 @@ struct hci_cmd_complete {
     uint8_t return_param; /* size depends on command — check max size */
 };
 
+struct hci_cmd_status {
+    uint8_t status;
+    uint8_t ncmdpkt;
+    uint16_t opcode;
+};
+
+struct hci_le_adv_report {
+    uint8_t nrep;
+    uint8_t *event_type;
+    uint8_t *addr_type;
+    uint8_t *addr;
+    uint8_t *len_data;
+    uint8_t *rssi;
+};
+
+struct hci_le_ext_adv_report {
+    uint8_t nrep;
+    uint16_t *event_type;
+    uint8_t *addr_type;
+    uint8_t *addr;
+    uint8_t *primary_phy;
+    uint8_t *secondary_phy;
+    uint8_t *adv_sid;
+    uint8_t *tx_power;
+    uint8_t *rssi;
+    uint16_t *padv_ivl;
+    uint8_t *daddr_type;
+    uint8_t *daddr;
+    uint8_t *data_len;
+    unsigned char *data;
+};
+
+struct hci_ext_inq_result {
+    uint8_t nresp;
+    uint8_t addr[6];
+    uint8_t pscan_rep_mode;
+    uint8_t reserved;
+    uint8_t cod[3];
+    uint16_t clock_off;
+    uint8_t rssi;
+    unsigned char data[240];
+};
+
 struct bluetooth_hci_cmd {
     struct {
         unsigned int ogf : 6;  /* opcode group field */
@@ -122,6 +184,15 @@ struct bluetooth_hci_event {
     union {
         uint8_t status;
         struct hci_cmd_complete *cmd;
+        struct hci_cmd_status *cstat;
+        struct hci_ext_inq_result *res;
+        struct hci_le_meta {
+            uint8_t subevent_code;
+            union {
+                struct hci_le_adv_report *rep;
+                struct hci_le_ext_adv_report *erep;
+            };
+        } meta;
     } param;
 };
 
