@@ -19,6 +19,9 @@
 #include <net/ethernet.h>
 #include "interface.h"
 #include "monitor.h"
+#ifdef BT_SUPPORT
+#include "bluetooth.h"
+#endif
 
 #define MAX_NUM_INTERFACES 16
 #define WIDTH 8
