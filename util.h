@@ -101,7 +101,7 @@ char *format_bytes(uint64_t bytes, char *buf, int len);
 char *uuid_format(uint8_t *uuid);
 
 /*
- * Extracts a 16 bits integer in big endian format from buf without incrementing the buffer
+ * Extract a 16 bits integer in big endian format from buf without incrementing the buffer
  */
 static inline uint16_t get_uint16be(const unsigned char *buf)
 {
@@ -109,7 +109,7 @@ static inline uint16_t get_uint16be(const unsigned char *buf)
 }
 
 /*
- * Extracts a 32 bits integer in big endian format from buf without incrementing the buffer
+ * Extract a 32 bits integer in big endian format from buf without incrementing the buffer
  */
 static inline uint32_t get_uint32be(const unsigned char *buf)
 {
@@ -120,7 +120,22 @@ static inline uint32_t get_uint32be(const unsigned char *buf)
 }
 
 /*
- * Extracts a 16 bits integer in little endian format from buf without incrementing the buffer
+ * Extract a 64 bits integer in big endian format from buf without incrementing the buffer
+ */
+static inline uint64_t get_uint64be(const unsigned char *buf)
+{
+    return (uint64_t) buf[0] << 56 |
+           (uint64_t) buf[1] << 48 |
+           (uint64_t) buf[2] << 40 |
+           (uint64_t) buf[3] << 32 |
+           (uint64_t) buf[4] << 24 |
+           (uint64_t) buf[5] << 16 |
+           (uint64_t) buf[6] << 8 |
+           (uint64_t) buf[7];
+}
+
+/*
+ * Extract a 16 bits integer in little endian format from buf without incrementing the buffer
  */
 static inline uint16_t get_uint16le(const unsigned char *buf)
 {
@@ -128,7 +143,7 @@ static inline uint16_t get_uint16le(const unsigned char *buf)
 }
 
 /*
- * Extracts a 32 bits integer in little endian format from buf without incrementing the buffer
+ * Extract a 32 bits integer in little endian format from buf without incrementing the buffer
  */
 static inline uint32_t get_uint32le(const unsigned char *buf)
 {
@@ -139,7 +154,22 @@ static inline uint32_t get_uint32le(const unsigned char *buf)
 }
 
 /*
- * Extracts a 16 bits integer in big endian format from buf and increments the buffer
+ * Extract a 64 bits integer in little endian format from buf without incrementing the buffer
+ */
+static inline uint64_t get_uint64le(const unsigned char *buf)
+{
+    return (uint64_t) buf[7] << 56 |
+           (uint64_t) buf[6] << 48 |
+           (uint64_t) buf[5] << 40 |
+           (uint64_t) buf[4] << 32 |
+           (uint64_t) buf[3] << 24 |
+           (uint64_t) buf[2] << 16 |
+           (uint64_t) buf[1] << 8 |
+           (uint64_t) buf[0];
+}
+
+/*
+ * Extract a 16 bits integer in big endian format from buf and increments the buffer
  */
 static inline uint16_t read_uint16be(unsigned char **buf)
 {
@@ -151,7 +181,7 @@ static inline uint16_t read_uint16be(unsigned char **buf)
 }
 
 /*
- * Extracts a 32 bits integer in big endian format from buf and increments the buffer
+ * Extract a 32 bits integer in big endian format from buf and increments the buffer
  */
 static inline uint32_t read_uint32be(unsigned char **buf)
 {
@@ -165,7 +195,25 @@ static inline uint32_t read_uint32be(unsigned char **buf)
 }
 
 /*
- * Extracts a 16 bits integer in little endian format from buf and increments the buffer
+ * Extract a 64 bits integer in big endian format from buf and increments the buffer
+ */
+static inline uint64_t read_uint64be(unsigned char **buf)
+{
+    uint64_t val;
+
+    val = (uint64_t) *(*buf)++ << 56;
+    val |= (uint64_t) *(*buf)++ << 48;
+    val |= (uint64_t) *(*buf)++ << 40;
+    val |= (uint64_t) *(*buf)++ << 32;
+    val |= (uint64_t) *(*buf)++ << 24;
+    val |= (uint64_t) *(*buf)++ << 16;
+    val |= (uint64_t) *(*buf)++ << 8;
+    val |= (uint64_t) *(*buf)++;
+    return val;
+}
+
+/*
+ * Extract a 16 bits integer in little endian format from buf and increments the buffer
  */
 static inline uint16_t read_uint16le(unsigned char **buf)
 {
@@ -177,7 +225,7 @@ static inline uint16_t read_uint16le(unsigned char **buf)
 }
 
 /*
- * Extracts a 32 bits integer in little endian format from buf and increments the buffer
+ * Extract a 32 bits integer in little endian format from buf and increments the buffer
  */
 static inline uint32_t read_uint32le(unsigned char **buf)
 {
@@ -190,7 +238,25 @@ static inline uint32_t read_uint32le(unsigned char **buf)
     return val;
 }
 
-/* Computes the least power of two greater than or equal to x */
+/*
+ * Extract a 64 bits integer in little endian format from buf and increments the buffer
+ */
+static inline uint64_t read_uint64le(unsigned char **buf)
+{
+    uint64_t val;
+
+    val = (uint64_t) *(*buf)++;
+    val |= (uint64_t) *(*buf)++ << 8;
+    val |= (uint64_t) *(*buf)++ << 16;
+    val |= (uint64_t) *(*buf)++ << 24;
+    val |= (uint64_t) *(*buf)++ << 32;
+    val |= (uint64_t) *(*buf)++ << 40;
+    val |= (uint64_t) *(*buf)++ << 48;
+    val |= (uint64_t) *(*buf)++ << 56;
+    return val;
+}
+
+/* Compute the least power of two greater than or equal to x */
 static inline unsigned int clp2(unsigned int x)
 {
     x--;
@@ -201,5 +267,4 @@ static inline unsigned int clp2(unsigned int x)
     x = x | (x >> 16);
     return x + 1;
 }
-
 #endif
