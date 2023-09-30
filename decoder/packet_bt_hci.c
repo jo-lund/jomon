@@ -1,6 +1,7 @@
 #include "packet_bt_hci.h"
 #include "packet.h"
 #include "util.h"
+#include "string.h"
 
 #define HCI_CMD_HDR 3
 #define HCI_EVENT_HDR 2
@@ -23,6 +24,132 @@ static packet_error handle_bt(struct protocol_info *pinfo, unsigned char *buf,
                               int n, struct packet_data *pdata);
 packet_error handle_bt_phdr(struct protocol_info *pinfo, unsigned char *buf,
                             int n, struct packet_data *pdata);
+
+static const struct uint_string bt_hci_event[] = {
+    { BT_HCI_INQUIRY_COMPLETE, "Inquiry Complete" },
+    { BT_HCI_INQUIRY_RESULT, "Inquiry Result" },
+    { BT_HCI_CONNECTION_COMPLETE, "Connection Complete" },
+    { BT_HCI_CONNECTION_REQUEST, "Connection Request" },
+    { BT_HCI_DISCONNECTION_COMPLETE, "Disconnection Complete" },
+    { BT_HCI_AUTH_COMPLETE, "Authentication Complete" },
+    { BT_HCI_REMOTE_NAME_REQ_COMPLETE, "Remote Name Request Complete" },
+    { BT_HCI_ENCRYPTION_CHANGE, "Encryption Change" },
+    { BT_HCI_CHANGE_CONN_LINK_KEY_COMPLETE, "Change Connection Link Key Complete" },
+    { BT_HCI_MASTER_LINK_KEY_COMPLETE, "Master Link Key Complete" },
+    { BT_HCI_READ_REM_SUP_FEAT_COMPLETE, "Read Remote Supported Features Complete" },
+    { BT_HCI_READ_REM_VER_INF_COMPLETE, "Read Remote Version Information Complete" },
+    { BT_HCI_QOS_SETUP_COMPLETE, "QOS Setup Complete" },
+    { BT_HCI_CMD_COMPLETE, "Command Complete" },
+    { BT_HCI_CMD_STATUS, "Command Status" },
+    { BT_HCI_HW_ERR, "Hardware Error" },
+    { BT_HCI_FLUSH_OCCURRED, "Flush Occurred" },
+    { BT_HCI_ROLE_CHANGE, "Role Change" },
+    { BT_HCI_NUM_COMPLETE_PKTS, "Number of Completed Packets" },
+    { BT_HCI_MODE_CHANGE, "Mode Change" },
+    { BT_HCI_RETURN_LINK_KEYS, "Return Link Keys" },
+    { BT_HCI_PIN_CODE_REQ, "PIN Code Request" },
+    { BT_HCI_LINK_KEY_REQ, "Link Key Request" },
+    { BT_HCI_LINK_KEY_NOTIFICATION, "Link Key Notification" },
+    { BT_HCI_LOOPBACK_CMD, "Loopback Command" },
+    { BT_HCI_DATA_BUF_OVERFLOW, "Data Buffer Overflow" },
+    { BT_HCI_MAX_SLOTS_CHANGE, "Max Slots Change" },
+    { BT_HCI_READ_CLK_OFF_COMPLETE, "Read Clock Offset Complete" },
+    { BT_HCI_CONN_PKT_TYPE_CHANGED, "Connection Packet Type Changed" },
+    { BT_HCI_QOS_VIOLATION, "QOS Violation" },
+    { BT_HCI_PAGE_SCAN_REP_MODE_CHANGE, "Page Scan Repetion Mode Change" },
+    { BT_HCI_FLOW_SPEC_COMPLETE, "Flow Specification Complete" },
+    { BT_HCI_INQ_RES_RSSI, "Inquiry Result with RSSI" },
+    { BT_HCI_READ_REM_EXT_FEAT_COMPLETE, "Read Remote Extended Features Complete" },
+    { BT_HCI_SYNC_CONN_COMPLETE, "Synchronous Connection Complete" },
+    { BT_HCI_EXT_INQ_RESULT, "Extended Inquiry Result" },
+    { BT_HCI_LE_META, "LE Meta" }
+};
+
+static const char *bt_hci_le_meta[] = {
+    "",
+    "LE Connection Complete",
+    "LE Advertising Report",
+    "LE Connection Update Complete",
+    "LE Read Remote Features Complete",
+    "LE Long Term Key Request",
+    "LE Remote Connection Parameter Request",
+    "LE Data Length Change",
+    "LE Read Local P-256 Public Key Complete",
+    "LE Generate DHKey Complete",
+    "LE Enhanced Connection Complete",
+    "LE Direct Advertising Report",
+    "LE PHY Update Complete",
+    "LE Extended Advertising Report",
+    "LE Periodic Advertising Sync Established"
+};
+
+static const struct uint_string bt_hci_opcode[] = {
+    { BT_LINK_CTRL_CMD | BT_HCI_INQUIRY, "Inquiry" },
+    { BT_LINK_CTRL_CMD | BT_HCI_INQUIRY_CANCEL, "Inquiry Cancel" },
+    { BT_LINK_CTRL_CMD | BT_HCI_PERIODIC_INQUIRY_MODE, "Periodic Inquiry Mode" },
+    { BT_LINK_CTRL_CMD | BT_HCI_EXIT_PERIODIC_INQUIRY_MODE, "Exit Periodic Inquiry Mode" },
+    { BT_LINK_CTRL_CMD | BT_HCI_CREATE_CONNECTION, "Create Connection" },
+    { BT_LINK_CTRL_CMD | BT_HCI_DISCONNECT, "Disconnect" },
+    { BT_LINK_CTRL_CMD | BT_HCI_CREATE_CONNECTION_CANCEL, "Create Connction Cancel" },
+    { BT_LINK_CTRL_CMD | BT_HCI_ACCEPT_CONN_REQ, "Accept Connection Request" },
+    { BT_LINK_CTRL_CMD | BT_HCO_REJECT_CONN_REQ, "Reject Connection Request" },
+    { BT_LINK_CTRL_CMD | BT_HCI_LINK_KEY_REQ_REPLY, "Link Key Request Reply" },
+    { BT_LINK_CTRL_CMD | BT_HCI_LINK_KEY_REQ_NEG_REPLY, "Link Key Request Negative Reply" },
+    { BT_LINK_CTRL_CMD | BT_HCI_PIN_CODE_REQ_REPLY, "PIN Code Request Reply" },
+    { BT_LINK_CTRL_CMD | BT_HCI_PIN_CODE_REQ_NEG_REPLY, "PIN Code Request Negative Reply" },
+    { BT_LINK_CTRL_CMD | BT_HCI_CHANGE_CONN_PKT_TYPE, "Change Connection Packet Type" },
+    { BT_LINK_CTRL_CMD | BT_HCI_AUTH_REQUESTED, "Authentication Requested" },
+    { BT_LINK_CTRL_CMD | BT_HCI_SET_CONN_ENCRYPTION, "Set Connection Encryption" },
+    { BT_LINK_CTRL_CMD | BT_HCI_CHANGE_CONN_LINK_KEY, "Change Connection Link Key" },
+    { BT_LINK_CTRL_CMD | BT_HCI_LINK_KEY_SELECTION, "Link Key Selection" },
+    { BT_CTRL_BB_CMD | BT_HCI_SET_EVENT_MASK, "Set Event Mask" },
+    { BT_CTRL_BB_CMD | BT_HCI_RESET, "Reset" },
+    { BT_CTRL_BB_CMD | BT_HCI_SET_EVENT_FILTER, "Set Event Filter" },
+    { BT_CTRL_BB_CMD | BT_HCI_FLUSH, "Flush" },
+    { BT_CTRL_BB_CMD | BT_HCI_READ_PIN_TYPE, "Read PIN Type" },
+    { BT_CTRL_BB_CMD | BT_HCI_WRITE_PIN_TYPE, "Write PIN Type" },
+    { BT_CTRL_BB_CMD | BT_HCI_READ_STORED_LINK_KEY, "Read Stored Link Key" },
+    { BT_CTRL_BB_CMD | BT_HCI_WRITE_STORED_LINK_KEY, "Write Stored Link Key" },
+    { BT_CTRL_BB_CMD | BT_HCI_DELETE_STORED_LINK_KEY, "Delete Stored Link Key" },
+    { BT_CTRL_BB_CMD | BT_HCI_WRITE_LOC_NAME, "Write Local Name" },
+    { BT_CTRL_BB_CMD | BT_HCI_READ_LOC_NAME,  "Read Local Name" },
+    { BT_CTRL_BB_CMD | BT_HCI_READ_CONN_ACCEPT_TIMEOUT, "Read Connection Accept Timeout" },
+    { BT_CTRL_BB_CMD | BT_HCI_WRITE_CONN_ACCEPT_TIMEOUT, "Write Connection Accept Timeout" },
+    { BT_CTRL_BB_CMD | BT_HCI_READ_PAGE_TIMEOUT, "Read Page Timeout" },
+    { BT_CTRL_BB_CMD | BT_HCI_WRITE_PAGE_TIMEOUT, "Write Page Timeout" },
+    { BT_CTRL_BB_CMD | BT_HCI_READ_SCAN_ENABLE, "Read Scan Enable" },
+    { BT_CTRL_BB_CMD | BT_HCI_WRITE_SCAN_ENABLE, "Write Scan Enable" },
+    { BT_CTRL_BB_CMD | BT_HCI_READ_PAGE_SCAN_ACTIVITY, "Read Page Scan Activity" },
+    { BT_CTRL_BB_CMD | BT_HCI_WRITE_PAGE_SCAN_ACTIVITY, "Write Page Scan Activity" },
+    { BT_CTRL_BB_CMD | BT_HCI_READ_INQ_SCAN_ACTIVITY, "Read Inquiry Scan Activity" },
+    { BT_CTRL_BB_CMD | BT_HCI_WRITE_INQ_SCAN_ACTIVITY, "Write Inquiry Scan Activity" },
+    { BT_CTRL_BB_CMD | BT_HCI_READ_AUTH_ENABLE, "Read Authentication Enable" },
+    { BT_CTRL_BB_CMD | BT_HCI_WRITE_AUTH_ENABLE, "Write Authentication Enable" },
+    { BT_CTRL_BB_CMD | BT_HCI_READ_COD, "Read Class of Device" },
+    { BT_CTRL_BB_CMD | BT_HCI_WRITE_COD, "Write Class of Device" },
+    { BT_CTRL_BB_CMD | BT_HCI_READ_VOICE_SETTING, "Read Voice Setting" },
+    { BT_CTRL_BB_CMD | BT_HCI_WRITE_VOICE_SETTING, "Write Voice Setting" },
+    { BT_INF_PARAMS | BT_HCI_READ_LOC_VERINF, "Read Local Version Information" },
+    { BT_INF_PARAMS | BT_HCI_READ_LOC_SUP_CMDS, "Read Local Supported Commands" },
+    { BT_INF_PARAMS | BT_HCI_READ_LOC_SUP_FEATURES, "Read Local Supported features" },
+    { BT_INF_PARAMS | BT_HCI_READ_LOC_EXT_FEATURES, "Read Local Extended Features" },
+    { BT_INF_PARAMS | BT_HCI_READ_BUF_SIZE, "Read Buffer Size" },
+    { BT_INF_PARAMS | BT_HCI_READ_BD_ADDR, "Read BD_ADDR" },
+    { BT_INF_PARAMS | BT_HCI_READ_DATA_BLOCK_SIZE,  "Read Data Block Size" },
+    { BT_INF_PARAMS | BT_HCI_READ_LOC_SUP_CODECS_V1, "Read Local Suppored Codecs" },
+    { BT_INF_PARAMS | BT_HCI_READ_LOC_SUP_CODECS_V2, "Read Local Suppored Codecs" },
+    { BT_INF_PARAMS | BT_HCI_READ_LOC_SIMPLE_PAIRING_OPTS, "Read Local Simple Pairing Options" },
+    { BT_INF_PARAMS | BT_HCI_READ_LOC_SUP_CODECS_CAP, "Read Local Suppored Codec Capabilities" },
+    { BT_INF_PARAMS | BT_HCI_READ_LOC_SUP_CTRL_DELAY, "Read Local Suppored Controller Delay" },
+    { BT_LE_CTRL_CMD | BT_HCI_LE_SET_EVENT_MASK, "LE Set Event Mask" },
+    { BT_LE_CTRL_CMD | BT_HCI_LE_READ_BUFFER_SIZE_V1, "LE Read Buffer Size" },
+    { BT_LE_CTRL_CMD | BT_HCI_LE_READ_BUFFER_SIZE_V2, "LE Read Buffer Size" },
+    { BT_LE_CTRL_CMD | BT_HCI_LE_READ_LOC_SUPPORTED_FEATURES, "LE Read Local Supported Features" },
+    { BT_LE_CTRL_CMD | BT_HCI_LE_SET_RANDOM_ADDR, "LE Set Random Address" },
+    { BT_LE_CTRL_CMD | BT_HCI_LE_SET_ADV_PARAMS, "LE Set Extended Scan Parameters" },
+    { BT_LE_CTRL_CMD | BT_HCI_LE_SET_EXTENDED_SCAN_PARAMS, "LE Set Extended Scan Parameters" },
+    { BT_LE_CTRL_CMD | BT_HCI_LE_SET_EXTENDED_SCAN_ENABLE, "LE Set Extended Scan Enable" },
+};
 
 static struct protocol_info bt_hci = {
     .short_name = "BT HCI",
@@ -102,7 +229,7 @@ static packet_error parse_le_ctrl(unsigned char *buf, int n, struct bluetooth_hc
 {
     int bits;
 
-    switch (cmd->opcode.ocf) {
+    switch (GET_OCF(cmd->opcode)) {
     case BT_HCI_LE_SET_RANDOM_ADDR:
         if (n != 6)
             return DECODE_ERR;
@@ -155,7 +282,7 @@ static packet_error parse_le_ctrl(unsigned char *buf, int n, struct bluetooth_hc
 
 static packet_error parse_link_ctrl(unsigned char *buf, int n, struct bluetooth_hci_cmd *cmd)
 {
-    switch (cmd->opcode.ocf) {
+    switch (GET_OCF(cmd->opcode)) {
     case BT_HCI_INQUIRY:
         if (n < 5)
             return DECODE_ERR;
@@ -174,26 +301,53 @@ static packet_error parse_link_ctrl(unsigned char *buf, int n, struct bluetooth_
     return NO_ERR;
 }
 
+static packet_error parse_inf_params(unsigned char *buf, int n, struct bluetooth_hci_cmd *cmd)
+{
+    switch (GET_OCF(cmd->opcode)) {
+    case BT_HCI_READ_LOC_VERINF:
+    case BT_HCI_READ_LOC_SUP_CMDS:
+        break;
+    case BT_HCI_READ_LOC_SUP_FEATURES:
+        if (n < 9)
+            return DECODE_ERR;
+        cmd->param.feat = mempool_alloc(sizeof(*cmd->param.feat));
+        cmd->param.feat->status = *buf++;
+        cmd->param.feat->lmp_features = read_uint64le(&buf);
+        break;
+    case BT_HCI_READ_LOC_EXT_FEATURES:
+    case BT_HCI_READ_BUF_SIZE:
+    case BT_HCI_READ_BD_ADDR:
+    case BT_HCI_READ_DATA_BLOCK_SIZE:
+    case BT_HCI_READ_LOC_SUP_CODECS_V1:
+    case BT_HCI_READ_LOC_SUP_CODECS_V2:
+    case BT_HCI_READ_LOC_SIMPLE_PAIRING_OPTS:
+    case BT_HCI_READ_LOC_SUP_CODECS_CAP:
+    case BT_HCI_READ_LOC_SUP_CTRL_DELAY:
+    default:
+        break;
+    }
+    return NO_ERR;
+}
+
 static packet_error parse_cmd(unsigned char *buf, int n, struct bluetooth_hci_info *bt)
 {
     struct bluetooth_hci_cmd *cmd;
-    uint16_t opcode;
 
     if (n < HCI_CMD_HDR)
         return DECODE_ERR;
     cmd = mempool_alloc(sizeof(*cmd));
     bt->cmd = cmd;
-    opcode = read_uint16le(&buf);
+    cmd->opcode = read_uint16le(&buf);
     n -= 2;
-    cmd->opcode.ocf = opcode & 0x03ff;
-    cmd->opcode.ogf = (opcode & 0xfc00) >> 10;
     cmd->param_len = *buf++;
     n--;
     if (n < cmd->param_len)
         return DECODE_ERR;
-    switch (cmd->opcode.ogf) {
+    switch (GET_OGF(cmd->opcode)) {
     case BT_LINK_CTRL_CMD:
         return parse_link_ctrl(buf, n, cmd);
+    case BT_INF_PARAMS:
+        return parse_inf_params(buf, n, cmd);
     case BT_LE_CTRL_CMD:
         return parse_le_ctrl(buf, n, cmd);
     default:
@@ -408,4 +562,100 @@ packet_error handle_bt(struct protocol_info *pinfo, unsigned char *buf,
     pdata->data = bt;
     bt->direction = 0;
     return parse_bt(buf, n, bt);
+}
+
+
+static char *get_bt_cmd_string(char *buf, size_t n, struct bluetooth_hci_cmd *cmd)
+{
+    struct uint_string key;
+    struct uint_string *res;
+
+    key.val = cmd->opcode;
+    res = bsearch(&key, bt_hci_opcode, ARRAY_SIZE(bt_hci_opcode),
+                  sizeof(struct uint_string), cmp_val);
+    if (!res)
+        goto error;
+    snprintcat(buf, n, "Command %s", res->str);
+    switch (GET_OGF(cmd->opcode)) {
+    case BT_LINK_CTRL_CMD:
+        switch (GET_OCF(cmd->opcode)) {
+        case BT_HCI_INQUIRY:
+            snprintcat(buf, n, ": LAP: " LAPSTR "  Inquiry Length: %u  Number of Responses: %u",
+                       LAP2STR(cmd->param.inq->lap), cmd->param.inq->inquiry_len,
+                       cmd->param.inq->nresp);
+            return buf;
+        default:
+            break;
+        }
+        break;
+    case BT_LE_CTRL_CMD:
+        switch (GET_OCF(cmd->opcode)) {
+        case BT_HCI_LE_SET_RANDOM_ADDR:
+            snprintcat(buf, n, ": " HWSTR, HW2STR(cmd->param.random_addr));
+            return buf;
+        default:
+            break;
+        }
+        break;
+    default:
+        break;
+    }
+    return buf;
+
+error:
+    snprintcat(buf, n, "Command Unknown");
+    return buf;
+}
+
+static char *get_bt_event_string(char *buf, size_t n, struct bluetooth_hci_event *event)
+{
+    struct uint_string key;
+    struct uint_string *res;
+
+    key.val = event->code;
+    res = bsearch(&key, bt_hci_event, ARRAY_SIZE(bt_hci_event),
+                  sizeof(struct uint_string), cmp_val);
+    if (!res)
+        goto error;
+    snprintcat(buf, n, "Event   %s", res->str);
+    switch (event->code) {
+    case BT_HCI_CMD_COMPLETE:
+        key.val = event->param.cstat->opcode;
+        res = bsearch(&key, bt_hci_opcode, ARRAY_SIZE(bt_hci_opcode),
+                      sizeof(struct uint_string), cmp_val);
+        if (res)
+            snprintcat(buf, n, ": %s", res->str);
+        return buf;
+    case BT_HCI_CMD_STATUS:
+        key.val = event->param.cmd->opcode;
+        res = bsearch(&key, bt_hci_opcode, ARRAY_SIZE(bt_hci_opcode),
+                  sizeof(struct uint_string), cmp_val);
+        if (res)
+            snprintcat(buf, n, ": %s", res->str);
+        return buf;
+    case BT_HCI_LE_META:
+        if (event->param.meta.subevent_code > ARRAY_SIZE(bt_hci_le_meta))
+            snprintcat(buf, n, ": Unknown");
+        else
+            snprintcat(buf, n, ": %s", bt_hci_le_meta[event->param.meta.subevent_code]);
+        return buf;
+    default:
+        return buf;
+    }
+
+error:
+    snprintcat(buf, n, "Event   Unknown");
+    return buf;
+}
+
+char *bt2string(char *buf, size_t n, struct bluetooth_hci_info *bt)
+{
+    switch (bt->type) {
+    case BT_HCI_COMMAND:
+        return get_bt_cmd_string(buf, n, bt->cmd);
+    case BT_HCI_EVENT:
+        return get_bt_event_string(buf, n, bt->event);
+    default:
+        return "Unknown";
+    }
 }

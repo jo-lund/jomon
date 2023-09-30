@@ -150,7 +150,6 @@ struct llmnr_flags {
     unsigned int t  : 1; /* tentative */
 };
 
-// TODO: Clean up this structure
 struct dns_info {
     uint16_t length; /* used by messages sent over TCP */
     uint16_t id; /* A 16 bit identifier */
