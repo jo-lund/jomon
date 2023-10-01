@@ -83,72 +83,86 @@ static const char *bt_hci_le_meta[] = {
     "LE Periodic Advertising Sync Established"
 };
 
+#define LINK_CTRL_CMD(x) \
+    { (x) | BT_HCI_INQUIRY, "Inquiry" },                   \
+    { (x) | BT_HCI_INQUIRY_CANCEL, "Inquiry Cancel" },     \
+    { (x) | BT_HCI_PERIODIC_INQUIRY_MODE, "Periodic Inquiry Mode" }, \
+    { (x) | BT_HCI_EXIT_PERIODIC_INQUIRY_MODE, "Exit Periodic Inquiry Mode" }, \
+    { (x) | BT_HCI_CREATE_CONNECTION, "Create Connection" }, \
+    { (x) | BT_HCI_DISCONNECT, "Disconnect" },             \
+    { (x) | BT_HCI_CREATE_CONNECTION_CANCEL, "Create Connction Cancel" }, \
+    { (x) | BT_HCI_ACCEPT_CONN_REQ, "Accept Connection Request" }, \
+    { (x) | BT_HCO_REJECT_CONN_REQ, "Reject Connection Request" }, \
+    { (x) | BT_HCI_LINK_KEY_REQ_REPLY, "Link Key Request Reply" }, \
+    { (x) | BT_HCI_LINK_KEY_REQ_NEG_REPLY, "Link Key Request Negative Reply" }, \
+    { (x) | BT_HCI_PIN_CODE_REQ_REPLY, "PIN Code Request Reply" }, \
+    { (x) | BT_HCI_PIN_CODE_REQ_NEG_REPLY, "PIN Code Request Negative Reply" }, \
+    { (x) | BT_HCI_CHANGE_CONN_PKT_TYPE, "Change Connection Packet Type" }, \
+    { (x) | BT_HCI_AUTH_REQUESTED, "Authentication Requested" }, \
+    { (x) | BT_HCI_SET_CONN_ENCRYPTION, "Set Connection Encryption" }, \
+    { (x) | BT_HCI_CHANGE_CONN_LINK_KEY, "Change Connection Link Key" }, \
+    { (x) | BT_HCI_LINK_KEY_SELECTION, "Link Key Selection" }
+
+#define CTRL_BB_CMD(x) \
+    { (x) | BT_HCI_SET_EVENT_MASK, "Set Event Mask" }, \
+    { (x) | BT_HCI_RESET, "Reset" }, \
+    { (x) | BT_HCI_SET_EVENT_FILTER, "Set Event Filter" }, \
+    { (x) | BT_HCI_FLUSH, "Flush" }, \
+    { (x) | BT_HCI_READ_PIN_TYPE, "Read PIN Type" }, \
+    { (x) | BT_HCI_WRITE_PIN_TYPE, "Write PIN Type" }, \
+    { (x) | BT_HCI_READ_STORED_LINK_KEY, "Read Stored Link Key" }, \
+    { (x) | BT_HCI_WRITE_STORED_LINK_KEY, "Write Stored Link Key" }, \
+    { (x) | BT_HCI_DELETE_STORED_LINK_KEY, "Delete Stored Link Key" }, \
+    { (x) | BT_HCI_WRITE_LOC_NAME, "Write Local Name" }, \
+    { (x) | BT_HCI_READ_LOC_NAME,  "Read Local Name" }, \
+    { (x) | BT_HCI_READ_CONN_ACCEPT_TIMEOUT, "Read Connection Accept Timeout" }, \
+    { (x) | BT_HCI_WRITE_CONN_ACCEPT_TIMEOUT, "Write Connection Accept Timeout" }, \
+    { (x) | BT_HCI_READ_PAGE_TIMEOUT, "Read Page Timeout" }, \
+    { (x) | BT_HCI_WRITE_PAGE_TIMEOUT, "Write Page Timeout" }, \
+    { (x) | BT_HCI_READ_SCAN_ENABLE, "Read Scan Enable" }, \
+    { (x) | BT_HCI_WRITE_SCAN_ENABLE, "Write Scan Enable" }, \
+    { (x) | BT_HCI_READ_PAGE_SCAN_ACTIVITY, "Read Page Scan Activity" }, \
+    { (x) | BT_HCI_WRITE_PAGE_SCAN_ACTIVITY, "Write Page Scan Activity" }, \
+    { (x) | BT_HCI_READ_INQ_SCAN_ACTIVITY, "Read Inquiry Scan Activity" }, \
+    { (x) | BT_HCI_WRITE_INQ_SCAN_ACTIVITY, "Write Inquiry Scan Activity" }, \
+    { (x) | BT_HCI_READ_AUTH_ENABLE, "Read Authentication Enable" }, \
+    { (x) | BT_HCI_WRITE_AUTH_ENABLE, "Write Authentication Enable" }, \
+    { (x) | BT_HCI_READ_ENC_MODE, "Read Encryption Mode" }, \
+    { (x) | BT_HCI_WRITE_ENC_MODE, "Write Encryption Mode" }, \
+    { (x) | BT_HCI_READ_COD, "Read Class of Device" }, \
+    { (x) | BT_HCI_WRITE_COD, "Write Class of Device" }, \
+    { (x) | BT_HCI_READ_VOICE_SETTING, "Read Voice Setting" }, \
+    { (x) | BT_HCI_WRITE_VOICE_SETTING, "Write Voice Setting" }
+
+#define INF_PARAMS(x) \
+    { (x) | BT_HCI_READ_LOC_VERINF, "Read Local Version Information" }, \
+    { (x) | BT_HCI_READ_LOC_SUP_CMDS, "Read Local Supported Commands" }, \
+    { (x) | BT_HCI_READ_LOC_SUP_FEATURES, "Read Local Supported features" }, \
+    { (x) | BT_HCI_READ_LOC_EXT_FEATURES, "Read Local Extended Features" }, \
+    { (x) | BT_HCI_READ_BUF_SIZE, "Read Buffer Size" }, \
+    { (x) | BT_HCI_READ_BD_ADDR, "Read BD_ADDR" }, \
+    { (x) | BT_HCI_READ_DATA_BLOCK_SIZE,  "Read Data Block Size" }, \
+    { (x) | BT_HCI_READ_LOC_SUP_CODECS_V1, "Read Local Suppored Codecs" }, \
+    { (x) | BT_HCI_READ_LOC_SUP_CODECS_V2, "Read Local Suppored Codecs" }, \
+    { (x) | BT_HCI_READ_LOC_SIMPLE_PAIRING_OPTS, "Read Local Simple Pairing Options" }, \
+    { (x) | BT_HCI_READ_LOC_SUP_CODECS_CAP, "Read Local Suppored Codec Capabilities" }, \
+    { (x) | BT_HCI_READ_LOC_SUP_CTRL_DELAY, "Read Local Suppored Controller Delay" }
+
+#define LE_CTRL_CMD(x) \
+    { (x) | BT_HCI_LE_SET_EVENT_MASK, "LE Set Event Mask" }, \
+    { (x) | BT_HCI_LE_READ_BUFFER_SIZE_V1, "LE Read Buffer Size" }, \
+    { (x) | BT_HCI_LE_READ_BUFFER_SIZE_V2, "LE Read Buffer Size" }, \
+    { (x) | BT_HCI_LE_READ_LOC_SUPPORTED_FEATURES, "LE Read Local Supported Features" }, \
+    { (x) | BT_HCI_LE_SET_RANDOM_ADDR, "LE Set Random Address" }, \
+    { (x) | BT_HCI_LE_SET_ADV_PARAMS, "LE Set Extended Scan Parameters" }, \
+    { (x) | BT_HCI_LE_SET_EXTENDED_SCAN_PARAMS, "LE Set Extended Scan Parameters" }, \
+    { (x) | BT_HCI_LE_SET_EXTENDED_SCAN_ENABLE, "LE Set Extended Scan Enable" }
+
 static const struct uint_string bt_hci_opcode[] = {
-    { BT_LINK_CTRL_CMD | BT_HCI_INQUIRY, "Inquiry" },
-    { BT_LINK_CTRL_CMD | BT_HCI_INQUIRY_CANCEL, "Inquiry Cancel" },
-    { BT_LINK_CTRL_CMD | BT_HCI_PERIODIC_INQUIRY_MODE, "Periodic Inquiry Mode" },
-    { BT_LINK_CTRL_CMD | BT_HCI_EXIT_PERIODIC_INQUIRY_MODE, "Exit Periodic Inquiry Mode" },
-    { BT_LINK_CTRL_CMD | BT_HCI_CREATE_CONNECTION, "Create Connection" },
-    { BT_LINK_CTRL_CMD | BT_HCI_DISCONNECT, "Disconnect" },
-    { BT_LINK_CTRL_CMD | BT_HCI_CREATE_CONNECTION_CANCEL, "Create Connction Cancel" },
-    { BT_LINK_CTRL_CMD | BT_HCI_ACCEPT_CONN_REQ, "Accept Connection Request" },
-    { BT_LINK_CTRL_CMD | BT_HCO_REJECT_CONN_REQ, "Reject Connection Request" },
-    { BT_LINK_CTRL_CMD | BT_HCI_LINK_KEY_REQ_REPLY, "Link Key Request Reply" },
-    { BT_LINK_CTRL_CMD | BT_HCI_LINK_KEY_REQ_NEG_REPLY, "Link Key Request Negative Reply" },
-    { BT_LINK_CTRL_CMD | BT_HCI_PIN_CODE_REQ_REPLY, "PIN Code Request Reply" },
-    { BT_LINK_CTRL_CMD | BT_HCI_PIN_CODE_REQ_NEG_REPLY, "PIN Code Request Negative Reply" },
-    { BT_LINK_CTRL_CMD | BT_HCI_CHANGE_CONN_PKT_TYPE, "Change Connection Packet Type" },
-    { BT_LINK_CTRL_CMD | BT_HCI_AUTH_REQUESTED, "Authentication Requested" },
-    { BT_LINK_CTRL_CMD | BT_HCI_SET_CONN_ENCRYPTION, "Set Connection Encryption" },
-    { BT_LINK_CTRL_CMD | BT_HCI_CHANGE_CONN_LINK_KEY, "Change Connection Link Key" },
-    { BT_LINK_CTRL_CMD | BT_HCI_LINK_KEY_SELECTION, "Link Key Selection" },
-    { BT_CTRL_BB_CMD | BT_HCI_SET_EVENT_MASK, "Set Event Mask" },
-    { BT_CTRL_BB_CMD | BT_HCI_RESET, "Reset" },
-    { BT_CTRL_BB_CMD | BT_HCI_SET_EVENT_FILTER, "Set Event Filter" },
-    { BT_CTRL_BB_CMD | BT_HCI_FLUSH, "Flush" },
-    { BT_CTRL_BB_CMD | BT_HCI_READ_PIN_TYPE, "Read PIN Type" },
-    { BT_CTRL_BB_CMD | BT_HCI_WRITE_PIN_TYPE, "Write PIN Type" },
-    { BT_CTRL_BB_CMD | BT_HCI_READ_STORED_LINK_KEY, "Read Stored Link Key" },
-    { BT_CTRL_BB_CMD | BT_HCI_WRITE_STORED_LINK_KEY, "Write Stored Link Key" },
-    { BT_CTRL_BB_CMD | BT_HCI_DELETE_STORED_LINK_KEY, "Delete Stored Link Key" },
-    { BT_CTRL_BB_CMD | BT_HCI_WRITE_LOC_NAME, "Write Local Name" },
-    { BT_CTRL_BB_CMD | BT_HCI_READ_LOC_NAME,  "Read Local Name" },
-    { BT_CTRL_BB_CMD | BT_HCI_READ_CONN_ACCEPT_TIMEOUT, "Read Connection Accept Timeout" },
-    { BT_CTRL_BB_CMD | BT_HCI_WRITE_CONN_ACCEPT_TIMEOUT, "Write Connection Accept Timeout" },
-    { BT_CTRL_BB_CMD | BT_HCI_READ_PAGE_TIMEOUT, "Read Page Timeout" },
-    { BT_CTRL_BB_CMD | BT_HCI_WRITE_PAGE_TIMEOUT, "Write Page Timeout" },
-    { BT_CTRL_BB_CMD | BT_HCI_READ_SCAN_ENABLE, "Read Scan Enable" },
-    { BT_CTRL_BB_CMD | BT_HCI_WRITE_SCAN_ENABLE, "Write Scan Enable" },
-    { BT_CTRL_BB_CMD | BT_HCI_READ_PAGE_SCAN_ACTIVITY, "Read Page Scan Activity" },
-    { BT_CTRL_BB_CMD | BT_HCI_WRITE_PAGE_SCAN_ACTIVITY, "Write Page Scan Activity" },
-    { BT_CTRL_BB_CMD | BT_HCI_READ_INQ_SCAN_ACTIVITY, "Read Inquiry Scan Activity" },
-    { BT_CTRL_BB_CMD | BT_HCI_WRITE_INQ_SCAN_ACTIVITY, "Write Inquiry Scan Activity" },
-    { BT_CTRL_BB_CMD | BT_HCI_READ_AUTH_ENABLE, "Read Authentication Enable" },
-    { BT_CTRL_BB_CMD | BT_HCI_WRITE_AUTH_ENABLE, "Write Authentication Enable" },
-    { BT_CTRL_BB_CMD | BT_HCI_READ_COD, "Read Class of Device" },
-    { BT_CTRL_BB_CMD | BT_HCI_WRITE_COD, "Write Class of Device" },
-    { BT_CTRL_BB_CMD | BT_HCI_READ_VOICE_SETTING, "Read Voice Setting" },
-    { BT_CTRL_BB_CMD | BT_HCI_WRITE_VOICE_SETTING, "Write Voice Setting" },
-    { BT_INF_PARAMS | BT_HCI_READ_LOC_VERINF, "Read Local Version Information" },
-    { BT_INF_PARAMS | BT_HCI_READ_LOC_SUP_CMDS, "Read Local Supported Commands" },
-    { BT_INF_PARAMS | BT_HCI_READ_LOC_SUP_FEATURES, "Read Local Supported features" },
-    { BT_INF_PARAMS | BT_HCI_READ_LOC_EXT_FEATURES, "Read Local Extended Features" },
-    { BT_INF_PARAMS | BT_HCI_READ_BUF_SIZE, "Read Buffer Size" },
-    { BT_INF_PARAMS | BT_HCI_READ_BD_ADDR, "Read BD_ADDR" },
-    { BT_INF_PARAMS | BT_HCI_READ_DATA_BLOCK_SIZE,  "Read Data Block Size" },
-    { BT_INF_PARAMS | BT_HCI_READ_LOC_SUP_CODECS_V1, "Read Local Suppored Codecs" },
-    { BT_INF_PARAMS | BT_HCI_READ_LOC_SUP_CODECS_V2, "Read Local Suppored Codecs" },
-    { BT_INF_PARAMS | BT_HCI_READ_LOC_SIMPLE_PAIRING_OPTS, "Read Local Simple Pairing Options" },
-    { BT_INF_PARAMS | BT_HCI_READ_LOC_SUP_CODECS_CAP, "Read Local Suppored Codec Capabilities" },
-    { BT_INF_PARAMS | BT_HCI_READ_LOC_SUP_CTRL_DELAY, "Read Local Suppored Controller Delay" },
-    { BT_LE_CTRL_CMD | BT_HCI_LE_SET_EVENT_MASK, "LE Set Event Mask" },
-    { BT_LE_CTRL_CMD | BT_HCI_LE_READ_BUFFER_SIZE_V1, "LE Read Buffer Size" },
-    { BT_LE_CTRL_CMD | BT_HCI_LE_READ_BUFFER_SIZE_V2, "LE Read Buffer Size" },
-    { BT_LE_CTRL_CMD | BT_HCI_LE_READ_LOC_SUPPORTED_FEATURES, "LE Read Local Supported Features" },
-    { BT_LE_CTRL_CMD | BT_HCI_LE_SET_RANDOM_ADDR, "LE Set Random Address" },
-    { BT_LE_CTRL_CMD | BT_HCI_LE_SET_ADV_PARAMS, "LE Set Extended Scan Parameters" },
-    { BT_LE_CTRL_CMD | BT_HCI_LE_SET_EXTENDED_SCAN_PARAMS, "LE Set Extended Scan Parameters" },
-    { BT_LE_CTRL_CMD | BT_HCI_LE_SET_EXTENDED_SCAN_ENABLE, "LE Set Extended Scan Enable" },
+    LINK_CTRL_CMD(BT_LINK_CTRL_CMD),
+    CTRL_BB_CMD(BT_CTRL_BB_CMD),
+    INF_PARAMS(BT_INF_PARAMS),
+    LE_CTRL_CMD(BT_LE_CTRL_CMD)
 };
 
 static struct protocol_info bt_hci = {
