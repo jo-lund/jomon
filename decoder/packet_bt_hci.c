@@ -103,6 +103,20 @@ static const char *bt_hci_le_meta[] = {
     { (x) | BT_HCI_CHANGE_CONN_LINK_KEY, "Change Connection Link Key" }, \
     { (x) | BT_HCI_LINK_KEY_SELECTION, "Link Key Selection" }
 
+#define LINK_POLICY_CMD(x) \
+    { (x) | BT_HCI_HOLD_MODE, "Hold Mode" }, \
+    { (x) | BT_HCI_SNIFF_MODE, "Sniff Mode" }, \
+    { (x) | BT_HCI_EXIT_SNIFF_MODE, "Exit Sniff Mode" }, \
+    { (x) | BT_HCI_QOS_SETUP, "QOS Setup" }, \
+    { (x) | BT_HCI_ROLE_DISC, "Role Discovery" }, \
+    { (x) | BT_HCI_SWITCH_ROLE, "Switch Role" }, \
+    { (x) | BT_HCI_READ_LINK_POL_SET, "Read Link Policy Settings" }, \
+    { (x) | BT_HCI_WRITE_LINK_POL_SET, "Write Link Policy Settings" }, \
+    { (x) | BT_HCI_READ_DEF_LINK_POL_SET, "Read Default Link Policy Settings" }, \
+    { (x) | BT_HCI_WRITE_DEF_LINK_POL_SET, "Write Default Link Policy Settings" }, \
+    { (x) | BT_HCI_FLOW_SPEC, "Flow Specification" }, \
+    { (x) | BT_HCI_SNIFF_SUBRAT, "Sniff Subrating" }
+
 #define CTRL_BB_CMD(x) \
     { (x) | BT_HCI_SET_EVENT_MASK, "Set Event Mask" }, \
     { (x) | BT_HCI_RESET, "Reset" }, \
@@ -160,6 +174,7 @@ static const char *bt_hci_le_meta[] = {
 
 static const struct uint_string bt_hci_opcode[] = {
     LINK_CTRL_CMD(BT_LINK_CTRL_CMD),
+    LINK_POLICY_CMD(BT_LINK_POLICY_CMD),
     CTRL_BB_CMD(BT_CTRL_BB_CMD),
     INF_PARAMS(BT_INF_PARAMS),
     LE_CTRL_CMD(BT_LE_CTRL_CMD)
@@ -315,6 +330,29 @@ static packet_error parse_link_ctrl(unsigned char *buf, int n, struct bluetooth_
     return NO_ERR;
 }
 
+static packet_error parse_ctrl_bb_cmd(unsigned char *buf, int n, struct bluetooth_hci_cmd *cmd)
+{
+    switch (GET_OCF(cmd->opcode)) {
+    case BT_HCI_READ_ENC_MODE:
+        if (n < 2)
+            return DECODE_ERR;
+        cmd->param.mode = mempool_alloc(sizeof(*cmd->param.mode));
+        cmd->param.mode->status = *buf++;
+        cmd->param.mode->mode = *buf++;
+        break;
+    case BT_HCI_WRITE_ENC_MODE:
+        if (n < 2)
+            return DECODE_ERR;
+        cmd->param.mode = mempool_alloc(sizeof(*cmd->param.mode));
+        cmd->param.mode->mode = *buf++;
+        cmd->param.mode->status = *buf++;
+        break;
+    default:
+        break;
+    }
+    return NO_ERR;
+}
+
 static packet_error parse_inf_params(unsigned char *buf, int n, struct bluetooth_hci_cmd *cmd)
 {
     switch (GET_OCF(cmd->opcode)) {
@@ -360,6 +398,8 @@ static packet_error parse_cmd(unsigned char *buf, int n, struct bluetooth_hci_in
     switch (GET_OGF(cmd->opcode)) {
     case BT_LINK_CTRL_CMD:
         return parse_link_ctrl(buf, n, cmd);
+    case BT_CTRL_BB_CMD:
+        return parse_ctrl_bb_cmd(buf, n, cmd);
     case BT_INF_PARAMS:
         return parse_inf_params(buf, n, cmd);
     case BT_LE_CTRL_CMD:

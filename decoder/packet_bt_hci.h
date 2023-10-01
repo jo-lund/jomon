@@ -38,6 +38,24 @@
 #define   BT_HCI_LINK_KEY_SELECTION 0x0017
 
 /*
+ * The Link Policy commands provide methods for the Host to affect how the Link
+ * Manager manages the piconet.
+ */
+#define BT_LINK_POLICY_CMD (0x2 << 10)
+#define   BT_HCI_HOLD_MODE 0x0001
+#define   BT_HCI_SNIFF_MODE 0x0003
+#define   BT_HCI_EXIT_SNIFF_MODE 0x0004
+#define   BT_HCI_QOS_SETUP 0x0007
+#define   BT_HCI_ROLE_DISC 0x0009
+#define   BT_HCI_SWITCH_ROLE 0x000b
+#define   BT_HCI_READ_LINK_POL_SET 0x000c
+#define   BT_HCI_WRITE_LINK_POL_SET 0x000d
+#define   BT_HCI_READ_DEF_LINK_POL_SET 0x000e
+#define   BT_HCI_WRITE_DEF_LINK_POL_SET 0x000f
+#define   BT_HCI_FLOW_SPEC 0x0010
+#define   BT_HCI_SNIFF_SUBRAT 0x0011
+
+/*
  * The Controller & Baseband commands provide access and control to various
  * capabilities of the Bluetooth hardware
  */
@@ -65,6 +83,8 @@
 #define   BT_HCI_WRITE_INQ_SCAN_ACTIVITY 0x001e
 #define   BT_HCI_READ_AUTH_ENABLE 0x001f
 #define   BT_HCI_WRITE_AUTH_ENABLE 0x0020
+#define   BT_HCI_READ_ENC_MODE 0x0021   /* deprecated */
+#define   BT_HCI_WRITE_ENC_MODE 0x0022  /* deprecated */
 #define   BT_HCI_READ_COD 0X0023
 #define   BT_HCI_WRITE_COD 0x0024
 #define   BT_HCI_READ_VOICE_SETTING 0x0024
@@ -88,6 +108,11 @@
 #define   BT_HCI_READ_LOC_SUP_CODECS_CAP 0xe
 #define   BT_HCI_READ_LOC_SUP_CTRL_DELAY 0xf
 
+/*
+ * The LE Controller commands provide access and control to various capabilities
+ * of the Bluetooth hardware, as well as methods for the Host to affect how the
+ * Link Layer manages the piconet and controls connections
+ */
 #define BT_LE_CTRL_CMD (0x8 << 10)
 #define   BT_HCI_LE_SET_EVENT_MASK 0x000
 #define   BT_HCI_LE_READ_BUFFER_SIZE_V1 0x0002
@@ -193,11 +218,19 @@ struct hci_set_extended_scan_enable {
     uint16_t period;
 };
 
+/* Link Control Commands */
 struct hci_inquiry {
     uint8_t lap[3];
     uint8_t inquiry_len;
     uint8_t nresp;
 };
+
+/* Controller & Baseband commands */
+struct hci_enc_mode {
+    uint8_t status;
+    uint8_t mode;
+};
+
 
 struct hci_loc_sup_features {
     uint8_t status;
@@ -265,6 +298,7 @@ struct bluetooth_hci_cmd {
         struct hci_set_extended_scan_enable *scan_enable;
         struct hci_inquiry *inq;
         struct hci_loc_sup_features *feat;
+        struct hci_enc_mode *mode;
     } param;
 };
 
