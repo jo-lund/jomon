@@ -4,12 +4,8 @@
 
 #define FACTOR 1.5
 
-typedef struct item {
-    void *data;
-} item_t;
-
 struct vector {
-    item_t *buf;
+    void **buf;
     unsigned int c;
     unsigned int size;
     vector_deallocate func;
@@ -22,27 +18,27 @@ vector_t *vector_init(int sz)
     vector = xmalloc(sizeof(vector_t));
     vector->size = sz;
     vector->c = 0;
-    vector->buf = (item_t *) xmalloc(vector->size * sizeof(struct item));
+    vector->buf = xmalloc(vector->size * sizeof(void*));
     return vector;
 }
 
 void vector_push_back(vector_t *vector, void *data)
 {
     if (vector->c >= vector->size) {
-        item_t *newbuf;
+        void **newbuf;
 
-        newbuf = (item_t *) xrealloc(vector->buf, vector->size * sizeof(struct item) * FACTOR);
+        newbuf = xrealloc(vector->buf, vector->size * sizeof(void*) * FACTOR);
         vector->buf = newbuf;
         vector->size = vector->size * FACTOR;
     }
-    vector->buf[vector->c++].data = data;
+    vector->buf[vector->c++] = data;
 }
 
 void vector_pop_back(vector_t *vector, vector_deallocate func)
 {
     if (vector->c) {
         if (func) {
-            func(vector->buf[vector->c - 1].data);
+            func(vector->buf[vector->c - 1]);
         }
         vector->c--;
     }
@@ -51,7 +47,7 @@ void vector_pop_back(vector_t *vector, vector_deallocate func)
 void *vector_back(vector_t *vector)
 {
     if (vector->c) {
-        return vector->buf[vector->c - 1].data;
+        return vector->buf[vector->c - 1];
     }
     return NULL;
 }
@@ -59,7 +55,7 @@ void *vector_back(vector_t *vector)
 void *vector_get(vector_t *vector, int i)
 {
     if ((unsigned int) i < vector->c) {
-        return vector->buf[i].data;
+        return vector->buf[i];
     }
     return NULL;
 }
@@ -78,7 +74,7 @@ void vector_clear(vector_t *vector, vector_deallocate func)
 {
     if (func) {
         for (unsigned int i = 0; i < vector->c; i++) {
-            func(vector->buf[i].data);
+            func(vector->buf[i]);
         }
     }
     vector->c = 0;
