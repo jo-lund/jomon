@@ -65,9 +65,9 @@ static char *option_number[32] = {
 };
 
 static struct packet_flags opt_flags[] = {
-    { "Copied flag:", 1, copied_flag },
-    { "Option class:", 2, option_class },
-    { "Option number:", 5, option_number },
+    { "Copied flag", 1, copied_flag },
+    { "Option class", 2, option_class },
+    { "Option number", 5, option_number },
 };
 
 static struct protocol_info ipv4_prot = {

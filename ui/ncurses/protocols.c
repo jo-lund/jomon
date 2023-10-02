@@ -17,22 +17,13 @@
 #include "geoip.h"
 #include "decoder/decoder.h"
 #include "monitor.h"
-#include "list_view.h"
+#include "protocols.h"
 #include "ui/print_eth.h"
 
 extern int hexmode;
 
-/*
- * Display the bit values of flags
- *
- * flags contains the flag values
- * num_flags is the size of packet_flags
- * packet_flags is an array that contains a name/description of the specific flag,
- * its width (which is the number of bits in the flag), and, based on the value of
- * the flag, a description of the specific field value, see decoder/packet.h.
- */
-static void add_flags(list_view *lw, list_view_header *header, uint32_t flags,
-                      struct packet_flags *pf, int num_flags)
+void add_flags(list_view *lw, list_view_header *header, uint32_t flags,
+               struct packet_flags *pf, int num_flags)
 {
     char buf[MAXLINE];
     int num_bits = 0;
@@ -55,7 +46,7 @@ static void add_flags(list_view *lw, list_view_header *header, uint32_t flags,
 
             /* print the field description based on index (bit value of field) */
             bf = (flags >> (num_bits - (k + pf[i].width))) & ((1 << pf[i].width) - 1);
-            snprintcat(buf, MAXLINE, " %s", pf[i].sflags[bf]);
+            snprintcat(buf, MAXLINE, ": %s", pf[i].sflags[bf]);
         }
         LV_ADD_TEXT_ELEMENT(lw, header, "%s", buf);
         for (int j = 0; j < pf[i].width; j++) {

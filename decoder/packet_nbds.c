@@ -11,7 +11,7 @@ static char *node_type[] = { "B node", "P node", "M node", "NBDD" };
 
 struct packet_flags nbds_flags[] = {
     { "Reserved", 4, NULL },
-    { "Source End-node type:", 2, node_type },
+    { "Source End-node type", 2, node_type },
     { "First flag", 1, NULL },
     { "More flag", 1, NULL }
 };

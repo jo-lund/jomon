@@ -19,8 +19,8 @@ static char *nb_name[] = { "Unique NetBIOS name", "Group NetBIOS name" };
 static char *nb_ont[] = { "B node", "P node", "M node", "Reserved" };
 
 static struct packet_flags nbns_nb_flags[] = {
-    { "Name Flag:", 1, nb_name },
-    { "Owner Node Type:", 2, nb_ont }
+    { "Name Flag", 1, nb_name },
+    { "Owner Node Type", 2, nb_ont }
 };
 
 extern void print_nbns(char *buf, int n, void *data);

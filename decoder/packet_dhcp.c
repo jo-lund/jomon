@@ -27,10 +27,10 @@ static char *server[] = { "No update", "Perform update" };
 
 static struct packet_flags fqdn_flags[] = {
     { "Reserved", 4, NULL },
-    { "Server DNS updates:", 1, update },
-    { "Encoding:", 1, encoding },
-    { "Override:", 1, override },
-    { "Server A RR update:", 1, server }
+    { "Server DNS updates", 1, update },
+    { "Encoding", 1, encoding },
+    { "Override", 1, override },
+    { "Server A RR update", 1, server }
 };
 
 static struct protocol_info dhcp_prot = {
