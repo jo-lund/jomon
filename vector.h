@@ -23,7 +23,7 @@ void *vector_get(vector_t *vector, int i);
 int vector_size(vector_t *vector);
 
 /* Return the underlying array */
-void *vector_data(vector_t *vector);
+void **vector_data(vector_t *vector);
 
 /*
  * Clears the vector

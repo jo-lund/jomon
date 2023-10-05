@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <assert.h>
 #include "vector.h"
 #include "wrapper.h"
 
@@ -6,8 +7,8 @@
 
 struct vector {
     void **buf;
-    unsigned int c;
-    unsigned int size;
+    int c;
+    int size;
     vector_deallocate func;
 };
 
@@ -15,6 +16,7 @@ vector_t *vector_init(int sz)
 {
     vector_t *vector;
 
+    assert(sz > 0);
     vector = xmalloc(sizeof(vector_t));
     vector->size = sz;
     vector->c = 0;
@@ -36,7 +38,7 @@ void vector_push_back(vector_t *vector, void *data)
 
 void vector_pop_back(vector_t *vector, vector_deallocate func)
 {
-    if (vector->c) {
+    if (vector->c > 0) {
         if (func) {
             func(vector->buf[vector->c - 1]);
         }
@@ -46,17 +48,16 @@ void vector_pop_back(vector_t *vector, vector_deallocate func)
 
 void *vector_back(vector_t *vector)
 {
-    if (vector->c) {
+    if (vector->c > 0)
         return vector->buf[vector->c - 1];
-    }
     return NULL;
 }
 
 void *vector_get(vector_t *vector, int i)
 {
-    if ((unsigned int) i < vector->c) {
+    assert(i >= 0);
+    if (i < vector->c)
         return vector->buf[i];
-    }
     return NULL;
 }
 
@@ -65,15 +66,15 @@ int vector_size(vector_t *vector)
     return vector->c;
 }
 
-void *vector_data(vector_t *vector)
+void **vector_data(vector_t *vector)
 {
-    return (void *) vector->buf;
+    return vector->buf;
 }
 
 void vector_clear(vector_t *vector, vector_deallocate func)
 {
     if (func) {
-        for (unsigned int i = 0; i < vector->c; i++) {
+        for (int i = 0; i < vector->c; i++) {
             func(vector->buf[i]);
         }
     }
