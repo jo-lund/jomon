@@ -7,7 +7,7 @@
 #include "mempool.h"
 #include "wrapper.h"
 
-#define obstack_chunk_alloc xmalloc
+#define obstack_chunk_alloc malloc
 #define obstack_chunk_free free
 #define CHUNK_SIZE (16 * 1024)
 #define NUM_POOLS 2
@@ -25,6 +25,11 @@ struct mempool {
 static struct mempool mempool[NUM_POOLS];
 static enum pool mempool_store = POOL_PERM;
 
+static void alloc_failed(void)
+{
+    err_quit("Memory exhausted");
+}
+
 void mempool_init(void)
 {
     /* POOL_SHORT will use the default chunk size of 4096 bytes */
@@ -33,6 +38,7 @@ void mempool_init(void)
         mempool[i].obj = obstack_alloc(&mempool[i].pool, sizeof(int));
     }
     obstack_chunk_size(&mempool[POOL_PERM].pool) = CHUNK_SIZE;
+    obstack_alloc_failed_handler = alloc_failed;
 }
 
 void mempool_destruct(void)
