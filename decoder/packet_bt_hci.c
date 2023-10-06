@@ -299,7 +299,8 @@ static uint16_t *create_uint16_array(uint8_t nrep, unsigned char **buf, int *n)
     return array;
 }
 
-static packet_error parse_le_ctrl(unsigned char *buf, int n, struct bluetooth_hci_cmd *cmd)
+static packet_error parse_le_ctrl(unsigned char *buf, int n, struct bluetooth_hci_cmd *cmd,
+                                  struct packet_data *pdata)
 {
     int bits;
 
@@ -354,12 +355,15 @@ static packet_error parse_le_ctrl(unsigned char *buf, int n, struct bluetooth_hc
     return NO_ERR;
 }
 
-static packet_error parse_link_ctrl(unsigned char *buf, int n, struct bluetooth_hci_cmd *cmd)
+static packet_error parse_link_ctrl(unsigned char *buf, int n, struct bluetooth_hci_cmd *cmd,
+                                    struct packet_data *pdata)
 {
     switch (GET_OCF(cmd->opcode)) {
     case BT_HCI_INQUIRY:
-        if (n < 5)
+        if (n < 5) {
+            pdata->error = create_error_string("Packet length (%d) less than HCI Inquiry packet (5)", n);
             return DECODE_ERR;
+        }
         cmd->param.inq = mempool_alloc(sizeof(*cmd->param.inq));
         cmd->param.inq->lap[0] = buf[2];
         cmd->param.inq->lap[1] = buf[1];
@@ -375,7 +379,8 @@ static packet_error parse_link_ctrl(unsigned char *buf, int n, struct bluetooth_
     return NO_ERR;
 }
 
-static packet_error parse_ctrl_bb_cmd(unsigned char *buf, int n, struct bluetooth_hci_cmd *cmd)
+static packet_error parse_ctrl_bb_cmd(unsigned char *buf, int n, struct bluetooth_hci_cmd *cmd,
+                                      struct packet_data *pdata)
 {
     switch (GET_OCF(cmd->opcode)) {
     case BT_HCI_READ_ENC_MODE:
@@ -398,7 +403,8 @@ static packet_error parse_ctrl_bb_cmd(unsigned char *buf, int n, struct bluetoot
     return NO_ERR;
 }
 
-static packet_error parse_inf_params(unsigned char *buf, int n, struct bluetooth_hci_cmd *cmd)
+static packet_error parse_inf_params(unsigned char *buf, int n, struct bluetooth_hci_cmd *cmd,
+                                     struct packet_data *pdata)
 {
     switch (GET_OCF(cmd->opcode)) {
     case BT_HCI_READ_LOC_VERINF:
@@ -431,25 +437,30 @@ static packet_error parse_cmd(unsigned char *buf, int n, struct bluetooth_hci_in
 {
     struct bluetooth_hci_cmd *cmd;
 
-    if (n < HCI_CMD_HDR)
+    if (n < HCI_CMD_HDR) {
+        pdata->error = create_error_string("Packet length (%d) less than minimum HCI cmd header", n);
         return DECODE_ERR;
+    }
     cmd = mempool_alloc(sizeof(*cmd));
     bt->cmd = cmd;
     cmd->opcode = read_uint16le(&buf);
     n -= 2;
     cmd->param_len = *buf++;
     n--;
-    if (n < cmd->param_len)
+    if (n < cmd->param_len) {
+        pdata->error = create_error_string("Packet length (%d) less than parameter length (%u)",
+                                           n, cmd->param_len);
         return DECODE_ERR;
+    }
     switch (GET_OGF(cmd->opcode)) {
     case BT_LINK_CTRL_CMD:
-        return parse_link_ctrl(buf, n, cmd);
+        return parse_link_ctrl(buf, n, cmd, pdata);
     case BT_CTRL_BB_CMD:
-        return parse_ctrl_bb_cmd(buf, n, cmd);
+        return parse_ctrl_bb_cmd(buf, n, cmd, pdata);
     case BT_INF_PARAMS:
-        return parse_inf_params(buf, n, cmd);
+        return parse_inf_params(buf, n, cmd, pdata);
     case BT_LE_CTRL_CMD:
-        return parse_le_ctrl(buf, n, cmd);
+        return parse_le_ctrl(buf, n, cmd, pdata);
     default:
         break;
     }
@@ -706,9 +717,10 @@ static char *get_bt_cmd_string(char *buf, size_t n, struct bluetooth_hci_cmd *cm
     case BT_LINK_CTRL_CMD:
         switch (GET_OCF(cmd->opcode)) {
         case BT_HCI_INQUIRY:
-            snprintcat(buf, n, ": LAP: " LAPSTR "  Inquiry Length: %u  Number of Responses: %u",
-                       LAP2STR(cmd->param.inq->lap), cmd->param.inq->inquiry_len,
-                       cmd->param.inq->nresp);
+            if (cmd->param.inq)
+                snprintcat(buf, n, ": LAP: " LAPSTR "  Inquiry Length: %u  Number of Responses: %u",
+                           LAP2STR(cmd->param.inq->lap), cmd->param.inq->inquiry_len,
+                           cmd->param.inq->nresp);
             return buf;
         default:
             break;
