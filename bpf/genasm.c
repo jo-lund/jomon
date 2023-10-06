@@ -35,7 +35,7 @@ enum network {
 static vector_t *code;
 static uint32_t regs[NUM_REGS];
 static uint32_t M[BPF_MEMWORDS];
-static _stack_t *memidx;
+static stack_t *memidx;
 static int block_insn = 0;
 
 static void genexpr(struct block *b, struct node *n, int op, int offset);
