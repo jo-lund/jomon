@@ -63,18 +63,18 @@ START_TEST(vector_test_data)
 {
     static const int size = 4096;
     vector_t *data = vector_init(size);
-    intptr_t *array = NULL;
+    int **array = NULL;
 
     for (int i = 0; i < size; i++)
         vector_push_back(data, INT_TO_PTR(i + 1));
     ck_assert_msg(vector_size(data) == size, "Vector should contain %d elements", size);
     for (int i = 0; i < size; i++)
         ck_assert(PTR_TO_INT(vector_get(data, i)) == i + 1);
-    array = vector_data(data);
+    array = (int **) vector_data(data);
     ck_assert(array != NULL);
     for (int i = 0; i < size; i++) {
-        ck_assert(array[i] == i + 1);
-        ck_assert(array[i] == PTR_TO_INT(vector_get(data, i)));
+        ck_assert(PTR_TO_INT(array[i]) == i + 1);
+        ck_assert(PTR_TO_INT(array[i]) == PTR_TO_INT(vector_get(data, i)));
     }
 }
 END_TEST
