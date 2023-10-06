@@ -26,7 +26,7 @@
  */
 #define TIME_TO_WAIT 0
 
-#define MAXLINE 1000
+#define MAXLINE 1024
 #define PACKET_TABLE_SIZE 65536
 
 #ifdef PATH_MAX

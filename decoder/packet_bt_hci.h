@@ -109,6 +109,19 @@
 #define   BT_HCI_READ_LOC_SUP_CTRL_DELAY 0xf
 
 /*
+ * The Controller modifies all status parameters. These parameters provide
+ * information about the current state of the Link Manager and Baseband in the
+ * BR/EDR Controller.
+ */
+#define BT_STATUS_PARAMS (0x5 << 10)
+
+/*
+ * The Testing commands are used to provide the ability to test various functional
+ * capabilities of the Bluetooth hardware.
+ */
+#define BT_TESTING_CMD (0x6 << 10)
+
+/*
  * The LE Controller commands provide access and control to various capabilities
  * of the Bluetooth hardware, as well as methods for the Host to affect how the
  * Link Layer manages the piconet and controls connections
@@ -199,6 +212,7 @@ enum hci_le_meta_event {
     BT_HCI_LE_PER_ADV_SYNC_EST
 };
 
+/* LE Controller commands */
 struct hci_set_extended_scan_params {
     uint8_t own_address_type;
     uint8_t scanning_filter_policy;
@@ -218,7 +232,7 @@ struct hci_set_extended_scan_enable {
     uint16_t period;
 };
 
-/* Link Control Commands */
+/* Link Control commands */
 struct hci_inquiry {
     uint8_t lap[3];
     uint8_t inquiry_len;
@@ -231,12 +245,12 @@ struct hci_enc_mode {
     uint8_t mode;
 };
 
-
 struct hci_loc_sup_features {
     uint8_t status;
     uint64_t lmp_features;
 };
 
+/* Events */
 struct hci_cmd_complete {
     uint8_t ncmdpkt;
     uint16_t opcode;
@@ -331,5 +345,11 @@ struct bluetooth_hci_info {
 
 void register_bt_hci(void);
 char *bt2string(char *buf, size_t n, struct bluetooth_hci_info *info);
+struct packet_flags *get_bt_opcode_flags(void);
+int get_bt_opcode_flags_size(void);
+char *get_bt_type(uint8_t type);
+char *get_bt_command(uint16_t opcode);
+char *get_bt_event_code(uint8_t code);
+char *get_bt_error_string(uint8_t error_code);
 
 #endif

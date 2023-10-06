@@ -28,17 +28,17 @@ void add_flags(list_view *lw, list_view_header *header, uint32_t flags,
     char buf[MAXLINE];
     int num_bits = 0;
 
-    for (int i = 0; i < num_flags; i++) {
+    for (int i = 0; i < num_flags; i++)
         num_bits += pf[i].width;
-    }
-    for (int i = 0; i < num_bits; i++) {
-        snprintf(buf + i, MAXLINE - i, ".");
-    }
+    if (num_bits >= MAXLINE)
+        return;
+    for (int i = 0; i < num_bits; i++)
+        buf[i] = '.';
     for (int i = 0, k = 0; k < num_bits; i++) {
         /* print the bits of the flag 'i' */
-        for (int j = 0; j < pf[i].width; j++) {
+        for (int j = 0; j < pf[i].width; j++)
             buf[k + j] = ((flags >> (num_bits - (k + j) - 1)) & 0x01) + '0';
-        }
+
         /* print the flag description */
         snprintf(buf + num_bits, MAXLINE - num_bits, "  %s", pf[i].str);
         if (pf[i].sflags) {
@@ -49,9 +49,8 @@ void add_flags(list_view *lw, list_view_header *header, uint32_t flags,
             snprintcat(buf, MAXLINE, ": %s", pf[i].sflags[bf]);
         }
         LV_ADD_TEXT_ELEMENT(lw, header, "%s", buf);
-        for (int j = 0; j < pf[i].width; j++) {
+        for (int j = 0; j < pf[i].width; j++)
             buf[k + j] = '.';
-        }
         k += pf[i].width;
     }
 }

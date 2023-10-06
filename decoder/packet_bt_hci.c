@@ -172,6 +172,18 @@ static const char *bt_hci_le_meta[] = {
     { (x) | BT_HCI_LE_SET_EXTENDED_SCAN_PARAMS, "LE Set Extended Scan Parameters" }, \
     { (x) | BT_HCI_LE_SET_EXTENDED_SCAN_ENABLE, "LE Set Extended Scan Enable" }
 
+static char *bt_hci_ogf[] = {
+    "",
+    "Link Control Commands",
+    "Link Policy Commands",
+    "Controller and Baseband Commands",
+    "Informational Parameters",
+    "Status Parameters",
+    "Testing Commands",
+    "",
+    "LE Controller Commands"
+};
+
 static const struct uint_string bt_hci_opcode[] = {
     LINK_CTRL_CMD(BT_LINK_CTRL_CMD),
     LINK_POLICY_CMD(BT_LINK_POLICY_CMD),
@@ -202,6 +214,39 @@ static struct packet_flags scanning_phy[] = {
     { "Scan advertisements on the LE Coded PHY", 1, NULL },
     { "Reserved", 5, NULL }
 };
+
+static struct packet_flags opcode[] = {
+    { "Opcode Group Field", 6, bt_hci_ogf },
+    { "Opcode Command Field", 10, NULL }
+};
+
+struct packet_flags *get_bt_opcode_flags(void)
+{
+    return opcode;
+}
+
+int get_bt_opcode_flags_size(void)
+{
+    return ARRAY_SIZE(opcode);
+}
+
+char *get_bt_type(uint8_t type)
+{
+    switch (type) {
+    case BT_HCI_COMMAND:
+        return "HCI Command";
+    case BT_HCI_ACL_DATA:
+        return "HCI ACL Data";
+    case BT_HCI_SYNC_DATA:
+        return "HCI Synchronous Data";
+    case BT_HCI_EVENT:
+        return "HCI Event";
+    case BT_HCI_ISO_DATA:
+        return "HCI ISO Data";
+    default:
+        return "Unknown";
+    }
+}
 
 static inline int popcnt(uint32_t x)
 {
@@ -529,11 +574,28 @@ static packet_error parse_event(unsigned char *buf, int n, struct bluetooth_hci_
         event->param.cmd->ncmdpkt = *buf++;
         event->param.cmd->opcode = read_uint16le(&buf);
         n -= 3;
-        switch (event->param.cmd->opcode) {
-        case BT_HCI_INQUIRY_CANCEL:
-            if (n < 1)
-                return DECODE_ERR;
-            event->param.cmd->return_param = *buf++;
+        switch (GET_OGF(event->param.cmd->opcode)) {
+        case BT_LINK_CTRL_CMD:
+            switch (GET_OCF(event->param.cmd->opcode)) {
+            case BT_HCI_INQUIRY_CANCEL:
+                if (n < 1)
+                    return DECODE_ERR;
+                event->param.cmd->return_param = *buf++;
+                break;
+            default:
+                break;
+            }
+            break;
+        case BT_LE_CTRL_CMD:
+            switch (GET_OCF(event->param.cmd->opcode)) {
+            case BT_HCI_LE_SET_RANDOM_ADDR:
+                if (n < 1)
+                    return DECODE_ERR;
+                event->param.cmd->return_param = *buf++;
+                break;
+            default:
+                break;
+            }
             break;
         default:
             break;
@@ -599,6 +661,7 @@ packet_error handle_bt_phdr(struct protocol_info *pinfo, unsigned char *buf,
         return DECODE_ERR;
     bt = mempool_alloc(sizeof(*bt));
     pdata->data = bt;
+    pdata->len = n;
     bt->direction = read_uint32le(&buf);
     n -= 4;
     return parse_bt(buf, n, bt);
@@ -614,6 +677,7 @@ packet_error handle_bt(struct protocol_info *pinfo, unsigned char *buf,
         return DECODE_ERR;
     bt = mempool_alloc(sizeof(*bt));
     pdata->data = bt;
+    pdata->len = n;
     bt->direction = 0;
     return parse_bt(buf, n, bt);
 }
@@ -663,29 +727,13 @@ error:
 
 static char *get_bt_event_string(char *buf, size_t n, struct bluetooth_hci_event *event)
 {
-    struct uint_string key;
-    struct uint_string *res;
-
-    key.val = event->code;
-    res = bsearch(&key, bt_hci_event, ARRAY_SIZE(bt_hci_event),
-                  sizeof(struct uint_string), cmp_val);
-    if (!res)
-        goto error;
-    snprintcat(buf, n, "Event   %s", res->str);
+    snprintcat(buf, n, "Event   %s", get_bt_event_code(event->code));
     switch (event->code) {
     case BT_HCI_CMD_COMPLETE:
-        key.val = event->param.cstat->opcode;
-        res = bsearch(&key, bt_hci_opcode, ARRAY_SIZE(bt_hci_opcode),
-                      sizeof(struct uint_string), cmp_val);
-        if (res)
-            snprintcat(buf, n, ": %s", res->str);
+        snprintcat(buf, n, ": %s", get_bt_command(event->param.cstat->opcode));
         return buf;
     case BT_HCI_CMD_STATUS:
-        key.val = event->param.cmd->opcode;
-        res = bsearch(&key, bt_hci_opcode, ARRAY_SIZE(bt_hci_opcode),
-                  sizeof(struct uint_string), cmp_val);
-        if (res)
-            snprintcat(buf, n, ": %s", res->str);
+        snprintcat(buf, n, ": %s", get_bt_command(event->param.cmd->opcode));
         return buf;
     case BT_HCI_LE_META:
         if (event->param.meta.subevent_code > ARRAY_SIZE(bt_hci_le_meta))
@@ -696,8 +744,6 @@ static char *get_bt_event_string(char *buf, size_t n, struct bluetooth_hci_event
     default:
         return buf;
     }
-
-error:
     snprintcat(buf, n, "Event   Unknown");
     return buf;
 }
@@ -711,5 +757,183 @@ char *bt2string(char *buf, size_t n, struct bluetooth_hci_info *bt)
         return get_bt_event_string(buf, n, bt->event);
     default:
         return "Unknown";
+    }
+}
+
+char *get_bt_command(uint16_t opcode)
+{
+    struct uint_string key;
+    struct uint_string *res;
+
+    key.val = opcode;
+    res = bsearch(&key, bt_hci_opcode, ARRAY_SIZE(bt_hci_opcode),
+                  sizeof(struct uint_string), cmp_val);
+    if (!res)
+        return "Unknown";
+    return res->str;
+}
+
+char *get_bt_event_code(uint8_t code)
+{
+    struct uint_string key;
+    struct uint_string *res;
+
+    key.val = code;
+    res = bsearch(&key, bt_hci_event, ARRAY_SIZE(bt_hci_event),
+                  sizeof(struct uint_string), cmp_val);
+    if (!res)
+        return "Unknown";
+    return res->str;
+}
+
+char *get_bt_error_string(uint8_t error_code)
+{
+    switch (error_code) {
+    case 0x00:
+        return "Success";
+    case 0x01:
+        return "Unknown HCI Command";
+    case 0x02:
+        return "Unknown Connection Identifier";
+    case 0x03:
+        return "Hardware Failure";
+    case 0x04:
+        return "Page Timeout";
+    case 0x05:
+        return "Authentication Failure";
+    case 0x06:
+        return "PIN or Key Missing";
+    case 0x07:
+        return "Memory Capacity Exceeded";
+    case 0x08:
+        return "Connection Timeout";
+    case 0x09:
+        return "Connection Limit Exceeded";
+    case 0x0A:
+        return "Synchronous Connection Limit To A Device Exceeded";
+    case 0x0B:
+        return "Connection Already Exists";
+    case 0x0C:
+        return "Command Disallowed";
+    case 0x0D:
+        return "Connection Rejected due to Limited Resources";
+    case 0x0E:
+        return "Connection Rejected Due To Security Reasons";
+    case 0x0F:
+        return "Connection Rejected due to Unacceptable BD_ADDR";
+    case 0x10:
+        return "Connection Accept Timeout Exceeded";
+    case 0x11:
+        return "Unsupported Feature or Parameter Value";
+    case 0x12:
+        return "Invalid HCI Command Parameters";
+    case 0x13:
+        return "Remote User Terminated Connection";
+    case 0x14:
+        return "Remote Device Terminated Connection due to Low Resources";
+    case 0x15:
+        return "Remote Device Terminated Connection due to Power Off";
+    case 0x16:
+        return "Connection Terminated By Local Host";
+    case 0x17:
+        return "Repeated Attempts";
+    case 0x18:
+        return "Pairing Not Allowed";
+    case 0x19:
+        return "Unknown LMP PDU";
+    case 0x1A:
+        return "Unsupported Remote Feature";
+    case 0x1B:
+        return "SCO Offset Rejected";
+    case 0x1C:
+        return "SCO Interval Rejected";
+    case 0x1D:
+        return "SCO Air Mode Rejected";
+    case 0x1E:
+        return "Invalid LMP Parameters / Invalid LL Parameters";
+    case 0x1F:
+        return "Unspecified Error";
+    case 0x20:
+        return "Unsupported LMP Parameter Value / Unsupported LL Parameter Value";
+    case 0x21:
+        return "Role Change Not Allowed";
+    case 0x22:
+        return "LMP Response Timeout / LL Response Timeout";
+    case 0x23:
+        return "LMP Error Transaction Collision / LL Procedure Collision";
+    case 0x24:
+        return "LMP PDU Not Allowed";
+    case 0x25:
+        return "Encryption Mode Not Acceptable";
+    case 0x26:
+        return "Link Key cannot be Changed";
+    case 0x27:
+        return "Requested QoS Not Supported";
+    case 0x28:
+        return "Instant Passed";
+    case 0x29:
+        return "Pairing With Unit Key Not Supported";
+    case 0x2A:
+        return "Different Transaction Collision";
+    case 0x2B:
+        return "Reserved for future use";
+    case 0x2C:
+        return "QoS Unacceptable Parameter";
+    case 0x2D:
+        return "QoS Rejected";
+    case 0x2E:
+        return "Channel Classification Not Supported";
+    case 0x2F:
+        return "Insufficient Security";
+    case 0x30:
+        return "Parameter Out Of Mandatory Range";
+    case 0x31:
+        return "Reserved for future use";
+    case 0x32:
+        return "Role Switch Pending";
+    case 0x33:
+        return "Reserved for future use";
+    case 0x34:
+        return "Reserved Slot Violation";
+    case 0x35:
+        return "Role Switch Failed";
+    case 0x36:
+        return "Extended Inquiry Response Too Large";
+    case 0x37:
+        return "Secure Simple Pairing Not Supported By Host";
+    case 0x38:
+        return "Host Busy - Pairing";
+    case 0x39:
+        return "Connection Rejected due to No Suitable Channel Found";
+    case 0x3A:
+        return "Controller Busy";
+    case 0x3B:
+        return "Unacceptable Connection Parameters";
+    case 0x3C:
+        return "Advertising Timeout";
+    case 0x3D:
+        return "Connection Terminated due to MIC Failure";
+    case 0x3E:
+        return "Connection Failed to be Established / Synchronization Timeout";
+    case 0x3F:
+        return "Previously used";
+    case 0x40:
+        return "Coarse Clock Adjustment Rejected but Will Try to Adjust Using Clock Dragging";
+    case 0x41:
+        return "Type0 Submap Not Defined";
+    case 0x42:
+        return "Unknown Advertising Identifier";
+    case 0x43:
+        return "Limit Reached";
+    case 0x44:
+        return "Operation Cancelled by Host";
+    case 0x45:
+        return "Packet Too Long";
+    case 0x46:
+        return "Too Late";
+    case 0x47:
+        return "Too Early";
+    default:
+        return "Unknown Error";
     }
 }
