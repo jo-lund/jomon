@@ -16,8 +16,6 @@ static void print_unknown(char *buf, int size, struct packet *p)
     pdata = p->root;
     switch (get_protocol_key(pdata->id)) {
     case LINKTYPE_ETHERNET:
-        if (eth_len(p) <= 0)
-            return;
         HW_ADDR_NTOP(smac, eth_src(p));
         HW_ADDR_NTOP(dmac, eth_dst(p));
         format_timeval(&p->time, time, TBUFLEN);
@@ -36,7 +34,7 @@ void pkt2text(char *buf, size_t size, struct packet *p)
     struct protocol_info *pinfo;
 
     pinfo = (p->root->next) ? get_protocol(p->root->next->id) : get_protocol(p->root->id);
-    if (pinfo) {
+    if (pinfo && pinfo->print_pdu) {
         char time[TBUFLEN];
         struct timeval t = p->time;
 
