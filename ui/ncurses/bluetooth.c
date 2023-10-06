@@ -24,6 +24,8 @@ void add_event(list_view *lv, list_view_header *hdr, struct bluetooth_hci_event 
 {
     switch (event->code) {
     case BT_HCI_CMD_COMPLETE:
+        if (!event->param.cmd)
+            return;
         LV_ADD_TEXT_ELEMENT(lv, hdr, "Number of HCI command packets: %d", event->param.cmd->ncmdpkt);
         LV_ADD_TEXT_ELEMENT(lv, hdr, "Command opcode: %s (0x%x)", get_bt_command(event->param.cmd->opcode),
                             event->param.cmd->opcode);
@@ -45,6 +47,8 @@ void add_bt_information(void *w, void *sw, void *data)
     LV_ADD_TEXT_ELEMENT(lv, hdr, "Type: %s (%u)", get_bt_type(bt->type), bt->type);
     switch (bt->type) {
     case BT_HCI_COMMAND:
+        if (!bt->cmd)
+            return;
         sub = LV_ADD_SUB_HEADER(lv, hdr, selected[UI_FLAGS], UI_FLAGS, "Opcode: %s (0x%x)",
                                 get_bt_command(bt->cmd->opcode), bt->cmd->opcode);
         add_flags(lv, sub, bt->cmd->opcode, get_bt_opcode_flags(),
@@ -65,6 +69,8 @@ void add_bt_information(void *w, void *sw, void *data)
         }
         break;
     case BT_HCI_EVENT:
+        if (!bt->event)
+            return;
         LV_ADD_TEXT_ELEMENT(lv, hdr, "Event Code: %s (0x%x)", get_bt_event_code(bt->event->code),
                             bt->event->code);
         LV_ADD_TEXT_ELEMENT(lv, hdr, "Parameter Total Length: %u", bt->event->param_len);

@@ -426,7 +426,8 @@ static packet_error parse_inf_params(unsigned char *buf, int n, struct bluetooth
     return NO_ERR;
 }
 
-static packet_error parse_cmd(unsigned char *buf, int n, struct bluetooth_hci_info *bt)
+static packet_error parse_cmd(unsigned char *buf, int n, struct bluetooth_hci_info *bt,
+                              struct packet_data *pdata)
 {
     struct bluetooth_hci_cmd *cmd;
 
@@ -548,19 +549,25 @@ static packet_error parse_le_meta(unsigned char *buf, int n, struct hci_le_meta 
     return NO_ERR;
 }
 
-static packet_error parse_event(unsigned char *buf, int n, struct bluetooth_hci_info *bt)
+static packet_error parse_event(unsigned char *buf, int n, struct bluetooth_hci_info *bt,
+                                struct packet_data *pdata)
 {
     struct bluetooth_hci_event *event;
 
-    if (n < HCI_EVENT_HDR)
+    if (n < HCI_EVENT_HDR) {
+        pdata->error = create_error_string("Packet length (%d) less than minimum HCI event header", n);
         return DECODE_ERR;
+    }
     event = mempool_alloc(sizeof(*event));
     bt->event = event;
     event->code = *buf++;
     event->param_len = *buf++;
     n -= HCI_EVENT_HDR;
-    if (n < event->param_len)
+    if (n < event->param_len) {
+        pdata->error = create_error_string("Packet length (%d) less than parameter length (%u)",
+                                           n, event->param_len);
         return DECODE_ERR;
+    }
     switch (event->code) {
     case BT_HCI_INQUIRY_COMPLETE:
         if (n < 1)
@@ -635,18 +642,20 @@ static packet_error parse_event(unsigned char *buf, int n, struct bluetooth_hci_
     return NO_ERR;
 }
 
-packet_error parse_bt(unsigned char *buf, int n, struct bluetooth_hci_info *bt)
+packet_error parse_bt(unsigned char *buf, int n, struct bluetooth_hci_info *bt,
+                      struct packet_data *pdata)
 {
     bt->type = *buf++;
     n--;
     switch (bt->type) {
     case BT_HCI_COMMAND:
-        return parse_cmd(buf, n, bt);
+        return parse_cmd(buf, n, bt, pdata);
     case BT_HCI_ACL_DATA:
     case BT_HCI_SYNC_DATA:
     case BT_HCI_EVENT:
-        return parse_event(buf, n, bt);
+        return parse_event(buf, n, bt, pdata);
     case BT_HCI_ISO_DATA:
+    default:
         break;
     }
     return NO_ERR;
@@ -664,7 +673,7 @@ packet_error handle_bt_phdr(struct protocol_info *pinfo, unsigned char *buf,
     pdata->len = n;
     bt->direction = read_uint32le(&buf);
     n -= 4;
-    return parse_bt(buf, n, bt);
+    return parse_bt(buf, n, bt, pdata);
 }
 
 
@@ -679,9 +688,8 @@ packet_error handle_bt(struct protocol_info *pinfo, unsigned char *buf,
     pdata->data = bt;
     pdata->len = n;
     bt->direction = 0;
-    return parse_bt(buf, n, bt);
+    return parse_bt(buf, n, bt, pdata);
 }
-
 
 static char *get_bt_cmd_string(char *buf, size_t n, struct bluetooth_hci_cmd *cmd)
 {
@@ -730,10 +738,12 @@ static char *get_bt_event_string(char *buf, size_t n, struct bluetooth_hci_event
     snprintcat(buf, n, "Event   %s", get_bt_event_code(event->code));
     switch (event->code) {
     case BT_HCI_CMD_COMPLETE:
-        snprintcat(buf, n, ": %s", get_bt_command(event->param.cstat->opcode));
+        if (event->param.cstat)
+            snprintcat(buf, n, ": %s", get_bt_command(event->param.cstat->opcode));
         return buf;
     case BT_HCI_CMD_STATUS:
-        snprintcat(buf, n, ": %s", get_bt_command(event->param.cmd->opcode));
+        if (event->param.cmd)
+            snprintcat(buf, n, ": %s", get_bt_command(event->param.cmd->opcode));
         return buf;
     case BT_HCI_LE_META:
         if (event->param.meta.subevent_code > ARRAY_SIZE(bt_hci_le_meta))
@@ -752,11 +762,17 @@ char *bt2string(char *buf, size_t n, struct bluetooth_hci_info *bt)
 {
     switch (bt->type) {
     case BT_HCI_COMMAND:
+        if (!bt->cmd)
+            goto error;
         return get_bt_cmd_string(buf, n, bt->cmd);
     case BT_HCI_EVENT:
+        if (!bt->event)
+            goto error;
         return get_bt_event_string(buf, n, bt->event);
     default:
-        return "Unknown";
+    error:
+        snprintcat(buf, n, "Unknown");
+        return buf;
     }
 }
 
