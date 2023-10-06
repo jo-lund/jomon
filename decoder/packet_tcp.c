@@ -77,12 +77,11 @@ static packet_error parse_tcp_options(struct tcp *tcp, unsigned char *data, int 
             break;
         case TCP_OPT_SACK:
         {
-            if (len < 2 || ((*opt)->option_length = data[1]) < 10)
-                goto error;
-
             int num_blocks;
             struct tcp_sack_block *b;
 
+            if (len < 2 || ((*opt)->option_length = data[1]) < 10)
+                goto error;
             data += 2;
             num_blocks = ((*opt)->option_length - 2) / 8;
             if (len < num_blocks * 8)
@@ -107,16 +106,17 @@ static packet_error parse_tcp_options(struct tcp *tcp, unsigned char *data, int 
             if (len < 2)
                 goto error;
             (*opt)->option_length = data[1];
-            if (len < (*opt)->option_length || (*opt)->option_length > 18)
+            if (len < (*opt)->option_length || (*opt)->option_length > 18 ||
+                (*opt)->option_length < 6)
                 goto error;
             data += 2;
-            if ((*opt)->option_length >= 6 && (*opt)->option_length <= 18)
-                (*opt)->cookie = data;
+            (*opt)->cookie = data;
             data += (*opt)->option_length - 2;
             break;
         default:
             DEBUG("TCP option %d not supported", (*opt)->option_kind);
-            if (len < 2 || ((*opt)->option_length = data[1]) > len)
+            (*opt)->option_length = data[1];
+            if (len < 2 ||  (*opt)->option_length > len || (*opt)->option_length == 0)
                 goto error;
             data += (*opt)->option_length;
             break;
