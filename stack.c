@@ -1,89 +1,84 @@
 #include <stdlib.h>
+#include <assert.h>
 #include "stack.h"
 #include "wrapper.h"
 
-typedef struct item {
-    void *data;
-} item_t;
-
 struct stack {
-    item_t *buf;
-    unsigned int top;
-    unsigned int size;
+    void **buf;
+    int top;
+    int size;
 };
 
-_stack_t *stack_init(unsigned int n)
+stack_t *stack_init(int n)
 {
-    _stack_t *stack;
+    stack_t *stack;
 
-    stack = xmalloc(sizeof(_stack_t));
-    stack->buf = xmalloc(n * sizeof(item_t));
+    assert(n > 0);
+    stack = xmalloc(sizeof(stack_t));
+    stack->buf = xmalloc(n * sizeof(void*));
     stack->top = 0;
     stack->size = n;
     return stack;
 }
 
-bool stack_push(_stack_t *stack, void *data)
+bool stack_push(stack_t *stack, void *data)
 {
     if (stack->top < stack->size) {
-        stack->buf[stack->top++].data = data;
+        stack->buf[stack->top++] = data;
         return true;
     }
     return false;
 }
 
-void *stack_pop(_stack_t *stack)
+void *stack_pop(stack_t *stack)
 {
-    if (stack->top) {
-        return stack->buf[--stack->top].data;
-    }
+    if (stack->top > 0)
+        return stack->buf[--stack->top];
     return NULL;
 }
 
-void stack_pop_free(_stack_t *stack, stack_deallocate func)
+void stack_pop_free(stack_t *stack, stack_deallocate func)
 {
-    if (stack->top) {
-        func(stack->buf[--stack->top].data);
-    }
+    if (stack->top > 0)
+        func(stack->buf[--stack->top]);
 }
 
-void *stack_top(_stack_t *stack)
+void *stack_top(stack_t *stack)
 {
-    if (stack->top) {
-        return stack->buf[stack->top-1].data;
-    }
+    if (stack->top > 0)
+        return stack->buf[stack->top-1];
     return NULL;
 }
 
-void *stack_get(_stack_t *stack, unsigned int i)
+void *stack_get(stack_t *stack, int i)
 {
-    if (i < stack->size) {
-        return stack->buf[i].data;
-    }
+    assert(i >= 0);
+    if (i < stack->size)
+        return stack->buf[i];
     return NULL;
 }
 
-void stack_clear(_stack_t *stack)
+void stack_clear(stack_t *stack)
 {
     stack->size = 0;
     stack->top = 0;
 }
 
-bool stack_empty(_stack_t *stack)
+bool stack_empty(stack_t *stack)
 {
     return stack->top == 0;
 }
 
-unsigned int stack_size(_stack_t *stack)
+int stack_size(stack_t *stack)
 {
     return stack->top;
 }
 
-void stack_free(_stack_t *stack, stack_deallocate func)
+void stack_free(stack_t *stack, stack_deallocate func)
 {
     if (func) {
-        for (unsigned int i = 0; i < stack->top; i++) {
-            func(stack->buf[i].data);
+        for (int i = 0; i < stack->top; i++) {
+            func(stack->buf[i]);
         }
     }
     free(stack->buf);
