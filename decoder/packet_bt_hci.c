@@ -269,7 +269,7 @@ void register_bt_hci(void)
     register_protocol(&bt_hci_phdr, DATALINK, LINKTYPE_BT_HCI_H4_WITH_PHDR);
 }
 
-static uint8_t *create_uint8_array(uint8_t nrep, unsigned char **buf, int *n)
+static uint8_t *read_uint8_array(uint8_t nrep, unsigned char **buf, int *n)
 {
     uint8_t *array;
     unsigned char *p = *buf;
@@ -284,7 +284,7 @@ static uint8_t *create_uint8_array(uint8_t nrep, unsigned char **buf, int *n)
     return array;
 }
 
-static uint16_t *create_uint16_array(uint8_t nrep, unsigned char **buf, int *n)
+static uint16_t *read_uint16_array(uint8_t nrep, unsigned char **buf, int *n)
 {
     uint16_t *array;
     unsigned char *p = *buf;
@@ -293,7 +293,7 @@ static uint16_t *create_uint16_array(uint8_t nrep, unsigned char **buf, int *n)
         return NULL;
     *n = *n - 2 * nrep;
     array = mempool_alloc(2 * nrep);
-    for (unsigned int i = 0; i < 2 * nrep; i++)
+    for (unsigned int i = 0; i < nrep; i++)
         array[i] = read_uint16le(&p);
     *buf = p;
     return array;
@@ -477,13 +477,15 @@ static packet_error parse_le_meta(unsigned char *buf, int n, struct hci_le_meta 
     case BT_HCI_LE_ADV_REPORT:
         if (n < 1)
             return DECODE_ERR;
-        meta->rep = mempool_alloc(sizeof(*meta->rep));
+        meta->rep = mempool_calloc(1, struct hci_le_adv_report);
         meta->rep->nrep = *buf++;
+        if (meta->rep->nrep < 1 || meta->rep->nrep > 0x19)
+            return DECODE_ERR;
         n--;
-        meta->rep->event_type = create_uint8_array(meta->rep->nrep, &buf, &n);
+        meta->rep->event_type = read_uint8_array(meta->rep->nrep, &buf, &n);
         if (meta->rep->event_type == NULL)
             return DECODE_ERR;
-        meta->rep->addr_type = create_uint8_array(meta->rep->nrep, &buf, &n);
+        meta->rep->addr_type = read_uint8_array(meta->rep->nrep, &buf, &n);
         if (meta->rep->event_type == NULL)
             return DECODE_ERR;
         if (n < 6 * meta->rep->nrep)
@@ -492,23 +494,25 @@ static packet_error parse_le_meta(unsigned char *buf, int n, struct hci_le_meta 
         meta->rep->addr = mempool_alloc(6 * meta->rep->nrep);
         for (int i = 0; i < meta->rep->nrep; i++)
             READ_BDADDR(meta->rep->addr, buf);
-        meta->rep->len_data = create_uint8_array(meta->rep->nrep, &buf, &n);
+        meta->rep->len_data = read_uint8_array(meta->rep->nrep, &buf, &n);
         if (meta->rep->len_data == NULL)
             return DECODE_ERR;
-        meta->rep->rssi = create_uint8_array(meta->rep->nrep, &buf, &n);
+        meta->rep->rssi = read_uint8_array(meta->rep->nrep, &buf, &n);
         if (meta->rep->rssi == NULL)
             return DECODE_ERR;
         break;
     case BT_HCI_LE_EXT_ADV_REPORT:
         if (n < 1)
             return DECODE_ERR;
-        meta->erep = mempool_alloc(sizeof(*meta->erep));
+        meta->erep = mempool_calloc(1, struct hci_le_ext_adv_report);
         meta->erep->nrep = *buf++;
+        if (meta->erep->nrep < 1 || meta->erep->nrep > 0xa)
+            return DECODE_ERR;
         n--;
-        meta->erep->event_type = create_uint16_array(meta->erep->nrep, &buf, &n);
+        meta->erep->event_type = read_uint16_array(meta->erep->nrep, &buf, &n);
         if (meta->erep->event_type == NULL)
             return DECODE_ERR;
-        meta->erep->addr_type = create_uint8_array(meta->erep->nrep, &buf, &n);
+        meta->erep->addr_type = read_uint8_array(meta->erep->nrep, &buf, &n);
         if (meta->erep->addr_type == NULL)
             return DECODE_ERR;
         if (n < 6 * meta->erep->nrep)
@@ -517,25 +521,25 @@ static packet_error parse_le_meta(unsigned char *buf, int n, struct hci_le_meta 
         meta->erep->addr = mempool_alloc(6 * meta->erep->nrep);
         for (int i = 0; i < meta->erep->nrep; i++)
             READ_BDADDR(meta->erep->addr, buf);
-        meta->erep->primary_phy = create_uint8_array(meta->erep->nrep, &buf, &n);
+        meta->erep->primary_phy = read_uint8_array(meta->erep->nrep, &buf, &n);
         if (meta->erep->primary_phy == NULL)
             return DECODE_ERR;
-        meta->erep->secondary_phy = create_uint8_array(meta->erep->nrep, &buf, &n);
+        meta->erep->secondary_phy = read_uint8_array(meta->erep->nrep, &buf, &n);
         if (meta->erep->secondary_phy == NULL)
             return DECODE_ERR;
-        meta->erep->adv_sid = create_uint8_array(meta->erep->nrep, &buf, &n);
+        meta->erep->adv_sid = read_uint8_array(meta->erep->nrep, &buf, &n);
         if (meta->erep->adv_sid == NULL)
             return DECODE_ERR;
-        meta->erep->tx_power = create_uint8_array(meta->erep->nrep, &buf, &n);
+        meta->erep->tx_power = read_uint8_array(meta->erep->nrep, &buf, &n);
         if (meta->erep->tx_power == NULL)
             return DECODE_ERR;
-        meta->erep->rssi = create_uint8_array(meta->erep->nrep, &buf, &n);
+        meta->erep->rssi = read_uint8_array(meta->erep->nrep, &buf, &n);
         if (meta->erep->rssi == NULL)
             return DECODE_ERR;
-        meta->erep->padv_ivl = create_uint16_array(meta->erep->nrep, &buf, &n);
+        meta->erep->padv_ivl = read_uint16_array(meta->erep->nrep, &buf, &n);
         if (meta->erep->padv_ivl == NULL)
             return DECODE_ERR;
-        meta->erep->daddr_type = create_uint8_array(meta->erep->nrep, &buf, &n);
+        meta->erep->daddr_type = read_uint8_array(meta->erep->nrep, &buf, &n);
         if (meta->erep->daddr_type == NULL)
             return DECODE_ERR;
         if (n < 6 * meta->erep->nrep)
@@ -544,7 +548,7 @@ static packet_error parse_le_meta(unsigned char *buf, int n, struct hci_le_meta 
         meta->erep->daddr = mempool_alloc(6 * meta->erep->nrep);
         for (int i = 0; i < meta->erep->nrep; i++)
             READ_BDADDR(meta->erep->daddr, buf);
-        meta->erep->data_len = create_uint8_array(meta->erep->nrep, &buf, &n);
+        meta->erep->data_len = read_uint8_array(meta->erep->nrep, &buf, &n);
         if (meta->erep->data_len == NULL)
             return DECODE_ERR;
         for (int i = 0; i < meta->erep->nrep; i++)
@@ -782,10 +786,11 @@ char *bt2string(char *buf, size_t n, struct bluetooth_hci_info *bt)
             goto error;
         return get_bt_event_string(buf, n, bt->event);
     default:
-    error:
-        snprintcat(buf, n, "Unknown");
-        return buf;
+        break;
     }
+error:
+    snprintcat(buf, n, "Unknown");
+    return buf;
 }
 
 char *get_bt_command(uint16_t opcode)
