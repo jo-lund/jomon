@@ -52,7 +52,7 @@ test-objs += $(patsubst %.c,%.o,$(wildcard $(TESTDIR)/*.c))
 all : release
 
 .PHONY : debug
-debug : CFLAGS += -g -fsanitize=address,undefined -fno-omit-frame-pointer
+debug : CFLAGS += -g3 -fsanitize=address,undefined -fno-omit-frame-pointer
 debug : CPPFLAGS += -DMONITOR_DEBUG
 debug : $(TARGETDIR)/monitor
 
