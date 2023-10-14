@@ -77,10 +77,21 @@ static void read_file(const char *path)
         ck_abort_msg("file_open error");
     if ((err = file_read(handle, fp, handle_packet)) != NO_ERROR) {
         fclose(fp);
-        ck_abort_msg("Error in %s: %s", "snap.pcap", file_error(err));
+        ck_abort_msg("Error in %s: %s", path, file_error(err));
     }
     fclose(fp);
 }
+
+START_TEST(tcp_opt_err_test)
+{
+    struct packet_data *pdata;
+
+    read_file(PATH "tcp_opt_err.pcap");
+    pdata = get_pdata(p, IPPROTO_TCP);
+    ck_assert_msg(pdata, "Not a TCP packet");
+    ck_assert(strcmp(pdata->error, "TCP options error") == 0);
+}
+END_TEST
 
 START_TEST(snap_test)
 {
@@ -185,6 +196,7 @@ Suite *decoder_suite(void)
     tcase_add_unchecked_fixture(tc_core, setup, teardown);
     tcase_add_test(tc_core, snap_test);
     tcase_add_test(tc_core, snmp_test);
+    tcase_add_test(tc_core, tcp_opt_err_test);
     tcase_set_timeout(tc_core, 60);
     return s;
 }
