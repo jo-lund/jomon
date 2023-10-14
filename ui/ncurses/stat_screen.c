@@ -75,12 +75,10 @@ static void handle_alarm(void)
 {
     screen *s = (screen *) screen_cache_get(STAT_SCREEN);
 
-    if (s->focus) {
+    get_netstat(ctx.device, &rx, &tx);
+    calculate_rate();
+    if (s->focus)
         stat_screen_print(s);
-    } else {
-        get_netstat(ctx.device, &rx, &tx);
-        calculate_rate();
-    }
 }
 
 screen *stat_screen_create(void)
@@ -327,8 +325,6 @@ void print_netstat(screen *s)
     case ALL:
     default:
         y = 0;
-        get_netstat(ctx.device, &rx, &tx);
-        calculate_rate();
         mvprintat(s->win, y++, 0, hdrcol, "Network statistics for %s", ctx.device);
         mvprintat(s->win, ++y, 2, subcol, "%13s", "Download rate");
         print_rate(s, &rx);
