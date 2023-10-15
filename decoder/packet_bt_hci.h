@@ -216,10 +216,7 @@ enum hci_le_meta_event {
 struct hci_set_extended_scan_params {
     uint8_t own_address_type;
     uint8_t scanning_filter_policy;
-    struct {
-        unsigned int le_1m : 1;
-        unsigned int le_coded : 1;
-    } scanning_phy;
+    uint8_t scanning_phy;
     uint8_t *scan_type;
     uint16_t *scan_interval;
     uint16_t *scan_window;
@@ -347,9 +344,19 @@ void register_bt_hci(void);
 char *bt2string(char *buf, size_t n, struct bluetooth_hci_info *info);
 struct packet_flags *get_bt_opcode_flags(void);
 int get_bt_opcode_flags_size(void);
+struct packet_flags *get_bt_scanning_phy_flags(void);
+int get_bt_scanning_phy_flags_size(void);
 char *get_bt_type(uint8_t type);
 char *get_bt_command(uint16_t opcode);
 char *get_bt_event_code(uint8_t code);
 char *get_bt_error_string(uint8_t error_code);
+char *get_bt_oat(uint8_t type);
+char *get_bt_scanning_filter_policy(uint8_t filter);
+char *get_bt_scan_type(uint8_t type);
+
+static inline double get_bt_duration(uint16_t n)
+{
+    return n * 0.625;
+}
 
 #endif

@@ -209,10 +209,10 @@ static struct protocol_info bt_hci_phdr = {
 };
 
 static struct packet_flags scanning_phy[] = {
-    { "Scan advertisements on the LE 1M PHY", 1, NULL },
-    { "Reserved", 1, NULL },
+    { "Reserved", 5, NULL },
     { "Scan advertisements on the LE Coded PHY", 1, NULL },
-    { "Reserved", 5, NULL }
+    { "Reserved", 1, NULL },
+    { "Scan advertisements on the LE 1M PHY", 1, NULL },
 };
 
 static struct packet_flags opcode[] = {
@@ -228,6 +228,16 @@ struct packet_flags *get_bt_opcode_flags(void)
 int get_bt_opcode_flags_size(void)
 {
     return ARRAY_SIZE(opcode);
+}
+
+struct packet_flags *get_bt_scanning_phy_flags(void)
+{
+    return scanning_phy;
+}
+
+int get_bt_scanning_phy_flags_size(void)
+{
+    return ARRAY_SIZE(scanning_phy);
 }
 
 char *get_bt_type(uint8_t type)
@@ -246,21 +256,6 @@ char *get_bt_type(uint8_t type)
     default:
         return "Unknown";
     }
-}
-
-static inline int popcnt(uint32_t x)
-{
-#ifdef __builtin_popcount
-    return __builtin_popcount(x);
-#else
-    int c = 0;
-
-    while (x) {
-        x &= x - 1;
-        c++;
-    }
-    return c;
-#endif
 }
 
 void register_bt_hci(void)
@@ -316,8 +311,7 @@ static packet_error parse_le_ctrl(unsigned char *buf, int n, struct bluetooth_hc
         cmd->param.set_scan = mempool_alloc(sizeof(*cmd->param.set_scan));
         cmd->param.set_scan->own_address_type = *buf++;
         cmd->param.set_scan->scanning_filter_policy = *buf++;
-        cmd->param.set_scan->scanning_phy.le_1m = buf[0] >> 7;
-        cmd->param.set_scan->scanning_phy.le_coded = (buf[0] >> 5) & 0x1;
+        cmd->param.set_scan->scanning_phy = *buf;
         bits = popcnt(buf[0]);
         buf++;
         n -= 3;
@@ -329,13 +323,13 @@ static packet_error parse_le_ctrl(unsigned char *buf, int n, struct bluetooth_hc
         n -= bits;
         if (n < 2 * bits)
             return DECODE_ERR;
-        cmd->param.set_scan->scan_interval = mempool_alloc(bits);
+        cmd->param.set_scan->scan_interval = mempool_alloc(bits * sizeof(uint16_t));
         for (int i = 0; i < bits; i++)
             cmd->param.set_scan->scan_interval[i] = read_uint16le(&buf);
         n = n - 2 * bits;
         if (n < 2 * bits)
             return DECODE_ERR;
-        cmd->param.set_scan->scan_window = mempool_alloc(bits);
+        cmd->param.set_scan->scan_window = mempool_alloc(bits * sizeof(uint16_t));
         for (int i = 0; i < bits; i++)
             cmd->param.set_scan->scan_window[i] = read_uint16le(&buf);
         n = n - 2 * bits;
@@ -968,5 +962,49 @@ char *get_bt_error_string(uint8_t error_code)
         return "Too Early";
     default:
         return "Unknown Error";
+    }
+}
+
+char *get_bt_oat(uint8_t type)
+{
+    switch (type) {
+    case BT_HCI_PUBLIC_DEVICE_ADDRESS:
+        return "Public Device Address";
+    case BT_HCI_RANDOM_DEVICE_ADDRESS:
+        return "Random Device Address";
+    case BT_HCI_RESOLVABLE_PRIVATE_ADDRESS_PUB:
+        return "Controller Generated";
+    case BT_HCI_RESOLVABLE_PRIVATE_ADDRESS_SET_RANDOM:
+        return "Controller Generated";
+    default:
+        return "Unknown";
+    }
+}
+
+char *get_bt_scanning_filter_policy(uint8_t filter)
+{
+    switch (filter) {
+    case BT_HCI_BASIC_UNFILTERED:
+        return "Basic unfiltered scanning filter policy";
+    case BT_HCI_BASIC_FILTERED:
+        return "Basic filtered scanning filter policy";
+    case BT_HCI_EXTENDED_UNFILTERED:
+        return "Extended unfiltered scanning filter policy";
+    case BT_HCI_EXTENDED_FILTERED:
+        return "Extended filtered scanning filter policy";
+    default:
+        return "Unknown";
+    }
+}
+
+char *get_bt_scan_type(uint8_t type)
+{
+    switch (type) {
+    case 0:
+        return "Passive";
+    case 1:
+        return "Active";
+    default:
+        return "Reserved";
     }
 }

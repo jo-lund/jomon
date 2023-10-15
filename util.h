@@ -267,4 +267,20 @@ static inline unsigned int clp2(unsigned int x)
     x = x | (x >> 16);
     return x + 1;
 }
+
+static inline int popcnt(uint32_t x)
+{
+#ifdef __builtin_popcount
+    return __builtin_popcount(x);
+#else
+    int c = 0;
+
+    while (x) {
+        x &= x - 1;
+        c++;
+    }
+    return c;
+#endif
+}
+
 #endif
