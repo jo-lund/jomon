@@ -7,6 +7,10 @@
 #define LAPSTR "%02x:%02x:%02x"
 #define LAP2STR(x) (x)[0], (x)[1], (x)[2]
 
+#define BT_EXT_SCAN_PARAMS_DURATION(x) ((x) * 0.625)
+#define BT_EXT_SCAN_ENABLE_DURATION(x) ((x) * 10)
+#define BT_EXT_SCAN_ENABLE_PERIOD(x) ((x) * 1.28)
+
 #define BT_HCI_COMMAND 1
 #define BT_HCI_ACL_DATA 2
 #define BT_HCI_SYNC_DATA 3
@@ -353,10 +357,6 @@ char *get_bt_error_string(uint8_t error_code);
 char *get_bt_oat(uint8_t type);
 char *get_bt_scanning_filter_policy(uint8_t filter);
 char *get_bt_scan_type(uint8_t type);
-
-static inline double get_bt_duration(uint16_t n)
-{
-    return n * 0.625;
-}
+char *get_bt_filter_dup(uint8_t type);
 
 #endif

@@ -103,7 +103,7 @@ static const char *bt_hci_le_meta[] = {
     { (x) | BT_HCI_CHANGE_CONN_LINK_KEY, "Change Connection Link Key" }, \
     { (x) | BT_HCI_LINK_KEY_SELECTION, "Link Key Selection" }
 
-#define LINK_POLICY_CMD(x) \
+#define LINK_POLICY_CMD(x)                   \
     { (x) | BT_HCI_HOLD_MODE, "Hold Mode" }, \
     { (x) | BT_HCI_SNIFF_MODE, "Sniff Mode" }, \
     { (x) | BT_HCI_EXIT_SNIFF_MODE, "Exit Sniff Mode" }, \
@@ -1004,6 +1004,20 @@ char *get_bt_scan_type(uint8_t type)
         return "Passive";
     case 1:
         return "Active";
+    default:
+        return "Reserved";
+    }
+}
+
+char *get_bt_filter_dup(uint8_t type)
+{
+    switch (type) {
+    case 0:
+        return "Duplicate filtering disabled";
+    case 1:
+        return "Duplicate filtering enabled";
+    case 2:
+        return "Duplicate filtering enabled, reset for each scan period";
     default:
         return "Reserved";
     }

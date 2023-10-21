@@ -8,7 +8,6 @@
 void add_le_ctrl(list_view *lv, list_view_header *hdr, struct bluetooth_hci_cmd *cmd)
 {
     list_view_header *sub;
-    char buf[128];
     double duration;
     struct packet_flags *scanning_phy;
     int bits = 0;
@@ -44,24 +43,47 @@ void add_le_ctrl(list_view *lv, list_view_header *hdr, struct bluetooth_hci_cmd 
                 sub = LV_ADD_SUB_HEADER(lv, hdr, selected[UI_FLAGS], UI_FLAGS, "%s", scanning_phy[size].str);
                 LV_ADD_TEXT_ELEMENT(lv, sub, "Scan Type: %s (0x%x)", get_bt_scan_type(cmd->param.set_scan->scan_type[i]),
                                     cmd->param.set_scan->scan_type[i]);
-                duration = get_bt_duration(cmd->param.set_scan->scan_interval[i]);
+                duration = BT_EXT_SCAN_PARAMS_DURATION(cmd->param.set_scan->scan_interval[i]);
                 if (duration > 1000)
-                    snprintf(buf, 128, "%.2f sec", duration / 1000.0);
+                    LV_ADD_TEXT_ELEMENT(lv, sub, "Scan interval: 0x%x (%.2f sec)",
+                                        cmd->param.set_scan->scan_interval[i], duration / 1000.0);
                 else
-                    snprintf(buf, 128, "%.2f ms", duration);
-                LV_ADD_TEXT_ELEMENT(lv, sub, "Scan interval: 0x%x (%s)", cmd->param.set_scan->scan_interval[i], buf);
-                duration = get_bt_duration(cmd->param.set_scan->scan_window[i]);
+                    LV_ADD_TEXT_ELEMENT(lv, sub, "Scan interval: 0x%x (%.2f ms)",
+                                        cmd->param.set_scan->scan_interval[i], duration);
+                duration = BT_EXT_SCAN_PARAMS_DURATION(cmd->param.set_scan->scan_window[i]);
                 if (duration > 1000)
-                    snprintf(buf, 128, "%.2f sec", duration / 1000.0);
+                    LV_ADD_TEXT_ELEMENT(lv, sub, "Scan Window: 0x%x (%.2f sec)",
+                                        cmd->param.set_scan->scan_window[i], duration / 1000.0);
                 else
-                    snprintf(buf, 128, "%.2f ms", duration);
-                LV_ADD_TEXT_ELEMENT(lv, sub, "Scan Window: 0x%x (%s)", cmd->param.set_scan->scan_window[i], buf);
+                    LV_ADD_TEXT_ELEMENT(lv, sub, "Scan Window: 0x%x (%.2f ms)",
+                                        cmd->param.set_scan->scan_window[i], duration / 1000.0);
             }
             i++;
             size--;
         }
         break;
     case BT_HCI_LE_SET_EXTENDED_SCAN_ENABLE:
+        LV_ADD_TEXT_ELEMENT(lv, hdr, "Enable: %s (0x%x)", cmd->param.scan_enable->enable ? "Scanning enabled" :
+                            "Scanning disabled", cmd->param.scan_enable->enable);
+        LV_ADD_TEXT_ELEMENT(lv, hdr, "Filter Duplicates: %s (0x%x)",
+                            get_bt_filter_dup(cmd->param.scan_enable->filter_dup),
+                            cmd->param.scan_enable->filter_dup);
+        duration = BT_EXT_SCAN_ENABLE_DURATION(cmd->param.scan_enable->duration);
+        if (duration > 0 && duration < 1000)
+            LV_ADD_TEXT_ELEMENT(lv, hdr, "Duration: 0x%x (%.2f ms)", cmd->param.scan_enable->duration, duration);
+        else if (duration > 1000)
+            LV_ADD_TEXT_ELEMENT(lv, hdr, "Duration: 0x%x (%.2f sec)", cmd->param.scan_enable->duration, duration);
+        else
+            LV_ADD_TEXT_ELEMENT(lv, hdr, "Duration: Scan continously until explicitly disabled (0x%x)",
+                                cmd->param.scan_enable->duration);
+        duration = BT_EXT_SCAN_ENABLE_PERIOD(cmd->param.scan_enable->period);
+        if (duration > 0 && duration < 1000)
+            LV_ADD_TEXT_ELEMENT(lv, hdr, "Period: 0x%x (%.2f)", cmd->param.scan_enable->period, duration);
+        else if (duration > 1000)
+            LV_ADD_TEXT_ELEMENT(lv, hdr, "Period: 0x%x (%.2f sec)", cmd->param.scan_enable->period, duration);
+        else
+            LV_ADD_TEXT_ELEMENT(lv, hdr, "Period: Scan continously (0x%x)",
+                                cmd->param.scan_enable->period);
         break;
     default:
         break;
