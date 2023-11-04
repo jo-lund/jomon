@@ -5,6 +5,22 @@
 #include "layout.h"
 #include "debug.h"
 
+void add_link_ctrl(list_view *lv, list_view_header *hdr, struct bluetooth_hci_cmd *cmd)
+{
+    switch (GET_OCF(cmd->opcode)) {
+    case BT_HCI_INQUIRY:
+        LV_ADD_TEXT_ELEMENT(lv, hdr, "LAP: " LAPSTR, LAP2STR(cmd->param.inq->lap));
+        LV_ADD_TEXT_ELEMENT(lv, hdr, "Inquiry Length: 0x%x (%.2f s)", cmd->param.inq->inquiry_len,
+                            BT_EXT_SCAN_ENABLE_PERIOD(cmd->param.inq->inquiry_len));
+        if (cmd->param.inq->nresp == 0)
+            LV_ADD_TEXT_ELEMENT(lv, hdr, "Number of responses: Unlimited (0x%x)", cmd->param.inq->nresp);
+        else
+            LV_ADD_TEXT_ELEMENT(lv, hdr, "Number of responses: 0x%x", cmd->param.inq->nresp);
+    default:
+        break;
+    }
+}
+
 void add_le_ctrl(list_view *lv, list_view_header *hdr, struct bluetooth_hci_cmd *cmd)
 {
     list_view_header *sub;
@@ -102,6 +118,16 @@ void add_event(list_view *lv, list_view_header *hdr, struct bluetooth_hci_event 
         LV_ADD_TEXT_ELEMENT(lv, hdr, "Status: %s (0x%x)", get_bt_error_string(event->param.cmd->return_param),
                             event->param.cmd->return_param);
         break;
+    case BT_HCI_CMD_STATUS:
+        if (event->param.cstat->status == 0)
+            LV_ADD_TEXT_ELEMENT(lv, hdr, "Status: Command now pending (0x%x)", event->param.cstat->status);
+        else
+            LV_ADD_TEXT_ELEMENT(lv, hdr, "Status: %s (0x%x)", get_bt_error_string(event->param.cstat->status),
+                                event->param.cstat->status);
+        LV_ADD_TEXT_ELEMENT(lv, hdr, "Number of HCI command packets: %d", event->param.cstat->ncmdpkt);
+        LV_ADD_TEXT_ELEMENT(lv, hdr, "Command opcode: %s (0x%x)", get_bt_command(event->param.cstat->opcode),
+                            event->param.cstat->opcode);
+        break;
     default:
         break;
     }
@@ -126,6 +152,7 @@ void add_bt_information(void *w, void *sw, void *data)
         LV_ADD_TEXT_ELEMENT(lv, hdr, "Parameter Total Length: %u", bt->cmd->param_len);
         switch (GET_OGF(bt->cmd->opcode)) {
         case BT_LINK_CTRL_CMD:
+            add_link_ctrl(lv, hdr, bt->cmd);
             break;
         case BT_CTRL_BB_CMD:
             break;

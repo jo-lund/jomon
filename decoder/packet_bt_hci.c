@@ -748,12 +748,12 @@ static char *get_bt_event_string(char *buf, size_t n, struct bluetooth_hci_event
     snprintcat(buf, n, "Event   %s", get_bt_event_code(event->code));
     switch (event->code) {
     case BT_HCI_CMD_COMPLETE:
-        if (event->param.cstat)
-            snprintcat(buf, n, ": %s", get_bt_command(event->param.cstat->opcode));
-        return buf;
-    case BT_HCI_CMD_STATUS:
         if (event->param.cmd)
             snprintcat(buf, n, ": %s", get_bt_command(event->param.cmd->opcode));
+        return buf;
+    case BT_HCI_CMD_STATUS:
+        if (event->param.cstat)
+            snprintcat(buf, n, ": %s", get_bt_command(event->param.cstat->opcode));
         return buf;
     case BT_HCI_LE_META:
         if (event->param.meta.subevent_code > ARRAY_SIZE(bt_hci_le_meta))
