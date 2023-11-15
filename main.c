@@ -327,6 +327,10 @@ static void run(void)
         }
         if (fds[0].revents & POLLIN)
             iface_read_packet(ctx.handle);
+        if (fds[0].revents & POLLERR) {
+            stop_capture();
+            DEBUG("poll: An error has occurred on the device");
+        }
         if (fds[1].revents & POLLIN)
             ui_event(UI_INPUT);
     }
