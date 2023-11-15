@@ -33,8 +33,9 @@ static void help_screen_render(void)
     wprintw(win, "Monitor (c) 2014 - 2023 John Olav Lund");
     y += 2;
     mvwprintw(win, y, x, "When a packet scan is active you can enter interactive mode "
-              "by pressing \'i\'. In interactive mode the packet scan will continue in the "
-              "background.");
+              "by pressing ");
+    printat(win, A_BOLD, "i");
+    wprintw(win, ". In interactive mode the packet scan will continue in the background");
     y += 2;
     mvprintat(win, y, x, hdrcol, "General keyboard shortcuts");
     mvprintat(win, ++y, x, subcol, "%12s", "s");
