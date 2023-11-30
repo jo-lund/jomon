@@ -723,8 +723,8 @@ void main_screen_get_input(screen *s)
             break;
         }
         FALLTHROUGH;
-    screen_handler:
     default:
+    screen_handler:
     {
         const char *key = keyname(c);
 
