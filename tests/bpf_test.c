@@ -39,7 +39,6 @@ START_TEST(filter_test)
         if (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0)
             continue;
         strncat(file, dp->d_name, MAXPATH - 1);
-        printf("Testing %s\n", file);
         bpf1 = bpf_assemble(file);
         if ((fp = fopen(file, "r")) == NULL)
             ck_abort_msg("fopen error");
