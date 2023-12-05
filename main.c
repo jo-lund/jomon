@@ -14,7 +14,7 @@
 #include <errno.h>
 #include <getopt.h>
 #include <locale.h>
-#include "monitor.h"
+#include "jomon.h"
 #include "interface.h"
 #include "decoder/packet.h"
 #include "decoder/tcp_analyzer.h"
@@ -65,7 +65,7 @@ static void sig_callback(int sig)
         break;
     case SIGINT:
     case SIGQUIT:
-        monitor_exit(1);
+        jomon_exit(1);
     case SIGWINCH:
         winch_flag = 1;
         break;
@@ -145,7 +145,7 @@ int main(int argc, char **argv)
             ctx.opt.no_domain = true;
             break;
         case 'V':
-            printf("monitor version " VERSION "\n");
+            printf("jomon version " VERSION "\n");
             exit(0);
         case 'b':
             ctx.opt.buffer_size = atoi(optarg) * 1024;
@@ -268,9 +268,9 @@ static void print_bpf(void)
 
 static void print_help(void)
 {
-    printf("monitor " VERSION "\n");
+    printf("jomon " VERSION "\n");
     geoip_print_version();
-    printf("Usage: monitor [-dGhlNnpstvV] [-b size] [-f filter] [-F filter-file] [-i interface] [-r path]\n"
+    printf("Usage: jomon [-dGhlNnpstvV] [-b size] [-f filter] [-F filter-file] [-i interface] [-r path]\n"
            "Options:\n"
            "    -b, --buffer-size      Set the kernel capture buffer size to <size>,\n"
            "                           in units of KiB (1024 bytes). Default: 4MB\n"
@@ -336,7 +336,7 @@ static void run(void)
     }
 }
 
-void monitor_exit(int status)
+void jomon_exit(int status)
 {
     if (ctx.opt.show_count) {
         if (ctx.capturing)
@@ -431,7 +431,7 @@ static void handle_count_and_exit(unsigned char *buf)
     if (ctx.opt.load_file) {
         printf("Reading from file %s\n", ctx.filename);
         load_file(buf, count_packets);
-        monitor_exit(0);
+        jomon_exit(0);
     } else {
         printf("Listening on %s\n", ctx.device);
         activate_interface(buf, count_packets);

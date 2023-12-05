@@ -6,7 +6,7 @@
 #include "misc.h"
 #include "util.h"
 
-#define DEBUG_FILE "/tmp/monitor.log"
+#define DEBUG_FILE "/tmp/jomon.log"
 
 #ifdef MONITOR_DEBUG
 static FILE *fp;

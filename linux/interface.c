@@ -14,7 +14,7 @@
 #include <linux/net_tstamp.h>
 #include <sys/mman.h>
 #include <linux/wireless.h>
-#include "monitor.h"
+#include "jomon.h"
 #include "interface.h"
 
 #define BUFSIZE (4 * 1024 * 1024)

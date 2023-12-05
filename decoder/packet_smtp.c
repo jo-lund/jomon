@@ -4,7 +4,7 @@
 #include "packet.h"
 #include "packet_smtp.h"
 #include "packet_imap.h"
-#include "../monitor.h"
+#include "../jomon.h"
 #include "tcp_analyzer.h"
 #include "packet_ip.h"
 #include "packet_tls.h"

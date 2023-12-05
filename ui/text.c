@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "ui.h"
 #include "print_protocol.h"
-#include "monitor.h"
+#include "jomon.h"
 #include "vector.h"
 #include "decoder/packet.h"
 
@@ -41,5 +41,5 @@ void text_draw(void)
         write_to_buf(buf, MAXLINE, vector_get(packets, i));
         printf("%s\n", buf);
     }
-    monitor_exit(0);
+    jomon_exit(0);
 }

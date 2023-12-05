@@ -12,7 +12,7 @@
 #include <machine/atomic.h>
 #include <sys/mman.h>
 #include "interface.h"
-#include "monitor.h"
+#include "jomon.h"
 
 #define NUM_BUFS 2
 #define BUFSIZE 65536

@@ -54,13 +54,13 @@ all : release
 .PHONY : debug
 debug : CFLAGS += -g3 -fsanitize=address,undefined -fno-omit-frame-pointer
 debug : CPPFLAGS += -DMONITOR_DEBUG
-debug : $(TARGETDIR)/monitor
+debug : $(TARGETDIR)/jomon
 
 .PHONY : release
 release : CFLAGS += -O2
-release : $(TARGETDIR)/monitor
+release : $(TARGETDIR)/jomon
 
-$(TARGETDIR)/monitor : decoder/register.h decoder/decoder.h $(objects)
+$(TARGETDIR)/jomon : decoder/register.h decoder/decoder.h $(objects)
 	@mkdir -p $(TARGETDIR)
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $(objects) $(LIBS)
 
@@ -85,10 +85,10 @@ $(BUILDDIR)/%.o : %.c
 -include $(bpf-objs:.o=.d)
 
 install :
-	@install -sD --strip-program=$(STRIP) bin/monitor $(PREFIX)/bin/monitor
+	@install -sD --strip-program=$(STRIP) bin/jomon $(PREFIX)/bin/jomon
 
 uninstall :
-	@rm -f $(PREFIX)/bin/monitor
+	@rm -f $(PREFIX)/bin/jomon
 
 .PHONY : clean
 clean :

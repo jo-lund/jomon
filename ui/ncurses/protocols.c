@@ -16,7 +16,7 @@
 #include "hexdump.h"
 #include "geoip.h"
 #include "decoder/decoder.h"
-#include "monitor.h"
+#include "jomon.h"
 #include "list_view.h"
 #include "ui/print_protocol.h"
 

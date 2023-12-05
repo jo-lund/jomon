@@ -14,7 +14,7 @@
 #include "ui/ui.h"
 #include "vector.h"
 #include "stack.h"
-#include "monitor.h"
+#include "jomon.h"
 #include "terminal.h"
 
 #define NUM_COLOURS 8

@@ -5,7 +5,7 @@
 #include "layout.h"
 #include "decoder/decoder.h"
 #include "list.h"
-#include "monitor.h"
+#include "jomon.h"
 
 #define HD_LIST_VIEW 0
 #define HD_WINDOW 1

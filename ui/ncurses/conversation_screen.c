@@ -7,7 +7,7 @@
 #include "layout.h"
 #include "ui/print_protocol.h"
 #include "error.h"
-#include "monitor.h"
+#include "jomon.h"
 #include "vector.h"
 #include "decoder/decoder.h"
 #include "stack.h"

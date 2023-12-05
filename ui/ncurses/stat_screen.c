@@ -9,7 +9,7 @@
 #include "menu.h"
 #include "screen.h"
 #include "actionbar.h"
-#include "monitor.h"
+#include "jomon.h"
 #include "system_information.h"
 #include "ringbuffer.h"
 

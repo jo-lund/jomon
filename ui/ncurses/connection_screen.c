@@ -8,7 +8,7 @@
 #include "decoder/tcp_analyzer.h"
 #include "decoder/packet.h"
 #include "decoder/packet_ip.h"
-#include "monitor.h"
+#include "jomon.h"
 #include "process.h"
 #include "conversation_screen.h"
 #include "actionbar.h"

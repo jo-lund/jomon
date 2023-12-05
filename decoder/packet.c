@@ -10,7 +10,7 @@
 #include <sys/types.h>
 #include <stdarg.h>
 #include <stdio.h>
-#include "monitor.h"
+#include "jomon.h"
 #include "packet.h"
 #include "tcp_analyzer.h"
 #include "host_analyzer.h"

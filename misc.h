@@ -63,7 +63,7 @@ typedef struct {
 
 extern main_context ctx;
 
-void monitor_exit(int status) NORETURN;
+void jomon_exit(int status) NORETURN;
 void stop_capture(void);
 void start_capture(void);
 

@@ -1,6 +1,6 @@
 #include <string.h>
 #include "ui.h"
-#include "../monitor.h"
+#include "../jomon.h"
 
 #define NCOMPONENTS 2
 

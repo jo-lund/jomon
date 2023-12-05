@@ -101,7 +101,7 @@ static void handle_header_focus(screen *s, int key)
 
 static void handle_warning(void *arg)
 {
-    monitor_exit(PTR_TO_UINT(arg));
+    jomon_exit(PTR_TO_UINT(arg));
 }
 
 screen *screen_create(screen_operations *defop)
@@ -222,7 +222,7 @@ void screen_get_input(screen *s)
             create_warning_dialogue("Packet capture not saved. Do you really want to quit?",
                                     handle_warning, UINT_TO_PTR(0), NULL, NULL);
         else
-            monitor_exit(0);
+            jomon_exit(0);
         break;
     case KEY_UP:
         handle_keyup(s);

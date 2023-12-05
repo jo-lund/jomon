@@ -14,7 +14,7 @@
 #include "attributes.h"
 #include "hashmap.h"
 #include "decoder/tcp_analyzer.h"
-#include "monitor.h"
+#include "jomon.h"
 #include "hash.h"
 
 #define SIZE 512

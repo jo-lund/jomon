@@ -6,7 +6,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include "dialogue.h"
-#include "monitor.h"
+#include "jomon.h"
 
 #define FORMAT_BUF_LEN 7
 #define FILE_INPUT_TEXT "Filename: "

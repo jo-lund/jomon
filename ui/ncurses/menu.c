@@ -3,7 +3,7 @@
 #include "menu.h"
 #include "layout.h"
 #include "main_screen.h"
-#include "monitor.h"
+#include "jomon.h"
 
 static char *selected_txt = "[x] ";
 static char *unselected_txt = "[ ] ";
