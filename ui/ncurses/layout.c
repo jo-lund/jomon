@@ -18,7 +18,7 @@
 #include "terminal.h"
 
 #define NUM_COLOURS 8
-#define COLOUR_IDX(f, b) ((b == -1) ? (f) + 1 : (b) + 1 + ((f) + 1) * NUM_COLOURS)
+#define COLOUR_IDX(f, b) (((b) == -1) ? (f) + 1 : (b) + 1 + ((f) + 1) * NUM_COLOURS)
 
 extern void main_screen_refresh(screen *s);
 extern vector_t *packets;
