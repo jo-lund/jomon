@@ -212,9 +212,9 @@ int main(int argc, char **argv)
         print_bpf();
     if (!ctx.device && !(ctx.device = get_default_interface()))
         err_quit("Cannot find active network device");
+    setup_signal(SIGALRM, sig_callback, SA_RESTART);
     if (ctx.opt.show_count)
         handle_count_and_exit(buf);
-    setup_signal(SIGALRM, sig_callback, SA_RESTART);
     decoder_init();
     tcp_analyzer_init();
     dns_cache_init();
