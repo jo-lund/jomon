@@ -161,12 +161,14 @@ void screen_get_input(screen *s)
         screen_stack_move_to_top(screen_cache_get(HOST_SCREEN));
         break;
     case 'i':
+        if (!s->have_selectionbar)
+            return;
         if (s->header && s->tab_active) {
             s->tab_active = false;
             if (s->hide_selectionbar)
                 s->hide_selectionbar = false;
         }
-        if (s->have_selectionbar && SCREEN_GET_DATA_SIZE(s) > 0) {
+        if (SCREEN_GET_DATA_SIZE(s) > 0) {
             s->show_selectionbar = !s->show_selectionbar;
             s->selectionbar = s->top;
             SCREEN_REFRESH(s);
