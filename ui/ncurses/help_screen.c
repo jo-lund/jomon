@@ -48,6 +48,8 @@ static void help_screen_render(void)
     wprintw(win, ": Enter interactive mode (main screen and connection list)");
     mvprintat(win, ++y, x, subcol, "%12s", "n");
     wprintw(win, ": Change between numerical or resolved addresses");
+    mvprintat(win, ++y, x, subcol, "%12s", "N");
+    wprintw(win, ": Change between FQDN and host name");
     mvprintat(win, ++y, x, subcol, "%12s", "p/P");
     wprintw(win, ": Switch to next/previous page (where applicable)");
     mvprintat(win, ++y, x, subcol, "%12s", "Tab");

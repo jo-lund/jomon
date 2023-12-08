@@ -176,6 +176,10 @@ void screen_get_input(screen *s)
         ctx.opt.numeric = !ctx.opt.numeric;
         SCREEN_REFRESH(s);
         break;
+    case 'N':
+        ctx.opt.no_domain = !ctx.opt.no_domain;
+        SCREEN_REFRESH(s);
+        break;
     case 'p':
         if (s->num_pages > 0) {
             s->top = 0;
