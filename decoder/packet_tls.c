@@ -1,6 +1,6 @@
 #include <assert.h>
 #include "packet_tls.h"
-#include "../jomon.h"
+#include "jomon.h"
 
 #define TLS_MAX_SIZE 16384
 #define TLS_HEADER_SIZE 5
@@ -390,14 +390,14 @@ packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
     if (n < TLS_HEADER_SIZE || n > TLS_MAX_SIZE)
         return UNK_PROTOCOL;
 
-    uint16_t data_len = 0;
+    uint32_t data_len = 0;
     struct tls_info **pptr;
     enum tls_state state = NORMAL;
     int i = 0;
     struct tls_info *tls;
 
     pptr = &tls;
-    while (data_len < n) {
+    while (data_len < (uint32_t) n) {
         uint16_t record_len;
 
         *pptr = mempool_calloc(1, struct tls_info);
@@ -407,7 +407,7 @@ packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
         (*pptr)->length = get_uint16be(buf + 3);
         record_len = (*pptr)->length;
         data_len += record_len + TLS_HEADER_SIZE;
-        if (record_len + TLS_HEADER_SIZE > n || data_len > n) {
+        if (record_len + TLS_HEADER_SIZE > n || data_len > (uint32_t) n) {
             /* TODO: Need to support TCP reassembly */
             mempool_free(*pptr);
             *pptr = NULL;
