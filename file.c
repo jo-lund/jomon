@@ -53,7 +53,7 @@ static int read_buf(iface_handle_t *handle, unsigned char *buf, size_t len);
 static enum file_error read_header(iface_handle_t *handle, unsigned char *buf, size_t len);
 static enum file_error errno_file_error(int err);
 static void write_header(unsigned char *buf);
-static int write_data(unsigned char *buf, unsigned int len, struct packet *p);
+static unsigned int write_data(unsigned char *buf, unsigned int len, struct packet *p);
 static inline uint32_t get_linktype(pcap_hdr_t *header);
 static inline uint16_t get_major_version(pcap_hdr_t *header);
 static inline uint16_t get_minor_version(pcap_hdr_t *header);
@@ -82,14 +82,14 @@ enum file_error file_read(iface_handle_t *handle, FILE *fp, packet_handler f)
     if (error != NO_ERROR) {
         return error;
     }
-    while ((len = fread(buf + n, sizeof(unsigned char), BUFSIZE - n, fp)) > 0) {
-        n = read_buf(handle, buf, len + n);
+    while ((len = fread(buf + n, sizeof(unsigned char), BUFSIZE - (size_t) n, fp)) > 0) {
+        n = read_buf(handle, buf, len + (size_t) n);
         if (n == -1) {
             error = DECODE_ERROR;
             break;
         }
         if (n > 0) {
-            memcpy(buf, buf + BUFSIZE - n, n);
+            memcpy(buf, buf + BUFSIZE - n, (size_t) n);
         }
     }
     if (ferror(fp)) error = FORMAT_ERROR;
@@ -122,14 +122,14 @@ enum file_error read_header(iface_handle_t *handle, unsigned char *buf, size_t l
 /* Return number of bytes left in buffer or -1 on error */
 int read_buf(iface_handle_t *handle, unsigned char *buf, size_t len)
 {
-    size_t n = len;
+    int n = (int) len;
 
     while (n > 0) {
         uint32_t pkt_len;
         pcaprec_hdr_t pkt_hdr;
         struct timeval t;
 
-        if (n < sizeof(pcaprec_hdr_t))
+        if ((size_t) n < sizeof(pcaprec_hdr_t))
             return n;
         memcpy(&pkt_hdr, buf, sizeof(pcaprec_hdr_t));
         if (swap_bytes) {
@@ -143,13 +143,13 @@ int read_buf(iface_handle_t *handle, unsigned char *buf, size_t len)
         }
         if (pkt_len > USHRT_MAX)
             return -1;
-        if (pkt_len > n - sizeof(pcaprec_hdr_t))
+        if (pkt_len > (uint32_t) n - sizeof(pcaprec_hdr_t))
             return n;
         buf += sizeof(pcaprec_hdr_t);
-        n -= sizeof(pcaprec_hdr_t);
+        n -= (int) sizeof(pcaprec_hdr_t);
         if (!pkt_handler(handle, buf, pkt_len, &t))
             return -1;
-        n -= pkt_len;
+        n -= (int) pkt_len;
         buf += pkt_len;
     }
     return 0;
@@ -157,14 +157,14 @@ int read_buf(iface_handle_t *handle, unsigned char *buf, size_t len)
 
 void file_write_pcap(FILE *fp, vector_t *packets, progress_update fn)
 {
-    int bufidx = 0;
+    unsigned int bufidx = 0;
     unsigned char buf[BUFSIZE];
 
     write_header(buf);
     bufidx += sizeof(pcap_hdr_t);
     for (int i = 0; i < vector_size(packets); i++) {
         struct packet *p;
-        int n;
+        unsigned int n;
 
         p = (struct packet *) vector_get(packets, i);
         n = write_data(buf + bufidx, BUFSIZE - bufidx, p);
@@ -174,7 +174,7 @@ void file_write_pcap(FILE *fp, vector_t *packets, progress_update fn)
         } else {
             bufidx += n;
         }
-        fn(p->len);
+        fn((int) p->len);
     }
     if (bufidx) {
         fwrite(buf, sizeof(unsigned char), bufidx, fp);
@@ -199,17 +199,16 @@ void write_header(unsigned char *buf)
     memcpy(buf, &header, sizeof(pcap_hdr_t));
 }
 
-int write_data(unsigned char *buf, unsigned int len, struct packet *p)
+unsigned int write_data(unsigned char *buf, unsigned int len, struct packet *p)
 {
-    if (p->len + sizeof(pcaprec_hdr_t) > len) {
-        return 0;
-    }
-
     pcaprec_hdr_t pcap_hdr;
 
+    if (p->len + sizeof(pcaprec_hdr_t) > len)
+        return 0;
+
     /* write pcap header */
-    pcap_hdr.ts_sec = p->time.tv_sec;
-    pcap_hdr.ts_usec = p->time.tv_usec;
+    pcap_hdr.ts_sec = (uint32_t) p->time.tv_sec;
+    pcap_hdr.ts_usec = (uint32_t) p->time.tv_usec;
     pcap_hdr.incl_len = p->len;
     pcap_hdr.orig_len = p->len;
     memcpy(buf, &pcap_hdr, sizeof(pcaprec_hdr_t));
@@ -277,9 +276,9 @@ void file_write_ascii(FILE *fp, vector_t *packets, progress_update fn)
     for (int i = 0; i < vector_size(packets); i++) {
         struct packet *p = vector_get(packets, i);
         unsigned char *payload = get_adu_payload(p);
-        uint16_t len = get_adu_payload_len(p);
+        uint32_t len = get_adu_payload_len(p);
 
-        for (int j = 0; j < len; j++) {
+        for (unsigned int j = 0; j < len; j++) {
             if (isprint(payload[j]) || isspace(payload[j])) {
                 fputc(payload[j], fp);
             } else {
@@ -295,7 +294,7 @@ void file_write_raw(FILE *fp, vector_t *packets, progress_update fn)
     for (int i = 0; i < vector_size(packets); i++) {
         struct packet *p = vector_get(packets, i);
         unsigned char *payload = get_adu_payload(p);
-        uint16_t len = get_adu_payload_len(p);
+        uint32_t len = get_adu_payload_len(p);
 
         fwrite(payload, sizeof(unsigned char), len, fp);
         fn(1);

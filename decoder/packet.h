@@ -155,7 +155,7 @@ static inline uint32_t get_protocol_id(uint16_t layer, uint16_t key)
 
 static inline uint16_t get_protocol_layer(uint32_t id)
 {
-    return id >> 16;
+    return (uint16_t) id >> 16;
 }
 
 static inline uint16_t get_protocol_key(uint32_t id)
