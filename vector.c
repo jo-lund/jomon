@@ -20,7 +20,7 @@ vector_t *vector_init(int sz)
     vector = xmalloc(sizeof(vector_t));
     vector->size = sz;
     vector->c = 0;
-    vector->buf = xmalloc(vector->size * sizeof(void*));
+    vector->buf = xmalloc((size_t) vector->size * sizeof(void*));
     return vector;
 }
 
@@ -29,9 +29,10 @@ void vector_push_back(vector_t *vector, void *data)
     if (vector->c >= vector->size) {
         void **newbuf;
 
-        newbuf = xrealloc(vector->buf, vector->size * sizeof(void*) * FACTOR);
+        vector->size = (int) (vector->size * FACTOR);
+        assert(vector->size > 0);
+        newbuf = xrealloc(vector->buf, (size_t) vector->size * sizeof(void*));
         vector->buf = newbuf;
-        vector->size = vector->size * FACTOR;
     }
     vector->buf[vector->c++] = data;
 }
