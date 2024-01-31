@@ -15,7 +15,7 @@ stack_t *stack_init(int n)
 
     assert(n > 0);
     stack = xmalloc(sizeof(stack_t));
-    stack->buf = xmalloc(n * sizeof(void*));
+    stack->buf = xmalloc((size_t) n * sizeof(void*));
     stack->top = 0;
     stack->size = n;
     return stack;

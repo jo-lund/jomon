@@ -12,7 +12,7 @@ struct uint_string {
 
 static inline int cmp_val(const void *c1, const void *c2)
 {
-    return ((struct uint_string *) c1)->val - ((struct uint_string *) c2)->val;
+    return (int) (((struct uint_string *) c1)->val - ((struct uint_string *) c2)->val);
 }
 
 static inline int cmp_str(const void *c1, const void *c2)
@@ -26,7 +26,7 @@ static inline int cmp_str(const void *c1, const void *c2)
  *
  * Returns the number of bytes written.
  */
-int snprintcat(char *buf, int size, char *fmt, ...) PRINTF_FORMAT(3, 4);
+int snprintcat(char *buf, size_t size, char *fmt, ...) PRINTF_FORMAT(3, 4);
 
 /* Converts str to lower case */
 char *string_tolower(char *str);

@@ -312,7 +312,7 @@ static void run(void)
         }
         if (winch_flag) {
             winch_flag = 0;
-            setup_signal(SIGWINCH, NULL, SA_RESETHAND);
+            setup_signal(SIGWINCH, NULL, (int) SA_RESETHAND);
             ui_event(UI_RESIZE);
             setup_signal(SIGWINCH, sig_callback, 0);
         }

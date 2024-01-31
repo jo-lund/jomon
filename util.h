@@ -3,6 +3,7 @@
 
 #include <string.h>
 #include <stdint.h>
+#include <sys/socket.h>
 #include "list.h"
 
 /*
@@ -47,17 +48,17 @@ struct timespec;
 
 // TODO: remove this
 struct tm_t {
-    int days;
-    int hours;
-    int mins;
-    int secs;
+    long int days;
+    long int hours;
+    long int mins;
+    long int secs;
 };
 
 /*
  * Get host name from addr which is in dotted-decimal format. This will send a
  * DNS request over UDP.
  */
-void gethost(uint32_t addr, char *host, int hostlen);
+void gethost(uint32_t addr, char *host, socklen_t hostlen);
 
 /*
  * Converts seconds to number of days, hours, minutes and seconds
@@ -68,28 +69,28 @@ struct tm_t get_time(uint32_t num_secs);
  * Converts the tm_t struct to a string of the form:
  * "x days, x hours, x minutes, x seconds"
  */
-void time_ntop(struct tm_t *time, char *result, int len);
+void time_ntop(struct tm_t *time, char *result, size_t len);
 
 /* TODO: format should be made configurable */
-char *format_timeval(struct timeval *t, char *buf, int n);
+char *format_timeval(struct timeval *t, char *buf, size_t n);
 
 /* TODO: format should be made configurable */
-char *format_timespec(struct timespec *t, char *buf, int n);
+char *format_timespec(struct timespec *t, char *buf, size_t n);
 
 /*
  * Converts number of milliseconds since midnight UT to a string representation
  * in the form h:m:s.ms
  */
-char *get_time_from_ms_ut(uint32_t ms, char *buf, int n);
+char *get_time_from_ms_ut(uint32_t ms, char *buf, size_t n);
 
 /* Given a file with full path name, return the directory part */
 char *get_directory_part(char *path);
 
 /* Given a file with full path name, return the file part */
-char *get_file_part(char *path);
+char *get_file_part(const char *path);
 
 /* Transforms the bytes to a human readable format, e.g. "1K", "42M" etc. */
-char *format_bytes(uint64_t bytes, char *buf, int len);
+char *format_bytes(uint64_t bytes, char *buf, size_t len);
 
 /*
  * Returns the canonical textual representation of a UUID. Memory is allocated for

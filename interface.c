@@ -132,7 +132,7 @@ void list_interfaces(void)
 
     /* print out information for each interface */
     for (i = 0; i < c; i++) {
-        int len = strlen(iflist[i].name);
+        int len = (int) strlen(iflist[i].name);
         int width = 8;
 
         if (len >= 8) {
@@ -206,7 +206,8 @@ void list_interfaces(void)
 char *get_default_interface(void)
 {
     struct ifconf ifc;
-    int sockfd, len, lastlen;
+    int sockfd, lastlen;
+    size_t len;
     char *device = NULL;
     char *buffer;
 
@@ -217,7 +218,7 @@ char *get_default_interface(void)
     len = 10 * sizeof(struct ifreq); /* initial guess of buffer size (10 interfaces) */
     while (1) {
         buffer = xmalloc(len);
-        ifc.ifc_len = len;
+        ifc.ifc_len = (int) len;
         ifc.ifc_buf = buffer;
 
         /* SIOCGIFCONF takes a struct ifconf *. The ifc_buf field points to a

@@ -371,7 +371,7 @@ static void save_handle_ok(void *file)
         char title[MAXLINE];
         conversation_screen *cs = (conversation_screen *) screen_cache_get(CONVERSATION_SCREEN);
 
-        get_file_part(file);
+        file = get_file_part(file);
         snprintf(title, MAXLINE, " Saving %s ", (char *) file);
         pd = progress_dialogue_create(title, vector_size(cs->base.packet_ref));
         push_screen((screen *) pd);

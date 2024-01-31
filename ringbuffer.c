@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <assert.h>
 #include "ringbuffer.h"
 #include "monitor.h"
 
@@ -14,9 +15,10 @@ ringbuffer_t *ringbuffer_init(const int sz)
 {
     ringbuffer_t *rb;
 
+    assert(sz > 0);
     rb = xcalloc(1, sizeof(*rb));
-    rb->size = clp2(sz);
-    rb->buf = xmalloc(rb->size * sizeof(void*));
+    rb->size = (int) clp2((unsigned int) sz);
+    rb->buf = xmalloc((size_t) rb->size * sizeof(void*));
     return rb;
 }
 

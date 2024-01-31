@@ -423,14 +423,15 @@ void main_screen_load_handle_ok(void *file)
         char filename[MAXPATH + 1];
         char title[MAXLINE];
         main_screen *ms = (main_screen *) screen_cache_get(MAIN_SCREEN);
+        char *fpart;
 
         if (ms->subwindow.win) {
             delete_subwindow(ms, false);
             ms->main_line.selected = false;
         }
         strcpy(filename, file);
-        get_file_part(filename);
-        if (snprintf(title, MAXLINE, " Loading %s ", filename) >= MAXLINE)
+        fpart = get_file_part(filename);
+        if (snprintf(title, MAXLINE, " Loading %s ", fpart) >= MAXLINE)
             string_truncate(title, MAXLINE, MAXLINE - 1);
         clear_statistics();
         vector_clear(ms->packet_ref, NULL);
@@ -494,7 +495,7 @@ void main_screen_save(vector_t *data, const char *file)
     } else {
         char title[MAXLINE];
 
-        get_file_part( (char *) file);
+        file = get_file_part(file);
         snprintf(title, MAXLINE, " Saving %s ", (char *) file);
         pd = progress_dialogue_create(title, total_bytes);
         push_screen((screen *) pd);
