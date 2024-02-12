@@ -52,7 +52,7 @@ static inline bool buffer_check(struct bpf_zbuf_header *bzh)
     return bzh->bzh_user_gen != atomic_load_acq_int(&bzh->bzh_kernel_gen);
 }
 
-iface_handle_t *iface_handle_create(unsigned char *buf, size_t len, packet_handler fn)
+iface_handle_t *iface_eth_create(unsigned char *buf, size_t len, packet_handler fn)
 {
     iface_handle_t *handle = xcalloc(1, sizeof(iface_handle_t));
 

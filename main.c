@@ -92,7 +92,7 @@ static void load_file(unsigned char *buf, packet_handler ph)
 
     ctx.capturing = false;
     ctx.pcap_saved = true;
-    ctx.handle = iface_handle_create(buf, SNAPLEN, ph);
+    ctx.handle = iface_handle_create(ctx.device, buf, SNAPLEN, ph);
     if ((fp = file_open(ctx.filename, "r", &err)) == NULL)
         err_sys("Error: %s", ctx.filename);
     if ((err = file_read(ctx.handle, fp, ph)) != NO_ERROR) {
@@ -105,7 +105,7 @@ static void load_file(unsigned char *buf, packet_handler ph)
 static void activate_interface(unsigned char *buf, packet_handler ph)
 {
     ctx.capturing = true;
-    ctx.handle = iface_handle_create(buf, SNAPLEN, ph);
+    ctx.handle = iface_handle_create(ctx.device, buf, SNAPLEN, ph);
     iface_activate(ctx.handle, ctx.device, &bpf);
     if (!ctx.opt.nopromiscuous) {
         iface_set_promiscuous(ctx.handle, ctx.device, true);
@@ -228,8 +228,8 @@ int main(int argc, char **argv)
         setup_signal(SIGWINCH, sig_callback, 0);
     }
     ctx.local_addr = xmalloc(sizeof(struct sockaddr_in));
-    get_local_address(ctx.device, (struct sockaddr *) ctx.local_addr);
-    get_local_mac(ctx.device, ctx.mac);
+    //get_local_address(ctx.device, (struct sockaddr *) ctx.local_addr);
+    //get_local_mac(ctx.device, ctx.mac);
     if (!ctx.opt.nogeoip && !geoip_init())
         exit(1);
     if (ctx.opt.load_file) {

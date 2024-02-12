@@ -138,7 +138,7 @@ static bool setup_packet_mmap(iface_handle_t *handle)
     return true;
 }
 
-iface_handle_t *iface_handle_create(unsigned char *buf, size_t len, packet_handler fn)
+iface_handle_t *iface_eth_create(unsigned char *buf, size_t len, packet_handler fn)
 {
     iface_handle_t *handle = xcalloc(1, sizeof(iface_handle_t));
 

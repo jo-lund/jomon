@@ -1,11 +1,17 @@
+#define _GNU_SOURCE
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/hci.h>
 #include <sys/ioctl.h>
+#include <sys/socket.h>
 #include <unistd.h>
 #include "bluetooth.h"
 #include "monitor.h"
 
 #define BT_IFACE "bluetooth"
+
+static void bt_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf);
+static void bt_close(iface_handle_t *handle);
+static void bt_read_packet(iface_handle_t *handle);
 
 static struct iface_operations bt_op = {
     .activate = bt_activate,
@@ -14,10 +20,13 @@ static struct iface_operations bt_op = {
     .set_promiscuous = NULL
 };
 
-iface_handle_t *iface_handle_create(unsigned char *buf, size_t len, packet_handler fn)
+iface_handle_t *iface_bt_create(char *dev, unsigned char *buf, size_t len, packet_handler fn)
 {
-    iface_handle_t *handle = xcalloc(1, sizeof(iface_handle_t));
+    iface_handle_t *handle;
 
+    if (strncmp(dev, BT_IFACE, strlen(BT_IFACE)) != 0) /* not a BT device */
+        return NULL;
+    handle = xcalloc(1, sizeof(iface_handle_t));
     handle->fd = -1;
     handle->op = &bt_op;
     handle->buf = buf;
@@ -51,7 +60,7 @@ void bt_close(iface_handle_t *handle)
 
 void bt_read_packet(iface_handle_t *handle)
 {
-    struct msghdr msg;
+    struct mmsghdr msg;
     struct iovec iov;
     unsigned char data[64];
     struct cmsghdr *cmsg;
