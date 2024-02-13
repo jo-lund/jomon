@@ -20,11 +20,11 @@
 #define BUFSIZE (4 * 1024 * 1024)
 #define FRAMESIZE 65536
 
-static void linux_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf);
+static void linux_activate(iface_handle_t *handle, struct bpf_prog *bpf);
 static void linux_close(iface_handle_t *handle);
 static void linux_read_packet_mmap(iface_handle_t *handle);
 static void linux_read_packet_recv(iface_handle_t *handle);
-static void linux_set_promiscuous(iface_handle_t *handle, char *dev, bool enable);
+static void linux_set_promiscuous(iface_handle_t *handle, bool enable);
 
 struct handle_linux {
     unsigned int block_num;
@@ -138,10 +138,11 @@ static bool setup_packet_mmap(iface_handle_t *handle)
     return true;
 }
 
-iface_handle_t *iface_eth_create(unsigned char *buf, size_t len, packet_handler fn)
+iface_handle_t *iface_eth_create(char *dev, unsigned char *buf, size_t len, packet_handler fn)
 {
     iface_handle_t *handle = xcalloc(1, sizeof(iface_handle_t));
 
+    handle->device = dev;
     handle->fd = -1;
     handle->op = &linux_op;
     handle->buf = buf;
@@ -150,14 +151,14 @@ iface_handle_t *iface_eth_create(unsigned char *buf, size_t len, packet_handler 
     return handle;
 }
 
-void linux_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf)
+void linux_activate(iface_handle_t *handle, struct bpf_prog *bpf)
 {
     int flag;
     int n = 1;
     struct sockaddr_ll ll_addr; /* device independent physical layer address */
     int type;
 
-    if ((type = map_linktype(get_linktype(device))) == -1)
+    if ((type = map_linktype(get_linktype(handle->device))) == -1)
         err_quit("Link type not supported");
     handle->linktype = type;
 
@@ -193,7 +194,7 @@ void linux_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf)
     memset(&ll_addr, 0, sizeof(ll_addr));
     ll_addr.sll_family = PF_PACKET;
     ll_addr.sll_protocol = htons(ETH_P_ALL);
-    ll_addr.sll_ifindex = get_interface_index(device);
+    ll_addr.sll_ifindex = get_interface_index(handle->device);
 
     /* only receive packets on the specified interface */
     if (bind(handle->fd, (struct sockaddr *) &ll_addr, sizeof(ll_addr)) == -1)
@@ -212,6 +213,7 @@ void linux_close(iface_handle_t *handle)
     }
     close(handle->fd);
     handle->fd = -1;
+    free(handle->device);
 }
 
 void linux_read_packet_recv(iface_handle_t *handle)
@@ -265,14 +267,14 @@ void linux_read_packet_mmap(iface_handle_t *handle)
     } while ((bd->hdr.bh1.block_status & TP_STATUS_USER) == TP_STATUS_USER);
 }
 
-void linux_set_promiscuous(iface_handle_t *handle UNUSED, char *dev, bool enable)
+void linux_set_promiscuous(iface_handle_t *handle, bool enable)
 {
     int sockfd;
     struct ifreq ifr;
 
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
         err_sys("socket error");
-    strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
+    strncpy(ifr.ifr_name, handle->device, IFNAMSIZ - 1);
     if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) == -1)
         err_sys("ioctl error");
     if (enable)

@@ -17,11 +17,11 @@
 #define NUM_BUFS 2
 #define BUFSIZE 65536
 
-static void bsd_activate(iface_handle_t *handle, char *dev, struct bpf_prog *bpf);
+static void bsd_activate(iface_handle_t *handle, struct bpf_prog *bpf);
 static void bsd_close(iface_handle_t *handle);
 static void bsd_read_packet_zbuf(iface_handle_t *handle);
 static void bsd_read_packet_buffer(iface_handle_t *handle);
-static void bsd_set_promiscuous(iface_handle_t *handle, char *dev, bool enable);
+static void bsd_set_promiscuous(iface_handle_t *handle, bool enable);
 
 struct handle_bsd {
     unsigned char *buffers[NUM_BUFS];
@@ -52,10 +52,11 @@ static inline bool buffer_check(struct bpf_zbuf_header *bzh)
     return bzh->bzh_user_gen != atomic_load_acq_int(&bzh->bzh_kernel_gen);
 }
 
-iface_handle_t *iface_eth_create(unsigned char *buf, size_t len, packet_handler fn)
+iface_handle_t *iface_eth_create(char *dev, unsigned char *buf, size_t len, packet_handler fn)
 {
     iface_handle_t *handle = xcalloc(1, sizeof(iface_handle_t));
 
+    handle->device = dev;
     handle->fd = -1;
     handle->op = &bsd_op;
     handle->buf = buf;
@@ -64,7 +65,7 @@ iface_handle_t *iface_eth_create(unsigned char *buf, size_t len, packet_handler 
     return handle;
 }
 
-void bsd_activate(iface_handle_t *handle, char *dev, struct bpf_prog *bpf UNUSED)
+void bsd_activate(iface_handle_t *handle, struct bpf_prog *bpf UNUSED)
 {
     struct ifreq ifr;
     struct bpf_zbuf zbuf;
@@ -112,7 +113,7 @@ void bsd_activate(iface_handle_t *handle, char *dev, struct bpf_prog *bpf UNUSED
             err_sys("ioctl error BIOCSBLEN");
     }
     /* set the hardware interface associated with the file */
-    strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
+    strncpy(ifr.ifr_name, handle->dev, IFNAMSIZ - 1);
     ifr.ifr_addr.sa_family = AF_INET;
     if (ioctl(handle->fd, BIOCSETIF, &ifr) == -1)
         err_sys("ioctl error BIOCSETIF");
@@ -136,6 +137,7 @@ void bsd_close(iface_handle_t *handle)
     }
     close(handle->fd);
     handle->fd = -1;
+    free(handle->device);
 }
 
 void bsd_read_packet_zbuf(iface_handle_t *handle)
@@ -178,7 +180,7 @@ void bsd_read_packet_buffer(iface_handle_t *handle)
     }
 }
 
-void bsd_set_promiscuous(iface_handle_t *handle, char *dev UNUSED, bool enable)
+void bsd_set_promiscuous(iface_handle_t *handle, bool enable)
 {
     /* the interface remains in promiscuous mode until all files listening
        promiscuously are closed */

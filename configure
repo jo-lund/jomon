@@ -131,9 +131,9 @@ check_python3()
     printf "[$OK]\n"
 }
 
-check_bt()
+check_bt_linux()
 {
-    printf "[*] %-*s" "$INDENT" "Checking for Bluetooth... "
+    printf "[*] %-*s" "$INDENT" "Checking for bluetooth... "
     cat >> "$BUILD.c" <<EOF
     #include <bluetooth/bluetooth.h>
     int main()
@@ -146,7 +146,7 @@ EOF
     $CC "$BUILD.c" -o "$BUILD" &> /dev/null
     if [ ! -x "$BUILD" ]; then
         printf "[$FAIL]\n"
-        printf "    Building without Bluetooth support\n"
+        printf "    Building without bluetooth support\n"
     else
         printf "[$OK]\n"
         BT_SUPPORT=1
@@ -224,5 +224,5 @@ fi
 check_re2c
 check_python3
 check_missing
-check_bt
+check_bt_linux
 generate_config

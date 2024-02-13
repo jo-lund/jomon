@@ -55,7 +55,7 @@ static bool handle_packet(iface_handle_t *handle, unsigned char *buf,
 static void print_help(void) NORETURN;
 static void run(void) NORETURN;
 static void print_bpf(void) NORETURN;
-static void handle_count_and_exit(unsigned char *buf) NORETURN;
+static void handle_count_and_exit(char *dev, unsigned char *buf) NORETURN;
 
 static void sig_callback(int sig)
 {
@@ -85,14 +85,13 @@ static void setup_signal(int signo, void (*handler)(int), int flags)
         err_sys("sigaction error");
 }
 
-static void load_file(unsigned char *buf, packet_handler ph)
+static void load_file(packet_handler ph)
 {
     enum file_error err;
     FILE *fp;
 
     ctx.capturing = false;
     ctx.pcap_saved = true;
-    ctx.handle = iface_handle_create(ctx.device, buf, SNAPLEN, ph);
     if ((fp = file_open(ctx.filename, "r", &err)) == NULL)
         err_sys("Error: %s", ctx.filename);
     if ((err = file_read(ctx.handle, fp, ph)) != NO_ERROR) {
@@ -100,17 +99,6 @@ static void load_file(unsigned char *buf, packet_handler ph)
         err_quit("Error in %s: %s", ctx.filename, file_error(err));
     }
     fclose(fp);
-}
-
-static void activate_interface(unsigned char *buf, packet_handler ph)
-{
-    ctx.capturing = true;
-    ctx.handle = iface_handle_create(ctx.device, buf, SNAPLEN, ph);
-    iface_activate(ctx.handle, ctx.device, &bpf);
-    if (!ctx.opt.nopromiscuous) {
-        iface_set_promiscuous(ctx.handle, ctx.device, true);
-        promiscuous_mode = true;
-    }
 }
 
 int main(int argc, char **argv)
@@ -130,7 +118,9 @@ int main(int argc, char **argv)
         { "version", no_argument, NULL, 'V' },
         { NULL, 0, NULL, 0}
     };
+    char *dev;
 
+    dev = NULL;
     memset(&bpf, 0, sizeof(bpf));
     setlocale(LC_ALL, "");
     while ((opt = getopt_long(argc, argv, SHORT_OPTS, long_options, &idx)) != -1) {
@@ -159,7 +149,7 @@ int main(int argc, char **argv)
             ctx.filter = optarg;
             break;
         case 'i':
-            ctx.device = xstrdup(optarg);
+            dev = xstrdup(optarg);
             break;
         case 'l':
             list_interfaces();
@@ -210,10 +200,11 @@ int main(int argc, char **argv)
     }
     if (ctx.opt.dmode > BPF_DUMP_MODE_NONE)
         print_bpf();
-    if (!ctx.device && !(ctx.device = get_default_interface()))
+    if (!dev && !(dev = get_default_interface()))
         err_quit("Cannot find active network device");
     if (ctx.opt.show_count)
-        handle_count_and_exit(buf);
+        handle_count_and_exit(dev, buf);
+    ctx.handle = iface_handle_create(dev, buf, SNAPLEN, handle_packet);
     setup_signal(SIGALRM, sig_callback, SA_RESTART);
     decoder_init();
     tcp_analyzer_init();
@@ -228,16 +219,21 @@ int main(int argc, char **argv)
         setup_signal(SIGWINCH, sig_callback, 0);
     }
     ctx.local_addr = xmalloc(sizeof(struct sockaddr_in));
-    //get_local_address(ctx.device, (struct sockaddr *) ctx.local_addr);
-    //get_local_mac(ctx.device, ctx.mac);
+    get_local_address(ctx.handle->device, (struct sockaddr *) ctx.local_addr);
+    get_local_mac(ctx.handle->device, ctx.mac);
     if (!ctx.opt.nogeoip && !geoip_init())
         exit(1);
     if (ctx.opt.load_file) {
-        load_file(buf, handle_packet);
+        load_file(handle_packet);
         ui_init();
         ui_draw();
     } else {
-        activate_interface(buf, handle_packet);
+        ctx.capturing = true;
+        iface_activate(ctx.handle, &bpf);
+        if (!ctx.opt.nopromiscuous) {
+            iface_set_promiscuous(ctx.handle, true);
+            promiscuous_mode = true;
+        }
         ui_init();
     }
     run();
@@ -348,8 +344,7 @@ void monitor_exit(int status)
     debug_free();
     tcp_analyzer_free();
     if (promiscuous_mode)
-        iface_set_promiscuous(ctx.handle, ctx.device, false);
-    free(ctx.device);
+        iface_set_promiscuous(ctx.handle, false);
     free(ctx.local_addr);
     mempool_destruct();
     geoip_free();
@@ -368,7 +363,7 @@ void monitor_exit(int status)
 
 void stop_capture(void)
 {
-    iface_close(ctx.handle);
+    iface_close(ctx.handle); // BUG: Cannot free device here!
     fd_changed = true;
     ctx.capturing = false;
 }
@@ -376,14 +371,14 @@ void stop_capture(void)
 void start_capture(void)
 {
     if (!ctx.opt.nopromiscuous && !promiscuous_mode) {
-        iface_set_promiscuous(ctx.handle, ctx.device, true);
+        iface_set_promiscuous(ctx.handle, true);
         promiscuous_mode = true;
     }
     clear_statistics();
     vector_clear(packets, NULL);
     free_packets(NULL);
     process_clear_cache();
-    iface_activate(ctx.handle, ctx.device, &bpf);
+    iface_activate(ctx.handle, &bpf);
     fd_changed = true;
     ctx.capturing = true;
     ctx.opt.load_file = false;
@@ -424,15 +419,21 @@ static bool count_packets(iface_handle_t *handle UNUSED, unsigned char *buf,
     return true;
 }
 
-static void handle_count_and_exit(unsigned char *buf)
+static void handle_count_and_exit(char *dev, unsigned char *buf)
 {
+    ctx.handle = iface_handle_create(dev, buf, SNAPLEN, count_packets);
     if (ctx.opt.load_file) {
         printf("Reading from file %s\n", ctx.filename);
-        load_file(buf, count_packets);
+        load_file(count_packets);
         monitor_exit(0);
     } else {
-        printf("Listening on %s\n", ctx.device);
-        activate_interface(buf, count_packets);
+        printf("Listening on %s\n", dev);
+        ctx.capturing = true;
+        iface_activate(ctx.handle, &bpf);
+        if (!ctx.opt.nopromiscuous) {
+            iface_set_promiscuous(ctx.handle, true);
+            promiscuous_mode = true;
+        }
         run();
     }
 }

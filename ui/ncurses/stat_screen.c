@@ -109,7 +109,7 @@ void stat_screen_init(screen *s)
         cpustat[i] = xmalloc(hw.num_cpu * sizeof(struct cputime));
     rx_rate = ringbuffer_init(60);
     tx_rate = ringbuffer_init(60);
-    wireless = is_wireless(ctx.device);
+    wireless = is_wireless(ctx.handle->device);
     add_subscription0(alarm_publisher, handle_alarm);
 }
 
@@ -337,9 +337,9 @@ void print_netstat(screen *s)
     case ALL:
     default:
         y = 0;
-        get_netstat(ctx.device, &rx, &tx);
+        get_netstat(ctx.handle->device, &rx, &tx);
         calculate_rate();
-        mvprintat(s->win, y++, 0, hdrcol, "Network statistics for %s", ctx.device);
+        mvprintat(s->win, y++, 0, hdrcol, "Network statistics for %s", ctx.handle->device);
         mvprintat(s->win, ++y, 2, subcol, "%13s", "Download rate");
         print_rate(s, &rx);
         print_graph(s, subcol, rx_rate, y, 0, "%4d packets/s", rx.pps);
@@ -347,7 +347,7 @@ void print_netstat(screen *s)
         print_rate(s, &tx);
         print_graph(s, subcol, tx_rate, y, TX_RATE_X, "%4d packets/s", tx.pps);
         y += 15;
-        if (wireless && get_iwstat(ctx.device, &stat)) {
+        if (wireless && get_iwstat(ctx.handle->device, &stat)) {
             mvprintat(s->win, ++y, 2, subcol, "%13s", "Link quality");
             wprintw(s->win, ": %8u/%u", stat.qual, stat.max_qual);
             mvprintat(s->win, ++y, 2, subcol, "%13s", "Level");

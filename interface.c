@@ -26,7 +26,7 @@
 #define MAX_NUM_INTERFACES 16
 #define WIDTH 8
 
-extern iface_handle_t *iface_eth_create(unsigned char *buf, size_t len, packet_handler fn);
+extern iface_handle_t *iface_eth_create(char *dev, unsigned char *buf, size_t len, packet_handler fn);
 static char *get_active_interface(int fd, char *buffer, int len);
 
 iface_handle_t *iface_handle_create(char *dev, unsigned char *buf, size_t len,
@@ -39,13 +39,13 @@ iface_handle_t *iface_handle_create(char *dev, unsigned char *buf, size_t len,
     if (handle)
         return handle;
 #endif
-    return iface_eth_create(buf, len, fn);
+    return iface_eth_create(dev, buf, len, fn);
 }
 
-void iface_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf)
+void iface_activate(iface_handle_t *handle, struct bpf_prog *bpf)
 {
     if (!handle->active) {
-        handle->op->activate(handle, device, bpf);
+        handle->op->activate(handle, bpf);
         handle->active = true;
     }
 }
@@ -63,9 +63,10 @@ void iface_read_packet(iface_handle_t *handle)
     handle->op->read_packet(handle);
 }
 
-void iface_set_promiscuous(iface_handle_t *handle, char *dev, bool enable)
+void iface_set_promiscuous(iface_handle_t *handle, bool enable)
 {
-    handle->op->set_promiscuous(handle, dev, enable);
+    if (handle->op->set_promiscuous)
+        handle->op->set_promiscuous(handle, enable);
 }
 
 void list_interfaces(void)

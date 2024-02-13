@@ -28,15 +28,16 @@ typedef struct iface_handle {
     bool active;
     bool use_zerocopy;
     unsigned int linktype;
+    char *device; /* name of interface */
     struct iface_operations *op;
     void *data;  /* implementation specific data */
 } iface_handle_t;
 
 struct iface_operations {
-    void (*activate)(iface_handle_t *handle, char *device, struct bpf_prog *bpf);
+    void (*activate)(iface_handle_t *handle, struct bpf_prog *bpf);
     void (*close)(iface_handle_t *handle);
     void (*read_packet)(iface_handle_t *handle);
-    void (*set_promiscuous)(iface_handle_t *handle, char *device, bool enable);
+    void (*set_promiscuous)(iface_handle_t *handle, bool enable);
 };
 
 struct interface {
@@ -53,7 +54,7 @@ iface_handle_t *iface_handle_create(char *dev, unsigned char *buf, size_t len,
                                     packet_handler fn);
 
 /* Activate the interface */
-void iface_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf);
+void iface_activate(iface_handle_t *handle, struct bpf_prog *bpf);
 
 /* Close the interface */
 void iface_close(iface_handle_t *handle);
@@ -65,7 +66,7 @@ void iface_close(iface_handle_t *handle);
 void iface_read_packet(iface_handle_t *handle);
 
 /* Enable/disable promiscuous mode */
-void iface_set_promiscuous(iface_handle_t *handle, char *dev, bool enable);
+void iface_set_promiscuous(iface_handle_t *handle, bool enable);
 
 /* Print all interfaces */
 void list_interfaces(void);

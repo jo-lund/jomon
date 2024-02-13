@@ -9,7 +9,7 @@
 
 #define BT_IFACE "bluetooth"
 
-static void bt_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf);
+static void bt_activate(iface_handle_t *handle, struct bpf_prog *bpf);
 static void bt_close(iface_handle_t *handle);
 static void bt_read_packet(iface_handle_t *handle);
 
@@ -27,6 +27,7 @@ iface_handle_t *iface_bt_create(char *dev, unsigned char *buf, size_t len, packe
     if (strncmp(dev, BT_IFACE, strlen(BT_IFACE)) != 0) /* not a BT device */
         return NULL;
     handle = xcalloc(1, sizeof(iface_handle_t));
+    handle->device = dev;
     handle->fd = -1;
     handle->op = &bt_op;
     handle->buf = buf;
@@ -35,7 +36,7 @@ iface_handle_t *iface_bt_create(char *dev, unsigned char *buf, size_t len, packe
     return handle;
 }
 
-void bt_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf)
+void bt_activate(iface_handle_t *handle, struct bpf_prog *bpf)
 {
     int n = 1;
     struct sockaddr_hci addr;
@@ -44,7 +45,6 @@ void bt_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf)
         err_sys("Error creating Bluetooth socket");
     if (setsockopt(handle->fd, SOL_HCI, HCI_TIME_STAMP, &n, sizeof(n)) == -1)
         err_sys("Error enabling timestamps");
-
     memset(&addr, 0, sizeof(addr));
     addr.hci_family = AF_BLUETOOTH;
     addr.hci_dev = 0; // get device id

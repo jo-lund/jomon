@@ -36,7 +36,6 @@
 #endif
 
 typedef struct {
-    char *device;
     char filename[MAXPATH];
     bool capturing;
     struct options {

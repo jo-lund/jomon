@@ -773,7 +773,7 @@ void print_header(main_screen *ms)
         wprintw(ms->whdr, ": %s", get_file_part(file));
     } else {
         mvprintat(ms->whdr, y, 0, txtcol, "Device");
-        wprintw(ms->whdr, ": %s", ctx.device);
+        wprintw(ms->whdr, ": %s", ctx.handle->device);
     }
     mvprintat(ms->whdr, y, maxx / 2, txtcol, "Display filter");
     if (bpf.size != 0)
