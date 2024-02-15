@@ -261,8 +261,8 @@ static void update_cache(struct tcp_connection_v4 *conn, bool new_conn)
         struct tcp_elem *tcp;
         struct process *pinfo;
 
-        if (conn->endp->src != ctx.local_addr->sin_addr.s_addr &&
-            conn->endp->dst != ctx.local_addr->sin_addr.s_addr)
+        if (conn->endp->src != ctx.handle->inaddr.sin_addr.s_addr &&
+            conn->endp->dst != ctx.handle->inaddr.sin_addr.s_addr)
             return;
         load_cache();
         if ((tcp = hashmap_get(tcp_cache, conn->endp)) == NULL) {

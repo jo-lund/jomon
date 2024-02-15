@@ -51,8 +51,6 @@ typedef struct {
         int buffer_size;
         bool show_count;
     } opt;
-    struct sockaddr_in *local_addr;
-    unsigned char mac[ETHER_ADDR_LEN];
     char *filter;
     char *filter_file;
     iface_handle_t *handle;

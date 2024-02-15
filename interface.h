@@ -5,10 +5,11 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
 #include "bpf/bpf.h"
 
 #define IF_NAMESIZE 16
-
+#define IF_HWADDRLEN 8
 #define LINKTYPE_ETHERNET 1
 #define LINKTYPE_IEEE802 6   /* IEEE 802.2 Ethernet/Token Ring/Token Bus */
 #define LINKTYPE_BT_HCI_H4 187  /* Bluetooth HCI UART transport layer */
@@ -27,8 +28,11 @@ typedef struct iface_handle {
     size_t len;
     bool active;
     bool use_zerocopy;
-    unsigned int linktype;
-    char *device; /* name of interface */
+    unsigned int linktype;         /* interface type, e.g. Ethernet, Firewire etc. */
+    char device[IF_NAMESIZE];      /* interface name */
+    unsigned char mac[IF_HWADDRLEN];
+    struct sockaddr_in inaddr;     /* IPv4 address */
+    struct sockaddr_in6 in6addr;   /* IPv6 address */
     struct iface_operations *op;
     void *data;  /* implementation specific data */
 } iface_handle_t;
@@ -38,6 +42,8 @@ struct iface_operations {
     void (*close)(iface_handle_t *handle);
     void (*read_packet)(iface_handle_t *handle);
     void (*set_promiscuous)(iface_handle_t *handle, bool enable);
+    void (*get_mac)(iface_handle_t *handle);
+    void (*get_address)(iface_handle_t *handle);
 };
 
 struct interface {
@@ -68,17 +74,14 @@ void iface_read_packet(iface_handle_t *handle);
 /* Enable/disable promiscuous mode */
 void iface_set_promiscuous(iface_handle_t *handle, bool enable);
 
+/* Get the interface MAC address */
+void iface_get_mac(iface_handle_t *handle);
+
+/* Get the interface IP address */
+void iface_get_address(iface_handle_t *handle);
+
 /* Print all interfaces */
 void list_interfaces(void);
-
-/* Return the first interface which is up and running */
-char *get_default_interface(void);
-
-/* get the local IP address */
-void get_local_address(char *dev, struct sockaddr *addr);
-
-/* get the local MAC address */
-void get_local_mac(char *dev, unsigned char *mac);
 
 /* Check if the interface is wireless */
 bool is_wireless(char *dev);

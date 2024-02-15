@@ -780,7 +780,7 @@ void print_header(main_screen *ms)
         wprintw(ms->whdr, ": %s", bpf_filter);
     else
         wprintw(ms->whdr, ": None");
-    inet_ntop(AF_INET, &ctx.local_addr->sin_addr, addr, sizeof(addr));
+    inet_ntop(AF_INET, &ctx.handle->inaddr.sin_addr, addr, sizeof(addr));
     mvprintat(ms->whdr, ++y, 0, txtcol, "IPv4 address");
     wprintw(ms->whdr, ": %s", addr);
     mvprintat(ms->whdr, y, maxx / 2, txtcol, "Follow stream");
@@ -788,7 +788,7 @@ void print_header(main_screen *ms)
         wprintw(ms->whdr, ": %u", ((conversation_screen *) ms)->stream->num);
     else
         wprintw(ms->whdr, ": None");
-    HW_ADDR_NTOP(mac, ctx.mac);
+    HW_ADDR_NTOP(mac, ctx.handle->mac);
     mvprintat(ms->whdr, ++y, 0, txtcol, "MAC");
     wprintw(ms->whdr, ": %s", mac);
     y += 2;

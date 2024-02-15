@@ -20,11 +20,14 @@
 #define BUFSIZE (4 * 1024 * 1024)
 #define FRAMESIZE 65536
 
+extern void get_address(iface_handle_t *handle);
 static void linux_activate(iface_handle_t *handle, struct bpf_prog *bpf);
 static void linux_close(iface_handle_t *handle);
 static void linux_read_packet_mmap(iface_handle_t *handle);
 static void linux_read_packet_recv(iface_handle_t *handle);
 static void linux_set_promiscuous(iface_handle_t *handle, bool enable);
+static void linux_get_mac(iface_handle_t *handle);
+static void linux_get_address(iface_handle_t *handle);
 
 struct handle_linux {
     unsigned int block_num;
@@ -36,7 +39,9 @@ static struct iface_operations linux_op = {
     .activate = linux_activate,
     .close = linux_close,
     .read_packet = linux_read_packet_mmap,
-    .set_promiscuous = linux_set_promiscuous
+    .set_promiscuous = linux_set_promiscuous,
+    .get_mac = linux_get_mac,
+    .get_address = linux_get_address
 };
 
 static struct iovec *iov;
@@ -50,7 +55,7 @@ static int get_interface_index(char *dev)
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
         err_sys("socket error");
     }
-    strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
+    strncpy(ifr.ifr_name, dev, IFNAMSIZ);
     if (ioctl(sockfd, SIOCGIFINDEX, &ifr) == -1) {
         err_sys("ioctl error");
     }
@@ -75,7 +80,7 @@ static int get_linktype(char *dev)
     int sockfd;
     int ret = -1;
 
-    strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
+    strncpy(ifr.ifr_name, dev, IFNAMSIZ);
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
         return ret;
     if (ioctl(sockfd, SIOCGIFHWADDR, &ifr) == -1)
@@ -138,17 +143,13 @@ static bool setup_packet_mmap(iface_handle_t *handle)
     return true;
 }
 
-iface_handle_t *iface_eth_create(char *dev, unsigned char *buf, size_t len, packet_handler fn)
+void iface_eth_init(iface_handle_t *handle, unsigned char *buf, size_t len, packet_handler fn)
 {
-    iface_handle_t *handle = xcalloc(1, sizeof(iface_handle_t));
-
-    handle->device = dev;
     handle->fd = -1;
     handle->op = &linux_op;
     handle->buf = buf;
     handle->len = len;
     handle->on_packet = fn;
-    return handle;
 }
 
 void linux_activate(iface_handle_t *handle, struct bpf_prog *bpf)
@@ -213,7 +214,6 @@ void linux_close(iface_handle_t *handle)
     }
     close(handle->fd);
     handle->fd = -1;
-    free(handle->device);
 }
 
 void linux_read_packet_recv(iface_handle_t *handle)
@@ -274,7 +274,7 @@ void linux_set_promiscuous(iface_handle_t *handle, bool enable)
 
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
         err_sys("socket error");
-    strncpy(ifr.ifr_name, handle->device, IFNAMSIZ - 1);
+    strncpy(ifr.ifr_name, handle->device, IFNAMSIZ);
     if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) == -1)
         err_sys("ioctl error");
     if (enable)
@@ -286,19 +286,24 @@ void linux_set_promiscuous(iface_handle_t *handle, bool enable)
     close(sockfd);
 }
 
-void get_local_mac(char *dev, unsigned char *mac)
+void linux_get_mac(iface_handle_t *handle)
 {
     struct ifreq ifr;
     int sockfd;
 
-    strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
+    strncpy(ifr.ifr_name, handle->device, IFNAMSIZ);
     ifr.ifr_addr.sa_family = AF_INET;
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
         err_sys("socket error");
     if (ioctl(sockfd, SIOCGIFHWADDR, &ifr) == -1)
         err_sys("ioctl error");
-    memcpy(mac, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN);
+    memcpy(handle->mac, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN);
     close(sockfd);
+}
+
+void linux_get_address(iface_handle_t *handle)
+{
+    get_address(handle);
 }
 
 bool is_wireless(char *dev)
@@ -309,7 +314,7 @@ bool is_wireless(char *dev)
 
     ret = false;
     memset(&iw, 0, sizeof(struct iwreq));
-    strncpy(iw.ifr_ifrn.ifrn_name, dev, IFNAMSIZ - 1);
+    strncpy(iw.ifr_ifrn.ifrn_name, dev, IFNAMSIZ);
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
         return false;
     if ((ioctl(sockfd, SIOCGIWNAME, &iw)) != -1)

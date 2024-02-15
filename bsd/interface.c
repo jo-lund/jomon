@@ -17,11 +17,14 @@
 #define NUM_BUFS 2
 #define BUFSIZE 65536
 
+extern void get_address(iface_handle_t *handle);
 static void bsd_activate(iface_handle_t *handle, struct bpf_prog *bpf);
 static void bsd_close(iface_handle_t *handle);
 static void bsd_read_packet_zbuf(iface_handle_t *handle);
 static void bsd_read_packet_buffer(iface_handle_t *handle);
 static void bsd_set_promiscuous(iface_handle_t *handle, bool enable);
+static void bsd_get_mac(iface_handle_t *handle, unsigned char *mac);
+static void bsd_get_address(iface_handle_t *handle);
 
 struct handle_bsd {
     unsigned char *buffers[NUM_BUFS];
@@ -33,6 +36,8 @@ static struct iface_operations bsd_op = {
     .close = bsd_close,
     .read_packet = bsd_read_packet_zbuf,
     .set_promiscuous = bsd_set_promiscuous,
+    .get_mac = bsd_get_mac,
+    .get_address = bsd_get_address
 };
 
 /*
@@ -52,17 +57,13 @@ static inline bool buffer_check(struct bpf_zbuf_header *bzh)
     return bzh->bzh_user_gen != atomic_load_acq_int(&bzh->bzh_kernel_gen);
 }
 
-iface_handle_t *iface_eth_create(char *dev, unsigned char *buf, size_t len, packet_handler fn)
+void iface_eth_init(iface_handle_t *handle, unsigned char *buf, size_t len, packet_handler fn)
 {
-    iface_handle_t *handle = xcalloc(1, sizeof(iface_handle_t));
-
-    handle->device = dev;
     handle->fd = -1;
     handle->op = &bsd_op;
     handle->buf = buf;
     handle->len = len;
     handle->on_packet = fn;
-    return handle;
 }
 
 void bsd_activate(iface_handle_t *handle, struct bpf_prog *bpf UNUSED)
@@ -113,7 +114,7 @@ void bsd_activate(iface_handle_t *handle, struct bpf_prog *bpf UNUSED)
             err_sys("ioctl error BIOCSBLEN");
     }
     /* set the hardware interface associated with the file */
-    strncpy(ifr.ifr_name, handle->dev, IFNAMSIZ - 1);
+    strncpy(ifr.ifr_name, handle->device, IFNAMSIZ - 1);
     ifr.ifr_addr.sa_family = AF_INET;
     if (ioctl(handle->fd, BIOCSETIF, &ifr) == -1)
         err_sys("ioctl error BIOCSETIF");
@@ -137,7 +138,6 @@ void bsd_close(iface_handle_t *handle)
     }
     close(handle->fd);
     handle->fd = -1;
-    free(handle->device);
 }
 
 void bsd_read_packet_zbuf(iface_handle_t *handle)
@@ -192,7 +192,7 @@ void bsd_set_promiscuous(iface_handle_t *handle, bool enable)
     }
 }
 
-void get_local_mac(char *dev UNUSED, unsigned char *mac)
+void bsd_get_mac(iface_handle_t *handle)
 {
      struct ifaddrs *ifp, *ifhead;
 
@@ -204,11 +204,16 @@ void get_local_mac(char *dev UNUSED, unsigned char *mac)
             struct sockaddr_dl *dl_addr;
 
             dl_addr = (struct sockaddr_dl *) ifp->ifa_addr;
-            memcpy(mac, (char *) LLADDR(dl_addr), dl_addr->sdl_alen);
+            memcpy(handle->mac, (char *) LLADDR(dl_addr), dl_addr->sdl_alen);
             break;
         }
     }
     freeifaddrs(ifhead);
+}
+
+void bsd_get_address(iface_handle_t *handle)
+{
+    get_address(handle);
 }
 
 bool is_wireless(char *dev UNUSED)

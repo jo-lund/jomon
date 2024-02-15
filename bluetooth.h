@@ -11,7 +11,7 @@
  */
 int bt_interfaces(struct interface *ifc, int cap);
 
-/* Create a Bluetooth interface handle */
-iface_handle_t *iface_bt_create(char *dev, unsigned char *buf, size_t len, packet_handler fn);
+/* Initialize the Bluetooth interface handle */
+bool iface_bt_init(iface_handle_t *handle, unsigned char *buf, size_t len, packet_handler fn);
 
 #endif

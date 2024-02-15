@@ -26,20 +26,26 @@
 #define MAX_NUM_INTERFACES 16
 #define WIDTH 8
 
-extern iface_handle_t *iface_eth_create(char *dev, unsigned char *buf, size_t len, packet_handler fn);
-static char *get_active_interface(int fd, char *buffer, int len);
+extern bool iface_eth_init(iface_handle_t *handle, unsigned char *buf, size_t len, packet_handler fn);
+static bool get_active_device(iface_handle_t *handle, int fd, char *buffer, int len);
+static bool get_default_device(iface_handle_t *handle);
 
 iface_handle_t *iface_handle_create(char *dev, unsigned char *buf, size_t len,
                                     packet_handler fn)
 {
-#ifdef BT_SUPPORT
     iface_handle_t *handle;
 
-    handle = iface_bt_create(dev, buf, len, fn);
-    if (handle)
+    handle = xcalloc(1, sizeof(iface_handle_t));
+    if (dev)
+        strncpy(handle->device, dev, IF_NAMESIZE);
+    else if (!get_default_device(handle))
+        return NULL;
+#ifdef BT_SUPPORT
+    if (iface_bt_init(handle, buf, len, fn))
         return handle;
 #endif
-    return iface_eth_create(dev, buf, len, fn);
+    iface_eth_init(handle, buf, len, fn);
+    return handle;
 }
 
 void iface_activate(iface_handle_t *handle, struct bpf_prog *bpf)
@@ -67,6 +73,18 @@ void iface_set_promiscuous(iface_handle_t *handle, bool enable)
 {
     if (handle->op->set_promiscuous)
         handle->op->set_promiscuous(handle, enable);
+}
+
+void iface_get_mac(iface_handle_t *handle)
+{
+    if (handle->op->get_mac)
+        handle->op->get_mac(handle);
+}
+
+void iface_get_address(iface_handle_t *handle)
+{
+    if (handle->op->get_address)
+        handle->op->get_address(handle);
 }
 
 void list_interfaces(void)
@@ -212,15 +230,16 @@ void list_interfaces(void)
     freeifaddrs(ifhead);
 }
 
-char *get_default_interface(void)
+/* Get the first device which is up and running */
+bool get_default_device(iface_handle_t *handle)
 {
     struct ifconf ifc;
     int sockfd, len, lastlen;
-    char *device = NULL;
     char *buffer;
 
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
-        err_sys("Socket error");
+        DEBUG("%s: Socket error", __func__);
+        return false;
     }
     lastlen = 0;
     len = 10 * sizeof(struct ifreq); /* initial guess of buffer size (10 interfaces) */
@@ -237,8 +256,7 @@ char *get_default_interface(void)
                 err_sys("ioctl error");
             }
         } else {
-            device = get_active_interface(sockfd, buffer + lastlen, ifc.ifc_len);
-            if (device /* active device found */ ||
+            if (get_active_device(handle, sockfd, buffer + lastlen, ifc.ifc_len) ||
                 ifc.ifc_len == lastlen) { /* same value as last time */
                 break;
             }
@@ -249,17 +267,16 @@ char *get_default_interface(void)
     }
     free(buffer);
     close(sockfd);
-    return device;
+    return true;
 }
 
 /*
- * Traverse buffer of struct ifreq and return the name of the first device for
+ * Traverse buffer of struct ifreq and copy the name of the first device for
  * which the IFF_UP and IFF_RUNNING flags are set
  */
-char *get_active_interface(int fd, char *buffer, int len)
+bool get_active_device(iface_handle_t *handle, int fd, char *buffer, int len)
 {
     char *ptr;
-    char *device;
     struct ifreq *ifr;
 
     for (ptr = buffer; ptr < buffer + len; ptr += sizeof(struct ifreq)) {
@@ -273,29 +290,28 @@ char *get_active_interface(int fd, char *buffer, int len)
             if (ifr->ifr_flags & IFF_UP && ifr->ifr_flags & IFF_RUNNING) {
                 size_t namelen = strlen(ifr->ifr_name);
 
-                device = xmalloc(namelen + 1);
-                memcpy(device, ifr->ifr_name, namelen);
-                device[namelen] = '\0';
-                return device;
+                if (namelen > IF_NAMESIZE)
+                    return false;
+                memcpy(handle->device, ifr->ifr_name, namelen);
+                handle->device[namelen] = '\0';
+                return true;
             }
         }
     }
-    return NULL;
+    return true;
 }
 
-void get_local_address(char *dev, struct sockaddr *addr)
+void get_address(iface_handle_t *handle)
 {
     struct ifreq ifr;
     int sockfd;
 
-    strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
+    strncpy(ifr.ifr_name, handle->device, IFNAMSIZ);
     ifr.ifr_addr.sa_family = AF_INET;
-    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
         err_sys("socket error");
-    }
-    if (ioctl(sockfd, SIOCGIFADDR, &ifr) == -1) {
+    if (ioctl(sockfd, SIOCGIFADDR, &ifr) == -1)
         err_sys("ioctl error");
-    }
-    memcpy(addr, &ifr.ifr_addr, sizeof(*addr));
+    memcpy(&handle->inaddr, &ifr.ifr_addr, sizeof(handle->inaddr));
     close(sockfd);
 }

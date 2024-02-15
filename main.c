@@ -149,7 +149,7 @@ int main(int argc, char **argv)
             ctx.filter = optarg;
             break;
         case 'i':
-            dev = xstrdup(optarg);
+            dev = optarg;
             break;
         case 'l':
             list_interfaces();
@@ -200,11 +200,11 @@ int main(int argc, char **argv)
     }
     if (ctx.opt.dmode > BPF_DUMP_MODE_NONE)
         print_bpf();
-    if (!dev && !(dev = get_default_interface()))
-        err_quit("Cannot find active network device");
     if (ctx.opt.show_count)
         handle_count_and_exit(dev, buf);
     ctx.handle = iface_handle_create(dev, buf, SNAPLEN, handle_packet);
+    if (!ctx.handle)
+        err_quit("Cannot find active network device");
     setup_signal(SIGALRM, sig_callback, SA_RESTART);
     decoder_init();
     tcp_analyzer_init();
@@ -218,9 +218,8 @@ int main(int argc, char **argv)
             process_init();
         setup_signal(SIGWINCH, sig_callback, 0);
     }
-    ctx.local_addr = xmalloc(sizeof(struct sockaddr_in));
-    get_local_address(ctx.handle->device, (struct sockaddr *) ctx.local_addr);
-    get_local_mac(ctx.handle->device, ctx.mac);
+    iface_get_address(ctx.handle);
+    iface_get_mac(ctx.handle);
     if (!ctx.opt.nogeoip && !geoip_init())
         exit(1);
     if (ctx.opt.load_file) {
@@ -345,7 +344,6 @@ void monitor_exit(int status)
     tcp_analyzer_free();
     if (promiscuous_mode)
         iface_set_promiscuous(ctx.handle, false);
-    free(ctx.local_addr);
     mempool_destruct();
     geoip_free();
     if (ctx.handle) {
@@ -363,7 +361,7 @@ void monitor_exit(int status)
 
 void stop_capture(void)
 {
-    iface_close(ctx.handle); // BUG: Cannot free device here!
+    iface_close(ctx.handle);
     fd_changed = true;
     ctx.capturing = false;
 }
@@ -422,6 +420,8 @@ static bool count_packets(iface_handle_t *handle UNUSED, unsigned char *buf,
 static void handle_count_and_exit(char *dev, unsigned char *buf)
 {
     ctx.handle = iface_handle_create(dev, buf, SNAPLEN, count_packets);
+    if (!ctx.handle)
+        err_quit("Cannot find active network device");
     if (ctx.opt.load_file) {
         printf("Reading from file %s\n", ctx.filename);
         load_file(count_packets);

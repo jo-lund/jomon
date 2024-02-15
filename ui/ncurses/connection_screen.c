@@ -360,7 +360,7 @@ static void print_process(connection_screen *cs, struct process *proc, int y)
     DLIST_FOREACH(proc->conn, n) {
         nconn++;
         conn = list_data(n);
-        if (conn->endp->src == ctx.local_addr->sin_addr.s_addr) {
+        if (conn->endp->src == ctx.handle->inaddr.sin_addr.s_addr) {
             entry[ADDRA].val = conn->endp->src;
             entry[PORTA].val = conn->endp->sport;
             entry[ADDRB].val = conn->endp->dst;

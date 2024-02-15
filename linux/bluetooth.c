@@ -17,23 +17,21 @@ static struct iface_operations bt_op = {
     .activate = bt_activate,
     .close = bt_close,
     .read_packet = bt_read_packet,
-    .set_promiscuous = NULL
+    .set_promiscuous = NULL,
+    .get_mac = NULL,
+    .get_address = NULL
 };
 
-iface_handle_t *iface_bt_create(char *dev, unsigned char *buf, size_t len, packet_handler fn)
+bool iface_bt_init(iface_handle_t *handle, unsigned char *buf, size_t len, packet_handler fn)
 {
-    iface_handle_t *handle;
-
-    if (strncmp(dev, BT_IFACE, strlen(BT_IFACE)) != 0) /* not a BT device */
-        return NULL;
-    handle = xcalloc(1, sizeof(iface_handle_t));
-    handle->device = dev;
+    if (strncmp(handle->device, BT_IFACE, strlen(BT_IFACE)) != 0) /* not a BT device */
+        return false;
     handle->fd = -1;
     handle->op = &bt_op;
     handle->buf = buf;
     handle->len = len;
     handle->on_packet = fn;
-    return handle;
+    return true;
 }
 
 void bt_activate(iface_handle_t *handle, struct bpf_prog *bpf)
