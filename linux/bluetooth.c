@@ -36,17 +36,28 @@ bool iface_bt_init(iface_handle_t *handle, unsigned char *buf, size_t len, packe
 
 void bt_activate(iface_handle_t *handle, struct bpf_prog *bpf)
 {
-    int n = 1;
+    int n;
     struct sockaddr_hci addr;
+    unsigned int d;
+    struct hci_filter flt;
 
-    if ((handle->fd = socket(AF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI)) == -1)
+    handle->linktype = LINKTYPE_BT_HCI_H4;
+    if ((handle->fd = socket(AF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI)) < 0)
         err_sys("Error creating Bluetooth socket");
-    if (setsockopt(handle->fd, SOL_HCI, HCI_TIME_STAMP, &n, sizeof(n)) == -1)
+    n = 1;
+    if (setsockopt(handle->fd, SOL_HCI, HCI_TIME_STAMP, &n, sizeof(n)) < 0)
         err_sys("Error enabling timestamps");
+    memset(&flt, 0, sizeof(flt));
+    memset(&flt.type_mask, 0xff, sizeof(flt.type_mask));
+    memset(&flt.event_mask, 0xff, sizeof(flt.event_mask));
+    if (setsockopt(handle->fd, SOL_HCI, HCI_FILTER, &flt, sizeof(flt)) < 0)
+        err_sys("Error setting filter");
     memset(&addr, 0, sizeof(addr));
     addr.hci_family = AF_BLUETOOTH;
-    addr.hci_dev = 0; // get device id
-    if (bind(handle->fd, (struct sockaddr *) &addr, sizeof(addr)) == -1)
+    if (sscanf(handle->device, BT_IFACE"%u", &d) < 0)
+        err_sys("Error getting device id");
+    addr.hci_dev = d;
+    if (bind(handle->fd, (struct sockaddr *) &addr, sizeof(addr)) < 0)
         err_sys("Error binding HCI device");
 }
 
@@ -75,7 +86,7 @@ void bt_read_packet(iface_handle_t *handle)
         err_sys("%s recvmmsg error", __func__);
     for (cmsg = CMSG_FIRSTHDR(&msg.msg_hdr); cmsg != NULL;
          cmsg = CMSG_NXTHDR(&msg.msg_hdr, cmsg)) {
-        if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SO_TIMESTAMP) {
+        if (cmsg->cmsg_level == SOL_HCI && cmsg->cmsg_type == HCI_CMSG_TSTAMP) {
             val = (struct timeval *) CMSG_DATA(cmsg);
             break;
         }
