@@ -12,13 +12,14 @@
 static void bt_activate(iface_handle_t *handle, struct bpf_prog *bpf);
 static void bt_close(iface_handle_t *handle);
 static void bt_read_packet(iface_handle_t *handle);
+static void bt_get_mac(iface_handle_t *handle);
 
 static struct iface_operations bt_op = {
     .activate = bt_activate,
     .close = bt_close,
     .read_packet = bt_read_packet,
     .set_promiscuous = NULL,
-    .get_mac = NULL,
+    .get_mac = bt_get_mac,
     .get_address = NULL
 };
 
@@ -92,6 +93,22 @@ void bt_read_packet(iface_handle_t *handle)
         }
     }
     handle->on_packet(handle, handle->buf, msg.msg_len, val);
+}
+
+void bt_get_mac(iface_handle_t *handle)
+{
+    struct hci_dev_info di;
+    unsigned int d;
+    int sockfd;
+
+    if ((sockfd = socket(AF_BLUETOOTH, SOCK_RAW, BTPROTO_HCI)) == -1)
+        err_sys("Error creating Bluetooth socket");
+    if (sscanf(handle->device, BT_IFACE"%u", &d) < 0)
+        err_sys("Error getting device id");
+    di.dev_id = d;
+    if (ioctl(sockfd, HCIGETDEVINFO, &di) == -1)
+        err_sys("ioctl error. Cannot get device info");
+    memcpy(handle->mac, di.bdaddr.b, 6);
 }
 
 int bt_interfaces(struct interface *ifc, int cap)
