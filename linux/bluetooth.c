@@ -133,7 +133,7 @@ int bt_interfaces(struct interface *ifc, int cap)
             error = "ioctl error. Cannot get device info";
             goto done;
         }
-        snprintf(ifc[i].name, IF_NAMESIZE, BT_IFACE"%u", i);
+        snprintf(ifc[i].name, IF_NAMESIZE, BT_IFACE"%u", dl->dev_req[i].dev_id);
         memcpy(ifc[i].hwaddr, di.bdaddr.b, 6);
         ifc[i].type = di.type;
         ifc[i].addrlen = 6;
