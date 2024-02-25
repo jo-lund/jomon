@@ -52,9 +52,9 @@ static bool promiscuous_mode = false;
 
 static bool handle_packet(iface_handle_t *handle, unsigned char *buf,
                           uint32_t n, struct timeval *t);
-static void print_help(void) NORETURN;
+static void print_help_and_exit(void) NORETURN;
 static void run(void) NORETURN;
-static void print_bpf(void) NORETURN;
+static void print_bpf_and_exit(void) NORETURN;
 static void handle_count_and_exit(unsigned char *buf) NORETURN;
 
 static void sig_callback(int sig)
@@ -188,7 +188,7 @@ int main(int argc, char **argv)
             break;
         case 'h':
         default:
-            print_help();
+            print_help_and_exit();
         }
     }
     if (ctx.filter && ctx.filter_file)
@@ -209,7 +209,7 @@ int main(int argc, char **argv)
             err_quit("pcap_compile error");
     }
     if (ctx.opt.dmode > BPF_DUMP_MODE_NONE)
-        print_bpf();
+        print_bpf_and_exit();
     if (!ctx.device && !(ctx.device = get_default_interface()))
         err_quit("Cannot find active network device");
     setup_signal(SIGALRM, sig_callback, SA_RESTART);
@@ -243,7 +243,7 @@ int main(int argc, char **argv)
     run();
 }
 
-static void print_bpf(void)
+static void print_bpf_and_exit(void)
 {
     switch (ctx.opt.dmode) {
     case BPF_DUMP_MODE_ASM:
@@ -266,7 +266,7 @@ static void print_bpf(void)
     exit(0);
 }
 
-static void print_help(void)
+static void print_help_and_exit(void)
 {
     printf("jomon " VERSION "\n");
     geoip_print_version();
