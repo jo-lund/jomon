@@ -93,7 +93,7 @@ packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int
     memcpy(ipv6->src, buffer, 16);
     memcpy(ipv6->dst, buffer + 16, 16);
     buffer += 32;
-    id = get_protocol_id(IP_PROTOCOL, ipv6->next_header);
+    id = get_protocol_id(IP_PROT, ipv6->next_header);
     pinfo->num_packets++;
     pinfo->num_bytes += n;
 

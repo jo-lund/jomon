@@ -22,7 +22,7 @@ void tcp_analyzer_check_stream(struct packet *p)
     struct packet_data *pdata;
 
     if (ethertype(p) == ETHERTYPE_IP &&
-        (pdata = get_packet_data(p, get_protocol_id(IP_PROTOCOL, IPPROTO_TCP)))) {
+        (pdata = get_packet_data(p, get_protocol_id(IP_PROT, IPPROTO_TCP)))) {
         if (pdata->error)
             return;
 

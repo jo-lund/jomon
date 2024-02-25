@@ -16,7 +16,7 @@
 #define DATALINK 0
 #define ETH802_3 1
 #define ETHERNET_II 2
-#define IP_PROTOCOL 3
+#define IP_PROT 3
 #define PORT 4
 
 extern uint32_t total_packets;

@@ -34,7 +34,7 @@ static struct protocol_info tcp_prot = {
 
 void register_tcp(void)
 {
-    register_protocol(&tcp_prot, IP_PROTOCOL, IPPROTO_TCP);
+    register_protocol(&tcp_prot, IP_PROT, IPPROTO_TCP);
 }
 
 

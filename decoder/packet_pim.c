@@ -31,7 +31,7 @@ static struct protocol_info pim_prot = {
 
 void register_pim(void)
 {
-    register_protocol(&pim_prot, IP_PROTOCOL, IPPROTO_PIM);
+    register_protocol(&pim_prot, IP_PROT, IPPROTO_PIM);
 }
 
 static packet_error parse_join_prune(unsigned char *buffer, int n, struct pim_info *pim,

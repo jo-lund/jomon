@@ -81,7 +81,7 @@ static struct protocol_info ipv4_prot = {
 void register_ip(void)
 {
     register_protocol(&ipv4_prot, ETHERNET_II, ETHERTYPE_IP);
-    register_protocol(&ipv4_prot, IP_PROTOCOL, IPPROTO_IPIP);
+    register_protocol(&ipv4_prot, IP_PROT, IPPROTO_IPIP);
 }
 
 static packet_error parse_options(struct ipv4_info *ip, unsigned char **buf, int n)
@@ -332,7 +332,7 @@ packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int
     }
     pinfo->num_packets++;
     pinfo->num_bytes += n;
-    id = get_protocol_id(IP_PROTOCOL, ipv4->protocol);
+    id = get_protocol_id(IP_PROT, ipv4->protocol);
     layer3 = get_protocol(id);
     if (layer3) {
         pdata->next = mempool_calloc(1, struct packet_data);

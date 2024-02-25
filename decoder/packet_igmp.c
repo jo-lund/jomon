@@ -31,7 +31,7 @@ static struct protocol_info igmp_prot = {
 
 void register_igmp(void)
 {
-    register_protocol(&igmp_prot, IP_PROTOCOL, IPPROTO_IGMP);
+    register_protocol(&igmp_prot, IP_PROT, IPPROTO_IGMP);
 }
 
 /*

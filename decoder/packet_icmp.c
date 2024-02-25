@@ -25,7 +25,7 @@ static struct protocol_info icmp_prot = {
 
 void register_icmp(void)
 {
-    register_protocol(&icmp_prot, IP_PROTOCOL, IPPROTO_ICMP);
+    register_protocol(&icmp_prot, IP_PROT, IPPROTO_ICMP);
 }
 
 packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buffer, int n,
