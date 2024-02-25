@@ -780,18 +780,27 @@ void print_header(main_screen *ms)
         wprintw(ms->whdr, ": %s", bpf_filter);
     else
         wprintw(ms->whdr, ": None");
-    inet_ntop(AF_INET, &ctx.handle->inaddr.sin_addr, addr, sizeof(addr));
-    mvprintat(ms->whdr, ++y, 0, txtcol, "IPv4 address");
-    wprintw(ms->whdr, ": %s", addr);
+    y++;
+    if (ctx.handle->inaddr.sin_addr.s_addr != 0) {
+        inet_ntop(AF_INET, &ctx.handle->inaddr.sin_addr, addr, sizeof(addr));
+        mvprintat(ms->whdr, y, 0, txtcol, "IPv4 address");
+        wprintw(ms->whdr, ": %s", addr);
+    }
     mvprintat(ms->whdr, y, maxx / 2, txtcol, "Follow stream");
     if (ms->follow_stream)
         wprintw(ms->whdr, ": %u", ((conversation_screen *) ms)->stream->num);
     else
         wprintw(ms->whdr, ": None");
     HW_ADDR_NTOP(mac, ctx.handle->mac);
-    mvprintat(ms->whdr, ++y, 0, txtcol, "MAC");
+
+    if (ctx.handle->inaddr.sin_addr.s_addr != 0) {
+        mvprintat(ms->whdr, ++y, 0, txtcol, "MAC");
+        y += 2;
+    } else {
+        mvprintat(ms->whdr, y, 0, txtcol, "MAC");
+        y += 3;
+    }
     wprintw(ms->whdr, ": %s", mac);
-    y += 2;
     for (unsigned int i = 0; i < ARRAY_SIZE(main_header); i++) {
         mvwprintw(ms->whdr, y, x, "%s", ms->base.header[i].txt);
         x += ms->base.header[i].width;
