@@ -11,8 +11,8 @@ MACHINE := $(shell uname -s)
 STRIP := strip
 CFLAGS += -std=gnu11 -fwrapv -Wall -Wextra -Wno-override-init
 CPPFLAGS += -iquote $(CURDIR) -DVERSION=\"$(VERSION)\"
-LIBS := -lncurses
-UNIT_LIBS := -lcheck -lm -lpthread -lrt
+LIBS := -lncurses -lrt
+UNIT_LIBS := -lcheck -lm -lpthread
 ifneq ($(wildcard /etc/debian_version),)
      UNIT_LIBS += -lsubunit
 endif
