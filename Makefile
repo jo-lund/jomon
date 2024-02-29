@@ -21,10 +21,11 @@ ifeq ($(HAVE_GEOIP),1)
     LIBS += -lGeoIP
     sources += geoip.c
 endif
-ifeq ($(HAVE_OBSTACK),1)
-    CPPFLAGS += -DHAVE_OBSTACK
-else
-    sources += $(wildcard compat/*.c)
+ifeq ($(HAVE_OBSTACK),0)
+    sources += compat/obstack.c
+endif
+ifeq ($(HAVE_STRLCPY),0)
+    sources += compat/strlcpy.c
 endif
 ifeq ($(MACHINE),Linux)
     sources += $(wildcard linux/*.c)
@@ -46,7 +47,6 @@ objects += $(bpf-objs)
 
 test-objs = $(filter-out $(BUILDDIR)/main.o,$(objects))
 test-objs += $(patsubst %.c,%.o,$(wildcard $(TESTDIR)/*.c))
-
 
 .PHONY : all
 all : release

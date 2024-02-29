@@ -15,6 +15,7 @@ BUILD=".build_$$"
 PREFIX="/usr/local"
 HAVE_GEOIP=1
 HAVE_OBSTACK=1
+HAVE_STRLCPY=1
 VERSION=$(git describe --abbrev=0)
 VERSION=${VERSION:1}
 INDENT=40
@@ -88,7 +89,7 @@ check_geoip()
         GeoIP_delete(gip);
     }
 EOF
-    $CC "$BUILD.c" -o "$BUILD" -lGeoIP  &> /dev/null
+    $CC "$BUILD.c" -o "$BUILD" -lGeoIP &> /dev/null
 
     if [ ! -x "$BUILD" ]; then
         printf "[$FAIL]\n\n"
@@ -137,6 +138,19 @@ check_missing()
     if [ ! -x "$BUILD" ]; then
         HAVE_OBSTACK=0
     fi
+    rm -f "$BUILD"
+    cat > "$BUILD.c" <<EOF
+    #include <string.h>
+    int main()
+    {
+        char dst[5];
+        strlcpy(dst, "test", sizeof(dst));
+    }
+EOF
+    $CC "$BUILD.c" -o "$BUILD"  &> /dev/null
+    if [ ! -x "$BUILD" ]; then
+        HAVE_STRLCPY=0
+    fi
     rm -f "$BUILD.c" "$BUILD"
 }
 
@@ -153,12 +167,19 @@ generate_config()
     echo >> config.mk
     echo "CC=$CC" >> config.mk
     echo "HAVE_GEOIP=$HAVE_GEOIP" >> config.mk
-    echo "#define HAVE_GEOIP $HAVE_GEOIP" >> config.h
     if [[ "$HAVE_GEOIP" == 1 ]]; then
+        echo "#define HAVE_GEOIP" >> config.h
         echo "#define GEOIP_PATH \"$GEOIP_PATH/$GEOIP_DB\"" >> config.h
+    fi
+    if [[ "$HAVE_OBSTACK" == 1 ]]; then
+        echo "#define HAVE_OBSTACK" >> config.h
+    fi
+    if [[ "$HAVE_STRLCPY" == 1 ]]; then
+        echo "#define HAVE_STRLCPY" >> config.h
     fi
     echo "PREFIX=$PREFIX" >> config.mk
     echo "HAVE_OBSTACK=$HAVE_OBSTACK" >> config.mk
+    echo "HAVE_STRLCPY=$HAVE_STRLCPY" >> config.mk
     echo "VERSION=\"$VERSION\"" >> config.mk
     echo >> config.h
     echo "#endif" >> config.h
