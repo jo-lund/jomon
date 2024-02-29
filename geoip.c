@@ -4,7 +4,6 @@
 #include "geoip.h"
 #include "config.h"
 #include "wrapper.h"
-#include "string.h"
 
 static GeoIP *gip;
 

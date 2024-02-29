@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include "config.h"
+#include "string.h"
 
 #ifdef HAVE_GEOIP
 
