@@ -768,7 +768,7 @@ void print_header(main_screen *ms)
 
     werase(ms->whdr);
     if (ctx.filename[0] && ctx.opt.load_file) {
-        strncpy(file, ctx.filename, MAXPATH);
+        strlcpy(file, ctx.filename, MAXPATH);
         mvprintat(ms->whdr, y, 0, txtcol, "Filename");
         wprintw(ms->whdr, ": %s", get_file_part(file));
     } else {
@@ -984,7 +984,7 @@ void set_filter(main_screen *ms, int c)
                 vector_free(ms->packet_ref, NULL);
             }
             bpf = prog;
-            strncpy(bpf_filter, filter, MAXLINE);
+            strlcpy(bpf_filter, filter, MAXLINE);
             filter_packets(ms);
             if (vector_size(ms->packet_ref) == 0)
                 ms->base.show_selectionbar = false;

@@ -505,7 +505,7 @@ static void buffer_tcppage(conversation_screen *cs, int (*buffer_fn)
         n = snprintcat(buf, MAXLINE, "Packet %d\n", p->num);
         attr = xcalloc(1, sizeof(struct tcp_page_attr));
         attr->line = xmalloc(n + 1);
-        strncpy(attr->line, buf, n + 1);
+        strlcpy(attr->line, buf, n + 1);
         vector_push_back(tcp_page.buf, attr);
         n = len;
         while (n > 0) {

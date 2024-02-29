@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include "config.h"
 
-#if HAVE_GEOIP == 1
+#ifdef HAVE_GEOIP
 
 /* Initialize GeoIP */
 bool geoip_init(void);
@@ -43,7 +43,7 @@ static inline void geoip_free(void)
 
 static inline char *geoip_get_location(char *addr UNUSED, char *buf, int len)
 {
-    strncpy(buf, "Unknown", len);
+    strlcpy(buf, "Unknown", len);
     return buf;
 }
 

@@ -50,7 +50,7 @@ static int get_interface_index(char *dev)
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
         err_sys("socket error");
     }
-    strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
+    strlcpy(ifr.ifr_name, dev, IFNAMSIZ);
     if (ioctl(sockfd, SIOCGIFINDEX, &ifr) == -1) {
         err_sys("ioctl error");
     }
@@ -75,7 +75,7 @@ static int get_linktype(char *dev)
     int sockfd;
     int ret = -1;
 
-    strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
+    strlcpy(ifr.ifr_name, dev, IFNAMSIZ);
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
         return ret;
     if (ioctl(sockfd, SIOCGIFHWADDR, &ifr) == -1)
@@ -272,7 +272,7 @@ void linux_set_promiscuous(iface_handle_t *handle UNUSED, char *dev, bool enable
 
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
         err_sys("socket error");
-    strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
+    strlcpy(ifr.ifr_name, dev, IFNAMSIZ);
     if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) == -1)
         err_sys("ioctl error");
     if (enable)
@@ -289,7 +289,7 @@ void get_local_mac(char *dev, unsigned char *mac)
     struct ifreq ifr;
     int sockfd;
 
-    strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
+    strlcpy(ifr.ifr_name, dev, IFNAMSIZ);
     ifr.ifr_addr.sa_family = AF_INET;
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
         err_sys("socket error");
@@ -307,7 +307,7 @@ bool is_wireless(char *dev)
 
     ret = false;
     memset(&iw, 0, sizeof(struct iwreq));
-    strncpy(iw.ifr_ifrn.ifrn_name, dev, IFNAMSIZ - 1);
+    strlcpy(iw.ifr_ifrn.ifrn_name, dev, IFNAMSIZ);
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
         return false;
     if ((ioctl(sockfd, SIOCGIWNAME, &iw)) != -1)

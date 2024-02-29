@@ -1,7 +1,8 @@
 #include <string.h>
 #include "packet_ssdp.h"
 #include "packet.h"
-#include "../list.h"
+#include "list.h"
+#include "string.h"
 
 extern void print_ssdp(char *buf, int n, void *data);
 extern void add_ssdp_information(void *widget, void *subwidget, void *data);
@@ -63,8 +64,7 @@ packet_error parse_ssdp(struct packet_data *pdata, char *str, int n, list_t *msg
     char cstr[n + 1];
     size_t len = 0;
 
-    strncpy(cstr, str, n);
-    cstr[n] = '\0';
+    strlcpy(cstr, str, sizeof(cstr));
     token = strtok(cstr, "\r\n");
     len += 2;
     while (token) {

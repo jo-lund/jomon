@@ -18,8 +18,7 @@
 #include <unistd.h>
 #include <net/ethernet.h>
 #include "interface.h"
-#include "error.h"
-#include "wrapper.h"
+#include "jomon.h"
 
 #define MAX_NUM_INTERFACES 16
 
@@ -279,7 +278,7 @@ void get_local_address(char *dev, struct sockaddr *addr)
     struct ifreq ifr;
     int sockfd;
 
-    strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
+    strlcpy(ifr.ifr_name, dev, IFNAMSIZ);
     ifr.ifr_addr.sa_family = AF_INET;
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
         err_sys("socket error");

@@ -42,13 +42,12 @@ int string_find_last(const char *str, int c)
 
 void string_truncate(char *str, size_t len, size_t max)
 {
+    size_t n;
+
     if (len <= max || len < 3 || max < 3)
         return;
-
-    size_t n = max - 3;
-
-    strncpy(str + n, "...", len - n);
-    str[max] = '\0';
+    n = max - 3;
+    strlcpy(str + n, "...", len - n);
 }
 
 char *string_trim_whitespace(char *str)

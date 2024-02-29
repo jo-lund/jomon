@@ -261,7 +261,7 @@ static void get_name_or_address(const uint32_t src, char *dst)
     char *p;
 
     if ((host = host_get_ip4host(src)) && host->name) {
-        strncpy(dst, host->name, HOSTNAMELEN);
+        strlcpy(dst, host->name, HOSTNAMELEN);
         if (ctx.opt.no_domain) {
             if ((p = strchr(dst, '.')))
                 *p = '\0';
@@ -596,7 +596,7 @@ void print_nbns(char *buf, int n, void *data)
 
     PRINT_PROTOCOL(buf, n, "NBNS");
     if (nbns->r == 0) {
-        strncpy(opcode, get_nbns_opcode(nbns->opcode), sizeof(opcode) - 1);
+        strlcpy(opcode, get_nbns_opcode(nbns->opcode), sizeof(opcode));
         PRINT_INFO(buf, n, "Name %s request: ", string_tolower(opcode));
         PRINT_INFO(buf, n, "%s ", nbns->question.qname);
         PRINT_INFO(buf, n, "%s ", get_nbns_type(nbns->question.qtype));
@@ -626,7 +626,7 @@ void print_nbns(char *buf, int n, void *data)
         default:
             break;
         }
-        strncpy(opcode, get_nbns_opcode(nbns->opcode), sizeof(opcode) - 1);
+        strlcpy(opcode, get_nbns_opcode(nbns->opcode), sizeof(opcode));
         PRINT_INFO(buf, n, "Name %s response: ", string_tolower(opcode));
         if (nbns->record) {
             PRINT_INFO(buf, n, "%s ", nbns->record[0].rrname);

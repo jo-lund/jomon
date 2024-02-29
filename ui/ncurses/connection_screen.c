@@ -340,7 +340,7 @@ static void print_process(connection_screen *cs, struct process *proc, int y)
 
     if (!proc->name)
         return;
-    strncpy(name, proc->name, MAXPATH - 1);
+    strlcpy(name, proc->name, MAXPATH);
     mvwprintw(cs->base.win, y, x, "%s", get_file_part(name));
     x += proc_header[0].width;
     mvwprintw(cs->base.win, y, x, "%d", proc->pid);
@@ -422,7 +422,7 @@ static void print_connection(connection_screen *cs, struct tcp_connection_v4 *co
         }
     }
     state = tcp_analyzer_get_connection_state(conn->state);
-    strncpy(entry[STATE].buf, state, MAX_WIDTH - 1);
+    strlcpy(entry[STATE].buf, state, MAX_WIDTH);
     entry[PACKETS].val = conn->size;
     format_bytes(entry[BYTES].val, entry[BYTES].buf, MAX_WIDTH);
     format_bytes(entry[BYTES_AB].val, entry[BYTES_AB].buf, MAX_WIDTH);

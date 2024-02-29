@@ -112,7 +112,7 @@ void bsd_activate(iface_handle_t *handle, char *dev, struct bpf_prog *bpf UNUSED
             err_sys("ioctl error BIOCSBLEN");
     }
     /* set the hardware interface associated with the file */
-    strncpy(ifr.ifr_name, dev, IFNAMSIZ - 1);
+    strlcpy(ifr.ifr_name, dev, IFNAMSIZ);
     ifr.ifr_addr.sa_family = AF_INET;
     if (ioctl(handle->fd, BIOCSETIF, &ifr) == -1)
         err_sys("ioctl error BIOCSETIF");

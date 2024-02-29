@@ -171,7 +171,7 @@ int main(int argc, char **argv)
             ctx.opt.nopromiscuous = true;
             break;
         case 'r':
-            strncpy(ctx.filename, optarg, MAXPATH - 1);
+            strlcpy(ctx.filename, optarg, MAXPATH);
             ctx.opt.load_file = true;
             break;
         case 's':

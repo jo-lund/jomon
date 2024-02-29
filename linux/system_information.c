@@ -4,8 +4,9 @@
 #include <linux/wireless.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
-#include "../system_information.h"
-#include "../misc.h"
+#include "system_information.h"
+#include "misc.h"
+#include "string.h"
 
 #define DEVPATH "/proc/net/dev"
 #define STATUSPATH "/proc/self/status"
@@ -120,12 +121,10 @@ bool get_hwstat(struct hwstat *hw)
 
             while (isspace(buf[i]) || buf[i] == ':')
                 i++;
-            if ((len = strlen(buf + i) - 1) < CPU_MAX_NAME) {
-                strncpy(hw->cpu_name, buf + i, CPU_MAX_NAME - 1);
-                hw->cpu_name[len] = '\0';
-            } else {
+            if ((len = strlen(buf + i) - 1) < CPU_MAX_NAME)
+                strlcpy(hw->cpu_name, buf + i, CPU_MAX_NAME);
+            else
                 hw->cpu_name[0] = '\0';
-            }
             break;
         }
     }
@@ -161,7 +160,7 @@ bool get_iwstat(char *dev, struct wireless *stat)
     struct iw_statistics iw_stat;
     struct iw_range iw_range;
 
-    strncpy(iw.ifr_ifrn.ifrn_name, dev, IFNAMSIZ - 1);
+    strlcpy(iw.ifr_ifrn.ifrn_name, dev, IFNAMSIZ);
     iw.u.data.pointer = &iw_stat;
     iw.u.data.length = sizeof(struct iw_statistics);
     iw.u.data.flags = 0; // TODO: What are the possible values of flags?

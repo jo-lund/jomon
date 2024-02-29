@@ -4,6 +4,7 @@
 #include "geoip.h"
 #include "config.h"
 #include "wrapper.h"
+#include "string.h"
 
 static GeoIP *gip;
 
@@ -28,7 +29,7 @@ char *geoip_get_location(char *addr, char *buf, int len)
     GeoIPRecord *record = GeoIP_record_by_addr(gip, addr);
 
     if (!record) {
-        strncpy(buf, "Unknown", len);
+        strlcpy(buf, "Unknown", len);
         return buf;
     }
     if (record->city && record->country_name) {
@@ -36,7 +37,7 @@ char *geoip_get_location(char *addr, char *buf, int len)
     } else if (record->country_name) {
         snprintf(buf, len, "%s", record->country_name);
     } else {
-        strncpy(buf, "Unknown", len);
+        strlcpy(buf, "Unknown", len);
     }
     GeoIPRecord_delete(record);
     return buf;

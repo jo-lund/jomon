@@ -335,7 +335,7 @@ file_dialogue *file_dialogue_create(char *title, enum file_selection_type type,
     fd->ok = button_create((screen *) fd, ok, NULL, "Ok", my - 2, 7);
     fd->cancel = button_create((screen *) fd, cancel, NULL, "Cancel", my - 2, mx - 20);
     fd->type = type;
-    strncpy(fd->path, path, MAXPATH);
+    strlcpy(fd->path, path, MAXPATH);
     strncat(fd->path, "/", MAXPATH);
     scrollok(fd->list.win, TRUE);
     nodelay(fd->list.win, TRUE);
