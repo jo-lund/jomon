@@ -31,7 +31,7 @@
 #include "ui/ui.h"
 #include "timer.h"
 
-#define SHORT_OPTS "F:b:i:f:r:GVdhlnNpstv"
+#define SHORT_OPTS "F:b:i:f:r:DGVdhnNpstv"
 #define COUNT_OPT 128
 #define BPF_DUMP_MODES 3
 
@@ -123,7 +123,7 @@ int main(int argc, char **argv)
         { "count", no_argument, NULL, COUNT_OPT },
         { "help", no_argument, NULL, 'h' },
         { "interface", required_argument, NULL, 'i' },
-        { "list-interfaces", no_argument, NULL, 'l' },
+        { "list-interfaces", no_argument, NULL, 'D' },
         { "no-geoip", no_argument, NULL, 'G' },
         { "statistics", no_argument, NULL, 's' },
         { "verbose", no_argument, NULL, 'v' },
@@ -135,6 +135,9 @@ int main(int argc, char **argv)
     setlocale(LC_ALL, "");
     while ((opt = getopt_long(argc, argv, SHORT_OPTS, long_options, &idx)) != -1) {
         switch (opt) {
+        case 'D':
+            list_interfaces();
+            exit(0);
         case 'F':
             ctx.filter_file = optarg;
             break;
@@ -161,9 +164,6 @@ int main(int argc, char **argv)
         case 'i':
             ctx.device = xstrdup(optarg);
             break;
-        case 'l':
-            list_interfaces();
-            exit(0);
         case 'n':
             ctx.opt.numeric = true;
             break;
@@ -278,12 +278,12 @@ static void print_help_and_exit(void)
            "    -d                     Dump packet filter as BPF assembly and exit\n"
            "    -dd                    Dump packet filter as C code fragment and exit\n"
            "    -ddd                   Dump packet filter as decimal numbers and exit\n"
+           "    -D, --list-interfaces  Print available interfaces and exit\n"
            "    -F                     Read packet filter from file (BPF assembly)\n"
            "    -f                     Specify packet filter (tcpdump syntax)\n"
            "    -G, --no-geoip         Don't use GeoIP information\n"
            "    -h, --help             Print this help summary\n"
            "    -i, --interface        Specify network interface\n"
-           "    -l, --list-interfaces  List available interfaces\n"
            "    -n                     Use numerical addresses\n"
            "    -N                     Only print the hostname (don't print the FQDN)\n"
            "    -p                     Don't put the interface into promiscuous mode\n"
