@@ -124,7 +124,6 @@ int main(int argc, char **argv)
         { "help", no_argument, NULL, 'h' },
         { "interface", required_argument, NULL, 'i' },
         { "list-interfaces", no_argument, NULL, 'D' },
-        { "no-geoip", no_argument, NULL, 'G' },
         { "statistics", no_argument, NULL, 's' },
         { "verbose", no_argument, NULL, 'v' },
         { "version", no_argument, NULL, 'V' },
@@ -140,9 +139,6 @@ int main(int argc, char **argv)
             exit(0);
         case 'F':
             ctx.filter_file = optarg;
-            break;
-        case 'G':
-            ctx.opt.nogeoip = true;
             break;
         case 'N':
             ctx.opt.no_domain = true;
@@ -230,8 +226,7 @@ int main(int argc, char **argv)
     ctx.local_addr = xmalloc(sizeof(struct sockaddr_in));
     get_local_address(ctx.device, (struct sockaddr *) ctx.local_addr);
     get_local_mac(ctx.device, ctx.mac);
-    if (!ctx.opt.nogeoip && !geoip_init())
-        exit(1);
+    geoip_init();
     if (ctx.opt.load_file) {
         load_file(buf, handle_packet);
         ui_init();

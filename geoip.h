@@ -8,7 +8,7 @@
 #ifdef HAVE_GEOIP
 
 /* Initialize GeoIP */
-bool geoip_init(void);
+void geoip_init(void);
 
 /* Free resources connected with GeoIP */
 void geoip_free(void);
@@ -33,9 +33,8 @@ void geoip_print_version(void);
 
 #else
 
-static inline bool geoip_init(void)
+static inline void geoip_init(void)
 {
-    return true;
 }
 
 static inline void geoip_free(void)

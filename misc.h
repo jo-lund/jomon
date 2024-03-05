@@ -41,7 +41,6 @@ typedef struct {
     bool capturing;
     struct options {
         bool show_statistics;
-        bool nogeoip;
         bool text_mode;
         bool nopromiscuous;
         bool verbose;
@@ -52,6 +51,7 @@ typedef struct {
         int buffer_size;
         bool show_count;
     } opt;
+    bool nogeoip;
     struct sockaddr_in *local_addr;
     unsigned char mac[ETHER_ADDR_LEN];
     char *filter;

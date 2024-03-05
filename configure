@@ -96,6 +96,8 @@ EOF
         printf "You need a functioning install of libGeoIP. "
         printf "This can be installed with \"pacman -S geoip geoip-database "
         printf "geoip-database-extra\" or equivalent command for your distribution.\n"
+        printf "To build without geoip you can use \"--disable-geoip\". Use -h "
+        printf "for help.\n"
         rm -f "$BUILD.c" "$BUILD"
         exit 1
     fi
