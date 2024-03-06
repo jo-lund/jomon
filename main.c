@@ -264,7 +264,6 @@ static void print_bpf_and_exit(void)
 static void print_help_and_exit(void)
 {
     printf("jomon " VERSION "\n");
-    geoip_print_version();
     printf("Usage: jomon [-dGhlNnpstvV] [-b size] [-f filter] [-F filter-file] [-i interface] [-r path]\n"
            "Options:\n"
            "    -b, --buffer-size      Set the kernel capture buffer size to <size>,\n"
@@ -274,9 +273,8 @@ static void print_help_and_exit(void)
            "    -dd                    Dump packet filter as C code fragment and exit\n"
            "    -ddd                   Dump packet filter as decimal numbers and exit\n"
            "    -D, --list-interfaces  Print available interfaces and exit\n"
-           "    -F                     Read packet filter from file (BPF assembly)\n"
            "    -f                     Specify packet filter (tcpdump syntax)\n"
-           "    -G, --no-geoip         Don't use GeoIP information\n"
+           "    -F                     Read packet filter from file (BPF assembly)\n"
            "    -h, --help             Print this help summary\n"
            "    -i, --interface        Specify network interface\n"
            "    -n                     Use numerical addresses\n"
