@@ -5,6 +5,7 @@
 #include <errno.h>
 #include "geoip.h"
 #include "config.h"
+#include "string.h"
 #include "wrapper.h"
 #include "misc.h"
 
