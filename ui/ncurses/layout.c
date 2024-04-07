@@ -36,7 +36,7 @@ static void create_menu(void);
 static void change_theme(int i);
 static void options(int i);
 
-static int themes[NUM_THEMES][NUM_ELEMENTS] = {
+static const int themes[NUM_THEMES][NUM_ELEMENTS] = {
     [DEFAULT] = {
         [HEADER]        = COLOR_PAIR(COLOUR_IDX(COLOR_BLACK, COLOR_GREEN)),
         [HEADER_TXT]    = COLOR_PAIR(COLOUR_IDX(COLOR_CYAN, -1)) | A_BOLD,
