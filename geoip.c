@@ -8,6 +8,7 @@
 #include "string.h"
 #include "wrapper.h"
 #include "misc.h"
+#include "debug.h"
 
 #define GEOIP_WARNING "Warning: Could not open geoip database. To use geoip you " \
     "need the geoip city database stored in " GEOIP_PATH ". On Arch Linux this " \
@@ -20,9 +21,11 @@ void geoip_init(void)
     /* libGeoIP writes to stderr by default instead of letting users handle this
         as appropriate. Need to add GEOIP_SILENCE to shut them up. */
     if (!(gip = GeoIP_open(GEOIP_PATH, GEOIP_STANDARD | GEOIP_SILENCE))) {
-        errno = 0;
-        err_msg(GEOIP_WARNING);
-        ctx.nogeoip = true;
+        if (errno == ENOENT) {
+            errno = 0;
+            err_msg(GEOIP_WARNING);
+        }
+        DEBUG("Error opening %s - disabling geoip", GEOIP_PATH);
     }
 }
 
