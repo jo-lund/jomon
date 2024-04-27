@@ -291,12 +291,18 @@ static void update_screen_buf(screen *s)
                 vector_push_back(cs->screen_buf, conn);
             }
         }
+		qsort_r(vector_data(cs->screen_buf), vector_size(cs->screen_buf),
+				sizeof(struct tcp_connection_v4 *), cmp_conn,
+				INT_TO_PTR(screen_get_active_header_focus(s)));
     } else {
         hashmap_t *procs = process_get_processes();
         const hashmap_iterator *it;
 
         HASHMAP_FOREACH(procs, it)
             vector_push_back(cs->screen_buf, it->data);
+		qsort_r(vector_data(cs->screen_buf), vector_size(cs->screen_buf),
+                    sizeof(struct process *), cmp_proc,
+                    INT_TO_PTR(screen_get_active_header_focus(s)));
     }
 }
 
@@ -313,17 +319,7 @@ static void handle_alarm(void)
     screen *s = (screen *) screen_cache_get(CONNECTION_SCREEN);
 
     if (s->focus && ctx.capturing) {
-        connection_screen *cs = (connection_screen *) s;
-
         update_screen_buf(s);
-        if (s->page == CONNECTION_PAGE)
-            qsort_r(vector_data(cs->screen_buf), vector_size(cs->screen_buf),
-                    sizeof(struct tcp_connection_v4 *), cmp_conn,
-                    INT_TO_PTR(screen_get_active_header_focus(s)));
-        else
-            qsort_r(vector_data(cs->screen_buf), vector_size(cs->screen_buf),
-                    sizeof(struct process *), cmp_proc,
-                    INT_TO_PTR(screen_get_active_header_focus(s)));
         connection_screen_refresh(s);
     }
 }
@@ -616,9 +612,6 @@ void connection_screen_get_input(screen *s)
         s->top = 0;
         mode = (mode + 1) % NUM_MODES;
         update_screen_buf(s);
-        qsort_r(vector_data(cs->screen_buf), vector_size(cs->screen_buf),
-                sizeof(struct tcp_connection_v4 *), cmp_conn,
-                INT_TO_PTR(screen_get_active_header_focus(s)));
         connection_screen_refresh(s);
         break;
     case 'p':
@@ -628,23 +621,17 @@ void connection_screen_get_input(screen *s)
             s->show_selectionbar = false;
         s->page = (s->page + 1) % s->num_pages;
         s->top = 0;
-        update_screen_buf(s);
         if (s->page == CONNECTION_PAGE) {
             s->header = conn_header;
             s->header_size = (ctx.opt.load_file) ? ARRAY_SIZE(conn_header) - 1 :
                 ARRAY_SIZE(conn_header);
             s->have_selectionbar = true;
-            qsort_r(vector_data(cs->screen_buf), vector_size(cs->screen_buf),
-                    sizeof(struct tcp_connection_v4 *), cmp_conn,
-                    INT_TO_PTR(screen_get_active_header_focus(s)));
         } else {
             s->header = proc_header;
             s->header_size = ARRAY_SIZE(proc_header);
             s->have_selectionbar = false;
-            qsort_r(vector_data(cs->screen_buf), vector_size(cs->screen_buf),
-                    sizeof(struct process *), cmp_proc,
-                    INT_TO_PTR(screen_get_active_header_focus(s)));
         }
+		update_screen_buf(s);
         connection_screen_refresh(s);
         break;
     default:
@@ -667,7 +654,7 @@ void connection_screen_render(connection_screen *cs)
     s = (screen *) cs;
     touchwin(cs->whdr);
     touchwin(cs->base.win);
-    if (!s->tab_active && vector_size(cs->screen_buf) == 0)
+    if (!s->tab_active && (ctx.capturing || vector_size(cs->screen_buf) == 0))
         update_screen_buf((screen *) cs);
     print_header(cs);
     print_all_elements(cs);
