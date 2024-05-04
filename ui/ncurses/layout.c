@@ -267,7 +267,7 @@ static void print_file(void)
 
     ms->base.top = 0;
     ms->base.show_selectionbar = true;
-    main_screen_refresh((screen *) ms);
+    main_screen_set_interactive(ms, true);
 }
 
 void pop_screen(void)
