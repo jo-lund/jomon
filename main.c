@@ -31,7 +31,7 @@
 #include "ui/ui.h"
 #include "timer.h"
 
-#define SHORT_OPTS "F:b:i:f:r:DGVdhnNpstv"
+#define SHORT_OPTS "F:b:i:f:r:DVdhnNpstv"
 #define COUNT_OPT 128
 #define BPF_DUMP_MODES 3
 
