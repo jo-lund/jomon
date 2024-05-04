@@ -385,8 +385,10 @@ void add_icmp_information(void *w, void *sw, void *data)
     case ICMP_ECHO:
         LV_ADD_TEXT_ELEMENT(lw, header, "Identifier: 0x%x", icmp->id);
         LV_ADD_TEXT_ELEMENT(lw, header, "Sequence number: %d", icmp->seq_num);
-        data_hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Data");
-        add_hexdump(lw, data_hdr, hexmode, icmp->echo.data, icmp->echo.len);
+        if (icmp->echo.data) {
+            data_hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Data");
+            add_hexdump(lw, data_hdr, hexmode, icmp->echo.data, icmp->echo.len);
+        }
         break;
     case ICMP_UNREACH:
         LV_ADD_TEXT_ELEMENT(lw, header, "Code: %d (%s)", icmp->code, get_icmp_dest_unreach_code(icmp->code));
@@ -823,7 +825,6 @@ static void add_pim_join_prune(list_view *lw, list_view_header *header, struct p
     default:
         return;
     }
-
     addr = get_pim_address(pim->jpg->neighbour.addr_family, &pim->jpg->neighbour.addr);
     if (addr) {
         LV_ADD_TEXT_ELEMENT(lw, h, "Upstream neighbour: %s", addr);
@@ -845,19 +846,19 @@ static void add_pim_join_prune(list_view *lw, list_view_header *header, struct p
             free(addr);
         }
         joined = LV_ADD_SUB_HEADER(lw, grp, selected[UI_SUBLAYER2], UI_SUBLAYER2, "Joined sources (%d)",
-                                pim->jpg->groups[i].num_joined_src);
-        for (int j = 0; j < pim->jpg->groups[i].num_joined_src; j++) {
+                                   pim->jpg->groups[i].num_joined_src);
+        for (int j = 0; j < pim->jpg->groups[i].num_joined_src && pim->jpg->groups[i].joined_src; j++) {
             addr = get_pim_address(pim->jpg->groups[i].joined_src[j].addr_family,
                                    &pim->jpg->groups[i].joined_src[j].addr);
             if (addr) {
                 LV_ADD_TEXT_ELEMENT(lw, joined, "Joined address %d: %s/%d", j + 1, addr,
-                                 pim->jpg->groups[i].joined_src[j].mask_len);
+                                    pim->jpg->groups[i].joined_src[j].mask_len);
                 free(addr);
             }
         }
         pruned = LV_ADD_SUB_HEADER(lw, grp, selected[UI_SUBLAYER2], UI_SUBLAYER2, "Pruned sources (%d)",
                                 pim->jpg->groups[i].num_pruned_src);
-        for (int j = 0; j < pim->jpg->groups[i].num_pruned_src; j++) {
+        for (int j = 0; j < pim->jpg->groups[i].num_pruned_src && pim->jpg->groups[i].pruned_src; j++) {
             addr = get_pim_address(pim->jpg->groups[i].pruned_src[j].addr_family,
                                    &pim->jpg->groups[i].pruned_src[j].addr);
             if (addr) {
@@ -892,9 +893,13 @@ static void add_pim_bootstrap(list_view *lw, list_view_header *header, struct pi
                                 addr, pim->bootstrap->groups->gaddr.mask_len);
         LV_ADD_TEXT_ELEMENT(lw, grp, "RP count: %u", pim->bootstrap->groups->rp_count);
         LV_ADD_TEXT_ELEMENT(lw, grp, "Frag RP count: %u", pim->bootstrap->groups->frag_rp_count);
+        if (!pim->bootstrap->groups->rps) {
+            free(addr);
+            return;
+        }
         for (int i = 0; i < pim->bootstrap->groups->frag_rp_count; i++) {
             char *rp_addr = get_pim_address(pim->bootstrap->groups->rps[i].rp_addr.addr_family,
-                                         &pim->bootstrap->groups->rps[i].rp_addr.addr);
+                                            &pim->bootstrap->groups->rps[i].rp_addr.addr);
             if (rp_addr) {
                 LV_ADD_TEXT_ELEMENT(lw, grp, "RP address %d: %s", i, rp_addr);
                 free(rp_addr);
@@ -948,7 +953,8 @@ void add_pim_information(void *w, void *sw, void *data)
     LV_ADD_TEXT_ELEMENT(lw, header, "Checksum: %u", pim->checksum);
     switch (pim->type) {
     case PIM_HELLO:
-        add_pim_hello(lw, header, pim);
+        if (pim->hello)
+            add_pim_hello(lw, header, pim);
         break;
     case PIM_REGISTER:
         if (pim->reg)
@@ -1226,6 +1232,8 @@ static void add_dns_record(list_view *lw, list_view_header *w, struct dns_info *
         break;
     case DNS_TYPE_NSEC:
         LV_ADD_TEXT_ELEMENT(lw, w, "Next domain name: %s", dns->record[i].rdata.nsec.nd_name);
+        if (!dns->record[i].rdata.nsec.types)
+            return;
         for (unsigned int j = 0; j < dns->record[i].rdata.nsec.num_types; j++) {
             LV_ADD_TEXT_ELEMENT(lw, w, "Type in bitmap: %s",
                              get_dns_type_extended(dns->record[i].rdata.nsec.types[j]));
