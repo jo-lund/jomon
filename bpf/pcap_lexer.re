@@ -33,6 +33,11 @@
 #define ICMP6_NI_REPLY 140
 #endif
 
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+
 /*!re2c re2c:define:YYCTYPE = "unsigned char"; */
 
 int pcap_lex(struct bpf_parser *parser)
@@ -238,3 +243,6 @@ scan:
 
     */
 }
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
