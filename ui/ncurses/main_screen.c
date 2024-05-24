@@ -1441,15 +1441,13 @@ void create_subwindow(main_screen *ms, int num_lines, int lineno)
 {
     int mx, my;
     int start_line;
-    int c;
 
     getmaxyx(ms->base.win, my, mx);
     start_line = lineno - ms->base.top;
-    c = lineno + 1;
 
     /* if there is not enough space for the information to be printed, the
        screen needs to be scrolled to make room for all the lines */
-    if (my - (start_line + 1) < num_lines) {
+    if (start_line > 0 && my - (start_line + 1) < num_lines) {
         ms->scrolly = (num_lines >= my) ? start_line : num_lines - (my - (start_line + 1));
         start_line -= ms->scrolly;
         ms->base.top += ms->scrolly;
@@ -1465,7 +1463,7 @@ void create_subwindow(main_screen *ms, int num_lines, int lineno)
     wclrtobot(ms->base.win); /* clear everything below selection bar */
     ms->outy = start_line + 1;
     if (!ms->scrolly) {
-        ms->outy += print_lines(ms, c, ms->base.top + my, ms->outy);
+        ms->outy += print_lines(ms, lineno + 1, ms->base.top + my, ms->outy);
     } else {
         ms->outy += num_lines;
     }
