@@ -820,9 +820,9 @@ void handle_input_mode(main_screen *ms, const char *str)
 
 static int find_packet(main_screen *ms, uint32_t num)
 {
-    uint32_t low = 0;
-    uint32_t high = vector_size(ms->packet_ref) - 1;
-    uint32_t mid;
+    int low = 0;
+    int high = vector_size(ms->packet_ref) - 1;
+    int mid;
     struct packet *p;
 
     while (low <= high) {
