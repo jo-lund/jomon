@@ -33,12 +33,6 @@
 
 #define FILTER_IDX 8
 
-enum input_mode {
-    INPUT_NONE,
-    INPUT_GOTO,
-    INPUT_FILTER
-};
-
 enum key_mode {
     KEY_NORMAL,
     KEY_CTRL,
@@ -52,7 +46,6 @@ int hexmode = HEXMODE_NORMAL;
 char load_filepath[MAXPATH];
 file_dialogue *load_dialogue;
 file_dialogue *save_dialogue;
-static enum input_mode input_mode;
 static int view_mode = DECODED_VIEW;
 static progress_dialogue *pd = NULL;
 static bool decode_error = false;
@@ -113,12 +106,12 @@ static inline void move_cursor(WINDOW *win)
 
 static void timer_callback(void *arg)
 {
-    screen *s;
+    main_screen *ms;
 
-    s = (screen *) arg;
-    wrefresh(s->win);
-    if (input_mode == INPUT_FILTER || input_mode == INPUT_GOTO)
-        move_cursor(((main_screen *) s)->status);
+    ms = (main_screen *) arg;
+    wrefresh(ms->base.win);
+    if (ms->input_mode == INPUT_FILTER || ms->input_mode == INPUT_GOTO)
+        move_cursor(ms->status);
 }
 
 static void add_actionbar_elems(screen *s)
@@ -547,7 +540,7 @@ void main_screen_get_input(screen *s)
     ms = (main_screen *) s;
     my = getmaxy(s->win);
     c = wgetch(s->win);
-    switch (input_mode) {
+    switch (ms->input_mode) {
     case INPUT_GOTO:
         main_screen_goto_line(ms, c);
         return;
@@ -567,7 +560,7 @@ void main_screen_get_input(screen *s)
     case 'g':
         if (!s->show_selectionbar)
             return;
-        input_mode = (input_mode == INPUT_GOTO) ? INPUT_NONE : INPUT_GOTO;
+        ms->input_mode = (ms->input_mode == INPUT_GOTO) ? INPUT_NONE : INPUT_GOTO;
         handle_input_mode(ms, "Go to packet: ");
         break;
     case 'i':
@@ -697,7 +690,7 @@ void main_screen_get_input(screen *s)
         break;
     case 'e':
     case KEY_F(9):
-        input_mode = (input_mode == INPUT_FILTER) ? INPUT_NONE : INPUT_FILTER;
+        ms->input_mode = (ms->input_mode == INPUT_FILTER) ? INPUT_NONE : INPUT_FILTER;
         handle_input_mode(ms, "Filter: ");
         break;
     case 'M':
@@ -800,7 +793,7 @@ void print_header(main_screen *ms)
 
 void handle_input_mode(main_screen *ms, const char *str)
 {
-    switch (input_mode) {
+    switch (ms->input_mode) {
     case INPUT_FILTER:
     case INPUT_GOTO:
         werase(ms->status);
@@ -900,7 +893,7 @@ void main_screen_goto_line(main_screen *ms, int c)
         }
         curs_set(0);
         werase(ms->status);
-        input_mode = INPUT_NONE;
+        ms->input_mode = INPUT_NONE;
         num = 0;
         actionbar_refresh(actionbar, (screen *) ms);
         main_screen_refresh((screen *) ms);
@@ -908,7 +901,7 @@ void main_screen_goto_line(main_screen *ms, int c)
         curs_set(0);
         werase(ms->status);
         num = 0;
-        input_mode = INPUT_NONE;
+        ms->input_mode = INPUT_NONE;
         actionbar_refresh(actionbar, (screen *) ms);
     }
 }
@@ -988,7 +981,7 @@ void set_filter(main_screen *ms, int c)
             if (vector_size(ms->packet_ref) == 0)
                 ms->base.show_selectionbar = false;
         }
-        input_mode = INPUT_NONE;
+        ms->input_mode = INPUT_NONE;
         werase(ms->status);
         actionbar_refresh(actionbar, (screen *) ms);
         ms->base.top = 0;
@@ -1000,7 +993,7 @@ void set_filter(main_screen *ms, int c)
     case KEY_ESC:
         curs_set(0);
         numc = 0;
-        input_mode = INPUT_NONE;
+        ms->input_mode = INPUT_NONE;
         werase(ms->status);
         wbkgd(ms->status, get_theme_colour(BACKGROUND));
         actionbar_refresh(actionbar, (screen *) ms);

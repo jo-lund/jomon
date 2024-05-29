@@ -36,6 +36,7 @@ typedef struct main_screen {
     rbtree_t *marked;
     mon_timer_t *timer;
     void (*timer_callback)(void *);
+    int input_mode;
 } main_screen;
 
 struct packet;

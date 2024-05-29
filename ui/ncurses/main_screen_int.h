@@ -11,6 +11,12 @@ enum views {
     NUM_VIEWS
 };
 
+enum input_mode {
+    INPUT_NONE,
+    INPUT_GOTO,
+    INPUT_FILTER
+};
+
 extern char load_filepath[MAXPATH];
 extern file_dialogue *load_dialogue;
 extern file_dialogue *save_dialogue;
