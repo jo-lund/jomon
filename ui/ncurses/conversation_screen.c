@@ -269,6 +269,9 @@ void conversation_screen_get_input(screen *s)
     case 'e':
         break;
     default:
+        /* "go to packet" should only be valid in normal mode */
+        if (tcp_mode != NORMAL && c == 'g')
+            break;
         ungetch(c);
         main_screen_get_input(s);
         break;

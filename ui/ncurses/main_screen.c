@@ -858,7 +858,7 @@ void main_screen_goto_line(main_screen *ms, int c)
         int my;
 
         my = getmaxy(ms->base.win);
-        if (bpf.size > 0) {
+        if (bpf.size > 0 || ms->follow_stream) {
             int i;
 
             if ((i = find_packet(ms, num)) == -1) {
