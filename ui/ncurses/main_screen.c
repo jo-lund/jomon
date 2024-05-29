@@ -58,7 +58,6 @@ static progress_dialogue *pd = NULL;
 static bool decode_error = false;
 static struct bpf_prog bpf;
 static char bpf_filter[MAXLINE];
-static WINDOW *status;
 static enum key_mode key_mode = KEY_NORMAL;
 
 static bool check_line(main_screen *ms);
@@ -119,7 +118,7 @@ static void timer_callback(void *arg)
     s = (screen *) arg;
     wrefresh(s->win);
     if (input_mode == INPUT_FILTER || input_mode == INPUT_GOTO)
-        move_cursor(status);
+        move_cursor(((main_screen *) s)->status);
 }
 
 static void add_actionbar_elems(screen *s)
@@ -219,7 +218,7 @@ void main_screen_init(screen *s)
     keypad(s->win, TRUE);
     scrollok(s->win, TRUE);
     set_filepath();
-    status = newwin(1, mx, my - 1, 0);
+    ms->status = newwin(1, mx, my - 1, 0);
     add_actionbar_elems(s);
 }
 
@@ -234,7 +233,7 @@ void main_screen_free(screen *s)
     delwin(ms->base.win);
     if (ms->lvw)
         free_list_view(ms->lvw);
-    delwin(status);
+    delwin(ms->status);
     free(ms);
 }
 
@@ -294,7 +293,7 @@ void main_screen_refresh(screen *s)
         int y, x;
 
         getmaxyx(stdscr, y, x);
-        mvwin(status, y - 1, 0);
+        mvwin(ms->status, y - 1, 0);
         my = y - HEADER_HEIGHT - actionbar_getmaxy(actionbar);
         wresize(s->win, my, x);
     }
@@ -804,14 +803,14 @@ void handle_input_mode(main_screen *ms, const char *str)
     switch (input_mode) {
     case INPUT_FILTER:
     case INPUT_GOTO:
-        werase(status);
-        mvwprintw(status, 0, 0, "%s", str);
+        werase(ms->status);
+        mvwprintw(ms->status, 0, 0, "%s", str);
         curs_set(1);
-        wrefresh(status);
+        wrefresh(ms->status);
         break;
     case INPUT_NONE:
         curs_set(0);
-        werase(status);
+        werase(ms->status);
         actionbar_refresh(actionbar, (screen *) ms);
         break;
     default:
@@ -845,23 +844,23 @@ void main_screen_goto_line(main_screen *ms, int c)
     static bool error = false;
 
     if (error) {
-        wbkgd(status, get_theme_colour(BACKGROUND));
-        wrefresh(status);
+        wbkgd(ms->status, get_theme_colour(BACKGROUND));
+        wrefresh(ms->status);
         error = false;
     }
     if (isdigit(c) && num < INT_MAX / 10) {
-        waddch(status, c);
+        waddch(ms->status, c);
         num = num * 10 + c - '0';
-        wrefresh(status);
+        wrefresh(ms->status);
     } else if (c == KEY_BACKSPACE || c == 127 || c == '\b') {
         int x, y;
 
-        getyx(status, y, x);
+        getyx(ms->status, y, x);
         if (x >= 13) {
-            mvwdelch(status, y, x - 1);
+            mvwdelch(ms->status, y, x - 1);
             num /= 10;
         }
-        wrefresh(status);
+        wrefresh(ms->status);
     } else if (num && (c == '\n' || c == KEY_ENTER)) {
         int my;
 
@@ -870,16 +869,16 @@ void main_screen_goto_line(main_screen *ms, int c)
             int i;
 
             if ((i = find_packet(ms, num)) == -1) {
-                wbkgd(status, get_theme_colour(ERR_BKGD));
-                wrefresh(status);
+                wbkgd(ms->status, get_theme_colour(ERR_BKGD));
+                wrefresh(ms->status);
                 error = true;
                 return;
             }
             num = i + 1;
         }
         if (num > vector_size(ms->packet_ref)) {
-            wbkgd(status, get_theme_colour(ERR_BKGD));
-            wrefresh(status);
+            wbkgd(ms->status, get_theme_colour(ERR_BKGD));
+            wrefresh(ms->status);
             error = true;
             return;
         }
@@ -900,14 +899,14 @@ void main_screen_goto_line(main_screen *ms, int c)
             }
         }
         curs_set(0);
-        werase(status);
+        werase(ms->status);
         input_mode = INPUT_NONE;
         num = 0;
         actionbar_refresh(actionbar, (screen *) ms);
         main_screen_refresh((screen *) ms);
     } else if (c == KEY_ESC) {
         curs_set(0);
-        werase(status);
+        werase(ms->status);
         num = 0;
         input_mode = INPUT_NONE;
         actionbar_refresh(actionbar, (screen *) ms);
@@ -952,16 +951,16 @@ void set_filter(main_screen *ms, int c)
     int x, y;
 
     if (error) {
-        wbkgd(status, get_theme_colour(BACKGROUND));
-        wrefresh(status);
+        wbkgd(ms->status, get_theme_colour(BACKGROUND));
+        wrefresh(ms->status);
         error = false;
     }
     switch (c) {
     case '\n':
     case KEY_ENTER:
-        getyx(status, y, x);
+        getyx(ms->status, y, x);
         curs_set(0);
-        mvwinnstr(status, 0, 8, filter, MAXLINE);
+        mvwinnstr(ms->status, 0, 8, filter, MAXLINE);
         filter[numc] = '\0';
         if (ms->subwindow.win) {
             delete_subwindow(ms, false);
@@ -972,10 +971,10 @@ void set_filter(main_screen *ms, int c)
         } else {
             prog = pcap_compile(filter);
             if (prog.size == 0) {
-                wbkgd(status, get_theme_colour(ERR_BKGD));
-                wmove(status, y, x);
+                wbkgd(ms->status, get_theme_colour(ERR_BKGD));
+                wmove(ms->status, y, x);
                 curs_set(1);
-                wrefresh(status);
+                wrefresh(ms->status);
                 error = true;
                 return;
             }
@@ -990,11 +989,11 @@ void set_filter(main_screen *ms, int c)
                 ms->base.show_selectionbar = false;
         }
         input_mode = INPUT_NONE;
-        werase(status);
+        werase(ms->status);
         actionbar_refresh(actionbar, (screen *) ms);
         ms->base.top = 0;
         ms->base.selectionbar = 0;
-        wbkgd(status, get_theme_colour(BACKGROUND));
+        wbkgd(ms->status, get_theme_colour(BACKGROUND));
         numc = 0;
         main_screen_refresh((screen *) ms);
         break;
@@ -1002,47 +1001,47 @@ void set_filter(main_screen *ms, int c)
         curs_set(0);
         numc = 0;
         input_mode = INPUT_NONE;
-        werase(status);
-        wbkgd(status, get_theme_colour(BACKGROUND));
+        werase(ms->status);
+        wbkgd(ms->status, get_theme_colour(BACKGROUND));
         actionbar_refresh(actionbar, (screen *) ms);
         break;
     case KEY_BACKSPACE:
     case 127:
     case '\b':
-        getyx(status, y, x);
+        getyx(ms->status, y, x);
         if (x > FILTER_IDX) {
-            mvwdelch(status, y, x - 1);
+            mvwdelch(ms->status, y, x - 1);
             numc--;
-            wrefresh(status);
+            wrefresh(ms->status);
         }
         break;
     case KEY_LEFT:
-        getyx(status, y, x);
+        getyx(ms->status, y, x);
         if (x > FILTER_IDX) {
-            wmove(status, 0, x - 1);
-            wrefresh(status);
+            wmove(ms->status, 0, x - 1);
+            wrefresh(ms->status);
         }
         break;
     case KEY_RIGHT:
-        getyx(status, y, x);
+        getyx(ms->status, y, x);
         if (x - FILTER_IDX < numc) {
-            wmove(status, 0, x + 1);
-            wrefresh(status);
+            wmove(ms->status, 0, x + 1);
+            wrefresh(ms->status);
         }
         break;
     case KEY_DC:
-        getyx(status, y, x);
+        getyx(ms->status, y, x);
         if (x - FILTER_IDX < numc) {
-            mvwdelch(status, 0, x);
+            mvwdelch(ms->status, 0, x);
             numc--;
-            wrefresh(status);
+            wrefresh(ms->status);
         }
         break;
     default:
         if (c >= 0x20 && c < 0x7f) {
-            waddch(status, c);
+            waddch(ms->status, c);
             numc++;
-            wrefresh(status);
+            wrefresh(ms->status);
         }
         break;
     }

@@ -20,6 +20,7 @@ typedef struct main_screen {
         int num_lines;
     } subwindow;
     WINDOW *whdr;
+    WINDOW *status;
     list_view *lvw;
     /* next available line, i.e. outy - 1 is the last line printed on the screen */
     int outy;
