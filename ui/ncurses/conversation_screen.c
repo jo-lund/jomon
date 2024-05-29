@@ -47,7 +47,6 @@ struct tcp_page_attr {
 
 extern vector_t *packets;
 extern main_menu *menu;
-static bool input_mode = false;
 static progress_dialogue *pd = NULL;
 static enum follow_tcp_mode tcp_mode = NORMAL;
 static struct tcp_page tcp_page;
@@ -158,6 +157,7 @@ void conversation_screen_got_focus(screen *s, screen *oldscr)
         cs->base.packet_ref = vector_init(cs->stream->size);
         fill_screen_buffer(cs);
         actionbar_update(s, "F7", NULL, true);
+        actionbar_update(s, "F9", NULL, true);
     }
     timer_set_callback(ms->timer, ms->timer_callback, s);
     timer_enable(ms->timer, &t);
@@ -176,6 +176,7 @@ void conversation_screen_lost_focus(screen *s, screen *newscr)
         s->top = 0;
         s->selectionbar = 0;
         actionbar_update(s, "F7", NULL, ctx.capturing);
+        actionbar_update(s, "F9", NULL, false);
     }
 }
 
@@ -195,12 +196,12 @@ void conversation_screen_get_input(screen *s)
     conversation_screen *cs;
 
     cs = (conversation_screen *) s;
-    my = getmaxy(s->win);
-    c = wgetch(s->win);
-    if (input_mode) {
-        main_screen_goto_line((main_screen *) cs, c);
+    if (cs->base.input_mode == INPUT_GOTO) {
+        main_screen_get_input(s);
         return;
     }
+    my = getmaxy(s->win);
+    c = wgetch(s->win);
     switch (c) {
     case 'p':
         tcp_mode = (tcp_mode + 1) % NUM_MODES;
@@ -228,9 +229,7 @@ void conversation_screen_get_input(screen *s)
             main_screen_scroll_column((main_screen *) cs, NUM_COLS_SCROLL);
         break;
     case KEY_ESC:
-        if (input_mode) {
-            main_screen_goto_line((main_screen *) cs, c);
-        } else if (((main_screen *) cs)->subwindow.win) {
+        if (((main_screen *) cs)->subwindow.win) {
             ungetch(c);
             main_screen_get_input(s);
         } else {
@@ -266,6 +265,8 @@ void conversation_screen_get_input(screen *s)
             create_export_dialogue();
         break;
     case KEY_F(7): /* should not be enabled */
+    case KEY_F(9):
+    case 'e':
         break;
     default:
         ungetch(c);
