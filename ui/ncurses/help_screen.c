@@ -106,7 +106,7 @@ static void help_screen_render(void)
     mvprintat(win, ++y, x, subcol, "%12s", "f");
     wprintw(win, ": Follow TCP stream");
     mvprintat(win, ++y, x, subcol, "%12s", "g");
-    wprintw(win, ": Go to line");
+    wprintw(win, ": Go to packet");
     mvprintat(win, ++y, x, subcol, "%12s", "m");
     wprintw(win, ": Change hexdump mode");
     mvprintat(win, ++y, x, subcol, "%12s", "Enter");

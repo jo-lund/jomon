@@ -264,7 +264,7 @@ static void print_bpf_and_exit(void)
 static void print_help_and_exit(void)
 {
     printf("jomon " VERSION "\n");
-    printf("Usage: jomon [-dGhlNnpstvV] [-b size] [-f filter] [-F filter-file] [-i interface] [-r path]\n"
+    printf("Usage: jomon [-dDhNnpstvV] [-b size] [-f filter] [-F filter-file] [-i interface] [-r path]\n"
            "Options:\n"
            "    -b, --buffer-size      Set the kernel capture buffer size to <size>,\n"
            "                           in units of KiB (1024 bytes). Default: 4MB\n"
