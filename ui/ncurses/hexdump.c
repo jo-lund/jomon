@@ -107,7 +107,7 @@ void print_hexdump(enum hexmode mode, unsigned char *payload, uint16_t len, hd_a
 
     if (mode == HEXMODE_WIDE) {
         hexoffset = 64;
-        snprintf(buf, 1024, "%-11s%s%s%s%s", offset, hex, hex, hex, hex);
+        snprintf(buf, 1024, "%1$-11s%2$s%2$s%2$s%2$s", offset, hex);
     } else {
         hexoffset = 16;
         snprintf(buf, BUFSZ, "%-11s0  1  2  3  4  5  6  7", offset);
