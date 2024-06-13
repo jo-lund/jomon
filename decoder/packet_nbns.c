@@ -26,7 +26,7 @@ static struct packet_flags nbns_nb_flags[] = {
 extern void print_nbns(char *buf, int n, void *data);
 extern void add_nbns_information(void *widget, void *subwidget, void *data);
 static int parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **data,
-                             int dlen, struct nbns_info *info);
+                             int dlen, struct nbns_info *nbns);
 
 static struct protocol_info nbns_prot = {
     .short_name = "NBNS",
@@ -212,15 +212,15 @@ packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int
  */
 void decode_nbns_name(char *dest, char *src)
 {
+    int n = 15;
+
     for (int i = 0; i < 16; i++) {
         dest[i] = (src[2*i] - 'A') << 4 | (src[2*i + 1] - 'A');
     }
-    // TODO: Fix this properly
-    int c = 14;
-    while (c && isspace(dest[c])) { /* remove trailing whitespaces */
-        c--;
+    while (n > 0 && isspace(dest[n])) { /* remove trailing whitespaces */
+        n--;
     }
-    dest[c + 1] = '\0';
+    dest[n + 1] = '\0';
 }
 
 /*
@@ -236,10 +236,10 @@ int parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **data,
     int len;
 
     len = parse_dns_name(buffer, n, ptr, dlen, name);
-    if (len < NBNS_NAME_MAP_LEN || len > dlen)
+    if (len > dlen)
         return -1;
     ptr += len;
-    dlen -= dlen;
+    dlen -= len;
     if (dlen < 10)
         return -1;
     decode_nbns_name(nbns->record[i].rrname, name);
@@ -271,7 +271,7 @@ int parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **data,
         char name[DNS_NAMELEN];
         int name_len = parse_dns_name(buffer, n, ptr, dlen, name);
 
-        if (name_len == -1 || name_len < NBNS_NAME_MAP_LEN || name_len > dlen)
+        if (name_len == -1 || name_len > dlen)
             return -1;
         ptr += name_len;
         len += name_len;

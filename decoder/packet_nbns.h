@@ -46,7 +46,7 @@
 
 struct nbns_info {
     uint16_t length; /* used by messages sent over TCP */
-    uint16_t id; /* transaction ID */
+    uint16_t id;     /* transaction ID */
     unsigned int r      : 1; /* 0 request, 1 response */
     unsigned int opcode : 4; /* packet type code */
     unsigned int aa     : 1; /* authoritative answer */
