@@ -15,6 +15,7 @@
 #include "decoder/tcp_analyzer.h"
 #include "list.h"
 #include "wrapper.h"
+#include "debug.h"
 
 /*
  * General algorithm to get the process related to the specific connection:
@@ -209,12 +210,16 @@ static bool read_netlink_msg(void)
     while (1) {
         ssize_t len;
 
-        while ((len = recvmsg(nl_sockfd, &msg, 0)) < 0) {
+        if ((len = recvmsg(nl_sockfd, &msg, 0)) < 0) {
             if (errno == EINTR || errno == EAGAIN)
                 continue;
-        }
-        if (len < 0)
+            DEBUG("read_netlink_msg error: %s (%d)", strerror(errno), errno);
             return false;
+        }
+        if (len == 0) {
+            DEBUG("read_netlink_msg EOF", strerror(errno), errno);
+            return false;
+        }
         for (struct nlmsghdr *nh = (struct nlmsghdr *) buf; NLMSG_OK(nh, len);
              nh = NLMSG_NEXT(nh, len)) {
             struct tcp_elem *old, *tcp;
