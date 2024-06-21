@@ -295,11 +295,11 @@ void add_ipv4_information(void *w, void *sw, void *data)
     }
     LV_ADD_TEXT_ELEMENT(lw, header, "%s", buf);
     snprintf(buf, MAXLINE, "Explicit Congestion Notification (ECN): 0x%x", ip->ecn);
-    if (ip->ecn & 0x3) {
+    if (ip->ecn == 0x3) {
         snprintcat(buf, MAXLINE, " CE");
-    } else if (ip->ecn & 0x1) {
+    } else if (ip->ecn == 0x1) {
         snprintcat(buf, MAXLINE, " ECT(1)");
-    } else if (ip->ecn & 0x2) {
+    } else if (ip->ecn == 0x2) {
         snprintcat(buf, MAXLINE, " ECT(0)");
     } else {
         snprintcat(buf, MAXLINE, " Not ECN-Capable");
