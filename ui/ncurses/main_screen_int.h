@@ -22,7 +22,7 @@ extern file_dialogue *load_dialogue;
 extern file_dialogue *save_dialogue;
 
 // TODO: Move functions that don't need to be static to struct main_screen.
-void main_screen_write_show_progress(int i);
+void main_screen_write_show_progress(int size);
 void main_screen_save(vector_t *data, const char *file);
 void main_screen_save_handle_cancel(void *);
 void main_screen_load_handle_ok(void *file);

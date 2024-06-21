@@ -237,7 +237,7 @@ void main_screen_update_window(main_screen *ms, char *buf)
     if (!ms->base.focus)
         return;
     my = getmaxy(ms->base.win);
-    if (!ms->base.show_selectionbar || (ms->base.show_selectionbar && ms->outy < my)) {
+    if (!ms->base.show_selectionbar || ms->outy < my) {
         scroll_window(ms);
         mvputsnlw(ms->base.win, ms->outy, 0, ms->scrollx, buf);
         ms->outy++;
