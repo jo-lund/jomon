@@ -117,7 +117,7 @@ void traverse_protocols(protocol_handler fn, void *arg);
  *
  * Returns true if decoding succeeded, else false.
  */
-bool decode_packet(iface_handle_t *handle, unsigned char *buffer, size_t n,
+bool decode_packet(iface_handle_t *h, unsigned char *buffer, size_t n,
                    struct packet **p);
 
 /*
@@ -142,7 +142,7 @@ bool is_tcp(const struct packet *p);
 struct packet_data *get_packet_data(const struct packet *p, uint32_t id);
 
 /* Should be internal to the decoder */
-packet_error call_data_decoder(uint32_t id, struct packet_data *pdata,
+packet_error call_data_decoder(uint32_t id, struct packet_data *p,
                                uint8_t transport, unsigned char *buf, int n);
 
 /* Allocate an error string on the assigned memory pool, see mempool.h */

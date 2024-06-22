@@ -75,16 +75,16 @@ packet_error handle_http(struct protocol_info *pinfo, unsigned char *buffer,
  *
  * Returns false if there is an error.
  */
-bool parse_http(unsigned char *buffer, uint16_t len, struct http_info *http)
+bool parse_http(unsigned char *buf, uint16_t len, struct http_info *http)
 {
     unsigned char *ptr;
     bool is_http = false;
     unsigned int n;
 
     n = len;
-    ptr = buffer;
+    ptr = buf;
     if (!parse_start_line(&ptr, &n, http)) {
-        http->data = buffer;
+        http->data = buf;
         http->len = n;
         return true;
     }

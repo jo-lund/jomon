@@ -95,15 +95,15 @@ packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buffer, int
     case ICMP_SOURCEQUENCH:
     parse_ip:
         if (n > ICMP_HDR_LEN) {
-            struct protocol_info *pinfo;
+            struct protocol_info *p;
             uint32_t id;
 
             id = get_protocol_id(ETHERNET_II, ETHERTYPE_IP);
-            pinfo = get_protocol(id);
+            p = get_protocol(id);
             pdata->next = mempool_calloc(1, struct packet_data);
             pdata->next->id = id;
             /* buffer points on ICMP header + 4, i.e. need to add 4 bytes to get at data */
-            return pinfo->decode(pinfo, buffer + 4, n - ICMP_HDR_LEN, pdata->next);
+            return p->decode(p, buffer + 4, n - ICMP_HDR_LEN, pdata->next);
         }
         break;
     case ICMP_INFO_REQUEST:
