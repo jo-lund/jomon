@@ -357,12 +357,12 @@ int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag, snmp_
                         if (j >= len)
                             return -1;
                         v = v << 7 | (ptr[j++] & 0x7f); /* last group */
-                        i += snprintf(val + i, MAX_OID_LEN - i, "%d.", v);
+                        i += snprintf(val + i, MAX_OID_LEN - i, "%u.", v);
                     } else {
                         uint8_t v;
 
                         v = ptr[j++];
-                        i += snprintf(val + i, MAX_OID_LEN - i, "%d.", v);
+                        i += snprintf(val + i, MAX_OID_LEN - i, "%u.", v);
                     }
                 }
                 val[i-1] = '\0';
