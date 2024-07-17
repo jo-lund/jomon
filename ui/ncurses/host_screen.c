@@ -35,7 +35,7 @@ enum page {
 
 static void host_screen_init(screen *s);
 static void host_screen_refresh(screen *s);
-static void host_screen_got_focus(screen *s UNUSED, screen *oldscr UNUSED);
+static void host_screen_got_focus(screen *s, screen *oldscr UNUSED);
 static void host_screen_lost_focus(screen *s UNUSED, screen *newscr UNUSED);
 static unsigned int host_screen_get_size(screen *s);
 static void host_screen_render(host_screen *hs);
@@ -269,9 +269,10 @@ void host_screen_get_input(screen *s)
     }
 }
 
-void host_screen_got_focus(screen *s UNUSED, screen *oldscr UNUSED)
+void host_screen_got_focus(screen *s, screen *oldscr UNUSED)
 {
     host_analyzer_subscribe(update_host);
+    actionbar_refresh(actionbar, s);
 }
 
 void host_screen_lost_focus(screen *s UNUSED, screen *newscr UNUSED)
@@ -292,7 +293,6 @@ void host_screen_render(host_screen *hs)
         update_data();
     print_host_header(hs);
     print_all_hosts(hs);
-    actionbar_refresh(actionbar, (screen *) hs);
 }
 
 void update_host(struct host_info *host, bool new_host)
@@ -324,7 +324,6 @@ void update_host(struct host_info *host, bool new_host)
                 y++;
             }
         }
-        actionbar_refresh(actionbar, (screen *) hs);
     }
 }
 

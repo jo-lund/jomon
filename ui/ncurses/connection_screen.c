@@ -564,6 +564,7 @@ void connection_screen_got_focus(screen *s, screen *oldscr UNUSED)
         }
         active = true;
     }
+    actionbar_refresh(actionbar, s);
 }
 
 void connection_screen_on_back(screen *s UNUSED)
@@ -658,5 +659,4 @@ void connection_screen_render(connection_screen *cs)
         update_screen_buf((screen *) cs);
     print_header(cs);
     print_all_elements(cs);
-    actionbar_refresh(actionbar, (screen *) cs);
 }

@@ -63,12 +63,14 @@ static void stat_screen_free(screen *s);
 static void stat_screen_init(screen *s);
 static void stat_screen_get_input(screen *s);
 static void stat_screen_refresh(screen *s);
+static void stat_screen_got_focus(screen *s, screen *old UNUSED);
 
 static screen_operations ssop = {
     .screen_init = stat_screen_init,
     .screen_free = stat_screen_free,
     .screen_refresh = stat_screen_refresh,
     .screen_get_input = stat_screen_get_input,
+    .screen_got_focus = stat_screen_got_focus
 };
 
 static void handle_alarm(void)
@@ -92,7 +94,7 @@ void stat_screen_init(screen *s)
 
     screen_init(s);
     getmaxyx(stdscr, my, mx);
-    s->win = newwin(my, mx, 0, 0);
+    s->win = newwin(my - actionbar_getmaxy(actionbar), mx, 0, 0);
     s->page = NET_STAT;
     s->num_pages = NUM_PAGES;
     nodelay(s->win, TRUE);
@@ -171,6 +173,11 @@ void stat_screen_get_input(screen *s)
     }
 }
 
+void stat_screen_got_focus(screen *s, screen *old UNUSED)
+{
+    actionbar_refresh(actionbar, s);
+}
+
 void stat_screen_print(screen *s)
 {
     if (redraw == ALL)
@@ -185,7 +192,6 @@ void stat_screen_print(screen *s)
     default:
         break;
     }
-    actionbar_refresh(actionbar, s);
 }
 
 static void print_protocol_stat(struct protocol_info *pinfo, void *arg)
