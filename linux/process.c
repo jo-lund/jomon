@@ -217,7 +217,7 @@ static bool read_netlink_msg(void)
             return false;
         }
         if (len == 0) {
-            DEBUG("read_netlink_msg EOF", strerror(errno), errno);
+            DEBUG("read_netlink_msg EOF");
             return false;
         }
         for (struct nlmsghdr *nh = (struct nlmsghdr *) buf; NLMSG_OK(nh, len);
