@@ -17,7 +17,7 @@ typedef struct elem {
 } actionbar_elem;
 
 static hashmap_t *screens;
-list_t *defaults;
+static list_t *defaults;
 
 static void free_elem(void *p)
 {
