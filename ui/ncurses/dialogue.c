@@ -682,14 +682,39 @@ void file_dialogue_print(struct file_dialogue *this, struct file_info *info, int
 {
     int w;
     char buf[FORMAT_BUF_LEN];
+    int mx;
+    int n;
 
-    w = getmaxx(this->list.win) - strlen(info->name) - 2;
-    if (S_ISDIR(info->stat->st_mode)) {
-        mvprintat(this->list.win, i, 1, A_BOLD | get_theme_colour(FD_TEXT), "%s%*s", info->name, w,
-                  format_bytes(info->stat->st_size, buf, FORMAT_BUF_LEN));
+    mx = getmaxx(this->list.win);
+    n = strlen(info->name);
+    w = mx - n - 2;
+    if (w < 0) {
+        char name[MAXPATH];
+        int max;
+
+        if (mx - FORMAT_BUF_LEN - 2 < 0) {
+            DEBUG("Error: Window too small");
+            return;
+        }
+        max = mx - FORMAT_BUF_LEN - 2;
+        strlcpy(name, info->name, MAXPATH);
+        string_truncate(name, n, max);
+        w = mx - max - 2;
+        if (S_ISDIR(info->stat->st_mode)) {
+            mvprintat(this->list.win, i, 1, A_BOLD | get_theme_colour(FD_TEXT), "%s%*s",
+                      name, w, format_bytes(info->stat->st_size, buf, FORMAT_BUF_LEN));
+        } else {
+            mvprintat(this->list.win, i, 1, get_theme_colour(FD_TEXT), "%s%*s",
+                      name, w, format_bytes(info->stat->st_size, buf, FORMAT_BUF_LEN));
+        }
     } else {
-        mvprintat(this->list.win, i, 1, get_theme_colour(FD_TEXT), "%s%*s", info->name, w,
-                  format_bytes(info->stat->st_size, buf, FORMAT_BUF_LEN));
+        if (S_ISDIR(info->stat->st_mode)) {
+            mvprintat(this->list.win, i, 1, A_BOLD | get_theme_colour(FD_TEXT), "%s%*s",
+                      info->name, w, format_bytes(info->stat->st_size, buf, FORMAT_BUF_LEN));
+        } else {
+            mvprintat(this->list.win, i, 1, get_theme_colour(FD_TEXT), "%s%*s",
+                      info->name, w, format_bytes(info->stat->st_size, buf, FORMAT_BUF_LEN));
+        }
     }
 }
 
