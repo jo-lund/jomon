@@ -4,7 +4,10 @@
 #include "packet_nbns.h"
 #include "packet_dns.h"
 #include "packet.h"
-#include "../util.h"
+#include "util.h"
+
+#define NETBIOS_NAME_LEN 16
+#define NETBIOS_SUFFIX_LEN 4
 
 static struct packet_flags nbns_flags[] = {
     { "Authoritative answer", 1, NULL },
@@ -21,6 +24,17 @@ static char *nb_ont[] = { "B node", "P node", "M node", "Reserved" };
 static struct packet_flags nbns_nb_flags[] = {
     { "Name Flag:", 1, nb_name },
     { "Owner Node Type:", 2, nb_ont }
+};
+
+static char *nb_suffix[] = {
+    [0x0] = "Workgroup",
+    [0x1] = "Master Browser",
+    [0x3] = "Messenger service",
+    [0x1b] = "Domain Master Browser",
+    [0x1c] = "Domain Controller",
+    [0x1d] = "Local Master Browser",
+    [0x1e] = "Browser Election Service",
+    [0x20] = "Server Service"
 };
 
 extern void print_nbns(char *buf, int n, void *data);
@@ -212,15 +226,33 @@ packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int
  */
 void decode_nbns_name(char *dest, char *src)
 {
-    int n = 15;
+    int n = 0;
+    static const char *hex = "0123456789abcdef";
+    unsigned char c;
 
-    for (int i = 0; i < 16; i++) {
-        dest[i] = (src[2*i] - 'A') << 4 | (src[2*i + 1] - 'A');
+    for (int i = 0; i < NETBIOS_NAME_LEN - 1; i++) {
+        c = (src[2*i] - 'A') << 4 | (src[2*i + 1] - 'A');
+        if (!isprint(c)) {
+            int j = n;
+            dest[j] = '<';
+            dest[++j] = hex[c >> 4];
+            dest[++j] = hex[c & 0xf];
+            dest[++j] = '>';
+            n += 4;
+        } else {
+            dest[n++] = c;
+        }
     }
-    while (n > 0 && isspace(dest[n])) { /* remove trailing whitespaces */
-        n--;
-    }
-    dest[n + 1] = '\0';
+    while (--n > 0 && isspace(dest[n])) /* remove trailing whitespace */
+        ;
+
+    /* the 16th byte is the NetBIOS suffix */
+    c = (src[2*15] - 'A') << 4 | (src[2*15 + 1] - 'A');
+    dest[++n] = '<';
+    dest[++n] = hex[c >> 4];
+    dest[++n] = hex[c & 0xf];
+    dest[++n] = '>';
+    dest[++n] = '\0';
 }
 
 /*
@@ -431,4 +463,27 @@ struct packet_flags *get_nbns_nb_flags(void)
 int get_nbns_nb_flags_size(void)
 {
     return sizeof(nbns_nb_flags) / sizeof(struct packet_flags);
+}
+
+char *get_nbns_suffix(char *name)
+{
+    size_t n;
+    char suffix[3];
+    char *end;
+    int i;
+
+    if (!name)
+        return NULL;
+    n = strlen(name);
+    if (n < NETBIOS_SUFFIX_LEN)
+        return NULL;
+    suffix[0] = name[n - NETBIOS_SUFFIX_LEN + 1];
+    suffix[1] = name[n - NETBIOS_SUFFIX_LEN + 2];
+    suffix[2] = '\0';
+    i = strtol(suffix, &end, 16);
+    if (*end != '\0')
+        return NULL;
+    if (i >= 0 && i <= 0x20)
+        return nb_suffix[i];
+    return NULL;
 }

@@ -132,29 +132,28 @@ void print_nbns_record(struct nbns_info *info, int i, char *buf, int n)
     case NBNS_NB:
     {
         if (info->record[i].rdata.nb.g) {
-            snprintcat(buf, n, "Group NetBIOS name ");
+            snprintcat(buf, n, "Group NetBIOS name");
         } else {
-            snprintcat(buf, n, "Unique NetBIOS name ");
+            snprintcat(buf, n, "Unique NetBIOS name");
         }
-        int addrs = info->record[i].rdata.nb.num_addr;
-        snprintcat(buf, n, "%s ", get_nbns_node_type(info->record[i].rdata.nb.ont));
-        while (addrs--) {
+        snprintcat(buf, n, "  %s", get_nbns_node_type(info->record[i].rdata.nb.ont));
+        for (int j = 0; j < info->record[i].rdata.nb.num_addr; j++) {
             char addr[INET_ADDRSTRLEN];
 
-            inet_ntop(AF_INET, (struct in_addr *) &info->record[i].rdata.nb.address[0], addr, sizeof(addr));
-            snprintcat(buf, n, "%s ", addr);
+            inet_ntop(AF_INET, info->record[i].rdata.nb.address + j, addr, INET_ADDRSTRLEN);
+            snprintcat(buf, n, "  %s", addr);
         }
         break;
     }
     case NBNS_NS:
-        snprintcat(buf, n, " NSD Name: %s", info->record[i].rdata.nsdname);
+        snprintcat(buf, n, "  NSD Name: %s", info->record[i].rdata.nsdname);
         break;
     case NBNS_A:
     {
         char addr[INET_ADDRSTRLEN];
 
         inet_ntop(AF_INET, (struct in_addr *) &info->record[i].rdata.nsdipaddr, addr, sizeof(addr));
-        snprintcat(buf, n, " NSD IP address: %s", addr);
+        snprintcat(buf, n, "  NSD IP address: %s", addr);
         break;
     }
     case NBNS_NBSTAT:
@@ -598,8 +597,8 @@ void print_nbns(char *buf, int n, void *data)
     if (nbns->r == 0) {
         strlcpy(opcode, get_nbns_opcode(nbns->opcode), sizeof(opcode));
         PRINT_INFO(buf, n, "Name %s request: ", string_tolower(opcode));
-        PRINT_INFO(buf, n, "%s ", nbns->question.qname);
-        PRINT_INFO(buf, n, "%s ", get_nbns_type(nbns->question.qtype));
+        PRINT_INFO(buf, n, "%s  ", nbns->question.qname);
+        PRINT_INFO(buf, n, "%s  ", get_nbns_type(nbns->question.qtype));
         if (nbns->section_count[ARCOUNT] && nbns->record) {
             print_nbns_record(nbns, 0, buf, n);
         }
@@ -629,8 +628,8 @@ void print_nbns(char *buf, int n, void *data)
         strlcpy(opcode, get_nbns_opcode(nbns->opcode), sizeof(opcode));
         PRINT_INFO(buf, n, "Name %s response: ", string_tolower(opcode));
         if (nbns->record) {
-            PRINT_INFO(buf, n, "%s ", nbns->record[0].rrname);
-            PRINT_INFO(buf, n, "%s ", get_nbns_type(nbns->record[0].rrtype));
+            PRINT_INFO(buf, n, "%s  ", nbns->record[0].rrname);
+            PRINT_INFO(buf, n, "%s  ", get_nbns_type(nbns->record[0].rrtype));
             print_nbns_record(nbns, 0, buf, n);
         }
     }

@@ -1364,8 +1364,12 @@ static void add_nbns_record(list_view *lw, list_view_header *w, struct nbns_info
 {
     char time[512];
     struct tm_t tm;
+    char *def;
 
-    LV_ADD_TEXT_ELEMENT(lw, w, "Name: %s", nbns->record[i].rrname);
+    if ((def = get_nbns_suffix(nbns->record[i].rrname)) != NULL)
+        LV_ADD_TEXT_ELEMENT(lw, w, "Name: %s (%s)", nbns->record[i].rrname, def);
+    else
+        LV_ADD_TEXT_ELEMENT(lw, w, "Name: %s", nbns->record[i].rrname);
     LV_ADD_TEXT_ELEMENT(lw, w, "Type: %s", get_nbns_type_extended(nbns->record[i].rrtype));
     if (nbns->record[i].rrclass == NBNS_IN) {
         LV_ADD_TEXT_ELEMENT(lw, w, "Class: IN (Internet class)");
@@ -1381,10 +1385,15 @@ static void add_nbns_record(list_view *lw, list_view_header *w, struct nbns_info
     {
         list_view_header *hdr;
         uint16_t flags;
+        char addr[INET_ADDRSTRLEN];
 
         flags = nbns->record[i].rdata.nb.g << 2 | nbns->record[i].rdata.nb.ont;
         hdr = LV_ADD_SUB_HEADER(lw, w, selected[UI_FLAGS], UI_FLAGS, "NB flags (0x%x)", flags);
         add_flags(lw, hdr, flags, get_nbns_nb_flags(), get_nbns_nb_flags_size());
+        for (int j = 0; j < nbns->record[i].rdata.nb.num_addr; j++) {
+            inet_ntop(AF_INET, nbns->record[i].rdata.nb.address + j, addr, INET_ADDRSTRLEN);
+            LV_ADD_TEXT_ELEMENT(lw, w, "Name owner address: %s", addr);
+        }
         break;
     }
     case NBNS_NS:
@@ -1488,11 +1497,20 @@ void add_nbns_information(void *w, void *sw, void *data)
 
     /* question entry */
     if (nbns->section_count[QDCOUNT]) {
-        list_view_header *hdr;
+        list_view_header *q;
+        list_view_header *sub;
+        char *def;
 
-        hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Questions");
-        LV_ADD_TEXT_ELEMENT(lw, hdr, "Question name: %s, Question type: %s, Question class: IN (Internet)",
-                         nbns->question.qname, get_nbns_type_extended(nbns->question.qtype));
+        q = LV_ADD_SUB_HEADER(lw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Questions");
+        sub = LV_ADD_SUB_HEADER(lw, q, selected[UI_SUBLAYER1], UI_SUBLAYER1,
+                                "%s  Type: %s  Class: IN",
+                                nbns->question.qname, get_nbns_type(nbns->question.qtype));
+        if ((def = get_nbns_suffix(nbns->question.qname)) != NULL)
+            LV_ADD_TEXT_ELEMENT(lw, sub, "Name: %s (%s)", nbns->question.qname, def);
+        else
+            LV_ADD_TEXT_ELEMENT(lw, sub, "Name: %s", nbns->question.qname);
+        LV_ADD_TEXT_ELEMENT(lw, sub, "Type: %s", get_nbns_type_extended(nbns->question.qtype));
+        LV_ADD_TEXT_ELEMENT(lw, sub, "Class: IN (Internet)");
     }
     if (records > 0 && nbns->record) {
         list_view_header *hdr = NULL;

@@ -6,7 +6,12 @@
 #include "packet.h"
 
 #define NBNS_NAME_MAP_LEN 32
-#define NBNS_NAMELEN 17
+/*
+ * NBNS names are represented by a name and suffix. Names are limited to 15 bytes
+ * and the 16th byte is a NetBIOS suffix. Names are stored in a "name<suffix>"
+ * format. Hex digits in the name are stored as <xx>.
+ */
+#define NBNS_NAMELEN (16 * 4 + 1)
 #define MAX_NBNS_NAMES 8
 #define MAX_NBNS_ADDR 8
 
@@ -115,6 +120,12 @@ struct packet_flags *get_nbns_flags(void);
 int get_nbns_flags_size(void);
 struct packet_flags *get_nbns_nb_flags(void);
 int get_nbns_nb_flags_size(void);
+
+/*
+ * Return the NetBIOS suffix definition. Assumes 'name' is a NetBIOS name stored
+ * in "name<suffix>" format.
+ */
+char *get_nbns_suffix(char *name);
 
 /* internal to the decoder */
 void register_nbns(void);
