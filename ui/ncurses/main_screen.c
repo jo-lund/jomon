@@ -760,9 +760,16 @@ void print_header(main_screen *ms)
 
     werase(ms->whdr);
     if (ctx.filename[0] && ctx.opt.load_file) {
+        int n;
+        char *name;
+
         strlcpy(file, ctx.filename, MAXPATH);
+        name = get_file_part(file);
+        n = strlen(name);
+        if (n > maxx / 2 - 12)
+            string_truncate(name, n, maxx / 2 - 12);
         mvprintat(ms->whdr, y, 0, txtcol, "Filename");
-        wprintw(ms->whdr, ": %s", get_file_part(file));
+        wprintw(ms->whdr, ": %s", name);
     } else {
         mvprintat(ms->whdr, y, 0, txtcol, "Device");
         wprintw(ms->whdr, ": %s", ctx.device);
