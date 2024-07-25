@@ -112,7 +112,7 @@ START_TEST(snap_test)
     ck_assert_msg(memcmp(snap->oui, oui, 3) == 0, "oui is wrong: 0x%02x%02x%02x != 0x00601d",
                   snap->oui[0], snap->oui[1], snap->oui[2]);
     ck_assert_msg(snap->protocol_id == pid, "Protocol id error: %u != 1", snap->protocol_id);
-    write_to_buf(log, MAXLINE, p);
+    pkt2text(log, MAXLINE, p);
     fp = fopen(PATH "snap.out", "r");
     ck_assert(fp);
     n = fread(out, sizeof(char), MAXLINE, fp);
@@ -175,7 +175,7 @@ START_TEST(snmp_test)
         i++;
     }
 
-    write_to_buf(log, MAXLINE, p);
+    pkt2text(log, MAXLINE, p);
     fp = fopen(PATH "snmp.out", "r");
     ck_assert(fp);
     len = fread(out, sizeof(char), MAXLINE, fp);
