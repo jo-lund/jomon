@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include "bpf/bpf.h"
 
+#define LINKTYPE_NULL 0      /* BSD Loopback encapsulation */
 #define LINKTYPE_ETHERNET 1
 #define LINKTYPE_IEEE802 6   /* IEEE 802.2 Ethernet/Token Ring/Token Bus */
 

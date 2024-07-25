@@ -26,12 +26,6 @@
 #define PIM_STATE_REFRESH_CAPABLE 21
 #define PIM_ADDRESS_LIST 24
 
-// TODO: Move this
-/* Address Family numbers, cf. www.iana.org */
-#define AF_IP 1
-#define AF_IP6 2
-#define AF_802 6
-
 #define GET_RPTBIT(mp) ((mp) >> 31)
 #define GET_METRIC_PREFERENCE(mp) ((mp) & 0x7fffffff)
 

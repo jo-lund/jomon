@@ -13,11 +13,15 @@
 #include "attributes.h"
 #include "queue.h"
 
+#define MAX_PACKET_SIZE 65535
 #define DATALINK 0
 #define ETH802_3 1
 #define ETHERNET_II 2
 #define IP_PROT 3
 #define PORT 4
+
+#define CHECK_PROTOCOL(pdata) \
+    (((pdata) && (pdata->data)) ? get_protocol(pdata->id) : NULL)
 
 extern uint32_t total_packets;
 extern uint64_t total_bytes;
@@ -138,12 +142,12 @@ void clear_statistics(void);
 /* Is packet TCP? */
 bool is_tcp(const struct packet *p);
 
-/* Get packet data based on protocol id */
-struct packet_data *get_packet_data(const struct packet *p, uint32_t id);
-
 /* Should be internal to the decoder */
 packet_error call_data_decoder(uint32_t id, struct packet_data *p,
                                uint8_t transport, unsigned char *buf, int n);
+
+/* Get packet data based on protocol id */
+struct packet_data *get_packet_data(const struct packet *p, uint32_t id);
 
 /* Allocate an error string on the assigned memory pool, see mempool.h */
 char *create_error_string(const char *fmt, ...) PRINTF_FORMAT(1, 2);

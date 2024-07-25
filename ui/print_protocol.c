@@ -12,6 +12,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <time.h>
+#include <assert.h>
 #include "print_protocol.h"
 #include "decoder/decoder.h"
 #include "util.h"
@@ -46,120 +47,63 @@
         PRINT_INFO(buffer, n, fmt, ## __VA_ARGS__);             \
     } while (0)
 
-static void print_unknown(char *buf, int size, struct packet *p)
-{
-    char smac[HW_ADDRSTRLEN];
-    char dmac[HW_ADDRSTRLEN];
-    char time[TBUFLEN];
-
-    HW_ADDR_NTOP(smac, eth_src(p));
-    HW_ADDR_NTOP(dmac, eth_dst(p));
-    format_timeval(&p->time, time, TBUFLEN);
-    PRINT_LINE(buf, size, p->num, time, smac, dmac, "ETH II", "Ethertype: 0x%x",
-               ethertype(p));
-}
-
 void pkt2text(char *buf, size_t size, struct packet *p)
 {
-    struct protocol_info *pinfo = NULL;
+    struct protocol_info *pinfo;
+    struct packet_data *pdata;
 
-    if (p->root->next)
-        pinfo = get_protocol(p->root->next->id);
-    if (pinfo && p->root->next->data) {
+    assert(p->root);
+    pdata = p->root;
+    pinfo = get_protocol(pdata->id);
+    if (pinfo && pinfo->print_pdu) {
         char time[TBUFLEN];
         struct timeval t = p->time;
 
         format_timeval(&t, time, TBUFLEN);
         PRINT_NUMBER(buf, size, p->num);
         PRINT_TIME(buf, size, time);
-        pinfo->print_pdu(buf, size, p->root->next);
-    } else if (p->len - ETHER_HDR_LEN > 0)
-        print_unknown(buf, size, p);
-}
-
-void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t type)
-{
-    switch (type) {
-    case DNS_TYPE_A:
-        if (info->record[i].rdata.address) {
-            char addr[INET_ADDRSTRLEN];
-
-            inet_ntop(AF_INET, (struct in_addr *) &info->record[i].rdata.address, addr, sizeof(addr));
-            snprintcat(buf, n, "%s", addr);
+        while (pdata && pdata->data) {
+            pinfo = get_protocol(pdata->id);
+            if (pinfo->print_pdu)
+                pinfo->print_pdu(buf, size, pdata);
+            pdata = pdata->next;
         }
-        break;
-    case DNS_TYPE_NS:
-        if (info->record[i].rdata.nsdname[0])
-            snprintcat(buf, n, "%s", info->record[i].rdata.nsdname);
-        break;
-    case DNS_TYPE_CNAME:
-        if (info->record[i].rdata.cname[0])
-            snprintcat(buf, n, "%s", info->record[i].rdata.cname);
-        break;
-    case DNS_TYPE_PTR:
-        if (info->record[i].rdata.ptrdname[0])
-            snprintcat(buf, n, "%s", info->record[i].rdata.ptrdname);
-        break;
-    case DNS_TYPE_AAAA:
-    {
-        static char addr[INET6_ADDRSTRLEN];
-
-        if (memcmp(info->record[i].rdata.ipv6addr, addr, 16)) {
-            inet_ntop(AF_INET6, (struct in_addr *) info->record[i].rdata.ipv6addr, addr, sizeof(addr));
-            snprintcat(buf, n, "%s", addr);
-        }
-        break;
-    }
-    case DNS_TYPE_HINFO:
-        if (info->record[i].rdata.hinfo.cpu && info->record[i].rdata.hinfo.os) {
-            snprintcat(buf, n, "%s ", info->record[i].rdata.hinfo.cpu);
-            snprintcat(buf, n, "%s", info->record[i].rdata.hinfo.os);
-        }
-        break;
-    case DNS_TYPE_MX:
-        if (info->record[i].rdata.mx.exchange[0])
-            snprintcat(buf, n, "%u %s", info->record[i].rdata.mx.preference,
-                       info->record[i].rdata.mx.exchange);
-        break;
-    default:
-        break;
     }
 }
 
-void print_nbns_record(struct nbns_info *info, int i, char *buf, int n)
+void print_ethernet(char *buf, int n, void *data)
 {
-    switch (info->record[i].rrtype) {
-    case NBNS_NB:
-    {
-        if (info->record[i].rdata.nb.g) {
-            snprintcat(buf, n, "Group NetBIOS name");
-        } else {
-            snprintcat(buf, n, "Unique NetBIOS name");
-        }
-        snprintcat(buf, n, "  %s", get_nbns_node_type(info->record[i].rdata.nb.ont));
-        for (int j = 0; j < info->record[i].rdata.nb.num_addr; j++) {
-            char addr[INET_ADDRSTRLEN];
+    struct packet_data *pdata = data;
 
-            inet_ntop(AF_INET, info->record[i].rdata.nb.address + j, addr, INET_ADDRSTRLEN);
-            snprintcat(buf, n, "  %s", addr);
-        }
-        break;
-    }
-    case NBNS_NS:
-        snprintcat(buf, n, "  NSD Name: %s", info->record[i].rdata.nsdname);
-        break;
-    case NBNS_A:
-    {
-        char addr[INET_ADDRSTRLEN];
+    if (!CHECK_PROTOCOL(pdata->next)) {
+        struct protocol_info *pinfo;
+        struct eth_info *eth;
+        char smac[HW_ADDRSTRLEN];
+        char dmac[HW_ADDRSTRLEN];
 
-        inet_ntop(AF_INET, (struct in_addr *) &info->record[i].rdata.nsdipaddr, addr, sizeof(addr));
-        snprintcat(buf, n, "  NSD IP address: %s", addr);
-        break;
+        eth = pdata->data;
+        HW_ADDR_NTOP(smac, eth->mac_src);
+        HW_ADDR_NTOP(dmac, eth->mac_dst);
+        pinfo = get_protocol(pdata->id);
+        assert(pinfo);
+        PRINT_ADDRESS(buf, n, smac, dmac);
+        PRINT_PROTOCOL(buf, n, pinfo->short_name);
+        PRINT_INFO(buf, n, "Ethertype: 0x%x", eth->ethertype);
     }
-    case NBNS_NBSTAT:
-        break;
-    default:
-        break;
+}
+
+void print_loop(char *buf, int n, void *data)
+{
+    struct packet_data *pdata = data;
+
+    if (!CHECK_PROTOCOL(pdata->next)) {
+        struct protocol_info *pinfo;
+
+        pinfo = get_protocol(pdata->id);
+        assert(pinfo);
+        PRINT_ADDRESS(buf, n, "loopback", "loopback");
+        PRINT_PROTOCOL(buf, n, pinfo->short_name);
+        loop2string(buf, n, pdata->data);
     }
 }
 
@@ -193,7 +137,6 @@ void print_llc(char *buf, int n, void *data)
 {
     struct packet_data *pdata = data;
     struct eth_802_llc *llc = pdata->data;
-    struct protocol_info *pinfo = NULL;
     struct packet_data *root;
     struct eth_info *eth;
     char smac[HW_ADDRSTRLEN];
@@ -206,9 +149,7 @@ void print_llc(char *buf, int n, void *data)
     HW_ADDR_NTOP(smac, eth->mac_src);
     HW_ADDR_NTOP(dmac, eth->mac_dst);
     PRINT_ADDRESS(buf, n, smac, dmac);
-    if (pdata->next && pdata->next->data && (pinfo = get_protocol(pdata->next->id))) {
-        pinfo->print_pdu(buf, n, pdata->next);
-    } else {
+    if (!CHECK_PROTOCOL(pdata->next)) {
         PRINT_PROTOCOL(buf, n, "LLC");
         PRINT_INFO(buf, n, "SSAP: 0x%x  DSAP: 0x%x  Control: 0x%x",
                    llc->ssap, llc->dsap, llc->control);
@@ -239,11 +180,8 @@ void print_snap(char *buf, int n, void *data)
 {
     struct packet_data *pdata = data;
     struct snap_info *snap = pdata->data;
-    struct protocol_info *pinfo;
 
-    if (pdata->next && pdata->next->data && (pinfo = get_protocol(pdata->next->id))) {
-        pinfo->print_pdu(buf, n, pdata->next);
-    } else {
+    if (!CHECK_PROTOCOL(pdata->next)) {
         PRINT_PROTOCOL(buf, n, "SNAP");
         PRINT_INFO(buf, n, "OUI: 0x%06x  Protocol Id: 0x%04x",
                    snap->oui[0] << 16 | snap->oui[1] << 8 | snap->oui[2], snap->protocol_id);
@@ -277,7 +215,6 @@ void print_ipv4(char *buf, int n, void *data)
     struct ipv4_info *ip = pdata->data;
     char src[HOSTNAMELEN+1];
     char dst[HOSTNAMELEN+1];
-    struct protocol_info *pinfo = NULL;
 
     if (ctx.opt.numeric) {
         inet_ntop(AF_INET, &ip->src, src, INET_ADDRSTRLEN);
@@ -287,9 +224,7 @@ void print_ipv4(char *buf, int n, void *data)
         get_name_or_address(ip->dst, dst);
     }
     PRINT_ADDRESS(buf, n, src, dst);
-    if (pdata->next && pdata->next->data && (pinfo = get_protocol(pdata->next->id))) {
-        pinfo->print_pdu(buf, n, pdata->next);
-    } else {
+    if (!CHECK_PROTOCOL(pdata->next)) {
         PRINT_PROTOCOL(buf, n, "IPv4");
         PRINT_INFO(buf, n, "Next header: %d", ip->protocol);
     }
@@ -301,14 +236,11 @@ void print_ipv6(char *buf, int n, void *data)
     struct ipv6_info *ip = pdata->data;
     char src[INET6_ADDRSTRLEN];
     char dst[INET6_ADDRSTRLEN];
-    struct protocol_info *pinfo = NULL;
 
     inet_ntop(AF_INET6, ip->src, src, INET6_ADDRSTRLEN);
     inet_ntop(AF_INET6, ip->dst, dst, INET6_ADDRSTRLEN);
     PRINT_ADDRESS(buf, n, src, dst);
-    if (pdata->next && pdata->next->data && (pinfo = get_protocol(pdata->next->id))) {
-        pinfo->print_pdu(buf, n, pdata->next);
-    } else {
+    if (!CHECK_PROTOCOL(pdata->next)) {
         PRINT_PROTOCOL(buf, n, "IPv6");
         PRINT_INFO(buf, n, "Next header: %d", ip->next_header);
     }
@@ -490,13 +422,8 @@ void print_tcp(char *buf, int n, void *data)
 {
     struct packet_data *pdata = data;
     struct tcp *tcp = pdata->data;
-    struct protocol_info *pinfo = NULL;
 
-    if (pdata->next && pdata->next->data)
-        pinfo = get_protocol(pdata->next->id);
-    if (pinfo && pinfo->print_pdu) {
-        pinfo->print_pdu(buf, n, pdata->next);
-    } else {
+    if (!CHECK_PROTOCOL(pdata->next)) {
         PRINT_PROTOCOL(buf, n, "TCP");
         PRINT_INFO(buf, n, "Source port: %d  Destination port: %d",
                    tcp->sport, tcp->dport);
@@ -528,13 +455,8 @@ void print_udp(char *buf, int n, void *data)
 {
     struct packet_data *pdata = data;
     struct udp_info *udp = pdata->data;
-    struct protocol_info *pinfo = NULL;
 
-    if (pdata->next && pdata->next->data)
-        pinfo = get_protocol(pdata->next->id);
-    if (pinfo) {
-        pinfo->print_pdu(buf, n, pdata->next);
-    } else {
+    if (!CHECK_PROTOCOL(pdata->next)) {
         PRINT_PROTOCOL(buf, n, "UDP");
         PRINT_INFO(buf, n, "Source port: %d  Destination port: %d",
                    udp->sport, udp->dport);
@@ -838,5 +760,91 @@ void print_vrrp(char *buf, int n, void *data)
         else if (vrrp->version == 3)
             PRINT_INFO(buf, n, "Type: %d  Version: %u  VRID: %u  Priority: %u  Time interval:> %u",
                        vrrp->type, vrrp->version, vrrp->vrid, vrrp->priority, vrrp->v3.max_advr_int);
+    }
+}
+
+void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t type)
+{
+    switch (type) {
+    case DNS_TYPE_A:
+        if (info->record[i].rdata.address) {
+            char addr[INET_ADDRSTRLEN];
+
+            inet_ntop(AF_INET, (struct in_addr *) &info->record[i].rdata.address, addr, sizeof(addr));
+            snprintcat(buf, n, "%s", addr);
+        }
+        break;
+    case DNS_TYPE_NS:
+        if (info->record[i].rdata.nsdname[0])
+            snprintcat(buf, n, "%s", info->record[i].rdata.nsdname);
+        break;
+    case DNS_TYPE_CNAME:
+        if (info->record[i].rdata.cname[0])
+            snprintcat(buf, n, "%s", info->record[i].rdata.cname);
+        break;
+    case DNS_TYPE_PTR:
+        if (info->record[i].rdata.ptrdname[0])
+            snprintcat(buf, n, "%s", info->record[i].rdata.ptrdname);
+        break;
+    case DNS_TYPE_AAAA:
+    {
+        static char addr[INET6_ADDRSTRLEN];
+
+        if (memcmp(info->record[i].rdata.ipv6addr, addr, 16)) {
+            inet_ntop(AF_INET6, (struct in_addr *) info->record[i].rdata.ipv6addr, addr, sizeof(addr));
+            snprintcat(buf, n, "%s", addr);
+        }
+        break;
+    }
+    case DNS_TYPE_HINFO:
+        if (info->record[i].rdata.hinfo.cpu && info->record[i].rdata.hinfo.os) {
+            snprintcat(buf, n, "%s ", info->record[i].rdata.hinfo.cpu);
+            snprintcat(buf, n, "%s", info->record[i].rdata.hinfo.os);
+        }
+        break;
+    case DNS_TYPE_MX:
+        if (info->record[i].rdata.mx.exchange[0])
+            snprintcat(buf, n, "%u %s", info->record[i].rdata.mx.preference,
+                       info->record[i].rdata.mx.exchange);
+        break;
+    default:
+        break;
+    }
+}
+
+void print_nbns_record(struct nbns_info *info, int i, char *buf, int n)
+{
+    switch (info->record[i].rrtype) {
+    case NBNS_NB:
+    {
+        if (info->record[i].rdata.nb.g) {
+            snprintcat(buf, n, "Group NetBIOS name");
+        } else {
+            snprintcat(buf, n, "Unique NetBIOS name");
+        }
+        snprintcat(buf, n, "  %s", get_nbns_node_type(info->record[i].rdata.nb.ont));
+        for (int j = 0; j < info->record[i].rdata.nb.num_addr; j++) {
+            char addr[INET_ADDRSTRLEN];
+
+            inet_ntop(AF_INET, info->record[i].rdata.nb.address + j, addr, INET_ADDRSTRLEN);
+            snprintcat(buf, n, "  %s", addr);
+        }
+        break;
+    }
+    case NBNS_NS:
+        snprintcat(buf, n, "  NSD Name: %s", info->record[i].rdata.nsdname);
+        break;
+    case NBNS_A:
+    {
+        char addr[INET_ADDRSTRLEN];
+
+        inet_ntop(AF_INET, (struct in_addr *) &info->record[i].rdata.nsdipaddr, addr, sizeof(addr));
+        snprintcat(buf, n, "  NSD IP address: %s", addr);
+        break;
+    }
+    case NBNS_NBSTAT:
+        break;
+    default:
+        break;
     }
 }

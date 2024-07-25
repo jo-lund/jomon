@@ -2294,3 +2294,14 @@ void add_vrrp_information(void *w, void *sw, void *data)
     if (vrrp->version < 3 && vrrp->v.auth_type == VRRP_V1_AUTH_STP && vrrp->v.auth_str[0] != '\0')
         LV_ADD_TEXT_ELEMENT(lv, header, "Authentication string: %s", vrrp->v.auth_str);
 }
+
+void add_loop_information(void *w, void *sw, void *data)
+{
+    list_view *lv = w;
+    list_view_header *header = sw;
+    struct packet_data *pdata = data;
+    char buf[MAXLINE] = { 0 };
+
+    loop2string(buf, MAXLINE, pdata->data);
+    LV_ADD_TEXT_ELEMENT(lv, header, "%s", buf);
+}

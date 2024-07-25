@@ -112,8 +112,7 @@ enum file_error read_header(iface_handle_t *handle, unsigned char *buf, size_t l
         swap_bytes = true;
     else
         return FORMAT_ERROR;
-    if ((handle->linktype = get_linktype(file_header)) != LINKTYPE_ETHERNET)
-        return LINK_ERROR;
+    handle->linktype = get_linktype(file_header);
     if (get_major_version(file_header) != 2 || get_minor_version(file_header) != 4)
         return VERSION_ERROR;
     return NO_ERROR;

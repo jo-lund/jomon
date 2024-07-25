@@ -8,6 +8,7 @@
 #include "packet_dns.h"
 #include "dns_cache.h"
 #include "hash.h"
+#include "misc.h"
 
 #define TBLSZ 1024
 
@@ -42,16 +43,12 @@ void host_analyzer_free(void)
 
 void host_analyzer_investigate(struct packet *p)
 {
-    if (!local_hosts && !remote_hosts)
-        return;
+    struct packet_data *pdata;
 
-    switch (ethertype(p)) {
-    case ETHERTYPE_IP:
+    if (ctx.handle->linktype == LINKTYPE_NULL || (!local_hosts && !remote_hosts))
+        return;
+    if ((pdata = get_packet_data(p, get_protocol_id(ETHERNET_II, ETHERTYPE_IP))))
         handle_ip4(p);
-        break;
-    default:
-        break;
-    }
 }
 
 hashmap_t *host_analyzer_get_local(void)

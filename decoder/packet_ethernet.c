@@ -6,12 +6,12 @@
 #include "../util.h"
 #include "../interface.h"
 
-#define MAX_PACKET_SIZE 65535
 #ifdef __linux__
 #define ETHERTYPE_PAE ETH_P_PAE
 #endif
 
 extern void add_ethernet_information(void *w, void *sw, void *data);
+extern void print_ethernet(char *buf, int n, void *data);
 static packet_error handle_ethernet(struct protocol_info *pinfo, unsigned char *buffer,
                                     int n, struct packet_data *pdata);
 
@@ -19,7 +19,7 @@ static struct protocol_info eth2 = {
     .short_name = "ETH",
     .long_name = "Ethernet II",
     .decode = handle_ethernet,
-    .print_pdu = NULL,
+    .print_pdu = print_ethernet,
     .add_pdu = add_ethernet_information
 };
 
@@ -27,7 +27,7 @@ static struct protocol_info eth802 = {
     .short_name = "ETH",
     .long_name = "Ethernet 802.3",
     .decode = handle_ethernet,
-    .print_pdu = NULL,
+    .print_pdu = print_ethernet,
     .add_pdu = add_ethernet_information
 };
 

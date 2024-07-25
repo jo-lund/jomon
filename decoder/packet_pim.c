@@ -7,6 +7,7 @@
 #include "packet.h"
 #include "packet_ip.h"
 #include "jomon.h"
+#include "af.h"
 
 #define PIM_HEADER_LEN 4
 
