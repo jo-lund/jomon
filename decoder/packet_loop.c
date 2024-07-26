@@ -47,12 +47,12 @@ packet_error handle_loop(struct protocol_info *pinfo UNUSED, unsigned char *buf,
     pdata->prev = NULL;
     switch (family) {
     case AF_BSD_INET:
-        id = get_protocol_id(ETHERNET_II, ETHERTYPE_IP);
+        id = get_protocol_id(PKT_LOOP, ETHERTYPE_IP);
         layer2 = get_protocol(id);
         break;
     case AF_FREEBSD_INET6:
     case AF_DARWIN_INET6:
-        id = get_protocol_id(ETHERNET_II, ETHERTYPE_IPV6);
+        id = get_protocol_id(PKT_LOOP, ETHERTYPE_IPV6);
         layer2 = get_protocol(id);
         break;
     default:
@@ -66,7 +66,7 @@ packet_error handle_loop(struct protocol_info *pinfo UNUSED, unsigned char *buf,
         layer2->decode(layer2, buf, n, pdata->next);
         return NO_ERR;
     }
-    return NO_ERR;
+    return UNK_PROTOCOL;
 }
 
 void loop2string(char *buf, int n, void *data)
@@ -74,5 +74,6 @@ void loop2string(char *buf, int n, void *data)
     uint32_t family;
 
     family = PTR_TO_UINT(data);
-    snprintcat(buf, n, "Address family: %s (%d)", get_address_family(family), family);
+    snprintcat(buf, n, "Address family: %s (%d)",
+               get_bsd_address_family(family), family);
 }

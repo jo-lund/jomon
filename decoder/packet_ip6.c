@@ -22,6 +22,7 @@ static struct protocol_info ipv6_prot = {
 void register_ip6(void)
 {
     register_protocol(&ipv6_prot, ETHERNET_II, ETHERTYPE_IPV6);
+    register_protocol(&ipv6_prot, PKT_LOOP, ETHERTYPE_IPV6);
 }
 
 /*

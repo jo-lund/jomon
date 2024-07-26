@@ -45,10 +45,12 @@ void host_analyzer_investigate(struct packet *p)
 {
     struct packet_data *pdata;
 
-    if (ctx.handle->linktype == LINKTYPE_NULL || (!local_hosts && !remote_hosts))
+    if (ctx.handle->linktype != LINKTYPE_ETHERNET || (!local_hosts && !remote_hosts))
         return;
-    if ((pdata = get_packet_data(p, get_protocol_id(ETHERNET_II, ETHERTYPE_IP))))
-        handle_ip4(p);
+    pdata = get_packet_data(p, get_protocol_id(ETHERNET_II, ETHERTYPE_IP));
+    if (!pdata || pdata->error)
+        return;
+    handle_ip4(p);
 }
 
 hashmap_t *host_analyzer_get_local(void)
@@ -95,6 +97,10 @@ static bool filter_address(const uint32_t addr)
 
     /* multicast: 224.0.0.0 - 239.255.255.255) */
     if ((addr & 0xff) >= 224 && (addr & 0xff) <= 239)
+        return true;
+
+    /* localhost */
+    if (addr == 0x0100007f)
         return true;
 
     return false;
@@ -160,11 +166,6 @@ static void update_host(void *paddr, char *name)
 
 static void handle_ip4(struct packet *p)
 {
-    struct packet_data *pdata;
-
-    pdata = get_packet_data(p, get_protocol_id(ETHERNET_II, ETHERTYPE_IP));
-    if (pdata && pdata->error)
-        return;
     if (!filter_address(ipv4_src(p)))
         insert_host(ipv4_src(p), eth_src(p));
     if (!filter_address(ipv4_dst(p)))

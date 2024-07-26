@@ -14,14 +14,15 @@
 #include "queue.h"
 
 #define MAX_PACKET_SIZE 65535
-#define DATALINK 0
-#define ETH802_3 1
-#define ETHERNET_II 2
-#define IP_PROT 3
-#define PORT 4
+#define DATALINK 1
+#define ETH802_3 2
+#define ETHERNET_II 3
+#define PKT_LOOP 4
+#define IP_PROT 5
+#define PORT 6
 
 #define CHECK_PROTOCOL(pdata) \
-    (((pdata) && (pdata->data)) ? get_protocol(pdata->id) : NULL)
+    (((pdata) && ((pdata)->data)) ? get_protocol((pdata)->id) : NULL)
 
 extern uint32_t total_packets;
 extern uint64_t total_bytes;
