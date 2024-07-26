@@ -39,7 +39,7 @@ char *file_error(enum file_error err);
 enum file_error file_read(iface_handle_t *handle, FILE *fp, packet_handler f);
 
 /* Write packets to file in pcap format */
-void file_write_pcap(FILE *fp, vector_t *packets, progress_update fn);
+void file_write_pcap(iface_handle_t *handle, FILE *fp, vector_t *packets, progress_update fn);
 
 /* Write packets to file in ascii */
 void file_write_ascii(FILE *fp, vector_t *packets, progress_update fn);

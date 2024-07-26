@@ -52,7 +52,7 @@ static packet_handler pkt_handler;
 static int read_buf(iface_handle_t *handle, unsigned char *buf, size_t len);
 static enum file_error read_header(iface_handle_t *handle, unsigned char *buf, size_t len);
 static enum file_error errno_file_error(int err);
-static void write_header(unsigned char *buf);
+static void write_header(iface_handle_t *handle, unsigned char *buf);
 static int write_data(unsigned char *buf, unsigned int len, struct packet *p);
 static inline uint32_t get_linktype(pcap_hdr_t *header);
 static inline uint16_t get_major_version(pcap_hdr_t *header);
@@ -154,12 +154,12 @@ int read_buf(iface_handle_t *handle, unsigned char *buf, size_t len)
     return 0;
 }
 
-void file_write_pcap(FILE *fp, vector_t *packets, progress_update fn)
+void file_write_pcap(iface_handle_t *handle, FILE *fp, vector_t *packets, progress_update fn)
 {
     int bufidx = 0;
     unsigned char buf[BUFSIZE];
 
-    write_header(buf);
+    write_header(handle, buf);
     bufidx += sizeof(pcap_hdr_t);
     for (int i = 0; i < vector_size(packets); i++) {
         struct packet *p;
@@ -184,7 +184,7 @@ void file_write_pcap(FILE *fp, vector_t *packets, progress_update fn)
  * Write global pcap header to buffer. We assume buffer is big enough to contain
  * the data.
  */
-void write_header(unsigned char *buf)
+void write_header(iface_handle_t *handle, unsigned char *buf)
 {
     static pcap_hdr_t header;
 
@@ -194,7 +194,7 @@ void write_header(unsigned char *buf)
     header.thiszone = 0;
     header.sigfigs = SIGFIGS;
     header.snaplen = SNAPLEN;
-    header.network = LINKTYPE_ETHERNET;
+    header.network = handle->linktype;
     memcpy(buf, &header, sizeof(pcap_hdr_t));
 }
 

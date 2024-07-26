@@ -490,7 +490,7 @@ void main_screen_save(vector_t *data, const char *file)
         snprintf(title, MAXLINE, " Saving %s ", (char *) file);
         pd = progress_dialogue_create(title, total_bytes);
         push_screen((screen *) pd);
-        file_write_pcap(fp, data, main_screen_write_show_progress);
+        file_write_pcap(ctx.handle, fp, data, main_screen_write_show_progress);
         pop_screen();
         SCREEN_FREE((screen *) pd);
         fclose(fp);

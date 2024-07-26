@@ -381,7 +381,7 @@ static void save_handle_ok(void *file)
         push_screen((screen *) pd);
         switch (tcp_mode) {
         case NORMAL:
-            file_write_pcap(fp, cs->base.packet_ref, show_progress);
+            file_write_pcap(ctx.handle, fp, cs->base.packet_ref, show_progress);
             break;
         case ASCII:
             file_write_ascii(fp, cs->base.packet_ref, show_progress);
