@@ -58,6 +58,18 @@ static inline uint32_t get_linktype(pcap_hdr_t *header);
 static inline uint16_t get_major_version(pcap_hdr_t *header);
 static inline uint16_t get_minor_version(pcap_hdr_t *header);
 
+static bool linktype_supported(uint32_t linktype)
+{
+    switch (linktype) {
+    case LINKTYPE_NULL:
+    case LINKTYPE_ETHERNET:
+    case LINKTYPE_IEEE802:
+        return true;
+    default:
+        return false;
+    }
+}
+
 FILE *file_open(const char *path, const char *mode, enum file_error *err)
 {
     FILE *fp;
@@ -113,6 +125,8 @@ enum file_error read_header(iface_handle_t *handle, unsigned char *buf, size_t l
     else
         return FORMAT_ERROR;
     handle->linktype = get_linktype(file_header);
+    if (!linktype_supported(handle->linktype))
+        return LINK_ERROR;
     if (get_major_version(file_header) != 2 || get_minor_version(file_header) != 4)
         return VERSION_ERROR;
     return NO_ERROR;
