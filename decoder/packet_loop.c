@@ -42,7 +42,8 @@ packet_error handle_loop(struct protocol_info *pinfo UNUSED, unsigned char *buf,
     layer2 = NULL;
     family = read_uint32le(&buf);
     n -= LOOP_HDR_LEN;
-    pdata->data = UINT_TO_PTR(family);
+    pdata->data = mempool_alloc(sizeof(uint32_t));
+    *(uint32_t *)pdata->data = family;
     pdata->len = LOOP_HDR_LEN;
     pdata->prev = NULL;
     switch (family) {
@@ -73,7 +74,7 @@ void loop2string(char *buf, int n, void *data)
 {
     uint32_t family;
 
-    family = PTR_TO_UINT(data);
+    family = *(uint32_t *) data;
     snprintcat(buf, n, "Address family: %s (%d)",
                get_bsd_address_family(family), family);
 }

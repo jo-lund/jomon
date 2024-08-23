@@ -101,7 +101,7 @@ void print_loop(char *buf, int n, void *data)
 
         pinfo = get_protocol(pdata->id);
         assert(pinfo);
-        PRINT_ADDRESS(buf, n, "loopback", "loopback");
+        PRINT_ADDRESS(buf, n, "N/A", "N/A");
         PRINT_PROTOCOL(buf, n, pinfo->short_name);
         loop2string(buf, n, pdata->data);
     }
