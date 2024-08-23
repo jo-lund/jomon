@@ -72,6 +72,7 @@ bool decode_packet(iface_handle_t *h, unsigned char *buffer, size_t len, struct 
     struct protocol_info *pinfo;
 
     *p = mempool_alloc(sizeof(struct packet));
+    (*p)->link.next = NULL;
     (*p)->buf = mempool_copy(buffer, len); /* store the original frame in buf */
     (*p)->len = len;
     (*p)->root = mempool_calloc(1, struct packet_data);
