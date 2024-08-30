@@ -52,6 +52,23 @@ static bool handle_packet(iface_handle_t *handle, unsigned char *buf, uint32_t n
     return true;
 }
 
+static void test_protocol_text(char *file)
+{
+    char log[MAXLINE];
+    char out[MAXLINE];
+    int n;
+    FILE *fp;
+
+    pkt2text(log, MAXLINE, p);
+    fp = fopen(file, "r");
+    ck_assert(fp);
+    n = fread(out, sizeof(char), MAXLINE, fp);
+    fclose(fp);
+    ck_assert(n > 0);
+    out[n-1] = '\0'; /* remove newline */
+    ck_assert_msg(strcmp(log, out) == 0, "Text output is wrong:\n\"%s\"\n\"%s\"", log, out);
+}
+
 static void setup(void)
 {
     mempool_init();
@@ -99,10 +116,6 @@ START_TEST(snap_test)
     uint16_t pid = 1;
     struct packet_data *pdata;
     struct snap_info *snap;
-    char log[MAXLINE];
-    char out[MAXLINE];
-    int n;
-    FILE *fp;
 
     read_file(PATH "snap.pcap");
     pdata = get_pdata(p, ETH_802_SNAP);
@@ -112,14 +125,7 @@ START_TEST(snap_test)
     ck_assert_msg(memcmp(snap->oui, oui, 3) == 0, "oui is wrong: 0x%02x%02x%02x != 0x00601d",
                   snap->oui[0], snap->oui[1], snap->oui[2]);
     ck_assert_msg(snap->protocol_id == pid, "Protocol id error: %u != 1", snap->protocol_id);
-    pkt2text(log, MAXLINE, p);
-    fp = fopen(PATH "snap.out", "r");
-    ck_assert(fp);
-    n = fread(out, sizeof(char), MAXLINE, fp);
-    fclose(fp);
-    ck_assert(n > 0);
-    out[n-1] = '\0'; /* remove newline */
-    ck_assert_msg(strcmp(log, out) == 0, "Text output is wrong:\n\"%s\"\n\"%s\"", log, out);
+    test_protocol_text(PATH "snap.out");
 }
 END_TEST
 
@@ -128,10 +134,6 @@ START_TEST(snmp_test)
     struct packet_data *pdata;
     struct snmp_info *snmp;
     const node_t *n;
-    char log[MAXLINE];
-    char out[MAXLINE];
-    int len;
-    FILE *fp;
     uint8_t version = 0;
     char *community = "public";
     uint8_t pdu_type = SNMP_GET_RESPONSE;
@@ -174,15 +176,32 @@ START_TEST(snmp_test)
                       var->object_syntax.ival, value[i]);
         i++;
     }
+    test_protocol_text(PATH "snmp.out");
+}
+END_TEST
 
-    pkt2text(log, MAXLINE, p);
-    fp = fopen(PATH "snmp.out", "r");
-    ck_assert(fp);
-    len = fread(out, sizeof(char), MAXLINE, fp);
-    fclose(fp);
-    ck_assert(len > 0);
-    out[len-1] = '\0';
-    ck_assert_msg(strcmp(log, out) == 0, "Text output is wrong:\n\"%s\"\n\"%s\"", log, out);
+START_TEST(nbns_test)
+{
+    struct packet_data *pdata;
+    struct nbns_info *nbns;
+    int records = 0;
+
+    read_file(PATH "nbns.pcap");
+    pdata = get_pdata(p, NBNS);
+    ck_assert_msg(pdata, "Not an NBNS packet");
+    ck_assert_msg(pdata->error == NULL, "Failed decoding packet: %s", pdata->error);
+    nbns = pdata->data;
+    ck_assert(nbns);
+
+    /* number of resource records */
+    for (int i = 1; i < 4; i++) {
+        records += nbns->section_count[i];
+    }
+    ck_assert(records == 1);
+    ck_assert_msg(strcmp(nbns->record[0].rrname, "JEREMIAHS-MBP<00>") == 0,
+                  "NetBIOS name is wrong: \'%s\' != \'JEREMIAHS-MBP<00>\'", nbns->record[0].rrname);
+    ck_assert(nbns->record[0].rrtype == NBNS_NB);
+    test_protocol_text(PATH "nbns.out");
 }
 
 Suite *decoder_suite(void)
@@ -197,6 +216,7 @@ Suite *decoder_suite(void)
     tcase_add_test(tc_core, snap_test);
     tcase_add_test(tc_core, snmp_test);
     tcase_add_test(tc_core, tcp_opt_err_test);
+    tcase_add_test(tc_core, nbns_test);
     tcase_set_timeout(tc_core, 60);
     return s;
 }
