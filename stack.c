@@ -9,78 +9,78 @@ struct stack {
     int size;
 };
 
-stack_t *stack_init(int n)
+stack *stack_init(int n)
 {
-    stack_t *stack;
+    stack *s;
 
     assert(n > 0);
-    stack = xmalloc(sizeof(stack_t));
-    stack->buf = xmalloc(n * sizeof(void*));
-    stack->top = 0;
-    stack->size = n;
-    return stack;
+    s = xmalloc(sizeof(stack));
+    s->buf = xmalloc(n * sizeof(void*));
+    s->top = 0;
+    s->size = n;
+    return s;
 }
 
-bool stack_push(stack_t *stack, void *data)
+bool stack_push(stack *s, void *data)
 {
-    if (stack->top < stack->size) {
-        stack->buf[stack->top++] = data;
+    if (s->top < s->size) {
+        s->buf[s->top++] = data;
         return true;
     }
     return false;
 }
 
-void *stack_pop(stack_t *stack)
+void *stack_pop(stack *s)
 {
-    if (stack->top > 0)
-        return stack->buf[--stack->top];
+    if (s->top > 0)
+        return s->buf[--s->top];
     return NULL;
 }
 
-void stack_pop_free(stack_t *stack, stack_deallocate func)
+void stack_pop_free(stack *s, stack_deallocate func)
 {
-    if (stack->top > 0)
-        func(stack->buf[--stack->top]);
+    if (s->top > 0)
+        func(s->buf[--s->top]);
 }
 
-void *stack_top(stack_t *stack)
+void *stack_top(stack *s)
 {
-    if (stack->top > 0)
-        return stack->buf[stack->top-1];
+    if (s->top > 0)
+        return s->buf[s->top-1];
     return NULL;
 }
 
-void *stack_get(stack_t *stack, int i)
+void *stack_get(stack *s, int i)
 {
     assert(i >= 0);
-    if (i < stack->size)
-        return stack->buf[i];
+    if (i < s->size)
+        return s->buf[i];
     return NULL;
 }
 
-void stack_clear(stack_t *stack)
+void stack_clear(stack *s)
 {
-    stack->size = 0;
-    stack->top = 0;
+    s->size = 0;
+    s->top = 0;
 }
 
-bool stack_empty(stack_t *stack)
+bool stack_empty(stack *s)
 {
-    return stack->top == 0;
+    return s->top == 0;
 }
 
-int stack_size(stack_t *stack)
+int stack_size(stack *s)
 {
-    return stack->top;
+    return s->top;
 }
 
-void stack_free(stack_t *stack, stack_deallocate func)
+void stack_free(stack *s, stack_deallocate func)
 {
     if (func) {
-        for (int i = 0; i < stack->top; i++) {
-            func(stack->buf[i]);
+        for (int i = 0; i < s->top; i++) {
+            func(s->buf[i]);
         }
     }
-    free(stack->buf);
-    free(stack);
+    free(s->buf);
+    free(s);
 }

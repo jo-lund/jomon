@@ -28,7 +28,7 @@ publisher_t *new_file_publisher;
 publisher_t *alarm_publisher;
 
 static struct screen *screen_cache[NUM_SCREENS];
-static stack_t *screen_stack;
+static stack *screen_stack;
 static int theme;
 static void colours_init(void);
 static void create_screens(void);
@@ -353,7 +353,7 @@ void screen_stack_move_to_top(screen *s)
 
     if (i > 0) {
         unsigned int top = stack_size(screen_stack) - 1;
-        stack_t *tmp;
+        stack *tmp;
 
         if (top == (unsigned) i) return; /* screen already on top of stack */
         tmp = stack_init(top - i);
