@@ -69,9 +69,6 @@
 #define DNS_CLASS_HS 4      /* Hesiod */
 #define DNS_QCLASS_STAR 255 /* any class */
 
-typedef struct list list_t;
-struct application_info;
-
 /*
  * In the Resource Record Sections of a Multicast DNS response, the top
  * bit of the rrclass field is used to indicate the cache-flush bit.

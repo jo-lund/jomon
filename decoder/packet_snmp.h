@@ -79,8 +79,6 @@ struct snmp_info {
     };
 };
 
-struct application_info;
-
 char *get_snmp_type(struct snmp_info *snmp);
 char *get_snmp_error_status(struct snmp_pdu *pdu);
 char *get_snmp_trap_type(struct snmp_trap *pdu);
