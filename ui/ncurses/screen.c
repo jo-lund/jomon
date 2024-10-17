@@ -6,6 +6,7 @@
 #include "dialogue.h"
 #include "misc.h"
 #include "util.h"
+#include "portability.h"
 
 extern main_menu *menu;
 extern vector_t *packets;
@@ -324,7 +325,7 @@ void screen_update_order(screen *s, void *data, int size,
             s->header[i].order = -1;
     }
     s->header[s->hpos].order = (s->header[s->hpos].order + 1) % 2;
-    qsort_r(data, size, sizeof(void *), cmp_elem, INT_TO_PTR(s->hpos));
+    QSORT(data, size, sizeof(void *), cmp_elem, INT_TO_PTR(s->hpos));
 }
 
 int screen_get_active_header_focus(screen *s)

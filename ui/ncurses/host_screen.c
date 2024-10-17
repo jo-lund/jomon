@@ -1,7 +1,6 @@
 #define _GNU_SOURCE
 #include <stdlib.h>
 #include <arpa/inet.h>
-#include <stdlib.h>
 #include "host_screen.h"
 #include "menu.h"
 #include "misc.h"
@@ -12,6 +11,7 @@
 #include "attributes.h"
 #include "geoip.h"
 #include "actionbar.h"
+#include "portability.h"
 
 #define IP_ADDR 0
 #define ADDR_WIDTH 20
@@ -172,9 +172,9 @@ static void update_data(void)
 
         HASHMAP_FOREACH(hosts, it)
             vector_push_back(hs->screen_buf, it->data);
-        qsort_r(vector_data(hs->screen_buf), vector_size(hs->screen_buf),
-                sizeof(struct host_info *), (s->page == LOCAL) ? cmp_local : cmp_remote,
-                INT_TO_PTR(screen_get_active_header_focus(s)));
+        QSORT(vector_data(hs->screen_buf), vector_size(hs->screen_buf),
+              sizeof(struct host_info *), (s->page == LOCAL) ? cmp_local : cmp_remote,
+              INT_TO_PTR(screen_get_active_header_focus(s)));
     }
 }
 
@@ -305,9 +305,9 @@ void update_host(struct host_info *host, bool new_host)
             werase(hs->base.win);
             print_host_header(hs);
             vector_push_back(hs->screen_buf, host);
-            qsort_r(vector_data(hs->screen_buf), vector_size(hs->screen_buf),
-                    sizeof(struct host_info *), hs->base.page == LOCAL ? cmp_local : cmp_remote,
-                    INT_TO_PTR(screen_get_active_header_focus((screen *) hs)));
+            QSORT(vector_data(hs->screen_buf), vector_size(hs->screen_buf),
+                  sizeof(struct host_info *), hs->base.page == LOCAL ? cmp_local : cmp_remote,
+                  INT_TO_PTR(screen_get_active_header_focus((screen *) hs)));
             hs->y = 0;
             print_all_hosts(hs);
         } else {

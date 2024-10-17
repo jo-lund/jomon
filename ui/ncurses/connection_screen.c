@@ -13,6 +13,7 @@
 #include "conversation_screen.h"
 #include "actionbar.h"
 #include "signal.h"
+#include "portability.h"
 
 #define ADDR_WIDTH 17
 #define PORT_WIDTH 10
@@ -291,18 +292,18 @@ static void update_screen_buf(screen *s)
                 vector_push_back(cs->screen_buf, conn);
             }
         }
-        qsort_r(vector_data(cs->screen_buf), vector_size(cs->screen_buf),
-                sizeof(struct tcp_connection_v4 *), cmp_conn,
-                INT_TO_PTR(screen_get_active_header_focus(s)));
+        QSORT(vector_data(cs->screen_buf), vector_size(cs->screen_buf),
+              sizeof(struct tcp_connection_v4 *), cmp_conn,
+              INT_TO_PTR(screen_get_active_header_focus(s)));
     } else {
         hashmap_t *procs = process_get_processes();
         const hashmap_iterator *it;
 
         HASHMAP_FOREACH(procs, it)
             vector_push_back(cs->screen_buf, it->data);
-        qsort_r(vector_data(cs->screen_buf), vector_size(cs->screen_buf),
-                    sizeof(struct process *), cmp_proc,
-                    INT_TO_PTR(screen_get_active_header_focus(s)));
+        QSORT(vector_data(cs->screen_buf), vector_size(cs->screen_buf),
+              sizeof(struct process *), cmp_proc,
+              INT_TO_PTR(screen_get_active_header_focus(s)));
     }
 }
 
