@@ -376,14 +376,14 @@ bool parse_address(unsigned char **data, int *n, pim_addr *addr, uint8_t family,
     unsigned char *ptr = *data;
 
     switch (family) {
-    case AF_IP:
+    case AFN_IP:
         if (*n < 4)
             return false;
         addr->ipv4_addr = get_uint32le(ptr); /* store in big-endian format */
         ptr += 4;
         *n -= 4;
         break;
-    case AF_IP6:
+    case AFN_IP6:
         if (*n < 16)
             return false;
         memcpy(addr->ipv6_addr, ptr, 16);
@@ -488,11 +488,11 @@ char *get_pim_address(uint8_t family, pim_addr *addr)
     char *ipaddr;
 
     switch (family) {
-    case AF_IP:
+    case AFN_IP:
         ipaddr = xmalloc(INET_ADDRSTRLEN);
         inet_ntop(AF_INET, addr, ipaddr, INET_ADDRSTRLEN);
         return ipaddr;
-    case AF_IP6:
+    case AFN_IP6:
         ipaddr = xmalloc(INET6_ADDRSTRLEN);
         inet_ntop(AF_INET6, addr, ipaddr, INET6_ADDRSTRLEN);
         return ipaddr;

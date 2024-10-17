@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include "packet.h"
 #include "packet_loop.h"
 #include "af.h"
@@ -47,12 +46,12 @@ packet_error handle_loop(struct protocol_info *pinfo UNUSED, unsigned char *buf,
     pdata->len = LOOP_HDR_LEN;
     pdata->prev = NULL;
     switch (family) {
-    case AF_BSD_INET:
+    case AFN_BSD_INET:
         id = get_protocol_id(PKT_LOOP, ETHERTYPE_IP);
         layer2 = get_protocol(id);
         break;
-    case AF_FREEBSD_INET6:
-    case AF_DARWIN_INET6:
+    case AFN_FREEBSD_INET6:
+    case AFN_DARWIN_INET6:
         id = get_protocol_id(PKT_LOOP, ETHERTYPE_IPV6);
         layer2 = get_protocol(id);
         break;
