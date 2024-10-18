@@ -1,7 +1,6 @@
 #ifndef ALLOC_H
 #define ALLOC_H
 
-#include <stdlib.h>
 #include "wrapper.h"
 
 typedef void *(*alloc_fn)(size_t);

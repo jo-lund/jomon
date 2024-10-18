@@ -1,11 +1,8 @@
 #ifndef HOST_ANALYZER_H
 #define HOST_ANALYZER_H
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <netinet/if_ether.h>
-#include "../hashmap.h"
+#include "hashmap.h"
 
 struct host_info {
     uint32_t ip4_addr;
