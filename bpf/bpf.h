@@ -1,5 +1,5 @@
-#ifndef _BPF_H
-#define _BPF_H
+#ifndef JOMON_BPF_H
+#define JOMON_BPF_H
 
 #include <stdint.h>
 
