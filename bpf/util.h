@@ -4,7 +4,7 @@
 #include <limits.h>
 #include <stdbool.h>
 
-static inline long getval(unsigned char *tok, unsigned char *end, int base, bool *error)
+static inline long getval(unsigned char *tok, const unsigned char *end, int base, bool *error)
 {
     long v = 0;
     unsigned int d;
@@ -30,7 +30,7 @@ static inline long getval(unsigned char *tok, unsigned char *end, int base, bool
     return v;
 }
 
-static inline long gethexval(unsigned char *tok, unsigned char *end, bool *error)
+static inline long gethexval(unsigned char *tok, const unsigned char *end, bool *error)
 {
     long v = 0;
 
