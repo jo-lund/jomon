@@ -42,6 +42,8 @@ static void help_screen_render(void)
     wprintw(win, ": Show statistics");
     mvprintat(win, ++y, x, subcol, "%12s", "c");
     wprintw(win, ": Show TCP connections");
+    mvprintat(win, ++y, x, subcol, "%12s", "C");
+    wprintw(win, ": Clear marked packets");
     mvprintat(win, ++y, x, subcol, "%12s", "h");
     wprintw(win, ": Show hosts");
     mvprintat(win, ++y, x, subcol, "%12s", "i");
@@ -109,14 +111,14 @@ static void help_screen_render(void)
     wprintw(win, ": Go to packet");
     mvprintat(win, ++y, x, subcol, "%12s", "m");
     wprintw(win, ": Change hexdump mode");
+    mvprintat(win, ++y, x, subcol, "%12s", "M");
+    wprintw(win, ": Mark/unmark packet");
     mvprintat(win, ++y, x, subcol, "%12s", "Enter");
     wprintw(win, ": Inspect packet");
     mvprintat(win, ++y, x, subcol, "%12s", "Esc");
     wprintw(win, ": Close packet window/Quit interactive mode");
     mvprintat(win, ++y, x, subcol, "%12s", "i");
     wprintw(win, ": Quit interactive mode");
-    mvprintat(win, ++y, x, subcol, "%12s", "M");
-    wprintw(win, ": Mark/unmark packet");
     y += 2;
     mvprintat(win, y, x, hdrcol, "Statistics screen keyboard shortcuts");
     mvprintat(win, ++y, x, subcol, "%12s", "e");

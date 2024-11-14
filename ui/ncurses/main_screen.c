@@ -708,6 +708,12 @@ void main_screen_get_input(screen *s)
             main_screen_handle_keydown(ms, my);
         }
         break;
+    case 'C':
+        if (rbtree_size(ms->marked) > 0) {
+            rbtree_clear(ms->marked);
+            main_screen_refresh((screen *) ms);
+        }
+        break;
     case KEY_ESC:
         if (ms->subwindow.win) {
             delete_subwindow(ms, true);
