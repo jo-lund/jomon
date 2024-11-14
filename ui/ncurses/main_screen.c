@@ -988,6 +988,8 @@ void set_filter(main_screen *ms, int c)
             if (vector_size(ms->packet_ref) == 0)
                 ms->base.show_selectionbar = false;
         }
+        if (rbtree_size(ms->marked) > 0)
+            rbtree_clear(ms->marked);
         ms->input_mode = INPUT_NONE;
         werase(ms->status);
         actionbar_refresh(actionbar, (screen *) ms);
