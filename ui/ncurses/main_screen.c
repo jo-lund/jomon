@@ -72,7 +72,7 @@ static void main_screen_lost_focus(screen *s, screen *new);
 
 /* Handles subwindow layout */
 static void create_subwindow(main_screen *ms, int num_lines, int lineno);
-static void delete_subwindow(main_screen *ms, bool refresh);
+static void delete_subwindow(main_screen *ms, bool update_base);
 static bool inside_subwindow(main_screen *ms, int line);
 static void refresh_pad(main_screen *ms, struct subwin_info *pad, int scrolly, int minx, bool update);
 static bool subwindow_on_screen(main_screen *ms);
@@ -718,6 +718,7 @@ void main_screen_get_input(screen *s)
         if (ms->subwindow.win) {
             delete_subwindow(ms, true);
             ms->main_line.selected = false;
+            main_screen_refresh((screen *) ms);
             break;
         }
         FALLTHROUGH;
@@ -1404,6 +1405,7 @@ void print_selected_packet(main_screen *ms)
         main_screen_refresh((screen *) ms);
     } else {
         delete_subwindow(ms, true);
+        main_screen_refresh((screen *) ms);
     }
     prev_selection = ms->base.selectionbar;
 }
@@ -1476,7 +1478,11 @@ void create_subwindow(main_screen *ms, int num_lines, int lineno)
     }
 }
 
-void delete_subwindow(main_screen *ms, bool refresh)
+/*
+ * Remove subwindow from the screen. If update_base is set, update base screen
+ * parameters.
+ */
+void delete_subwindow(main_screen *ms, bool update_base)
 {
     if (ms->scrolly) {
         if (ms->subwindow.top > 0 && subwindow_on_screen(ms))
@@ -1485,7 +1491,7 @@ void delete_subwindow(main_screen *ms, bool refresh)
     }
     delwin(ms->subwindow.win);
     ms->subwindow.win = NULL;
-    if (refresh) {
+    if (update_base) {
         int my = getmaxy(ms->base.win);
 
         if (ms->base.selectionbar >= vector_size(ms->packet_ref))
@@ -1500,13 +1506,9 @@ void delete_subwindow(main_screen *ms, bool refresh)
         } else if (ms->base.selectionbar >= ms->base.top + getmaxy(ms->base.win)) {
             ms->base.selectionbar = ms->base.top + getmaxy(ms->base.win) - 1;
         }
-        ms->subwindow.num_lines = 0;
-        ms->subwindow.top = 0;
-        main_screen_refresh((screen *) ms);
-    } else {
-        ms->subwindow.num_lines = 0;
-        ms->subwindow.top = 0;
     }
+    ms->subwindow.num_lines = 0;
+    ms->subwindow.top = 0;
 }
 
 /* Returns whether the selection line is inside the subwindow */
