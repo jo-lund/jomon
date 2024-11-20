@@ -37,6 +37,8 @@ typedef struct main_screen {
     mon_timer_t *timer;
     void (*timer_callback)(void *);
     int input_mode;
+    struct input_state *input_goto;
+    struct input_state *input_filter;
 } main_screen;
 
 struct packet;

@@ -27,6 +27,7 @@
 #include "bpf/pcap_parser.h"
 #include "actionbar.h"
 #include "hash.h"
+#include "input.h"
 
 /* Get the y screen coordinate. The argument is the main_screen coordinate */
 #define GET_SCRY(y) ((y) + HEADER_HEIGHT)
@@ -207,11 +208,15 @@ void main_screen_init(screen *s)
     ms->marked = rbtree_init(compare_uint, NULL);
     ms->timer_callback = timer_callback;
     ms->timer = timer_init(true);
+    ms->input_mode = INPUT_NONE;
     nodelay(s->win, TRUE); /* input functions must be non-blocking */
     keypad(s->win, TRUE);
     scrollok(s->win, TRUE);
     set_filepath();
     ms->status = newwin(1, mx, my - 1, 0);
+    ms->input_goto = input_init(ms->status, "Go to packet: ");
+    ms->input_filter = input_init(ms->status, "Filter: ");
+    input_set_valid_keys(ms->input_goto, INPUT_DIGITS);
     add_actionbar_elems(s);
 }
 
@@ -219,6 +224,8 @@ void main_screen_free(screen *s)
 {
     main_screen *ms = (main_screen *) s;
 
+    input_free(ms->input_goto);
+    input_free(ms->input_filter);
     timer_free(ms->timer);
     rbtree_free(ms->marked);
     delwin(ms->subwindow.win);
@@ -561,7 +568,7 @@ void main_screen_get_input(screen *s)
         if (!s->show_selectionbar)
             return;
         ms->input_mode = (ms->input_mode == INPUT_GOTO) ? INPUT_NONE : INPUT_GOTO;
-        handle_input_mode(ms, "Go to packet: ");
+        handle_input_mode(ms, input_get_prompt(ms->input_goto));
         break;
     case 'i':
         main_screen_set_interactive(ms, !s->show_selectionbar);
@@ -691,7 +698,7 @@ void main_screen_get_input(screen *s)
     case 'e':
     case KEY_F(9):
         ms->input_mode = (ms->input_mode == INPUT_FILTER) ? INPUT_NONE : INPUT_FILTER;
-        handle_input_mode(ms, "Filter: ");
+        handle_input_mode(ms, input_get_prompt(ms->input_filter));
         break;
     case 'M':
         if (!ctx.capturing && !inside_subwindow(ms, ms->base.selectionbar)) {
@@ -847,30 +854,30 @@ static int find_packet(main_screen *ms, uint32_t num)
 
 void main_screen_goto_line(main_screen *ms, int c)
 {
-    static int num = 0;
     static bool error = false;
+    int ret;
 
     if (error) {
         wbkgd(ms->status, get_theme_colour(BACKGROUND));
         wrefresh(ms->status);
         error = false;
     }
-    if (isdigit(c) && num < INT_MAX / 10) {
-        waddch(ms->status, c);
-        num = num * 10 + c - '0';
-        wrefresh(ms->status);
-    } else if (c == KEY_BACKSPACE || c == 127 || c == '\b') {
-        int x, y;
-
-        getyx(ms->status, y, x);
-        if (x >= 13) {
-            mvwdelch(ms->status, y, x - 1);
-            num /= 10;
-        }
-        wrefresh(ms->status);
-    } else if (num && (c == '\n' || c == KEY_ENTER)) {
+    if (c == KEY_ESC) {
+        curs_set(0);
+        werase(ms->status);
+        ms->input_mode = INPUT_NONE;
+        actionbar_refresh(actionbar, (screen *) ms);
+        input_clear(ms->input_goto);
+        return;
+    }
+    ret = input_edit(ms->input_goto, c);
+    if (ret == 1) {
         int my;
+        long num;
 
+        num = strtol(input_get_buffer(ms->input_goto), NULL, 10);
+        if (num == LONG_MAX)
+            goto error;
         my = getmaxy(ms->base.win);
         if (bpf.size > 0 || ms->follow_stream) {
             int i;
@@ -908,16 +915,16 @@ void main_screen_goto_line(main_screen *ms, int c)
         curs_set(0);
         werase(ms->status);
         ms->input_mode = INPUT_NONE;
-        num = 0;
+        input_clear(ms->input_goto);
         actionbar_refresh(actionbar, (screen *) ms);
         main_screen_refresh((screen *) ms);
-    } else if (c == KEY_ESC) {
-        curs_set(0);
-        werase(ms->status);
-        num = 0;
-        ms->input_mode = INPUT_NONE;
-        actionbar_refresh(actionbar, (screen *) ms);
     }
+    return;
+
+error:
+    wbkgd(ms->status, get_theme_colour(ERR_BKGD));
+    wrefresh(ms->status);
+    error = true;
 }
 
 void main_screen_goto_home(main_screen *ms)
