@@ -32,8 +32,6 @@
 /* Get the y screen coordinate. The argument is the main_screen coordinate */
 #define GET_SCRY(y) ((y) + HEADER_HEIGHT)
 
-#define FILTER_IDX 8
-
 enum key_mode {
     KEY_NORMAL,
     KEY_CTRL,
@@ -958,35 +956,38 @@ void main_screen_goto_end(main_screen *ms)
 
 void set_filter(main_screen *ms, int c)
 {
-    static int numc = 0;
     static bool error = false;
     struct bpf_prog prog;
-    char filter[MAXLINE];
-    int x, y;
+    char *filter;
+    int ret;
 
     if (error) {
         wbkgd(ms->status, get_theme_colour(BACKGROUND));
         wrefresh(ms->status);
         error = false;
     }
-    switch (c) {
-    case '\n':
-    case KEY_ENTER:
-        getyx(ms->status, y, x);
+    if (c == KEY_ESC) {
         curs_set(0);
-        mvwinnstr(ms->status, 0, 8, filter, MAXLINE);
-        filter[numc] = '\0';
+        ms->input_mode = INPUT_NONE;
+        werase(ms->status);
+        input_clear(ms->input_filter);
+        wbkgd(ms->status, get_theme_colour(BACKGROUND));
+        actionbar_refresh(actionbar, (screen *) ms);
+    }
+    ret = input_edit(ms->input_filter, c);
+    if (ret == 1) {
+        curs_set(0);
+        filter = input_get_buffer(ms->input_filter);
         if (ms->subwindow.win) {
             delete_subwindow(ms, false);
             ms->main_line.selected = false;
         }
-        if (numc == 0) {
+        if (filter[0] == '\0') {
             clear_filter(ms);
         } else {
             prog = pcap_compile(filter);
             if (prog.size == 0) {
                 wbkgd(ms->status, get_theme_colour(ERR_BKGD));
-                wmove(ms->status, y, x);
                 curs_set(1);
                 wrefresh(ms->status);
                 error = true;
@@ -1005,61 +1006,13 @@ void set_filter(main_screen *ms, int c)
         if (rbtree_size(ms->marked) > 0)
             rbtree_clear(ms->marked);
         ms->input_mode = INPUT_NONE;
+        input_clear(ms->input_filter);
         werase(ms->status);
         actionbar_refresh(actionbar, (screen *) ms);
         ms->base.top = 0;
         ms->base.selectionbar = 0;
         wbkgd(ms->status, get_theme_colour(BACKGROUND));
-        numc = 0;
         main_screen_refresh((screen *) ms);
-        break;
-    case KEY_ESC:
-        curs_set(0);
-        numc = 0;
-        ms->input_mode = INPUT_NONE;
-        werase(ms->status);
-        wbkgd(ms->status, get_theme_colour(BACKGROUND));
-        actionbar_refresh(actionbar, (screen *) ms);
-        break;
-    case KEY_BACKSPACE:
-    case 127:
-    case '\b':
-        getyx(ms->status, y, x);
-        if (x > FILTER_IDX) {
-            mvwdelch(ms->status, y, x - 1);
-            numc--;
-            wrefresh(ms->status);
-        }
-        break;
-    case KEY_LEFT:
-        getyx(ms->status, y, x);
-        if (x > FILTER_IDX) {
-            wmove(ms->status, 0, x - 1);
-            wrefresh(ms->status);
-        }
-        break;
-    case KEY_RIGHT:
-        getyx(ms->status, y, x);
-        if (x - FILTER_IDX < numc) {
-            wmove(ms->status, 0, x + 1);
-            wrefresh(ms->status);
-        }
-        break;
-    case KEY_DC:
-        getyx(ms->status, y, x);
-        if (x - FILTER_IDX < numc) {
-            mvwdelch(ms->status, 0, x);
-            numc--;
-            wrefresh(ms->status);
-        }
-        break;
-    default:
-        if (c >= 0x20 && c < 0x7f) {
-            waddch(ms->status, c);
-            numc++;
-            wrefresh(ms->status);
-        }
-        break;
     }
 }
 
