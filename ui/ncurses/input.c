@@ -76,7 +76,7 @@ int input_edit(struct input_state *s, int c)
     case KEY_DC:
         if (s->len > 0 && s->pos < s->len) {
             memmove(s->buf + s->pos, s->buf + s->pos + 1,
-                    s->len - s->pos - 1);
+                    s->len - s->pos + 1);
             s->len--;
             s->buf[s->len] = '\0';
             input_refresh(s);
