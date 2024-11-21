@@ -568,7 +568,6 @@ void file_dialogue_handle_enter(struct file_dialogue *this)
     screen *s;
 
     s = (screen *) this;
-    //curs_set(0);
     info = (struct file_info *) vector_get(this->files, s->selectionbar);
     switch (this->has_focus) {
     case FS_LIST:
