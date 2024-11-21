@@ -51,8 +51,7 @@ int input_edit(struct input_state *s, int c)
     case KEY_BACKSPACE:
         if (s->pos > 0 && s->len > 0) {
             if (s->pos < s->len)
-                memmove(s->buf + s->pos - 1, s->buf + s->pos,
-                        s->len - s->pos);
+                memmove(s->buf + s->pos - 1, s->buf + s->pos, s->len - s->pos);
             s->pos--;
             s->len--;
             s->buf[s->len] = '\0';
@@ -75,8 +74,7 @@ int input_edit(struct input_state *s, int c)
         break;
     case KEY_DC:
         if (s->len > 0 && s->pos < s->len) {
-            memmove(s->buf + s->pos, s->buf + s->pos + 1,
-                    s->len - s->pos + 1);
+            memmove(s->buf + s->pos, s->buf + s->pos + 1, s->len - s->pos + 1);
             s->len--;
             s->buf[s->len] = '\0';
             input_refresh(s);
@@ -85,9 +83,15 @@ int input_edit(struct input_state *s, int c)
     default:
         if (s->pos >= MAXLINE - 1 || !valid_key(s, c))
             return -1;
-        s->buf[s->pos++] = c;
-        s->buf[s->pos] = '\0';
-        s->len++;
+        if (s->pos == s->len) {
+            s->buf[s->pos++] = c;
+            s->buf[s->pos] = '\0';
+            s->len++;
+        } else {
+            memmove(s->buf + s->pos + 1, s->buf + s->pos, s->len - s->pos);
+            s->buf[s->pos++] = c;
+            s->buf[++s->len] = '\0';
+        }
         input_refresh(s);
         break;
     }
