@@ -80,6 +80,16 @@ int input_edit(struct input_state *s, int c)
             input_refresh(s);
         }
         break;
+    case KEY_HOME:
+        s->pos = 0;
+        wmove(s->win, 0, s->plen + s->pos);
+        wrefresh(s->win);
+        break;
+    case KEY_END:
+        s->pos = s->len;
+        wmove(s->win, 0, s->plen + s->pos);
+        wrefresh(s->win);
+        break;
     default:
         if (s->pos >= MAXLINE - 1 || !valid_key(s, c))
             return -1;
