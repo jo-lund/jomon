@@ -31,7 +31,6 @@ ifeq ($(MACHINE),Linux)
     sources += $(wildcard linux/*.c)
 else
 ifeq ($(MACHINE),FreeBSD)
-    LIBS += -lrt
     sources += $(wildcard bsd/*.c)
 endif
 endif
