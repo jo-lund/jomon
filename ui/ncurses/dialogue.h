@@ -66,6 +66,7 @@ typedef struct file_dialogue {
     button *cancel;
     int has_focus;
     enum file_selection_type type;
+    struct input_state *state;
 } file_dialogue;
 
 typedef struct progress_dialogue {

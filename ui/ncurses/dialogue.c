@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include "dialogue.h"
 #include "jomon.h"
+#include "input.h"
 
 #define FORMAT_BUF_LEN 7
 #define FILE_INPUT_TEXT "Filename: "
@@ -340,6 +341,7 @@ file_dialogue *file_dialogue_create(char *title, enum file_selection_type type,
     scrollok(fd->list.win, TRUE);
     nodelay(fd->list.win, TRUE);
     keypad(fd->list.win, TRUE);
+    fd->state = input_init(fd->input.win, FILE_INPUT_TEXT);
     file_dialogue_render(fd);
     return fd;
 }
@@ -356,6 +358,7 @@ void file_dialogue_free(screen *s)
         vector_free(fd->files, free_data);
         button_free(fd->ok);
         button_free(fd->cancel);
+        input_free(fd->state);
         free(fd);
     }
 }
@@ -498,64 +501,8 @@ void file_dialogue_get_input(screen *s)
     case KEY_DOWN:
         file_dialogue_handle_keydown(fd);
         break;
-    case KEY_LEFT:
-        if (fd->has_focus == FS_INPUT) {
-            int y, x;
-
-            getyx(fd->input.win, y, x);
-            if (x > FILE_INPUT_TEXTLEN) {
-                wmove(fd->input.win, y, --x);
-                wrefresh(fd->input.win);
-            }
-        }
-        break;
-    case KEY_RIGHT:
-        if (fd->has_focus == FS_INPUT) {
-            int y, x, maxx;
-
-            getyx(fd->input.win, y, x);
-            maxx = getmaxx(fd->input.win);
-            if (x < maxx) {
-                wmove(fd->input.win, y, ++x);
-                wrefresh(fd->input.win);
-            }
-        }
-        break;
-    case KEY_ENTER:
-    case '\n':
-        file_dialogue_handle_enter(fd);
-        break;
     case '\t':
         file_dialogue_update_focus(fd);
-        break;
-    case '\b':
-    case KEY_BACKSPACE:
-    case 127:
-        if (fd->has_focus == FS_INPUT) {
-            int y, x;
-
-            getyx(fd->input.win, y, x);
-            if (x > FILE_INPUT_TEXTLEN) {
-                mvwdelch(fd->input.win, y, x - 1);
-                wrefresh(fd->input.win);
-            }
-        }
-        break;
-    case KEY_DC:
-        if (fd->has_focus == FS_INPUT) {
-            int y UNUSED;
-            int x;
-            int len = 0;
-            char buf[MAXPATH];
-
-            getyx(fd->input.win, y, x);
-            winnstr(fd->input.win, buf, MAXPATH);
-            len = strlen(buf);
-            if (x < FILE_INPUT_TEXTLEN + len) {
-                wdelch(fd->input.win);
-                wrefresh(fd->input.win);
-            }
-        }
         break;
     case ' ':
     case KEY_NPAGE:
@@ -570,9 +517,10 @@ void file_dialogue_get_input(screen *s)
         }
         FALLTHROUGH;
     default:
-        if (fd->has_focus == FS_INPUT && isprint(c)) {
-            waddch(fd->input.win, c);
-            wrefresh(fd->input.win);
+        if (fd->has_focus == FS_INPUT) {
+            int ret = input_edit(fd->state, c);
+            if (ret == 1)
+                file_dialogue_handle_enter(fd);
         }
         break;
     }
@@ -652,12 +600,10 @@ void file_dialogue_handle_enter(struct file_dialogue *this)
         int n = strlen(this->path);
 
         if (n > 0) {
-            char buf[MAXPATH];
-            char *s;
+            char *buf;
 
-            mvwinnstr(this->input.win, 0, FILE_INPUT_TEXTLEN, buf, MAXPATH);
-            s = string_trim_whitespace(buf);
-            strncat(this->path, s, MAXPATH);
+            buf = input_get_buffer(this->state);
+            strncat(this->path, buf, MAXPATH);
             if (this->type == FS_SAVE)
                 file_dialogue_file_exist(this);
             else
