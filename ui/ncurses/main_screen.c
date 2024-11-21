@@ -63,7 +63,6 @@ static void add_elements(main_screen *ms, struct packet *p);
 static void set_filter(main_screen *ms, int c);
 static void clear_filter(main_screen *ms);
 static void filter_packets(main_screen *ms);
-static void handle_input_mode(main_screen *ms, const char *str);
 static void main_screen_save_handle_ok(void *file);
 static void main_screen_export_handle_ok(void *file);
 static void main_screen_got_focus(screen *s, screen *old);
@@ -565,8 +564,8 @@ void main_screen_get_input(screen *s)
     case 'g':
         if (!s->show_selectionbar)
             return;
-        ms->input_mode = (ms->input_mode == INPUT_GOTO) ? INPUT_NONE : INPUT_GOTO;
-        handle_input_mode(ms, input_get_prompt(ms->input_goto));
+        ms->input_mode = INPUT_GOTO;
+        input_print_prompt(ms->input_goto);
         break;
     case 'i':
         main_screen_set_interactive(ms, !s->show_selectionbar);
@@ -695,8 +694,8 @@ void main_screen_get_input(screen *s)
         break;
     case 'e':
     case KEY_F(9):
-        ms->input_mode = (ms->input_mode == INPUT_FILTER) ? INPUT_NONE : INPUT_FILTER;
-        handle_input_mode(ms, input_get_prompt(ms->input_filter));
+        ms->input_mode = INPUT_FILTER;
+        input_print_prompt(ms->input_filter);
         break;
     case 'M':
         if (!ctx.capturing && !inside_subwindow(ms, ms->base.selectionbar)) {
@@ -810,26 +809,6 @@ void print_header(main_screen *ms)
     screen_render_header_focus((screen *) ms, ms->whdr);
 }
 
-void handle_input_mode(main_screen *ms, const char *str)
-{
-    switch (ms->input_mode) {
-    case INPUT_FILTER:
-    case INPUT_GOTO:
-        werase(ms->status);
-        mvwprintw(ms->status, 0, 0, "%s", str);
-        curs_set(1);
-        wrefresh(ms->status);
-        break;
-    case INPUT_NONE:
-        curs_set(0);
-        werase(ms->status);
-        actionbar_refresh(actionbar, (screen *) ms);
-        break;
-    default:
-        break;
-    }
-}
-
 static int find_packet(main_screen *ms, uint32_t num)
 {
     int low = 0;
@@ -861,39 +840,37 @@ void main_screen_goto_line(main_screen *ms, int c)
         error = false;
     }
     if (c == KEY_ESC) {
-        curs_set(0);
-        werase(ms->status);
         ms->input_mode = INPUT_NONE;
+        input_exit(ms->input_goto);
         actionbar_refresh(actionbar, (screen *) ms);
-        input_clear(ms->input_goto);
         return;
     }
     ret = input_edit(ms->input_goto, c);
     if (ret == 1) {
         int my;
         long num;
+        char *buf;
 
-        num = strtol(input_get_buffer(ms->input_goto), NULL, 10);
+        buf = input_get_buffer(ms->input_goto);
+        if (buf[0] == '\0') {
+            ms->input_mode = INPUT_NONE;
+            input_exit(ms->input_goto);
+            actionbar_refresh(actionbar, (screen *) ms);
+            return;
+        }
+        num = strtol(buf, NULL, 10);
         if (num == LONG_MAX)
             goto error;
         my = getmaxy(ms->base.win);
         if (bpf.size > 0 || ms->follow_stream) {
             int i;
 
-            if ((i = find_packet(ms, num)) == -1) {
-                wbkgd(ms->status, get_theme_colour(ERR_BKGD));
-                wrefresh(ms->status);
-                error = true;
-                return;
-            }
+            if ((i = find_packet(ms, num)) == -1)
+                goto error;
             num = i + 1;
         }
-        if (num > vector_size(ms->packet_ref)) {
-            wbkgd(ms->status, get_theme_colour(ERR_BKGD));
-            wrefresh(ms->status);
-            error = true;
-            return;
-        }
+        if (num > vector_size(ms->packet_ref))
+            goto error;
         if (num >= ms->base.top && num < ms->base.top + my - ms->subwindow.num_lines) {
             if (ms->subwindow.win && num > ms->base.top + ms->subwindow.top) {
                 ms->base.selectionbar = num - 1 + ms->subwindow.num_lines;
@@ -910,10 +887,8 @@ void main_screen_goto_line(main_screen *ms, int c)
                 ms->base.selectionbar = ms->base.top = num - 1;
             }
         }
-        curs_set(0);
-        werase(ms->status);
         ms->input_mode = INPUT_NONE;
-        input_clear(ms->input_goto);
+        input_exit(ms->input_goto);
         actionbar_refresh(actionbar, (screen *) ms);
         main_screen_refresh((screen *) ms);
     }
@@ -967,16 +942,13 @@ void set_filter(main_screen *ms, int c)
         error = false;
     }
     if (c == KEY_ESC) {
-        curs_set(0);
         ms->input_mode = INPUT_NONE;
-        werase(ms->status);
-        input_clear(ms->input_filter);
+        input_exit(ms->input_filter);
         wbkgd(ms->status, get_theme_colour(BACKGROUND));
         actionbar_refresh(actionbar, (screen *) ms);
     }
     ret = input_edit(ms->input_filter, c);
     if (ret == 1) {
-        curs_set(0);
         filter = input_get_buffer(ms->input_filter);
         if (ms->subwindow.win) {
             delete_subwindow(ms, false);
@@ -1006,8 +978,7 @@ void set_filter(main_screen *ms, int c)
         if (rbtree_size(ms->marked) > 0)
             rbtree_clear(ms->marked);
         ms->input_mode = INPUT_NONE;
-        input_clear(ms->input_filter);
-        werase(ms->status);
+        input_exit(ms->input_filter);
         actionbar_refresh(actionbar, (screen *) ms);
         ms->base.top = 0;
         ms->base.selectionbar = 0;

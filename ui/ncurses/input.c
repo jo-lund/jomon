@@ -98,6 +98,16 @@ int input_edit(struct input_state *s, int c)
     return 0;
 }
 
+void input_add_string(struct input_state *s, char *str)
+{
+    int n;
+
+    n = strlcpy(s->buf, str, MAXLINE);
+    s->pos = n;
+    s->len = n;
+    input_refresh(s);
+}
+
 void input_set_valid_keys(struct input_state *s, enum valid_keys valid)
 {
     s->valid_keys = valid;
@@ -112,16 +122,21 @@ void input_refresh(struct input_state *s)
     wrefresh(s->win);
 }
 
-void input_clear(struct input_state *s)
+void input_exit(struct input_state *s)
 {
     s->buf[0] = '\0';
     s->pos = 0;
     s->len = 0;
+    curs_set(0);
+    werase(s->win);
 }
 
-const char *input_get_prompt(struct input_state *s)
+void input_print_prompt(struct input_state *s)
 {
-    return s->prompt;
+    werase(s->win);
+    waddstr(s->win, s->prompt);
+    curs_set(1);
+    wrefresh(s->win);
 }
 
 char *input_get_buffer(struct input_state *s)

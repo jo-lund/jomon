@@ -377,8 +377,8 @@ static void file_dialogue_render(file_dialogue *this)
     mvprintat(scr->win, 2, 8, A_BOLD, "Name");
     mvprintat(scr->win, 2, w, A_BOLD, "Size");
     mvwchgat(scr->win, 2, 7, w - 2, A_NORMAL, PAIR_NUMBER(get_theme_colour(HEADER)), NULL);
-    werase(this->input.win);
-    wprintw(this->input.win, FILE_INPUT_TEXT);
+    input_print_prompt(this->state);
+    curs_set(0);
     file_dialogue_populate(this, this->path);
     file_dialogue_update_dir(this, this->path);
     BUTTON_RENDER(this->ok);
@@ -491,7 +491,7 @@ void file_dialogue_get_input(screen *s)
     c = wgetch(fd->list.win);
     switch (c) {
     case KEY_ESC:
-        curs_set(0);
+        input_exit(fd->state);
         pop_screen();
         fd->cancel->action(NULL);
         break;
@@ -568,7 +568,7 @@ void file_dialogue_handle_enter(struct file_dialogue *this)
     screen *s;
 
     s = (screen *) this;
-    curs_set(0);
+    //curs_set(0);
     info = (struct file_info *) vector_get(this->files, s->selectionbar);
     switch (this->has_focus) {
     case FS_LIST:
@@ -604,6 +604,7 @@ void file_dialogue_handle_enter(struct file_dialogue *this)
 
             buf = input_get_buffer(this->state);
             strncat(this->path, buf, MAXPATH);
+            input_exit(this->state);
             if (this->type == FS_SAVE)
                 file_dialogue_file_exist(this);
             else
@@ -669,12 +670,8 @@ void file_dialogue_update_input(struct file_dialogue *this)
     struct file_info *info;
 
     info = (struct file_info *) vector_get(this->files, ((screen *) this)->selectionbar);
-    wmove(this->input.win, 0, FILE_INPUT_TEXTLEN);
-    wclrtoeol(this->input.win);
-    if (!S_ISDIR(info->stat->st_mode)) {
-        waddstr(this->input.win, info->name);
-    }
-    wrefresh(this->input.win);
+    if (!S_ISDIR(info->stat->st_mode))
+        input_add_string(this->state, info->name);
 }
 
 void file_dialogue_update_dir(struct file_dialogue *this, char *path)
@@ -706,20 +703,12 @@ void file_dialogue_update_focus(struct file_dialogue *this)
         wrefresh(((screen *) this)->win);
         break;
     case FS_INPUT:
-    {
-        char buf[MAXPATH];
-        char *str;
-
-        mvwinnstr(this->input.win, 0, FILE_INPUT_TEXTLEN, buf, MAXPATH);
-        str = string_trim_whitespace(buf);
-        wmove(this->input.win, 0, FILE_INPUT_TEXTLEN + strlen(str));
         curs_set(1);
         s->show_selectionbar = false;
         file_dialogue_refresh(this);
         wrefresh(((screen *) this)->win);
         wrefresh(this->input.win);
         break;
-    }
     case FS_OK:
         curs_set(0);
         BUTTON_SET_FOCUS(this->ok, true);
