@@ -509,6 +509,10 @@ void file_dialogue_get_input(screen *s)
         if (fd->has_focus == FS_LIST)
             file_dialogue_scroll_page(fd, fd->list_height);
         break;
+    case KEY_ENTER:
+    case '\n':
+        file_dialogue_handle_enter(fd);
+        break;
     case 'b':
     case KEY_PPAGE:
         if (fd->has_focus == FS_LIST) {
@@ -517,11 +521,8 @@ void file_dialogue_get_input(screen *s)
         }
         FALLTHROUGH;
     default:
-        if (fd->has_focus == FS_INPUT) {
-            int ret = input_edit(fd->state, c);
-            if (ret == 1)
-                file_dialogue_handle_enter(fd);
-        }
+        if (fd->has_focus == FS_INPUT)
+            input_edit(fd->state, c);
         break;
     }
 }
@@ -613,6 +614,7 @@ void file_dialogue_handle_enter(struct file_dialogue *this)
     }
     case FS_OK:
         pop_screen();
+        strncat(this->path, info->name, MAXPATH);
         this->ok->action(this->path);
         break;
     case FS_CANCEL:
