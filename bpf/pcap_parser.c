@@ -261,6 +261,8 @@ static struct node *nud(int token, struct block **b)
             return parse_offset(token, b);
         } else if (parser.token == PCAP_LAND || parser.token == PCAP_LOR ||
                    parser.token == PCAP_EOF || parser.token == PCAP_RPAR) {
+            if (token == PCAP_ETHER && parser.token == PCAP_EOF)
+                longjmp(env, -1);
             state = PCAP_QUALIFIER;
             make_leaf_node(n, token, 0);
             (*b)->relop = 0;
