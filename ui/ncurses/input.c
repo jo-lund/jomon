@@ -4,15 +4,23 @@
 #include "input.h"
 #include "wrapper.h"
 #include "debug.h"
+#include "ringbuffer.h"
+
+#define HISTORY_SIZE 128
+#define HISTORY_NEXT -1
+#define HISTORY_PREV 1
 
 struct input_state {
-    char buf[MAXLINE];
+    char buf[MAXLINE]; /* the current line */
     int pos; /* cursor position */
     int len; /* current length of buffer */
     const char *prompt;
     int plen; /* length of prompt */
     int valid_keys;
     WINDOW *win;
+    char **history;
+    int history_idx;
+    int history_len;
 };
 
 static bool valid_key(struct input_state *s, int c)
@@ -30,6 +38,28 @@ static bool valid_key(struct input_state *s, int c)
     return false;
 }
 
+static void show_history(struct input_state *s, int dir)
+{
+    int n;
+    const char *p;
+
+    if (s->history_len == 0)
+        return;
+    if ((dir == HISTORY_PREV && s->history_idx >= s->history_len - 1) ||
+        (dir == HISTORY_NEXT && s->history_idx == 0))
+        return;
+    if (dir == HISTORY_PREV && s->history_idx == 0) {
+        free(s->history[s->history_len - 1]);
+        s->history[s->history_len - 1] = xstrdup(s->buf);
+    }
+    s->history_idx += dir;
+    p = s->history[s->history_len - 1 - s->history_idx];
+    n = strlcpy(s->buf, p, MAXLINE);
+    s->pos = n;
+    s->len = n;
+    input_refresh(s);
+}
+
 struct input_state *input_init(WINDOW *win, const char *prompt)
 {
     struct input_state *s;
@@ -39,6 +69,9 @@ struct input_state *input_init(WINDOW *win, const char *prompt)
     s->prompt = prompt;
     s->plen = strlen(prompt);
     s->valid_keys = INPUT_ALL;
+    s->history_idx = 0;
+    s->history = xcalloc(1, HISTORY_SIZE);
+    input_add_history(s, ""); /* add current empty line to history */
     return s;
 }
 
@@ -90,6 +123,12 @@ int input_edit(struct input_state *s, int c)
         wmove(s->win, 0, s->plen + s->pos);
         wrefresh(s->win);
         break;
+    case KEY_UP:
+        show_history(s, HISTORY_PREV);
+        break;
+    case KEY_DOWN:
+        show_history(s, HISTORY_NEXT);
+        break;
     default:
         if (s->pos >= MAXLINE - 1 || !valid_key(s, c))
             return -1;
@@ -116,6 +155,17 @@ void input_add_string(struct input_state *s, char *str)
     s->pos = n;
     s->len = n;
     input_refresh(s);
+}
+
+void input_add_history(struct input_state *s, const char *line)
+{
+    if (s->history_len > 0) {
+        char *tmp = s->history[s->history_len-1];
+        s->history[s->history_len-1] = xstrdup(line);
+        s->history[s->history_len++] = tmp;
+    } else {
+        s->history[s->history_len++] = xstrdup(line);
+    }
 }
 
 void input_set_valid_keys(struct input_state *s, enum valid_keys valid)
@@ -156,5 +206,8 @@ char *input_get_buffer(struct input_state *s)
 
 void input_free(struct input_state *s)
 {
+    for (int i = 0; i < s->history_len; i++)
+        free(s->history[i]);
+    free(s->history);
     free(s);
 }

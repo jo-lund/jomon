@@ -957,6 +957,7 @@ void set_filter(main_screen *ms, int c)
         if (filter[0] == '\0') {
             clear_filter(ms);
         } else {
+            input_add_history(ms->input_filter, filter);
             prog = pcap_compile(filter);
             if (prog.size == 0) {
                 wbkgd(ms->status, get_theme_colour(ERR_BKGD));
