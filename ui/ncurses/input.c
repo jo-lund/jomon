@@ -70,7 +70,7 @@ struct input_state *input_init(WINDOW *win, const char *prompt)
     s->plen = strlen(prompt);
     s->valid_keys = INPUT_ALL;
     s->history_idx = 0;
-    s->history = xcalloc(1, HISTORY_SIZE);
+    s->history = xcalloc(HISTORY_SIZE, sizeof(char*));
     input_add_history(s, ""); /* add current empty line to history */
     return s;
 }
