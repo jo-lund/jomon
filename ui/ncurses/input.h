@@ -8,8 +8,13 @@ enum valid_keys {
     INPUT_DIGITS
 };
 
+/* Initialize input structure */
 struct input_state *input_init(WINDOW *win, const char *prompt);
+
+/* Free all resources */
 void input_free(struct input_state *s);
+
+/* Set valid keys. Default is all */
 void input_set_valid_keys(struct input_state *s, enum valid_keys valid);
 
 /*
@@ -29,7 +34,11 @@ void input_exit(struct input_state *s);
 
 /* Print prompt and activate cursor */
 void input_print_prompt(struct input_state *s);
+
+/* Return the current input buffer */
 char *input_get_buffer(struct input_state *s);
+
+/* Refresh the input window */
 void input_refresh(struct input_state *s);
 
 #endif
