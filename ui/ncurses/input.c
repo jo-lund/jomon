@@ -3,8 +3,6 @@
 #include <ctype.h>
 #include "input.h"
 #include "wrapper.h"
-#include "debug.h"
-#include "ringbuffer.h"
 
 #define HISTORY_SIZE 128
 #define HISTORY_NEXT -1
@@ -160,7 +158,14 @@ void input_add_string(struct input_state *s, char *str)
 void input_add_history(struct input_state *s, const char *line)
 {
     if (s->history_len > 0) {
-        char *tmp = s->history[s->history_len-1];
+        char *tmp;
+
+        if (s->history_len >= HISTORY_SIZE) {
+            free(s->history[0]);
+            memmove(s->history, s->history + 1, sizeof(char*) * (HISTORY_SIZE - 1));
+            s->history_len--;
+        }
+        tmp = s->history[s->history_len-1];
         s->history[s->history_len-1] = xstrdup(line);
         s->history[s->history_len++] = tmp;
     } else {
