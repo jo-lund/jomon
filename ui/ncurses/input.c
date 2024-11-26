@@ -192,6 +192,7 @@ void input_exit(struct input_state *s)
     s->buf[0] = '\0';
     s->pos = 0;
     s->len = 0;
+    s->history_idx = 0;
     curs_set(0);
     werase(s->win);
 }
