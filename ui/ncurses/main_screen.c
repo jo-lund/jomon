@@ -961,7 +961,6 @@ void set_filter(main_screen *ms, int c)
             prog = pcap_compile(filter);
             if (prog.size == 0) {
                 wbkgd(ms->status, get_theme_colour(ERR_BKGD));
-                curs_set(1);
                 wrefresh(ms->status);
                 error = true;
                 return;
