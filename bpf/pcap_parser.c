@@ -402,7 +402,9 @@ struct bpf_prog pcap_compile(char *filter)
         struct block *head = alloc_block();
 
         parser.token = get_token();
-        while (parser.token != PCAP_EOF) {
+        if (parser.token == PCAP_EOF)
+            return prog;
+        do {
             switch (parser.token) {
             case PCAP_LAND:
             case PCAP_LOR:
@@ -418,7 +420,7 @@ struct bpf_prog pcap_compile(char *filter)
                 b = head;
                 break;
             }
-        }
+        } while (parser.token != PCAP_EOF);
         patch_blocks(head);
         prog = gencode(head);
     }
