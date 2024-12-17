@@ -113,10 +113,8 @@ void dialogue_render(dialogue *this)
     wbkgd(win, get_theme_colour(DIALOGUE_BKGD));
     if (this->title) {
         len = strlen(this->title);
-        if (len > mx - 2) {
-            string_truncate(this->title, len, mx - 2);
-            len = mx - 2;
-        }
+        if (mx < len)
+            mx = len;
         mvprintat(win, 0, (mx - len) / 2, A_BOLD, "%s", this->title);
     }
 }
