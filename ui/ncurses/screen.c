@@ -145,6 +145,13 @@ void screen_free(screen *s)
 
 void screen_refresh(screen *s)
 {
+    if (s->resize) {
+        int my, mx;
+
+        getmaxyx(stdscr, my, mx);
+        wresize(s->win, my, mx);
+        s->resize = false;
+    }
     touchwin(s->win);
     wrefresh(s->win);
 }

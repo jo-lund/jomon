@@ -224,6 +224,14 @@ void host_screen_refresh(screen *s)
 {
     host_screen *hs = (host_screen *) s;
 
+    if (s->resize) {
+        int my, mx;
+
+        getmaxyx(stdscr, my, mx);
+        if (my > HEADER_HEIGHT - actionbar_getmaxy(actionbar))
+            wresize(s->win, my - HEADER_HEIGHT - actionbar_getmaxy(actionbar), mx);
+        s->resize = false;
+    }
     werase(s->win);
     werase(hs->whdr);
     hs->y = 0;

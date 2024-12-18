@@ -155,13 +155,19 @@ static void layout_resize(void)
 
     if (!get_termsize(&size))
         return;
-    resizeterm(size.row, size.col);
+    if (size.row > HEADER_HEIGHT)
+        resizeterm(size.row, size.col);
     s = stack_top(screen_stack);
     s->resize = true;
-    SCREEN_REFRESH(s);
     actionbar_refresh(actionbar, s);
     main_menu_resize(menu);
+    SCREEN_REFRESH(s);
     s->resize = false;
+    for (int i = 0; i < NUM_SCREENS; i++) {
+        screen *h = screen_cache_get(i);
+        if (h && h != s)
+            h->resize = true;
+    }
 }
 
 static void ncurses_init(void)
@@ -232,10 +238,7 @@ void free_container(container *c)
 
 screen *screen_cache_get(enum screen_type type)
 {
-    if (screen_cache[type]) {
-        return screen_cache[type];
-    }
-    return NULL;
+    return screen_cache[type];
 }
 
 void screen_cache_insert(enum screen_type st, screen *s)
@@ -330,7 +333,9 @@ screen *screen_stack_top(void)
 
 screen *screen_stack_prev(void)
 {
-    return stack_get(screen_stack, stack_size(screen_stack) - 2);
+    if (stack_size(screen_stack) - 2 >= 0)
+        return stack_get(screen_stack, stack_size(screen_stack) - 2);
+    return NULL;
 }
 
 static int screen_stack_find(screen *s)

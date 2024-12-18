@@ -24,7 +24,6 @@
 #define BYTES_AB_WIDTH 15
 #define PROC_WIDTH 20
 #define MAX_WIDTH 20
-#define CONN_HEADER 5
 
 enum cs_val {
     ADDRA,
@@ -520,12 +519,12 @@ void connection_screen_init(screen *s)
 
     screen_init(s);
     getmaxyx(stdscr, my, mx);
-    s->win = newwin(my - CONN_HEADER - actionbar_getmaxy(actionbar), mx, CONN_HEADER, 0);
+    s->win = newwin(my - HEADER_HEIGHT - actionbar_getmaxy(actionbar), mx, HEADER_HEIGHT, 0);
     s->have_selectionbar = true;
-    s->lines = getmaxy(stdscr) - CONN_HEADER - actionbar_getmaxy(actionbar);
+    s->lines = getmaxy(stdscr) - HEADER_HEIGHT - actionbar_getmaxy(actionbar);
     s->header = conn_header;
     s->page = CONNECTION_PAGE;
-    cs->whdr = newwin(CONN_HEADER, mx, 0, 0);
+    cs->whdr = newwin(HEADER_HEIGHT, mx, 0, 0);
     cs->y = 0;
     cs->screen_buf = vector_init(512);
     mode = GREY_OUT_CLOSED;
@@ -577,6 +576,14 @@ void connection_screen_refresh(screen *s)
 {
     connection_screen *cs = (connection_screen *) s;
 
+    if (s->resize) {
+        int my, mx;
+
+        getmaxyx(stdscr, my, mx);
+        if (my > HEADER_HEIGHT - actionbar_getmaxy(actionbar))
+            wresize(s->win, my - HEADER_HEIGHT - actionbar_getmaxy(actionbar), mx);
+        s->resize = false;
+    }
     werase(s->win);
     werase(cs->whdr);
     cs->y = 0;

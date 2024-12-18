@@ -133,11 +133,22 @@ void conversation_screen_free(screen *s)
 
 void conversation_screen_refresh(screen *s)
 {
+    conversation_screen *cs = (conversation_screen *) s;
+
     if (tcp_mode != NORMAL) {
-        if (!changing_tcp_mode)
-            change_tcp_mode((conversation_screen *) s);
+        if (s->resize) {
+            int my, mx;
+
+            getmaxyx(stdscr, my, mx);
+            if (my > HEADER_HEIGHT - actionbar_getmaxy(actionbar))
+                wresize(s->win, my - HEADER_HEIGHT - actionbar_getmaxy(actionbar), mx);
+            s->resize = false;
+        }
+        if (!changing_tcp_mode) {
+            change_tcp_mode(cs);
+        }
     } else {
-        conversation_screen_render((conversation_screen *) s);
+        conversation_screen_render(cs);
         main_screen_refresh(s);
     }
 }

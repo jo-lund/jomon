@@ -293,6 +293,7 @@ void main_screen_refresh(screen *s)
         mvwin(ms->status, y - 1, 0);
         my = y - HEADER_HEIGHT - actionbar_getmaxy(actionbar);
         wresize(s->win, my, x);
+        s->resize = false;
     }
     screen_render(ms, my);
     wnoutrefresh(s->win);

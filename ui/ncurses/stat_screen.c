@@ -125,6 +125,14 @@ void stat_screen_free(screen *s)
 
 void stat_screen_refresh(screen *s)
 {
+    if (s->resize) {
+        int my, mx;
+
+        getmaxyx(stdscr, my, mx);
+        if (my > actionbar_getmaxy(actionbar))
+            wresize(s->win, my - actionbar_getmaxy(actionbar), mx);
+        s->resize = false;
+    }
     wbkgd(s->win, get_theme_colour(BACKGROUND));
     screen_refresh(s);
     memset(&rx, 0, sizeof(rx));
