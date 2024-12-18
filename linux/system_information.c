@@ -14,15 +14,6 @@
 #define CPUPATH "/proc/cpuinfo"
 #define STATPATH "/proc/stat"
 
-#define GET_VALUE(buf, i, s, l, val)            \
-    do {                                        \
-        i += l;                                 \
-        while (isspace(buf[i])) {               \
-            i++;                                \
-        }                                       \
-        sscanf(buf + i, s, &val);               \
-    } while (0)
-
 bool get_netstat(char *dev, struct linkdef *rx, struct linkdef *tx)
 {
     FILE *fp;
@@ -53,6 +44,15 @@ bool get_netstat(char *dev, struct linkdef *rx, struct linkdef *tx)
     fclose(fp);
     return true;
 }
+
+#define GET_VALUE(buf, i, s, l, val)            \
+    do {                                        \
+        (i) += (l);                             \
+        while (isspace(buf[(i)])) {             \
+            (i)++;                              \
+        }                                       \
+        sscanf((buf) + (i), s, &(val));         \
+    } while (0)
 
 bool get_memstat(struct memstat *mem)
 {
