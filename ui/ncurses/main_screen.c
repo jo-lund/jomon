@@ -52,7 +52,6 @@ static struct bpf_prog bpf;
 static char bpf_filter[MAXLINE];
 static enum key_mode key_mode = KEY_NORMAL;
 
-static bool check_line(main_screen *ms);
 static void print_header(main_screen *ms);
 static void print_selected_packet(main_screen *ms);
 static int print_lines(main_screen *ms, int from, int to, int y);
@@ -71,6 +70,7 @@ static void main_screen_lost_focus(screen *s, screen *new);
 /* Handles subwindow layout */
 static void create_subwindow(main_screen *ms, int num_lines, int lineno);
 static void delete_subwindow(main_screen *ms, bool update_base);
+static void recreate_subwindow(main_screen *ms, bool update_base);
 static bool inside_subwindow(main_screen *ms, int line);
 static void refresh_pad(main_screen *ms, struct subwin_info *pad, int scrolly, int minx, bool update);
 static bool subwindow_on_screen(main_screen *ms);
@@ -293,6 +293,8 @@ void main_screen_refresh(screen *s)
         mvwin(ms->status, y - 1, 0);
         my = y - HEADER_HEIGHT - actionbar_getmaxy(actionbar);
         wresize(s->win, my, x);
+        if (ms->subwindow.win && getmaxx(ms->subwindow.win) < x)
+            recreate_subwindow(ms, false);
         s->resize = false;
     }
     screen_render(ms, my);
@@ -574,18 +576,7 @@ void main_screen_get_input(screen *s)
     case 'm':
         hexmode = (hexmode + 1) % HEXMODES;
         if (ms->subwindow.win) {
-            struct packet *p;
-
-            p = vector_get(ms->packet_ref, ms->main_line.line_number);
-            if (view_mode == HEXDUMP_VIEW) {
-                delete_subwindow(ms, true);
-                create_subwindow(ms, (hexmode == HEXMODE_NORMAL) ? p->len / 16 + 3 :
-                                 p->len / 64 + 3, ms->main_line.line_number);
-            } else {
-                delete_subwindow(ms, true);
-                add_elements(ms, p);
-                create_subwindow(ms, ms->lvw->size + 1, ms->main_line.line_number);
-            }
+            recreate_subwindow(ms, true);
             main_screen_refresh((screen *) ms);
         }
         break;
@@ -677,17 +668,7 @@ void main_screen_get_input(screen *s)
     case KEY_F(8):
         view_mode = (view_mode + 1) % NUM_VIEWS;
         if (ms->subwindow.win) {
-            struct packet *p;
-
-            delete_subwindow(ms, true);
-            p = vector_get(ms->packet_ref, ms->main_line.line_number);
-            if (view_mode == DECODED_VIEW) {
-                add_elements(ms, p);
-                create_subwindow(ms, ms->lvw->size + 1, ms->main_line.line_number);
-            } else {
-                create_subwindow(ms, (hexmode == HEXMODE_NORMAL) ? p->len / 16 + 3 :
-                                 p->len / 64 + 3, ms->main_line.line_number);
-            }
+            recreate_subwindow(ms, true);
             main_screen_refresh((screen *) ms);
         }
         actionbar_update(s, "F8", (view_mode == DECODED_VIEW) ? "View (dec)" :
@@ -1030,16 +1011,6 @@ void print_new_packets(main_screen *ms)
     ms->outy = my;
 }
 
-/*
- * Checks if there still are lines to highlight when moving the selection bar
- * down. Returns true if that's the case.
- */
-static inline bool check_line(main_screen *ms)
-{
-    return ms->base.selectionbar < vector_size(ms->packet_ref) +
-        ms->subwindow.num_lines - 1;
-}
-
 static void goto_selectable(main_screen *ms, int num_lines, int c)
 {
     int subline;
@@ -1118,8 +1089,13 @@ void main_screen_handle_keyup(main_screen *ms, int num_lines UNUSED)
 
 void main_screen_handle_keydown(main_screen *ms, int num_lines)
 {
-    if (!check_line(ms))
+    /*
+     * Check if there still are lines to highlight when moving the selection bar down
+     */
+    if (ms->base.selectionbar >= vector_size(ms->packet_ref) +
+        ms->subwindow.num_lines - 1)
         return;
+
     if (!ms->base.show_selectionbar)
         main_screen_set_interactive(ms, true);
 
@@ -1378,7 +1354,7 @@ void add_elements(main_screen *ms, struct packet *p)
     }
 }
 
-void create_subwindow(main_screen *ms, int num_lines, int lineno)
+static void create_subwindow(main_screen *ms, int num_lines, int lineno)
 {
     int mx, my;
     int start_line;
@@ -1401,20 +1377,13 @@ void create_subwindow(main_screen *ms, int num_lines, int lineno)
     ms->subwindow.top = start_line + 1;
     ms->subwindow.num_lines = num_lines;
     wmove(ms->base.win, start_line + 1, 0);
-    wclrtobot(ms->base.win); /* clear everything below selection bar */
-    ms->outy = start_line + 1;
-    if (!ms->scrolly) {
-        ms->outy += print_lines(ms, lineno + 1, ms->base.top + my, ms->outy);
-    } else {
-        ms->outy += num_lines;
-    }
 }
 
 /*
  * Remove subwindow from the screen. If update_base is set, update base screen
  * parameters.
  */
-void delete_subwindow(main_screen *ms, bool update_base)
+static void delete_subwindow(main_screen *ms, bool update_base)
 {
     if (ms->scrolly) {
         if (ms->subwindow.top > 0 && subwindow_on_screen(ms))
@@ -1441,6 +1410,24 @@ void delete_subwindow(main_screen *ms, bool update_base)
     }
     ms->subwindow.num_lines = 0;
     ms->subwindow.top = 0;
+}
+
+/*
+ * Delete the current subwindow and create a new.
+ */
+static void recreate_subwindow(main_screen *ms, bool update_base)
+{
+    struct packet *p;
+
+    delete_subwindow(ms, update_base);
+    p = vector_get(ms->packet_ref, ms->main_line.line_number);
+    if (view_mode == HEXDUMP_VIEW) {
+        create_subwindow(ms, (hexmode == HEXMODE_NORMAL) ? p->len / 16 + 3 :
+                         p->len / 64 + 3, ms->main_line.line_number);
+    } else {
+        add_elements(ms, p);
+        create_subwindow(ms, ms->lvw->size + 1, ms->main_line.line_number);
+    }
 }
 
 /* Returns whether the selection line is inside the subwindow */
@@ -1473,15 +1460,15 @@ void refresh_pad(main_screen *ms, struct subwin_info *pad, int scrolly, int minx
     pad->top += scrolly;
     if (pad->top <= 0) {
         if (update) {
-            prefresh(pad->win, abs(pad->top), minx, GET_SCRY(0), 0, GET_SCRY(my) - 1, mx);
+            prefresh(pad->win, abs(pad->top), minx, GET_SCRY(0), 0, GET_SCRY(my) - 1, mx - 1);
         } else {
-            pnoutrefresh(pad->win, abs(pad->top), minx, GET_SCRY(0), 0, GET_SCRY(my) - 1, mx);
+            pnoutrefresh(pad->win, abs(pad->top), minx, GET_SCRY(0), 0, GET_SCRY(my) - 1, mx - 1);
         }
     } else {
         if (update) {
-            prefresh(pad->win, 0, minx, GET_SCRY(pad->top), 0, GET_SCRY(my) - 1, mx);
+            prefresh(pad->win, 0, minx, GET_SCRY(pad->top), 0, GET_SCRY(my) - 1, mx - 1);
         } else {
-            pnoutrefresh(pad->win, 0, minx, GET_SCRY(pad->top), 0, GET_SCRY(my) - 1, mx);
+            pnoutrefresh(pad->win, 0, minx, GET_SCRY(pad->top), 0, GET_SCRY(my) - 1, mx - 1);
         }
     }
 }
