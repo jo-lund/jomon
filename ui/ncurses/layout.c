@@ -29,6 +29,7 @@ publisher_t *alarm_publisher;
 
 static struct screen *screen_cache[NUM_SCREENS];
 static stack_t *screen_stack;
+
 static int theme;
 static void colours_init(void);
 static void create_screens(void);
@@ -151,18 +152,31 @@ CONSTRUCTOR static void ncurses_register(void)
 static void layout_resize(void)
 {
     struct termsize size;
-    screen *s;
+    screen *s, *d;
 
     if (!get_termsize(&size))
         return;
-    if (size.row > HEADER_HEIGHT)
-        resizeterm(size.row, size.col);
+    if (size.row <= HEADER_HEIGHT)
+        return;
+    d = NULL;
     s = stack_top(screen_stack);
+    if (!s->fullscreen) {
+        int begy, begx, my;
+
+        d = s;
+        getbegyx(d->win, begy, begx);
+        my = getmaxy(d->win);
+        if (size.row < begy + my || size.col <= begx)
+            return;
+        s = screen_stack_prev();
+    }
     s->resize = true;
+    resizeterm(size.row, size.col);
     actionbar_refresh(actionbar, s);
     main_menu_resize(menu);
     SCREEN_REFRESH(s);
-    s->resize = false;
+    if (d)
+        SCREEN_REFRESH(d);
     for (int i = 0; i < NUM_SCREENS; i++) {
         screen *h = screen_cache_get(i);
         if (h && h != s)
