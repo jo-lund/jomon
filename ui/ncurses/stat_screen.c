@@ -134,7 +134,6 @@ void stat_screen_refresh(screen *s)
         s->resize = false;
     }
     wbkgd(s->win, get_theme_colour(BACKGROUND));
-    screen_refresh(s);
     memset(&rx, 0, sizeof(rx));
     memset(&tx, 0, sizeof(tx));
     for (int i = 0; i < 2; i++) {
