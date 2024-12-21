@@ -634,11 +634,11 @@ void file_dialogue_print(struct file_dialogue *this, struct file_info *info, int
     mx = getmaxx(this->list.win);
     n = strlen(info->name);
     w = mx - n - 2;
-    if (w < 0) {
+    if (w <= 0) {
         char name[MAXPATH];
         int max;
 
-        if (mx - FORMAT_BUF_LEN - 2 < 0) {
+        if (mx - FORMAT_BUF_LEN - 2 <= 0) {
             DEBUG("Error: Window too small");
             return;
         }
