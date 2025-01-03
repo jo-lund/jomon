@@ -25,7 +25,8 @@ static struct protocol_info icmp_prot = {
 
 void register_icmp(void)
 {
-    register_protocol(&icmp_prot, IP_PROT, IPPROTO_ICMP);
+    register_protocol(&icmp_prot, IP4_PROT, IPPROTO_ICMP);
+    register_protocol(&icmp_prot, IP6_PROT, IPPROTO_ICMP);
 }
 
 packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buffer, int n,
@@ -102,7 +103,7 @@ packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buffer, int
             p = get_protocol(id);
             pdata->next = mempool_calloc(1, struct packet_data);
             pdata->next->id = id;
-            /* buffer points on ICMP header + 4, i.e. need to add 4 bytes to get at data */
+            /* buffer points at ICMP header + 4, i.e. need to add 4 bytes to get at data */
             return p->decode(p, buffer + 4, n - ICMP_HDR_LEN, pdata->next);
         }
         break;

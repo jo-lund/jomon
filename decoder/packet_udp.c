@@ -18,7 +18,8 @@ static struct protocol_info udp_prot = {
 
 void register_udp(void)
 {
-    register_protocol(&udp_prot, IP_PROT, IPPROTO_UDP);
+    register_protocol(&udp_prot, IP4_PROT, IPPROTO_UDP);
+    register_protocol(&udp_prot, IP6_PROT, IPPROTO_UDP);
 }
 
 /*

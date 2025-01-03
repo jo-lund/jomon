@@ -23,7 +23,8 @@ static struct protocol_info vrrp_prot = {
 
 void register_vrrp(void)
 {
-    register_protocol(&vrrp_prot, IP_PROT, IPPROTO_VRRP);
+    register_protocol(&vrrp_prot, IP4_PROT, IPPROTO_VRRP);
+    register_protocol(&vrrp_prot, IP6_PROT, IPPROTO_VRRP);
 }
 
 static packet_error handle_vrrp(struct protocol_info *pinfo, unsigned char *buf, int n,

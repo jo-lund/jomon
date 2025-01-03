@@ -162,7 +162,8 @@ void clear_statistics(void)
 
 bool is_tcp(const struct packet *p)
 {
-    return get_packet_data(p, get_protocol_id(IP_PROT, IPPROTO_TCP)) != NULL;
+    return get_packet_data(p, get_protocol_id(IP4_PROT, IPPROTO_TCP)) != NULL ||
+        get_packet_data(p, get_protocol_id(IP6_PROT, IPPROTO_TCP)) != NULL;
 }
 
 struct packet_data *get_packet_data(const struct packet *p, uint32_t id)

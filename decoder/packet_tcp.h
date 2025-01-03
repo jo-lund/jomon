@@ -15,7 +15,7 @@
 #define TCP_OPT_TFO 34      /* TCP Fast Open (RFC 7413) */
 
 #define tcp_member(packet, member) ({ \
-    struct packet_data *pdata = get_packet_data(packet, get_protocol_id(IP_PROT, IPPROTO_TCP)); \
+    struct packet_data *pdata = get_packet_data(packet, get_protocol_id(IP4_PROT, IPPROTO_TCP)); \
     pdata->data ? ((struct tcp *) pdata->data)->member : 0;})
 
 struct tcp {

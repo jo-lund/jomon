@@ -23,7 +23,7 @@ void tcp_analyzer_check_stream(struct packet *p)
 
     if (!connection_table)
         return;
-    pdata = get_packet_data(p, get_protocol_id(IP_PROT, IPPROTO_TCP));
+    pdata = get_packet_data(p, get_protocol_id(IP4_PROT, IPPROTO_TCP));
     if (!pdata || pdata->error)
         return;
     tcp = pdata->data;

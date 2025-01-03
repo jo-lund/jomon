@@ -18,8 +18,9 @@
 #define ETH802_3 2
 #define ETHERNET_II 3
 #define PKT_LOOP 4
-#define IP_PROT 5
-#define PORT 6
+#define IP4_PROT 5
+#define IP6_PROT 6
+#define PORT 7
 
 #define CHECK_PROTOCOL(pdata) \
     (((pdata) && ((pdata)->data)) ? get_protocol((pdata)->id) : NULL)

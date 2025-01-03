@@ -49,7 +49,8 @@ static struct protocol_info icmp6_prot = {
 
 void register_icmp6(void)
 {
-    register_protocol(&icmp6_prot, IP_PROT, IPPROTO_ICMPV6);
+    register_protocol(&icmp6_prot, IP4_PROT, IPPROTO_ICMPV6);
+    register_protocol(&icmp6_prot, IP6_PROT, IPPROTO_ICMPV6);
 }
 
 static int parse_linkaddr(uint8_t **addr, int len, unsigned char **buf)
