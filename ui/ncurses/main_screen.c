@@ -5,6 +5,7 @@
 #include <menu.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <assert.h>
 #include "layout.h"
 #include "list.h"
 #include "jomon.h"
@@ -1446,6 +1447,20 @@ static inline bool subwindow_on_screen(main_screen *ms)
 }
 
 /*
+ * Return the adjusted line number in case of an open subwindow. Need to take
+ * into affect the number of lines in the subwindow in order to get the correct
+ * selected element.
+ */
+static inline int subwindow_adjust_selectionbar(main_screen *ms)
+{
+    int sb = ms->base.selectionbar - ms->base.top - ms->subwindow.top;
+
+    if (ms->subwindow.win && sb >= ms->subwindow.num_lines)
+        return ms->base.selectionbar - ms->subwindow.num_lines;
+    return ms->base.selectionbar;
+}
+
+/*
  * Refresh the pad.
  *
  * 'scrolly' is the amount to scroll the pad vertically inside the main window.
@@ -1476,11 +1491,13 @@ void refresh_pad(main_screen *ms, struct subwin_info *pad, int scrolly, int minx
 static void follow_tcp_stream(main_screen *ms)
 {
     hashmap_t *connections = tcp_analyzer_get_sessions();
-    struct packet *p = vector_get(ms->packet_ref, ms->base.selectionbar);
+    struct packet *p;
     struct tcp_connection_v4 *stream;
     struct tcp_endpoint_v4 endp;
     conversation_screen *cs = (conversation_screen *) screen_cache_get(CONVERSATION_SCREEN);
 
+    p = vector_get(ms->packet_ref, subwindow_adjust_selectionbar(ms));
+    assert(p);
     if (!is_tcp(p) || ethertype(p) != ETHERTYPE_IP)
         return;
     endp.src = ipv4_src(p);
