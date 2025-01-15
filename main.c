@@ -321,8 +321,15 @@ static void run(void)
         if (fds[0].revents & POLLIN)
             iface_read_packet(ctx.handle);
         if (fds[0].revents & POLLERR) {
-            stop_capture();
-            DEBUG("poll: An error has occurred on the device");
+            int err;
+            socklen_t len = sizeof(err);
+
+            if (getsockopt(ctx.handle->fd, SOL_SOCKET, SO_ERROR, &err, &len) == -1)
+                err_sys("getsockopt error");
+            if (err != ENETDOWN) {
+                DEBUG("poll: An error has occurred on the device");
+                stop_capture();
+            }
         }
         if (fds[1].revents & POLLIN)
             ui_event(UI_INPUT);
