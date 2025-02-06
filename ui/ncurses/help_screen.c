@@ -30,7 +30,7 @@ static void help_screen_render(void)
     y = 0;
     werase(win);
     wbkgd(win, get_theme_colour(BACKGROUND));
-    wprintw(win, "Jomon (c) 2014 - 2024 John Olav Lund");
+    wprintw(win, "Jomon (c) 2014 - 2025 John Olav Lund");
     y += 2;
     mvwprintw(win, y, x, "When a packet scan is active you can enter interactive mode "
               "by pressing ");
