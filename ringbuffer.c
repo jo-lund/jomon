@@ -53,7 +53,9 @@ int ringbuffer_size(ringbuffer_t *rb)
 
 int ringbuffer_capacity(ringbuffer_t *rb)
 {
-    return rb->size - ringbuffer_size(rb);
+    /* an empty buffer has head == tail, so the buffer is at full capacity when
+       (head + 1) % size == tail */
+    return rb->size - 1 - ringbuffer_size(rb);
 }
 
 bool ringbuffer_empty(ringbuffer_t *rb)

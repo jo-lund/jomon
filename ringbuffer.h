@@ -2,13 +2,13 @@
 
 typedef struct ringbuffer ringbuffer_t;
 
-/* Initialize the buffer */
+/* Initialize the buffer. The size is set to a power of 2 */
 ringbuffer_t *ringbuffer_init(const int size);
 
 /* Free all resources related to the buffer */
 void ringbuffer_free(ringbuffer_t *rb);
 
-/* Add an element to the buffer */
+/* Add an element to the buffer. If the buffer is full the first element will be removed. */
 void ringbuffer_push(ringbuffer_t *rb, void *data);
 
 /* Remove an element from the buffer */
