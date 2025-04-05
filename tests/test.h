@@ -7,5 +7,6 @@ Suite *rbtree_suite(void);
 Suite *decoder_suite(void);
 Suite *vector_suite(void);
 Suite *connection_suite(void);
+Suite *ringbuffer_suite(void);
 
 #endif

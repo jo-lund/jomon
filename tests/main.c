@@ -18,12 +18,14 @@ int main()
     srunner_add_suite(sr, decoder_suite());
     srunner_add_suite(sr, vector_suite());
     srunner_add_suite(sr, connection_suite());
+    srunner_add_suite(sr, ringbuffer_suite());
     srunner_run(sr, "bpf", "Core", CK_NORMAL);
     srunner_run(sr, "hashmap", "Core", CK_NORMAL);
     srunner_run(sr, "rbtree", "Core", CK_NORMAL);
     srunner_run(sr, "decoder", "Core", CK_NORMAL);
     srunner_run(sr, "vector", "Core", CK_NORMAL);
     srunner_run(sr, "connection", "Core", CK_NORMAL);
+    srunner_run(sr, "ringbuffer", "Core", CK_NORMAL);
     number_failed = srunner_ntests_failed(sr);
     srunner_free(sr);
     return number_failed;
