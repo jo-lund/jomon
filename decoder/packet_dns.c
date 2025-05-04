@@ -444,6 +444,8 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
  * of octets. The high order two bits of the length field must be zero. Since
  * every domain name ends with the null label of the root, a domain name is
  * terminated by a length byte of zero.
+ *
+ * Returns the length of the domain name or -1 on error
  */
 int parse_dns_name(unsigned char *buffer, int n, unsigned char *ptr, int plen, char name[])
 {

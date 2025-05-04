@@ -268,7 +268,7 @@ int parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **data,
     int len;
 
     len = parse_dns_name(buffer, n, ptr, dlen, name);
-    if (len > dlen)
+    if (len == -1 || len > dlen)
         return -1;
     ptr += len;
     dlen -= len;
