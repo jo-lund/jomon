@@ -93,6 +93,10 @@ void list_interfaces(void)
             i = c++;
         }
 
+        if (!ifp->ifa_addr) {
+            ifp = ifp->ifa_next;
+            continue;
+        }
         switch (ifp->ifa_addr->sa_family) {
         case AF_INET:
             iflist[i].inaddr = (struct sockaddr_in *) ifp->ifa_addr;
