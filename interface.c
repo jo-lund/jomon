@@ -25,12 +25,12 @@
 static char *get_active_interface(int fd, char *buffer, int len);
 
 struct interface {
-    char *name;                    /* interface name */
-    unsigned short type;           /* interface type, e.g. Ethernet, Firewire etc. */
-    struct sockaddr_in *inaddr;    /* IPv4 address */
-    struct sockaddr_in6 *in6addr;  /* IPv6 address */
-    unsigned char addrlen;         /* hardware address length */
-    unsigned char hwaddr[8];       /* hardware address */
+    char *name;                /* interface name */
+    unsigned short type;       /* interface type, e.g. Ethernet, Firewire etc. */
+    list_t *inaddr;            /* IPv4 addresses */
+    list_t *in6addr;           /* IPv6 addresses */
+    unsigned char addrlen;     /* hardware address length */
+    unsigned char hwaddr[8];   /* hardware address */
 };
 
 void iface_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf)
@@ -90,6 +90,8 @@ void list_interfaces(void)
         /* new interface -- insert in iflist */
         if (i == -1) {
             iflist[c].name = ifp->ifa_name;
+            iflist[c].inaddr = list_init(NULL);
+            iflist[c].in6addr = list_init(NULL);
             i = c++;
         }
 
@@ -99,10 +101,10 @@ void list_interfaces(void)
         }
         switch (ifp->ifa_addr->sa_family) {
         case AF_INET:
-            iflist[i].inaddr = (struct sockaddr_in *) ifp->ifa_addr;
+            list_push_back(iflist[i].inaddr, ifp->ifa_addr);
             break;
         case AF_INET6:
-            iflist[i].in6addr = (struct sockaddr_in6 *) ifp->ifa_addr;
+            list_push_back(iflist[i].in6addr, ifp->ifa_addr);
             break;
 #ifdef __linux__
         case AF_PACKET:
@@ -185,25 +187,38 @@ void list_interfaces(void)
         } else {
             printf("\tHW addr len: %d\n", iflist[i].addrlen);
         }
-        if (iflist[i].inaddr) {
+        if (list_size(iflist[i].inaddr) > 0) {
             char inet_addr[INET_ADDRSTRLEN];
             struct sockaddr_in *hst_addr;
+            const node_t *n;
 
-            hst_addr = (struct sockaddr_in *) iflist[i].inaddr;
-            inet_ntop(AF_INET, &hst_addr->sin_addr, inet_addr, INET_ADDRSTRLEN);
-            printf("\tinet addr: %s\n", inet_addr);
+            DLIST_FOREACH(iflist[i].inaddr, n) {
+                hst_addr = (struct sockaddr_in *) list_data(n);
+                inet_ntop(AF_INET, &hst_addr->sin_addr, inet_addr, INET_ADDRSTRLEN);
+                printf("\tinet addr: %s\n", inet_addr);
+            }
         }
-        if (iflist[i].in6addr) {
+        if (list_size(iflist[i].in6addr) > 0) {
             char inet6_addr[INET6_ADDRSTRLEN];
             struct sockaddr_in6 *hst6_addr;
+            const node_t *n;
 
-            hst6_addr = (struct sockaddr_in6 *) iflist[i].in6addr;
-            inet_ntop(AF_INET6, &hst6_addr->sin6_addr, inet6_addr, INET6_ADDRSTRLEN);
-            printf("\tinet6 addr: %s\n", inet6_addr);
+            DLIST_FOREACH(iflist[i].in6addr, n) {
+                hst6_addr = (struct sockaddr_in6 *) list_data(n);
+                inet_ntop(AF_INET6, &hst6_addr->sin6_addr, inet6_addr, INET6_ADDRSTRLEN);
+                printf("\tinet6 addr: %s\n", inet6_addr);
+            }
+
         }
         printf("\n");
     }
     freeifaddrs(ifhead);
+    for (i = 0; i < c; i++) {
+        if (iflist[i].inaddr)
+            list_free(iflist[i].inaddr, NULL);
+        if (iflist[i].in6addr)
+            list_free(iflist[i].in6addr, NULL);
+    }
 }
 
 char *get_default_interface(void)
