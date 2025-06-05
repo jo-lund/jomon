@@ -75,7 +75,7 @@ void print_ethernet(char *buf, int n, void *data)
 {
     struct packet_data *pdata = data;
 
-    if (!CHECK_PROTOCOL(pdata->next)) {
+    if (!PACKET_HAS_DATA(pdata->next)) {
         struct protocol_info *pinfo;
         struct eth_info *eth;
         char smac[HW_ADDRSTRLEN];
@@ -96,7 +96,7 @@ void print_loop(char *buf, int n, void *data)
 {
     struct packet_data *pdata = data;
 
-    if (!CHECK_PROTOCOL(pdata->next)) {
+    if (!PACKET_HAS_DATA(pdata->next)) {
         struct protocol_info *pinfo;
 
         pinfo = get_protocol(pdata->id);
@@ -149,7 +149,7 @@ void print_llc(char *buf, int n, void *data)
     HW_ADDR_NTOP(smac, eth->mac_src);
     HW_ADDR_NTOP(dmac, eth->mac_dst);
     PRINT_ADDRESS(buf, n, smac, dmac);
-    if (!CHECK_PROTOCOL(pdata->next)) {
+    if (!PACKET_HAS_DATA(pdata->next)) {
         PRINT_PROTOCOL(buf, n, "LLC");
         PRINT_INFO(buf, n, "SSAP: 0x%x  DSAP: 0x%x  Control: 0x%x",
                    llc->ssap, llc->dsap, llc->control);
@@ -181,7 +181,7 @@ void print_snap(char *buf, int n, void *data)
     struct packet_data *pdata = data;
     struct snap_info *snap = pdata->data;
 
-    if (!CHECK_PROTOCOL(pdata->next)) {
+    if (!PACKET_HAS_DATA(pdata->next)) {
         PRINT_PROTOCOL(buf, n, "SNAP");
         PRINT_INFO(buf, n, "OUI: 0x%06x  Protocol Id: 0x%04x",
                    snap->oui[0] << 16 | snap->oui[1] << 8 | snap->oui[2], snap->protocol_id);
@@ -224,7 +224,7 @@ void print_ipv4(char *buf, int n, void *data)
         get_name_or_address(ip->dst, dst);
     }
     PRINT_ADDRESS(buf, n, src, dst);
-    if (!CHECK_PROTOCOL(pdata->next)) {
+    if (!PACKET_HAS_DATA(pdata->next)) {
         PRINT_PROTOCOL(buf, n, "IPv4");
         PRINT_INFO(buf, n, "Next header: %d", ip->protocol);
     }
@@ -240,7 +240,7 @@ void print_ipv6(char *buf, int n, void *data)
     inet_ntop(AF_INET6, ip->src, src, INET6_ADDRSTRLEN);
     inet_ntop(AF_INET6, ip->dst, dst, INET6_ADDRSTRLEN);
     PRINT_ADDRESS(buf, n, src, dst);
-    if (!CHECK_PROTOCOL(pdata->next)) {
+    if (!PACKET_HAS_DATA(pdata->next)) {
         PRINT_PROTOCOL(buf, n, "IPv6");
         PRINT_INFO(buf, n, "Next header: %d", ip->next_header);
     }
@@ -423,7 +423,7 @@ void print_tcp(char *buf, int n, void *data)
     struct packet_data *pdata = data;
     struct tcp *tcp = pdata->data;
 
-    if (!CHECK_PROTOCOL(pdata->next)) {
+    if (!PACKET_HAS_DATA(pdata->next)) {
         PRINT_PROTOCOL(buf, n, "TCP");
         PRINT_INFO(buf, n, "Source port: %d  Destination port: %d",
                    tcp->sport, tcp->dport);
@@ -456,7 +456,7 @@ void print_udp(char *buf, int n, void *data)
     struct packet_data *pdata = data;
     struct udp_info *udp = pdata->data;
 
-    if (!CHECK_PROTOCOL(pdata->next)) {
+    if (!PACKET_HAS_DATA(pdata->next)) {
         PRINT_PROTOCOL(buf, n, "UDP");
         PRINT_INFO(buf, n, "Source port: %d  Destination port: %d",
                    udp->sport, udp->dport);

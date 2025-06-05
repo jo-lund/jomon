@@ -22,8 +22,7 @@
 #define IP6_PROT 6
 #define PORT 7
 
-#define CHECK_PROTOCOL(pdata) \
-    (((pdata) && ((pdata)->data)) ? get_protocol((pdata)->id) : NULL)
+#define PACKET_HAS_DATA(pdata) ((pdata) && ((pdata)->data))
 
 extern uint32_t total_packets;
 extern uint64_t total_bytes;
