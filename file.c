@@ -64,6 +64,7 @@ static bool linktype_supported(uint32_t linktype)
     case LINKTYPE_NULL:
     case LINKTYPE_ETHERNET:
     case LINKTYPE_IEEE802:
+    case LINKTYPE_RAW:
         return true;
     default:
         return false;
