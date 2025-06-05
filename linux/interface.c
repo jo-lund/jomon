@@ -64,6 +64,8 @@ static int map_linktype(unsigned int type)
     case ARPHRD_ETHER:
     case ARPHRD_LOOPBACK:
         return LINKTYPE_ETHERNET;
+    case ARPHRD_NONE:
+        return LINKTYPE_RAW;
     default:
         return -1;
     }
