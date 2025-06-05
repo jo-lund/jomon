@@ -213,3 +213,20 @@ bool is_wireless(char *dev UNUSED)
 {
     return false;
 }
+
+char *get_linktype_description(int type, char *dev UNUSED)
+{
+    switch (type) {
+    case IFT_ETHER:
+        return "Ethernet";
+    case IFT_LOOP:
+        return "Loopback";
+    case IFT_SLIP:
+        return "IP over generic TTY";
+    case IFT_IEEE1394:
+        return "IEEE1394 High Performance SerialBus";
+    default:
+        DEBUG("Unknown type: %d", type);
+        return "Unknown";
+    }
+}

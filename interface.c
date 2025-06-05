@@ -23,6 +23,7 @@
 #define MAX_NUM_INTERFACES 16
 
 static char *get_active_interface(int fd, char *buffer, int len);
+char *get_linktype_description(int type, char *name);
 
 struct interface {
     char *name;                /* interface name */
@@ -146,36 +147,7 @@ void list_interfaces(void)
         } else {
             printf("%-*s", width, iflist[i].name);
         }
-        switch (iflist[i].type) {
-#if defined(MACOS) || defined(__FreeBSD__)
-        case IFT_ETHER:
-            printf("Ethernet\n");
-            break;
-        case IFT_LOOP:
-            printf("Loopback\n");
-            break;
-        case IFT_SLIP:
-            printf("IP over generic TTY\n");
-            break;
-        case IFT_IEEE1394:
-            printf("IEEE1394 High Performance SerialBus\n");
-            break;
-#endif
-#ifdef __linux__
-        case ARPHRD_ETHER:
-            printf("Ethernet\n");
-            break;
-        case ARPHRD_LOOPBACK:
-            printf("Loopback\n");
-            break;
-        case ARPHRD_IEEE1394:
-            printf("IEEE1394 High Performance SerialBus\n");
-            break;
-#endif
-        default:
-            printf("Unknown type: %d\n", iflist[i].type);
-            break;
-        }
+        printf("%s\n", get_linktype_description(iflist[i].type, iflist[i].name));
         if (iflist[i].addrlen == 6) {
             char hwaddr[18];
 
@@ -185,7 +157,7 @@ void list_interfaces(void)
                      iflist[i].hwaddr[4], iflist[i].hwaddr[5]);
             printf("\tHW addr: %s\n", hwaddr);
         } else {
-            printf("\tHW addr len: %d\n", iflist[i].addrlen);
+            DEBUG("HW addr len: %d\n", iflist[i].addrlen);
         }
         if (list_size(iflist[i].inaddr) > 0) {
             char inet_addr[INET_ADDRSTRLEN];
