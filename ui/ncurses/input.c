@@ -80,6 +80,7 @@ int input_edit(struct input_state *s, int c)
     case '\n':
         return 1;
     case KEY_BACKSPACE:
+    case '\b':
         if (s->pos > 0 && s->len > 0) {
             if (s->pos < s->len)
                 memmove(s->buf + s->pos - 1, s->buf + s->pos, s->len - s->pos);
