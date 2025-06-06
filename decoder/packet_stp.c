@@ -116,33 +116,3 @@ int get_stp_flags_size(void)
 {
     return ARRAY_SIZE(stp_flags);
 }
-
-uint8_t get_stp_type(struct packet *p)
-{
-    struct packet_data *pdata = get_packet_data(p, ETH_802_STP);
-    struct stp_info *stp = pdata ? pdata->data : NULL;
-
-    if (stp)
-        return stp->type;
-    return 0;
-}
-
-uint16_t get_stp_port_id(struct packet *p)
-{
-    struct packet_data *pdata = get_packet_data(p, ETH_802_STP);
-    struct stp_info *stp = pdata ? pdata->data : NULL;
-
-    if (stp)
-        return stp->port_id;
-    return 0;
-}
-
-uint32_t get_stp_root_pc(struct packet *p)
-{
-    struct packet_data *pdata = get_packet_data(p, ETH_802_STP);
-    struct stp_info *stp = pdata ? pdata->data : NULL;
-
-    if (stp)
-        return stp->root_pc;
-    return 0;
-}

@@ -50,18 +50,3 @@ packet_error handle_llc(struct protocol_info *pinfo, unsigned char *buffer, int 
     }
     return UNK_PROTOCOL;
 }
-
-enum eth_802_type get_eth802_type(struct packet *p)
-{
-    struct packet_data *pdata = get_packet_data(p, ETH_802_LLC);
-    struct eth_802_llc *llc = pdata ? pdata->data : NULL;
-
-    if (llc) {
-        /* DSAP and SSAP specify the upper layer protocols above LLC */
-        if (llc->ssap == 0x42 && llc->dsap == 0x42)
-            return ETH_802_STP;
-        if (llc->ssap == 0xaa && llc->dsap == 0xaa)
-            return ETH_802_SNAP;
-    }
-    return ETH_802_UNKNOWN;
-}

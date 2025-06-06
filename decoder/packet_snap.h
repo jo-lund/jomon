@@ -10,8 +10,6 @@ struct snap_info {
     unsigned char *data;
 };
 
-uint32_t get_snap_oui(struct packet *p);
-uint16_t get_snap_id(struct packet *p);
 void register_snap(void);
 
 #endif

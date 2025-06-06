@@ -35,9 +35,6 @@ struct stp_info {
     uint8_t version1_len;
 };
 
-uint8_t get_stp_type(struct packet *p);
-uint16_t get_stp_port_id(struct packet *p);
-uint32_t get_stp_root_pc(struct packet *p);
 char *get_stp_bpdu_type(uint8_t type);
 struct packet_flags *get_stp_flags(void);
 int get_stp_flags_size(void);

@@ -15,7 +15,6 @@ struct eth_802_llc {
 #define llc_ssap(p) get_llc(p)->ssap
 #define llc_control(p) get_llc(p)->control
 
-enum eth_802_type get_eth802_type(struct packet *p);
 void register_llc(void);
 
 #endif

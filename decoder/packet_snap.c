@@ -59,23 +59,3 @@ packet_error handle_snap(struct protocol_info *pinfo, unsigned char *buffer, int
     }
     return NO_ERR;
 }
-
-uint32_t get_snap_oui(struct packet *p)
-{
-    struct packet_data *pdata = get_packet_data(p, ETH_802_SNAP);
-    struct snap_info *snap = pdata ? pdata->data : NULL;
-
-    if (snap)
-        return snap->oui[0] << 16 | snap->oui[1] << 8 | snap->oui[2];
-    return 0;
-}
-
-uint16_t get_snap_id(struct packet *p)
-{
-    struct packet_data *pdata = get_packet_data(p, ETH_802_SNAP);
-    struct snap_info *snap = pdata ? pdata->data : NULL;
-
-    if (snap)
-        return snap->protocol_id;
-    return 0;
-}
