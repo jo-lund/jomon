@@ -64,6 +64,8 @@ static int map_linktype(unsigned int type)
     case ARPHRD_ETHER:
     case ARPHRD_LOOPBACK:
         return LINKTYPE_ETHERNET;
+    case ARPHRD_NONE:
+        return LINKTYPE_RAW;
     default:
         return -1;
     }
@@ -314,4 +316,21 @@ bool is_wireless(char *dev)
         ret = true;
     close(sockfd);
     return ret;
+}
+
+char *get_linktype_description(int type, char *dev)
+{
+    switch (type) {
+    case ARPHRD_ETHER:
+        return "Ethernet";
+    case ARPHRD_LOOPBACK:
+        return "Loopback";
+    case ARPHRD_IEEE1394:
+        return "IEEE1394 High Performance SerialBus";
+    default:
+        DEBUG("Unknown type: %d", type);
+        if (get_linktype(dev) == ARPHRD_NONE)
+            return "Raw IP";
+        return "Unknown";
+    }
 }

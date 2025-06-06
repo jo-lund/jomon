@@ -31,8 +31,10 @@
 
 extern void add_ipv4_information(void *w, void *sw, void *data);
 extern void print_ipv4(char *buf, int n, void *data);
-static packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int n,
+static packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buf, int n,
                                 struct packet_data *pdata);
+static packet_error handle_ipn(struct protocol_info *pinfo, unsigned char *buf, int n,
+                               struct packet_data *pdata);
 
 static struct packet_flags ipv4_flags[] = {
     { "Reserved", 1, NULL },
@@ -78,11 +80,21 @@ static struct protocol_info ipv4_prot = {
     .add_pdu = add_ipv4_information
 };
 
+static struct protocol_info ip_prot = {
+    .short_name = "Raw",
+    .long_name = "Raw IP",
+    .decode = handle_ipn,
+    .print_pdu = NULL,
+    .add_pdu = NULL
+};
+
+
 void register_ip(void)
 {
     register_protocol(&ipv4_prot, ETHERNET_II, ETHERTYPE_IP);
     register_protocol(&ipv4_prot, IP4_PROT, IPPROTO_IPIP);
     register_protocol(&ipv4_prot, PKT_LOOP, ETHERTYPE_IP);
+    register_protocol(&ip_prot, DATALINK, LINKTYPE_RAW);
 }
 
 static packet_error parse_options(struct ipv4_info *ip, unsigned char **buf, int n)
@@ -245,7 +257,7 @@ error:
  * offset of zero.
  * Protocol: Defines the protocol used in the data portion of the packet.
  */
-packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int n,
+packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buf, int n,
                          struct packet_data *pdata)
 {
     unsigned int header_len;
@@ -262,10 +274,10 @@ packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int
                                            n, MIN_HEADER_LEN);
         return DECODE_ERR;
     }
-    ipv4->version = (buffer[0] & 0xf0) >> 4;
+    ipv4->version = (buf[0] & 0xf0) >> 4;
     if (ipv4->version != 4)
         pdata->error = create_error_string("IP4 version error %d != 4", ipv4->version);
-    ipv4->ihl = (buffer[0] & 0x0f);
+    ipv4->ihl = (buf[0] & 0x0f);
     header_len = ipv4->ihl * 4;
     if ((unsigned int) n < header_len || ipv4->ihl < 5) {
         pdata->len = 0;
@@ -292,27 +304,27 @@ packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int
 
     /* Originally defined as type of service, but now defined as differentiated
        services code point and explicit congestion control */
-    ipv4->dscp = (buffer[1] & 0xfc) >> 2;
-    ipv4->ecn = buffer[1] & 0x03;
-    buffer += 2;
-    ipv4->length = read_uint16be(&buffer);
+    ipv4->dscp = (buf[1] & 0xfc) >> 2;
+    ipv4->ecn = buf[1] & 0x03;
+    buf += 2;
+    ipv4->length = read_uint16be(&buf);
 
     /* The packet has been padded in order to contain the minimum number of
        bytes. The padded bytes should be ignored. */
     if (n > ipv4->length)
         n = ipv4->length;
 
-    ipv4->id = read_uint16be(&buffer);
-    ipv4->foffset = read_uint16be(&buffer);
-    ipv4->ttl = buffer[0];
-    ipv4->protocol = buffer[1];
-    buffer += 2;
-    ipv4->checksum = read_uint16be(&buffer);
-    ipv4->src = read_uint32le(&buffer);
-    ipv4->dst = read_uint32le(&buffer);
+    ipv4->id = read_uint16be(&buf);
+    ipv4->foffset = read_uint16be(&buf);
+    ipv4->ttl = buf[0];
+    ipv4->protocol = buf[1];
+    buf += 2;
+    ipv4->checksum = read_uint16be(&buf);
+    ipv4->src = read_uint32le(&buf);
+    ipv4->dst = read_uint32le(&buf);
     ipv4->opt = NULL;
     if (ipv4->ihl > 5) {
-        if (parse_options(ipv4, &buffer, (ipv4->ihl - 5) * 4) != NO_ERR) {
+        if (parse_options(ipv4, &buf, (ipv4->ihl - 5) * 4) != NO_ERR) {
             if (ipv4->opt) {
                 mempool_free(ipv4->opt);
                 ipv4->opt = NULL;
@@ -339,7 +351,7 @@ packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buffer, int
         pdata->next = mempool_calloc(1, struct packet_data);
         pdata->next->prev = pdata;
         pdata->next->id = id;
-        if (layer3->decode(layer3, buffer, n - header_len, pdata->next) == UNK_PROTOCOL) {
+        if (layer3->decode(layer3, buf, n - header_len, pdata->next) == UNK_PROTOCOL) {
             mempool_free(pdata->next);
             pdata->next = NULL;
         }
@@ -456,4 +468,28 @@ char *get_router_alert_option(uint16_t opt)
     if (opt == 0)
         return "Router shall examine packet";
     return "Reserved";
+}
+
+packet_error handle_ipn(struct protocol_info *pinfo UNUSED, unsigned char *buf, int n,
+                         struct packet_data *pdata)
+{
+    uint8_t version;
+    struct protocol_info *raw = NULL;
+
+    if (n < 1)
+        return DATALINK_ERR;
+
+    version = (buf[0] & 0xf0) >> 4;
+    if (version == 4) {
+        pdata->id = get_protocol_id(ETHERNET_II, ETHERTYPE_IP);
+        raw = get_protocol(pdata->id);
+    } else if (version == 6) {
+        pdata->id = get_protocol_id(ETHERNET_II, ETHERTYPE_IPV6);
+        raw = get_protocol(pdata->id);
+    }
+    if (raw) {
+        raw->decode(raw, buf, n, pdata);
+        return NO_ERR;
+    }
+    return DECODE_ERR;
 }
