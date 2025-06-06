@@ -15,9 +15,7 @@
 #include <assert.h>
 #include "print_protocol.h"
 #include "decoder/decoder.h"
-#include "util.h"
-#include "string.h"
-#include "misc.h"
+#include "jomon.h"
 #include "decoder/host_analyzer.h"
 
 #define HOSTNAMELEN 255 /* maximum 255 according to rfc1035 */

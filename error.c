@@ -3,7 +3,7 @@
 #include <string.h>
 #include <errno.h>
 #include "error.h"
-#include "misc.h"
+#include "jomon.h"
 
 /* Print error message to standard error */
 static void print_error(const char *fmt, int error, va_list ap)

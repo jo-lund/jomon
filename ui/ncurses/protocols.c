@@ -12,7 +12,6 @@
 #include <stdlib.h>
 #include <time.h>
 #include "layout.h"
-#include "misc.h"
 #include "hexdump.h"
 #include "geoip.h"
 #include "decoder/decoder.h"

@@ -2,8 +2,7 @@
 #include <string.h>
 #include <ctype.h>
 #include "input.h"
-#include "wrapper.h"
-#include "string.h"
+#include "jomon.h"
 
 #define HISTORY_SIZE 128
 #define HISTORY_NEXT -1

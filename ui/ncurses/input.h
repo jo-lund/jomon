@@ -1,8 +1,6 @@
 #ifndef INPUT_H
 #define INPUT_H
 
-#include "misc.h"
-
 enum valid_keys {
     INPUT_ALL,
     INPUT_DIGITS

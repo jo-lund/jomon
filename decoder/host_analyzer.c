@@ -8,7 +8,7 @@
 #include "packet_dns.h"
 #include "dns_cache.h"
 #include "hash.h"
-#include "misc.h"
+#include "jomon.h"
 
 #define TBLSZ 1024
 

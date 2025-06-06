@@ -7,7 +7,7 @@
 #include "bpf/bpf.h"
 #include "bpf/bpf_parser.h"
 #include "bpf/pcap_parser.h"
-#include "misc.h"
+#include "jomon.h"
 #include "mempool.h"
 
 #define PATH "tests/bpf/"

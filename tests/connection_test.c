@@ -1,7 +1,7 @@
 #include <check.h>
 #include <stdio.h>
 #include "mempool.h"
-#include "misc.h"
+#include "jomon.h"
 #include "file.h"
 #include "decoder/packet.h"
 #include "decoder/decoder.h"

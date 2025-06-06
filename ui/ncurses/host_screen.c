@@ -3,11 +3,10 @@
 #include <arpa/inet.h>
 #include "host_screen.h"
 #include "menu.h"
-#include "misc.h"
+#include "jomon.h"
 #include "hashmap.h"
 #include "decoder/host_analyzer.h"
 #include "decoder/packet_arp.h"
-#include "util.h"
 #include "attributes.h"
 #include "geoip.h"
 #include "actionbar.h"

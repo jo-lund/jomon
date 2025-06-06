@@ -5,8 +5,7 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include "system_information.h"
-#include "misc.h"
-#include "string.h"
+#include "jomon.h"
 
 #define DEVPATH "/proc/net/dev"
 #define STATUSPATH "/proc/self/status"

@@ -10,12 +10,10 @@
 #include <stdio.h>
 #include <pwd.h>
 #include "process.h"
-#include "misc.h"
+#include "jomon.h"
 #include "hash.h"
 #include "decoder/tcp_analyzer.h"
 #include "list.h"
-#include "wrapper.h"
-#include "debug.h"
 
 /*
  * General algorithm to get the process related to the specific connection:

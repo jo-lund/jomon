@@ -7,7 +7,6 @@
 #include "config.h"
 #include "string.h"
 #include "wrapper.h"
-#include "misc.h"
 #include "debug.h"
 
 #define GEOIP_WARNING "Warning: Could not open geoip database. To use geoip you " \

@@ -4,7 +4,6 @@
 #include "layout.h"
 #include "menu.h"
 #include "dialogue.h"
-#include "misc.h"
 #include "util.h"
 #include "portability.h"
 

@@ -3,8 +3,7 @@
 #include <stdarg.h>
 #include <sys/time.h>
 #include "debug.h"
-#include "misc.h"
-#include "util.h"
+#include "jomon.h"
 
 #define DEBUG_FILE "/tmp/jomon.log"
 

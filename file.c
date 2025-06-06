@@ -7,7 +7,7 @@
 #include <errno.h>
 #include <ctype.h>
 #include "file.h"
-#include "misc.h"
+#include "jomon.h"
 #include "decoder/decoder.h"
 
 #define BUFSIZE (128 * 1024)
