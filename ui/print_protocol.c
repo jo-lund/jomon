@@ -49,15 +49,13 @@ void pkt2text(char *buf, size_t size, struct packet *p)
 {
     struct protocol_info *pinfo;
     struct packet_data *pdata;
+    char time[TBUFLEN];
 
     assert(p->root);
     pdata = p->root;
     pinfo = get_protocol(pdata->id);
     if (pinfo && pinfo->print_pdu) {
-        char time[TBUFLEN];
-        struct timeval t = p->time;
-
-        format_timeval(&t, time, TBUFLEN);
+        format_timeval(&p->time, time, TBUFLEN);
         PRINT_NUMBER(buf, size, p->num);
         PRINT_TIME(buf, size, time);
         while (pdata && pdata->data) {
@@ -66,6 +64,9 @@ void pkt2text(char *buf, size_t size, struct packet *p)
                 pinfo->print_pdu(buf, size, pdata);
             pdata = pdata->next;
         }
+    } else {
+        format_timeval(&p->time, time, TBUFLEN);
+        PRINT_LINE(buf, size, p->num, time, "N/A", "N/A", "N/A", "Unknown data");
     }
 }
 
