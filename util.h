@@ -71,10 +71,10 @@ struct tm_t get_time(uint32_t num_secs);
 void time_ntop(struct tm_t *time, char *result, int len);
 
 /* TODO: format should be made configurable */
-char *format_timeval(struct timeval *t, char *buf, int n);
+char *format_timeval(const struct timeval *t, char *buf, int n);
 
 /* TODO: format should be made configurable */
-char *format_timespec(struct timespec *t, char *buf, int n);
+char *format_timespec(const struct timespec *t, char *buf, int n);
 
 /*
  * Converts number of milliseconds since midnight UT to a string representation

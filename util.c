@@ -50,7 +50,7 @@ void gethost(uint32_t addr, char *host, int hostlen)
                 host, hostlen, NULL, 0, 0);
 }
 
-char *format_timeval(struct timeval *t, char *buf, int n)
+char *format_timeval(const struct timeval *t, char *buf, int n)
 {
     struct tm *time;
 
@@ -60,7 +60,7 @@ char *format_timeval(struct timeval *t, char *buf, int n)
     return buf;
 }
 
-char *format_timespec(struct timespec *t, char *buf, int n)
+char *format_timespec(const struct timespec *t, char *buf, int n)
 {
     struct tm *time;
 
