@@ -31,7 +31,7 @@
 #include "ui/ui.h"
 #include "timer.h"
 
-#define SHORT_OPTS "F:b:i:f:r:DVdhnNpstv"
+#define SHORT_OPTS "F:b:i:f:r:DVdhnNpstvxX"
 #define COUNT_OPT 128
 #define BPF_DUMP_MODES 3
 
@@ -146,6 +146,9 @@ int main(int argc, char **argv)
         case 'V':
             printf("jomon version " VERSION "\n");
             exit(0);
+        case 'X':
+            ctx.opt.hex_asciimode++;
+            break;
         case 'b':
             ctx.opt.buffer_size = atoi(optarg) * 1024;
             if (ctx.opt.buffer_size <= 0)
@@ -179,6 +182,9 @@ int main(int argc, char **argv)
         case 'v':
             ctx.opt.verbose = true;
             break;
+        case 'x':
+            ctx.opt.hexmode++;
+            break;
         case COUNT_OPT:
             ctx.opt.show_count = true;
             break;
@@ -191,6 +197,14 @@ int main(int argc, char **argv)
         err_quit("Cannot set both a filter expression and a filter file");
     if (ctx.opt.dmode > BPF_DUMP_MODES)
         err_quit("Only -d, -dd, and -ddd are accepted");
+    if ((ctx.opt.hexmode || ctx.opt.hex_asciimode) && !ctx.opt.text_mode)
+        err_quit("-x and -X options are only valid in text mode (-t option)");
+    if (ctx.opt.hexmode > HEX_PRINT_MODES)
+        err_quit("Only -x and -xx are accepted");
+    if (ctx.opt.hex_asciimode > HEX_PRINT_MODES)
+        err_quit("Only -X and -XX are accepted");
+    if (ctx.opt.hexmode > 0 && ctx.opt.hex_asciimode > 0)
+        err_quit("Cannot combine -x and -X");
     setup_signal(SIGINT, sig_callback, 0);
     setup_signal(SIGQUIT, sig_callback, 0);
     mempool_init();
@@ -264,27 +278,42 @@ static void print_bpf_and_exit(void)
 static void print_help_and_exit(void)
 {
     printf("jomon " VERSION "\n");
-    printf("Usage: jomon [-dDhNnpstvV] [-b size] [-f filter] [-F filter-file] [-i interface] [-r path]\n"
-           "Options:\n"
-           "    -b, --buffer-size      Set the kernel capture buffer size to <size>,\n"
-           "                           in units of KiB (1024 bytes). Default: 4MB\n"
-           "    --count                Print only the number of packets captured or read from file\n"
-           "    -d                     Dump packet filter as BPF assembly and exit\n"
-           "    -dd                    Dump packet filter as C code fragment and exit\n"
-           "    -ddd                   Dump packet filter as decimal numbers and exit\n"
-           "    -D, --list-interfaces  Print available interfaces and exit\n"
-           "    -f                     Specify packet filter (tcpdump syntax)\n"
-           "    -F                     Read packet filter from file (BPF assembly)\n"
-           "    -h, --help             Print this help summary\n"
-           "    -i, --interface        Specify network interface\n"
-           "    -n                     Use numerical addresses\n"
-           "    -N                     Only print the hostname (don't print the FQDN)\n"
-           "    -p                     Don't put the interface into promiscuous mode\n"
-           "    -r                     Read file in pcap format\n"
-           "    -s, --statistics       Show statistics page\n"
-           "    -t                     Use normal text output, i.e. don't use ncurses\n"
-           "    -v, --verbose          Print verbose information\n"
-           "    -V, --version          Print version\n");
+    printf("Usage: jomon [-dDhNnpstvVxX] [-b size] [-f filter] [-F filter-file]\n"
+           "              [-i interface] [-r path]\n\n"
+           "General options:\n"
+           "    -b, --buffer-size <size>\n"
+           "                      Set the kernel capture buffer size to <size>, in units of\n"
+           "                      KiB (1024 bytes). Default: 4MB\n"
+           "    --count           Print only the number of packets captured or read from file\n"
+           "    -d                Dump packet filter as BPF assembly and exit\n"
+           "    -dd               Dump packet filter as C code fragment and exit\n"
+           "    -ddd              Dump packet filter as decimal numbers and exit\n"
+           "    -D, --list-interfaces\n"
+           "                      Print available interfaces and exit\n"
+           "    -f <filter>       Specify packet filter (tcpdump syntax)\n"
+           "    -F <filter file>  Read packet filter from file (BPF assembly)\n"
+           "    -h, --help        Print this help summary\n"
+           "    -i, --interface <interface>\n"
+           "                      Set the network interface to <interface>. If not specified\n"
+           "                      the first interface (excluding loopback) that is up and\n"
+           "                      running will be used\n"
+           "    -n                Use numerical addresses\n"
+           "    -N                Only print the hostname (don't print the FQDN)\n"
+           "    -p                Don't put the interface into promiscuous mode\n"
+           "    -r <path>         Read file in pcap format\n"
+           "    -s, --statistics  Show statistics page\n"
+           "    -V, --version     Print version\n\n"
+           "Text mode options:\n"
+           "    -t                Use normal text output, i.e. don't use ncurses\n"
+           "    -v, --verbose     Print verbose information\n"
+           "    -x                Print the data of each packet in hex, minus its link-level\n"
+           "                      header\n"
+           "    -xx               Print the data of each packet in hex, including its\n"
+           "                      link-level header\n"
+           "    -X                Print the data of each packet in hex and ASCII, minus its\n"
+           "                      link-level header\n"
+           "    -XX               Print the data of each packet in hex and ASCII, including its\n"
+           "                      link-level header");
     exit(0);
 }
 

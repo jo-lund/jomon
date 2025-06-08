@@ -137,6 +137,12 @@ unsigned char *get_adu_payload(const struct packet *p);
 /* Return the application payload length */
 unsigned int get_adu_payload_len(const struct packet *p);
 
+/* Return a pointer to payload without the link-level header */
+unsigned char *get_dgram_payload(const struct packet *p);
+
+/* Return payload length without the link-level header */
+unsigned int get_dgram_length(const struct packet *p);
+
 /* Clear packet statistics */
 void clear_statistics(void);
 

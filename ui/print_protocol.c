@@ -45,7 +45,7 @@
         PRINT_INFO(buffer, n, fmt, ## __VA_ARGS__);             \
     } while (0)
 
-void pkt2text(char *buf, size_t size, struct packet *p)
+void pkt2text(char *buf, size_t size, const struct packet *p)
 {
     struct protocol_info *pinfo;
     struct packet_data *pdata;

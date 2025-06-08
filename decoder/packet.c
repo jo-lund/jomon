@@ -144,6 +144,37 @@ unsigned int get_adu_payload_len(const struct packet *p)
     return 0;
 }
 
+static bool has_link_header(const struct packet_data *pdata)
+{
+    return pdata->id == get_protocol_id(DATALINK, LINKTYPE_ETHERNET) ||
+        pdata->id == get_protocol_id(DATALINK, LINKTYPE_IEEE802) ||
+        pdata->id == get_protocol_id(DATALINK, LINKTYPE_NULL);
+}
+
+unsigned char *get_dgram_payload(const struct packet *p)
+{
+    struct packet_data *pdata = p->root;
+
+    if (pdata) {
+        if (has_link_header(pdata) && pdata->next)
+            return p->buf + pdata->len;
+        return p->buf;
+    }
+    return NULL;
+}
+
+unsigned int get_dgram_length(const struct packet *p)
+{
+    struct packet_data *pdata = p->root;
+
+    if (pdata) {
+        if (has_link_header(pdata) && pdata->next)
+            return p->len - pdata->len;
+        return p->len;
+    }
+    return 0;
+}
+
 static void clear_packet(struct protocol_info *pinfo, void *user UNUSED)
 {
     pinfo->num_bytes = 0;

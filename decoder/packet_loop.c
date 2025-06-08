@@ -30,7 +30,7 @@ void register_loop(void)
  * specifies the address family.
  */
 packet_error handle_loop(struct protocol_info *pinfo UNUSED, unsigned char *buf,
-                             int n, struct packet_data *pdata)
+                         int n, struct packet_data *pdata)
 {
     uint32_t family;
     struct protocol_info *layer2;

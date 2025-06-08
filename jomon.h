@@ -39,6 +39,10 @@
 #define MAXPATH 1024
 #endif
 
+#define HEX_PRINT_MODES 2
+#define HEX_PRINT_DGRAM 1
+#define HEX_PRINT_LINK_LEVEL 2
+
 typedef struct {
     char *device;
     char filename[MAXPATH];
@@ -54,6 +58,8 @@ typedef struct {
         int dmode;
         int buffer_size;
         bool show_count;
+        int hexmode;
+        int hex_asciimode;
     } opt;
     bool nogeoip;
     struct sockaddr_in *local_addr;
