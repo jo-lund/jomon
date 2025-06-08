@@ -2,10 +2,8 @@
 #include <net/if.h>
 #if defined(MACOS) || defined(__FreeBSD__)
 #include <net/if_dl.h>
-#include <net/if_types.h>
 #endif
 #ifdef __linux__
-#include <net/if_arp.h>
 #include <netpacket/packet.h>
 #endif
 #include <string.h>

@@ -11,6 +11,8 @@
 #include <unistd.h>
 #include <machine/atomic.h>
 #include <sys/mman.h>
+#include <net/if_types.h>
+
 #include "interface.h"
 #include "jomon.h"
 
