@@ -37,7 +37,12 @@ struct iface_operations {
     void (*set_promiscuous)(iface_handle_t *handle, char *device, bool enable);
 };
 
-/* Create a new interface handle */
+/*
+ * Create a new interface handle
+ * buf - buffer into which packets will be copied
+ * len - size of buffer
+ * fn  - the user specified packet_handler that will be called on every packet
+ */
 iface_handle_t *iface_handle_create(unsigned char *buf, size_t len, packet_handler fn);
 
 /* Activate the interface */
