@@ -350,6 +350,7 @@ void print_host_header(host_screen *hs)
     }
     screen_render_header_focus(s, hs->whdr);
     wrefresh(hs->whdr);
+    wredrawln(hs->whdr, HEADER_HEIGHT -1, 1);
 }
 
 void print_all_hosts(host_screen *hs)
