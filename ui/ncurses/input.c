@@ -7,6 +7,7 @@
 #define HISTORY_SIZE 128
 #define HISTORY_NEXT -1
 #define HISTORY_PREV 1
+#define ALT_BACKSPACE 127
 
 struct input_state {
     char buf[MAXLINE]; /* the current line */
@@ -80,6 +81,7 @@ int input_edit(struct input_state *s, int c)
     case '\n':
         return 1;
     case KEY_BACKSPACE:
+    case ALT_BACKSPACE:
     case '\b':
         if (s->pos > 0 && s->len > 0) {
             if (s->pos < s->len)
