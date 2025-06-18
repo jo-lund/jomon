@@ -66,6 +66,19 @@ iface_handle_t *iface_handle_create(unsigned char *buf, size_t len, packet_handl
     return handle;
 }
 
+static bool supported_linktype(const unsigned int linktype)
+{
+    switch (linktype) {
+    case LINKTYPE_NULL:
+    case LINKTYPE_ETHERNET:
+    case LINKTYPE_IEEE802:
+    case LINKTYPE_RAW:
+        return true;
+    default:
+        return false;
+    }
+}
+
 void bsd_activate(iface_handle_t *handle, char *dev, struct bpf_prog *bpf UNUSED)
 {
     struct ifreq ifr;
@@ -122,8 +135,8 @@ void bsd_activate(iface_handle_t *handle, char *dev, struct bpf_prog *bpf UNUSED
     /* get link type */
     if (ioctl(handle->fd, BIOCGDLT, &handle->linktype) < 0)
         err_sys("ioctl error BIOCGDLT");
-    if (handle->linktype != LINKTYPE_ETHERNET)
-        err_sys("Link type not supported");
+    if (!supported_linktype(handle->linktype))
+        err_sys("Link type not supported: %d", handle->linktype);
 }
 
 void bsd_close(iface_handle_t *handle)
