@@ -94,6 +94,7 @@ void register_ip(void)
     register_protocol(&ipv4_prot, ETHERNET_II, ETHERTYPE_IP);
     register_protocol(&ipv4_prot, IP4_PROT, IPPROTO_IPIP);
     register_protocol(&ipv4_prot, PKT_LOOP, ETHERTYPE_IP);
+    register_protocol(&ipv4_prot, PKT_RAW, ETHERTYPE_IP);
     register_protocol(&ip_prot, DATALINK, LINKTYPE_RAW);
 }
 
@@ -481,10 +482,10 @@ packet_error handle_ipn(struct protocol_info *pinfo UNUSED, unsigned char *buf, 
 
     version = (buf[0] & 0xf0) >> 4;
     if (version == 4) {
-        pdata->id = get_protocol_id(ETHERNET_II, ETHERTYPE_IP);
+        pdata->id = get_protocol_id(PKT_RAW, ETHERTYPE_IP);
         raw = get_protocol(pdata->id);
     } else if (version == 6) {
-        pdata->id = get_protocol_id(ETHERNET_II, ETHERTYPE_IPV6);
+        pdata->id = get_protocol_id(PKT_RAW, ETHERTYPE_IPV6);
         raw = get_protocol(pdata->id);
     }
     if (raw) {

@@ -23,6 +23,7 @@ void register_ip6(void)
 {
     register_protocol(&ipv6_prot, ETHERNET_II, ETHERTYPE_IPV6);
     register_protocol(&ipv6_prot, PKT_LOOP, ETHERTYPE_IPV6);
+    register_protocol(&ipv6_prot, PKT_RAW, ETHERTYPE_IPV6);
 }
 
 /*
