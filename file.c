@@ -58,19 +58,6 @@ static inline uint32_t get_linktype(pcap_hdr_t *header);
 static inline uint16_t get_major_version(pcap_hdr_t *header);
 static inline uint16_t get_minor_version(pcap_hdr_t *header);
 
-static bool linktype_supported(uint32_t linktype)
-{
-    switch (linktype) {
-    case LINKTYPE_NULL:
-    case LINKTYPE_ETHERNET:
-    case LINKTYPE_IEEE802:
-    case LINKTYPE_RAW:
-        return true;
-    default:
-        return false;
-    }
-}
-
 FILE *file_open(const char *path, const char *mode, enum file_error *err)
 {
     FILE *fp;

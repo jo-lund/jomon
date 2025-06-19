@@ -278,3 +278,16 @@ void get_local_address(char *dev, struct sockaddr *addr)
     memcpy(addr, &ifr.ifr_addr, sizeof(*addr));
     close(sockfd);
 }
+
+bool linktype_supported(const uint32_t linktype)
+{
+    switch (linktype) {
+    case LINKTYPE_NULL:
+    case LINKTYPE_ETHERNET:
+    case LINKTYPE_IEEE802:
+    case LINKTYPE_RAW:
+        return true;
+    default:
+        return false;
+    }
+}

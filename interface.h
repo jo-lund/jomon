@@ -75,4 +75,7 @@ void get_local_mac(char *dev, unsigned char *mac);
 /* Check if the interface is wireless */
 bool is_wireless(char *dev);
 
+/* Return whether the link type is supported or not */
+bool linktype_supported(const uint32_t linktype);
+
 #endif
