@@ -307,12 +307,12 @@ static void print_help_and_exit(void)
            "    -t                Use normal text output, i.e. don't use ncurses\n"
            "    -v, --verbose     Print verbose information\n"
            "    -x                Print the data of each packet in hex, minus its link-level header\n"
-           "    -xx               Print the data of each packet in hex, including its\n"
-           "                      link-level header\n"
+           "    -xx               Print the data of each packet in hex, including its link-level\n"
+           "                      header\n"
            "    -X                Print the data of each packet in hex and ASCII, minus its\n"
            "                      link-level header\n"
            "    -XX               Print the data of each packet in hex and ASCII, including its\n"
-           "                      link-level header");
+           "                      link-level header\n");
     exit(0);
 }
 
