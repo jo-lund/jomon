@@ -258,11 +258,12 @@ static void print_graph(screen *s, int col, ringbuffer_t *rate, int y, int x, ch
     int m;
     char buf[MAXLINE];
     va_list ap;
+    int bgcol = get_theme_colour(FD_LIST_BKGD);
 
     va_start(ap, info);
     vsnprintf(buf, MAXLINE - 1, info, ap);
     va_end(ap);
-    ry = y + 12;
+    ry = y + 13;
     rx = x + 2;
     pps = PTR_TO_UINT(ringbuffer_first(rate));
     mpps = 10;
@@ -274,10 +275,19 @@ static void print_graph(screen *s, int col, ringbuffer_t *rate, int y, int x, ch
     step = (mpps - 1) / 10 + 1;
     max = step * 10;
     for (unsigned int i = 0, j = 0; j <= 10; i += step, j++) {
-        if (i > 0)
+        if (i > 0) {
+            int size = ringbuffer_size(rate) + ringbuffer_capacity(rate);
             mvwprintw(s->win, ry - j, rx, "%5d", i);
+            if ((i / step) % 2 == 0) {
+                wattron(s->win, bgcol | A_UNDERLINE | A_DIM);
+                for (int i = 0; i < size; i++)
+                    mvwaddch(s->win, ry - j, rx + 6 + i, ' ');
+                wattroff(s->win, bgcol | A_UNDERLINE | A_DIM);
+            }
+        }
         mvwaddch(s->win, ry - j, rx + 5, ACS_VLINE);
     }
+    mvwaddch(s->win, ry - 11, rx + 5, ACS_VLINE);
     pps = PTR_TO_UINT(ringbuffer_first(rate));
     for (int i = 0; i < ringbuffer_size(rate); i++) {
         for (unsigned int j = 0, k = 0; j < max && j < pps; j += step, k++) {
