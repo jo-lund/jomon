@@ -58,7 +58,6 @@ static void print_selected_packet(main_screen *ms);
 static int print_lines(main_screen *ms, int from, int to, int y);
 static void print_new_packets(main_screen *ms);
 static void follow_tcp_stream(main_screen *ms);
-static void scroll_window(main_screen *ms);
 static void add_elements(main_screen *ms, struct packet *p);
 static void set_filter(main_screen *ms, int c);
 static void clear_filter(main_screen *ms);
@@ -235,20 +234,6 @@ void main_screen_free(screen *s)
     free(ms);
 }
 
-void main_screen_update_window(main_screen *ms, char *buf)
-{
-    int my;
-
-    if (!ms->base.focus)
-        return;
-    my = getmaxy(ms->base.win);
-    if (!ms->base.show_selectionbar || ms->outy < my) {
-        scroll_window(ms);
-        mvputsnlw(ms->base.win, ms->outy, 0, ms->scrollx, buf);
-        ms->outy++;
-    }
-}
-
 void main_screen_clear(main_screen *ms)
 {
     ms->base.selectionbar = 0;
@@ -342,17 +327,15 @@ void main_screen_refresh_pad(main_screen *ms)
 
 void main_screen_update(main_screen *ms, struct packet *p)
 {
-    char buf[MAXLINE];
-
     if (bpf.size > 0) {
         if (bpf_run_filter(bpf, p->buf, p->len) != 0) {
             vector_push_back(ms->packet_ref, p);
-            pkt2text(buf, MAXLINE, p);
-            main_screen_update_window(ms, buf);
+            if (ms->base.focus)
+                main_screen_refresh((screen *) ms);
         }
     } else {
-        pkt2text(buf, MAXLINE, p);
-        main_screen_update_window(ms, buf);
+        if (ms->base.focus)
+            main_screen_refresh((screen *) ms);
     }
 }
 
@@ -727,19 +710,6 @@ void main_screen_get_input(screen *s)
     }
     }
     key_mode = KEY_NORMAL;
-}
-
-/* scroll the window if necessary */
-void scroll_window(main_screen *ms)
-{
-    int my;
-
-    my = getmaxy(ms->base.win);
-    if (ms->outy >= my) {
-        ms->outy = my - 1;
-        scroll(ms->base.win);
-        ms->base.top++;
-    }
 }
 
 void print_header(main_screen *ms)
