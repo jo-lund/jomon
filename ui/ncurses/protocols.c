@@ -64,28 +64,6 @@ static void add_flags(list_view *lw, list_view_header *header, uint32_t flags,
     }
 }
 
-void add_ethernet_information(void *w, void *sw, void *data)
-{
-    char line[MAXLINE];
-    char src[HW_ADDRSTRLEN];
-    char dst[HW_ADDRSTRLEN];
-    char *type;
-    list_view *lw = w;
-    list_view_header *header = sw;
-    struct packet_data *pdata = data;
-    struct eth_info *eth = pdata->data;
-
-    HW_ADDR_NTOP(src, eth->mac_src);
-    HW_ADDR_NTOP(dst, eth->mac_dst);
-    LV_ADD_TEXT_ELEMENT(lw, header, "MAC source: %s", src);
-    LV_ADD_TEXT_ELEMENT(lw, header, "MAC destination: %s", dst);
-    snprintf(line, MAXLINE, "Ethertype: 0x%x", eth->ethertype);
-    if ((type = get_ethernet_type(eth->ethertype))) {
-        snprintcat(line, MAXLINE, " (%s)", type);
-    }
-    LV_ADD_TEXT_ELEMENT(lw, header, "%s", line);
-}
-
 void add_llc_information(void *w, void *sw, void *data)
 {
     list_view *lw = w;

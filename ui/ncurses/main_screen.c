@@ -29,6 +29,7 @@
 #include "actionbar.h"
 #include "hash.h"
 #include "input.h"
+#include "field.h"
 
 /* Get the y screen coordinate. The argument is the main_screen coordinate */
 #define GET_SCRY(y) ((y) + HEADER_HEIGHT)
@@ -373,9 +374,9 @@ static bool read_show_progress(iface_handle_t *handle, unsigned char *buffer, ui
     struct packet *p;
     main_screen *ms = (main_screen *) screen_cache_get(MAIN_SCREEN);
 
-    if (!decode_packet(handle, buffer, n, &p)) {
+    p = decode_packet(handle, buffer, n);
+    if (!p)
         return false;
-    }
     p->time.tv_sec = t->tv_sec;
     p->time.tv_usec = t->tv_usec;
     tcp_analyzer_check_stream(p);
@@ -1308,12 +1309,51 @@ void add_elements(main_screen *ms, struct packet *p)
         pinfo = get_protocol(pdata->id);
         idx += pdata->len;
         if (pinfo && i < NUM_LAYERS) {
-            if (pdata->data) {
+            if (pdata->data) {  // TODO: Remove
                 header = LV_ADD_HEADER(ms->lvw, pinfo->long_name, selected[i], i);
                 if (pdata->error)
                     LV_ADD_TEXT_ATTR(ms->lvw, header, get_theme_colour(ERR_BKGD),
                                      "Packet error: %s", pdata->error);
                 pinfo->add_pdu(ms->lvw, header, pdata);
+            }
+            if (!field_empty(&pdata->data2)) {
+                const struct field *f = NULL;
+                char line[MAXLINE];
+
+                header = LV_ADD_HEADER(ms->lvw, pinfo->long_name, selected[i], i);
+                if (pdata->error)
+                    LV_ADD_TEXT_ATTR(ms->lvw, header, get_theme_colour(ERR_BKGD),
+                                     "Packet error: %s", pdata->error);
+
+                f = field_get_next(&pdata->data2, f);
+                while (f) {
+                    snprintf(line, MAXLINE, field_get_key(f));
+                    switch (field_get_type(f)) {
+                    case FIELD_HWADDR:
+                    {
+                        char data[HW_ADDRSTRLEN];
+                        unsigned char *val = field_get_value(f);
+
+                        HW_ADDR_NTOP(data, val);
+                        snprintcat(line, MAXLINE, ": %s", data);
+                        LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
+                        break;
+                    }
+                    case FIELD_UINT16:
+                        snprintcat(line, MAXLINE, ": %u", (uint16_t)
+                                   PTR_TO_UINT(field_get_value(f)));
+                        LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
+                        break;
+                    case FIELD_UINT_STRING:
+                    {
+                        struct uint_string *type = field_get_value(f);
+                        snprintcat(line, MAXLINE, ": 0x%x (%s)", type->val, type->str);
+                        LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
+                        break;
+                    }
+                    }
+                    f = field_get_next(&pdata->data2, f);
+                }
             }
         }
         i++;

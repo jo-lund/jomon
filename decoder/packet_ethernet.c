@@ -3,14 +3,15 @@
 #include "packet_arp.h"
 #include "packet_ip.h"
 #include "packet_stp.h"
-#include "../util.h"
-#include "../interface.h"
+#include "util.h"
+#include "interface.h"
+#include "field.h"
+#include "string.h"
 
 #ifdef __linux__
 #define ETHERTYPE_PAE ETH_P_PAE
 #endif
 
-extern void add_ethernet_information(void *w, void *sw, void *data);
 extern void print_ethernet(char *buf, int n, void *data);
 static packet_error handle_ethernet(struct protocol_info *pinfo, unsigned char *buffer,
                                     int n, struct packet_data *pdata);
@@ -20,7 +21,6 @@ static struct protocol_info eth2 = {
     .long_name = "Ethernet II",
     .decode = handle_ethernet,
     .print_pdu = print_ethernet,
-    .add_pdu = add_ethernet_information
 };
 
 static struct protocol_info eth802 = {
@@ -28,7 +28,6 @@ static struct protocol_info eth802 = {
     .long_name = "Ethernet 802.3",
     .decode = handle_ethernet,
     .print_pdu = print_ethernet,
-    .add_pdu = add_ethernet_information
 };
 
 void register_ethernet(void)
@@ -75,40 +74,37 @@ void register_ethernet(void)
  *
  * The K2 value is 0 (zero).
  */
-
-packet_error handle_ethernet(struct protocol_info *pinfo UNUSED, unsigned char *buffer,
+packet_error handle_ethernet(struct protocol_info *pinfo UNUSED, unsigned char *buf,
                              int n, struct packet_data *pdata)
 {
-    if (n < ETHER_HDR_LEN || n > MAX_PACKET_SIZE)
-        return DATALINK_ERR;
-
-    struct ether_header *eth_header;
-    struct eth_info *eth;
     struct protocol_info *layer2;
     uint32_t id;
+    struct uint_string ethertype;
 
-    eth_header = (struct ether_header *) buffer;
-    eth = mempool_alloc(sizeof(struct eth_info));
-    memcpy(eth->mac_src, eth_header->ether_shost, ETHER_ADDR_LEN);
-    memcpy(eth->mac_dst, eth_header->ether_dhost, ETHER_ADDR_LEN);
-    eth->ethertype = ntohs(eth_header->ether_type);
-    pdata->data = eth;
-    pdata->len = ETHER_HDR_LEN;
+    if (n < ETHER_HDR_LEN || n > MAX_PACKET_SIZE)
+        return DATALINK_ERR;
+    field_init(&pdata->data2);
+    field_add_bytes(&pdata->data2, "MAC destination", FIELD_HWADDR, buf, ETHER_ADDR_LEN);
+    buf += ETHER_ADDR_LEN;
+    field_add_bytes(&pdata->data2, "MAC source", FIELD_HWADDR, buf, ETHER_ADDR_LEN);
+    buf += ETHER_ADDR_LEN;
+    ethertype.val = read_uint16be(&buf);
+    ethertype.str = get_ethernet_type(ethertype.val);
+    field_add_value(&pdata->data2, "Ethertype", FIELD_UINT_STRING, &ethertype);
     pdata->prev = NULL;
-    if (eth->ethertype <= ETH_802_3_MAX) {
+    if (ethertype.val <= ETH_802_3_MAX) {
         id = get_protocol_id(ETH802_3, ETH_802_LLC);
         layer2 = get_protocol(id);
         pdata->id = get_protocol_id(DATALINK, LINKTYPE_IEEE802);
     } else {
-        id = get_protocol_id(ETHERNET_II, eth->ethertype);
+        id = get_protocol_id(ETHERNET_II, ethertype.val);
         layer2 = get_protocol(id);
     }
     if (layer2) {
         pdata->next = mempool_calloc(1, struct packet_data);
         pdata->next->prev = pdata;
         pdata->next->id = id;
-        layer2->decode(layer2, buffer + ETHER_HDR_LEN, n - ETHER_HDR_LEN,
-                       pdata->next);
+        layer2->decode(layer2, buf, n - ETHER_HDR_LEN, pdata->next);
         return NO_ERR;
     }
     return UNK_PROTOCOL;
@@ -126,6 +122,6 @@ char *get_ethernet_type(uint16_t ethertype)
     case ETHERTYPE_PAE:
         return "Port Access Entity";
     default:
-        return NULL;
+        return "Unknown";
     }
 }

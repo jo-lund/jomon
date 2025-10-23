@@ -67,25 +67,28 @@ void traverse_protocols(protocol_handler fn, void *arg)
     }
 }
 
-bool decode_packet(iface_handle_t *h, unsigned char *buffer, size_t len, struct packet **p)
+struct packet *decode_packet(iface_handle_t *h, unsigned char *buffer, size_t len)
 {
     struct protocol_info *pinfo;
+    struct packet *p;
 
-    *p = mempool_alloc(sizeof(struct packet));
-    (*p)->link.next = NULL;
-    (*p)->buf = mempool_copy(buffer, len); /* store the original frame in buf */
-    (*p)->len = len;
-    (*p)->root = mempool_calloc(1, struct packet_data);
-    (*p)->root->id = get_protocol_id(DATALINK, h->linktype);
-    if ((pinfo = get_protocol((*p)->root->id)) == NULL)
-        return false;
-    if (pinfo->decode(pinfo, (*p)->buf, len, (*p)->root) == DATALINK_ERR) {
-        free_packets(*p);
-        return false;
-    }
-    (*p)->num = ++total_packets;
+    p = mempool_alloc(sizeof(struct packet));
+    p->link.next = NULL;
+    p->buf = mempool_copy(buffer, len); /* store the original frame in buf */
+    p->len = len;
+    p->root = mempool_calloc(1, struct packet_data);
+    p->root->id = get_protocol_id(DATALINK, h->linktype);
+    if ((pinfo = get_protocol(p->root->id)) == NULL)
+        goto error;
+    if (pinfo->decode(pinfo, p->buf, len, p->root) == DATALINK_ERR)
+        goto error;
+    p->num = ++total_packets;
     total_bytes += len;
-    return true;
+    return p;
+
+error:
+    free_packets(p);
+    return NULL;
 }
 
 void free_packets(void *data)

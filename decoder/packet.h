@@ -105,7 +105,8 @@ struct packet_data {
     uint8_t transport;
     uint16_t len; /* length of the packet data as seen on the network */
     char *error;
-    void *data;
+    void *data;  // TODO: Remove this
+    QUEUE_HEAD(field_head, struct field) data2;
     struct packet_data *prev;
     struct packet_data *next;
 };
@@ -123,9 +124,7 @@ void traverse_protocols(protocol_handler fn, void *arg);
  *
  * Returns true if decoding succeeded, else false.
  */
-bool decode_packet(iface_handle_t *h, unsigned char *buffer, size_t n,
-                   struct packet **p);
-
+struct packet *decode_packet(iface_handle_t *h, unsigned char *buffer, size_t len);
 /*
  * Frees data and everything allocated more recently than data. To free the
  * whole pool, i.e. all the packets, use NULL as argument.
