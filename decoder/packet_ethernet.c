@@ -1,8 +1,7 @@
 #include <string.h>
+#include <stdio.h>
 #include "packet_ethernet.h"
-#include "packet_arp.h"
-#include "packet_ip.h"
-#include "packet_stp.h"
+#include "packet.h"
 #include "util.h"
 #include "interface.h"
 #include "field.h"
@@ -12,7 +11,9 @@
 #define ETHERTYPE_PAE ETH_P_PAE
 #endif
 
-extern void print_ethernet(char *buf, int n, void *data);
+struct packet_data;
+
+static void print_ethernet(char *buf, int n, struct packet_data *pdata);
 static packet_error handle_ethernet(struct protocol_info *pinfo, unsigned char *buffer,
                                     int n, struct packet_data *pdata);
 
@@ -20,20 +21,36 @@ static struct protocol_info eth2 = {
     .short_name = "ETH",
     .long_name = "Ethernet II",
     .decode = handle_ethernet,
-    .print_pdu = print_ethernet,
+    .print_info = print_ethernet,
 };
 
 static struct protocol_info eth802 = {
     .short_name = "ETH",
     .long_name = "Ethernet 802.3",
     .decode = handle_ethernet,
-    .print_pdu = print_ethernet,
+    .print_info = print_ethernet,
 };
 
 void register_ethernet(void)
 {
     register_protocol(&eth2, DATALINK, LINKTYPE_ETHERNET);
     register_protocol(&eth802, DATALINK, LINKTYPE_IEEE802);
+}
+
+static char *get_ethernet_type(uint16_t ethertype)
+{
+    switch (ethertype) {
+    case ETHERTYPE_IP:
+        return "IPv4";
+    case ETHERTYPE_ARP:
+        return "ARP";
+    case ETHERTYPE_IPV6:
+        return "IPv6";
+    case ETHERTYPE_PAE:
+        return "Port Access Entity";
+    default:
+        return "Unknown";
+    }
 }
 
 /*
@@ -110,18 +127,11 @@ packet_error handle_ethernet(struct protocol_info *pinfo UNUSED, unsigned char *
     return UNK_PROTOCOL;
 }
 
-char *get_ethernet_type(uint16_t ethertype)
+void print_ethernet(char *buf, int n, struct packet_data *pdata)
 {
-    switch (ethertype) {
-    case ETHERTYPE_IP:
-        return "IPv4";
-    case ETHERTYPE_ARP:
-        return "ARP";
-    case ETHERTYPE_IPV6:
-        return "IPv6";
-    case ETHERTYPE_PAE:
-        return "Port Access Entity";
-    default:
-        return "Unknown";
-    }
+    struct uint_string *type;
+
+    type = field_get_key_value(&pdata->data2, "Ethertype");
+    if (type)
+        snprintf(buf, n, "Ethertype: 0x%x", type->val);
 }

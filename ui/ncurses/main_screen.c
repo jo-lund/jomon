@@ -1508,7 +1508,7 @@ static void follow_tcp_stream(main_screen *ms)
 
     p = vector_get(ms->packet_ref, subwindow_adjust_selectionbar(ms));
     assert(p);
-    if (!is_tcp(p) || ethertype(p) != ETHERTYPE_IP)
+    if (!is_tcp(p))
         return;
     endp.src = ipv4_src(p);
     endp.dst = ipv4_dst(p);

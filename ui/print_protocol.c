@@ -17,6 +17,7 @@
 #include "decoder/decoder.h"
 #include "jomon.h"
 #include "decoder/host_analyzer.h"
+#include "field.h"
 
 #define HOSTNAMELEN 255 /* maximum 255 according to rfc1035 */
 #define TBUFLEN 16
@@ -54,40 +55,37 @@ void pkt2text(char *buf, size_t size, const struct packet *p)
     assert(p->root);
     pdata = p->root;
     pinfo = get_protocol(pdata->id);
-    if (pinfo && pinfo->print_pdu) {
+    if (pinfo && pinfo->print_info) {
         format_timeval(&p->time, time, TBUFLEN);
         PRINT_NUMBER(buf, size, p->num);
         PRINT_TIME(buf, size, time);
-        while (pdata && pdata->data) {
+        while (pdata) {
             pinfo = get_protocol(pdata->id);
-            if (pinfo->print_pdu)
-                pinfo->print_pdu(buf, size, pdata);
+            if (pinfo->print_info && pdata->next == NULL) {
+                char info[512];
+                if (!field_empty(&pdata->data2)) {
+                    if (strcmp(pinfo->long_name, "Ethernet II") == 0) {
+                        char smac[HW_ADDRSTRLEN];
+                        char dmac[HW_ADDRSTRLEN];
+                        unsigned char *src;
+                        unsigned char *dst;
+
+                        src = field_get_key_value(&pdata->data2, "MAC source");
+                        dst = field_get_key_value(&pdata->data2, "MAC destination");
+                        HW_ADDR_NTOP(smac, src);
+                        HW_ADDR_NTOP(dmac, dst);
+                        PRINT_ADDRESS(buf, size, smac, dmac);
+                    }
+                }
+                PRINT_PROTOCOL(buf, size, pinfo->short_name);
+                pinfo->print_info(info, 512, pdata);
+                PRINT_INFO(buf, size, "%s", info);
+            }
             pdata = pdata->next;
         }
     } else {
         format_timeval(&p->time, time, TBUFLEN);
         PRINT_LINE(buf, size, p->num, time, "N/A", "N/A", "N/A", "Unknown data");
-    }
-}
-
-void print_ethernet(char *buf, int n, void *data)
-{
-    struct packet_data *pdata = data;
-
-    if (!PACKET_HAS_DATA(pdata->next)) {
-        struct protocol_info *pinfo;
-        struct eth_info *eth;
-        char smac[HW_ADDRSTRLEN];
-        char dmac[HW_ADDRSTRLEN];
-
-        eth = pdata->data;
-        HW_ADDR_NTOP(smac, eth->mac_src);
-        HW_ADDR_NTOP(dmac, eth->mac_dst);
-        pinfo = get_protocol(pdata->id);
-        assert(pinfo);
-        PRINT_ADDRESS(buf, n, smac, dmac);
-        PRINT_PROTOCOL(buf, n, pinfo->short_name);
-        PRINT_INFO(buf, n, "Ethertype: 0x%x", eth->ethertype);
     }
 }
 
@@ -136,18 +134,7 @@ void print_llc(char *buf, int n, void *data)
 {
     struct packet_data *pdata = data;
     struct eth_802_llc *llc = pdata->data;
-    struct packet_data *root;
-    struct eth_info *eth;
-    char smac[HW_ADDRSTRLEN];
-    char dmac[HW_ADDRSTRLEN];
 
-    root = pdata;
-    while (root->prev)
-        root = root->prev;
-    eth = root->data;
-    HW_ADDR_NTOP(smac, eth->mac_src);
-    HW_ADDR_NTOP(dmac, eth->mac_dst);
-    PRINT_ADDRESS(buf, n, smac, dmac);
     if (!PACKET_HAS_DATA(pdata->next)) {
         PRINT_PROTOCOL(buf, n, "LLC");
         PRINT_INFO(buf, n, "SSAP: 0x%x  DSAP: 0x%x  Control: 0x%x",

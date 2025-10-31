@@ -61,6 +61,17 @@ const struct field *field_get_next(struct field_head *head, const struct field *
     return f ? QUEUE_NEXT(f, link) : head->first;
 }
 
+void *field_get_key_value(struct field_head *head, char *key)
+{
+    struct field *f = NULL;
+
+    QUEUE_FOR_EACH(head, f, link) {
+        if (strcmp(f->key, key) == 0)
+            return f->val;
+    }
+    return NULL;
+}
+
 char *field_get_key(const struct field *f)
 {
     return f ? f->key : NULL;
