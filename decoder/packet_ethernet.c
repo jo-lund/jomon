@@ -131,7 +131,6 @@ void print_ethernet(char *buf, int n, struct packet_data *pdata)
 {
     struct uint_string *type;
 
-    type = field_get_key_value(&pdata->data2, "Ethertype");
-    if (type)
+    if ((type = field_search_value(&pdata->data2, "Ethertype")))
         snprintf(buf, n, "Ethertype: 0x%x", type->val);
 }

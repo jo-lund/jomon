@@ -64,18 +64,6 @@ static void add_flags(list_view *lw, list_view_header *header, uint32_t flags,
     }
 }
 
-void add_llc_information(void *w, void *sw, void *data)
-{
-    list_view *lw = w;
-    list_view_header *header = sw;
-    struct packet_data *pdata = data;
-    struct eth_802_llc *llc = pdata->data;
-
-    LV_ADD_TEXT_ELEMENT(lw, header, "Destination Service Access Point (DSAP): 0x%x", llc->dsap);
-    LV_ADD_TEXT_ELEMENT(lw, header, "Source Service Access Point (SSAP): 0x%x", llc->ssap);
-    LV_ADD_TEXT_ELEMENT(lw, header, "Control: 0x%x", llc->control);
-}
-
 void add_snap_information(void *w, void *sw, void *data)
 {
     list_view *lw = w;

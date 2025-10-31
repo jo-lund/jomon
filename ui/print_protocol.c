@@ -46,6 +46,29 @@
         PRINT_INFO(buffer, n, fmt, ## __VA_ARGS__);             \
     } while (0)
 
+static void print_address(char *buf, size_t n, struct packet_data *pdata)
+{
+    struct protocol_info *pinfo = get_protocol(pdata->id);
+
+    if (strcmp(pinfo->short_name, "ETH") == 0) {
+        // TODO: Check for IP4 or IP6
+        if (!field_empty(&pdata->data2)) {
+            char smac[HW_ADDRSTRLEN];
+            char dmac[HW_ADDRSTRLEN];
+            unsigned char *src;
+            unsigned char *dst;
+
+            src = field_search_value(&pdata->data2, "MAC source");
+            dst = field_search_value(&pdata->data2, "MAC destination");
+            HW_ADDR_NTOP(smac, src);
+            HW_ADDR_NTOP(dmac, dst);
+            PRINT_ADDRESS(buf, n, smac, dmac);
+        }
+    } else {
+        PRINT_ADDRESS(buf, n, "N/A", "N/A");
+    }
+}
+
 void pkt2text(char *buf, size_t size, const struct packet *p)
 {
     struct protocol_info *pinfo;
@@ -59,24 +82,11 @@ void pkt2text(char *buf, size_t size, const struct packet *p)
         format_timeval(&p->time, time, TBUFLEN);
         PRINT_NUMBER(buf, size, p->num);
         PRINT_TIME(buf, size, time);
+        print_address(buf, size, pdata);
         while (pdata) {
             pinfo = get_protocol(pdata->id);
             if (pinfo->print_info && pdata->next == NULL) {
                 char info[512];
-                if (!field_empty(&pdata->data2)) {
-                    if (strcmp(pinfo->long_name, "Ethernet II") == 0) {
-                        char smac[HW_ADDRSTRLEN];
-                        char dmac[HW_ADDRSTRLEN];
-                        unsigned char *src;
-                        unsigned char *dst;
-
-                        src = field_get_key_value(&pdata->data2, "MAC source");
-                        dst = field_get_key_value(&pdata->data2, "MAC destination");
-                        HW_ADDR_NTOP(smac, src);
-                        HW_ADDR_NTOP(dmac, dst);
-                        PRINT_ADDRESS(buf, size, smac, dmac);
-                    }
-                }
                 PRINT_PROTOCOL(buf, size, pinfo->short_name);
                 pinfo->print_info(info, 512, pdata);
                 PRINT_INFO(buf, size, "%s", info);
@@ -127,18 +137,6 @@ void print_arp(char *buf, int n, void *data)
     default:
         PRINT_INFO(buf, n, "Opcode %d", arp->op);
         break;
-    }
-}
-
-void print_llc(char *buf, int n, void *data)
-{
-    struct packet_data *pdata = data;
-    struct eth_802_llc *llc = pdata->data;
-
-    if (!PACKET_HAS_DATA(pdata->next)) {
-        PRINT_PROTOCOL(buf, n, "LLC");
-        PRINT_INFO(buf, n, "SSAP: 0x%x  DSAP: 0x%x  Control: 0x%x",
-                   llc->ssap, llc->dsap, llc->control);
     }
 }
 

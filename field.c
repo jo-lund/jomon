@@ -40,6 +40,7 @@ void field_add_value(struct field_head *head, char *key, int type, void *data)
     f->key = key;
     f->type = type;
     switch (type) {
+    case FIELD_UINT8:
     case FIELD_UINT16:
         f->val = data;
         break;
@@ -62,7 +63,18 @@ const struct field *field_get_next(struct field_head *head, const struct field *
     return f ? QUEUE_NEXT(f, link) : head->first;
 }
 
-void *field_get_key_value(struct field_head *head, char *key)
+const struct field *field_search(struct field_head *head, char *key)
+{
+    struct field *f = NULL;
+
+    QUEUE_FOR_EACH(head, f, link) {
+        if (strcmp(f->key, key) == 0)
+            return f;
+    }
+    return NULL;
+}
+
+void *field_search_value(struct field_head *head, char *key)
 {
     struct field *f = NULL;
 
@@ -72,6 +84,7 @@ void *field_get_key_value(struct field_head *head, char *key)
     }
     return NULL;
 }
+
 
 char *field_get_key(const struct field *f)
 {
@@ -86,6 +99,14 @@ void *field_get_value(const struct field *f)
 int field_get_type(const struct field *f)
 {
     return f ? f->type : -1;
+}
+
+uint8_t field_get_uint8(const struct field *f)
+{
+    if (f && f->type == FIELD_UINT8) {
+        return (uint8_t) PTR_TO_UINT(field_get_value(f));
+    }
+    return 0;
 }
 
 uint16_t field_get_uint16(const struct field *f)

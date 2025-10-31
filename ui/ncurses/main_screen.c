@@ -1339,8 +1339,12 @@ void add_elements(main_screen *ms, struct packet *p)
                         LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
                         break;
                     }
+                    case FIELD_UINT8:
+                        snprintcat(line, MAXLINE, ": 0x%x", field_get_uint8(f));
+                        LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
+                        break;
                     case FIELD_UINT16:
-                        snprintcat(line, MAXLINE, ": %u", field_get_uint16(f));
+                        snprintcat(line, MAXLINE, ": 0x%x", field_get_uint16(f));
                         LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
                         break;
                     case FIELD_UINT_STRING:
