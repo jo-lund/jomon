@@ -21,5 +21,6 @@ void *field_get_key_value(struct field_head *head, char *key);
 char *field_get_key(const struct field *f);
 void *field_get_value(const struct field *f);
 int field_get_type(const struct field *f);
+uint16_t field_get_uint16(const struct field *f);
 
 #endif

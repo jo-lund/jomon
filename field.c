@@ -5,6 +5,7 @@
 #include "mempool.h"
 #include "decoder/packet.h"
 #include "string.h"
+#include "util.h"
 
 struct field {
     char *key;
@@ -85,4 +86,12 @@ void *field_get_value(const struct field *f)
 int field_get_type(const struct field *f)
 {
     return f ? f->type : -1;
+}
+
+uint16_t field_get_uint16(const struct field *f)
+{
+    if (f && f->type == FIELD_UINT16) {
+        return (uint16_t) PTR_TO_UINT(field_get_value(f));
+    }
+    return 0;
 }

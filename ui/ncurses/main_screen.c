@@ -1340,8 +1340,7 @@ void add_elements(main_screen *ms, struct packet *p)
                         break;
                     }
                     case FIELD_UINT16:
-                        snprintcat(line, MAXLINE, ": %u", (uint16_t)
-                                   PTR_TO_UINT(field_get_value(f)));
+                        snprintcat(line, MAXLINE, ": %u", field_get_uint16(f));
                         LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
                         break;
                     case FIELD_UINT_STRING:
