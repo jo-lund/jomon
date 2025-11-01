@@ -530,6 +530,7 @@ static void file_dialogue_ok(void *arg)
     file_dialogue *fd;
 
     fd = (file_dialogue *) arg;
+    input_exit(fd->state);
     pop_screen();
     fd->ok->action(fd->path);
 }
@@ -602,7 +603,6 @@ void file_dialogue_handle_enter(struct file_dialogue *this)
 
             buf = input_get_buffer(this->state);
             strncat(this->path, buf, MAXPATH);
-            input_exit(this->state);
             if (this->type == FS_SAVE)
                 file_dialogue_file_exist(this);
             else
