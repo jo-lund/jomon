@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include "packet_snap.h"
-#include "packet_llc.h"
+#include "packet.h"
 #include "util.h"
 #include "field.h"
 

@@ -1,6 +1,8 @@
 #ifndef FIELD_H
 #define FIELD_H
 
+#include <stdbool.h>
+
 struct field_head;
 
 enum field_type {

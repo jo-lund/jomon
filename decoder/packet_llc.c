@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "packet_llc.h"
+#include "packet.h"
 #include "field.h"
 #include "util.h"
 

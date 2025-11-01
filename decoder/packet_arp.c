@@ -1,5 +1,6 @@
 #include <arpa/inet.h>
 #include <stdio.h>
+#include <netinet/if_ether.h>
 #include "packet_arp.h"
 #include "packet.h"
 #include "error.h"
