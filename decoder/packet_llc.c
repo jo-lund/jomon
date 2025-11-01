@@ -1,4 +1,3 @@
-#include <string.h>
 #include <stdio.h>
 #include "packet_llc.h"
 #include "field.h"
