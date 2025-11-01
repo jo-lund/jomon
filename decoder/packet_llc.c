@@ -8,7 +8,7 @@ static void print_llc(char *buf, int n, struct packet_data *data);
 static packet_error handle_llc(struct protocol_info *pinfo, unsigned char *buf, int n,
                                struct packet_data *pdata);
 
-static struct protocol_info llc_prot = {
+static struct protocol_info llc = {
     .short_name = "LLC",
     .long_name = "Logical Link Control",
     .decode = handle_llc,
@@ -17,7 +17,7 @@ static struct protocol_info llc_prot = {
 
 void register_llc(void)
 {
-    register_protocol(&llc_prot, ETH802_3, ETH_802_LLC);
+    register_protocol(&llc, ETH802_3, ETH_802_LLC);
 }
 
 packet_error handle_llc(struct protocol_info *pinfo, unsigned char *buf, int n, struct packet_data *pdata)
@@ -37,7 +37,7 @@ packet_error handle_llc(struct protocol_info *pinfo, unsigned char *buf, int n, 
     field_add_value(&pdata->data2, "Control", FIELD_UINT8, UINT_TO_PTR(buf[2]));
     pdata->len = LLC_HDR_LEN;
     pinfo->num_packets++;
-    pinfo->num_bytes += n;
+    pinfo->num_bytes += LLC_HDR_LEN;
     id = get_protocol_id(ETH802_3, (buf[0] << 8) | buf[1]);
     if ((buf[0] << 8 | buf[1]) == 0xffff) /* invalid id */
         return UNK_PROTOCOL;
