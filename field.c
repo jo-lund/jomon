@@ -42,6 +42,7 @@ void field_add_value(struct field_head *head, char *key, int type, void *data)
     switch (type) {
     case FIELD_UINT8:
     case FIELD_UINT16:
+    case FIELD_IP4ADDR:
         f->val = data;
         break;
     case FIELD_UINT_STRING:
@@ -113,6 +114,14 @@ uint16_t field_get_uint16(const struct field *f)
 {
     if (f && f->type == FIELD_UINT16) {
         return (uint16_t) PTR_TO_UINT(field_get_value(f));
+    }
+    return 0;
+}
+
+uint32_t field_get_uint32(const struct field *f)
+{
+    if (f && (f->type == FIELD_UINT32 || f->type == FIELD_IP4ADDR)) {
+        return (uint32_t) PTR_TO_UINT(field_get_value(f));
     }
     return 0;
 }

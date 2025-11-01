@@ -1321,16 +1321,6 @@ void add_elements(main_screen *ms, struct packet *p)
                 while (f) {
                     snprintf(line, MAXLINE, field_get_key(f));
                     switch (field_get_type(f)) {
-                    case FIELD_HWADDR:
-                    {
-                        char data[HW_ADDRSTRLEN];
-                        unsigned char *val = field_get_value(f);
-
-                        HW_ADDR_NTOP(data, val);
-                        snprintcat(line, MAXLINE, ": %s", data);
-                        LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
-                        break;
-                    }
                     case FIELD_UINT8:
                         snprintcat(line, MAXLINE, ": 0x%x", field_get_uint8(f));
                         LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
@@ -1342,6 +1332,7 @@ void add_elements(main_screen *ms, struct packet *p)
                     case FIELD_UINT24:
                     {
                         unsigned char *val;
+
                         val = field_get_value(f);
                         snprintcat(line, MAXLINE, ": 0x%06x", val[0] << 16 | val[1] << 8 | val[2]);
                         LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
@@ -1353,6 +1344,28 @@ void add_elements(main_screen *ms, struct packet *p)
                         snprintcat(line, MAXLINE, ": 0x%x (%s)", type->val, type->str);
                         LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
                         break;
+                    }
+                    case FIELD_HWADDR:
+                    {
+                        char data[HW_ADDRSTRLEN];
+                        unsigned char *val = field_get_value(f);
+
+                        HW_ADDR_NTOP(data, val);
+                        snprintcat(line, MAXLINE, ": %s", data);
+                        LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
+                        break;
+                    }
+                    case FIELD_IP4ADDR:
+                    {
+                        char data[INET_ADDRSTRLEN];
+                        uint32_t addr;
+
+                        addr = field_get_uint32(f);
+                        inet_ntop(AF_INET, &addr, data, INET_ADDRSTRLEN);
+                        snprintcat(line, MAXLINE, ": %s", data);
+                        LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
+                        break;
+
                     }
                     }
                     f = field_get_next(&pdata->data2, f);

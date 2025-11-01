@@ -1,14 +1,10 @@
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
-#include <netinet/if_ether.h>
-#include <stdlib.h>
-#include <string.h>
+#include <stdio.h>
 #include "packet_arp.h"
-#include "packet_ethernet.h"
-#include "../error.h"
-#include "packet.h"
+#include "error.h"
+#include "field.h"
+#include "string.h"
+#include "util.h"
 
 #define ARP_SIZE 28 /* size of an ARP packet (header + payload) */
 #ifdef __FreeBSD__
@@ -19,69 +15,23 @@
 #define ARPHRD_ARCNET 7
 #endif
 
-extern void add_arp_information(void *w, void *sw, void *data);
-extern void print_arp(char *buf, int n, void *data);
+static void print_arp(char *buf, int n, struct packet_data *pdata);
+packet_error handle_arp(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                        struct packet_data *pdata);
 
-static struct protocol_info arp_prot = {
+static struct protocol_info arp = {
     .short_name = "ARP",
     .long_name = "Address Resolution Protocol",
     .decode = handle_arp,
-    .print_pdu = print_arp,
-    .add_pdu = add_arp_information
+    .print_info = print_arp,
 };
 
 void register_arp(void)
 {
-    register_protocol(&arp_prot, ETHERNET_II, ETHERTYPE_ARP);
+    register_protocol(&arp, ETHERNET_II, ETHERTYPE_ARP);
 }
 
-/*
- * IPv4 over Ethernet ARP packet (28 bytes)
- *
- *   2   2  1 1  2       6         4           6       4
- * +---+---+-+-+---+-----------+-------+-----------+-------+
- * |   |   |H|P|   |  Sender   | Sender|  Target   |Target |
- * |HT |PT |S|S|OP | Ethernet  |  IP   | Ethernet  |  IP   |
- * |   |   | | |   |  Address  |Address|  Address  |Address|
- * +---+---+-+-+---+-----------+-------+-----------+-------+
- *
- * HT: Hardware Type
- * PT: Protocol Type
- * HS: Hardware Size, number of bytes in the specified hardware address
- * PS: Protocol Size, number of bytes in the requested network address
- * OP: Operation. 1 = ARP request, 2 = ARP reply, 3 = RARP request, 4 = RARP reply
- */
-packet_error handle_arp(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                        struct packet_data *pdata)
-{
-    struct arp_info *arp;
-    struct ether_arp *arp_header;
-
-    arp = mempool_alloc(sizeof(struct arp_info));
-    pdata->data = arp;
-    pdata->len = n;
-    if (n < ARP_SIZE) {
-        memset(arp, 0, sizeof(*arp));
-        pdata->error = create_error_string("Packet length (%d) less than minimum ARP packet (%d)",
-                                           n, ARP_SIZE);
-        return DECODE_ERR;
-    }
-    pinfo->num_packets++;
-    pinfo->num_bytes += n;
-    arp_header = (struct ether_arp *) buffer;
-    memcpy(arp->sip, arp_header->arp_spa, 4); /* sender protocol address */
-    memcpy(arp->tip, arp_header->arp_tpa, 4); /* target protocol address */
-    memcpy(arp->sha, arp_header->arp_sha, ETHER_ADDR_LEN); /* sender hardware address */
-    memcpy(arp->tha, arp_header->arp_tha, ETHER_ADDR_LEN); /* target hardware address */
-    arp->op = ntohs(arp_header->arp_op); /* arp opcode (command) */
-    arp->ht = ntohs(arp_header->arp_hrd);
-    arp->pt = ntohs(arp_header->arp_pro);
-    arp->hs = arp_header->arp_hln;
-    arp->ps = arp_header->arp_pln;
-    return NO_ERR;
-}
-
-char *get_arp_hardware_type(uint16_t type)
+static char *get_arp_hardware_type(uint16_t type)
 {
     switch (type) {
     case ARPHRD_ETHER:
@@ -103,7 +53,7 @@ char *get_arp_hardware_type(uint16_t type)
     }
 }
 
-char *get_arp_protocol_type(uint16_t type)
+static char *get_arp_protocol_type(uint16_t type)
 {
     switch (type) {
     case ETHERTYPE_IP:
@@ -117,7 +67,7 @@ char *get_arp_protocol_type(uint16_t type)
     }
 }
 
-char *get_arp_opcode(uint16_t opcode)
+static char *get_arp_opcode(uint16_t opcode)
 {
     switch (opcode) {
     case ARPOP_REQUEST:
@@ -126,5 +76,87 @@ char *get_arp_opcode(uint16_t opcode)
         return "ARP reply";
     default:
         return NULL;
+    }
+}
+
+/*
+ * IPv4 over Ethernet ARP packet (28 bytes)
+ *
+ *   2   2  1 1  2       6         4           6       4
+ * +---+---+-+-+---+-----------+-------+-----------+-------+
+ * |   |   |H|P|   |  Sender   | Sender|  Target   |Target |
+ * |HT |PT |S|S|OP | Ethernet  |  IP   | Ethernet  |  IP   |
+ * |   |   | | |   |  Address  |Address|  Address  |Address|
+ * +---+---+-+-+---+-----------+-------+-----------+-------+
+ *
+ * HT: Hardware Type
+ * PT: Protocol Type
+ * HS: Hardware Size, number of bytes in the specified hardware address
+ * PS: Protocol Size, number of bytes in the requested network address
+ * OP: Operation. 1 = ARP request, 2 = ARP reply, 3 = RARP request, 4 = RARP reply
+ */
+packet_error handle_arp(struct protocol_info *pinfo, unsigned char *buf, int n, struct packet_data *pdata)
+{
+    struct uint_string type;
+
+    if (n < ARP_SIZE) {
+        pdata->error = create_error_string("Packet length (%d) less than minimum ARP packet (%d)",
+                                           n, ARP_SIZE);
+        return DECODE_ERR;
+    }
+    field_init(&pdata->data2);
+    type.val = read_uint16be(&buf);
+    type.str = get_arp_hardware_type(type.val);
+    field_add_value(&pdata->data2, "Hardware type", FIELD_UINT_STRING, &type);
+    type.val = read_uint16be(&buf);
+    type.str = get_arp_protocol_type(type.val);
+    field_add_value(&pdata->data2, "Protocol type", FIELD_UINT_STRING, &type);
+    field_add_value(&pdata->data2, "Hardware size", FIELD_UINT8, UINT_TO_PTR(*buf));
+    buf++;
+    field_add_value(&pdata->data2, "Protocol size", FIELD_UINT8, UINT_TO_PTR(*buf));
+    buf++;
+    type.val = read_uint16be(&buf);
+    type.str = get_arp_opcode(type.val);
+    field_add_value(&pdata->data2, "Opcode", FIELD_UINT_STRING, &type);
+    field_add_bytes(&pdata->data2, "Sender MAC address", FIELD_HWADDR, buf, ETHER_ADDR_LEN);
+    buf += ETHER_ADDR_LEN;
+    field_add_value(&pdata->data2, "Sender IP address", FIELD_IP4ADDR, UINT_TO_PTR(read_uint32le(&buf)));
+    field_add_bytes(&pdata->data2, "Target MAC address", FIELD_HWADDR, buf, ETHER_ADDR_LEN);
+    buf += ETHER_ADDR_LEN;
+    field_add_value(&pdata->data2, "Target IP address", FIELD_IP4ADDR, UINT_TO_PTR(read_uint32le(&buf)));
+    pdata->len = n;  // TODO: Handle padding
+    pinfo->num_packets++;
+    pinfo->num_bytes += n;
+    return NO_ERR;
+}
+
+void print_arp(char *buf, int n, struct packet_data *pdata)
+{
+    char sip[INET_ADDRSTRLEN];
+    char tip[INET_ADDRSTRLEN];
+    char *sha;
+    const struct field *f;
+    uint32_t addr;
+    struct uint_string *opcode;
+
+    f = field_search(&pdata->data2, "Sender IP address");
+    addr = field_get_uint32(f);
+    inet_ntop(AF_INET, &addr, sip, INET_ADDRSTRLEN);
+    f = field_search(&pdata->data2, "Target IP address");
+    addr = field_get_uint32(f);
+    inet_ntop(AF_INET, &addr, tip, INET_ADDRSTRLEN);
+    opcode = field_search_value(&pdata->data2, "Opcode");
+    switch (opcode->val) {
+    case ARPOP_REQUEST:
+        snprintf(buf, n, "Request: Looking for hardware address for %s", tip);
+        break;
+    case ARPOP_REPLY:
+        sha = field_search_value(&pdata->data2, "Sender MAC address");
+        HW_ADDR_NTOP(sha, sha);
+        snprintf(buf, n, "Reply: %s has hardware address %s", sip, sha);
+        break;
+    default:
+        snprintf(buf, n, "Opcode %d", opcode->val);
+        break;
     }
 }

@@ -64,37 +64,6 @@ static void add_flags(list_view *lw, list_view_header *header, uint32_t flags,
     }
 }
 
-void add_arp_information(void *w, void *sw, void *data)
-{
-    list_view *lw = w;
-    list_view_header *header = sw;
-    struct packet_data *pdata = data;
-    struct arp_info *arp = pdata->data;
-    char sip[INET_ADDRSTRLEN];
-    char tip[INET_ADDRSTRLEN];
-    char sha[HW_ADDRSTRLEN];
-    char tha[HW_ADDRSTRLEN];
-    char *hwtype;
-    char *ptype;
-    char *opcode;
-
-    HW_ADDR_NTOP(sha, arp->sha);
-    HW_ADDR_NTOP(tha, arp->tha);
-    inet_ntop(AF_INET, arp->sip, sip, INET_ADDRSTRLEN);
-    inet_ntop(AF_INET, arp->tip, tip, INET_ADDRSTRLEN);
-
-    if ((hwtype = get_arp_hardware_type(arp->ht)) != NULL)
-        LV_ADD_TEXT_ELEMENT(lw, header, "Hardware type: %s (%d)", hwtype, arp->ht);
-    if ((ptype = get_arp_protocol_type(arp->pt)) != NULL)
-        LV_ADD_TEXT_ELEMENT(lw, header, "Protocol type: %s (0x%x)", ptype, arp->pt);
-    LV_ADD_TEXT_ELEMENT(lw, header, "Hardware size: %d", arp->hs);
-    LV_ADD_TEXT_ELEMENT(lw, header, "Protocol size: %d", arp->ps);
-    if ((opcode = get_arp_opcode(arp->op)) != NULL)
-        LV_ADD_TEXT_ELEMENT(lw, header, "Opcode: %s (%d)", opcode, arp->op);
-    LV_ADD_TEXT_ELEMENT(lw, header, "Sender IP: %-15s  HW: %s", sip, sha);
-    LV_ADD_TEXT_ELEMENT(lw, header, "Target IP: %-15s  HW: %s", tip, tha);
-}
-
 void add_stp_information(void *w, void *sw, void *data)
 {
     list_view *lw = w;
@@ -1803,8 +1772,8 @@ static void add_dhcp_options(list_view *lw, list_view_header *header, struct dhc
                     snprintf(buf + 2 * i, 256 - 2 * i, "%02x", (unsigned char) opt->bytes[i]);
                 }
             } else {
-                LV_ADD_TEXT_ELEMENT(lw, opthdr, "Hardware type: %s (%d)",
-                                    get_arp_hardware_type(opt->bytes[0]), opt->bytes[0]);
+                /* LV_ADD_TEXT_ELEMENT(lw, opthdr, "Hardware type: %s (%d)", */
+                /*                     get_arp_hardware_type(opt->bytes[0]), opt->bytes[0]); */
                 opt->bytes++;
                 HW_ADDR_NTOP(buf, opt->bytes);
             }
@@ -1961,8 +1930,8 @@ void add_dhcp_information(void *w, void *sw, void *data)
 
     if ((str = get_dhcp_opcode(dhcp->op)) != NULL)
         LV_ADD_TEXT_ELEMENT(lw, header, "Message opcode: %s (%d)", str, dhcp->op);
-    if ((str = get_arp_hardware_type(dhcp->htype)) != NULL)
-        LV_ADD_TEXT_ELEMENT(lw, header, "Hardware address type: %s (%d)", str, dhcp->htype);
+    /* if ((str = get_arp_hardware_type(dhcp->htype)) != NULL) */
+    /*     LV_ADD_TEXT_ELEMENT(lw, header, "Hardware address type: %s (%d)", str, dhcp->htype); */
     LV_ADD_TEXT_ELEMENT(lw, header, "Hops: %d", dhcp->hops);
     LV_ADD_TEXT_ELEMENT(lw, header, "Transaction id: 0x%x", dhcp->xid);
     LV_ADD_TEXT_ELEMENT(lw, header, "Seconds elapsed: %d", dhcp->secs);

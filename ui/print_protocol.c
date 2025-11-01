@@ -114,32 +114,6 @@ void print_loop(char *buf, int n, void *data)
     }
 }
 
-void print_arp(char *buf, int n, void *data)
-{
-    struct packet_data *pdata = data;
-    struct arp_info *arp = pdata->data;
-    char sip[INET_ADDRSTRLEN];
-    char tip[INET_ADDRSTRLEN];
-    char sha[HW_ADDRSTRLEN];
-
-    inet_ntop(AF_INET, arp->sip, sip, INET_ADDRSTRLEN);
-    inet_ntop(AF_INET, arp->tip, tip, INET_ADDRSTRLEN);
-    PRINT_ADDRESS(buf, n, sip, tip);
-    PRINT_PROTOCOL(buf, n, "ARP");
-    switch (arp->op) {
-    case ARPOP_REQUEST:
-        PRINT_INFO(buf, n, "Request: Looking for hardware address for %s", tip);
-        break;
-    case ARPOP_REPLY:
-        HW_ADDR_NTOP(sha, arp->sha);
-        PRINT_INFO(buf, n, "Reply: %s has hardware address %s", sip, sha);
-        break;
-    default:
-        PRINT_INFO(buf, n, "Opcode %d", arp->op);
-        break;
-    }
-}
-
 void print_stp(char *buf, int n, void *data)
 {
     struct packet_data *pdata = data;

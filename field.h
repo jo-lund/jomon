@@ -7,11 +7,12 @@ enum field_type {
     FIELD_UINT8,
     FIELD_UINT16,
     FIELD_UINT24,
+    FIELD_UINT32,
     FIELD_STRING,
     FIELD_UINT_STRING,
     FIELD_BYTES,
     FIELD_HWADDR,
-    FIELD_IPADDR
+    FIELD_IP4ADDR
 };
 
 void field_init(struct field_head *head);
@@ -26,5 +27,6 @@ void *field_get_value(const struct field *f);
 int field_get_type(const struct field *f);
 uint8_t field_get_uint8(const struct field *f);
 uint16_t field_get_uint16(const struct field *f);
+uint32_t field_get_uint32(const struct field *f);
 
 #endif
