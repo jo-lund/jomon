@@ -109,6 +109,7 @@ packet_error handle_ethernet(struct protocol_info *pinfo UNUSED, unsigned char *
     ethertype.str = get_ethernet_type(ethertype.val);
     field_add_value(&pdata->data2, "Ethertype", FIELD_UINT_STRING, &ethertype);
     pdata->prev = NULL;
+    pdata->len = ETHER_HDR_LEN;
     if (ethertype.val <= ETH_802_3_MAX) {
         id = get_protocol_id(ETH802_3, ETH_802_LLC);
         layer2 = get_protocol(id);
