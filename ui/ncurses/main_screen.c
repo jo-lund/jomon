@@ -1309,13 +1309,6 @@ void add_elements(main_screen *ms, struct packet *p)
         pinfo = get_protocol(pdata->id);
         idx += pdata->len;
         if (pinfo && i < NUM_LAYERS) {
-            if (pdata->data) {  // TODO: Remove
-                header = LV_ADD_HEADER(ms->lvw, pinfo->long_name, selected[i], i);
-                if (pdata->error)
-                    LV_ADD_TEXT_ATTR(ms->lvw, header, get_theme_colour(ERR_BKGD),
-                                     "Packet error: %s", pdata->error);
-                pinfo->add_pdu(ms->lvw, header, pdata);
-            }
             if (!field_empty(&pdata->data2)) {
                 const struct field *f = NULL;
                 char line[MAXLINE];
@@ -1324,7 +1317,6 @@ void add_elements(main_screen *ms, struct packet *p)
                 if (pdata->error)
                     LV_ADD_TEXT_ATTR(ms->lvw, header, get_theme_colour(ERR_BKGD),
                                      "Packet error: %s", pdata->error);
-
                 f = field_get_next(&pdata->data2, f);
                 while (f) {
                     snprintf(line, MAXLINE, field_get_key(f));
@@ -1347,6 +1339,14 @@ void add_elements(main_screen *ms, struct packet *p)
                         snprintcat(line, MAXLINE, ": 0x%x", field_get_uint16(f));
                         LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
                         break;
+                    case FIELD_UINT24:
+                    {
+                        unsigned char *val;
+                        val = field_get_value(f);
+                        snprintcat(line, MAXLINE, ": 0x%06x", val[0] << 16 | val[1] << 8 | val[2]);
+                        LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
+                        break;
+                    }
                     case FIELD_UINT_STRING:
                     {
                         struct uint_string *type = field_get_value(f);

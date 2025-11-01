@@ -6,6 +6,7 @@ struct field_head;
 enum field_type {
     FIELD_UINT8,
     FIELD_UINT16,
+    FIELD_UINT24,
     FIELD_STRING,
     FIELD_UINT_STRING,
     FIELD_BYTES,

@@ -64,18 +64,6 @@ static void add_flags(list_view *lw, list_view_header *header, uint32_t flags,
     }
 }
 
-void add_snap_information(void *w, void *sw, void *data)
-{
-    list_view *lw = w;
-    list_view_header *header = sw;
-    struct packet_data *pdata = data;
-    struct snap_info *snap = pdata->data;
-
-    LV_ADD_TEXT_ELEMENT(lw, header, "IEEE Organizationally Unique Identifier (OUI): 0x%06x",
-                        snap->oui[0] << 16 | snap->oui[1] << 8 | snap->oui[2]);
-    LV_ADD_TEXT_ELEMENT(lw, header, "Protocol Id: 0x%04x", snap->protocol_id);
-}
-
 void add_arp_information(void *w, void *sw, void *data)
 {
     list_view *lw = w;

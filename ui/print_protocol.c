@@ -160,18 +160,6 @@ void print_stp(char *buf, int n, void *data)
     }
 }
 
-void print_snap(char *buf, int n, void *data)
-{
-    struct packet_data *pdata = data;
-    struct snap_info *snap = pdata->data;
-
-    if (!PACKET_HAS_DATA(pdata->next)) {
-        PRINT_PROTOCOL(buf, n, "SNAP");
-        PRINT_INFO(buf, n, "OUI: 0x%06x  Protocol Id: 0x%04x",
-                   snap->oui[0] << 16 | snap->oui[1] << 8 | snap->oui[2], snap->protocol_id);
-    }
-}
-
 /*
  * Convert the network address 'src' into a string in 'dst', or store the
  * host name if that is available.
