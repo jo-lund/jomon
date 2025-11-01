@@ -1,6 +1,7 @@
 #include <arpa/inet.h>
 #include <stdio.h>
 #include "packet_arp.h"
+#include "packet.h"
 #include "error.h"
 #include "field.h"
 #include "string.h"
