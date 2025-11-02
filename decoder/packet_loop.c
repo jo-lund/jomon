@@ -4,9 +4,9 @@
 #include "util.h"
 #include "debug.h"
 #include "string.h"
+#include "field.h"
 
-extern void add_loop_information(void *w, void *sw, void *data);
-extern void print_loop(char *buf, int n, void *data);
+static void print_loop(char *buf, int n, struct packet_data *pdata);
 static packet_error handle_loop(struct protocol_info *pinfo, unsigned char *buf,
                                 int n, struct packet_data *pdata);
 
@@ -16,8 +16,7 @@ static struct protocol_info loop = {
     .short_name = "LOOP",
     .long_name = "Null/Loopback",
     .decode = handle_loop,
-    .print_pdu = print_loop,
-    .add_pdu = add_loop_information
+    .print_info = print_loop,
 };
 
 void register_loop(void)
@@ -32,20 +31,21 @@ void register_loop(void)
 packet_error handle_loop(struct protocol_info *pinfo UNUSED, unsigned char *buf,
                          int n, struct packet_data *pdata)
 {
-    uint32_t family;
     struct protocol_info *layer2;
     uint32_t id;
+    struct uint_string family;
 
     if (n < LOOP_HDR_LEN || n > MAX_PACKET_SIZE)
         return DATALINK_ERR;
+    field_init(&pdata->data2);
     layer2 = NULL;
-    family = read_uint32le(&buf);
+    family.val = read_uint32le(&buf);
+    family.str = get_bsd_address_family(family.val);
     n -= LOOP_HDR_LEN;
-    pdata->data = mempool_alloc(sizeof(uint32_t));
-    *(uint32_t *)pdata->data = family;
+    field_add_value(&pdata->data2, "Address family", FIELD_UINT_STRING, &family);
     pdata->len = LOOP_HDR_LEN;
     pdata->prev = NULL;
-    switch (family) {
+    switch (family.val) {
     case AFN_BSD_INET:
         id = get_protocol_id(PKT_LOOP, ETHERTYPE_IP);
         layer2 = get_protocol(id);
@@ -56,7 +56,7 @@ packet_error handle_loop(struct protocol_info *pinfo UNUSED, unsigned char *buf,
         layer2 = get_protocol(id);
         break;
     default:
-        DEBUG("Unsupported address family %d", family);
+        DEBUG("Unsupported address family %d", family.val);
         return UNK_PROTOCOL;
     }
     if (layer2) {
@@ -69,11 +69,11 @@ packet_error handle_loop(struct protocol_info *pinfo UNUSED, unsigned char *buf,
     return UNK_PROTOCOL;
 }
 
-void loop2string(char *buf, int n, void *data)
-{
-    uint32_t family;
 
-    family = *(uint32_t *) data;
-    snprintcat(buf, n, "Address family: %s (%d)",
-               get_bsd_address_family(family), family);
+void print_loop(char *buf, int n, struct packet_data *pdata)
+{
+    struct uint_string *family;
+
+    family = field_search_value(&pdata->data2, "Address family");
+    snprintcat(buf, n, "Address family: %s (%d)", family->str, family->val);
 }

@@ -99,21 +99,6 @@ void pkt2text(char *buf, size_t size, const struct packet *p)
     }
 }
 
-void print_loop(char *buf, int n, void *data)
-{
-    struct packet_data *pdata = data;
-
-    if (!PACKET_HAS_DATA(pdata->next)) {
-        struct protocol_info *pinfo;
-
-        pinfo = get_protocol(pdata->id);
-        assert(pinfo);
-        PRINT_ADDRESS(buf, n, "N/A", "N/A");
-        PRINT_PROTOCOL(buf, n, pinfo->short_name);
-        loop2string(buf, n, pdata->data);
-    }
-}
-
 /*
  * Convert the network address 'src' into a string in 'dst', or store the
  * host name if that is available.
