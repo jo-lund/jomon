@@ -18,8 +18,8 @@
 #endif
 
 static void print_arp(char *buf, int n, struct packet_data *pdata);
-packet_error handle_arp(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                        struct packet_data *pdata);
+static packet_error handle_arp(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                               struct packet_data *pdata);
 
 static struct protocol_info arp = {
     .short_name = "ARP",
