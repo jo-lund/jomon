@@ -114,26 +114,6 @@ void print_loop(char *buf, int n, void *data)
     }
 }
 
-void print_stp(char *buf, int n, void *data)
-{
-    struct packet_data *pdata = data;
-    struct stp_info *stp = pdata->data;
-
-    PRINT_PROTOCOL(buf, n, "STP");
-    switch (stp->type) {
-    case CONFIG:
-        PRINT_INFO(buf, n, "Configuration BPDU");
-        break;
-    case RST:
-        PRINT_INFO(buf, n, "Rapid Spanning Tree BPDU. Root Path Cost: %u  Port ID: 0x%x",
-                   stp->root_pc, stp->port_id);
-        break;
-    case TCN:
-        PRINT_INFO(buf, n, "Topology Change Notification BPDU");
-        break;
-    }
-}
-
 /*
  * Convert the network address 'src' into a string in 'dst', or store the
  * host name if that is available.

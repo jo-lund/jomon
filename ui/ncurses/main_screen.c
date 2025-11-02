@@ -94,6 +94,52 @@ static screen_header main_header[] = {
     { "Info", 0, -1 }
 };
 
+
+/*
+ * Display the bit values of flags
+ *
+ * flags contains the flag values
+ * num_flags is the size of packet_flags
+ * packet_flags is an array that contains a name/description of the specific flag,
+ * its width (which is the number of bits in the flag), and, based on the value of
+ * the flag, a description of the specific field value, see decoder/packet.h.
+ */
+
+// TODO: Make this private
+void add_flags(list_view *lw, list_view_header *header, uint32_t flags,
+               struct packet_flags *pf, int num_flags)
+{
+    char buf[MAXLINE];
+    int num_bits = 0;
+
+    for (int i = 0; i < num_flags; i++) {
+        num_bits += pf[i].width;
+    }
+    for (int i = 0; i < num_bits; i++) {
+        snprintf(buf + i, MAXLINE - i, ".");
+    }
+    for (int i = 0, k = 0; k < num_bits; i++) {
+        /* print the bits of the flag 'i' */
+        for (int j = 0; j < pf[i].width; j++) {
+            buf[k + j] = ((flags >> (num_bits - (k + j) - 1)) & 0x01) + '0';
+        }
+        /* print the flag description */
+        snprintf(buf + num_bits, MAXLINE - num_bits, "  %s", pf[i].str);
+        if (pf[i].sflags) {
+            uint8_t bf;
+
+            /* print the field description based on index (bit value of field) */
+            bf = (flags >> (num_bits - (k + pf[i].width))) & ((1 << pf[i].width) - 1);
+            snprintcat(buf, MAXLINE, ": %s", pf[i].sflags[bf]);
+        }
+        LV_ADD_TEXT_ELEMENT(lw, header, "%s", buf);
+        for (int j = 0; j < pf[i].width; j++) {
+            buf[k + j] = '.';
+        }
+        k += pf[i].width;
+    }
+}
+
 static inline void move_cursor(WINDOW *win)
 {
     int y, x;
@@ -1319,7 +1365,8 @@ void add_elements(main_screen *ms, struct packet *p)
                                      "Packet error: %s", pdata->error);
                 f = field_get_next(&pdata->data2, f);
                 while (f) {
-                    snprintf(line, MAXLINE, field_get_key(f));
+                    if (field_get_type(f) != FIELD_PACKET_FLAGS)
+                        snprintf(line, MAXLINE, field_get_key(f));
                     switch (field_get_type(f)) {
                     case FIELD_UINT8:
                         snprintcat(line, MAXLINE, ": 0x%x", field_get_uint8(f));
@@ -1338,6 +1385,10 @@ void add_elements(main_screen *ms, struct packet *p)
                         LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
                         break;
                     }
+                    case FIELD_UINT32:
+                        snprintcat(line, MAXLINE, ": 0x%x", field_get_uint32(f));
+                        LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
+                        break;
                     case FIELD_UINT_STRING:
                     {
                         struct uint_string *type = field_get_value(f);
@@ -1365,8 +1416,36 @@ void add_elements(main_screen *ms, struct packet *p)
                         snprintcat(line, MAXLINE, ": %s", data);
                         LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
                         break;
-
                     }
+                    case FIELD_PACKET_FLAGS:
+                    {
+                        list_view_header *subhdr;
+                        struct packet_flags *pf;
+                        uint16_t flags;
+
+                        pf = field_get_value(f);
+                        flags = field_get_flags(f);
+                        subhdr = LV_ADD_SUB_HEADER(ms->lvw, header, selected[UI_FLAGS], UI_FLAGS,
+                                                   "Flags: 0x%x", flags);
+                        add_flags(ms->lvw, subhdr, flags, pf, field_get_length(f));
+                        break;
+                    }
+                    case FIELD_UINT16_HWADDR:
+                    {
+                        uint8_t *val;
+
+                        val = field_get_value(f);
+                        snprintcat(line, MAXLINE, ": %u/%02x.%02x.%02x.%02x.%02x.%02x",
+                                   val[0] << 8 | val[1], val[2], val[3], val[4], val[5], val[6], val[7]);
+                        LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
+                        break;
+                    }
+                    case FIELD_TIME_UINT16_256:
+                        snprintcat(line, MAXLINE, ": %u s.", field_get_uint16(f));
+                        LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
+                        break;
+                    default:
+                        break;
                     }
                     f = field_get_next(&pdata->data2, f);
                 }

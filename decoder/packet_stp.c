@@ -1,99 +1,53 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include "packet_ethernet.h"
 #include "packet_stp.h"
 #include "packet.h"
 #include "packet_llc.h"
-#include "../util.h"
+#include "util.h"
+#include "field.h"
+#include "string.h"
 
 #define MIN_CONF_BPDU 35
+#define MIN_BPDU_LEN 4
 
-extern void add_stp_information(void *w, void *sw, void *data);
-extern void print_stp(char *buf, int n, void *data);
-
-static char *port_role[] = { "", "Alternate/Backup", "Root", "Designated" };
-
-static struct packet_flags stp_flags[] = {
-    { "Topology Change Acknowlegment", 1, NULL },
-    { "Agreement", 1, NULL},
-    { "Forwarding", 1, NULL },
-    { "Learning", 1, NULL },
-    { "Port Role:", 2, port_role },
-    { "Proposal", 1, NULL },
-    { "Topology Change", 1, NULL }
+enum stp_bpdu_type {
+    CONFIG = 0x0,
+    RST = 0x2,
+    TCN = 0x80
 };
 
-static struct protocol_info stp_prot = {
+static void print_stp(char *buf, int n, struct packet_data *pdata);
+static packet_error handle_stp(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                               struct packet_data *pdata);
+
+static char *set[] = { "No", "Yes" };
+
+static struct packet_flags stp_flags[] = {
+    { "Topology Change Acknowledgement", 1, set },
+    { "Agreement", 1, set },
+    { "Forwarding", 1, set },
+    { "Learning", 1, set },
+    { "Port Role", 2, (char *[]) { "Unused", "Alternate/Backup", "Root", "Designated" } },
+    { "Proposal", 1, set },
+    { "Topology Change", 1, set }
+};
+
+static struct protocol_info stp = {
     .short_name = "STP",
     .long_name = "Spanning Tree Protocol",
     .decode = handle_stp,
-    .print_pdu = print_stp,
-    .add_pdu = add_stp_information
+    .print_info = print_stp,
 };
 
 void register_stp(void)
 {
-    register_protocol(&stp_prot, ETH802_3, ETH_802_STP);
-    register_protocol(&stp_prot, ETH802_3, 0x010b);
+    register_protocol(&stp, ETH802_3, ETH_802_STP);
+    register_protocol(&stp, ETH802_3, 0x010b);
 }
 
-/*
- * IEEE 802.1 Bridge Spanning Tree Protocol
- */
-packet_error handle_stp(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                        struct packet_data *pdata)
-{
-    struct stp_info *bpdu;
-    uint16_t protocol_id;
-
-    bpdu = mempool_alloc(sizeof(struct stp_info));
-    pdata->data = bpdu;
-    pdata->len = n;
-
-    /* the BPDU shall contain at least 4 bytes */
-    if (n < 4) {
-        memset(bpdu, 0, sizeof(*bpdu));
-        pdata->error = create_error_string("Packet length (%d) less than minimum BPDU size (4)", n);
-        return DECODE_ERR;
-    }
-    protocol_id = buffer[0] << 8 | buffer[1];
-
-    /* protocol id 0x00 identifies the (Rapid) Spanning Tree Protocol */
-    if (protocol_id != 0x0) {
-        memset(bpdu, 0, sizeof(*bpdu));
-        pdata->error = create_error_string("Unknown protocol id (%d)", protocol_id);
-        return UNK_PROTOCOL;
-    }
-    pinfo->num_packets++;
-    pinfo->num_bytes += n;
-    bpdu->protocol_id = protocol_id;
-    bpdu->version = buffer[2];
-    bpdu->type = buffer[3];
-
-    /* a configuration BPDU contains at least 35 bytes and RST BPDU 36 bytes */
-    if (n >= MIN_CONF_BPDU && (bpdu->type == CONFIG || bpdu->type == RST)) {
-        bpdu->tcack = (buffer[4] & 0x80) >> 7;
-        bpdu->agreement = (buffer[4] & 0x40) >> 6;
-        bpdu->forwarding = (buffer[4] & 0x20) >> 5;
-        bpdu->learning = (buffer[4] & 0x10) >> 4 ;
-        bpdu->port_role = (buffer[4] & 0x0c) >> 2;
-        bpdu->proposal = (buffer[4] & 0x02) >> 1;
-        bpdu->tc = buffer[4] & 0x01;
-        memcpy(bpdu->root_id, &buffer[5], 8);
-        bpdu->root_pc = get_uint32be(&buffer[13]);
-        memcpy(bpdu->bridge_id, &buffer[17], 8);
-        bpdu->port_id = buffer[25] << 8 | buffer[26];
-        bpdu->msg_age = buffer[27] << 8 | buffer[28];
-        bpdu->max_age = buffer[29] << 8 | buffer[30];
-        bpdu->ht = buffer[31] << 8 | buffer[32];
-        bpdu->fd = buffer[33] << 8 | buffer[34];
-        if (n > MIN_CONF_BPDU && bpdu->type == RST)
-            bpdu->version1_len = buffer[35];
-    }
-    return NO_ERR;
-}
-
-char *get_stp_bpdu_type(uint8_t type)
+static char *get_stp_bpdu_type(uint8_t type)
 {
     switch (type) {
     case CONFIG:
@@ -103,16 +57,92 @@ char *get_stp_bpdu_type(uint8_t type)
     case TCN:
         return "Topology Change Notification BPDU";
     default:
-        return "";
+        return "Unknown";
     }
 }
 
-struct packet_flags *get_stp_flags(void)
+/*
+ * IEEE 802.1 Bridge Spanning Tree Protocol
+ */
+packet_error handle_stp(struct protocol_info *pinfo, unsigned char *buf, int n,
+                        struct packet_data *pdata)
 {
-    return stp_flags;
+    uint16_t protocol_id;
+    struct uint_string type;
+    uint8_t flags;
+
+    /* the BPDU shall contain at least 4 bytes */
+    if (n < MIN_BPDU_LEN) {
+        pdata->error = create_error_string("Packet length (%d) less than minimum BPDU size (4)", n);
+        return DECODE_ERR;
+    }
+    field_init(&pdata->data2);
+    protocol_id = read_uint16be(&buf);
+    field_add_value(&pdata->data2, "Protocol Id", FIELD_UINT16, UINT_TO_PTR(protocol_id));
+
+    /* protocol id 0x00 identifies the (Rapid) Spanning Tree Protocol */
+    if (protocol_id != 0x0) {
+        pdata->error = create_error_string("Unknown protocol id (%d)", protocol_id);
+        return UNK_PROTOCOL;
+    }
+    field_add_value(&pdata->data2, "Version", FIELD_UINT8, UINT_TO_PTR(buf[0]));
+    buf++;
+    type.val = buf[0];
+    type.str = get_stp_bpdu_type(type.val);
+    field_add_value(&pdata->data2, "Type", FIELD_UINT_STRING, &type);
+    buf++;
+
+    /* a configuration BPDU contains at least 35 bytes and RST BPDU 36 bytes */
+    if (n >= MIN_CONF_BPDU && (type.val == CONFIG || type.val == RST)) {
+        flags = buf[0];
+        field_add_packet_flags(&pdata->data2, flags, &stp_flags, ARRAY_SIZE(stp_flags));
+        buf++;
+        field_add_bytes(&pdata->data2, "Root ID", FIELD_UINT16_HWADDR, buf, 8);
+        buf += 8;
+        field_add_value(&pdata->data2, "Root path cost", FIELD_UINT32, UINT_TO_PTR(read_uint32be(&buf)));
+        field_add_bytes(&pdata->data2, "Bridge ID", FIELD_UINT16_HWADDR, buf, 8);
+        buf += 8;
+        field_add_value(&pdata->data2, "Port ID", FIELD_UINT16, UINT_TO_PTR(read_uint16be(&buf)));
+        field_add_value(&pdata->data2, "Message age", FIELD_TIME_UINT16_256, UINT_TO_PTR(read_uint16be(&buf)));
+        field_add_value(&pdata->data2, "Max age", FIELD_TIME_UINT16_256, UINT_TO_PTR(read_uint16be(&buf)));
+        field_add_value(&pdata->data2, "Hello time", FIELD_TIME_UINT16_256, UINT_TO_PTR(read_uint16be(&buf)));
+        field_add_value(&pdata->data2, "Forward delay", FIELD_TIME_UINT16_256, UINT_TO_PTR(read_uint16be(&buf)));
+        if (n > MIN_CONF_BPDU && type.val == RST)
+            field_add_value(&pdata->data2, "Version 1 Length", FIELD_UINT8, UINT_TO_PTR(buf[0]));
+    }
+    pdata->len = n;
+    pinfo->num_packets++;
+    pinfo->num_bytes += n;
+    return NO_ERR;
 }
 
-int get_stp_flags_size(void)
+void print_stp(char *buf, int n, struct packet_data *pdata)
 {
-    return ARRAY_SIZE(stp_flags);
+    struct uint_string *type;
+    uint32_t root_pc;
+    uint16_t port_id;
+    const struct field *f;
+
+    type = field_search_value(&pdata->data2, "Type");
+    switch (type->val) {
+    case CONFIG:
+        f = field_search(&pdata->data2, "Root path cost");
+        root_pc = field_get_uint32(f);
+        f = field_search(&pdata->data2, "Port ID");
+        port_id = field_get_uint16(f);
+        snprintf(buf, n, "Configuration BPDU. Root Path Cost: %u  Port ID: 0x%x",
+                 root_pc, port_id);
+        break;
+    case RST:
+        f = field_search(&pdata->data2, "Root path cost");
+        root_pc = field_get_uint32(f);
+        f = field_search(&pdata->data2, "Port ID");
+        port_id = field_get_uint16(f);
+        snprintf(buf, n, "Rapid Spanning Tree BPDU. Root Path Cost: %u  Port ID: 0x%x",
+                   root_pc, port_id);
+        break;
+    case TCN:
+        snprintf(buf, n, "Topology Change Notification BPDU");
+        break;
+    }
 }
