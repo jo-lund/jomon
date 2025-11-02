@@ -1344,9 +1344,8 @@ void add_elements(main_screen *ms, struct packet *p)
     int i = 0;
     int idx = 0;
 
-    if (ms->lvw) {
+    if (ms->lvw)
         free_list_view(ms->lvw);
-    }
     ms->lvw = create_list_view();
     pdata = p->root;
 
@@ -1355,102 +1354,104 @@ void add_elements(main_screen *ms, struct packet *p)
         pinfo = get_protocol(pdata->id);
         idx += pdata->len;
         if (pinfo && i < NUM_LAYERS) {
-            if (!field_empty(&pdata->data2)) {
-                const struct field *f = NULL;
-                char line[MAXLINE];
+            if (field_empty(&pdata->data2))
+                goto next_protocol;
 
-                header = LV_ADD_HEADER(ms->lvw, pinfo->long_name, selected[i], i);
-                if (pdata->error)
-                    LV_ADD_TEXT_ATTR(ms->lvw, header, get_theme_colour(ERR_BKGD),
-                                     "Packet error: %s", pdata->error);
-                f = field_get_next(&pdata->data2, f);
-                while (f) {
-                    if (field_get_type(f) != FIELD_PACKET_FLAGS)
-                        snprintf(line, MAXLINE, field_get_key(f));
-                    switch (field_get_type(f)) {
-                    case FIELD_UINT8:
-                        snprintcat(line, MAXLINE, ": 0x%x", field_get_uint8(f));
-                        LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
-                        break;
-                    case FIELD_UINT16:
-                        snprintcat(line, MAXLINE, ": 0x%x", field_get_uint16(f));
-                        LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
-                        break;
-                    case FIELD_UINT24:
-                    {
-                        unsigned char *val;
+            const struct field *f = NULL;
+            char line[MAXLINE];
 
-                        val = field_get_value(f);
-                        snprintcat(line, MAXLINE, ": 0x%06x", val[0] << 16 | val[1] << 8 | val[2]);
-                        LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
-                        break;
-                    }
-                    case FIELD_UINT32:
-                        snprintcat(line, MAXLINE, ": 0x%x", field_get_uint32(f));
-                        LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
-                        break;
-                    case FIELD_UINT_STRING:
-                    {
-                        struct uint_string *type = field_get_value(f);
-                        snprintcat(line, MAXLINE, ": 0x%x (%s)", type->val, type->str);
-                        LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
-                        break;
-                    }
-                    case FIELD_HWADDR:
-                    {
-                        char data[HW_ADDRSTRLEN];
-                        unsigned char *val = field_get_value(f);
+            header = LV_ADD_HEADER(ms->lvw, pinfo->long_name, selected[i], i);
+            if (pdata->error)
+                LV_ADD_TEXT_ATTR(ms->lvw, header, get_theme_colour(ERR_BKGD),
+                                 "Packet error: %s", pdata->error);
+            f = field_get_next(&pdata->data2, f);
+            while (f) {
+                if (field_get_type(f) != FIELD_PACKET_FLAGS)
+                    snprintf(line, MAXLINE, field_get_key(f));
+                switch (field_get_type(f)) {
+                case FIELD_UINT8:
+                    snprintcat(line, MAXLINE, ": 0x%x", field_get_uint8(f));
+                    LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
+                    break;
+                case FIELD_UINT16:
+                    snprintcat(line, MAXLINE, ": 0x%x", field_get_uint16(f));
+                    LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
+                    break;
+                case FIELD_UINT24:
+                {
+                    unsigned char *val;
 
-                        HW_ADDR_NTOP(data, val);
-                        snprintcat(line, MAXLINE, ": %s", data);
-                        LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
-                        break;
-                    }
-                    case FIELD_IP4ADDR:
-                    {
-                        char data[INET_ADDRSTRLEN];
-                        uint32_t addr;
-
-                        addr = field_get_uint32(f);
-                        inet_ntop(AF_INET, &addr, data, INET_ADDRSTRLEN);
-                        snprintcat(line, MAXLINE, ": %s", data);
-                        LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
-                        break;
-                    }
-                    case FIELD_PACKET_FLAGS:
-                    {
-                        list_view_header *subhdr;
-                        struct packet_flags *pf;
-                        uint16_t flags;
-
-                        pf = field_get_value(f);
-                        flags = field_get_flags(f);
-                        subhdr = LV_ADD_SUB_HEADER(ms->lvw, header, selected[UI_FLAGS], UI_FLAGS,
-                                                   "Flags: 0x%x", flags);
-                        add_flags(ms->lvw, subhdr, flags, pf, field_get_length(f));
-                        break;
-                    }
-                    case FIELD_UINT16_HWADDR:
-                    {
-                        uint8_t *val;
-
-                        val = field_get_value(f);
-                        snprintcat(line, MAXLINE, ": %u/%02x.%02x.%02x.%02x.%02x.%02x",
-                                   val[0] << 8 | val[1], val[2], val[3], val[4], val[5], val[6], val[7]);
-                        LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
-                        break;
-                    }
-                    case FIELD_TIME_UINT16_256:
-                        snprintcat(line, MAXLINE, ": %u s.", field_get_uint16(f));
-                        LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
-                        break;
-                    default:
-                        break;
-                    }
-                    f = field_get_next(&pdata->data2, f);
+                    val = field_get_value(f);
+                    snprintcat(line, MAXLINE, ": 0x%06x", val[0] << 16 | val[1] << 8 | val[2]);
+                    LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
+                    break;
                 }
+                case FIELD_UINT32:
+                    snprintcat(line, MAXLINE, ": 0x%x", field_get_uint32(f));
+                    LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
+                    break;
+                case FIELD_UINT_STRING:
+                {
+                    struct uint_string *type = field_get_value(f);
+                    snprintcat(line, MAXLINE, ": 0x%x (%s)", type->val, type->str);
+                    LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
+                    break;
+                }
+                case FIELD_HWADDR:
+                {
+                    char data[HW_ADDRSTRLEN];
+                    unsigned char *val = field_get_value(f);
+
+                    HW_ADDR_NTOP(data, val);
+                    snprintcat(line, MAXLINE, ": %s", data);
+                    LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
+                    break;
+                }
+                case FIELD_IP4ADDR:
+                {
+                    char data[INET_ADDRSTRLEN];
+                    uint32_t addr;
+
+                    addr = field_get_uint32(f);
+                    inet_ntop(AF_INET, &addr, data, INET_ADDRSTRLEN);
+                    snprintcat(line, MAXLINE, ": %s", data);
+                    LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
+                    break;
+                }
+                case FIELD_PACKET_FLAGS:
+                {
+                    list_view_header *subhdr;
+                    struct packet_flags *pf;
+                    uint16_t flags;
+
+                    pf = field_get_value(f);
+                    flags = field_get_flags(f);
+                    subhdr = LV_ADD_SUB_HEADER(ms->lvw, header, selected[UI_FLAGS], UI_FLAGS,
+                                               "Flags: 0x%x", flags);
+                    add_flags(ms->lvw, subhdr, flags, pf, field_get_length(f));
+                    break;
+                }
+                case FIELD_UINT16_HWADDR:
+                {
+                    uint8_t *val;
+
+                    val = field_get_value(f);
+                    snprintcat(line, MAXLINE, ": %u/%02x.%02x.%02x.%02x.%02x.%02x",
+                               val[0] << 8 | val[1], val[2], val[3], val[4], val[5], val[6], val[7]);
+                    LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
+                    break;
+                }
+                case FIELD_TIME_UINT16_256:
+                    snprintcat(line, MAXLINE, ": %u s.", field_get_uint16(f));
+                    LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
+                    break;
+                default:
+                    break;
+                }
+                f = field_get_next(&pdata->data2, f);
             }
         }
+    next_protocol:
         i++;
         pdata = pdata->next;
     }
