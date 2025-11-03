@@ -1366,8 +1366,7 @@ void add_elements(main_screen *ms, struct packet *p)
                                  "Packet error: %s", pdata->error);
             f = field_get_next(&pdata->data2, f);
             while (f) {
-                if (field_get_type(f) != FIELD_PACKET_FLAGS)
-                    snprintf(line, MAXLINE, field_get_key(f));
+                snprintf(line, MAXLINE, field_get_key(f));
                 switch (field_get_type(f)) {
                 case FIELD_UINT8:
                     snprintcat(line, MAXLINE, ": 0x%x", field_get_uint8(f));
@@ -1426,8 +1425,8 @@ void add_elements(main_screen *ms, struct packet *p)
 
                     pf = field_get_value(f);
                     flags = field_get_flags(f);
-                    subhdr = LV_ADD_SUB_HEADER(ms->lvw, header, selected[UI_FLAGS], UI_FLAGS,
-                                               "Flags: 0x%x", flags);
+                    snprintcat(line, MAXLINE, ": 0x%x", flags);
+                    subhdr = LV_ADD_SUB_HEADER(ms->lvw, header, selected[UI_FLAGS], UI_FLAGS, line);
                     add_flags(ms->lvw, subhdr, flags, pf, field_get_length(f));
                     break;
                 }

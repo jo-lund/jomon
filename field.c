@@ -61,12 +61,12 @@ void field_add_value(struct field_head *head, char *key, int type, void *data)
     QUEUE_APPEND(head, f, link);
 }
 
-void field_add_packet_flags(struct field_head *head, uint16_t flags, void *data, int len)
+void field_add_packet_flags(struct field_head *head, char *key, uint16_t flags, void *data, int len)
 {
     struct field *f;
 
     f = mempool_alloc(sizeof(*f));
-    f->key = NULL;
+    f->key = key;
     f->val = data;
     f->type = FIELD_PACKET_FLAGS;
     f->flags = flags;
@@ -89,7 +89,7 @@ const struct field *field_search(struct field_head *head, char *key)
     struct field *f = NULL;
 
     QUEUE_FOR_EACH(head, f, link) {
-        if (f->key && strcmp(f->key, key) == 0)
+        if (strcmp(f->key, key) == 0)
             return f;
     }
     return NULL;
@@ -100,7 +100,7 @@ void *field_search_value(struct field_head *head, char *key)
     struct field *f = NULL;
 
     QUEUE_FOR_EACH(head, f, link) {
-        if (f->key && strcmp(f->key, key) == 0)
+        if (strcmp(f->key, key) == 0)
             return f->val;
     }
     return NULL;

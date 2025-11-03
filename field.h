@@ -23,7 +23,7 @@ enum field_type {
 void field_init(struct field_head *head);
 void field_add_value(struct field_head *head, char *key, int type, void *data);
 void field_add_bytes(struct field_head *head, char *key, int type, unsigned char *data, int len);
-void field_add_packet_flags(struct field_head *head, uint16_t flags, void *data, int len);
+void field_add_packet_flags(struct field_head *head, char *key, uint16_t flags, void *data, int len);
 const struct field *field_get_next(struct field_head *head, const struct field *f);
 bool field_empty(struct field_head *head);
 const struct field *field_search(struct field_head *head, char *key);
