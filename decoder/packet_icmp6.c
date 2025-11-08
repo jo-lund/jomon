@@ -3,7 +3,7 @@
 #include <netinet/in.h>
 #include <netinet/icmp6.h>
 #include "packet_icmp6.h"
-#include "packet_ip.h"
+#include "packet.h"
 #include "attributes.h"
 #include "util.h"
 

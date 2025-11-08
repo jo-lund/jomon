@@ -10,7 +10,8 @@
 struct field {
     char *key;
     void *val;
-    uint16_t type;
+    uint8_t type;
+    bool print_bitvalue;
     uint16_t flags;
     int length;
     QUEUE_ENTRY(struct field) link;
@@ -46,7 +47,11 @@ void field_add_value(struct field_head *head, char *key, int type, void *data)
     case FIELD_UINT8:
     case FIELD_UINT16:
     case FIELD_UINT32:
+    case FIELD_STRING:
+    case FIELD_STRING_HEADER:
     case FIELD_IP4ADDR:
+    case FIELD_TIMESTAMP:
+    case FIELD_TIMESTAMP_NON_STANDARD:
         f->val = data;
         break;
     case FIELD_UINT_STRING:
@@ -61,7 +66,8 @@ void field_add_value(struct field_head *head, char *key, int type, void *data)
     QUEUE_APPEND(head, f, link);
 }
 
-void field_add_packet_flags(struct field_head *head, char *key, uint16_t flags, void *data, int len)
+void field_add_packet_flags(struct field_head *head, char *key, uint16_t flags,
+                            bool print_value, void *data, int len)
 {
     struct field *f;
 
@@ -69,6 +75,7 @@ void field_add_packet_flags(struct field_head *head, char *key, uint16_t flags, 
     f->key = key;
     f->val = data;
     f->type = FIELD_PACKET_FLAGS;
+    f->print_bitvalue = print_value;
     f->flags = flags;
     f->length = len;
     QUEUE_APPEND(head, f, link);
@@ -124,6 +131,11 @@ uint16_t field_get_type(const struct field *f)
 int field_get_length(const struct field *f)
 {
     return f ? f->length : 0;
+}
+
+bool field_packet_flags_print_value(const struct field *f)
+{
+    return f ? f->print_bitvalue : false;
 }
 
 uint16_t field_get_flags(const struct field *f)

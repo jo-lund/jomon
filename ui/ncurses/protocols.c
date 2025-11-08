@@ -20,159 +20,6 @@
 #include "ui/print_protocol.h"
 
 extern int hexmode;
-// TEMP
-extern void add_flags(list_view *lw, list_view_header *header, uint32_t flags,
-                      struct packet_flags *pf, int num_flags);
-
-static void add_ipv4_options(struct ipv4_info *ip, list_view *lw, list_view_header *hdr)
-{
-    struct ipv4_options *opt;
-    list_view_header *opt_hdr;
-    int nelem;
-    char time[32];
-    char addr[INET_ADDRSTRLEN];
-
-    opt_hdr = LV_ADD_SUB_HEADER(lw, hdr, selected[UI_SUBLAYER1], UI_SUBLAYER1, "Options");
-    opt = ip->opt;
-    while (opt) {
-        list_view_header *sub, *type_hdr;
-
-        sub = LV_ADD_SUB_HEADER(lw, opt_hdr, selected[UI_SUBLAYER2], UI_SUBLAYER2, "%s",
-                                get_ipv4_opt_type(opt->type));
-        type_hdr = LV_ADD_SUB_HEADER(lw, sub, selected[UI_SUBLAYER2], UI_SUBLAYER2, "Type: %u", opt->type);
-        add_flags(lw, type_hdr, opt->type, get_ipv4_opt_flags(), get_ipv4_opt_flags_size());
-        LV_ADD_TEXT_ELEMENT(lw, sub, "Length: %u", opt->length);
-        switch (GET_IP_OPTION_NUMBER(opt->type)) {
-        case IP_OPT_SECURITY:
-            LV_ADD_TEXT_ELEMENT(lw, sub, "Security: %s", get_ipv4_security(opt->security.security));
-            LV_ADD_TEXT_ELEMENT(lw, sub, "Compartments: %d", opt->security.compartments);
-            LV_ADD_TEXT_ELEMENT(lw, sub, "Handling restrictions: 0x%x", opt->security.restrictions);
-            break;
-        case IP_OPT_LSR:
-        case IP_OPT_RR:
-        case IP_OPT_SSR:
-            nelem = (opt->length - 3) / 4;
-            for (int i = 0; i < nelem; i++) {
-                inet_ntop(AF_INET, ip->opt->route.route_data + i, addr, INET_ADDRSTRLEN);
-                LV_ADD_TEXT_ELEMENT(lw, sub, "Route data %d: %s", i + 1, addr);
-            }
-            break;
-        case IP_OPT_TIMESTAMP:
-            LV_ADD_TEXT_ELEMENT(lw, sub, "Pointer: %d", opt->timestamp.pointer);
-            LV_ADD_TEXT_ELEMENT(lw, sub, "Overflow: %d", opt->timestamp.oflw);
-            LV_ADD_TEXT_ELEMENT(lw, sub, "Flags: %d", opt->timestamp.flg);
-            switch (opt->timestamp.flg) {
-            case IP_TS_ONLY:
-                nelem = (opt->length - 4) / 4;
-                for (int i = 0; i < nelem; i++) {
-                    if (IP_STANDARD_TS(*opt->timestamp.ts.timestamp))
-                        LV_ADD_TEXT_ELEMENT(lw, sub, "Timestamp: %s",
-                                            get_time_from_ms_ut(*opt->timestamp.ts.timestamp, time, 32));
-                    else
-                        LV_ADD_TEXT_ELEMENT(lw, sub, "Timestamp: %d", *opt->timestamp.ts.timestamp);
-                }
-                break;
-            case IP_TS_ADDR:
-            case IP_TS_PRESPECIFIED:
-                nelem = (opt->length - 4) / 8;
-                for (int i = 0; i < nelem; i++) {
-                    if (IP_STANDARD_TS(*opt->timestamp.ts.timestamp))
-                        LV_ADD_TEXT_ELEMENT(lw, sub, "Timestamp %d: %s", i + 1,
-                                            get_time_from_ms_ut(opt->timestamp.ts.timestamp[i], time, 32));
-                    else
-                        LV_ADD_TEXT_ELEMENT(lw, sub, "Timestamp %d: %d", i + 1, opt->timestamp.ts.timestamp[i]);
-                    inet_ntop(AF_INET, opt->timestamp.ts.addr + i, addr, INET_ADDRSTRLEN);
-                    LV_ADD_TEXT_ELEMENT(lw, sub, "Address %d: %s", i + 1, addr);
-                }
-                break;
-            default:
-                break;
-            }
-            break;
-        case IP_OPT_STREAM_ID:
-            LV_ADD_TEXT_ELEMENT(lw, sub, "Stream ID: %d", opt->stream_id);
-            break;
-        case IP_OPT_ROUTER_ALERT:
-            LV_ADD_TEXT_ELEMENT(lw, sub, "%s (%d)", get_router_alert_option(opt->router_alert),
-                                opt->router_alert);
-            break;
-        default:
-            break;
-        }
-        opt = opt->next;
-    }
-}
-
-void add_ipv4_information(void *w, void *sw, void *data)
-{
-    list_view *lw = w;
-    list_view_header *header = sw;
-    struct packet_data *pdata = data;
-    struct ipv4_info *ip = pdata->data;
-    char *protocol;
-    char *dscp;
-    char buf[MAXLINE];
-    char src[INET_ADDRSTRLEN];
-    char dst[INET_ADDRSTRLEN];
-    list_view_header *hdr;
-    uint8_t flags;
-
-    flags = (ip->foffset & 0x8000) >> 13 | (ip->foffset & 0x4000) >> 13 |
-        (ip->foffset & 0x2000) >> 13;
-    LV_ADD_TEXT_ELEMENT(lw, header, "Version: %u", ip->version);
-    LV_ADD_TEXT_ELEMENT(lw, header, "Internet Header Length (IHL): %u", ip->ihl);
-    snprintf(buf, MAXLINE, "Differentiated Services Code Point (DSCP): 0x%x", ip->dscp);
-    if ((dscp = get_ipv4_dscp(ip->dscp))) {
-        snprintcat(buf, MAXLINE, " %s", dscp);
-    }
-    LV_ADD_TEXT_ELEMENT(lw, header, "%s", buf);
-    snprintf(buf, MAXLINE, "Explicit Congestion Notification (ECN): 0x%x", ip->ecn);
-    if (ip->ecn == 0x3) {
-        snprintcat(buf, MAXLINE, " CE");
-    } else if (ip->ecn == 0x1) {
-        snprintcat(buf, MAXLINE, " ECT(1)");
-    } else if (ip->ecn == 0x2) {
-        snprintcat(buf, MAXLINE, " ECT(0)");
-    } else {
-        snprintcat(buf, MAXLINE, " Not ECN-Capable");
-    }
-    LV_ADD_TEXT_ELEMENT(lw, header, "%s", buf);
-    LV_ADD_TEXT_ELEMENT(lw, header, "Total length: %u", ip->length);
-    LV_ADD_TEXT_ELEMENT(lw, header, "Identification: 0x%x (%u)", ip->id, ip->id);
-    snprintf(buf, MAXLINE, "Flags: ");
-    if (ip->foffset & 0x4000 || ip->foffset & 0x2000) {
-        if (ip->foffset & 0x4000)
-            snprintcat(buf, MAXLINE, "Don't Fragment ");
-        if (ip->foffset & 0x2000)
-            snprintcat(buf, MAXLINE, "More Fragments ");
-    }
-    snprintcat(buf, MAXLINE, "(0x%x)", flags);
-    hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_FLAGS], UI_FLAGS, "%s", buf);
-    add_flags(lw, hdr, flags, get_ipv4_flags(), get_ipv4_flags_size());
-    LV_ADD_TEXT_ELEMENT(lw, header, "Fragment offset: %u", get_ipv4_foffset(ip));
-    LV_ADD_TEXT_ELEMENT(lw, header, "Time to live: %u", ip->ttl);
-    snprintf(buf, MAXLINE, "Protocol: %u", ip->protocol);
-    if ((protocol = get_ip_transport_protocol(ip->protocol))) {
-        snprintcat(buf, MAXLINE, " (%s)", protocol);
-    }
-    LV_ADD_TEXT_ELEMENT(lw, header, "%s", buf);
-    LV_ADD_TEXT_ELEMENT(lw, header,"Checksum: %u", ip->checksum);
-    inet_ntop(AF_INET, &ip->src, src, INET_ADDRSTRLEN);
-    inet_ntop(AF_INET, &ip->dst, dst, INET_ADDRSTRLEN);
-    if (ctx.nogeoip) {
-        LV_ADD_TEXT_ELEMENT(lw, header,"Source IP address: %s", src);
-        LV_ADD_TEXT_ELEMENT(lw, header,"Destination IP address: %s", dst);
-    } else {
-        char buf[MAXLINE];
-
-        LV_ADD_TEXT_ELEMENT(lw, header,"Source IP address: %s (GeoIP: %s)",
-                            src, geoip_get_location(src, buf, MAXLINE));
-        LV_ADD_TEXT_ELEMENT(lw, header,"Destination IP address: %s (GeoIP: %s)",
-                         dst, geoip_get_location(dst, buf, MAXLINE));
-    }
-    if (ip->ihl > 5 && ip->opt)
-        add_ipv4_options(ip, lw, header);
-}
 
 void add_ipv6_information(void *w, void *sw, void *data)
 {
@@ -302,7 +149,7 @@ static void add_icmp6_options(list_view *lw, list_view_header *header, struct ic
             LV_ADD_TEXT_ELEMENT(lw, opt_hdr, "Prefix length: %d", opt->prefix_info.prefix_length);
             flags = opt->prefix_info.l << 7 | opt->prefix_info.a << 6;
             flag_hdr = LV_ADD_SUB_HEADER(lw, opt_hdr, selected[UI_FLAGS], UI_FLAGS, "Flags: 0x%x", flags);
-            add_flags(lw, flag_hdr, flags, get_icmp6_prefix_flags(), get_icmp6_prefix_flags_size());
+            //add_flags(lw, flag_hdr, flags, get_icmp6_prefix_flags(), get_icmp6_prefix_flags_size());
             if (opt->prefix_info.valid_lifetime == ~0U) {
                 LV_ADD_TEXT_ELEMENT(lw, opt_hdr, "Valid lifetime: Infinite");
             } else {
@@ -400,7 +247,7 @@ void add_icmp6_information(void *w, void *sw, void *data)
         LV_ADD_TEXT_ELEMENT(lw, header, "Cur Hop Limit: %d", icmp6->router_adv.cur_hop_limit);
         flags = icmp6->router_adv.m << 7 | icmp6->router_adv.o << 6;
         flag_hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_FLAGS], UI_FLAGS, "Flags: 0x%x", flags);
-        add_flags(lw, flag_hdr, flags, get_icmp6_router_adv_flags(), get_icmp6_router_adv_flags_size());
+        //add_flags(lw, flag_hdr, flags, get_icmp6_router_adv_flags(), get_icmp6_router_adv_flags_size());
         tm = get_time(icmp6->router_adv.router_lifetime);
         time_ntop(&tm, buf, 1024);
         LV_ADD_TEXT_ELEMENT(lw, header, "Router lifetime: %s", buf);
@@ -425,8 +272,8 @@ void add_icmp6_information(void *w, void *sw, void *data)
         flags = icmp6->neigh_adv.r << 31 | icmp6->neigh_adv.s << 30 | icmp6->neigh_adv.o << 29;
         flag_hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_FLAGS], UI_FLAGS,
                                      "Flags: 0x%x", flags);
-        add_flags(lw, flag_hdr, flags, get_icmp6_neigh_adv_flags(),
-                  get_icmp6_neigh_adv_flags_size());
+        //add_flags(lw, flag_hdr, flags, get_icmp6_neigh_adv_flags(),
+        //get_icmp6_neigh_adv_flags_size());
         inet_ntop(AF_INET6, (struct in_addr *) icmp6->neigh_adv.target_addr, addr, sizeof(addr));
         LV_ADD_TEXT_ELEMENT(lw, header, "Target address: %s", addr);
         if (icmp6->option)
@@ -486,8 +333,8 @@ void add_igmp_information(void *w, void *sw, void *data)
             return;
         flags = LV_ADD_SUB_HEADER(lw, header, selected[UI_FLAGS], UI_FLAGS, "Flags 0x%x",
                                   igmp->query->flags);
-        add_flags(lw, flags, igmp->query->flags, get_igmp_query_flags(),
-                  get_igmp_query_flags_size());
+        //add_flags(lw, flags, igmp->query->flags, get_igmp_query_flags(),
+        //          get_igmp_query_flags_size());
         LV_ADD_TEXT_ELEMENT(lw, header, "QQIC: %d", igmp->query->qqic);
         LV_ADD_TEXT_ELEMENT(lw, header, "Number of sources: %d", igmp->query->nsources);
         for (int i = 0; i < igmp->query->nsources && igmp->query->src_addrs; i++) {
@@ -947,7 +794,7 @@ void add_tcp_information(void *w, void *sw, void *data)
     LV_ADD_TEXT_ELEMENT(lw, header, "Acknowledgment number: %u", tcp->ack_num);
     LV_ADD_TEXT_ELEMENT(lw, header, "Data offset: %u", tcp->offset);
     hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_FLAGS], UI_FLAGS, "Flags: %s(0x%x)", buf, flags);
-    add_flags(lw, hdr, flags, get_tcp_flags(), get_tcp_flags_size());
+    //add_flags(lw, hdr, flags, get_tcp_flags(), get_tcp_flags_size());
     LV_ADD_TEXT_ELEMENT(lw, header, "Window size: %u", tcp->window);
     LV_ADD_TEXT_ELEMENT(lw, header, "Checksum: %u", tcp->checksum);
     LV_ADD_TEXT_ELEMENT(lw, header, "Urgent pointer: %u", tcp->urg_ptr);
@@ -1142,9 +989,9 @@ void add_dns_information(void *w, void *sw, void *data)
     LV_ADD_TEXT_ELEMENT(lw, header, "Opcode: %d (%s)", dns->opcode, get_dns_opcode(dns->opcode));
     hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_FLAGS], UI_FLAGS, "Flags 0x%x", flags);
     if (pdata->id == LLMNR) {
-        add_flags(lw, hdr, flags, get_llmnr_flags(), get_llmnr_flags_size());
+        //add_flags(lw, hdr, flags, get_llmnr_flags(), get_llmnr_flags_size());
     } else {
-        add_flags(lw, hdr, flags, get_dns_flags(), get_dns_flags_size());
+        //add_flags(lw, hdr, flags, get_dns_flags(), get_dns_flags_size());
     }
     if (dns->qr) {
         LV_ADD_TEXT_ELEMENT(lw, header, "Rcode: %d (%s)", dns->rcode, get_dns_rcode(dns->rcode));
@@ -1221,7 +1068,7 @@ static void add_nbns_record(list_view *lw, list_view_header *w, struct nbns_info
 
         flags = nbns->record[i].rdata.nb.g << 2 | nbns->record[i].rdata.nb.ont;
         hdr = LV_ADD_SUB_HEADER(lw, w, selected[UI_FLAGS], UI_FLAGS, "NB flags (0x%x)", flags);
-        add_flags(lw, hdr, flags, get_nbns_nb_flags(), get_nbns_nb_flags_size());
+        //add_flags(lw, hdr, flags, get_nbns_nb_flags(), get_nbns_nb_flags_size());
         for (int j = 0; j < nbns->record[i].rdata.nb.num_addr; j++) {
             inet_ntop(AF_INET, nbns->record[i].rdata.nb.address + j, addr, INET_ADDRSTRLEN);
             LV_ADD_TEXT_ELEMENT(lw, w, "Name owner address: %s", addr);
@@ -1269,7 +1116,7 @@ void add_nbds_information(void *w, void *sw, void *data)
     }
     hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_FLAGS], UI_FLAGS, "Flags (0x%x)",
                          nbds->flags);
-    add_flags(lw, hdr, nbds->flags, get_nbds_flags(), get_nbds_flags_size());
+    //add_flags(lw, hdr, nbds->flags, get_nbds_flags(), get_nbds_flags_size());
     LV_ADD_TEXT_ELEMENT(lw, header, "Datagram id: 0x%x", nbds->dgm_id);
     inet_ntop(AF_INET, &nbds->source_ip, src_addr, INET_ADDRSTRLEN);
     LV_ADD_TEXT_ELEMENT(lw, header, "Source IP: %s", src_addr);
@@ -1322,7 +1169,7 @@ void add_nbns_information(void *w, void *sw, void *data)
     LV_ADD_TEXT_ELEMENT(lw, header, "Response flag: %d (%s)", nbns->r, nbns->r ? "Response" : "Request");
     LV_ADD_TEXT_ELEMENT(lw, header, "Opcode: %d (%s)", nbns->opcode, get_nbns_opcode(nbns->opcode));
     hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_FLAGS], UI_FLAGS, "Flags 0x%x", flags);
-    add_flags(lw, hdr, flags, get_nbns_flags(), get_nbns_flags_size());
+    //add_flags(lw, hdr, flags, get_nbns_flags(), get_nbns_flags_size());
     LV_ADD_TEXT_ELEMENT(lw, header, "Rcode: %d (%s)", nbns->rcode, get_nbns_rcode(nbns->rcode));
     LV_ADD_TEXT_ELEMENT(lw, header, "Question Entries: %d, Answer RRs: %d, Authority RRs: %d, Additional RRs: %d",
                      nbns->section_count[QDCOUNT], answers, authority, additional);
@@ -1386,9 +1233,9 @@ void add_smb_information(void *w, void *sw, void *data)
     }
     LV_ADD_TEXT_ELEMENT(lw, header, "Status: %d", smb->status);
     hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_FLAGS], UI_FLAGS, "Flags (0x%x)", smb->flags);
-    add_flags(lw, hdr, smb->flags, get_smb_flags(), get_smb_flags_size());
+    //add_flags(lw, hdr, smb->flags, get_smb_flags(), get_smb_flags_size());
     hdr2 = LV_ADD_SUB_HEADER(lw, header, selected[UI_FLAGS], UI_FLAGS, "Flags2 (0x%x)", smb->flags2);
-    add_flags(lw, hdr2, smb->flags2, get_smb_flags2(), get_smb_flags2_size());
+    //add_flags(lw, hdr2, smb->flags2, get_smb_flags2(), get_smb_flags2_size());
     LV_ADD_TEXT_ELEMENT(lw, header, "PID: %d", smb->pidhigh << 16 | smb->pidlow);
     LV_ADD_TEXT_ELEMENT(lw, header, "Security features:");
     LV_ADD_TEXT_ELEMENT(lw, header, "Tree identifier: %d", smb->tid);
@@ -1787,7 +1634,7 @@ static void add_dhcp_options(list_view *lw, list_view_header *header, struct dhc
             list_view_header *fhdr;
 
             fhdr = LV_ADD_SUB_HEADER(lw, opthdr, selected[UI_FLAGS], UI_FLAGS, "Flags: 0x%x", opt->fqdn.flags);
-            add_flags(lw, fhdr, opt->fqdn.flags, get_dhcp_fqdn_flags(), get_dhcp_fqdn_flags_size());
+            //add_flags(lw, fhdr, opt->fqdn.flags, get_dhcp_fqdn_flags(), get_dhcp_fqdn_flags_size());
             LV_ADD_TEXT_ELEMENT(lw, opthdr, "RCODE1: 0x%x", opt->fqdn.rcode1);
             LV_ADD_TEXT_ELEMENT(lw, opthdr, "RCODE2: 0x%x", opt->fqdn.rcode2);
             LV_ADD_TEXT_ELEMENT(lw, opthdr, "name: %s", opt->fqdn.name);
@@ -1847,7 +1694,7 @@ void add_dhcp_information(void *w, void *sw, void *data)
     LV_ADD_TEXT_ELEMENT(lw, header, "Seconds elapsed: %d", dhcp->secs);
     str = (dhcp->flags == 0x8000) ? "Broadcast" : "Unicast";
     flag_hdr = LV_ADD_SUB_HEADER(lw, header, selected[UI_FLAGS], UI_FLAGS, "Flags: %s (0x%x)", str, dhcp->flags);
-    add_flags(lw, flag_hdr, dhcp->flags, get_dhcp_flags(), get_dhcp_flags_size());
+    //add_flags(lw, flag_hdr, dhcp->flags, get_dhcp_flags(), get_dhcp_flags_size());
     inet_ntop(AF_INET, &dhcp->ciaddr, addr, INET_ADDRSTRLEN);
     LV_ADD_TEXT_ELEMENT(lw, header, "Client IP address: %s", addr);
     inet_ntop(AF_INET, &dhcp->yiaddr, addr, INET_ADDRSTRLEN);

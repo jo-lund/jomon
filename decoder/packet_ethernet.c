@@ -135,3 +135,9 @@ void print_ethernet(char *buf, int n, struct packet_data *pdata)
     if ((type = field_search_value(&pdata->data2, "Ethertype")))
         snprintf(buf, n, "Ethertype: 0x%x", type->val);
 }
+
+bool is_ethernet(struct packet_data *pdata)
+{
+    struct protocol_info *pinfo = get_protocol(pdata->id);
+    return strcmp(pinfo->short_name, "ETH") == 0;
+}

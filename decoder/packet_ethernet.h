@@ -1,7 +1,7 @@
 #ifndef PACKET_ETHERNET_H
 #define PACKET_ETHERNET_H
 
-
+#include <stdbool.h>
 #include <netinet/in.h>
 #include <netinet/if_ether.h>
 
@@ -10,7 +10,7 @@
 #define SNAP_HDR_LEN 5
 #define ETH_802_LLC 0xffff
 
-struct packet;
+struct packet_data;
 
 enum eth_802_type {
     ETH_802_UNKNOWN,
@@ -19,5 +19,7 @@ enum eth_802_type {
 };
 
 void register_ethernet(void);
+
+bool is_ethernet(struct packet_data *pdata);
 
 #endif

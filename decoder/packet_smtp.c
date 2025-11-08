@@ -173,11 +173,11 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
     struct packet_data *root;
     struct tcp *tcp;
     struct tcp_endpoint_v4 endp;
-    struct ipv4_info *ipv4;
     struct tcp_connection_v4 *conn;
     bool conn_created = false;
 
      /* only support for TCP and IPv4 */
+#if 0 // TODO: Fix this
     if (pdata->transport != IPPROTO_TCP)
         return UNK_PROTOCOL;
     if ((root = get_root(pdata)) == NULL)
@@ -192,6 +192,7 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
     endp.dport = tcp->dport;
     endp.src = ipv4->src;
     endp.dst = ipv4->dst;
+#endif
     if ((conn = tcp_analyzer_get_connection(&endp)) == NULL) {
         conn = tcp_analyzer_create_connection(&endp);
         conn->state = ESTABLISHED;

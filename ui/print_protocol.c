@@ -46,12 +46,57 @@
         PRINT_INFO(buffer, n, fmt, ## __VA_ARGS__);             \
     } while (0)
 
-static void print_address(char *buf, size_t n, struct packet_data *pdata)
-{
-    struct protocol_info *pinfo = get_protocol(pdata->id);
 
-    if (strcmp(pinfo->short_name, "ETH") == 0) {
-        // TODO: Check for IP4 or IP6
+/*
+ * Convert the network address 'src' into a string in 'dst', or store the
+ * host name if that is available.
+ */
+static void get_name_or_address(const uint32_t src, char *dst)
+{
+    struct host_info *host;
+    char *p;
+
+    if ((host = host_get_ip4host(src)) && host->name) {
+        strlcpy(dst, host->name, HOSTNAMELEN);
+        if (ctx.opt.no_domain) {
+            if ((p = strchr(dst, '.')))
+                *p = '\0';
+        }
+        string_truncate(dst, HOSTNAMELEN, ADDR_WIDTH - 1);
+    } else {
+        inet_ntop(AF_INET, &src, dst, INET_ADDRSTRLEN);
+    }
+}
+
+static void print_address(char *buf, size_t n, const struct packet *p)
+{
+    struct packet_data *pdata;
+
+    pdata = p->root;
+    if (pdata->next) {
+        // TODO: Check for IP6
+        if (is_ipv4(pdata->next)) {
+            char src[HOSTNAMELEN+1];
+            char dst[HOSTNAMELEN+1];
+            uint32_t saddr;
+            uint32_t daddr;
+
+            if (field_empty(&pdata->next->data2))
+                return;
+            saddr = ipv4_src(p);
+            daddr = ipv4_dst(p);
+            if (ctx.opt.numeric) {
+                inet_ntop(AF_INET, &saddr, src, INET_ADDRSTRLEN);
+                inet_ntop(AF_INET, &daddr, dst, INET_ADDRSTRLEN);
+            } else {
+                get_name_or_address(saddr, src);
+                get_name_or_address(daddr, dst);
+            }
+            PRINT_ADDRESS(buf, n, src, dst);
+            return;
+        }
+    }
+    if (is_ethernet(pdata)) {
         if (!field_empty(&pdata->data2)) {
             char smac[HW_ADDRSTRLEN];
             char dmac[HW_ADDRSTRLEN];
@@ -82,7 +127,7 @@ void pkt2text(char *buf, size_t size, const struct packet *p)
         format_timeval(&p->time, time, TBUFLEN);
         PRINT_NUMBER(buf, size, p->num);
         PRINT_TIME(buf, size, time);
-        print_address(buf, size, pdata);
+        print_address(buf, size, p);
         while (pdata) {
             pinfo = get_protocol(pdata->id);
             if (pinfo->print_info && pdata->next == NULL) {
@@ -96,48 +141,6 @@ void pkt2text(char *buf, size_t size, const struct packet *p)
     } else {
         format_timeval(&p->time, time, TBUFLEN);
         PRINT_LINE(buf, size, p->num, time, "N/A", "N/A", "N/A", "Unknown data");
-    }
-}
-
-/*
- * Convert the network address 'src' into a string in 'dst', or store the
- * host name if that is available.
- */
-static void get_name_or_address(const uint32_t src, char *dst)
-{
-    struct host_info *host;
-    char *p;
-
-    if ((host = host_get_ip4host(src)) && host->name) {
-        strlcpy(dst, host->name, HOSTNAMELEN);
-        if (ctx.opt.no_domain) {
-            if ((p = strchr(dst, '.')))
-                *p = '\0';
-        }
-        string_truncate(dst, HOSTNAMELEN, ADDR_WIDTH - 1);
-    } else {
-        inet_ntop(AF_INET, &src, dst, INET_ADDRSTRLEN);
-    }
-}
-
-void print_ipv4(char *buf, int n, void *data)
-{
-    struct packet_data *pdata = data;
-    struct ipv4_info *ip = pdata->data;
-    char src[HOSTNAMELEN+1];
-    char dst[HOSTNAMELEN+1];
-
-    if (ctx.opt.numeric) {
-        inet_ntop(AF_INET, &ip->src, src, INET_ADDRSTRLEN);
-        inet_ntop(AF_INET, &ip->dst, dst, INET_ADDRSTRLEN);
-    } else {
-        get_name_or_address(ip->src, src);
-        get_name_or_address(ip->dst, dst);
-    }
-    PRINT_ADDRESS(buf, n, src, dst);
-    if (!PACKET_HAS_DATA(pdata->next)) {
-        PRINT_PROTOCOL(buf, n, "IPv4");
-        PRINT_INFO(buf, n, "Next header: %d", ip->protocol);
     }
 }
 

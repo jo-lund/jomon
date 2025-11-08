@@ -1,8 +1,11 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
+#include <stdio.h>
 #include "packet_ip.h"
+#include "packet.h"
 #include "jomon.h"
+#include "field.h"
 
 /*
  * IP Differentiated Services Code Point class selectors.
@@ -27,19 +30,53 @@
 #define CS6 0X30
 #define CS7 0X38
 
+#define IP_OPT_END 0
+#define IP_OPT_NOP 1
+#define IP_OPT_SECURITY 2
+#define IP_OPT_LSR 3  /* loose source routing */
+#define IP_OPT_TIMESTAMP 4
+#define IP_OPT_RR 7   /* record route */
+#define IP_OPT_STREAM_ID 8
+#define IP_OPT_SSR 9  /* strict source routing */
+#define IP_OPT_ROUTER_ALERT 20
+#define GET_IP_OPTION_NUMBER(t) ((t) & 0x1f)
+
+#define IP_TS_ONLY 0
+#define IP_TS_ADDR 1
+#define IP_TS_PRESPECIFIED 3
+#define IP_STANDARD_TS(ts) (((ts) & 0x80000000) == 0)
+
+#define IP_UNCLASSIFIED 0
+#define IP_CONFIDENTIAL 0xf135
+#define IP_EFTO  0x789a
+#define IP_MMMM 0xbc4d
+#define IP_PROG 0x5e26
+#define IP_SECRET 0xd788
+#define IP_TOP_SECRET 0x6bc5
+
 #define MIN_HEADER_LEN 20
 
-extern void add_ipv4_information(void *w, void *sw, void *data);
-extern void print_ipv4(char *buf, int n, void *data);
+static void print_ipv4(char *buf, int n, struct packet_data *pdata);
 static packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buf, int n,
                                 struct packet_data *pdata);
 static packet_error handle_ipn(struct protocol_info *pinfo, unsigned char *buf, int n,
                                struct packet_data *pdata);
 
+/* Get the string representation of the options fields */
+static char *get_ipv4_security(uint16_t security);
+
+/* Get the string representation of the option's type */
+static char *get_ipv4_opt_type(uint8_t type);
+
+/* Get the string representation of the router alert option value */
+static char *get_router_alert_option(uint16_t opt);
+
+static char *set[] = { "Not set", "Set" };
+
 static struct packet_flags ipv4_flags[] = {
-    { "Reserved", 1, NULL },
-    { "Don't Fragment", 1, NULL },
-    { "More Fragments", 1, NULL }
+    { "Reserved", 1, set },
+    { "Don't Fragment", 1, set },
+    { "More Fragments", 1, set }
 };
 
 static char *copied_flag[] = {
@@ -67,166 +104,250 @@ static char *option_number[32] = {
 };
 
 static struct packet_flags opt_flags[] = {
-    { "Copied flag:", 1, copied_flag },
-    { "Option class:", 2, option_class },
-    { "Option number:", 5, option_number },
+    { "Copied flag", 1, copied_flag },
+    { "Option class", 2, option_class },
+    { "Option number", 5, option_number },
 };
 
-static struct protocol_info ipv4_prot = {
+static struct packet_flags header[] = {
+    { "Version", 4, NULL },
+    { "Internet Header Length (IHL)", 4, NULL },
+};
+
+static char *dscp[48] = {
+    [CS0] = "Default",
+    [CS1] = "Class Selector 1",
+    [CS2] = "Class Selector 2",
+    [CS3] = "Class Selector 3",
+    [CS4] = "Class Selector 4",
+    [CS5] = "Class Selector 5",
+};
+
+static char *ecn[] = {
+    "Not ECN-Capable",
+    "ECT(1)",
+    "ECT(0)",
+    "CE",
+};
+
+static struct packet_flags tos[] = {
+    { "Differentiated Services Code Point (DSCP)", 6, dscp },
+    { "Explicit Congestion Notification (ECN)", 2, ecn },
+};
+
+static struct packet_flags timestamp[] = {
+    { "Overflow", 4, NULL },
+    { "Flags", 4, NULL },
+};
+
+static struct protocol_info ipv4 = {
     .short_name = "IPv4",
     .long_name = "Internet Protocol Version 4",
     .decode = handle_ipv4,
-    .print_pdu = print_ipv4,
-    .add_pdu = add_ipv4_information
+    .print_info = print_ipv4,
 };
 
-static struct protocol_info ip_prot = {
+static struct protocol_info ip_raw = {
     .short_name = "Raw",
     .long_name = "Raw IP",
     .decode = handle_ipn,
-    .print_pdu = NULL,
-    .add_pdu = NULL
+    .print_info = NULL,
 };
-
 
 void register_ip(void)
 {
-    register_protocol(&ipv4_prot, ETHERNET_II, ETHERTYPE_IP);
-    register_protocol(&ipv4_prot, IP4_PROT, IPPROTO_IPIP);
-    register_protocol(&ipv4_prot, PKT_LOOP, ETHERTYPE_IP);
-    register_protocol(&ipv4_prot, PKT_RAW, ETHERTYPE_IP);
-    register_protocol(&ip_prot, DATALINK, LINKTYPE_RAW);
+    register_protocol(&ipv4, ETHERNET_II, ETHERTYPE_IP);
+    register_protocol(&ipv4, IP4_PROT, IPPROTO_IPIP);
+    register_protocol(&ipv4, PKT_LOOP, ETHERTYPE_IP);
+    register_protocol(&ipv4, PKT_RAW, ETHERTYPE_IP);
+    register_protocol(&ip_raw, DATALINK, LINKTYPE_RAW);
 }
 
-static packet_error parse_options(struct ipv4_info *ip, unsigned char **buf, int n)
+static packet_error parse_options(struct packet_data *pdata, unsigned char **buf, int n)
 {
-    struct ipv4_options **opt;
     unsigned char *p = *buf;
     int nelem;
+    uint8_t type, length;
 
-    opt = &ip->opt;
     while (n > 0) {
-        *opt = mempool_alloc(sizeof(*ip->opt));
-        (*opt)->type = p[0];
-        switch (GET_IP_OPTION_NUMBER((*opt)->type)) {
+        type = p[0];
+        switch (GET_IP_OPTION_NUMBER(type)) {
         case IP_OPT_END:
+            field_add_value(&pdata->data2, "IP Option", FIELD_STRING_HEADER, get_ipv4_opt_type(type));
+            field_add_packet_flags(&pdata->data2, "Type", type, false, opt_flags, ARRAY_SIZE(opt_flags));
+            length = 1;
+            field_add_value(&pdata->data2, "Length", FIELD_UINT8, UINT_TO_PTR(length));
+            field_add_value(&pdata->data2, "", FIELD_STRING_HEADER_END, NULL);
             *buf = ++p;
-            (*opt)->length = 1;
-            (*opt)->next = NULL;
             return NO_ERR;
         case IP_OPT_NOP:
             p++;
             n--;
             break;
         case IP_OPT_SECURITY:
-            if (n < 2 || ((*opt)->length = p[1]) < 2)
-                goto error;
+        {
+            struct uint_string security;
+
+            if (n < 2 || (length = p[1]) < 2)
+                return DECODE_ERR;
             p += 2;
             n -= 2;
-            if ((*opt)->length != 11 || n < (*opt)->length - 2)
-                goto error;
-            (*opt)->security.security = read_uint16be(&p);
-            (*opt)->security.compartments = read_uint16be(&p);
-            (*opt)->security.restrictions = read_uint16be(&p);
-            (*opt)->security.tcc = p[0] << 16 | p[1] << 8 | p[2];
+            if (length != 11 || n < length - 2)
+                return DECODE_ERR;
+            field_add_value(&pdata->data2, "IP Option", FIELD_STRING_HEADER, get_ipv4_opt_type(type));
+            field_add_packet_flags(&pdata->data2, "Type", type, false, opt_flags, ARRAY_SIZE(opt_flags));
+            field_add_value(&pdata->data2, "Length", FIELD_UINT8, UINT_TO_PTR(length));
+            security.val = read_uint16be(&p);
+            security.str = get_ipv4_security(security.val);
+            field_add_value(&pdata->data2, "Security", FIELD_UINT_STRING, &security);
+            field_add_value(&pdata->data2, "Compartments", FIELD_UINT16, UINT_TO_PTR(read_uint16be(&p)));
+            field_add_value(&pdata->data2, "Handling restrictions", FIELD_UINT16,
+                            UINT_TO_PTR(read_uint16be(&p)));
+            field_add_value(&pdata->data2, "Transmission Control Code (TCC)", FIELD_UINT16,
+                            UINT_TO_PTR(p[0] << 16 | p[1] << 8 | p[2]));
+            field_add_value(&pdata->data2, "", FIELD_STRING_HEADER_END, NULL);
             p += 3; /* 3 bytes tcc field */
-            n -= ((*opt)->length - 2);
+            n -= (length - 2);
             break;
+        }
         case IP_OPT_LSR:
         case IP_OPT_RR:
         case IP_OPT_SSR:
-            if (n < 2 || ((*opt)->length = p[1]) < 2)
-                goto error;
+            if (n < 2 || (length = p[1]) < 2)
+                return DECODE_ERR;
             p += 2;
             n -= 2;
-            if ((((*opt)->length - 3) & 3) != 0 || (*opt)->length < 7 || n < (*opt)->length - 2)
-                goto error;
-            (*opt)->route.pointer = p[0];
+            if (((length - 3) & 3) != 0 || length < 7 || n < length - 2)
+                return DECODE_ERR;
+            field_add_value(&pdata->data2, "IP Option", FIELD_STRING_HEADER, get_ipv4_opt_type(type));
+            field_add_packet_flags(&pdata->data2, "Type", type, false, opt_flags, ARRAY_SIZE(opt_flags));
+            field_add_value(&pdata->data2, "Length", FIELD_UINT8, UINT_TO_PTR(length));
+            field_add_value(&pdata->data2, "Pointer", FIELD_UINT8, UINT_TO_PTR(p[0]));
             p++;
             n--;
-            nelem = ((*opt)->length - 3) / 4;
-            (*opt)->route.route_data = mempool_alloc(nelem * 4);
-            n = parse_ipv4_addr((*opt)->route.route_data, nelem, &p, n);
+            nelem = (length - 3) / 4;
+            for (int i = 0; i < nelem && (unsigned int) n >= sizeof(uint32_t); i++) {
+                field_add_value(&pdata->data2, "Route data", FIELD_IP4ADDR,
+                                UINT_TO_PTR(read_uint32le(&p)));
+                n -= sizeof(uint32_t);
+            }
+            field_add_value(&pdata->data2, "", FIELD_STRING_HEADER_END, NULL);
             break;
         case IP_OPT_TIMESTAMP:
-            if (n < 2 || ((*opt)->length = p[1]) < 2)
-                goto error;
+        {
+            uint8_t flags;
+
+            if (n < 2 || (length = p[1]) < 2)
+                return DECODE_ERR;
             p += 2;
             n -= 2;
-            if (n < (*opt)->length - 2 || (*opt)->length < 8)
-                goto error;
-            (*opt)->timestamp.pointer = p[0];
-            (*opt)->timestamp.oflw = (p[1] & 0xf0) >> 4;
-            (*opt)->timestamp.flg = p[1] & 0x0f;
-            if ((((*opt)->length - 4) & 3) != 0)
-                goto error;
-            switch ((*opt)->timestamp.flg) {
+            if (n < length - 2 || length < 8)
+                return DECODE_ERR;
+            field_add_value(&pdata->data2, "IP Option", FIELD_STRING_HEADER, get_ipv4_opt_type(type));
+            field_add_packet_flags(&pdata->data2, "Type", type, false, opt_flags, ARRAY_SIZE(opt_flags));
+            field_add_value(&pdata->data2, "Length", FIELD_UINT8, UINT_TO_PTR(length));
+            field_add_value(&pdata->data2, "Pointer", FIELD_UINT8, UINT_TO_PTR(p[0]));
+            p++;
+            n--;
+            flags = p[0] & 0x0f;
+            field_add_packet_flags(&pdata->data2, "", p[0], true, timestamp, ARRAY_SIZE(timestamp));
+            p++;
+            n--;
+            if (((length - 4) & 3) != 0)
+                return DECODE_ERR;
+            switch (flags) {
             case IP_TS_ONLY:
-                (*opt)->timestamp.ts.timestamp = mempool_copy(p, ((*opt)->length - 4) / 4);
+                nelem = (length - 4) / 8;
+                for (int i = 0; i < nelem && (unsigned int) n >= sizeof(uint32_t); i++) {
+                    uint32_t ts;
+
+                    ts = read_uint32be(&p);
+                    if (IP_STANDARD_TS(ts))
+                        field_add_value(&pdata->data2, "Timestamp", FIELD_TIMESTAMP,
+                                        UINT_TO_PTR(read_uint32be(&p)));
+                    else
+                        field_add_value(&pdata->data2, "Timestamp", FIELD_TIMESTAMP_NON_STANDARD,
+                                        UINT_TO_PTR(read_uint32be(&p)));
+                    n -= 4;
+                }
                 break;
             case IP_TS_ADDR:
             case IP_TS_PRESPECIFIED:
-                nelem = ((*opt)->length - 4) / 8;
+                nelem = (length - 4) / 8;
                 if (nelem == 0 || n < 8)
-                    goto error;
-                (*opt)->timestamp.ts.timestamp = mempool_alloc(nelem * 4);
-                (*opt)->timestamp.ts.addr = mempool_alloc(nelem * 4);
+                    return DECODE_ERR;
                 for (int i = 0; i < nelem && n >= 8; i++) {
-                    memcpy((*opt)->timestamp.ts.addr + i, p, 4);
-                    memcpy((*opt)->timestamp.ts.timestamp + i, p + 4, 4);
-                    p += 8;
+                    uint32_t ts;
+
+                    ts = read_uint32be(&p);
+                    if (IP_STANDARD_TS(ts))
+                        field_add_value(&pdata->data2, "Timestamp", FIELD_TIMESTAMP,
+                                        UINT_TO_PTR(read_uint32be(&p)));
+                    else
+                        field_add_value(&pdata->data2, "Timestamp", FIELD_TIMESTAMP_NON_STANDARD,
+                                        UINT_TO_PTR(read_uint32be(&p)));
+                    field_add_value(&pdata->data2, "Route data", FIELD_IP4ADDR,
+                                    UINT_TO_PTR(read_uint32le(&p)));
                     n -= 8;
                 }
                 break;
             default:
                 break;
             }
+            field_add_value(&pdata->data2, "", FIELD_STRING_HEADER_END, NULL);
             break;
+        }
         case IP_OPT_STREAM_ID:
-            if (n < 2 || ((*opt)->length = p[1]) < 2)
-                goto error;
+            if (n < 2 || (length = p[1]) < 2)
+                return DECODE_ERR;
             p += 2;
             n -= 2;
-            if (n < 2 || (*opt)->length != 4)
-                goto error;
-            (*opt)->stream_id = read_uint16be(&p);
+            if (n < 2 || length != 4)
+                return DECODE_ERR;
+            field_add_value(&pdata->data2, "IP Option", FIELD_STRING_HEADER, get_ipv4_opt_type(type));
+            field_add_packet_flags(&pdata->data2, "Type", type, false, opt_flags, ARRAY_SIZE(opt_flags));
+            field_add_value(&pdata->data2, "Length", FIELD_UINT8, UINT_TO_PTR(length));
+            field_add_value(&pdata->data2, "Stream ID", FIELD_UINT16, UINT_TO_PTR(read_uint16be(&p)));
+            field_add_value(&pdata->data2, "", FIELD_STRING_HEADER_END, NULL);
             n -= 2;
             break;
         case IP_OPT_ROUTER_ALERT:
-            if (n < 2 || ((*opt)->length = p[1]) < 2)
-                goto error;
+        {
+            uint16_t router_alert;
+
+            if (n < 2 || (length = p[1]) < 2)
+                return DECODE_ERR;
             p += 2;
             n -= 2;
-            if (n < 2 || (*opt)->length != 4)
-                goto error;
-            (*opt)->router_alert = read_uint16be(&p);
+            if (n < 2 || length != 4)
+                return DECODE_ERR;
+            field_add_value(&pdata->data2, "IP Option", FIELD_STRING_HEADER, get_ipv4_opt_type(type));
+            field_add_packet_flags(&pdata->data2, "Type", type, false, opt_flags, ARRAY_SIZE(opt_flags));
+            field_add_value(&pdata->data2, "Length", FIELD_UINT8, UINT_TO_PTR(length));
+            router_alert = read_uint16be(&p);
+            field_add_value(&pdata->data2, get_router_alert_option(router_alert), FIELD_UINT16,
+                            UINT_TO_PTR(router_alert));
+            field_add_value(&pdata->data2, "", FIELD_STRING_HEADER_END, NULL);
             n -= 2;
-            break;
-        default:
-            if (n < 2 || ((*opt)->length = p[1]) < 2)
-                goto error;
-            p += 2;
-            n -= 2;
-            DEBUG("IP option %d not supported", (*opt)->type);
-            if ((*opt)->length - 2 > n)
-                goto error;
-            p += ((*opt)->length - 2);
-            n -= ((*opt)->length - 2);
             break;
         }
-        opt = &(*opt)->next;
+        default:
+            if (n < 2 || (length = p[1]) < 2)
+                return DECODE_ERR;
+            p += 2;
+            n -= 2;
+            DEBUG("IP option %d not supported", type);
+            if (length - 2 > n)
+                return DECODE_ERR;
+            p += (length - 2);
+            n -= (length - 2);
+            break;
+        }
     }
     *buf = p;
-    *opt = NULL;
     return NO_ERR;
-
-error:
-    if (*opt) {
-        mempool_free(*opt);
-        *opt = NULL;
-    }
-    return DECODE_ERR;
 }
+
 
 /*
  * IPv4 header
@@ -262,91 +383,88 @@ packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buf, int n,
                          struct packet_data *pdata)
 {
     unsigned int header_len;
-    struct ipv4_info *ipv4;
     uint32_t id;
     struct protocol_info *layer3;
+    uint8_t version, ihl;
+    uint16_t length;
+    uint16_t offset;
+    struct uint_string protocol;
 
-    ipv4 = mempool_alloc(sizeof(struct ipv4_info));
-    pdata->data = ipv4;
     if (n < MIN_HEADER_LEN) {
-        memset(ipv4, 0, sizeof(*ipv4));
-        pdata->len = n;
         pdata->error = create_error_string("Packet length (%d) less than IP header length (%d)",
                                            n, MIN_HEADER_LEN);
         return DECODE_ERR;
     }
-    ipv4->version = (buf[0] & 0xf0) >> 4;
-    if (ipv4->version != 4)
-        pdata->error = create_error_string("IP4 version error %d != 4", ipv4->version);
-    ipv4->ihl = (buf[0] & 0x0f);
-    header_len = ipv4->ihl * 4;
-    if ((unsigned int) n < header_len || ipv4->ihl < 5) {
-        pdata->len = 0;
-        ipv4->dscp = 0;
-        ipv4->ecn = 0;
-        ipv4->length = 0;
-        ipv4->id = 0;
-        ipv4->foffset = 0;
-        ipv4->ttl = 0;
-        ipv4->protocol = 0;
-        ipv4->checksum = 0;
-        ipv4->src = 0;
-        ipv4->dst = 0;
-        ipv4->opt = NULL;
-        if ((unsigned int) n < header_len)
-            pdata->error = create_error_string("Packet length (%d) less than IP Internet header length (%d)",
-                                               n, ipv4->ihl * 4);
-        else
-            pdata->error = create_error_string("IP Internet header length (%u) is less than minimum value (5)",
-                                               ipv4->ihl);
+    version = (buf[0] & 0xf0) >> 4;
+    if (version != 4) {
+        pdata->error = create_error_string("IP4 version error %d != 4", version);
         return DECODE_ERR;
     }
-    pdata->len = header_len;
+    ihl = (buf[0] & 0x0f);
+    header_len = ihl * 4;
+    if ((unsigned int) n < header_len) {
+        pdata->error = create_error_string("Packet length (%d) less than IP Internet header length (%d)",
+                                           n, ihl * 4);
+        return DECODE_ERR;
+    }
+    if (ihl < 5) {
+        pdata->error = create_error_string("IP Internet header length (%u) is less than minimum value (5)", ihl);
+        return DECODE_ERR;
+    }
+    field_init(&pdata->data2);
+    field_add_packet_flags(&pdata->data2, "", buf[0], true, header, ARRAY_SIZE(header));
+    buf++;
 
     /* Originally defined as type of service, but now defined as differentiated
        services code point and explicit congestion control */
-    ipv4->dscp = (buf[1] & 0xfc) >> 2;
-    ipv4->ecn = buf[1] & 0x03;
-    buf += 2;
-    ipv4->length = read_uint16be(&buf);
+    field_add_packet_flags(&pdata->data2, "Differentiated services field",
+                           buf[0], false, tos, ARRAY_SIZE(tos));
+    buf++;
+    length = read_uint16be(&buf);
+    field_add_value(&pdata->data2, "Total length", FIELD_UINT16, UINT_TO_PTR(length));
 
     /* The packet has been padded in order to contain the minimum number of
        bytes. The padded bytes should be ignored. */
-    if (n > ipv4->length)
-        n = ipv4->length;
+    if (n > length)
+        n = length;
 
-    ipv4->id = read_uint16be(&buf);
-    ipv4->foffset = read_uint16be(&buf);
-    ipv4->ttl = buf[0];
-    ipv4->protocol = buf[1];
-    buf += 2;
-    ipv4->checksum = read_uint16be(&buf);
-    ipv4->src = read_uint32le(&buf);
-    ipv4->dst = read_uint32le(&buf);
-    ipv4->opt = NULL;
-    if (ipv4->ihl > 5) {
-        if (parse_options(ipv4, &buf, (ipv4->ihl - 5) * 4) != NO_ERR) {
-            if (ipv4->opt) {
-                mempool_free(ipv4->opt);
-                ipv4->opt = NULL;
-            }
+    field_add_value(&pdata->data2, "Identification", FIELD_UINT16, UINT_TO_PTR(read_uint16be(&buf)));
+
+    /* the 3 first bits are flags */
+    field_add_packet_flags(&pdata->data2, "Flags", buf[0] >> 5, false, ipv4_flags, ARRAY_SIZE(ipv4_flags));
+    offset = read_uint16be(&buf) & 0x1fff; /* clear the flag bits */
+    field_add_value(&pdata->data2, "Fragment offset", FIELD_UINT16, UINT_TO_PTR(offset));
+    field_add_value(&pdata->data2, "Time to live", FIELD_UINT8, UINT_TO_PTR(buf[0]));
+    buf++;
+    protocol.val = buf[0];
+    protocol.str = get_ip_transport_protocol(protocol.val);
+    field_add_value(&pdata->data2, "Protocol", FIELD_UINT_STRING, &protocol);
+    buf++;
+    field_add_value(&pdata->data2, "Checksum", FIELD_UINT16, UINT_TO_PTR(read_uint16be(&buf)));
+    field_add_value(&pdata->data2, "Source IP Address", FIELD_IP4ADDR,
+                    UINT_TO_PTR(read_uint32le(&buf)));
+    field_add_value(&pdata->data2, "Destination IP Address", FIELD_IP4ADDR,
+                    UINT_TO_PTR(read_uint32le(&buf)));
+    if (ihl > 5) {
+        if (parse_options(pdata, &buf, (ihl - 5) * 4) != NO_ERR) {
             pdata->error = create_error_string("IP options error");
             return DECODE_ERR;
         }
     }
-    if (ipv4->length < header_len) {
+    if (length < header_len) {
         pdata->error = create_error_string("IP total length (%d) less than header length (%d)",
-                                           ipv4->length, header_len);
+                                           length, header_len);
         return DECODE_ERR;
     }
-    if (ipv4->length > n) {
+    if (length > n) {
         pdata->error = create_error_string("IP total length (%d) greater than packet length (%d)",
-                                           ipv4->length, n);
+                                           length, n);
         return DECODE_ERR;
     }
+    pdata->len = header_len;
     pinfo->num_packets++;
     pinfo->num_bytes += n;
-    id = get_protocol_id(IP4_PROT, ipv4->protocol);
+    id = get_protocol_id(IP4_PROT, protocol.val);
     layer3 = get_protocol(id);
     if (layer3) {
         pdata->next = mempool_calloc(1, struct packet_data);
@@ -358,28 +476,6 @@ packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buf, int n,
         }
     }
     return NO_ERR;
-}
-
-char *get_ipv4_dscp(uint8_t dscp)
-{
-    switch (dscp) {
-    case CS0:
-        return "Default";
-    case CS1:
-        return "Class Selector 1";
-    case CS2:
-        return "Class Selector 2";
-    case CS3:
-        return "Class Selector 3";
-    case CS4:
-        return "Class Selector 4";
-    case CS5:
-        return "Class Selector 5";
-    case CS6:
-        return "Class Selector 6";
-    default:
-        return NULL;
-    }
 }
 
 char *get_ip_transport_protocol(uint8_t protocol)
@@ -396,33 +492,8 @@ char *get_ip_transport_protocol(uint8_t protocol)
     case IPPROTO_PIM:
         return "PIM";
     default:
-        return NULL;
+        return "Unknown";
     }
-}
-
-struct packet_flags *get_ipv4_flags(void)
-{
-    return ipv4_flags;
-}
-
-int get_ipv4_flags_size(void)
-{
-    return ARRAY_SIZE(ipv4_flags);
-}
-
-struct packet_flags *get_ipv4_opt_flags(void)
-{
-    return opt_flags;
-}
-
-int get_ipv4_opt_flags_size(void)
-{
-    return ARRAY_SIZE(opt_flags);
-}
-
-uint16_t get_ipv4_foffset(struct ipv4_info *ip)
-{
-    return ip->foffset & 0x1fff;
 }
 
 int parse_ipv4_addr(uint32_t *addrs, int count, unsigned char **buf, int n)
@@ -493,4 +564,42 @@ packet_error handle_ipn(struct protocol_info *pinfo UNUSED, unsigned char *buf, 
         return NO_ERR;
     }
     return DECODE_ERR;
+}
+
+static void print_ipv4(char *buf, int n, struct packet_data *pdata)
+{
+    const struct field *f;
+
+    f = field_search(&pdata->data2, "Protocol");
+    snprintf(buf, n, "Next header: %u", field_get_uint8(f));
+}
+
+uint32_t ipv4_src(const struct packet *p)
+{
+    struct packet_data *pdata;
+
+    pdata = p->root;
+    if (pdata->next && is_ipv4(pdata->next)) {
+        const struct field *f = field_search(&pdata->next->data2, "Source IP Address");
+        return field_get_uint32(f);
+    }
+    return 0;
+}
+
+uint32_t ipv4_dst(const struct packet *p)
+{
+    struct packet_data *pdata;
+
+    pdata = p->root;
+    if (pdata->next && is_ipv4(pdata->next)) {
+        const struct field *f = field_search(&pdata->next->data2, "Destination IP Address");
+        return field_get_uint32(f);
+    }
+    return 0;
+}
+
+bool is_ipv4(struct packet_data *pdata)
+{
+    struct protocol_info *pinfo = get_protocol(pdata->id);
+    return strcmp(pinfo->short_name, "IPv4") == 0;
 }

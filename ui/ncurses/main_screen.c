@@ -104,10 +104,8 @@ static screen_header main_header[] = {
  * its width (which is the number of bits in the flag), and, based on the value of
  * the flag, a description of the specific field value, see decoder/packet.h.
  */
-
-// TODO: Make this private
-void add_flags(list_view *lw, list_view_header *header, uint32_t flags,
-               struct packet_flags *pf, int num_flags)
+static void add_flags(list_view *lw, list_view_header *header, uint32_t flags,
+                      struct packet_flags *pf, bool print_value, int num_flags)
 {
     char buf[MAXLINE];
     int num_bits = 0;
@@ -125,12 +123,16 @@ void add_flags(list_view *lw, list_view_header *header, uint32_t flags,
         }
         /* print the flag description */
         snprintf(buf + num_bits, MAXLINE - num_bits, "  %s", pf[i].str);
-        if (pf[i].sflags) {
+        if (pf[i].sflags || print_value) {
             uint8_t bf;
 
-            /* print the field description based on index (bit value of field) */
             bf = (flags >> (num_bits - (k + pf[i].width))) & ((1 << pf[i].width) - 1);
-            snprintcat(buf, MAXLINE, ": %s", pf[i].sflags[bf]);
+            if (print_value)
+                /* print the value of the field */
+                snprintcat(buf, MAXLINE, ": %d", bf);
+            else
+                /* print the field description based on index (bit value of field) */
+                snprintcat(buf, MAXLINE, ": %s", pf[i].sflags[bf]);
         }
         LV_ADD_TEXT_ELEMENT(lw, header, "%s", buf);
         for (int j = 0; j < pf[i].width; j++) {
@@ -1338,7 +1340,7 @@ void print_selected_packet(main_screen *ms)
 
 void add_elements(main_screen *ms, struct packet *p)
 {
-    list_view_header *header;
+    list_view_header *header, *pheader;
     struct protocol_info *pinfo;
     struct packet_data *pdata;
     int i = 0;
@@ -1354,13 +1356,13 @@ void add_elements(main_screen *ms, struct packet *p)
         pinfo = get_protocol(pdata->id);
         idx += pdata->len;
         if (pinfo && i < NUM_LAYERS) {
-            if (field_empty(&pdata->data2))
-                goto next_protocol;
-
             const struct field *f = NULL;
             char line[MAXLINE];
 
+            if (field_empty(&pdata->data2))
+                goto next_protocol;
             header = LV_ADD_HEADER(ms->lvw, pinfo->long_name, selected[i], i);
+            pheader = header;
             if (pdata->error)
                 LV_ADD_TEXT_ATTR(ms->lvw, header, get_theme_colour(ERR_BKGD),
                                  "Packet error: %s", pdata->error);
@@ -1388,6 +1390,13 @@ void add_elements(main_screen *ms, struct packet *p)
                 case FIELD_UINT32:
                     snprintcat(line, MAXLINE, ": 0x%x", field_get_uint32(f));
                     LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
+                    break;
+                case FIELD_STRING_HEADER:
+                    snprintcat(line, MAXLINE, ": %s", (char *) field_get_value(f));
+                    header = LV_ADD_SUB_HEADER(ms->lvw, header, selected[UI_FLAGS], UI_FLAGS, line);
+                    break;
+                case FIELD_STRING_HEADER_END:
+                    header = pheader;
                     break;
                 case FIELD_UINT_STRING:
                 {
@@ -1419,15 +1428,21 @@ void add_elements(main_screen *ms, struct packet *p)
                 }
                 case FIELD_PACKET_FLAGS:
                 {
-                    list_view_header *subhdr;
                     struct packet_flags *pf;
                     uint16_t flags;
+                    bool print_value;
 
                     pf = field_get_value(f);
                     flags = field_get_flags(f);
-                    snprintcat(line, MAXLINE, ": 0x%x", flags);
-                    subhdr = LV_ADD_SUB_HEADER(ms->lvw, header, selected[UI_FLAGS], UI_FLAGS, line);
-                    add_flags(ms->lvw, subhdr, flags, pf, field_get_length(f));
+                    print_value = field_packet_flags_print_value(f);
+                    if (field_get_key(f)[0] == '\0' ) {
+                        add_flags(ms->lvw, header, flags, pf, print_value, field_get_length(f));
+                    } else {
+                        list_view_header *flags_hdr;
+                        snprintcat(line, MAXLINE, ": 0x%x", flags);
+                        flags_hdr = LV_ADD_SUB_HEADER(ms->lvw, header, selected[UI_FLAGS], UI_FLAGS, line);
+                        add_flags(ms->lvw, flags_hdr, flags, pf, print_value, field_get_length(f));
+                    }
                     break;
                 }
                 case FIELD_UINT16_HWADDR:
@@ -1442,6 +1457,17 @@ void add_elements(main_screen *ms, struct packet *p)
                 }
                 case FIELD_TIME_UINT16_256:
                     snprintcat(line, MAXLINE, ": %u s.", field_get_uint16(f));
+                    LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
+                    break;
+                case FIELD_TIMESTAMP:
+                {
+                    char time[32];
+                    snprintcat(line, MAXLINE, ": %s", get_time_from_ms_ut(field_get_uint32(f), time, 32));
+                    LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
+                    break;
+                }
+                case FIELD_TIMESTAMP_NON_STANDARD:
+                    snprintcat(line, MAXLINE, ": 0x%x", field_get_uint32(f));
                     LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
                     break;
                 default:

@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include "tcp_analyzer.h"
 #include "packet_ip.h"
+#include "packet_tcp.h"
 
 #define TBLSZ (64 * 1024)
 
