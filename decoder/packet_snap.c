@@ -54,7 +54,6 @@ packet_error handle_snap(struct protocol_info *pinfo, unsigned char *buf, int n,
         id = get_protocol_id(layer, protocol_id);
         if ((psub = get_protocol(id))) {
             pdata->next = mempool_calloc(1, struct packet_data);
-            pdata->next->prev = pdata;
             pdata->next->id = id;
             psub->decode(psub, buf, n - SNAP_HDR_LEN, pdata->next);
         }

@@ -83,7 +83,6 @@ struct protocol_info {
     packet_error (*decode)(struct protocol_info *pinfo, unsigned char *buf, int n,
                            struct packet_data *p);
     void (*print_pdu)(char *buf, int n, void *data); // TODO: Change data to struct packet_data
-    void (*add_pdu)(void *w, void *sw, void *data);  // TODO: Remove
     void (*print_info)(char *buf, int n, struct packet_data *data); // TEMP
 };
 
@@ -107,7 +106,6 @@ struct packet_data {
     uint16_t len; /* length of the packet data as seen on the network */
     char *error;
     QUEUE_HEAD(field_head, struct field) data;
-    struct packet_data *prev;
     struct packet_data *next;
 };
 
@@ -158,6 +156,8 @@ struct packet_data *get_packet_data(const struct packet *p, uint32_t id);
 
 /* Allocate an error string on the assigned memory pool, see mempool.h */
 char *create_error_string(const char *fmt, ...) PRINTF_FORMAT(1, 2);
+
+struct packet *get_current_packet(void);
 
 static inline uint32_t get_protocol_id(uint16_t layer, uint16_t key)
 {

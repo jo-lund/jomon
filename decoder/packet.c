@@ -110,10 +110,8 @@ packet_error call_data_decoder(uint32_t id, struct packet_data *p, uint8_t trans
         pdata = mempool_calloc(1, struct packet_data);
         pdata->transport = transport;
         pdata->id = id;
-        pdata->prev = p;
         p->next = pdata;
         if ((err = pinfo->decode(pinfo, buf, n, pdata)) == UNK_PROTOCOL) {
-            pdata->prev->next = NULL;
             mempool_free(pdata);
         }
     }

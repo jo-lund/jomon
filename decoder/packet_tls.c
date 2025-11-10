@@ -410,7 +410,6 @@ packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
             mempool_free(*pptr);
             *pptr = NULL;
             if (i == 0) {
-                pdata->prev->next = NULL;
                 mempool_free(pdata);
                 return UNK_PROTOCOL;
             }

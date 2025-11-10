@@ -44,7 +44,6 @@ packet_error handle_loop(struct protocol_info *pinfo UNUSED, unsigned char *buf,
     n -= LOOP_HDR_LEN;
     field_add_value(&pdata->data, "Address family", FIELD_UINT_STRING, &family);
     pdata->len = LOOP_HDR_LEN;
-    pdata->prev = NULL;
     switch (family.val) {
     case AFN_BSD_INET:
         id = get_protocol_id(PKT_LOOP, ETHERTYPE_IP);
@@ -61,7 +60,6 @@ packet_error handle_loop(struct protocol_info *pinfo UNUSED, unsigned char *buf,
     }
     if (layer2) {
         pdata->next = mempool_calloc(1, struct packet_data);
-        pdata->next->prev = pdata;
         pdata->next->id = id;
         layer2->decode(layer2, buf, n, pdata->next);
         return NO_ERR;

@@ -31,6 +31,7 @@ static packet_error handle_vrrp(struct protocol_info *pinfo, unsigned char *buf,
 
 {
     struct vrrp_info *vrrp;
+    struct packet *p;
 
     if (n < MIN_VRRP_LEN)
         return UNK_PROTOCOL;
@@ -52,7 +53,8 @@ static packet_error handle_vrrp(struct protocol_info *pinfo, unsigned char *buf,
     vrrp->checksum = get_uint16be(buf);
     buf += MIN_VRRP_LEN;
     n -= MIN_VRRP_LEN;
-    if (get_protocol_key(pdata->prev->id) == ETHERTYPE_IP) {
+    p = get_current_packet();
+    if (get_protocol_key(p->root->next->id) == ETHERTYPE_IP) {
         if (vrrp->count_ip * 4 > n) {
             vrrp->ip4_addrs = NULL;
             pdata->error = create_error_string("IP address count too big");

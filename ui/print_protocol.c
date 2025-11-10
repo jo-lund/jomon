@@ -130,6 +130,11 @@ void pkt2text(char *buf, size_t size, const struct packet *p)
         print_address(buf, size, p);
         while (pdata) {
             pinfo = get_protocol(pdata->id);
+            if (pinfo == NULL) {
+                DEBUG("Layer: 0x%x, Key: 0x%x", get_protocol_layer(pdata->id),
+                      get_protocol_key(pdata->id));
+                return;
+            }
             if (pinfo->print_info && pdata->next == NULL) {
                 char info[512];
                 PRINT_PROTOCOL(buf, size, pinfo->short_name);

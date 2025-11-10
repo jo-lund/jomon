@@ -108,7 +108,6 @@ packet_error handle_ethernet(struct protocol_info *pinfo UNUSED, unsigned char *
     ethertype.val = read_uint16be(&buf);
     ethertype.str = get_ethernet_type(ethertype.val);
     field_add_value(&pdata->data, "Ethertype", FIELD_UINT_STRING, &ethertype);
-    pdata->prev = NULL;
     pdata->len = ETHER_HDR_LEN;
     if (ethertype.val <= ETH_802_3_MAX) {
         id = get_protocol_id(ETH802_3, ETH_802_LLC);
@@ -120,7 +119,6 @@ packet_error handle_ethernet(struct protocol_info *pinfo UNUSED, unsigned char *
     }
     if (layer2) {
         pdata->next = mempool_calloc(1, struct packet_data);
-        pdata->next->prev = pdata;
         pdata->next->id = id;
         layer2->decode(layer2, buf, n - ETHER_HDR_LEN, pdata->next);
         return NO_ERR;

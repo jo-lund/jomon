@@ -152,15 +152,6 @@ static bool parse_line(struct smtp_info *smtp, struct smtp_data *data, char *buf
     return false;
 }
 
-static struct packet_data *get_root(struct packet_data *pdata)
-{
-    struct packet_data *p = pdata;
-
-    while (p->prev)
-        p = p->prev;
-    return p;
-}
-
 static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf, int n,
                                 struct packet_data *pdata)
 {
@@ -168,7 +159,7 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
     unsigned char *p;
     int i = 0;
     struct smtp_conn_state *smtp_state;
-    struct packet_data *root;
+    struct packet *pkt;
     struct tcp *tcp;
     struct tcp_endpoint_v4 endp;
     struct tcp_connection_v4 *conn;
@@ -178,10 +169,10 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
 #if 0 // TODO: Fix this
     if (pdata->transport != IPPROTO_TCP)
         return UNK_PROTOCOL;
-    if ((root = get_root(pdata)) == NULL)
+    if ((pkt = get_current_packet()) == NULL)
         return UNK_PROTOCOL;
-    if ((!root->next || root->next->id != get_protocol_id(ETHERNET_II, ETHERTYPE_IP)) ||
-        !root->next->next)
+    if ((!pkt->root->next || pkt->root->next->id != get_protocol_id(ETHERNET_II, ETHERTYPE_IP)) ||
+        !pkt->root->next->next)
         return UNK_PROTOCOL;
 
     ipv4 = root->next->data;
