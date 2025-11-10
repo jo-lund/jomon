@@ -5,7 +5,6 @@
 #include "string.h"
 
 extern void print_ssdp(char *buf, int n, void *data);
-extern void add_ssdp_information(void *widget, void *subwidget, void *data);
 static packet_error parse_ssdp(struct packet_data *pdata, char *str, int n,
                                list_t *msg_header);
 
@@ -14,7 +13,6 @@ static struct protocol_info ssdp_prot = {
     .long_name = "Simple Service Discovery Protocol",
     .decode = handle_ssdp,
     .print_pdu = print_ssdp,
-    .add_pdu = add_ssdp_information
 };
 
 void register_ssdp(void)
@@ -41,7 +39,6 @@ packet_error handle_ssdp(struct protocol_info *pinfo, unsigned char *buffer, int
     struct ssdp_info *ssdp;
 
     ssdp = mempool_alloc(sizeof(struct ssdp_info));
-    pdata->data = ssdp;
     pdata->len = n;
     pinfo->num_packets++;
     pinfo->num_bytes += n;

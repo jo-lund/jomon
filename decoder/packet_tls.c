@@ -360,7 +360,6 @@ enum tls_state {
 };
 
 extern void print_tls(char *buf, int n, void *data);
-extern void add_tls_information(void *widget, void *subwidget, void *data);
 static packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buffer,
                                 int len, struct packet_data *pdata);
 static packet_error parse_handshake(struct packet_data *pdata, unsigned char **buf,
@@ -374,7 +373,6 @@ static struct protocol_info tls_prot = {
     .long_name = "Transport Layer Security",
     .decode = handle_tls,
     .print_pdu = print_tls,
-    .add_pdu = add_tls_information
 };
 
 void register_tls(void)
@@ -441,7 +439,6 @@ packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
             } else {
                 // BUG: Need to handle this properly
                 if (parse_handshake(pdata, &buf, record_len, *pptr) != NO_ERR) {
-                    pdata->data = tls;
                     pdata->len = n;
                     return DECODE_ERR;
                 }
@@ -458,7 +455,6 @@ packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buf, int n,
 done:
     pinfo->num_packets++;
     pinfo->num_bytes += n;
-    pdata->data = tls;
     pdata->len = n;
     return NO_ERR;
 }

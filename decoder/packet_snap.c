@@ -35,14 +35,14 @@ packet_error handle_snap(struct protocol_info *pinfo, unsigned char *buf, int n,
         return DECODE_ERR;
     }
     layer = 0;
-    field_init(&pdata->data2);
+    field_init(&pdata->data);
     oui[0] = buf[0];
     oui[1] = buf[1];
     oui[2] = buf[2];
     buf += 3;
-    field_add_bytes(&pdata->data2, "IEEE Organizationally Unique Identifier (OUI)", FIELD_UINT24, oui, 3);
+    field_add_bytes(&pdata->data, "IEEE Organizationally Unique Identifier (OUI)", FIELD_UINT24, oui, 3);
     protocol_id = read_uint16be(&buf);
-    field_add_value(&pdata->data2, "Protocol Id", FIELD_UINT16, UINT_TO_PTR(protocol_id));
+    field_add_value(&pdata->data, "Protocol Id", FIELD_UINT16, UINT_TO_PTR(protocol_id));
     pdata->len = SNAP_HDR_LEN;
     pinfo->num_packets++;
     pinfo->num_bytes += SNAP_HDR_LEN;
@@ -68,9 +68,9 @@ void print_snap(char *buf, int n, struct packet_data *pdata)
     uint16_t id;
     const struct field *f = NULL;
 
-    f = field_get_next(&pdata->data2, f);
+    f = field_get_next(&pdata->data, f);
     oui = field_get_value(f);
-    f = field_get_next(&pdata->data2, f);
+    f = field_get_next(&pdata->data, f);
     id = field_get_uint16(f);
     snprintf(buf, n, "OUI: 0x%06x  Protocol Id: 0x%04x",
              oui[0] << 16 | oui[1] << 8 | oui[2], id);

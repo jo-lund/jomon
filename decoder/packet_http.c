@@ -42,7 +42,6 @@ static struct protocol_info http_prot = {
     .long_name = "Hypertext Transfer Protocol",
     .decode = handle_http,
     .print_pdu = print_http,
-    .add_pdu = add_http_information
 };
 
 void register_http(void)
@@ -61,7 +60,6 @@ packet_error handle_http(struct protocol_info *pinfo, unsigned char *buffer,
     struct http_info *http;
 
     http = mempool_calloc(1, struct http_info);
-    pdata->data = http;
     pdata->len = len;
     if (!parse_http(buffer, len, http))
         return UNK_PROTOCOL;

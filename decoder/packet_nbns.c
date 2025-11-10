@@ -38,7 +38,6 @@ static char *nb_suffix[] = {
 };
 
 extern void print_nbns(char *buf, int n, void *data);
-extern void add_nbns_information(void *widget, void *subwidget, void *data);
 static int parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **data,
                              int dlen, struct nbns_info *nbns);
 
@@ -47,7 +46,6 @@ static struct protocol_info nbns_prot = {
     .long_name = "NetBIOS Name Service",
     .decode = handle_nbns,
     .print_pdu = print_nbns,
-    .add_pdu = add_nbns_information
 };
 
 void register_nbns(void)
@@ -89,7 +87,6 @@ packet_error handle_nbns(struct protocol_info *pinfo, unsigned char *buffer, int
     struct nbns_info *nbns;
 
     nbns = mempool_calloc(1, struct nbns_info);
-    pdata->data = nbns;
     pdata->len = n;
 
     /*

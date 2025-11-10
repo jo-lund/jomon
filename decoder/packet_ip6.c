@@ -6,7 +6,6 @@
 #include "packet.h"
 #include "util.h"
 
-extern void add_ipv6_information(void *w, void *sw, void *data);
 extern void print_ipv6(char *buf, int n, void *data);
 static packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int n,
                                 struct packet_data *pdata);
@@ -16,7 +15,6 @@ static struct protocol_info ipv6_prot = {
     .long_name = "Internet Protocol Version 6",
     .decode = handle_ipv6,
     .print_pdu = print_ipv6,
-    .add_pdu = add_ipv6_information
 };
 
 void register_ip6(void)
@@ -73,7 +71,6 @@ packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int
     uint32_t id;
 
     ipv6 = mempool_alloc(sizeof(struct ipv6_info));
-    pdata->data = ipv6;
     header_len = sizeof(struct ip6_hdr);
     if ((unsigned int) n < header_len) {
         memset(ipv6, 0, sizeof(*ipv6));

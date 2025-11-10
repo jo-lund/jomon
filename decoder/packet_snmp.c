@@ -34,7 +34,6 @@ typedef struct {
 } snmp_value;
 
 extern void print_snmp(char *buf, int n, void *data);
-extern void add_snmp_information(void *widget, void *subwidget, void *data);
 static packet_error parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp);
 static list_t *parse_variables(unsigned char *buffer, int n);
 static int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag,
@@ -47,7 +46,6 @@ static struct protocol_info snmp_prot = {
     .long_name = "Simple Network Management Protocol",
     .decode = handle_snmp,
     .print_pdu = print_snmp,
-    .add_pdu = add_snmp_information
 };
 
 void register_snmp(void)
@@ -76,7 +74,6 @@ static packet_error handle_snmp(struct protocol_info *pinfo, unsigned char *buff
 
     ptr = buffer;
     snmp = mempool_calloc(1, struct snmp_info);
-    pdata->data = snmp;
     pdata->len = n;
     if ((msg_len = parse_value(&ptr, n, &class, &tag, NULL)) == -1) {
         return DECODE_ERR;

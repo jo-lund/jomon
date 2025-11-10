@@ -17,7 +17,6 @@
 
 static packet_error handle_icmp6(struct protocol_info *pinfo, unsigned char *buf, int n,
                                  struct packet_data *pdata);
-extern void add_icmp6_information(void *w, void *sw, void *data);
 extern void print_icmp6(char *buf, int n, void *data);
 
 static struct packet_flags router_adv_flags[] = {
@@ -44,7 +43,6 @@ static struct protocol_info icmp6_prot = {
     .long_name = "Internet Control Message Protocol 6",
     .decode = handle_icmp6,
     .print_pdu = print_icmp6,
-    .add_pdu = add_icmp6_information
 };
 
 void register_icmp6(void)
@@ -157,7 +155,6 @@ packet_error handle_icmp6(struct protocol_info *pinfo, unsigned char *buf, int n
 
     icmp6 = mempool_calloc(1, struct icmp6_info);
     icmp6->option = NULL;
-    pdata->data = icmp6;
     pdata->len = n;
     pinfo->num_packets++;
     pinfo->num_bytes += n;

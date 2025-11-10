@@ -28,7 +28,6 @@ static struct packet_flags llmnr_flags[] = {
 };
 
 extern void print_dns(char *buf, int n, void *data);
-extern void add_dns_information(void *widget, void *subwidget, void *data);
 static int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
                              int dlen, struct dns_info *dns);
 static int parse_dns_question(unsigned char *buffer, int n, unsigned char **data,
@@ -43,7 +42,6 @@ static struct protocol_info dns_prot = {
     .long_name = "Domain Name System",
     .decode = handle_dns,
     .print_pdu = print_dns,
-    .add_pdu = add_dns_information
 };
 
 static struct protocol_info mdns_prot = {
@@ -51,7 +49,6 @@ static struct protocol_info mdns_prot = {
     .long_name = "Multicast DNS",
     .decode = handle_dns,
     .print_pdu = print_dns,
-    .add_pdu = add_dns_information
 };
 
 static struct protocol_info llmnr_prot = {
@@ -59,7 +56,6 @@ static struct protocol_info llmnr_prot = {
     .long_name = "Link-Local Multicast Name Resolution",
     .decode = handle_dns,
     .print_pdu = print_dns,
-    .add_pdu = add_dns_information
 };
 
 void register_dns(void)
@@ -129,7 +125,6 @@ packet_error handle_dns(struct protocol_info *pinfo, unsigned char *buffer, int 
     if (n < DNS_HDRLEN)
         return UNK_PROTOCOL;
     dns = mempool_calloc(1, struct dns_info);
-    pdata->data = dns;
     pdata->len = n;
 
     /*

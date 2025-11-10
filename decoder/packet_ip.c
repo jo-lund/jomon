@@ -173,11 +173,11 @@ static packet_error parse_options(struct packet_data *pdata, unsigned char **buf
         type = p[0];
         switch (GET_IP_OPTION_NUMBER(type)) {
         case IP_OPT_END:
-            field_add_value(&pdata->data2, "IP Option", FIELD_STRING_HEADER, get_ipv4_opt_type(type));
-            field_add_packet_flags(&pdata->data2, "Type", type, false, opt_flags, ARRAY_SIZE(opt_flags));
+            field_add_value(&pdata->data, "IP Option", FIELD_STRING_HEADER, get_ipv4_opt_type(type));
+            field_add_packet_flags(&pdata->data, "Type", type, false, opt_flags, ARRAY_SIZE(opt_flags));
             length = 1;
-            field_add_value(&pdata->data2, "Length", FIELD_UINT8, UINT_TO_PTR(length));
-            field_add_value(&pdata->data2, "", FIELD_STRING_HEADER_END, NULL);
+            field_add_value(&pdata->data, "Length", FIELD_UINT8, UINT_TO_PTR(length));
+            field_add_value(&pdata->data, "", FIELD_STRING_HEADER_END, NULL);
             *buf = ++p;
             return NO_ERR;
         case IP_OPT_NOP:
@@ -194,18 +194,18 @@ static packet_error parse_options(struct packet_data *pdata, unsigned char **buf
             n -= 2;
             if (length != 11 || n < length - 2)
                 return DECODE_ERR;
-            field_add_value(&pdata->data2, "IP Option", FIELD_STRING_HEADER, get_ipv4_opt_type(type));
-            field_add_packet_flags(&pdata->data2, "Type", type, false, opt_flags, ARRAY_SIZE(opt_flags));
-            field_add_value(&pdata->data2, "Length", FIELD_UINT8, UINT_TO_PTR(length));
+            field_add_value(&pdata->data, "IP Option", FIELD_STRING_HEADER, get_ipv4_opt_type(type));
+            field_add_packet_flags(&pdata->data, "Type", type, false, opt_flags, ARRAY_SIZE(opt_flags));
+            field_add_value(&pdata->data, "Length", FIELD_UINT8, UINT_TO_PTR(length));
             security.val = read_uint16be(&p);
             security.str = get_ipv4_security(security.val);
-            field_add_value(&pdata->data2, "Security", FIELD_UINT_STRING, &security);
-            field_add_value(&pdata->data2, "Compartments", FIELD_UINT16, UINT_TO_PTR(read_uint16be(&p)));
-            field_add_value(&pdata->data2, "Handling restrictions", FIELD_UINT16,
+            field_add_value(&pdata->data, "Security", FIELD_UINT_STRING, &security);
+            field_add_value(&pdata->data, "Compartments", FIELD_UINT16, UINT_TO_PTR(read_uint16be(&p)));
+            field_add_value(&pdata->data, "Handling restrictions", FIELD_UINT16,
                             UINT_TO_PTR(read_uint16be(&p)));
-            field_add_value(&pdata->data2, "Transmission Control Code (TCC)", FIELD_UINT16,
+            field_add_value(&pdata->data, "Transmission Control Code (TCC)", FIELD_UINT16,
                             UINT_TO_PTR(p[0] << 16 | p[1] << 8 | p[2]));
-            field_add_value(&pdata->data2, "", FIELD_STRING_HEADER_END, NULL);
+            field_add_value(&pdata->data, "", FIELD_STRING_HEADER_END, NULL);
             p += 3; /* 3 bytes tcc field */
             n -= (length - 2);
             break;
@@ -219,19 +219,19 @@ static packet_error parse_options(struct packet_data *pdata, unsigned char **buf
             n -= 2;
             if (((length - 3) & 3) != 0 || length < 7 || n < length - 2)
                 return DECODE_ERR;
-            field_add_value(&pdata->data2, "IP Option", FIELD_STRING_HEADER, get_ipv4_opt_type(type));
-            field_add_packet_flags(&pdata->data2, "Type", type, false, opt_flags, ARRAY_SIZE(opt_flags));
-            field_add_value(&pdata->data2, "Length", FIELD_UINT8, UINT_TO_PTR(length));
-            field_add_value(&pdata->data2, "Pointer", FIELD_UINT8, UINT_TO_PTR(p[0]));
+            field_add_value(&pdata->data, "IP Option", FIELD_STRING_HEADER, get_ipv4_opt_type(type));
+            field_add_packet_flags(&pdata->data, "Type", type, false, opt_flags, ARRAY_SIZE(opt_flags));
+            field_add_value(&pdata->data, "Length", FIELD_UINT8, UINT_TO_PTR(length));
+            field_add_value(&pdata->data, "Pointer", FIELD_UINT8, UINT_TO_PTR(p[0]));
             p++;
             n--;
             nelem = (length - 3) / 4;
             for (int i = 0; i < nelem && (unsigned int) n >= sizeof(uint32_t); i++) {
-                field_add_value(&pdata->data2, "Route data", FIELD_IP4ADDR,
+                field_add_value(&pdata->data, "Route data", FIELD_IP4ADDR,
                                 UINT_TO_PTR(read_uint32le(&p)));
                 n -= sizeof(uint32_t);
             }
-            field_add_value(&pdata->data2, "", FIELD_STRING_HEADER_END, NULL);
+            field_add_value(&pdata->data, "", FIELD_STRING_HEADER_END, NULL);
             break;
         case IP_OPT_TIMESTAMP:
         {
@@ -243,14 +243,14 @@ static packet_error parse_options(struct packet_data *pdata, unsigned char **buf
             n -= 2;
             if (n < length - 2 || length < 8)
                 return DECODE_ERR;
-            field_add_value(&pdata->data2, "IP Option", FIELD_STRING_HEADER, get_ipv4_opt_type(type));
-            field_add_packet_flags(&pdata->data2, "Type", type, false, opt_flags, ARRAY_SIZE(opt_flags));
-            field_add_value(&pdata->data2, "Length", FIELD_UINT8, UINT_TO_PTR(length));
-            field_add_value(&pdata->data2, "Pointer", FIELD_UINT8, UINT_TO_PTR(p[0]));
+            field_add_value(&pdata->data, "IP Option", FIELD_STRING_HEADER, get_ipv4_opt_type(type));
+            field_add_packet_flags(&pdata->data, "Type", type, false, opt_flags, ARRAY_SIZE(opt_flags));
+            field_add_value(&pdata->data, "Length", FIELD_UINT8, UINT_TO_PTR(length));
+            field_add_value(&pdata->data, "Pointer", FIELD_UINT8, UINT_TO_PTR(p[0]));
             p++;
             n--;
             flags = p[0] & 0x0f;
-            field_add_packet_flags(&pdata->data2, "", p[0], true, timestamp, ARRAY_SIZE(timestamp));
+            field_add_packet_flags(&pdata->data, "", p[0], true, timestamp, ARRAY_SIZE(timestamp));
             p++;
             n--;
             if (((length - 4) & 3) != 0)
@@ -263,10 +263,10 @@ static packet_error parse_options(struct packet_data *pdata, unsigned char **buf
 
                     ts = read_uint32be(&p);
                     if (IP_STANDARD_TS(ts))
-                        field_add_value(&pdata->data2, "Timestamp", FIELD_TIMESTAMP,
+                        field_add_value(&pdata->data, "Timestamp", FIELD_TIMESTAMP,
                                         UINT_TO_PTR(read_uint32be(&p)));
                     else
-                        field_add_value(&pdata->data2, "Timestamp", FIELD_TIMESTAMP_NON_STANDARD,
+                        field_add_value(&pdata->data, "Timestamp", FIELD_TIMESTAMP_NON_STANDARD,
                                         UINT_TO_PTR(read_uint32be(&p)));
                     n -= 4;
                 }
@@ -281,12 +281,12 @@ static packet_error parse_options(struct packet_data *pdata, unsigned char **buf
 
                     ts = read_uint32be(&p);
                     if (IP_STANDARD_TS(ts))
-                        field_add_value(&pdata->data2, "Timestamp", FIELD_TIMESTAMP,
+                        field_add_value(&pdata->data, "Timestamp", FIELD_TIMESTAMP,
                                         UINT_TO_PTR(read_uint32be(&p)));
                     else
-                        field_add_value(&pdata->data2, "Timestamp", FIELD_TIMESTAMP_NON_STANDARD,
+                        field_add_value(&pdata->data, "Timestamp", FIELD_TIMESTAMP_NON_STANDARD,
                                         UINT_TO_PTR(read_uint32be(&p)));
-                    field_add_value(&pdata->data2, "Route data", FIELD_IP4ADDR,
+                    field_add_value(&pdata->data, "Route data", FIELD_IP4ADDR,
                                     UINT_TO_PTR(read_uint32le(&p)));
                     n -= 8;
                 }
@@ -294,7 +294,7 @@ static packet_error parse_options(struct packet_data *pdata, unsigned char **buf
             default:
                 break;
             }
-            field_add_value(&pdata->data2, "", FIELD_STRING_HEADER_END, NULL);
+            field_add_value(&pdata->data, "", FIELD_STRING_HEADER_END, NULL);
             break;
         }
         case IP_OPT_STREAM_ID:
@@ -304,11 +304,11 @@ static packet_error parse_options(struct packet_data *pdata, unsigned char **buf
             n -= 2;
             if (n < 2 || length != 4)
                 return DECODE_ERR;
-            field_add_value(&pdata->data2, "IP Option", FIELD_STRING_HEADER, get_ipv4_opt_type(type));
-            field_add_packet_flags(&pdata->data2, "Type", type, false, opt_flags, ARRAY_SIZE(opt_flags));
-            field_add_value(&pdata->data2, "Length", FIELD_UINT8, UINT_TO_PTR(length));
-            field_add_value(&pdata->data2, "Stream ID", FIELD_UINT16, UINT_TO_PTR(read_uint16be(&p)));
-            field_add_value(&pdata->data2, "", FIELD_STRING_HEADER_END, NULL);
+            field_add_value(&pdata->data, "IP Option", FIELD_STRING_HEADER, get_ipv4_opt_type(type));
+            field_add_packet_flags(&pdata->data, "Type", type, false, opt_flags, ARRAY_SIZE(opt_flags));
+            field_add_value(&pdata->data, "Length", FIELD_UINT8, UINT_TO_PTR(length));
+            field_add_value(&pdata->data, "Stream ID", FIELD_UINT16, UINT_TO_PTR(read_uint16be(&p)));
+            field_add_value(&pdata->data, "", FIELD_STRING_HEADER_END, NULL);
             n -= 2;
             break;
         case IP_OPT_ROUTER_ALERT:
@@ -321,13 +321,13 @@ static packet_error parse_options(struct packet_data *pdata, unsigned char **buf
             n -= 2;
             if (n < 2 || length != 4)
                 return DECODE_ERR;
-            field_add_value(&pdata->data2, "IP Option", FIELD_STRING_HEADER, get_ipv4_opt_type(type));
-            field_add_packet_flags(&pdata->data2, "Type", type, false, opt_flags, ARRAY_SIZE(opt_flags));
-            field_add_value(&pdata->data2, "Length", FIELD_UINT8, UINT_TO_PTR(length));
+            field_add_value(&pdata->data, "IP Option", FIELD_STRING_HEADER, get_ipv4_opt_type(type));
+            field_add_packet_flags(&pdata->data, "Type", type, false, opt_flags, ARRAY_SIZE(opt_flags));
+            field_add_value(&pdata->data, "Length", FIELD_UINT8, UINT_TO_PTR(length));
             router_alert = read_uint16be(&p);
-            field_add_value(&pdata->data2, get_router_alert_option(router_alert), FIELD_UINT16,
+            field_add_value(&pdata->data, get_router_alert_option(router_alert), FIELD_UINT16,
                             UINT_TO_PTR(router_alert));
-            field_add_value(&pdata->data2, "", FIELD_STRING_HEADER_END, NULL);
+            field_add_value(&pdata->data, "", FIELD_STRING_HEADER_END, NULL);
             n -= 2;
             break;
         }
@@ -411,39 +411,39 @@ packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buf, int n,
         pdata->error = create_error_string("IP Internet header length (%u) is less than minimum value (5)", ihl);
         return DECODE_ERR;
     }
-    field_init(&pdata->data2);
-    field_add_packet_flags(&pdata->data2, "", buf[0], true, header, ARRAY_SIZE(header));
+    field_init(&pdata->data);
+    field_add_packet_flags(&pdata->data, "", buf[0], true, header, ARRAY_SIZE(header));
     buf++;
 
     /* Originally defined as type of service, but now defined as differentiated
        services code point and explicit congestion control */
-    field_add_packet_flags(&pdata->data2, "Differentiated services field",
+    field_add_packet_flags(&pdata->data, "Differentiated services field",
                            buf[0], false, tos, ARRAY_SIZE(tos));
     buf++;
     length = read_uint16be(&buf);
-    field_add_value(&pdata->data2, "Total length", FIELD_UINT16, UINT_TO_PTR(length));
+    field_add_value(&pdata->data, "Total length", FIELD_UINT16, UINT_TO_PTR(length));
 
     /* The packet has been padded in order to contain the minimum number of
        bytes. The padded bytes should be ignored. */
     if (n > length)
         n = length;
 
-    field_add_value(&pdata->data2, "Identification", FIELD_UINT16, UINT_TO_PTR(read_uint16be(&buf)));
+    field_add_value(&pdata->data, "Identification", FIELD_UINT16, UINT_TO_PTR(read_uint16be(&buf)));
 
     /* the 3 first bits are flags */
-    field_add_packet_flags(&pdata->data2, "Flags", buf[0] >> 5, false, ipv4_flags, ARRAY_SIZE(ipv4_flags));
+    field_add_packet_flags(&pdata->data, "Flags", buf[0] >> 5, false, ipv4_flags, ARRAY_SIZE(ipv4_flags));
     offset = read_uint16be(&buf) & 0x1fff; /* clear the flag bits */
-    field_add_value(&pdata->data2, "Fragment offset", FIELD_UINT16, UINT_TO_PTR(offset));
-    field_add_value(&pdata->data2, "Time to live", FIELD_UINT8, UINT_TO_PTR(buf[0]));
+    field_add_value(&pdata->data, "Fragment offset", FIELD_UINT16, UINT_TO_PTR(offset));
+    field_add_value(&pdata->data, "Time to live", FIELD_UINT8, UINT_TO_PTR(buf[0]));
     buf++;
     protocol.val = buf[0];
     protocol.str = get_ip_transport_protocol(protocol.val);
-    field_add_value(&pdata->data2, "Protocol", FIELD_UINT_STRING, &protocol);
+    field_add_value(&pdata->data, "Protocol", FIELD_UINT_STRING, &protocol);
     buf++;
-    field_add_value(&pdata->data2, "Checksum", FIELD_UINT16, UINT_TO_PTR(read_uint16be(&buf)));
-    field_add_value(&pdata->data2, "Source IP Address", FIELD_IP4ADDR,
+    field_add_value(&pdata->data, "Checksum", FIELD_UINT16, UINT_TO_PTR(read_uint16be(&buf)));
+    field_add_value(&pdata->data, "Source IP Address", FIELD_IP4ADDR,
                     UINT_TO_PTR(read_uint32le(&buf)));
-    field_add_value(&pdata->data2, "Destination IP Address", FIELD_IP4ADDR,
+    field_add_value(&pdata->data, "Destination IP Address", FIELD_IP4ADDR,
                     UINT_TO_PTR(read_uint32le(&buf)));
     if (ihl > 5) {
         if (parse_options(pdata, &buf, (ihl - 5) * 4) != NO_ERR) {
@@ -570,7 +570,7 @@ static void print_ipv4(char *buf, int n, struct packet_data *pdata)
 {
     const struct field *f;
 
-    f = field_search(&pdata->data2, "Protocol");
+    f = field_search(&pdata->data, "Protocol");
     snprintf(buf, n, "Next header: %u", field_get_uint8(f));
 }
 
@@ -580,7 +580,7 @@ uint32_t ipv4_src(const struct packet *p)
 
     pdata = p->root;
     if (pdata->next && is_ipv4(pdata->next)) {
-        const struct field *f = field_search(&pdata->next->data2, "Source IP Address");
+        const struct field *f = field_search(&pdata->next->data, "Source IP Address");
         return field_get_uint32(f);
     }
     return 0;
@@ -592,7 +592,7 @@ uint32_t ipv4_dst(const struct packet *p)
 
     pdata = p->root;
     if (pdata->next && is_ipv4(pdata->next)) {
-        const struct field *f = field_search(&pdata->next->data2, "Destination IP Address");
+        const struct field *f = field_search(&pdata->next->data, "Destination IP Address");
         return field_get_uint32(f);
     }
     return 0;

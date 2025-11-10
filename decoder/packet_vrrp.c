@@ -18,7 +18,6 @@ static struct protocol_info vrrp_prot = {
     .long_name = "Virtual Router Redundancy Prototcol",
     .decode = handle_vrrp,
     .print_pdu = print_vrrp,
-    .add_pdu = add_vrrp_information
 };
 
 void register_vrrp(void)
@@ -37,7 +36,6 @@ static packet_error handle_vrrp(struct protocol_info *pinfo, unsigned char *buf,
         return UNK_PROTOCOL;
 
     vrrp = mempool_alloc(sizeof(*vrrp));
-    pdata->data = vrrp;
     pdata->len = n;
     vrrp->version = buf[0] >> 4;
     vrrp->type = buf[0] & 0x0f;

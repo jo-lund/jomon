@@ -18,7 +18,6 @@ struct packet_flags nbds_flags[] = {
 
 
 extern void print_nbds(char *buf, int n, void *data);
-extern void add_nbds_information(void *widget, void *subwidget, void *data);
 static bool parse_datagram(unsigned char *buffer, int n, unsigned char *data,
                            int dlen, struct nbds_info *nbds, struct packet_data *pdata);
 
@@ -27,7 +26,6 @@ static struct protocol_info nbds_prot = {
     .long_name = "NetBIOS Datagram Service",
     .decode = handle_nbds,
     .print_pdu = print_nbds,
-    .add_pdu = add_nbds_information
 };
 
 void register_nbds(void)
@@ -63,7 +61,6 @@ packet_error handle_nbds(struct protocol_info *pinfo, unsigned char *buffer, int
 
     ptr = buffer;
     nbds = mempool_alloc(sizeof(struct nbds_info));
-    pdata->data = nbds;
     pdata->len = n;
     nbds->msg_type = *ptr++;
     nbds->flags = *ptr++;

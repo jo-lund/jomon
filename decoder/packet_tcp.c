@@ -21,7 +21,6 @@ static struct packet_flags tcp_flags[] = {
     { "FIN: No more data", 1, NULL}
 };
 
-extern void add_tcp_information(void *w, void *sw, void *data);
 extern void print_tcp(char *buf, int n, void *data);
 
 static struct protocol_info tcp_prot = {
@@ -29,7 +28,6 @@ static struct protocol_info tcp_prot = {
     .long_name = "Transmission Control Protocol",
     .decode = handle_tcp,
     .print_pdu = print_tcp,
-    .add_pdu = add_tcp_information
 };
 
 void register_tcp(void)
@@ -205,7 +203,6 @@ packet_error handle_tcp(struct protocol_info *pinfo, unsigned char *buffer, int 
     unsigned char *p;
 
     tcp = mempool_alloc(sizeof(struct tcp));
-    pdata->data = tcp;
     if (n < MIN_HEADER_LEN) {
         memset(tcp, 0, sizeof(*tcp));
         pdata->len = n;

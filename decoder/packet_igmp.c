@@ -26,7 +26,6 @@ static struct protocol_info igmp_prot = {
     .long_name = "Internet Group Management Protocol",
     .decode = handle_igmp,
     .print_pdu = print_igmp,
-    .add_pdu = add_igmp_information
 };
 
 void register_igmp(void)
@@ -81,7 +80,6 @@ packet_error handle_igmp(struct protocol_info *pinfo, unsigned char *buffer, int
     struct igmp_info *igmp;
 
     igmp = mempool_calloc(1, struct igmp_info);
-    pdata->data = igmp;
     pdata->len = n;
     pinfo->num_packets++;
     pinfo->num_bytes += n;

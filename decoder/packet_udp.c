@@ -5,7 +5,6 @@
 #include "packet_ip.h"
 #include "util.h"
 
-extern void add_udp_information(void *w, void *sw, void *data);
 extern void print_udp(char *buf, int n, void *data);
 
 static struct protocol_info udp_prot = {
@@ -13,7 +12,6 @@ static struct protocol_info udp_prot = {
     .long_name = "User Datagram Protocol",
     .decode = handle_udp,
     .print_pdu = print_udp,
-    .add_pdu = add_udp_information
 };
 
 void register_udp(void)
@@ -41,7 +39,6 @@ packet_error handle_udp(struct protocol_info *pinfo, unsigned char *buffer, int 
     struct udp_info *udp;
 
     udp = mempool_alloc(sizeof(struct udp_info));
-    pdata->data = udp;
     if (n < UDP_HDR_LEN) {
         memset(udp, 0, sizeof(*udp));
         pdata->len = n;

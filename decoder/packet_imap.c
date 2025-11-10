@@ -5,14 +5,12 @@
 #define MAXLINE 2048 /* BUG: max line length? */
 
 extern void print_imap(char *buf, int n, void *data);
-extern void add_imap_information(void *widget, void *subwidget, void *data);
 
 static struct protocol_info imap_prot = {
     .short_name = "IMAP",
     .long_name = "Internet Message Access Protocol",
     .decode = handle_imap,
     .print_pdu = print_imap,
-    .add_pdu = add_imap_information
 };
 
 void register_imap(void)
@@ -30,7 +28,6 @@ packet_error handle_imap(struct protocol_info *pinfo, unsigned char *buf, int n,
     bool valid = false;
 
     imap = mempool_alloc(sizeof(struct imap_info));
-    pdata->data = imap;
     pdata->len = n;
     imap->lines = list_init(&d_alloc);
     while (isascii(*buf)) {

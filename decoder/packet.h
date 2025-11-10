@@ -106,8 +106,7 @@ struct packet_data {
     uint8_t transport;
     uint16_t len; /* length of the packet data as seen on the network */
     char *error;
-    void *data;  // TODO: Remove this
-    QUEUE_HEAD(field_head, struct field) data2;
+    QUEUE_HEAD(field_head, struct field) data;
     struct packet_data *prev;
     struct packet_data *next;
 };
@@ -144,11 +143,11 @@ unsigned char *get_dgram_payload(const struct packet *p);
 /* Return payload length without the link-level header */
 unsigned int get_dgram_length(const struct packet *p);
 
-/* Clear packet statistics */
-void clear_statistics(void);
-
 /* Is packet TCP? */
 bool is_tcp(const struct packet *p);
+
+/* Clear packet statistics */
+void clear_statistics(void);
 
 /* Should be internal to the decoder */
 packet_error call_data_decoder(uint32_t id, struct packet_data *p,

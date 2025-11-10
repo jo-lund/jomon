@@ -8,7 +8,6 @@
 #define DHCP_FIXED_SIZE 236
 
 extern void print_dhcp(char *buf, int n, void *data);
-extern void add_dhcp_information(void *widget, void *subwidget, void *data);
 static packet_error handle_dhcp(struct protocol_info *pinfo, unsigned char *buffer, int n,
                                 struct packet_data *pdata);
 static packet_error parse_dhcp_options(unsigned char *buffer, int n,
@@ -38,7 +37,6 @@ static struct protocol_info dhcp_prot = {
     .long_name = "Dynamic Host Configuration Protocol",
     .decode = handle_dhcp,
     .print_pdu = print_dhcp,
-    .add_pdu = add_dhcp_information
 };
 
 void register_dhcp(void)
@@ -128,7 +126,6 @@ packet_error handle_dhcp(struct protocol_info *pinfo, unsigned char *buffer, int
     packet_error err;
 
     dhcp = mempool_alloc(sizeof(struct dhcp_info));
-    pdata->data = dhcp;
     pdata->len = n;
     dhcp->op = ptr[0];
     dhcp->htype = ptr[1];

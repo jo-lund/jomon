@@ -1359,14 +1359,14 @@ void add_elements(main_screen *ms, struct packet *p)
             const struct field *f = NULL;
             char line[MAXLINE];
 
-            if (field_empty(&pdata->data2))
+            if (field_empty(&pdata->data))
                 goto next_protocol;
             header = LV_ADD_HEADER(ms->lvw, pinfo->long_name, selected[i], i);
             pheader = header;
             if (pdata->error)
                 LV_ADD_TEXT_ATTR(ms->lvw, header, get_theme_colour(ERR_BKGD),
                                  "Packet error: %s", pdata->error);
-            f = field_get_next(&pdata->data2, f);
+            f = field_get_next(&pdata->data, f);
             while (f) {
                 snprintf(line, MAXLINE, field_get_key(f));
                 switch (field_get_type(f)) {
@@ -1473,7 +1473,7 @@ void add_elements(main_screen *ms, struct packet *p)
                 default:
                     break;
                 }
-                f = field_get_next(&pdata->data2, f);
+                f = field_get_next(&pdata->data, f);
             }
         }
     next_protocol:

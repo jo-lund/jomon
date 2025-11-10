@@ -12,7 +12,6 @@
 
 static packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buffer, int n,
                                 struct packet_data *pdata);
-extern void add_icmp_information(void *w, void *sw, void *data);
 extern void print_icmp(char *buf, int n, void *data);
 
 static struct protocol_info icmp_prot = {
@@ -20,7 +19,6 @@ static struct protocol_info icmp_prot = {
     .long_name = "Internet Control Message Protocol",
     .decode = handle_icmp,
     .print_pdu = print_icmp,
-    .add_pdu = add_icmp_information
 };
 
 void register_icmp(void)
@@ -38,7 +36,6 @@ packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buffer, int
     struct icmp_info *icmp;
 
     icmp = mempool_alloc(sizeof(struct icmp_info));
-    pdata->data = icmp;
     pdata->len = n;
     pinfo->num_packets++;
     pinfo->num_bytes += n;

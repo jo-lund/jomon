@@ -100,14 +100,14 @@ packet_error handle_ethernet(struct protocol_info *pinfo UNUSED, unsigned char *
 
     if (n < ETHER_HDR_LEN || n > MAX_PACKET_SIZE)
         return DATALINK_ERR;
-    field_init(&pdata->data2);
-    field_add_bytes(&pdata->data2, "MAC destination", FIELD_HWADDR, buf, ETHER_ADDR_LEN);
+    field_init(&pdata->data);
+    field_add_bytes(&pdata->data, "MAC destination", FIELD_HWADDR, buf, ETHER_ADDR_LEN);
     buf += ETHER_ADDR_LEN;
-    field_add_bytes(&pdata->data2, "MAC source", FIELD_HWADDR, buf, ETHER_ADDR_LEN);
+    field_add_bytes(&pdata->data, "MAC source", FIELD_HWADDR, buf, ETHER_ADDR_LEN);
     buf += ETHER_ADDR_LEN;
     ethertype.val = read_uint16be(&buf);
     ethertype.str = get_ethernet_type(ethertype.val);
-    field_add_value(&pdata->data2, "Ethertype", FIELD_UINT_STRING, &ethertype);
+    field_add_value(&pdata->data, "Ethertype", FIELD_UINT_STRING, &ethertype);
     pdata->prev = NULL;
     pdata->len = ETHER_HDR_LEN;
     if (ethertype.val <= ETH_802_3_MAX) {
@@ -132,7 +132,7 @@ void print_ethernet(char *buf, int n, struct packet_data *pdata)
 {
     struct uint_string *type;
 
-    if ((type = field_search_value(&pdata->data2, "Ethertype")))
+    if ((type = field_search_value(&pdata->data, "Ethertype")))
         snprintf(buf, n, "Ethertype: 0x%x", type->val);
 }
 

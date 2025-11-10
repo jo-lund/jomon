@@ -19,7 +19,6 @@ static bool parse_unicast_address(unsigned char **data, int *n,
                                   struct pim_unicast_addr *uaddr);
 static packet_error handle_pim(struct protocol_info *pinfo, unsigned char *buffer, int n,
                                struct packet_data *pdata);
-extern void add_pim_information(void *w, void *sw, void *data);
 extern void print_pim(char *buf, int n, void *data);
 
 static struct protocol_info pim_prot = {
@@ -27,7 +26,6 @@ static struct protocol_info pim_prot = {
     .long_name = "Protocol Independent Multicast",
     .decode = handle_pim,
     .print_pdu = print_pim,
-    .add_pdu = add_pim_information
 };
 
 void register_pim(void)
@@ -306,7 +304,6 @@ packet_error handle_pim(struct protocol_info *pinfo, unsigned char *buffer, int 
     struct pim_info *pim;
 
     pim = mempool_calloc(1, struct pim_info);
-    pdata->data = pim;
     pdata->len = n;
     pinfo->num_packets++;
     pinfo->num_bytes += n;

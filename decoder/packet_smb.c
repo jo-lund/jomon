@@ -5,8 +5,6 @@
 
 #define SMB_HDR_LEN 32
 
-extern void add_smb_information(void *widget, void *subwidget, void *data);
-
 static char *smb_cmds[] = {
     "Create directory", "Delete directory", "Open", "Create", "Close", "Flush", "Delete",
     "Rename", "Query information", "Set information", "Read", "Write", "Lock byte range",
@@ -47,7 +45,6 @@ static struct protocol_info smb_prot = {
     .long_name = "Server Message Block",
     .decode = handle_smb,
     .print_pdu = NULL,
-    .add_pdu = add_smb_information
 };
 
 void register_smb(void)
@@ -69,7 +66,6 @@ packet_error handle_smb(struct protocol_info *pinfo, unsigned char *buffer, int 
     pinfo->num_packets++;
     pinfo->num_bytes += n;
     smb = mempool_alloc(sizeof(struct smb_info));
-    pdata->data = smb;
     pdata->len = n;
     memcpy(smb->protocol, buffer, 4);
     smb->command = buffer[4];

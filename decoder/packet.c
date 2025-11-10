@@ -10,6 +10,7 @@
 #include <sys/types.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <netinet/if_ether.h>
 #include "jomon.h"
 #include "packet.h"
 #include "tcp_analyzer.h"
@@ -27,6 +28,7 @@ uint32_t total_packets;
 uint64_t total_bytes;
 static hashmap_t *info;
 static hashmap_t *protocols;
+static struct packet *current_packet; /* the current packet being decoded */
 
 void decoder_init(void)
 {
@@ -80,6 +82,7 @@ struct packet *decode_packet(iface_handle_t *h, unsigned char *buffer, size_t le
     p->root->id = get_protocol_id(DATALINK, h->linktype);
     if ((pinfo = get_protocol(p->root->id)) == NULL)
         goto error;
+    current_packet = p;
     if (pinfo->decode(pinfo, p->buf, len, p->root) == DATALINK_ERR)
         goto error;
     p->num = ++total_packets;
@@ -222,4 +225,9 @@ char *create_error_string(const char *fmt, ...)
     n = vsnprintf(buf, MAXLINE - 1, fmt, ap);
     va_end(ap);
     return mempool_copy0(buf, n);
+}
+
+struct packet *get_current_packet(void)
+{
+    return current_packet;
 }

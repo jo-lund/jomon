@@ -27,7 +27,6 @@ void tcp_analyzer_check_stream(struct packet *p)
     pdata = get_packet_data(p, get_protocol_id(IP4_PROT, IPPROTO_TCP));
     if (!pdata || pdata->error)
         return;
-    tcp = pdata->data;
     endp.src = ipv4_src(p);
     endp.dst = ipv4_dst(p);
     endp.sport = tcp_member(p, sport);

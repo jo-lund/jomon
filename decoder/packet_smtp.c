@@ -18,7 +18,6 @@
 #define REPLY_CODE_DIGITS 3
 
 extern void print_smtp(char *buf, int n, void *data);
-extern void add_smtp_information(void *widget, void *subwidget, void *data);
 static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf, int n,
                                 struct packet_data *pdata);
 
@@ -101,7 +100,6 @@ static struct protocol_info smtp_prot = {
     .long_name = "Simple Mail Transfer Protocol",
     .decode = handle_smtp,
     .print_pdu = print_smtp,
-    .add_pdu = add_smtp_information
 };
 
 void register_smtp(void)
@@ -213,7 +211,6 @@ static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf,
     p = buf;
     smtp = mempool_calloc(1, struct smtp_info);
     smtp->data = NULL;
-    pdata->data = smtp;
     pdata->len = n;
     if (smtp_state->state == DATA || smtp_state->state == BDAT) {
         smtp->data = (char *) buf;

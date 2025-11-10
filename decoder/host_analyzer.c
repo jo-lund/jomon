@@ -166,7 +166,7 @@ static void update_host(void *paddr, char *name)
 
 static void handle_ip4(struct packet *p)
 {
-#if 0 // Temp
+#if 0
     if (!filter_address(ipv4_src(p)))
         insert_host(ipv4_src(p), eth_src(p));
     if (!filter_address(ipv4_dst(p)))
