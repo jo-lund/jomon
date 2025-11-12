@@ -2,13 +2,39 @@
 #include <stdint.h>
 #include <netinet/in.h>
 #include <netinet/ip6.h>
+#include <stdio.h>
 #include "packet_ip6.h"
+#include "packet_ip.h"
 #include "packet.h"
 #include "util.h"
+#include "field.h"
+#include "string.h"
 
+extern char *get_ip_transport_protocol(uint8_t protocol);
 static void print_ipv6(char *buf, int n, struct packet_data *pdata);
 static packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int n,
                                 struct packet_data *pdata);
+
+static char *dscp[48] = {
+    [CS0] = "Default",
+    [CS1] = "Class Selector 1",
+    [CS2] = "Class Selector 2",
+    [CS3] = "Class Selector 3",
+    [CS4] = "Class Selector 4",
+    [CS5] = "Class Selector 5",
+};
+
+static char *ecn[] = {
+    "Not ECN-Capable",
+    "ECT(1)",
+    "ECT(0)",
+    "CE",
+};
+
+static struct packet_flags tos[] = {
+    { "Differentiated Services Code Point (DSCP)", 6, dscp },
+    { "Explicit Congestion Notification (ECN)", 2, ecn },
+};
 
 static struct protocol_info ipv6_prot = {
     .short_name = "IPv6",
@@ -63,45 +89,54 @@ void register_ip6(void)
  * Source Address:      128-bit address of the originator of the packet
  * Destination Address: 128-bit address of the intended recipient of the packet
  */
-packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int n,
+packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buf, int n,
                          struct packet_data *pdata)
 {
     unsigned int header_len;
-    struct ipv6_info *ipv6;
-    uint32_t id;
+    uint32_t id, flow_label;
+    uint8_t version;
+    struct uint_string next_header;
 
-    ipv6 = mempool_alloc(sizeof(struct ipv6_info));
     header_len = sizeof(struct ip6_hdr);
     if ((unsigned int) n < header_len) {
-        memset(ipv6, 0, sizeof(*ipv6));
         pdata->len = n;
         pdata->error = create_error_string("Packet length (%d) less than IP6 header length (%d)",
                                            n, header_len);
         return DECODE_ERR;
     }
+
+    field_init(&pdata->data);
+    version = buf[0] >> 4;
+    if (version != 6)
+        pdata->error = create_error_string("IP6 version error %d != 6", version);
+
+    field_add_value(&pdata->data, "Version", FIELD_UINT8, UINT_TO_PTR(version));
+    field_add_bitfield(&pdata->data, "Traffic class", (buf[0] & 0x0f) << 4 | (buf[1] & 0xf0) >> 4,
+                       false, tos, ARRAY_SIZE(tos));
+    buf++;
+    flow_label = (buf[0] & 0x0f) << 16 | buf[1] << 8 | buf[2];
+    field_add_value(&pdata->data, "Flow label", FIELD_UINT32, UINT_TO_PTR(flow_label));
+    buf += 3;
+    field_add_value(&pdata->data, "Payload length", FIELD_UINT16, UINT_TO_PTR(read_uint16be(&buf)));
+    next_header.val = *buf++;
+    next_header.str = get_ip_transport_protocol(next_header.val);
+    field_add_value(&pdata->data, "Next header", FIELD_UINT_STRING, &next_header);
+    field_add_value(&pdata->data, "Hop limit", FIELD_UINT8, UINT_TO_PTR(*buf++));
+    field_add_bytes(&pdata->data, "Source address", FIELD_IP6ADDR, buf, 16);
+    buf += 16;
+    field_add_bytes(&pdata->data, "Destination address", FIELD_IP6ADDR, buf, 16);
+    buf += 16;
     pdata->len = header_len;
-    ipv6->version = buffer[0] >> 4;
-    if (ipv6->version != 6)
-        pdata->error = create_error_string("IP6 version error %d != 6", ipv6->version);
-    ipv6->tc = (buffer[0] & 0x0f) << 4 | (buffer[1] & 0xf0) >> 4;
-    ipv6->flow_label = (buffer[1] & 0x0f) << 16 | buffer[2] << 8 | buffer[3];
-    buffer += 4;
-    ipv6->payload_len = read_uint16be(&buffer);
-    ipv6->next_header = *buffer++;
-    ipv6->hop_limit = *buffer++;
-    memcpy(ipv6->src, buffer, 16);
-    memcpy(ipv6->dst, buffer + 16, 16);
-    buffer += 32;
-    id = get_protocol_id(IP6_PROT, ipv6->next_header);
     pinfo->num_packets++;
     pinfo->num_bytes += n;
+    id = get_protocol_id(IP6_PROT, next_header.val);
 
     // TODO: Handle IPv6 extension headers and errors
     struct protocol_info *layer3 = get_protocol(id);
     if (layer3) {
         pdata->next = mempool_calloc(1, struct packet_data);
         pdata->next->id = id;
-        if (layer3->decode(layer3, buffer, n - header_len, pdata->next) == UNK_PROTOCOL) {
+        if (layer3->decode(layer3, buf, n - header_len, pdata->next) == UNK_PROTOCOL) {
             mempool_free(pdata->next);
             pdata->next = NULL;
         }
@@ -124,5 +159,14 @@ int parse_ipv6_addr(uint8_t *addrs, int count, unsigned char **buf, int n)
 
 static void print_ipv6(char *buf, int n, struct packet_data *pdata)
 {
+    struct uint_string *next_header;
 
+    next_header = field_search_value(&pdata->data, "Next header");
+    snprintf(buf, n, "Next header: %u", next_header->val);
+}
+
+bool is_ipv6(struct packet_data *pdata)
+{
+    struct protocol_info *pinfo = get_protocol(pdata->id);
+    return strcmp(pinfo->short_name, "IPv6") == 0;
 }

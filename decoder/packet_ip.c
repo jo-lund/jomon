@@ -7,29 +7,6 @@
 #include "jomon.h"
 #include "field.h"
 
-/*
- * IP Differentiated Services Code Point class selectors.
- * Prior to DiffServ, IPv4 networks could use the Precedence field in the TOS
- * byte of the IPv4 header to mark priority traffic. In order to maintain
- * backward compatibility with network devices that still use the Precedence
- * field, DiffServ defines the Class Selector PHB.
- *
- * The Class Selector code points are of the form 'xxx000'. The first three bits
- * are the IP precedence bits. Each IP precedence value can be mapped into a
- * DiffServ class. CS0 equals IP precedence 0, CS1 IP precedence 1, and so on.
- * If a packet is received from a non-DiffServ aware router that used IP
- * precedence markings, the DiffServ router can still understand the encoding as
- * a Class Selector code point.
- */
-#define CS0 0X0
-#define CS1 0X8
-#define CS2 0X10
-#define CS3 0X18
-#define CS4 0X20
-#define CS5 0X28
-#define CS6 0X30
-#define CS7 0X38
-
 #define IP_OPT_END 0
 #define IP_OPT_NOP 1
 #define IP_OPT_SECURITY 2
@@ -490,6 +467,8 @@ char *get_ip_transport_protocol(uint8_t protocol)
         return "UDP";
     case IPPROTO_PIM:
         return "PIM";
+    case IPPROTO_ICMPV6:
+        return "ICMP6";
     default:
         return "Unknown";
     }
@@ -567,10 +546,10 @@ packet_error handle_ipn(struct protocol_info *pinfo UNUSED, unsigned char *buf, 
 
 static void print_ipv4(char *buf, int n, struct packet_data *pdata)
 {
-    const struct field *f;
+    struct uint_string *protocol;
 
-    f = field_search(&pdata->data, "Protocol");
-    snprintf(buf, n, "Next header: %u", field_get_uint8(f));
+    protocol = field_search_value(&pdata->data, "Protocol");
+    snprintf(buf, n, "Next header: %u", protocol->val);
 }
 
 uint32_t ipv4_src(const struct packet *p)

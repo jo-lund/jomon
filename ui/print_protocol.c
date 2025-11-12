@@ -74,7 +74,6 @@ static void print_address(char *buf, size_t n, const struct packet *p)
 
     pdata = p->root;
     if (pdata->next) {
-        // TODO: Check for IP6
         if (is_ipv4(pdata->next)) {
             char src[HOSTNAMELEN+1];
             char dst[HOSTNAMELEN+1];
@@ -92,6 +91,20 @@ static void print_address(char *buf, size_t n, const struct packet *p)
                 get_name_or_address(saddr, src);
                 get_name_or_address(daddr, dst);
             }
+            PRINT_ADDRESS(buf, n, src, dst);
+            return;
+        } else if (is_ipv6(pdata->next)) {
+            char src[INET6_ADDRSTRLEN];
+            char dst[INET6_ADDRSTRLEN];
+            uint8_t *saddr;
+            uint8_t *daddr;
+
+            if (field_empty(&pdata->next->data))
+                return;
+            saddr = field_search_value(&pdata->next->data, "Source address");
+            daddr = field_search_value(&pdata->next->data, "Destination address");
+            inet_ntop(AF_INET6, saddr, src, INET6_ADDRSTRLEN);
+            inet_ntop(AF_INET6, daddr, dst, INET6_ADDRSTRLEN);
             PRINT_ADDRESS(buf, n, src, dst);
             return;
         }
@@ -150,22 +163,6 @@ void pkt2text(char *buf, size_t size, const struct packet *p)
 }
 
 #if 0
-void print_ipv6(char *buf, int n, void *data)
-{
-    struct packet_data *pdata = data;
-    struct ipv6_info *ip = pdata->data;
-    char src[INET6_ADDRSTRLEN];
-    char dst[INET6_ADDRSTRLEN];
-
-    inet_ntop(AF_INET6, ip->src, src, INET6_ADDRSTRLEN);
-    inet_ntop(AF_INET6, ip->dst, dst, INET6_ADDRSTRLEN);
-    PRINT_ADDRESS(buf, n, src, dst);
-    if (!PACKET_HAS_DATA(pdata->next)) {
-        PRINT_PROTOCOL(buf, n, "IPv6");
-        PRINT_INFO(buf, n, "Next header: %d", ip->next_header);
-    }
-}
-
 void print_icmp(char *buf, int n, void *data)
 {
     struct packet_data *pdata = data;

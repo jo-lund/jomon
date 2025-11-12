@@ -1426,6 +1426,17 @@ void add_elements(main_screen *ms, struct packet *p)
                     LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
                     break;
                 }
+                case FIELD_IP6ADDR:
+                {
+                    char data[INET6_ADDRSTRLEN];
+                    uint8_t *addr;
+
+                    addr = field_get_value(f);
+                    inet_ntop(AF_INET6, addr, data, INET6_ADDRSTRLEN);
+                    snprintcat(line, MAXLINE, ": %s", data);
+                    LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
+                    break;
+                }
                 case FIELD_BITFIELD:
                 {
                     struct packet_flags *pf;

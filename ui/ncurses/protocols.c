@@ -22,33 +22,6 @@
 extern int hexmode;
 
 #if 0
-void add_ipv6_information(void *w, void *sw, void *data)
-{
-    list_view *lw = w;
-    list_view_header *header = sw;
-    struct packet_data *pdata = data;
-    struct ipv6_info *ip = pdata->data;
-    char src[INET6_ADDRSTRLEN];
-    char dst[INET6_ADDRSTRLEN];
-    char *protocol;
-    char buf[MAXLINE];
-
-    inet_ntop(AF_INET6, ip->src, src, INET6_ADDRSTRLEN);
-    inet_ntop(AF_INET6, ip->dst, dst, INET6_ADDRSTRLEN);
-    LV_ADD_TEXT_ELEMENT(lw, header, "Version: %u", ip->version);
-    LV_ADD_TEXT_ELEMENT(lw, header, "Traffic class: 0x%x", ip->tc);
-    LV_ADD_TEXT_ELEMENT(lw, header, "Flow label: 0x%x", ip->flow_label);
-    LV_ADD_TEXT_ELEMENT(lw, header, "Payload length: %u", ip->payload_len);
-    snprintf(buf, MAXLINE, "Next header: %u", ip->next_header);
-    if ((protocol = get_ip_transport_protocol(ip->next_header))) {
-        snprintcat(buf, MAXLINE, " (%s)", protocol);
-    }
-    LV_ADD_TEXT_ELEMENT(lw, header, "%s", buf);
-    LV_ADD_TEXT_ELEMENT(lw, header, "Hop limit: %u", ip->hop_limit);
-    LV_ADD_TEXT_ELEMENT(lw, header, "Source address: %s", src);
-    LV_ADD_TEXT_ELEMENT(lw, header, "Destination address: %s", dst);
-}
-
 void add_icmp_information(void *w, void *sw, void *data)
 {
     list_view *lw = w;
