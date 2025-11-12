@@ -174,7 +174,7 @@ static packet_error parse_options(struct packet_data *pdata, unsigned char **buf
         switch (GET_IP_OPTION_NUMBER(type)) {
         case IP_OPT_END:
             field_add_value(&pdata->data, "IP Option", FIELD_STRING_HEADER, get_ipv4_opt_type(type));
-            field_add_packet_flags(&pdata->data, "Type", type, false, opt_flags, ARRAY_SIZE(opt_flags));
+            field_add_bitfield(&pdata->data, "Type", type, false, opt_flags, ARRAY_SIZE(opt_flags));
             length = 1;
             field_add_value(&pdata->data, "Length", FIELD_UINT8, UINT_TO_PTR(length));
             field_add_value(&pdata->data, "", FIELD_STRING_HEADER_END, NULL);
@@ -195,7 +195,7 @@ static packet_error parse_options(struct packet_data *pdata, unsigned char **buf
             if (length != 11 || n < length - 2)
                 return DECODE_ERR;
             field_add_value(&pdata->data, "IP Option", FIELD_STRING_HEADER, get_ipv4_opt_type(type));
-            field_add_packet_flags(&pdata->data, "Type", type, false, opt_flags, ARRAY_SIZE(opt_flags));
+            field_add_bitfield(&pdata->data, "Type", type, false, opt_flags, ARRAY_SIZE(opt_flags));
             field_add_value(&pdata->data, "Length", FIELD_UINT8, UINT_TO_PTR(length));
             security.val = read_uint16be(&p);
             security.str = get_ipv4_security(security.val);
@@ -220,7 +220,7 @@ static packet_error parse_options(struct packet_data *pdata, unsigned char **buf
             if (((length - 3) & 3) != 0 || length < 7 || n < length - 2)
                 return DECODE_ERR;
             field_add_value(&pdata->data, "IP Option", FIELD_STRING_HEADER, get_ipv4_opt_type(type));
-            field_add_packet_flags(&pdata->data, "Type", type, false, opt_flags, ARRAY_SIZE(opt_flags));
+            field_add_bitfield(&pdata->data, "Type", type, false, opt_flags, ARRAY_SIZE(opt_flags));
             field_add_value(&pdata->data, "Length", FIELD_UINT8, UINT_TO_PTR(length));
             field_add_value(&pdata->data, "Pointer", FIELD_UINT8, UINT_TO_PTR(p[0]));
             p++;
@@ -244,13 +244,13 @@ static packet_error parse_options(struct packet_data *pdata, unsigned char **buf
             if (n < length - 2 || length < 8)
                 return DECODE_ERR;
             field_add_value(&pdata->data, "IP Option", FIELD_STRING_HEADER, get_ipv4_opt_type(type));
-            field_add_packet_flags(&pdata->data, "Type", type, false, opt_flags, ARRAY_SIZE(opt_flags));
+            field_add_bitfield(&pdata->data, "Type", type, false, opt_flags, ARRAY_SIZE(opt_flags));
             field_add_value(&pdata->data, "Length", FIELD_UINT8, UINT_TO_PTR(length));
             field_add_value(&pdata->data, "Pointer", FIELD_UINT8, UINT_TO_PTR(p[0]));
             p++;
             n--;
             flags = p[0] & 0x0f;
-            field_add_packet_flags(&pdata->data, "", p[0], true, timestamp, ARRAY_SIZE(timestamp));
+            field_add_bitfield(&pdata->data, "", p[0], true, timestamp, ARRAY_SIZE(timestamp));
             p++;
             n--;
             if (((length - 4) & 3) != 0)
@@ -305,7 +305,7 @@ static packet_error parse_options(struct packet_data *pdata, unsigned char **buf
             if (n < 2 || length != 4)
                 return DECODE_ERR;
             field_add_value(&pdata->data, "IP Option", FIELD_STRING_HEADER, get_ipv4_opt_type(type));
-            field_add_packet_flags(&pdata->data, "Type", type, false, opt_flags, ARRAY_SIZE(opt_flags));
+            field_add_bitfield(&pdata->data, "Type", type, false, opt_flags, ARRAY_SIZE(opt_flags));
             field_add_value(&pdata->data, "Length", FIELD_UINT8, UINT_TO_PTR(length));
             field_add_value(&pdata->data, "Stream ID", FIELD_UINT16, UINT_TO_PTR(read_uint16be(&p)));
             field_add_value(&pdata->data, "", FIELD_STRING_HEADER_END, NULL);
@@ -322,7 +322,7 @@ static packet_error parse_options(struct packet_data *pdata, unsigned char **buf
             if (n < 2 || length != 4)
                 return DECODE_ERR;
             field_add_value(&pdata->data, "IP Option", FIELD_STRING_HEADER, get_ipv4_opt_type(type));
-            field_add_packet_flags(&pdata->data, "Type", type, false, opt_flags, ARRAY_SIZE(opt_flags));
+            field_add_bitfield(&pdata->data, "Type", type, false, opt_flags, ARRAY_SIZE(opt_flags));
             field_add_value(&pdata->data, "Length", FIELD_UINT8, UINT_TO_PTR(length));
             router_alert = read_uint16be(&p);
             field_add_value(&pdata->data, get_router_alert_option(router_alert), FIELD_UINT16,
@@ -412,12 +412,12 @@ packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buf, int n,
         return DECODE_ERR;
     }
     field_init(&pdata->data);
-    field_add_packet_flags(&pdata->data, "", buf[0], true, header, ARRAY_SIZE(header));
+    field_add_bitfield(&pdata->data, "", buf[0], true, header, ARRAY_SIZE(header));
     buf++;
 
     /* Originally defined as type of service, but now defined as differentiated
        services code point and explicit congestion control */
-    field_add_packet_flags(&pdata->data, "Differentiated services field",
+    field_add_bitfield(&pdata->data, "Differentiated services field",
                            buf[0], false, tos, ARRAY_SIZE(tos));
     buf++;
     length = read_uint16be(&buf);
@@ -431,7 +431,7 @@ packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buf, int n,
     field_add_value(&pdata->data, "Identification", FIELD_UINT16, UINT_TO_PTR(read_uint16be(&buf)));
 
     /* the 3 first bits are flags */
-    field_add_packet_flags(&pdata->data, "Flags", buf[0] >> 5, false, ipv4_flags, ARRAY_SIZE(ipv4_flags));
+    field_add_bitfield(&pdata->data, "Flags", buf[0] >> 5, false, ipv4_flags, ARRAY_SIZE(ipv4_flags));
     offset = read_uint16be(&buf) & 0x1fff; /* clear the flag bits */
     field_add_value(&pdata->data, "Fragment offset", FIELD_UINT16, UINT_TO_PTR(offset));
     field_add_value(&pdata->data, "Time to live", FIELD_UINT8, UINT_TO_PTR(buf[0]));

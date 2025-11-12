@@ -17,7 +17,7 @@ enum field_type {
     FIELD_BYTES,
     FIELD_HWADDR,
     FIELD_IP4ADDR,
-    FIELD_PACKET_FLAGS,
+    FIELD_BITFIELD,
     FIELD_UINT16_HWADDR,
     FIELD_TIME_UINT16_256,
     FIELD_TIMESTAMP,
@@ -27,8 +27,8 @@ enum field_type {
 void field_init(struct field_head *head);
 void field_add_value(struct field_head *head, char *key, int type, void *data);
 void field_add_bytes(struct field_head *head, char *key, int type, unsigned char *data, int len);
-void field_add_packet_flags(struct field_head *head, char *key, uint16_t flags,
-                            bool print_value, void *data, int len);
+void field_add_bitfield(struct field_head *head, char *key, uint16_t flags,
+                        bool print_value, void *data, int len);
 const struct field *field_get_next(struct field_head *head, const struct field *f);
 bool field_empty(struct field_head *head);
 const struct field *field_search(struct field_head *head, char *key);
@@ -36,7 +36,7 @@ void *field_search_value(struct field_head *head, char *key);
 char *field_get_key(const struct field *f);
 void *field_get_value(const struct field *f);
 uint16_t field_get_type(const struct field *f);
-bool field_packet_flags_print_value(const struct field *f);
+bool field_bitfield_print_value(const struct field *f);
 uint16_t field_get_flags(const struct field *f);
 int field_get_length(const struct field *f);
 uint8_t field_get_uint8(const struct field *f);

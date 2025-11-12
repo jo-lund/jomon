@@ -95,7 +95,7 @@ packet_error handle_stp(struct protocol_info *pinfo, unsigned char *buf, int n,
     /* a configuration BPDU contains at least 35 bytes and RST BPDU 36 bytes */
     if (n >= MIN_CONF_BPDU && (type.val == CONFIG || type.val == RST)) {
         flags = buf[0];
-        field_add_packet_flags(&pdata->data, "Flags", flags, false, &stp_flags, ARRAY_SIZE(stp_flags));
+        field_add_bitfield(&pdata->data, "Flags", flags, false, &stp_flags, ARRAY_SIZE(stp_flags));
         buf++;
         field_add_bytes(&pdata->data, "Root ID", FIELD_UINT16_HWADDR, buf, 8);
         buf += 8;

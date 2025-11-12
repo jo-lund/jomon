@@ -66,15 +66,15 @@ void field_add_value(struct field_head *head, char *key, int type, void *data)
     QUEUE_APPEND(head, f, link);
 }
 
-void field_add_packet_flags(struct field_head *head, char *key, uint16_t flags,
-                            bool print_value, void *data, int len)
+void field_add_bitfield(struct field_head *head, char *key, uint16_t flags,
+                        bool print_value, void *data, int len)
 {
     struct field *f;
 
     f = mempool_alloc(sizeof(*f));
     f->key = key;
     f->val = data;
-    f->type = FIELD_PACKET_FLAGS;
+    f->type = FIELD_BITFIELD;
     f->print_bitvalue = print_value;
     f->flags = flags;
     f->length = len;
@@ -133,7 +133,7 @@ int field_get_length(const struct field *f)
     return f ? f->length : 0;
 }
 
-bool field_packet_flags_print_value(const struct field *f)
+bool field_bitfield_print_value(const struct field *f)
 {
     return f ? f->print_bitvalue : false;
 }

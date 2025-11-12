@@ -1426,7 +1426,7 @@ void add_elements(main_screen *ms, struct packet *p)
                     LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
                     break;
                 }
-                case FIELD_PACKET_FLAGS:
+                case FIELD_BITFIELD:
                 {
                     struct packet_flags *pf;
                     uint16_t flags;
@@ -1434,7 +1434,7 @@ void add_elements(main_screen *ms, struct packet *p)
 
                     pf = field_get_value(f);
                     flags = field_get_flags(f);
-                    print_value = field_packet_flags_print_value(f);
+                    print_value = field_bitfield_print_value(f);
                     if (field_get_key(f)[0] == '\0' ) {
                         add_flags(ms->lvw, header, flags, pf, print_value, field_get_length(f));
                     } else {
