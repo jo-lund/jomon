@@ -21,7 +21,7 @@ static struct packet_flags tcp_flags[] = {
     { "FIN: No more data", 1, NULL}
 };
 
-extern void print_tcp(char *buf, int n, void *data);
+static void print_tcp(char *buf, int n, struct packet_data *pdata);
 
 static struct protocol_info tcp_prot = {
     .short_name = "TCP",
@@ -280,4 +280,9 @@ struct packet_flags *get_tcp_flags(void)
 int get_tcp_flags_size(void)
 {
     return sizeof(tcp_flags) / sizeof(struct packet_flags);
+}
+
+static void print_tcp(char *buf, int n, struct packet_data *pdata)
+{
+
 }

@@ -17,7 +17,7 @@ struct packet_flags nbds_flags[] = {
 };
 
 
-extern void print_nbds(char *buf, int n, void *data);
+static void print_nbds(char *buf, int n, struct packet_data *data);
 static bool parse_datagram(unsigned char *buffer, int n, unsigned char *data,
                            int dlen, struct nbds_info *nbds, struct packet_data *pdata);
 
@@ -181,4 +181,9 @@ char *get_nbds_message_type(uint8_t type)
     default:
         return NULL;
     }
+}
+
+static void print_nbds(char *buf, int n, struct packet_data *data)
+{
+
 }

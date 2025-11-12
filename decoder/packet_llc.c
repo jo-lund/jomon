@@ -12,7 +12,7 @@ static struct protocol_info llc = {
     .short_name = "LLC",
     .long_name = "Logical Link Control",
     .decode = handle_llc,
-    .print_info = print_llc,
+    .print_pdu = print_llc,
 };
 
 void register_llc(void)

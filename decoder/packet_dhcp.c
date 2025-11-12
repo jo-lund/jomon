@@ -7,7 +7,7 @@
 #define MAX_DHCP_MSG 576
 #define DHCP_FIXED_SIZE 236
 
-extern void print_dhcp(char *buf, int n, void *data);
+static void print_dhcp(char *buf, int n, struct packet_data *pdata);
 static packet_error handle_dhcp(struct protocol_info *pinfo, unsigned char *buffer, int n,
                                 struct packet_data *pdata);
 static packet_error parse_dhcp_options(unsigned char *buffer, int n,
@@ -690,4 +690,9 @@ char *get_dhcp_option_architecture(uint8_t type)
     default:
         return NULL;
     }
+}
+
+void print_dhcp(char *buf, int n, struct packet_data *pdata)
+{
+
 }

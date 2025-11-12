@@ -17,7 +17,7 @@
 #define MAXLENGTH 2048
 #define REPLY_CODE_DIGITS 3
 
-extern void print_smtp(char *buf, int n, void *data);
+static void print_smtp(char *buf, int n, struct packet_data *pdata);
 static packet_error handle_smtp(struct protocol_info *pinfo, unsigned char *buf, int n,
                                 struct packet_data *pdata);
 
@@ -370,4 +370,9 @@ char *get_smtp_code(int code)
     if (res)
         return res->str;
     return NULL;
+}
+
+static void print_smtp(char *buf, int n, struct packet_data *pdata)
+{
+
 }

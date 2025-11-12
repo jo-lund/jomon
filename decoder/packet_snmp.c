@@ -33,7 +33,7 @@ typedef struct {
     };
 } snmp_value;
 
-extern void print_snmp(char *buf, int n, void *data);
+static void print_snmp(char *buf, int n, struct packet_data *pdata);
 static packet_error parse_pdu(unsigned char *buffer, int n, struct snmp_info *snmp);
 static list_t *parse_variables(unsigned char *buffer, int n);
 static int parse_value(unsigned char **data, int n, uint8_t *class, uint8_t *tag,
@@ -455,4 +455,9 @@ char *get_snmp_trap_type(struct snmp_trap *pdu)
     default:
         return NULL;
     }
+}
+
+static void print_snmp(char *buf, int n, struct packet_data *pdata)
+{
+
 }

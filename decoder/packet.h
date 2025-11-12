@@ -82,8 +82,7 @@ struct protocol_info {
     uint32_t num_packets;
     packet_error (*decode)(struct protocol_info *pinfo, unsigned char *buf, int n,
                            struct packet_data *p);
-    void (*print_pdu)(char *buf, int n, void *data); // TODO: Change data to struct packet_data
-    void (*print_info)(char *buf, int n, struct packet_data *data); // TEMP
+    void (*print_pdu)(char *buf, int n, struct packet_data *pdata);
 };
 
 typedef void (*protocol_handler)(struct protocol_info *pinfo, void *arg);

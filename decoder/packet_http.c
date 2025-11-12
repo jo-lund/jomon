@@ -28,7 +28,7 @@ static char *request_method[] = {
     "TRACE"
 };
 
-extern void print_http(char *buf, int n, void *data);
+static void print_http(char *buf, int n, struct packet_data *pdata);
 extern void add_http_information(void *widget, void *subwidget, void *data);
 static bool parse_http(unsigned char *buf, uint16_t len, struct http_info *http);
 static bool parse_start_line(unsigned char **str, unsigned int *len, struct http_info *http);
@@ -247,4 +247,9 @@ bool parse_http_header(unsigned char **str, unsigned int *len, rbtree_t *header)
     *len -= i;
     *str = ptr;
     return false;
+}
+
+static void print_http(char *buf, int n, struct packet_data *pdata)
+{
+
 }

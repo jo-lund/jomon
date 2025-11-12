@@ -5,7 +5,7 @@
 #include "packet_ip.h"
 #include "util.h"
 
-extern void print_udp(char *buf, int n, void *data);
+static void print_udp(char *buf, int n, struct packet_data *pdata);
 
 static struct protocol_info udp_prot = {
     .short_name = "UDP",
@@ -72,4 +72,9 @@ packet_error handle_udp(struct protocol_info *pinfo, unsigned char *buffer, int 
         }
     }
     return NO_ERR;
+}
+
+void print_udp(char *buf, int n, struct packet_data *pdata)
+{
+
 }

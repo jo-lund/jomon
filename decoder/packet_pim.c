@@ -19,7 +19,7 @@ static bool parse_unicast_address(unsigned char **data, int *n,
                                   struct pim_unicast_addr *uaddr);
 static packet_error handle_pim(struct protocol_info *pinfo, unsigned char *buffer, int n,
                                struct packet_data *pdata);
-extern void print_pim(char *buf, int n, void *data);
+static void print_pim(char *buf, int n, struct packet_data *pdata);
 
 static struct protocol_info pim_prot = {
     .short_name = "PIM",
@@ -497,4 +497,9 @@ char *get_pim_address(uint8_t family, pim_addr *addr)
     default:
         return NULL;
     }
+}
+
+static void print_pim(char *buf, int n, struct packet_data *pdata)
+{
+
 }

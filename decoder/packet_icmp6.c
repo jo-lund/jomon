@@ -17,7 +17,7 @@
 
 static packet_error handle_icmp6(struct protocol_info *pinfo, unsigned char *buf, int n,
                                  struct packet_data *pdata);
-extern void print_icmp6(char *buf, int n, void *data);
+static void print_icmp6(char *buf, int n, struct packet_data *pdata);
 
 static struct packet_flags router_adv_flags[] = {
     { "Managed address configuration", 1, NULL },
@@ -367,4 +367,9 @@ struct packet_flags *get_icmp6_neigh_adv_flags(void)
 int get_icmp6_neigh_adv_flags_size(void)
 {
     return ARRAY_SIZE(neigh_adv_flags);
+}
+
+static void print_icmp6(char *buf, int n, struct packet_data *pdata)
+{
+
 }

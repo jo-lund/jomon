@@ -144,14 +144,14 @@ static struct protocol_info ipv4 = {
     .short_name = "IPv4",
     .long_name = "Internet Protocol Version 4",
     .decode = handle_ipv4,
-    .print_info = print_ipv4,
+    .print_pdu = print_ipv4,
 };
 
 static struct protocol_info ip_raw = {
     .short_name = "Raw",
     .long_name = "Raw IP",
     .decode = handle_ipn,
-    .print_info = NULL,
+    .print_pdu = NULL,
 };
 
 void register_ip(void)

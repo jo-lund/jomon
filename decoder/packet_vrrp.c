@@ -11,7 +11,7 @@
 static packet_error handle_vrrp(struct protocol_info *pinfo, unsigned char *buf, int n,
                                 struct packet_data *pdata);
 extern void add_vrrp_information(void *w, void *sw, void *data);
-extern void print_vrrp(char *buf, int n, void *data);
+static void print_vrrp(char *buf, int n, struct packet_data *pdata);
 
 static struct protocol_info vrrp_prot = {
     .short_name = "VRRP",
@@ -118,4 +118,9 @@ char *get_vrrp_priority(uint8_t priority)
     default:
         return "Non-default backup priority";
     }
+}
+
+static void print_vrrp(char *buf, int n, struct packet_data *pdata)
+{
+
 }

@@ -27,7 +27,7 @@ static struct packet_flags llmnr_flags[] = {
     { "Reserved", 4, NULL }
 };
 
-extern void print_dns(char *buf, int n, void *data);
+static void print_dns(char *buf, int n, struct packet_data *pdata);
 static int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
                              int dlen, struct dns_info *dns);
 static int parse_dns_question(unsigned char *buffer, int n, unsigned char **data,
@@ -814,4 +814,9 @@ struct packet_flags *get_llmnr_flags(void)
 int get_llmnr_flags_size(void)
 {
     return sizeof(llmnr_flags) / sizeof(struct packet_flags);
+}
+
+void print_dns(char *buf, int n, struct packet_data *pdata)
+{
+
 }

@@ -25,7 +25,7 @@ static struct protocol_info arp = {
     .short_name = "ARP",
     .long_name = "Address Resolution Protocol",
     .decode = handle_arp,
-    .print_info = print_arp,
+    .print_pdu = print_arp,
 };
 
 void register_arp(void)

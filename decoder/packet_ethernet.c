@@ -21,14 +21,14 @@ static struct protocol_info eth2 = {
     .short_name = "ETH",
     .long_name = "Ethernet II",
     .decode = handle_ethernet,
-    .print_info = print_ethernet,
+    .print_pdu = print_ethernet,
 };
 
 static struct protocol_info eth802 = {
     .short_name = "ETH",
     .long_name = "Ethernet 802.3",
     .decode = handle_ethernet,
-    .print_info = print_ethernet,
+    .print_pdu = print_ethernet,
 };
 
 void register_ethernet(void)

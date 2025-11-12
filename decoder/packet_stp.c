@@ -38,7 +38,7 @@ static struct protocol_info stp = {
     .short_name = "STP",
     .long_name = "Spanning Tree Protocol",
     .decode = handle_stp,
-    .print_info = print_stp,
+    .print_pdu = print_stp,
 };
 
 void register_stp(void)

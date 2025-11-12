@@ -4,7 +4,7 @@
 
 #define MAXLINE 2048 /* BUG: max line length? */
 
-extern void print_imap(char *buf, int n, void *data);
+static void print_imap(char *buf, int n, struct packet_data *data);
 
 static struct protocol_info imap_prot = {
     .short_name = "IMAP",
@@ -67,4 +67,9 @@ packet_error handle_imap(struct protocol_info *pinfo, unsigned char *buf, int n,
     }
     pdata->error = create_error_string("Not a valid IMAP string");
     return DECODE_ERR;
+}
+
+static void print_imap(char *buf, int n, struct packet_data *data)
+{
+
 }

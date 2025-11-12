@@ -123,7 +123,7 @@ void pkt2text(char *buf, size_t size, const struct packet *p)
     assert(p->root);
     pdata = p->root;
     pinfo = get_protocol(pdata->id);
-    if (pinfo && pinfo->print_info) {
+    if (pinfo && pinfo->print_pdu) {
         format_timeval(&p->time, time, TBUFLEN);
         PRINT_NUMBER(buf, size, p->num);
         PRINT_TIME(buf, size, time);
@@ -135,10 +135,10 @@ void pkt2text(char *buf, size_t size, const struct packet *p)
                       get_protocol_key(pdata->id));
                 return;
             }
-            if (pinfo->print_info && pdata->next == NULL) {
+            if (pinfo->print_pdu && pdata->next == NULL) {
                 char info[512];
                 PRINT_PROTOCOL(buf, size, pinfo->short_name);
-                pinfo->print_info(info, 512, pdata);
+                pinfo->print_pdu(info, 512, pdata);
                 PRINT_INFO(buf, size, "%s", info);
             }
             pdata = pdata->next;
@@ -149,540 +149,540 @@ void pkt2text(char *buf, size_t size, const struct packet *p)
     }
 }
 
+#if 0
 void print_ipv6(char *buf, int n, void *data)
 {
-    /* struct packet_data *pdata = data; */
-    /* struct ipv6_info *ip = pdata->data; */
-    /* char src[INET6_ADDRSTRLEN]; */
-    /* char dst[INET6_ADDRSTRLEN]; */
+    struct packet_data *pdata = data;
+    struct ipv6_info *ip = pdata->data;
+    char src[INET6_ADDRSTRLEN];
+    char dst[INET6_ADDRSTRLEN];
 
-    /* inet_ntop(AF_INET6, ip->src, src, INET6_ADDRSTRLEN); */
-    /* inet_ntop(AF_INET6, ip->dst, dst, INET6_ADDRSTRLEN); */
-    /* PRINT_ADDRESS(buf, n, src, dst); */
-    /* if (!PACKET_HAS_DATA(pdata->next)) { */
-    /*     PRINT_PROTOCOL(buf, n, "IPv6"); */
-    /*     PRINT_INFO(buf, n, "Next header: %d", ip->next_header); */
-    /* } */
+    inet_ntop(AF_INET6, ip->src, src, INET6_ADDRSTRLEN);
+    inet_ntop(AF_INET6, ip->dst, dst, INET6_ADDRSTRLEN);
+    PRINT_ADDRESS(buf, n, src, dst);
+    if (!PACKET_HAS_DATA(pdata->next)) {
+        PRINT_PROTOCOL(buf, n, "IPv6");
+        PRINT_INFO(buf, n, "Next header: %d", ip->next_header);
+    }
 }
 
 void print_icmp(char *buf, int n, void *data)
 {
-    /* struct packet_data *pdata = data; */
-    /* struct icmp_info *icmp = pdata->data; */
-    /* char org[32]; */
-    /* char rcvd[32]; */
-    /* char xmit[32]; */
-    /* char addr[INET_ADDRSTRLEN]; */
+    struct packet_data *pdata = data;
+    struct icmp_info *icmp = pdata->data;
+    char org[32];
+    char rcvd[32];
+    char xmit[32];
+    char addr[INET_ADDRSTRLEN];
 
-    /* PRINT_PROTOCOL(buf, n, "ICMP"); */
-    /* switch (icmp->type) { */
-    /* case ICMP_ECHOREPLY: */
-    /*     PRINT_INFO(buf, n, "Echo reply:   id = 0x%x  seq = %d", icmp->id, icmp->seq_num); */
-    /*     break; */
-    /* case ICMP_ECHO: */
-    /*     PRINT_INFO(buf, n, "Echo request: id = 0x%x  seq = %d", icmp->id, icmp->seq_num); */
-    /*     break; */
-    /* case ICMP_UNREACH: */
-    /*     PRINT_INFO(buf, n, "%s", get_icmp_dest_unreach_code(icmp->code)); */
-    /*     break; */
-    /* case ICMP_REDIRECT: */
-    /*     inet_ntop(AF_INET, &icmp->gateway, addr, INET_ADDRSTRLEN); */
-    /*     PRINT_INFO(buf, n, "Redirect to %s", addr); */
-    /*     break; */
-    /* case ICMP_TSTAMP: */
-    /*     PRINT_INFO(buf, n, "Timestamp request: id = 0x%x  seq = %d, originate = %s, receive = %s, transmit = %s", */
-    /*                icmp->id, icmp->seq_num, get_time_from_ms_ut(icmp->timestamp.originate, org, 32), */
-    /*                get_time_from_ms_ut(icmp->timestamp.receive, rcvd, 32), */
-    /*                get_time_from_ms_ut(icmp->timestamp.transmit, xmit, 32)); */
-    /*     break; */
-    /* case ICMP_TSTAMPREPLY: */
-    /*     PRINT_INFO(buf, n, "Timestamp reply  : id = 0x%x  seq = %d, originate = %s, receive = %s, transmit = %s", */
-    /*                icmp->id, icmp->seq_num, get_time_from_ms_ut(icmp->timestamp.originate, org, 32), */
-    /*                get_time_from_ms_ut(icmp->timestamp.receive, rcvd, 32), */
-    /*                get_time_from_ms_ut(icmp->timestamp.transmit, xmit, 32)); */
-    /*     break; */
-    /* case ICMP_MASKREQ: */
-    /*     inet_ntop(AF_INET, &icmp->addr_mask, addr, INET_ADDRSTRLEN); */
-    /*     PRINT_INFO(buf, n, "Address mask request: id = 0x%x  seq = %d, mask = %s", */
-    /*                icmp->id, icmp->seq_num, addr); */
-    /*     break; */
-    /* case ICMP_MASKREPLY: */
-    /*     inet_ntop(AF_INET, &icmp->addr_mask, addr, INET_ADDRSTRLEN); */
-    /*     PRINT_INFO(buf, n, "Address mask reply:   id = 0x%x  seq = %d, mask = %s", */
-    /*                icmp->id, icmp->seq_num, addr); */
-    /*     break; */
-    /* default: */
-    /*     PRINT_INFO(buf, n, "%s", get_icmp_type(icmp->type)); */
-    /*     break; */
-    /* } */
+    PRINT_PROTOCOL(buf, n, "ICMP");
+    switch (icmp->type) {
+    case ICMP_ECHOREPLY:
+        PRINT_INFO(buf, n, "Echo reply:   id = 0x%x  seq = %d", icmp->id, icmp->seq_num);
+        break;
+    case ICMP_ECHO:
+        PRINT_INFO(buf, n, "Echo request: id = 0x%x  seq = %d", icmp->id, icmp->seq_num);
+        break;
+    case ICMP_UNREACH:
+        PRINT_INFO(buf, n, "%s", get_icmp_dest_unreach_code(icmp->code));
+        break;
+    case ICMP_REDIRECT:
+        inet_ntop(AF_INET, &icmp->gateway, addr, INET_ADDRSTRLEN);
+        PRINT_INFO(buf, n, "Redirect to %s", addr);
+        break;
+    case ICMP_TSTAMP:
+        PRINT_INFO(buf, n, "Timestamp request: id = 0x%x  seq = %d, originate = %s, receive = %s, transmit = %s",
+                   icmp->id, icmp->seq_num, get_time_from_ms_ut(icmp->timestamp.originate, org, 32),
+                   get_time_from_ms_ut(icmp->timestamp.receive, rcvd, 32),
+                   get_time_from_ms_ut(icmp->timestamp.transmit, xmit, 32));
+        break;
+    case ICMP_TSTAMPREPLY:
+        PRINT_INFO(buf, n, "Timestamp reply  : id = 0x%x  seq = %d, originate = %s, receive = %s, transmit = %s",
+                   icmp->id, icmp->seq_num, get_time_from_ms_ut(icmp->timestamp.originate, org, 32),
+                   get_time_from_ms_ut(icmp->timestamp.receive, rcvd, 32),
+                   get_time_from_ms_ut(icmp->timestamp.transmit, xmit, 32));
+        break;
+    case ICMP_MASKREQ:
+        inet_ntop(AF_INET, &icmp->addr_mask, addr, INET_ADDRSTRLEN);
+        PRINT_INFO(buf, n, "Address mask request: id = 0x%x  seq = %d, mask = %s",
+                   icmp->id, icmp->seq_num, addr);
+        break;
+    case ICMP_MASKREPLY:
+        inet_ntop(AF_INET, &icmp->addr_mask, addr, INET_ADDRSTRLEN);
+        PRINT_INFO(buf, n, "Address mask reply:   id = 0x%x  seq = %d, mask = %s",
+                   icmp->id, icmp->seq_num, addr);
+        break;
+    default:
+        PRINT_INFO(buf, n, "%s", get_icmp_type(icmp->type));
+        break;
+    }
 }
 
 void print_icmp6(char *buf, int n, void *data)
 {
-    /* struct packet_data *pdata = data; */
-    /* struct icmp6_info *icmp6 = pdata->data; */
-    /* char addr[INET6_ADDRSTRLEN]; */
+    struct packet_data *pdata = data;
+    struct icmp6_info *icmp6 = pdata->data;
+    char addr[INET6_ADDRSTRLEN];
 
-    /* PRINT_PROTOCOL(buf, n, "ICMP6"); */
-    /* switch (icmp6->type) { */
-    /* case ICMP6_DST_UNREACH: */
-    /*     PRINT_INFO(buf, n, "%s", get_icmp6_dest_unreach(icmp6->code)); */
-    /*     break; */
-    /* case ICMP6_PACKET_TOO_BIG: */
-    /*     PRINT_INFO(buf, n, "Packet too big message: MTU = %d", icmp6->mtu); */
-    /*     break; */
-    /* case ICMP6_TIME_EXCEEDED: */
-    /*     PRINT_INFO(buf, n, "%s", get_icmp6_time_exceeded(icmp6->code)); */
-    /*     break; */
-    /* case ICMP6_PARAM_PROB: */
-    /*     PRINT_INFO(buf, n, "%s: Pointer = %d", get_icmp6_parameter_problem(icmp6->code), */
-    /*                icmp6->pointer); */
-    /*     break; */
-    /* case ICMP6_ECHO_REQUEST: */
-    /* case ICMP6_ECHO_REPLY: */
-    /*     PRINT_INFO(buf, n, "%s: id = %u  seq = %u", get_icmp6_type(icmp6->type), icmp6->echo.id, */
-    /*                icmp6->echo.seq); */
-    /*     break; */
-    /* case ND_ROUTER_SOLICIT: */
-    /*     PRINT_INFO(buf, n, "%s", get_icmp6_type(icmp6->type)); */
-    /*     break; */
-    /* case ND_ROUTER_ADVERT: */
-    /*     if (icmp6->option && icmp6->option->type == ND_OPT_SOURCE_LINKADDR) { */
-    /*         char link[HW_ADDRSTRLEN]; */
+    PRINT_PROTOCOL(buf, n, "ICMP6");
+    switch (icmp6->type) {
+    case ICMP6_DST_UNREACH:
+        PRINT_INFO(buf, n, "%s", get_icmp6_dest_unreach(icmp6->code));
+        break;
+    case ICMP6_PACKET_TOO_BIG:
+        PRINT_INFO(buf, n, "Packet too big message: MTU = %d", icmp6->mtu);
+        break;
+    case ICMP6_TIME_EXCEEDED:
+        PRINT_INFO(buf, n, "%s", get_icmp6_time_exceeded(icmp6->code));
+        break;
+    case ICMP6_PARAM_PROB:
+        PRINT_INFO(buf, n, "%s: Pointer = %d", get_icmp6_parameter_problem(icmp6->code),
+                   icmp6->pointer);
+        break;
+    case ICMP6_ECHO_REQUEST:
+    case ICMP6_ECHO_REPLY:
+        PRINT_INFO(buf, n, "%s: id = %u  seq = %u", get_icmp6_type(icmp6->type), icmp6->echo.id,
+                   icmp6->echo.seq);
+        break;
+    case ND_ROUTER_SOLICIT:
+        PRINT_INFO(buf, n, "%s", get_icmp6_type(icmp6->type));
+        break;
+    case ND_ROUTER_ADVERT:
+        if (icmp6->option && icmp6->option->type == ND_OPT_SOURCE_LINKADDR) {
+            char link[HW_ADDRSTRLEN];
 
-    /*         HW_ADDR_NTOP(link, icmp6->option->source_addr); */
-    /*         PRINT_INFO(buf, n, "Router Advertisement from %s", link); */
-    /*     } else { */
-    /*         PRINT_INFO(buf, n, "Router Advertisement"); */
-    /*     } */
-    /*     break; */
-    /* case ND_NEIGHBOR_SOLICIT: */
-    /*     inet_ntop(AF_INET6, (struct in_addr *) icmp6->target_addr, addr, sizeof(addr)); */
-    /*     PRINT_INFO(buf, n, "Neighbor Solicitation for %s", addr); */
-    /*     break; */
-    /* case ND_NEIGHBOR_ADVERT: */
-    /*     inet_ntop(AF_INET6, (struct in_addr *) icmp6->neigh_adv.target_addr, addr, sizeof(addr)); */
-    /*     if (icmp6->option && icmp6->option->type == ND_OPT_TARGET_LINKADDR) { */
-    /*         char link[HW_ADDRSTRLEN]; */
+            HW_ADDR_NTOP(link, icmp6->option->source_addr);
+            PRINT_INFO(buf, n, "Router Advertisement from %s", link);
+        } else {
+            PRINT_INFO(buf, n, "Router Advertisement");
+        }
+        break;
+    case ND_NEIGHBOR_SOLICIT:
+        inet_ntop(AF_INET6, (struct in_addr *) icmp6->target_addr, addr, sizeof(addr));
+        PRINT_INFO(buf, n, "Neighbor Solicitation for %s", addr);
+        break;
+    case ND_NEIGHBOR_ADVERT:
+        inet_ntop(AF_INET6, (struct in_addr *) icmp6->neigh_adv.target_addr, addr, sizeof(addr));
+        if (icmp6->option && icmp6->option->type == ND_OPT_TARGET_LINKADDR) {
+            char link[HW_ADDRSTRLEN];
 
-    /*         HW_ADDR_NTOP(link, icmp6->option->target_addr); */
-    /*         PRINT_INFO(buf, n, "Neighbor Advertisement  %s is at %s", addr, link); */
-    /*     } else { */
-    /*         PRINT_INFO(buf, n, "Neighbor Advertisement from %s", addr); */
-    /*     } */
+            HW_ADDR_NTOP(link, icmp6->option->target_addr);
+            PRINT_INFO(buf, n, "Neighbor Advertisement  %s is at %s", addr, link);
+        } else {
+            PRINT_INFO(buf, n, "Neighbor Advertisement from %s", addr);
+        }
 
-    /*     break; */
-    /* case ND_REDIRECT: */
-    /* { */
-    /*     char target[INET6_ADDRSTRLEN]; */
-    /*     char dest[INET6_ADDRSTRLEN]; */
+        break;
+    case ND_REDIRECT:
+    {
+        char target[INET6_ADDRSTRLEN];
+        char dest[INET6_ADDRSTRLEN];
 
-    /*     inet_ntop(AF_INET6, (struct in_addr *) icmp6->redirect.target_addr, target, sizeof(target)); */
-    /*     inet_ntop(AF_INET6, (struct in_addr *) icmp6->redirect.dest_addr, dest, sizeof(dest)); */
-    /*     PRINT_INFO(buf, n, "Redirect. Target: %s  Destination: %s", target, dest); */
-    /*     break; */
-    /* } */
-    /* default: */
-    /*     PRINT_INFO(buf, n, "%s", get_icmp6_type(icmp6->type)); */
-    /*     break; */
-    /* } */
+        inet_ntop(AF_INET6, (struct in_addr *) icmp6->redirect.target_addr, target, sizeof(target));
+        inet_ntop(AF_INET6, (struct in_addr *) icmp6->redirect.dest_addr, dest, sizeof(dest));
+        PRINT_INFO(buf, n, "Redirect. Target: %s  Destination: %s", target, dest);
+        break;
+    }
+    default:
+        PRINT_INFO(buf, n, "%s", get_icmp6_type(icmp6->type));
+        break;
+    }
 }
 
 void print_igmp(char *buf, int n, void *data)
 {
-    /* struct packet_data *pdata = data; */
-    /* struct igmp_info *igmp = pdata->data; */
+    struct packet_data *pdata = data;
+    struct igmp_info *igmp = pdata->data;
 
-    /* char addr[INET_ADDRSTRLEN]; */
+    char addr[INET_ADDRSTRLEN];
 
-    /* PRINT_PROTOCOL(buf, n, "IGMP"); */
-    /* switch (igmp->type) { */
-    /* case IGMP_HOST_MEMBERSHIP_QUERY: */
-    /*     PRINT_INFO(buf, n, "Membership query  Max response time: %d seconds", */
-    /*                igmp->max_resp_time / 10); */
-    /*     break; */
-    /* case IGMP_v1_HOST_MEMBERSHIP_REPORT: */
-    /*     PRINT_INFO(buf, n, "Membership report"); */
-    /*     break; */
-    /* case IGMP_v2_HOST_MEMBERSHIP_REPORT: */
-    /*     PRINT_INFO(buf, n, "IGMP2 Membership report"); */
-    /*     break; */
-    /* case IGMP_v3_HOST_MEMBERSHIP_REPORT: */
-    /*     PRINT_INFO(buf, n, "IGMP3 Membership report"); */
-    /*     break; */
-    /* case IGMP_HOST_LEAVE_MESSAGE: */
-    /*     PRINT_INFO(buf, n, "Leave group"); */
-    /*     break; */
-    /* default: */
-    /*     PRINT_INFO(buf, n, "Type 0x%x", igmp->type); */
-    /*     break; */
-    /* } */
-    /* if (igmp->type != IGMP_v3_HOST_MEMBERSHIP_REPORT) { */
-    /*     inet_ntop(AF_INET, &igmp->group_addr, addr, INET_ADDRSTRLEN); */
-    /*     PRINT_INFO(buf, n, "  Group address: %s", addr); */
-    /* } */
+    PRINT_PROTOCOL(buf, n, "IGMP");
+    switch (igmp->type) {
+    case IGMP_HOST_MEMBERSHIP_QUERY:
+        PRINT_INFO(buf, n, "Membership query  Max response time: %d seconds",
+                   igmp->max_resp_time / 10);
+        break;
+    case IGMP_v1_HOST_MEMBERSHIP_REPORT:
+        PRINT_INFO(buf, n, "Membership report");
+        break;
+    case IGMP_v2_HOST_MEMBERSHIP_REPORT:
+        PRINT_INFO(buf, n, "IGMP2 Membership report");
+        break;
+    case IGMP_v3_HOST_MEMBERSHIP_REPORT:
+        PRINT_INFO(buf, n, "IGMP3 Membership report");
+        break;
+    case IGMP_HOST_LEAVE_MESSAGE:
+        PRINT_INFO(buf, n, "Leave group");
+        break;
+    default:
+        PRINT_INFO(buf, n, "Type 0x%x", igmp->type);
+        break;
+    }
+    if (igmp->type != IGMP_v3_HOST_MEMBERSHIP_REPORT) {
+        inet_ntop(AF_INET, &igmp->group_addr, addr, INET_ADDRSTRLEN);
+        PRINT_INFO(buf, n, "  Group address: %s", addr);
+    }
 }
 
 void print_pim(char *buf, int n, void *data)
 {
-    /* struct packet_data *pdata = data; */
-    /* struct pim_info *pim = pdata->data; */
-    /* char *type = get_pim_message_type(pim->type); */
+    struct packet_data *pdata = data;
+    struct pim_info *pim = pdata->data;
+    char *type = get_pim_message_type(pim->type);
 
-    /* PRINT_PROTOCOL(buf, n, "PIM"); */
-    /* if (type) { */
-    /*     PRINT_INFO(buf, n, "Message type: %s", type); */
-    /* } else { */
-    /*     PRINT_INFO(buf, n, "Message type: %d", pim->type); */
-    /* } */
+    PRINT_PROTOCOL(buf, n, "PIM");
+    if (type) {
+        PRINT_INFO(buf, n, "Message type: %s", type);
+    } else {
+        PRINT_INFO(buf, n, "Message type: %d", pim->type);
+    }
 }
 
 void print_tcp(char *buf, int n, void *data)
 {
-    /* struct packet_data *pdata = data; */
-    /* struct tcp *tcp = pdata->data; */
+    struct packet_data *pdata = data;
+    struct tcp *tcp = pdata->data;
 
-    /* if (!PACKET_HAS_DATA(pdata->next)) { */
-    /*     PRINT_PROTOCOL(buf, n, "TCP"); */
-    /*     PRINT_INFO(buf, n, "Source port: %d  Destination port: %d", */
-    /*                tcp->sport, tcp->dport); */
-    /*     PRINT_INFO(buf, n, "  Flags:"); */
-    /*     if (tcp->fin) */
-    /*         PRINT_INFO(buf, n, " FIN"); */
-    /*     if (tcp->syn) */
-    /*         PRINT_INFO(buf, n, " SYN"); */
-    /*     if (tcp->rst) */
-    /*         PRINT_INFO(buf, n, " RST"); */
-    /*     if (tcp->psh) */
-    /*         PRINT_INFO(buf, n, " PSH"); */
-    /*     if (tcp->ack) */
-    /*         PRINT_INFO(buf, n, " ACK"); */
-    /*     if (tcp->urg) */
-    /*         PRINT_INFO(buf, n, " URG"); */
-    /*     if (tcp->ece) */
-    /*         PRINT_INFO(buf, n, " ECE"); */
-    /*     if (tcp->cwr) */
-    /*         PRINT_INFO(buf, n, " CWR"); */
-    /*     if (tcp->ns) */
-    /*         PRINT_INFO(buf, n, " NS"); */
-    /*     PRINT_INFO(buf, n, "  seq: %u  ack: %u  win: %u", */
-    /*                tcp->seq_num, tcp->ack_num, tcp->window); */
-    /* } */
+    if (!PACKET_HAS_DATA(pdata->next)) {
+        PRINT_PROTOCOL(buf, n, "TCP");
+        PRINT_INFO(buf, n, "Source port: %d  Destination port: %d",
+                   tcp->sport, tcp->dport);
+        PRINT_INFO(buf, n, "  Flags:");
+        if (tcp->fin)
+            PRINT_INFO(buf, n, " FIN");
+        if (tcp->syn)
+            PRINT_INFO(buf, n, " SYN");
+        if (tcp->rst)
+            PRINT_INFO(buf, n, " RST");
+        if (tcp->psh)
+            PRINT_INFO(buf, n, " PSH");
+        if (tcp->ack)
+            PRINT_INFO(buf, n, " ACK");
+        if (tcp->urg)
+            PRINT_INFO(buf, n, " URG");
+        if (tcp->ece)
+            PRINT_INFO(buf, n, " ECE");
+        if (tcp->cwr)
+            PRINT_INFO(buf, n, " CWR");
+        if (tcp->ns)
+            PRINT_INFO(buf, n, " NS");
+        PRINT_INFO(buf, n, "  seq: %u  ack: %u  win: %u",
+                   tcp->seq_num, tcp->ack_num, tcp->window);
+    }
 }
 
 void print_udp(char *buf, int n, void *data)
 {
-    /* struct packet_data *pdata = data; */
-    /* struct udp_info *udp = pdata->data; */
+    struct packet_data *pdata = data;
+    struct udp_info *udp = pdata->data;
 
-    /* if (!PACKET_HAS_DATA(pdata->next)) { */
-    /*     PRINT_PROTOCOL(buf, n, "UDP"); */
-    /*     PRINT_INFO(buf, n, "Source port: %d  Destination port: %d", */
-    /*                udp->sport, udp->dport); */
-    /* } */
+    if (!PACKET_HAS_DATA(pdata->next)) {
+        PRINT_PROTOCOL(buf, n, "UDP");
+        PRINT_INFO(buf, n, "Source port: %d  Destination port: %d",
+                   udp->sport, udp->dport);
+    }
 }
 
 void print_dns(char *buf, int n, void *data)
 {
-    /* struct packet_data *pdata = data; */
-    /* struct dns_info *dns = pdata->data; */
+    struct packet_data *pdata = data;
+    struct dns_info *dns = pdata->data;
 
-    /* if (get_protocol_key(pdata->id) == DNS) */
-    /*     PRINT_PROTOCOL(buf, n, "DNS"); */
-    /* else if (get_protocol_key(pdata->id) == MDNS) */
-    /*     PRINT_PROTOCOL(buf, n, "MDNS"); */
-    /* else */
-    /*     PRINT_PROTOCOL(buf, n, "LLMNR"); */
-    /* if (dns->qr == 0) { */
-    /*     switch (dns->opcode) { */
-    /*     case DNS_QUERY: */
-    /*         PRINT_INFO(buf, n, "Standard query"); */
-    /*         if (dns->question) { */
-    /*             PRINT_INFO(buf, n, ": %s ", dns->question[0].qname); */
-    /*             PRINT_INFO(buf, n, "%s", get_dns_type(dns->question[0].qtype)); */
-    /*         } */
-    /*         break; */
-    /*     case DNS_IQUERY: */
-    /*         PRINT_INFO(buf, n, "Inverse query"); */
-    /*         break; */
-    /*     case DNS_STATUS: */
-    /*         PRINT_INFO(buf, n, "Server status request"); */
-    /*         break; */
-    /*     } */
-    /* } else { */
-    /*     if (dns->rcode == DNS_NO_ERROR) */
-    /*         PRINT_INFO(buf, n, "Response: "); */
-    /*     else */
-    /*         PRINT_INFO(buf, n, "Response: %s ", get_dns_rcode(dns->rcode)); */
-    /*     if (dns->question) */
-    /*         PRINT_INFO(buf, n, "%s ", dns->question[0].qname); */
-    /*     if (dns->record) { */
-    /*         for (unsigned int i = 0; i < dns->section_count[ANCOUNT]; i++) { */
-    /*             if (dns->record[i].type == 0) */
-    /*                 continue; */
-    /*             PRINT_INFO(buf, n, "%s ", get_dns_type(dns->record[i].type)); */
-    /*             print_dns_record(dns, i, buf, n, dns->record[i].type); */
-    /*             PRINT_INFO(buf, n, " "); */
-    /*         } */
-    /*     } */
-    /* } */
+    if (get_protocol_key(pdata->id) == DNS)
+        PRINT_PROTOCOL(buf, n, "DNS");
+    else if (get_protocol_key(pdata->id) == MDNS)
+        PRINT_PROTOCOL(buf, n, "MDNS");
+    else
+        PRINT_PROTOCOL(buf, n, "LLMNR");
+    if (dns->qr == 0) {
+        switch (dns->opcode) {
+        case DNS_QUERY:
+            PRINT_INFO(buf, n, "Standard query");
+            if (dns->question) {
+                PRINT_INFO(buf, n, ": %s ", dns->question[0].qname);
+                PRINT_INFO(buf, n, "%s", get_dns_type(dns->question[0].qtype));
+            }
+            break;
+        case DNS_IQUERY:
+            PRINT_INFO(buf, n, "Inverse query");
+            break;
+        case DNS_STATUS:
+            PRINT_INFO(buf, n, "Server status request");
+            break;
+        }
+    } else {
+        if (dns->rcode == DNS_NO_ERROR)
+            PRINT_INFO(buf, n, "Response: ");
+        else
+            PRINT_INFO(buf, n, "Response: %s ", get_dns_rcode(dns->rcode));
+        if (dns->question)
+            PRINT_INFO(buf, n, "%s ", dns->question[0].qname);
+        if (dns->record) {
+            for (unsigned int i = 0; i < dns->section_count[ANCOUNT]; i++) {
+                if (dns->record[i].type == 0)
+                    continue;
+                PRINT_INFO(buf, n, "%s ", get_dns_type(dns->record[i].type));
+                print_dns_record(dns, i, buf, n, dns->record[i].type);
+                PRINT_INFO(buf, n, " ");
+            }
+        }
+    }
 }
 
 void print_nbns(char *buf, int n, void *data)
 {
-    /* struct packet_data *pdata = data; */
-    /* struct nbns_info *nbns = pdata->data; */
-    /* char opcode[16]; */
+    struct packet_data *pdata = data;
+    struct nbns_info *nbns = pdata->data;
+    char opcode[16];
 
-    /* PRINT_PROTOCOL(buf, n, "NBNS"); */
-    /* if (nbns->r == 0) { */
-    /*     strlcpy(opcode, get_nbns_opcode(nbns->opcode), sizeof(opcode)); */
-    /*     PRINT_INFO(buf, n, "Name %s request: ", string_tolower(opcode)); */
-    /*     PRINT_INFO(buf, n, "%s  ", nbns->question.qname); */
-    /*     PRINT_INFO(buf, n, "%s  ", get_nbns_type(nbns->question.qtype)); */
-    /*     if (nbns->section_count[ARCOUNT] && nbns->record) { */
-    /*         print_nbns_record(nbns, 0, buf, n); */
-    /*     } */
-    /* } else { */
-    /*     switch (nbns->rcode) { */
-    /*     case NBNS_FMT_ERR: */
-    /*         PRINT_INFO(buf, n, "Format Error. Request was invalidly formatted"); */
-    /*         return; */
-    /*     case NBNS_SRV_ERR: */
-    /*         PRINT_INFO(buf, n, "Server failure. Problem with NBNS, cannot process name"); */
-    /*         return; */
-    /*     case NBNS_IMP_ERR: */
-    /*         PRINT_INFO(buf, n, "Unsupported request error"); */
-    /*         return; */
-    /*     case NBNS_RFS_ERR: */
-    /*         PRINT_INFO(buf, n, "Refused error"); */
-    /*         return; */
-    /*     case NBNS_ACT_ERR: */
-    /*         PRINT_INFO(buf, n, "Active error. Name is owned by another node"); */
-    /*         return; */
-    /*     case NBNS_CFT_ERR: */
-    /*         PRINT_INFO(buf, n, "Name in conflict error"); */
-    /*         return; */
-    /*     default: */
-    /*         break; */
-    /*     } */
-    /*     strlcpy(opcode, get_nbns_opcode(nbns->opcode), sizeof(opcode)); */
-    /*     PRINT_INFO(buf, n, "Name %s response: ", string_tolower(opcode)); */
-    /*     if (nbns->record) { */
-    /*         PRINT_INFO(buf, n, "%s  ", nbns->record[0].rrname); */
-    /*         PRINT_INFO(buf, n, "%s  ", get_nbns_type(nbns->record[0].rrtype)); */
-    /*         print_nbns_record(nbns, 0, buf, n); */
-    /*     } */
-    /* } */
+    PRINT_PROTOCOL(buf, n, "NBNS");
+    if (nbns->r == 0) {
+        strlcpy(opcode, get_nbns_opcode(nbns->opcode), sizeof(opcode));
+        PRINT_INFO(buf, n, "Name %s request: ", string_tolower(opcode));
+        PRINT_INFO(buf, n, "%s  ", nbns->question.qname);
+        PRINT_INFO(buf, n, "%s  ", get_nbns_type(nbns->question.qtype));
+        if (nbns->section_count[ARCOUNT] && nbns->record) {
+            print_nbns_record(nbns, 0, buf, n);
+        }
+    } else {
+        switch (nbns->rcode) {
+        case NBNS_FMT_ERR:
+            PRINT_INFO(buf, n, "Format Error. Request was invalidly formatted");
+            return;
+        case NBNS_SRV_ERR:
+            PRINT_INFO(buf, n, "Server failure. Problem with NBNS, cannot process name");
+            return;
+        case NBNS_IMP_ERR:
+            PRINT_INFO(buf, n, "Unsupported request error");
+            return;
+        case NBNS_RFS_ERR:
+            PRINT_INFO(buf, n, "Refused error");
+            return;
+        case NBNS_ACT_ERR:
+            PRINT_INFO(buf, n, "Active error. Name is owned by another node");
+            return;
+        case NBNS_CFT_ERR:
+            PRINT_INFO(buf, n, "Name in conflict error");
+            return;
+        default:
+            break;
+        }
+        strlcpy(opcode, get_nbns_opcode(nbns->opcode), sizeof(opcode));
+        PRINT_INFO(buf, n, "Name %s response: ", string_tolower(opcode));
+        if (nbns->record) {
+            PRINT_INFO(buf, n, "%s  ", nbns->record[0].rrname);
+            PRINT_INFO(buf, n, "%s  ", get_nbns_type(nbns->record[0].rrtype));
+            print_nbns_record(nbns, 0, buf, n);
+        }
+    }
 }
 
 void print_nbds(char *buf, int n, void *data)
 {
-    /* struct packet_data *pdata = data; */
-    /* struct nbds_info *nbds = pdata->data; */
-    /* char *type; */
+    struct packet_data *pdata = data;
+    struct nbds_info *nbds = pdata->data;
+    char *type;
 
-    /* PRINT_PROTOCOL(buf, n, "NBDS"); */
-    /* if ((type = get_nbds_message_type(nbds->msg_type))) { */
-    /*     PRINT_INFO(buf, n, "%s", type); */
-    /* } */
+    PRINT_PROTOCOL(buf, n, "NBDS");
+    if ((type = get_nbds_message_type(nbds->msg_type))) {
+        PRINT_INFO(buf, n, "%s", type);
+    }
 }
 
 void print_ssdp(char *buf, int n, void *data)
 {
-    /* struct packet_data *pdata = data; */
-    /* struct ssdp_info *ssdp = pdata->data; */
-    /* const node_t *node; */
+    struct packet_data *pdata = data;
+    struct ssdp_info *ssdp = pdata->data;
+    const node_t *node;
 
-    /* PRINT_PROTOCOL(buf, n, "SSDP"); */
-    /* node = list_begin(ssdp->fields); */
-    /* if (node) { */
-    /*     PRINT_INFO(buf, n, "%s", (char *) list_data(node)); */
-    /* } */
+    PRINT_PROTOCOL(buf, n, "SSDP");
+    node = list_begin(ssdp->fields);
+    if (node) {
+        PRINT_INFO(buf, n, "%s", (char *) list_data(node));
+    }
 }
 
 void print_http(char *buf, int n, void *data)
 {
-    /* struct packet_data *pdata = data; */
-    /* struct http_info *http = pdata->data; */
+    struct packet_data *pdata = data;
+    struct http_info *http = pdata->data;
 
-    /* PRINT_PROTOCOL(buf, n, "HTTP"); */
-    /* if (http->start_line) */
-    /*     PRINT_INFO(buf, n, "%s", http->start_line); */
-    /* else */
-    /*     PRINT_INFO(buf, n, "Data"); */
+    PRINT_PROTOCOL(buf, n, "HTTP");
+    if (http->start_line)
+        PRINT_INFO(buf, n, "%s", http->start_line);
+    else
+        PRINT_INFO(buf, n, "Data");
 }
 
 void print_imap(char *buf, int n, void *data)
 {
     struct packet_data *pdata = data;
-    /* struct imap_info *imap = pdata->data; */
+    struct imap_info *imap = pdata->data;
 
-    /* PRINT_PROTOCOL(buf, n, "IMAP"); */
-    /* if (imap->lines && list_size(imap->lines) > 0) */
-    /*     PRINT_INFO(buf, n, "%s", (char *) list_front(imap->lines)); */
+    PRINT_PROTOCOL(buf, n, "IMAP");
+    if (imap->lines && list_size(imap->lines) > 0)
+        PRINT_INFO(buf, n, "%s", (char *) list_front(imap->lines));
 }
 
 void print_smtp(char *buf, int n, void *data)
 {
-    /* struct packet_data *pdata = data; */
-    /* struct smtp_info *smtp = pdata->data; */
+    struct packet_data *pdata = data;
+    struct smtp_info *smtp = pdata->data;
 
-    /* PRINT_PROTOCOL(buf, n, "SMTP"); */
-    /* if (smtp->data) { */
-    /*     PRINT_INFO(buf, n, "C: Mail data"); */
-    /* } else { */
-    /*     if (smtp->response && smtp->rsps) { */
-    /*         const node_t *node; */
-    /*         struct smtp_rsp *rsp; */
+    PRINT_PROTOCOL(buf, n, "SMTP");
+    if (smtp->data) {
+        PRINT_INFO(buf, n, "C: Mail data");
+    } else {
+        if (smtp->response && smtp->rsps) {
+            const node_t *node;
+            struct smtp_rsp *rsp;
 
-    /*         PRINT_INFO(buf, n, "S: "); */
-    /*         DLIST_FOREACH(smtp->rsps, node) { */
-    /*             const node_t *line; */
+            PRINT_INFO(buf, n, "S: ");
+            DLIST_FOREACH(smtp->rsps, node) {
+                const node_t *line;
 
-    /*             rsp = list_data(node); */
-    /*             PRINT_INFO(buf, n, "%d%c", rsp->code, list_size(rsp->lines) > 1 ? '-' : ' '); */
-    /*             DLIST_FOREACH(rsp->lines, line) { */
-    /*                 PRINT_INFO(buf, n, "%s  ", (char *) list_data(line)); */
-    /*             } */
-    /*         } */
-    /*     } else if (smtp->cmds) { */
-    /*         const node_t *node; */
-    /*         struct smtp_cmd *cmd; */
+                rsp = list_data(node);
+                PRINT_INFO(buf, n, "%d%c", rsp->code, list_size(rsp->lines) > 1 ? '-' : ' ');
+                DLIST_FOREACH(rsp->lines, line) {
+                    PRINT_INFO(buf, n, "%s  ", (char *) list_data(line));
+                }
+            }
+        } else if (smtp->cmds) {
+            const node_t *node;
+            struct smtp_cmd *cmd;
 
-    /*         PRINT_INFO(buf, n, "C: "); */
-    /*         DLIST_FOREACH(smtp->cmds, node) { */
-    /*             cmd = list_data(node); */
-    /*             PRINT_INFO(buf, n, "%s %s  ", cmd->command, cmd->params); */
-    /*         } */
-    /*     } */
-    /* } */
+            PRINT_INFO(buf, n, "C: ");
+            DLIST_FOREACH(smtp->cmds, node) {
+                cmd = list_data(node);
+                PRINT_INFO(buf, n, "%s %s  ", cmd->command, cmd->params);
+            }
+        }
+    }
 }
 
 void print_tls(char *buf, int n, void *data)
 {
-    /* struct packet_data *pdata = data; */
-    /* struct tls_info *tls = pdata->data; */
-    /* char *version = get_tls_version(tls->version); */
-    /* char *type = get_tls_type(tls->type); */
-    /* char records[MAXLINE]; */
+    struct packet_data *pdata = data;
+    struct tls_info *tls = pdata->data;
+    char *version = get_tls_version(tls->version);
+    char *type = get_tls_type(tls->type);
+    char records[MAXLINE];
 
-    /* if (version) { */
-    /*     PRINT_PROTOCOL(buf, n, version); */
-    /* } else { */
-    /*     PRINT_PROTOCOL(buf, n, "TLS"); */
-    /* } */
-    /* if (tls->type == TLS_HANDSHAKE && tls->handshake) { */
-    /*     snprintf(records, MAXLINE, "%s", get_tls_handshake_type(tls->handshake->type)); */
-    /* } else { */
-    /*     snprintf(records, MAXLINE, "%s", type); */
-    /* } */
-    /* tls = tls->next; */
-    /* while (tls) { */
-    /*     if (tls->type == TLS_HANDSHAKE && tls->handshake) { */
-    /*         snprintcat(records, MAXLINE, ", %s", get_tls_handshake_type(tls->handshake->type)); */
-    /*     } else { */
-    /*         snprintcat(records, MAXLINE, ", %s", get_tls_type(tls->type)); */
-    /*     } */
-    /*     tls = tls->next; */
-    /* } */
-    /* PRINT_INFO(buf, n, "%s", records); */
+    if (version) {
+        PRINT_PROTOCOL(buf, n, version);
+    } else {
+        PRINT_PROTOCOL(buf, n, "TLS");
+    }
+    if (tls->type == TLS_HANDSHAKE && tls->handshake) {
+        snprintf(records, MAXLINE, "%s", get_tls_handshake_type(tls->handshake->type));
+    } else {
+        snprintf(records, MAXLINE, "%s", type);
+    }
+    tls = tls->next;
+    while (tls) {
+        if (tls->type == TLS_HANDSHAKE && tls->handshake) {
+            snprintcat(records, MAXLINE, ", %s", get_tls_handshake_type(tls->handshake->type));
+        } else {
+            snprintcat(records, MAXLINE, ", %s", get_tls_type(tls->type));
+        }
+        tls = tls->next;
+    }
+    PRINT_INFO(buf, n, "%s", records);
 }
 
 void print_dhcp(char *buf, int n, void *data)
 {
-    /* char hwaddr[HW_ADDRSTRLEN]; */
-    /* struct dhcp_info *dhcp = (struct dhcp_info *)((struct packet_data *) data)->data; */
-    /* const node_t *node; */
+    char hwaddr[HW_ADDRSTRLEN];
+    struct dhcp_info *dhcp = (struct dhcp_info *)((struct packet_data *) data)->data;
+    const node_t *node;
 
-    /* PRINT_PROTOCOL(buf, n, "DHCP"); */
-    /* DLIST_FOREACH(dhcp->options, node) { */
-    /*     struct dhcp_options *opt = (struct dhcp_options *) list_data(node); */
+    PRINT_PROTOCOL(buf, n, "DHCP");
+    DLIST_FOREACH(dhcp->options, node) {
+        struct dhcp_options *opt = (struct dhcp_options *) list_data(node);
 
-    /*     if (opt->tag == DHCP_MESSAGE_TYPE) { */
-    /*         switch (opt->byte) { */
-    /*         case DHCPDISCOVER: */
-    /*             HW_ADDR_NTOP(hwaddr, dhcp->chaddr); */
-    /*             PRINT_INFO(buf, n, "Discover  Transaction id: 0x%x", dhcp->xid); */
-    /*             break; */
-    /*         case DHCPOFFER: */
-    /*             PRINT_INFO(buf, n, "Offer     Transaction id: 0x%x", dhcp->xid); */
-    /*             break; */
-    /*         case DHCPREQUEST: */
-    /*             PRINT_INFO(buf, n, "Request   Transaction id: 0x%x", dhcp->xid); */
-    /*             break; */
-    /*         case DHCPDECLINE: */
-    /*             PRINT_INFO(buf, n, "Decline   Transaction id: 0x%x", dhcp->xid); */
-    /*             break; */
-    /*         case DHCPACK: */
-    /*             PRINT_INFO(buf, n, "ACK       Transaction id: 0x%x", dhcp->xid); */
-    /*             break; */
-    /*         case DHCPNAK: */
-    /*             PRINT_INFO(buf, n, "NAK       Transaction id: 0x%x", dhcp->xid); */
-    /*             break; */
-    /*         case DHCPRELEASE: */
-    /*             PRINT_INFO(buf, n, "Release   Transaction id: 0x%x", dhcp->xid); */
-    /*             break; */
-    /*         case DHCPINFORM: */
-    /*             PRINT_INFO(buf, n, "Inform    Transaction id: 0x%x", dhcp->xid); */
-    /*         default: */
-    /*             break; */
-    /*         } */
-    /*         break; */
-    /*     } */
-    /* } */
+        if (opt->tag == DHCP_MESSAGE_TYPE) {
+            switch (opt->byte) {
+            case DHCPDISCOVER:
+                HW_ADDR_NTOP(hwaddr, dhcp->chaddr);
+                PRINT_INFO(buf, n, "Discover  Transaction id: 0x%x", dhcp->xid);
+                break;
+            case DHCPOFFER:
+                PRINT_INFO(buf, n, "Offer     Transaction id: 0x%x", dhcp->xid);
+                break;
+            case DHCPREQUEST:
+                PRINT_INFO(buf, n, "Request   Transaction id: 0x%x", dhcp->xid);
+                break;
+            case DHCPDECLINE:
+                PRINT_INFO(buf, n, "Decline   Transaction id: 0x%x", dhcp->xid);
+                break;
+            case DHCPACK:
+                PRINT_INFO(buf, n, "ACK       Transaction id: 0x%x", dhcp->xid);
+                break;
+            case DHCPNAK:
+                PRINT_INFO(buf, n, "NAK       Transaction id: 0x%x", dhcp->xid);
+                break;
+            case DHCPRELEASE:
+                PRINT_INFO(buf, n, "Release   Transaction id: 0x%x", dhcp->xid);
+                break;
+            case DHCPINFORM:
+                PRINT_INFO(buf, n, "Inform    Transaction id: 0x%x", dhcp->xid);
+            default:
+                break;
+            }
+            break;
+        }
+    }
 }
 
 void print_snmp(char *buf, int n, void *data)
 {
-    /* struct packet_data *pdata = data; */
-    /* struct snmp_info *snmp = pdata->data; */
-    /* char *type; */
-    /* list_t *vars; */
+    struct packet_data *pdata = data;
+    struct snmp_info *snmp = pdata->data;
+    char *type;
+    list_t *vars;
 
-    /* PRINT_PROTOCOL(buf, n, "SNMP"); */
-    /* if ((type = get_snmp_type(snmp))) { */
-    /*     PRINT_INFO(buf, n, "%s ", type); */
-    /* } else { */
-    /*     PRINT_INFO(buf, n, "type: %d ", snmp->pdu_type); */
-    /* } */
-    /* if (!snmp->trap && !snmp->pdu) */
-    /*     return; */
-    /* if (snmp->pdu_type == SNMP_TRAP) { */
-    /*     vars = snmp->trap->varbind_list; */
-    /* } else { */
-    /*     vars = snmp->pdu->varbind_list; */
-    /* } */
-    /* if (vars) { */
-    /*     const node_t *n = list_begin(vars); */
+    PRINT_PROTOCOL(buf, n, "SNMP");
+    if ((type = get_snmp_type(snmp))) {
+        PRINT_INFO(buf, n, "%s ", type);
+    } else {
+        PRINT_INFO(buf, n, "type: %d ", snmp->pdu_type);
+    }
+    if (!snmp->trap && !snmp->pdu)
+        return;
+    if (snmp->pdu_type == SNMP_TRAP) {
+        vars = snmp->trap->varbind_list;
+    } else {
+        vars = snmp->pdu->varbind_list;
+    }
+    if (vars) {
+        const node_t *n = list_begin(vars);
 
-    /*     while (n) { */
-    /*         struct snmp_varbind *var = (struct snmp_varbind *) list_data(n); */
+        while (n) {
+            struct snmp_varbind *var = (struct snmp_varbind *) list_data(n);
 
-    /*         PRINT_INFO(buf, MAXLINE, "%s ", var->object_name); */
-    /*         n = list_next(n); */
-    /*     } */
-    /* } */
+            PRINT_INFO(buf, MAXLINE, "%s ", var->object_name);
+            n = list_next(n);
+        }
+    }
 }
 
 void print_vrrp(char *buf, int n, void *data)
 {
-    /* struct vrrp_info *vrrp; */
-    /* char *type; */
+    struct vrrp_info *vrrp;
+    char *type;
 
-    /* vrrp = ((struct packet_data *) data)->data; */
-    /* PRINT_PROTOCOL(buf, n, "VRRP"); */
-    /* if ((type = get_vrrp_type(vrrp->type))) { */
-    /*     if (vrrp->version < 3) */
-    /*         PRINT_INFO(buf, n, "%s  Version: %u  VRID: %u  Priority: %u  Time interval: %u", */
-    /*                    type, vrrp->version, vrrp->vrid, vrrp->priority, vrrp->v.advr_int); */
-    /*     else if (vrrp->version == 3) */
-    /*         PRINT_INFO(buf, n, "Type: %d  Version: %u  VRID: %u  Priority: %u  Time interval:> %u", */
-    /*                    vrrp->type, vrrp->version, vrrp->vrid, vrrp->priority, vrrp->v3.max_advr_int); */
-    /* } */
+    vrrp = ((struct packet_data *) data)->data;
+    PRINT_PROTOCOL(buf, n, "VRRP");
+    if ((type = get_vrrp_type(vrrp->type))) {
+        if (vrrp->version < 3)
+            PRINT_INFO(buf, n, "%s  Version: %u  VRID: %u  Priority: %u  Time interval: %u",
+                       type, vrrp->version, vrrp->vrid, vrrp->priority, vrrp->v.advr_int);
+        else if (vrrp->version == 3)
+            PRINT_INFO(buf, n, "Type: %d  Version: %u  VRID: %u  Priority: %u  Time interval:> %u",
+                       vrrp->type, vrrp->version, vrrp->vrid, vrrp->priority, vrrp->v3.max_advr_int);
+    }
 }
 
-#if 0
 void print_dns_record(struct dns_info *info, int i, char *buf, int n, uint16_t type)
 {
     switch (type) {

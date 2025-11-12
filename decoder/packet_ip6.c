@@ -6,7 +6,7 @@
 #include "packet.h"
 #include "util.h"
 
-extern void print_ipv6(char *buf, int n, void *data);
+static void print_ipv6(char *buf, int n, struct packet_data *pdata);
 static packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buffer, int n,
                                 struct packet_data *pdata);
 
@@ -120,4 +120,9 @@ int parse_ipv6_addr(uint8_t *addrs, int count, unsigned char **buf, int n)
     }
     *buf = p;
     return n;
+}
+
+static void print_ipv6(char *buf, int n, struct packet_data *pdata)
+{
+
 }

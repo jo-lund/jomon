@@ -11,7 +11,7 @@
 #define IGMP_HDR_LEN 8
 
 extern void add_igmp_information(void *w, void *sw, void *data);
-extern void print_igmp(char *buf, int n, void *data);
+static void print_igmp(char *buf, int n, struct packet_data *pdata);
 static packet_error handle_igmp(struct protocol_info *pinfo, unsigned char *buffer, int n,
                                 struct packet_data *pdata);
 
@@ -191,4 +191,9 @@ char *get_igmp_group_record_type(uint8_t type)
     default:
         return NULL;
     }
+}
+
+void print_igmp(char *buf, int n, struct packet_data *pdata)
+{
+
 }

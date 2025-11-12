@@ -12,7 +12,7 @@
 
 static packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buffer, int n,
                                 struct packet_data *pdata);
-extern void print_icmp(char *buf, int n, void *data);
+static void print_icmp(char *buf, int n, struct packet_data *pdata);
 
 static struct protocol_info icmp_prot = {
     .short_name = "ICMP",
@@ -189,4 +189,9 @@ char *get_icmp_redirect_code(uint8_t code)
     default:
         return "";
     }
+}
+
+void print_icmp(char *buf, int n, struct packet_data *pdata)
+{
+
 }

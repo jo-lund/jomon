@@ -14,7 +14,7 @@ static struct protocol_info snap = {
     .short_name = "SNAP",
     .long_name = "Subnetwork Access Protocol",
     .decode = handle_snap,
-    .print_info = print_snap,
+    .print_pdu = print_snap,
 };
 
 void register_snap(void)

@@ -4,7 +4,7 @@
 #include "list.h"
 #include "string.h"
 
-extern void print_ssdp(char *buf, int n, void *data);
+static void print_ssdp(char *buf, int n, struct packet_data *data);
 static packet_error parse_ssdp(struct packet_data *pdata, char *str, int n,
                                list_t *msg_header);
 
@@ -79,4 +79,9 @@ packet_error parse_ssdp(struct packet_data *pdata, char *str, int n, list_t *msg
         return DECODE_ERR;
     }
     return NO_ERR;
+}
+
+static void print_ssdp(char *buf, int n, struct packet_data *data)
+{
+
 }

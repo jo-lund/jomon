@@ -37,7 +37,7 @@ static char *nb_suffix[] = {
     [0x20] = "Server Service"
 };
 
-extern void print_nbns(char *buf, int n, void *data);
+static void print_nbns(char *buf, int n, struct packet_data *pdata);
 static int parse_nbns_record(int i, unsigned char *buffer, int n, unsigned char **data,
                              int dlen, struct nbns_info *nbns);
 
@@ -483,4 +483,9 @@ char *get_nbns_suffix(char *name)
     if (i >= 0 && i <= 0x20)
         return nb_suffix[i];
     return NULL;
+}
+
+static void print_nbns(char *buf, int n, struct packet_data *pdata)
+{
+
 }

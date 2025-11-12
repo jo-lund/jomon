@@ -16,7 +16,7 @@ static struct protocol_info loop = {
     .short_name = "LOOP",
     .long_name = "Null/Loopback",
     .decode = handle_loop,
-    .print_info = print_loop,
+    .print_pdu = print_loop,
 };
 
 void register_loop(void)

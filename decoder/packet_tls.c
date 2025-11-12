@@ -359,7 +359,7 @@ enum tls_state {
     CCS
 };
 
-extern void print_tls(char *buf, int n, void *data);
+static void print_tls(char *buf, int n, struct packet_data *pdata);
 static packet_error handle_tls(struct protocol_info *pinfo, unsigned char *buffer,
                                 int len, struct packet_data *pdata);
 static packet_error parse_handshake(struct packet_data *pdata, unsigned char **buf,
@@ -827,4 +827,9 @@ char *get_ec_point_format(uint8_t format)
     default:
         return NULL;
     };
+}
+
+static void print_tls(char *buf, int n, struct packet_data *pdata)
+{
+
 }
