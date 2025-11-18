@@ -78,7 +78,7 @@ packet_error handle_stp(struct protocol_info *pinfo, unsigned char *buf, int n,
     }
     field_init(&pdata->data);
     protocol_id = read_uint16be(&buf);
-    field_add_value(&pdata->data, "Protocol Id", FIELD_UINT16, UINT_TO_PTR(protocol_id));
+    field_add_value(&pdata->data, "Protocol Id", FIELD_UINT16_HEX, UINT_TO_PTR(protocol_id));
 
     /* protocol id 0x00 identifies the (Rapid) Spanning Tree Protocol */
     if (protocol_id != 0x0) {
@@ -102,7 +102,7 @@ packet_error handle_stp(struct protocol_info *pinfo, unsigned char *buf, int n,
         field_add_value(&pdata->data, "Root path cost", FIELD_UINT32, UINT_TO_PTR(read_uint32be(&buf)));
         field_add_bytes(&pdata->data, "Bridge ID", FIELD_UINT16_HWADDR, buf, 8);
         buf += 8;
-        field_add_value(&pdata->data, "Port ID", FIELD_UINT16, UINT_TO_PTR(read_uint16be(&buf)));
+        field_add_value(&pdata->data, "Port ID", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
         field_add_value(&pdata->data, "Message age", FIELD_TIME_UINT16_256, UINT_TO_PTR(read_uint16be(&buf)));
         field_add_value(&pdata->data, "Max age", FIELD_TIME_UINT16_256, UINT_TO_PTR(read_uint16be(&buf)));
         field_add_value(&pdata->data, "Hello time", FIELD_TIME_UINT16_256, UINT_TO_PTR(read_uint16be(&buf)));

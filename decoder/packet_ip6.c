@@ -115,7 +115,7 @@ packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buf, int n,
                        false, tos, ARRAY_SIZE(tos));
     buf++;
     flow_label = (buf[0] & 0x0f) << 16 | buf[1] << 8 | buf[2];
-    field_add_value(&pdata->data, "Flow label", FIELD_UINT32, UINT_TO_PTR(flow_label));
+    field_add_value(&pdata->data, "Flow label", FIELD_UINT32_HEX, UINT_TO_PTR(flow_label));
     buf += 3;
     field_add_value(&pdata->data, "Payload length", FIELD_UINT16, UINT_TO_PTR(read_uint16be(&buf)));
     next_header.val = *buf++;

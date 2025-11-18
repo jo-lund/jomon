@@ -40,9 +40,9 @@ packet_error handle_snap(struct protocol_info *pinfo, unsigned char *buf, int n,
     oui[1] = buf[1];
     oui[2] = buf[2];
     buf += 3;
-    field_add_bytes(&pdata->data, "IEEE Organizationally Unique Identifier (OUI)", FIELD_UINT24, oui, 3);
+    field_add_bytes(&pdata->data, "IEEE Organizationally Unique Identifier (OUI)", FIELD_UINT24_HEX, oui, 3);
     protocol_id = read_uint16be(&buf);
-    field_add_value(&pdata->data, "Protocol Id", FIELD_UINT16, UINT_TO_PTR(protocol_id));
+    field_add_value(&pdata->data, "Protocol Id", FIELD_UINT16_HEX, UINT_TO_PTR(protocol_id));
     pdata->len = SNAP_HDR_LEN;
     pinfo->num_packets++;
     pinfo->num_bytes += SNAP_HDR_LEN;

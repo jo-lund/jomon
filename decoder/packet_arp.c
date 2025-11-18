@@ -119,7 +119,7 @@ packet_error handle_arp(struct protocol_info *pinfo, unsigned char *buf, int n, 
     buf++;
     type.val = read_uint16be(&buf);
     type.str = get_arp_opcode(type.val);
-    field_add_value(&pdata->data, "Opcode", FIELD_UINT_STRING, &type);
+    field_add_value(&pdata->data, "Opcode", FIELD_UINT_HEX_STRING, &type);
     field_add_bytes(&pdata->data, "Sender MAC address", FIELD_HWADDR, buf, ETHER_ADDR_LEN);
     buf += ETHER_ADDR_LEN;
     field_add_value(&pdata->data, "Sender IP address", FIELD_IP4ADDR, UINT_TO_PTR(read_uint32le(&buf)));

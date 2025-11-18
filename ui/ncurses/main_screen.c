@@ -1371,14 +1371,26 @@ void add_elements(main_screen *ms, struct packet *p)
                 snprintf(line, MAXLINE, field_get_key(f));
                 switch (field_get_type(f)) {
                 case FIELD_UINT8:
-                    snprintcat(line, MAXLINE, ": 0x%x", field_get_uint8(f));
+                    snprintcat(line, MAXLINE, ": %u", field_get_uint8(f));
                     LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
                     break;
                 case FIELD_UINT16:
+                    snprintcat(line, MAXLINE, ": %u", field_get_uint16(f));
+                    LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
+                    break;
+                case FIELD_UINT32:
+                    snprintcat(line, MAXLINE, ": %u", field_get_uint32(f));
+                    LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
+                    break;
+                case FIELD_UINT8_HEX:
+                    snprintcat(line, MAXLINE, ": 0x%x", field_get_uint8(f));
+                    LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
+                    break;
+                case FIELD_UINT16_HEX:
                     snprintcat(line, MAXLINE, ": 0x%x", field_get_uint16(f));
                     LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
                     break;
-                case FIELD_UINT24:
+                case FIELD_UINT24_HEX:
                 {
                     unsigned char *val;
 
@@ -1387,7 +1399,7 @@ void add_elements(main_screen *ms, struct packet *p)
                     LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
                     break;
                 }
-                case FIELD_UINT32:
+                case FIELD_UINT32_HEX:
                     snprintcat(line, MAXLINE, ": 0x%x", field_get_uint32(f));
                     LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
                     break;
@@ -1399,6 +1411,13 @@ void add_elements(main_screen *ms, struct packet *p)
                     header = pheader;
                     break;
                 case FIELD_UINT_STRING:
+                {
+                    struct uint_string *type = field_get_value(f);
+                    snprintcat(line, MAXLINE, ": %u (%s)", type->val, type->str);
+                    LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
+                    break;
+                }
+                case FIELD_UINT_HEX_STRING:
                 {
                     struct uint_string *type = field_get_value(f);
                     snprintcat(line, MAXLINE, ": 0x%x (%s)", type->val, type->str);

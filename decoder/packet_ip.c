@@ -410,7 +410,7 @@ packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buf, int n,
     /* the 3 first bits are flags */
     field_add_bitfield(&pdata->data, "Flags", buf[0] >> 5, false, ipv4_flags, ARRAY_SIZE(ipv4_flags));
     offset = read_uint16be(&buf) & 0x1fff; /* clear the flag bits */
-    field_add_value(&pdata->data, "Fragment offset", FIELD_UINT16, UINT_TO_PTR(offset));
+    field_add_value(&pdata->data, "Fragment offset", FIELD_UINT16_HEX, UINT_TO_PTR(offset));
     field_add_value(&pdata->data, "Time to live", FIELD_UINT8, UINT_TO_PTR(buf[0]));
     buf++;
     protocol.val = buf[0];
