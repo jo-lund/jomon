@@ -112,7 +112,7 @@ packet_error handle_arp(struct protocol_info *pinfo, unsigned char *buf, int n, 
     field_add_value(&pdata->data, "Hardware type", FIELD_UINT_STRING, &type);
     type.val = read_uint16be(&buf);
     type.str = get_arp_protocol_type(type.val);
-    field_add_value(&pdata->data, "Protocol type", FIELD_UINT_STRING, &type);
+    field_add_value(&pdata->data, "Protocol type", FIELD_UINT_HEX_STRING, &type);
     field_add_value(&pdata->data, "Hardware size", FIELD_UINT8, UINT_TO_PTR(*buf));
     buf++;
     field_add_value(&pdata->data, "Protocol size", FIELD_UINT8, UINT_TO_PTR(*buf));
@@ -136,7 +136,8 @@ void print_arp(char *buf, int n, struct packet_data *pdata)
 {
     char sip[INET_ADDRSTRLEN];
     char tip[INET_ADDRSTRLEN];
-    char *sha;
+    char sha[HW_ADDRSTRLEN];
+    unsigned char *mac;
     const struct field *f;
     uint32_t addr;
     struct uint_string *opcode;
@@ -153,8 +154,8 @@ void print_arp(char *buf, int n, struct packet_data *pdata)
         snprintf(buf, n, "Request: Looking for hardware address for %s", tip);
         break;
     case ARPOP_REPLY:
-        sha = field_search_value(&pdata->data, "Sender MAC address");
-        HW_ADDR_NTOP(sha, sha);
+        mac = field_search_value(&pdata->data, "Sender MAC address");
+        HW_ADDR_NTOP(sha, mac);
         snprintf(buf, n, "Reply: %s has hardware address %s", sip, sha);
         break;
     default:
