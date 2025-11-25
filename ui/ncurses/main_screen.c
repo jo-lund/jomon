@@ -1424,6 +1424,13 @@ void add_elements(main_screen *ms, struct packet *p)
                     LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
                     break;
                 }
+                case FIELD_BYTES:
+                {
+                    list_view_header *sub;
+                    sub = LV_ADD_SUB_HEADER(ms->lvw, header, selected[UI_SUBLAYER1], UI_SUBLAYER1, line);
+                    add_hexdump(ms->lvw, sub, hexmode, field_get_value(f), field_get_length(f));
+                    break;
+                }
                 case FIELD_HWADDR:
                 {
                     char data[HW_ADDRSTRLEN];

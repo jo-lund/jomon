@@ -3,12 +3,21 @@
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/ip_icmp.h>
+#include <stdio.h>
+#include <arpa/inet.h>
 #include "packet_ip.h"
 #include "packet_icmp.h"
 #include "attributes.h"
 #include "util.h"
+#include "field.h"
+#include "string.h"
 
 #define ICMP_HDR_LEN 8
+
+#ifdef __FreeBSD__
+#define ICMP_INFO_REQUEST ICMP_IREQ
+#define ICMP_INFO_REPLY ICMP_IREQREPLY
+#endif
 
 static packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buffer, int n,
                                 struct packet_data *pdata);
@@ -27,95 +36,7 @@ void register_icmp(void)
     register_protocol(&icmp_prot, IP6_PROT, IPPROTO_ICMP);
 }
 
-packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buffer, int n,
-                         struct packet_data *pdata)
-{
-    if (n < ICMP_HDR_LEN)
-        return UNK_PROTOCOL;
-
-    struct icmp_info *icmp;
-
-    icmp = mempool_alloc(sizeof(struct icmp_info));
-    pdata->len = n;
-    pinfo->num_packets++;
-    pinfo->num_bytes += n;
-    icmp->type = *buffer++;
-    icmp->code = *buffer++;
-    icmp->checksum = read_uint16be(&buffer);
-    switch (icmp->type) {
-    case ICMP_ECHOREPLY:
-    case ICMP_ECHO:
-        icmp->id = read_uint16be(&buffer);
-        icmp->seq_num = read_uint16be(&buffer);
-        if (n > ICMP_HDR_LEN) {
-            icmp->echo.data = buffer;
-            icmp->echo.len = n - ICMP_HDR_LEN;
-        } else {
-            icmp->echo.data = NULL;
-            icmp->echo.len = 0;
-        }
-        break;
-    case ICMP_TSTAMP:
-    case ICMP_TSTAMPREPLY:
-        icmp->id = read_uint16be(&buffer);
-        icmp->seq_num = read_uint16be(&buffer);
-        if (n - ICMP_HDR_LEN < 12) {
-            icmp->timestamp.originate = 0;
-            icmp->timestamp.receive = 0;
-            icmp->timestamp.transmit = 0;
-            pdata->error = create_error_string("ICMP packet too short (%d)", n);
-            return DECODE_ERR;
-        }
-        icmp->timestamp.originate = read_uint32be(&buffer);
-        icmp->timestamp.receive = read_uint32be(&buffer);
-        icmp->timestamp.transmit = read_uint32be(&buffer);
-        break;
-    case ICMP_MASKREQ:
-    case ICMP_MASKREPLY:
-        icmp->id = read_uint16be(&buffer);
-        icmp->seq_num = read_uint16be(&buffer);
-        if (n - ICMP_HDR_LEN < 4) {
-            pdata->error = create_error_string("ICMP packet too short (%d)", n);
-            return DECODE_ERR;
-        }
-        /* store in big endian format */
-        icmp->addr_mask = read_uint32le(&buffer);
-        break;
-    case ICMP_PARAMPROB:
-        icmp->pointer = buffer[0];
-        goto parse_ip;
-    case ICMP_REDIRECT:
-        /* store in big endian format */
-        icmp->gateway = get_uint32le(buffer);
-        FALLTHROUGH;
-    case ICMP_UNREACH:
-    case ICMP_TIMXCEED:
-    case ICMP_SOURCEQUENCH:
-    parse_ip:
-        if (n > ICMP_HDR_LEN) {
-            struct protocol_info *p;
-            uint32_t id;
-
-            id = get_protocol_id(ETHERNET_II, ETHERTYPE_IP);
-            p = get_protocol(id);
-            pdata->next = mempool_calloc(1, struct packet_data);
-            pdata->next->id = id;
-            /* buffer points at ICMP header + 4, i.e. need to add 4 bytes to get at data */
-            return p->decode(p, buffer + 4, n - ICMP_HDR_LEN, pdata->next);
-        }
-        break;
-    case ICMP_INFO_REQUEST:
-    case ICMP_INFO_REPLY:
-        icmp->id = read_uint16be(&buffer);
-        icmp->seq_num = read_uint16be(&buffer);
-        break;
-    default:
-        break;
-    }
-    return NO_ERR;
-}
-
-char *get_icmp_type(uint8_t type)
+static char *get_icmp_type(uint8_t type)
 {
     switch (type) {
     case ICMP_ECHOREPLY:
@@ -149,7 +70,7 @@ char *get_icmp_type(uint8_t type)
     }
 }
 
-char *get_icmp_dest_unreach_code(uint8_t code)
+static char *get_icmp_dest_unreach_code(uint8_t code)
 {
     switch (code) {
     case ICMP_UNREACH_NET:
@@ -175,7 +96,7 @@ char *get_icmp_dest_unreach_code(uint8_t code)
     }
 }
 
-char *get_icmp_redirect_code(uint8_t code)
+static char *get_icmp_redirect_code(uint8_t code)
 {
     switch (code) {
     case ICMP_REDIRECT_NET:
@@ -191,7 +112,201 @@ char *get_icmp_redirect_code(uint8_t code)
     }
 }
 
+packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buf, int n,
+                         struct packet_data *pdata)
+{
+    struct uint_string type, code;
+
+    if (n < ICMP_HDR_LEN)
+        return UNK_PROTOCOL;
+
+    field_init(&pdata->data);
+    pdata->len = n;
+    pinfo->num_packets++;
+    pinfo->num_bytes += n;
+    type.val = *buf++;
+    type.str = get_icmp_type(type.val);
+    field_add_value(&pdata->data, "Type", FIELD_UINT_STRING, &type);
+    switch (type.val) {
+    case ICMP_ECHOREPLY:
+    case ICMP_ECHO:
+        field_add_value(&pdata->data, "Code", FIELD_UINT8, UINT_TO_PTR(*buf++));
+        field_add_value(&pdata->data, "Checksum", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
+        field_add_value(&pdata->data, "Identifier", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
+        field_add_value(&pdata->data, "Sequence number", FIELD_UINT16, UINT_TO_PTR(read_uint16be(&buf)));
+        if (n > ICMP_HDR_LEN)
+            field_add_bytes(&pdata->data, "Data", FIELD_BYTES, buf, n - ICMP_HDR_LEN);
+        break;
+    case ICMP_TSTAMP:
+    case ICMP_TSTAMPREPLY:
+        field_add_value(&pdata->data, "Code", FIELD_UINT8, UINT_TO_PTR(*buf++));
+        field_add_value(&pdata->data, "Checksum", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
+        field_add_value(&pdata->data, "Identifier", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
+        field_add_value(&pdata->data, "Sequence number", FIELD_UINT16, UINT_TO_PTR(read_uint16be(&buf)));
+        if (n - ICMP_HDR_LEN < 12) {
+            pdata->error = create_error_string("ICMP packet too short (%d)", n);
+            return DECODE_ERR;
+        }
+        field_add_value(&pdata->data, "Originate timestamp", FIELD_TIMESTAMP,
+                        UINT_TO_PTR(read_uint32be(&buf)));
+        field_add_value(&pdata->data, "Receive timestamp", FIELD_TIMESTAMP,
+                        UINT_TO_PTR(read_uint32be(&buf)));
+        field_add_value(&pdata->data, "Transmit timestamp", FIELD_TIMESTAMP,
+                        UINT_TO_PTR(read_uint32be(&buf)));
+        break;
+    case ICMP_MASKREQ:
+    case ICMP_MASKREPLY:
+        field_add_value(&pdata->data, "Code", FIELD_UINT8, UINT_TO_PTR(*buf++));
+        field_add_value(&pdata->data, "Checksum", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
+        field_add_value(&pdata->data, "Identifier", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
+        field_add_value(&pdata->data, "Sequence number", FIELD_UINT16, UINT_TO_PTR(read_uint16be(&buf)));
+        if (n - ICMP_HDR_LEN < 4) {
+            pdata->error = create_error_string("ICMP packet too short (%d)", n);
+            return DECODE_ERR;
+        }
+        /* store in big endian format */
+        field_add_value(&pdata->data, "Address mask", FIELD_IP4ADDR, UINT_TO_PTR(read_uint32le(&buf)));
+        break;
+    case ICMP_PARAMPROB:
+        field_add_value(&pdata->data, "Code", FIELD_UINT8, UINT_TO_PTR(*buf++));
+        field_add_value(&pdata->data, "Checksum", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
+        field_add_value(&pdata->data, "Code", FIELD_UINT8, UINT_TO_PTR(buf[0]));
+        goto parse_ip;
+    case ICMP_REDIRECT:
+        code.val = *buf++;
+        code.str = get_icmp_redirect_code(code.val);
+        field_add_value(&pdata->data, "Code", FIELD_UINT_STRING, &code);
+        field_add_value(&pdata->data, "Checksum", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
+        /* store in big endian format */
+        field_add_value(&pdata->data, "Redirect", FIELD_IP4ADDR, UINT_TO_PTR(get_uint32le(buf)));
+        goto parse_ip;
+    case ICMP_UNREACH:
+        code.val = *buf++;
+        code.str = get_icmp_dest_unreach_code(code.val);
+        field_add_value(&pdata->data, "Code", FIELD_UINT_STRING, &code);
+        field_add_value(&pdata->data, "Checksum", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
+        goto parse_ip;
+    case ICMP_TIMXCEED:
+    case ICMP_SOURCEQUENCH:
+        field_add_value(&pdata->data, "Code", FIELD_UINT_STRING, &code);
+        field_add_value(&pdata->data, "Checksum", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
+    parse_ip:
+        if (n > ICMP_HDR_LEN) {
+            struct protocol_info *p;
+            uint32_t id;
+
+            id = get_protocol_id(ETHERNET_II, ETHERTYPE_IP);
+            p = get_protocol(id);
+            pdata->next = mempool_calloc(1, struct packet_data);
+            pdata->next->id = id;
+            /* buffer points at ICMP header + 4, i.e. need to add 4 bytes to get at data */
+            return p->decode(p, buf + 4, n - ICMP_HDR_LEN, pdata->next);
+        }
+        break;
+    case ICMP_INFO_REQUEST:
+    case ICMP_INFO_REPLY:
+        field_add_value(&pdata->data, "Code", FIELD_UINT8, UINT_TO_PTR(*buf++));
+        field_add_value(&pdata->data, "Checksum", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
+        field_add_value(&pdata->data, "Identifier", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
+        field_add_value(&pdata->data, "Sequence number", FIELD_UINT16, UINT_TO_PTR(read_uint16be(&buf)));
+        break;
+    default:
+        break;
+    }
+    return NO_ERR;
+}
+
 void print_icmp(char *buf, int n, struct packet_data *pdata)
 {
+#if 0
+    const struct field *f;
+    struct uint_string *type, *code;
+    uint16_t id, seq;
+    char addr[INET_ADDRSTRLEN];
+    uint32_t gateway;
+    char org[32];
+    char rcvd[32];
+    char xmit[32];
+    uint32_t originate, receive, transmit;
 
+    type = field_search_value(&pdata->data, "Type");
+    switch (type->val) {
+    case ICMP_ECHOREPLY:
+        f = field_search(&pdata->data, "Identifier");
+        id = field_get_uint16(f);
+        f = field_search(&pdata->data, "Sequence number");
+        seq = field_get_uint16(f);
+        snprintf(buf, n, "Echo reply:   id = 0x%x  seq = %d", id, seq);
+        break;
+    case ICMP_ECHO:
+        f = field_search(&pdata->data, "Identifier");
+        id = field_get_uint16(f);
+        f = field_search(&pdata->data, "Sequence number");
+        seq = field_get_uint16(f);
+        snprintf(buf, n, "Echo request: id = 0x%x  seq = %d", id, seq);
+        break;
+    case ICMP_UNREACH:
+        code = field_search_value(&pdata->data, "Code");
+        snprintf(buf, n, "%s", code->str);
+        break;
+    case ICMP_REDIRECT:
+        f = field_search(&pdata->data, "Redirect");
+        gateway = field_get_uint32(f);
+        inet_ntop(AF_INET, &gateway, addr, INET_ADDRSTRLEN);
+        snprintf(buf, n, "Redirect to %s", addr);
+        break;
+    case ICMP_TSTAMP:
+        f = field_search(&pdata->data, "Identifier");
+        id = field_get_uint16(f);
+        f = field_search(&pdata->data, "Sequence number");
+        seq = field_get_uint16(f);
+        f = field_search(&pdata->data, "Originate timestamp");
+        originate = field_get_uint32(f);
+        f = field_search(&pdata->data, "Receive timestamp");
+        receive = field_get_uint32(f);
+        f = field_search(&pdata->data, "Transmit timestamp");
+        transmit = field_get_uint32(f);
+        snprintf(buf, n, "Timestamp request: id = 0x%x  seq = %d, originate = %s, receive = %s, transmit = %s",
+                 id, seq, get_time_from_ms_ut(originate, org, 32), get_time_from_ms_ut(receive, rcvd, 32),
+                 get_time_from_ms_ut(transmit, xmit, 32));
+        break;
+    case ICMP_TSTAMPREPLY:
+        f = field_search(&pdata->data, "Identifier");
+        id = field_get_uint16(f);
+        f = field_search(&pdata->data, "Sequence number");
+        seq = field_get_uint16(f);
+        f = field_search(&pdata->data, "Originate timestamp");
+        originate = field_get_uint32(f);
+        f = field_search(&pdata->data, "Receive timestamp");
+        receive = field_get_uint32(f);
+        f = field_search(&pdata->data, "Transmit timestamp");
+        transmit = field_get_uint32(f);
+        snprintf(buf, n, "Timestamp reply:   id = 0x%x  seq = %d, originate = %s, receive = %s, transmit = %s",
+                 id, seq, get_time_from_ms_ut(originate, org, 32), get_time_from_ms_ut(receive, rcvd, 32),
+                 get_time_from_ms_ut(transmit, xmit, 32));
+        break;
+    case ICMP_MASKREQ:
+        f = field_search(&pdata->data, "Identifier");
+        id = field_get_uint16(f);
+        f = field_search(&pdata->data, "Sequence number");
+        seq = field_get_uint16(f);
+        f = field_search(&pdata->data, "Address mask");
+        gateway = field_get_uint32(f);
+        inet_ntop(AF_INET, &gateway, addr, INET_ADDRSTRLEN);
+        snprintf(buf, n, "Address mask request: id = 0x%x  seq = %d, mask = %s", id, seq, addr);
+        break;
+    case ICMP_MASKREPLY:
+        f = field_search(&pdata->data, "Identifier");
+        id = field_get_uint16(f);
+        f = field_search(&pdata->data, "Sequence number");
+        seq = field_get_uint16(f);
+        f = field_search(&pdata->data, "Address mask");
+        gateway = field_get_uint32(f);
+        inet_ntop(AF_INET, &gateway, addr, INET_ADDRSTRLEN);
+        snprintf(buf, n, "Address mask reply:   id = 0x%x  seq = %d, mask = %s", id, seq, addr);
+        break;
+    default:
+        snprintf(buf, n, "%s", type->str);
+    }
+#endif
 }
