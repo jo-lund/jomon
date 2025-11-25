@@ -91,12 +91,12 @@ typedef void (*protocol_handler)(struct protocol_info *pinfo, void *arg);
  * Generic packet structure that can be used for every type of packet.
  */
 struct packet {
-    uint32_t num;
     struct timeval time;
-    unsigned char *buf; /* contains the frame as seen on the network */
-    unsigned int len;
     struct packet_data *root;
     QUEUE_ENTRY(struct packet) link;
+    unsigned char *buf; /* contains the frame as seen on the network */
+    unsigned int len;
+    uint32_t num;
 };
 
 struct packet_data {
