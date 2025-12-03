@@ -167,6 +167,9 @@ void conversation_screen_got_focus(screen *s, screen *oldscr)
     if (oldscr->fullscreen) {
         cs->base.packet_ref = vector_init(cs->stream->size);
         fill_screen_buffer(cs);
+        actionbar_update(s, "F3", NULL, true);
+        actionbar_update(s, "F4", NULL, true);
+        actionbar_update(s, "F5", NULL, ctx.capturing);
         actionbar_update(s, "F7", NULL, true);
         actionbar_update(s, "F9", NULL, true);
     }
@@ -186,8 +189,6 @@ void conversation_screen_lost_focus(screen *s, screen *newscr)
         vector_free(cs->base.packet_ref, NULL);
         s->top = 0;
         s->selectionbar = 0;
-        actionbar_update(s, "F7", NULL, ctx.capturing);
-        actionbar_update(s, "F9", NULL, false);
     }
 }
 
@@ -275,14 +276,28 @@ void conversation_screen_get_input(screen *s)
         if (!ctx.capturing && rbtree_size(cs->base.marked) > 0)
             create_export_dialogue();
         break;
-    case KEY_F(7): /* should not be enabled */
+    case KEY_F(3): /* should not be enabled */
+    case KEY_F(4):
+    case KEY_F(7):
     case KEY_F(9):
     case 'e':
         break;
     default:
-        /* "go to packet" should only be valid in normal mode */
-        if (tcp_mode != NORMAL && c == 'g')
-            break;
+        if (tcp_mode != NORMAL) {
+            switch (c) {
+            case 'i':
+            case 'g':
+            case 'M':
+            case 'C':
+            case 'N':
+            case 'n':
+            case KEY_ENTER:
+            case '\n':
+                return;
+            default:
+                break;
+            }
+        }
         ungetch(c);
         main_screen_get_input(s);
         break;
