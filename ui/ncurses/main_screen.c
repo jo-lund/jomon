@@ -681,6 +681,7 @@ void main_screen_get_input(screen *s)
     case 'C':
         if (rbtree_size(ms->marked) > 0) {
             rbtree_clear(ms->marked);
+            actionbar_update(s, "F6", NULL, true);
             main_screen_refresh((screen *) ms);
         }
         break;
