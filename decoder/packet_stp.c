@@ -82,6 +82,7 @@ packet_error handle_stp(struct protocol_info *pinfo, unsigned char *buf, int n,
 
     /* protocol id 0x00 identifies the (Rapid) Spanning Tree Protocol */
     if (protocol_id != 0x0) {
+        field_finish(pdata->data);
         pdata->error = create_error_string("Unknown protocol id (%d)", protocol_id);
         return UNK_PROTOCOL;
     }

@@ -144,6 +144,7 @@ packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buf, int n,
         field_add_value(pdata->data, "Identifier", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
         field_add_value(pdata->data, "Sequence number", FIELD_UINT16, UINT_TO_PTR(read_uint16be(&buf)));
         if (n - ICMP_HDR_LEN < 12) {
+            field_finish(pdata->data);
             pdata->error = create_error_string("ICMP packet too short (%d)", n);
             return DECODE_ERR;
         }
@@ -161,6 +162,7 @@ packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buf, int n,
         field_add_value(pdata->data, "Identifier", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
         field_add_value(pdata->data, "Sequence number", FIELD_UINT16, UINT_TO_PTR(read_uint16be(&buf)));
         if (n - ICMP_HDR_LEN < 4) {
+            field_finish(pdata->data);
             pdata->error = create_error_string("ICMP packet too short (%d)", n);
             return DECODE_ERR;
         }
@@ -220,7 +222,6 @@ packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buf, int n,
 
 void print_icmp(char *buf, int n, struct packet_data *pdata)
 {
-#if 0
     const struct field *f;
     struct uint_string *type, *code;
     uint16_t id, seq;
@@ -310,5 +311,4 @@ void print_icmp(char *buf, int n, struct packet_data *pdata)
     default:
         snprintf(buf, n, "%s", type->str);
     }
-#endif
 }

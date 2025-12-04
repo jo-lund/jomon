@@ -424,16 +424,19 @@ packet_error handle_ipv4(struct protocol_info *pinfo, unsigned char *buf, int n,
                     UINT_TO_PTR(read_uint32le(&buf)));
     if (ihl > 5) {
         if (parse_options(pdata, &buf, (ihl - 5) * 4) != NO_ERR) {
+            field_finish(pdata->data);
             pdata->error = create_error_string("IP options error");
             return DECODE_ERR;
         }
     }
     if (length < header_len) {
+        field_finish(pdata->data);
         pdata->error = create_error_string("IP total length (%d) less than header length (%d)",
                                            length, header_len);
         return DECODE_ERR;
     }
     if (length > n) {
+        field_finish(pdata->data);
         pdata->error = create_error_string("IP total length (%d) greater than packet length (%d)",
                                            length, n);
         return DECODE_ERR;
