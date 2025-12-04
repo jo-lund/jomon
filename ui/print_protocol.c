@@ -80,7 +80,7 @@ static void print_address(char *buf, size_t n, const struct packet *p)
             uint32_t saddr;
             uint32_t daddr;
 
-            if (field_empty(&pdata->next->data))
+            if (field_empty(pdata->next->data))
                 return;
             saddr = ipv4_src(p);
             daddr = ipv4_dst(p);
@@ -99,10 +99,10 @@ static void print_address(char *buf, size_t n, const struct packet *p)
             uint8_t *saddr;
             uint8_t *daddr;
 
-            if (field_empty(&pdata->next->data))
+            if (field_empty(pdata->next->data))
                 return;
-            saddr = field_search_value(&pdata->next->data, "Source address");
-            daddr = field_search_value(&pdata->next->data, "Destination address");
+            saddr = field_search_value(pdata->next->data, "Source address");
+            daddr = field_search_value(pdata->next->data, "Destination address");
             inet_ntop(AF_INET6, saddr, src, INET6_ADDRSTRLEN);
             inet_ntop(AF_INET6, daddr, dst, INET6_ADDRSTRLEN);
             PRINT_ADDRESS(buf, n, src, dst);
@@ -110,14 +110,14 @@ static void print_address(char *buf, size_t n, const struct packet *p)
         }
     }
     if (is_ethernet(pdata)) {
-        if (!field_empty(&pdata->data)) {
+        if (!field_empty(pdata->data)) {
             char smac[HW_ADDRSTRLEN];
             char dmac[HW_ADDRSTRLEN];
             unsigned char *src;
             unsigned char *dst;
 
-            src = field_search_value(&pdata->data, "MAC source");
-            dst = field_search_value(&pdata->data, "MAC destination");
+            src = field_search_value(pdata->data, "MAC source");
+            dst = field_search_value(pdata->data, "MAC destination");
             HW_ADDR_NTOP(smac, src);
             HW_ADDR_NTOP(dmac, dst);
             PRINT_ADDRESS(buf, n, smac, dmac);

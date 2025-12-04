@@ -3,7 +3,8 @@
 
 #include <stdbool.h>
 
-struct field_head;
+struct field;
+struct field_info;
 
 enum field_type {
     FIELD_UINT8,
@@ -29,15 +30,17 @@ enum field_type {
     FIELD_TIMESTAMP_NON_STANDARD
 };
 
-void field_init(struct field_head *head);
-void field_add_value(struct field_head *head, char *key, int type, void *data);
-void field_add_bytes(struct field_head *head, char *key, int type, unsigned char *data, int len);
-void field_add_bitfield(struct field_head *head, char *key, uint16_t flags,
-                        bool print_value, void *data, int len);
-const struct field *field_get_next(struct field_head *head, const struct field *f);
-bool field_empty(struct field_head *head);
-const struct field *field_search(struct field_head *head, char *key);
-void *field_search_value(struct field_head *head, char *key);
+struct field_info *field_init(void);
+void field_finish(struct field_info *fi);
+void field_add_value(struct field_info *f, char *key, int type, void *data);
+void field_add_bytes(struct field_info *f, char *key, int type, unsigned char *data, int len);
+void field_add_bitfield(struct field_info *f, char *key, uint16_t flags,
+                       bool print_value, void *data, int len);
+const struct field *field_get(struct field_info *f, int i);
+bool field_empty(struct field_info *f);
+int field_count(struct field_info *f);
+const struct field *field_search(struct field_info *f, char *key);
+void *field_search_value(struct field_info *f, char *key);
 char *field_get_key(const struct field *f);
 void *field_get_value(const struct field *f);
 uint16_t field_get_type(const struct field *f);

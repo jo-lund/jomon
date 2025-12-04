@@ -29,12 +29,13 @@ packet_error handle_llc(struct protocol_info *pinfo, unsigned char *buf, int n, 
         pdata->error = create_error_string("Packet length (%d) less than LLC header (%d)", n, LLC_HDR_LEN);
         return DECODE_ERR;
     }
-    field_init(&pdata->data);
-    field_add_value(&pdata->data, "Destination Service Access Point (DSAP)", FIELD_UINT8,
+    pdata->data = field_init();
+    field_add_value(pdata->data, "Destination Service Access Point (DSAP)", FIELD_UINT8,
                     UINT_TO_PTR(buf[0]));
-    field_add_value(&pdata->data, "Source Service Access Point (SSAP)", FIELD_UINT8,
+    field_add_value(pdata->data, "Source Service Access Point (SSAP)", FIELD_UINT8,
                     UINT_TO_PTR(buf[1]));
-    field_add_value(&pdata->data, "Control", FIELD_UINT8, UINT_TO_PTR(buf[2]));
+    field_add_value(pdata->data, "Control", FIELD_UINT8, UINT_TO_PTR(buf[2]));
+    field_finish(pdata->data);
     pdata->len = LLC_HDR_LEN;
     pinfo->num_packets++;
     pinfo->num_bytes += LLC_HDR_LEN;
@@ -54,11 +55,11 @@ static void print_llc(char *buf, int n, struct packet_data *pdata)
     const struct field *f;
     uint8_t ssap, dsap, control;
 
-    f = field_search(&pdata->data, "Destination Service Access Point (DSAP)");
+    f = field_search(pdata->data, "Destination Service Access Point (DSAP)");
     dsap = field_get_uint8(f);
-    f = field_search(&pdata->data, "Source Service Access Point (SSAP)");
+    f = field_search(pdata->data, "Source Service Access Point (SSAP)");
     ssap = field_get_uint8(f);
-    f = field_search(&pdata->data, "Control");
+    f = field_search(pdata->data, "Control");
     control = field_get_uint8(f);
     snprintf(buf, n, "SSAP: 0x%x  DSAP: 0x%x  Control: 0x%x", ssap, dsap, control);
 }

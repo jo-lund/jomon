@@ -1,3 +1,4 @@
+
 #include <arpa/inet.h>
 #include <stdio.h>
 #include <netinet/if_ether.h>
@@ -106,26 +107,27 @@ packet_error handle_arp(struct protocol_info *pinfo, unsigned char *buf, int n, 
                                            n, ARP_SIZE);
         return DECODE_ERR;
     }
-    field_init(&pdata->data);
+    pdata->data = field_init();
     type.val = read_uint16be(&buf);
     type.str = get_arp_hardware_type(type.val);
-    field_add_value(&pdata->data, "Hardware type", FIELD_UINT_STRING, &type);
+    field_add_value(pdata->data, "Hardware type", FIELD_UINT_STRING, &type);
     type.val = read_uint16be(&buf);
     type.str = get_arp_protocol_type(type.val);
-    field_add_value(&pdata->data, "Protocol type", FIELD_UINT_HEX_STRING, &type);
-    field_add_value(&pdata->data, "Hardware size", FIELD_UINT8, UINT_TO_PTR(*buf));
+    field_add_value(pdata->data, "Protocol type", FIELD_UINT_HEX_STRING, &type);
+    field_add_value(pdata->data, "Hardware size", FIELD_UINT8, UINT_TO_PTR(*buf));
     buf++;
-    field_add_value(&pdata->data, "Protocol size", FIELD_UINT8, UINT_TO_PTR(*buf));
+    field_add_value(pdata->data, "Protocol size", FIELD_UINT8, UINT_TO_PTR(*buf));
     buf++;
     type.val = read_uint16be(&buf);
     type.str = get_arp_opcode(type.val);
-    field_add_value(&pdata->data, "Opcode", FIELD_UINT_HEX_STRING, &type);
-    field_add_bytes(&pdata->data, "Sender MAC address", FIELD_HWADDR, buf, ETHER_ADDR_LEN);
+    field_add_value(pdata->data, "Opcode", FIELD_UINT_HEX_STRING, &type);
+    field_add_bytes(pdata->data, "Sender MAC address", FIELD_HWADDR, buf, ETHER_ADDR_LEN);
     buf += ETHER_ADDR_LEN;
-    field_add_value(&pdata->data, "Sender IP address", FIELD_IP4ADDR, UINT_TO_PTR(read_uint32le(&buf)));
-    field_add_bytes(&pdata->data, "Target MAC address", FIELD_HWADDR, buf, ETHER_ADDR_LEN);
+    field_add_value(pdata->data, "Sender IP address", FIELD_IP4ADDR, UINT_TO_PTR(read_uint32le(&buf)));
+    field_add_bytes(pdata->data, "Target MAC address", FIELD_HWADDR, buf, ETHER_ADDR_LEN);
     buf += ETHER_ADDR_LEN;
-    field_add_value(&pdata->data, "Target IP address", FIELD_IP4ADDR, UINT_TO_PTR(read_uint32le(&buf)));
+    field_add_value(pdata->data, "Target IP address", FIELD_IP4ADDR, UINT_TO_PTR(read_uint32le(&buf)));
+    field_finish(pdata->data);
     pdata->len = n;  // TODO: Handle padding
     pinfo->num_packets++;
     pinfo->num_bytes += n;
@@ -142,19 +144,19 @@ void print_arp(char *buf, int n, struct packet_data *pdata)
     uint32_t addr;
     struct uint_string *opcode;
 
-    f = field_search(&pdata->data, "Sender IP address");
+    f = field_search(pdata->data, "Sender IP address");
     addr = field_get_uint32(f);
     inet_ntop(AF_INET, &addr, sip, INET_ADDRSTRLEN);
-    f = field_search(&pdata->data, "Target IP address");
+    f = field_search(pdata->data, "Target IP address");
     addr = field_get_uint32(f);
     inet_ntop(AF_INET, &addr, tip, INET_ADDRSTRLEN);
-    opcode = field_search_value(&pdata->data, "Opcode");
+    opcode = field_search_value(pdata->data, "Opcode");
     switch (opcode->val) {
     case ARPOP_REQUEST:
         snprintf(buf, n, "Request: Looking for hardware address for %s", tip);
         break;
     case ARPOP_REPLY:
-        mac = field_search_value(&pdata->data, "Sender MAC address");
+        mac = field_search_value(pdata->data, "Sender MAC address");
         HW_ADDR_NTOP(sha, mac);
         snprintf(buf, n, "Reply: %s has hardware address %s", sip, sha);
         break;

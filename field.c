@@ -1,11 +1,18 @@
 #include <stdint.h>
 #include <stdbool.h>
+#include <assert.h>
 #include "field.h"
 #include "queue.h"
 #include "mempool.h"
 #include "decoder/packet.h"
 #include "string.h"
 #include "util.h"
+#include "vector.h"
+
+struct field_info {
+    struct field *f;
+    int16_t nfields;
+};
 
 struct field {
     char *key;
@@ -13,36 +20,62 @@ struct field {
     uint8_t type;
     bool print_bitvalue;
     uint16_t flags;
-    int length;
-    QUEUE_ENTRY(struct field) link;
+    int16_t length;
 };
 
-void field_init(struct field_head *head)
+struct field_val {
+    char *key;
+    void *val;
+};
+
+static vector_t *aidx;
+
+CONSTRUCTOR static void init(void)
 {
-    QUEUE_INIT(head);
+    aidx = vector_init(32);
 }
 
-void field_add_bytes(struct field_head *head, char *key, int type, unsigned char *data, int len)
+struct field_info *field_init(void)
 {
-    struct field *f;
+    struct field_info *fi;
 
-    f = mempool_alloc(sizeof(*f));
-    f->type = type;
-    f->key = key;
-    f->val = mempool_copy(data, len);
-    f->length = len;
-    f->flags = 0;
-    QUEUE_APPEND(head, f, link);
+    fi = mempool_alloc(sizeof(*fi));
+    fi->f = NULL;
+    fi->nfields = 0;
+    return fi;
 }
 
-void field_add_value(struct field_head *head, char *key, int type, void *data)
+void field_finish(struct field_info *fi)
 {
-    struct field *f;
+    fi->f = mempool_finish();
+    for (int i = 0; i < vector_size(aidx); i++) {
+        int idx = PTR_TO_INT(vector_get(aidx, i));
+        fi->f[idx].val = mempool_copy(fi->f[idx].val, fi->f[idx].length);
+    }
+    vector_clear(aidx, NULL);
+}
 
-    f = mempool_alloc(sizeof(*f));
-    f->key = key;
-    f->type = type;
-    f->flags = 0;
+void field_add_bytes(struct field_info *fi, char *key, int type, unsigned char *data, int len)
+{
+    struct field f;
+
+    f.type = type;
+    f.key = key;
+    f.val = data;
+    f.length = len;
+    f.flags = 0;
+    mempool_grow(&f, sizeof(f));
+    vector_push_back(aidx, INT_TO_PTR(fi->nfields));
+    fi->nfields++;
+}
+
+void field_add_value(struct field_info *fi, char *key, int type, void *data)
+{
+    struct field f;
+
+    f.key = key;
+    f.type = type;
+    f.flags = 0;
     switch (type) {
     case FIELD_UINT8:
     case FIELD_UINT16:
@@ -52,61 +85,72 @@ void field_add_value(struct field_head *head, char *key, int type, void *data)
     case FIELD_IP4ADDR:
     case FIELD_TIMESTAMP:
     case FIELD_TIMESTAMP_NON_STANDARD:
-        f->val = data;
+        f.val = data;
         break;
     case FIELD_UINT_STRING:
-        f->val = mempool_copy(data, sizeof(struct uint_string));
+    case FIELD_UINT_HEX_STRING:
+        f.val = data;
+        f.length = sizeof(struct uint_string);
+        vector_push_back(aidx, INT_TO_PTR(fi->nfields));
         break;
     case FIELD_TIME_UINT16_256:
-        f->val = UINT_TO_PTR(((uint16_t) PTR_TO_UINT(data)) / 256);
+        f.val = UINT_TO_PTR(((uint16_t) PTR_TO_UINT(data)) / 256);
         break;
     default:
         break;
     }
-    QUEUE_APPEND(head, f, link);
+    mempool_grow(&f, sizeof(f));
+    fi->nfields++;
 }
 
-void field_add_bitfield(struct field_head *head, char *key, uint16_t flags,
+void field_add_bitfield(struct field_info *fi, char *key, uint16_t flags,
                         bool print_value, void *data, int len)
 {
-    struct field *f;
+    struct field f;
 
-    f = mempool_alloc(sizeof(*f));
-    f->key = key;
-    f->val = data;
-    f->type = FIELD_BITFIELD;
-    f->print_bitvalue = print_value;
-    f->flags = flags;
-    f->length = len;
-    QUEUE_APPEND(head, f, link);
+    f.key = key;
+    f.val = data;
+    f.type = FIELD_BITFIELD;
+    f.print_bitvalue = print_value;
+    f.flags = flags;
+    f.length = len;
+    mempool_grow(&f, sizeof(f));
+    fi->nfields++;
 }
 
-bool field_empty(struct field_head *head)
+bool field_empty(struct field_info *fi)
 {
-    return QUEUE_EMPTY(head);
+    return fi ? fi->nfields == 0 : true;
 }
 
-const struct field *field_get_next(struct field_head *head, const struct field *f)
+int field_count(struct field_info *fi)
 {
-    return f ? QUEUE_NEXT(f, link) : head->first;
+    return fi->nfields;
 }
 
-const struct field *field_search(struct field_head *head, char *key)
+const struct field *field_get(struct field_info *fi, int i)
 {
-    struct field *f = NULL;
+    return (const struct field *) &fi->f[i];
+}
 
-    QUEUE_FOR_EACH(head, f, link) {
+const struct field *field_search(struct field_info *fi, char *key)
+{
+    const struct field *f;
+
+    for (int i = 0; i < fi->nfields; i++) {
+        f = field_get(fi, i);
         if (strcmp(f->key, key) == 0)
             return f;
     }
     return NULL;
 }
 
-void *field_search_value(struct field_head *head, char *key)
+void *field_search_value(struct field_info *fi, char *key)
 {
-    struct field *f = NULL;
+    const struct field *f;
 
-    QUEUE_FOR_EACH(head, f, link) {
+    for (int i = 0; i < fi->nfields; i++) {
+        f = field_get(fi, i);
         if (strcmp(f->key, key) == 0)
             return f->val;
     }
@@ -125,7 +169,7 @@ void *field_get_value(const struct field *f)
 
 uint16_t field_get_type(const struct field *f)
 {
-    return f ? f->type : -1;
+    return f ? f->type : ~0;
 }
 
 int field_get_length(const struct field *f)

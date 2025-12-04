@@ -76,40 +76,41 @@ packet_error handle_stp(struct protocol_info *pinfo, unsigned char *buf, int n,
         pdata->error = create_error_string("Packet length (%d) less than minimum BPDU size (4)", n);
         return DECODE_ERR;
     }
-    field_init(&pdata->data);
+    pdata->data = field_init();
     protocol_id = read_uint16be(&buf);
-    field_add_value(&pdata->data, "Protocol Id", FIELD_UINT16_HEX, UINT_TO_PTR(protocol_id));
+    field_add_value(pdata->data, "Protocol Id", FIELD_UINT16_HEX, UINT_TO_PTR(protocol_id));
 
     /* protocol id 0x00 identifies the (Rapid) Spanning Tree Protocol */
     if (protocol_id != 0x0) {
         pdata->error = create_error_string("Unknown protocol id (%d)", protocol_id);
         return UNK_PROTOCOL;
     }
-    field_add_value(&pdata->data, "Version", FIELD_UINT8, UINT_TO_PTR(buf[0]));
+    field_add_value(pdata->data, "Version", FIELD_UINT8, UINT_TO_PTR(buf[0]));
     buf++;
     type.val = buf[0];
     type.str = get_stp_bpdu_type(type.val);
-    field_add_value(&pdata->data, "Type", FIELD_UINT_STRING, &type);
+    field_add_value(pdata->data, "Type", FIELD_UINT_STRING, &type);
     buf++;
 
     /* a configuration BPDU contains at least 35 bytes and RST BPDU 36 bytes */
     if (n >= MIN_CONF_BPDU && (type.val == CONFIG || type.val == RST)) {
         flags = buf[0];
-        field_add_bitfield(&pdata->data, "Flags", flags, false, &stp_flags, ARRAY_SIZE(stp_flags));
+        field_add_bitfield(pdata->data, "Flags", flags, false, &stp_flags, ARRAY_SIZE(stp_flags));
         buf++;
-        field_add_bytes(&pdata->data, "Root ID", FIELD_UINT16_HWADDR, buf, 8);
+        field_add_bytes(pdata->data, "Root ID", FIELD_UINT16_HWADDR, buf, 8);
         buf += 8;
-        field_add_value(&pdata->data, "Root path cost", FIELD_UINT32, UINT_TO_PTR(read_uint32be(&buf)));
-        field_add_bytes(&pdata->data, "Bridge ID", FIELD_UINT16_HWADDR, buf, 8);
+        field_add_value(pdata->data, "Root path cost", FIELD_UINT32, UINT_TO_PTR(read_uint32be(&buf)));
+        field_add_bytes(pdata->data, "Bridge ID", FIELD_UINT16_HWADDR, buf, 8);
         buf += 8;
-        field_add_value(&pdata->data, "Port ID", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
-        field_add_value(&pdata->data, "Message age", FIELD_TIME_UINT16_256, UINT_TO_PTR(read_uint16be(&buf)));
-        field_add_value(&pdata->data, "Max age", FIELD_TIME_UINT16_256, UINT_TO_PTR(read_uint16be(&buf)));
-        field_add_value(&pdata->data, "Hello time", FIELD_TIME_UINT16_256, UINT_TO_PTR(read_uint16be(&buf)));
-        field_add_value(&pdata->data, "Forward delay", FIELD_TIME_UINT16_256, UINT_TO_PTR(read_uint16be(&buf)));
+        field_add_value(pdata->data, "Port ID", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
+        field_add_value(pdata->data, "Message age", FIELD_TIME_UINT16_256, UINT_TO_PTR(read_uint16be(&buf)));
+        field_add_value(pdata->data, "Max age", FIELD_TIME_UINT16_256, UINT_TO_PTR(read_uint16be(&buf)));
+        field_add_value(pdata->data, "Hello time", FIELD_TIME_UINT16_256, UINT_TO_PTR(read_uint16be(&buf)));
+        field_add_value(pdata->data, "Forward delay", FIELD_TIME_UINT16_256, UINT_TO_PTR(read_uint16be(&buf)));
         if (n > MIN_CONF_BPDU && type.val == RST)
-            field_add_value(&pdata->data, "Version 1 Length", FIELD_UINT8, UINT_TO_PTR(buf[0]));
+            field_add_value(pdata->data, "Version 1 Length", FIELD_UINT8, UINT_TO_PTR(buf[0]));
     }
+    field_finish(pdata->data);
     pdata->len = n;
     pinfo->num_packets++;
     pinfo->num_bytes += n;
@@ -123,20 +124,20 @@ void print_stp(char *buf, int n, struct packet_data *pdata)
     uint16_t port_id;
     const struct field *f;
 
-    type = field_search_value(&pdata->data, "Type");
+    type = field_search_value(pdata->data, "Type");
     switch (type->val) {
     case CONFIG:
-        f = field_search(&pdata->data, "Root path cost");
+        f = field_search(pdata->data, "Root path cost");
         root_pc = field_get_uint32(f);
-        f = field_search(&pdata->data, "Port ID");
+        f = field_search(pdata->data, "Port ID");
         port_id = field_get_uint16(f);
         snprintf(buf, n, "Configuration BPDU. Root Path Cost: %u  Port ID: 0x%x",
                  root_pc, port_id);
         break;
     case RST:
-        f = field_search(&pdata->data, "Root path cost");
+        f = field_search(pdata->data, "Root path cost");
         root_pc = field_get_uint32(f);
-        f = field_search(&pdata->data, "Port ID");
+        f = field_search(pdata->data, "Port ID");
         port_id = field_get_uint16(f);
         snprintf(buf, n, "Rapid Spanning Tree BPDU. Root Path Cost: %u  Port ID: 0x%x",
                    root_pc, port_id);

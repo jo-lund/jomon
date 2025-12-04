@@ -37,12 +37,13 @@ packet_error handle_loop(struct protocol_info *pinfo UNUSED, unsigned char *buf,
 
     if (n < LOOP_HDR_LEN || n > MAX_PACKET_SIZE)
         return DATALINK_ERR;
-    field_init(&pdata->data);
+    pdata->data = field_init();
     layer2 = NULL;
     family.val = read_uint32le(&buf);
     family.str = get_bsd_address_family(family.val);
     n -= LOOP_HDR_LEN;
-    field_add_value(&pdata->data, "Address family", FIELD_UINT_STRING, &family);
+    field_add_value(pdata->data, "Address family", FIELD_UINT_STRING, &family);
+    field_finish(pdata->data);
     pdata->len = LOOP_HDR_LEN;
     switch (family.val) {
     case AFN_BSD_INET:
@@ -72,6 +73,6 @@ void print_loop(char *buf, int n, struct packet_data *pdata)
 {
     struct uint_string *family;
 
-    family = field_search_value(&pdata->data, "Address family");
+    family = field_search_value(pdata->data, "Address family");
     snprintcat(buf, n, "Address family: %s (%d)", family->str, family->val);
 }

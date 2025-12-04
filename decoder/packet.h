@@ -104,7 +104,7 @@ struct packet_data {
     uint8_t transport;
     uint16_t len; /* length of the packet data as seen on the network */
     char *error;
-    QUEUE_HEAD(field_head, struct field) data;
+    struct field_info *data;
     struct packet_data *next;
 };
 

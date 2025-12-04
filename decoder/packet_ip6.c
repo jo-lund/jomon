@@ -105,27 +105,28 @@ packet_error handle_ipv6(struct protocol_info *pinfo, unsigned char *buf, int n,
         return DECODE_ERR;
     }
 
-    field_init(&pdata->data);
+    pdata->data = field_init();
     version = buf[0] >> 4;
     if (version != 6)
         pdata->error = create_error_string("IP6 version error %d != 6", version);
 
-    field_add_value(&pdata->data, "Version", FIELD_UINT8, UINT_TO_PTR(version));
-    field_add_bitfield(&pdata->data, "Traffic class", (buf[0] & 0x0f) << 4 | (buf[1] & 0xf0) >> 4,
+    field_add_value(pdata->data, "Version", FIELD_UINT8, UINT_TO_PTR(version));
+    field_add_bitfield(pdata->data, "Traffic class", (buf[0] & 0x0f) << 4 | (buf[1] & 0xf0) >> 4,
                        false, tos, ARRAY_SIZE(tos));
     buf++;
     flow_label = (buf[0] & 0x0f) << 16 | buf[1] << 8 | buf[2];
-    field_add_value(&pdata->data, "Flow label", FIELD_UINT32_HEX, UINT_TO_PTR(flow_label));
+    field_add_value(pdata->data, "Flow label", FIELD_UINT32_HEX, UINT_TO_PTR(flow_label));
     buf += 3;
-    field_add_value(&pdata->data, "Payload length", FIELD_UINT16, UINT_TO_PTR(read_uint16be(&buf)));
+    field_add_value(pdata->data, "Payload length", FIELD_UINT16, UINT_TO_PTR(read_uint16be(&buf)));
     next_header.val = *buf++;
     next_header.str = get_ip_transport_protocol(next_header.val);
-    field_add_value(&pdata->data, "Next header", FIELD_UINT_STRING, &next_header);
-    field_add_value(&pdata->data, "Hop limit", FIELD_UINT8, UINT_TO_PTR(*buf++));
-    field_add_bytes(&pdata->data, "Source address", FIELD_IP6ADDR, buf, 16);
+    field_add_value(pdata->data, "Next header", FIELD_UINT_STRING, &next_header);
+    field_add_value(pdata->data, "Hop limit", FIELD_UINT8, UINT_TO_PTR(*buf++));
+    field_add_bytes(pdata->data, "Source address", FIELD_IP6ADDR, buf, 16);
     buf += 16;
-    field_add_bytes(&pdata->data, "Destination address", FIELD_IP6ADDR, buf, 16);
+    field_add_bytes(pdata->data, "Destination address", FIELD_IP6ADDR, buf, 16);
     buf += 16;
+    field_finish(pdata->data);
     pdata->len = header_len;
     pinfo->num_packets++;
     pinfo->num_bytes += n;
@@ -161,7 +162,7 @@ static void print_ipv6(char *buf, int n, struct packet_data *pdata)
 {
     struct uint_string *next_header;
 
-    next_header = field_search_value(&pdata->data, "Next header");
+    next_header = field_search_value(pdata->data, "Next header");
     snprintf(buf, n, "Next header: %u", next_header->val);
 }
 
