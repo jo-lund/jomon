@@ -107,7 +107,7 @@ packet_error handle_ethernet(struct protocol_info *pinfo UNUSED, unsigned char *
     buf += ETHER_ADDR_LEN;
     ethertype.val = read_uint16be(&buf);
     ethertype.str = get_ethernet_type(ethertype.val);
-    field_add_value(pdata->data, "Ethertype", FIELD_UINT_STRING, &ethertype);
+    field_add_value(pdata->data, "Ethertype", FIELD_UINT_HEX_STRING, &ethertype);
     field_finish(pdata->data);
     pdata->len = ETHER_HDR_LEN;
     if (ethertype.val <= ETH_802_3_MAX) {
