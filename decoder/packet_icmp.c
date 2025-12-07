@@ -92,7 +92,7 @@ static char *get_icmp_dest_unreach_code(uint8_t code)
     case ICMP_UNREACH_PRECEDENCE_CUTOFF:
         return "Precedence cut off";
     default:
-        return "";
+        return "Unknown";
     }
 }
 
@@ -108,7 +108,19 @@ static char *get_icmp_redirect_code(uint8_t code)
     case ICMP_REDIRECT_TOSHOST:
         return "Redirect for the type of service and host";
     default:
-        return "";
+        return "Unknown";
+    }
+}
+
+static char *get_icmp_timxceed(uint8_t code)
+{
+    switch (code) {
+    case ICMP_EXC_TTL:
+        return "Time to live exceeded in transit";
+    case ICMP_EXC_FRAGTIME:
+        return "Fragment reassembly time exceeded";
+    default:
+        return "Unknown";
     }
 }
 
@@ -189,8 +201,13 @@ packet_error handle_icmp(struct protocol_info *pinfo, unsigned char *buf, int n,
         field_add_value(pdata->data, "Checksum", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
         goto parse_ip;
     case ICMP_TIMXCEED:
-    case ICMP_SOURCEQUENCH:
+        code.val = *buf++;
+        code.str = get_icmp_timxceed(code.val);
         field_add_value(pdata->data, "Code", FIELD_UINT_STRING, &code);
+        field_add_value(pdata->data, "Checksum", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
+        goto parse_ip;
+    case ICMP_SOURCEQUENCH:
+        field_add_value(pdata->data, "Code", FIELD_UINT8, UINT_TO_PTR(*buf++));
         field_add_value(pdata->data, "Checksum", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
     parse_ip:
         if (n > ICMP_HDR_LEN) {
