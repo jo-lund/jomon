@@ -91,13 +91,14 @@ static struct packet_flags header[] = {
     { "Internet Header Length (IHL)", 4, NULL },
 };
 
-static char *dscp[48] = {
+static char *dscp[64] = {
     [CS0] = "Default",
     [CS1] = "Class Selector 1",
     [CS2] = "Class Selector 2",
     [CS3] = "Class Selector 3",
     [CS4] = "Class Selector 4",
     [CS5] = "Class Selector 5",
+    [CS6] = "Class Selector 6",
 };
 
 static char *ecn[] = {
