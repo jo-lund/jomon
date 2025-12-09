@@ -339,6 +339,11 @@ void main_screen_update(main_screen *ms, struct packet *p)
     }
 }
 
+void main_screen_clear_data(main_screen *ms)
+{
+    vector_clear(ms->packet_ref, NULL);
+}
+
 static void create_load_dialogue(void)
 {
     if (!load_dialogue) {

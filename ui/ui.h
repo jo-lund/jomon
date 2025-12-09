@@ -13,6 +13,7 @@ struct ui {
 
 enum ui_event {
     UI_NEW_DATA,
+    UI_CLEAR_DATA,
     UI_RESIZE,
     UI_INPUT,
     UI_ALARM

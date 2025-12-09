@@ -211,6 +211,9 @@ static void ncurses_event(int event)
         main_screen_update((main_screen *) screen_cache[MAIN_SCREEN],
                            vector_back(packets));
         break;
+    case UI_CLEAR_DATA:
+        main_screen_clear_data((main_screen *) screen_cache[MAIN_SCREEN]);
+        break;
     case UI_RESIZE:
         layout_resize();
         break;

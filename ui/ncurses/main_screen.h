@@ -52,4 +52,7 @@ void main_screen_update(main_screen *ms, struct packet *p);
 /* refresh the entire pad */
 void main_screen_refresh_pad(main_screen *ms);
 
+/* clear all packets in main_screen's buffer */
+void main_screen_clear_data(main_screen *ms);
+
 #endif

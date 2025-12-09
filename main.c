@@ -416,6 +416,7 @@ void start_capture(void)
     vector_clear(packets, NULL);
     free_packets(NULL);
     process_clear_cache();
+    ui_event(UI_CLEAR_DATA);
     iface_activate(ctx.handle, ctx.device, &bpf);
     fd_changed = true;
     ctx.capturing = true;
