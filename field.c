@@ -47,10 +47,22 @@ struct field_info *field_init(void)
 
 void field_finish(struct field_info *fi)
 {
+    struct field *t;
+    int i = 0, j = 0;
+
     fi->f = mempool_finish();
-    for (int i = 0; i < vector_size(aidx); i++) {
-        int idx = PTR_TO_INT(vector_get(aidx, i));
-        fi->f[idx].val = mempool_copy(fi->f[idx].val, fi->f[idx].length);
+    t = fi->f;
+    while (i < fi->nfields && j < vector_size(aidx)) {
+        int idx = PTR_TO_INT(vector_get(aidx, j));
+        if (idx == i) {
+            t->val = mempool_copy(t->val, t->length);
+            j++;
+        }
+        if (PTR_TO_UINT(t->val) & 0x1)
+            t = (struct field *) ((char *) t + sizeof(struct field_val));
+        else
+            t = (struct field *) ((char *) t + sizeof(struct field));
+        i++;
     }
     vector_clear(aidx, NULL);
 }
@@ -71,20 +83,46 @@ void field_add_bytes(struct field_info *fi, char *key, int type, unsigned char *
 
 void field_add_value(struct field_info *fi, char *key, int type, void *data)
 {
-    struct field f;
-
-    f.key = key;
-    f.type = type;
-    f.flags = 0;
     switch (type) {
     case FIELD_UINT8:
     case FIELD_UINT16:
     case FIELD_UINT32:
-    case FIELD_STRING:
-    case FIELD_STRING_HEADER:
+    case FIELD_UINT8_HEX:
+    case FIELD_UINT16_HEX:
+    case FIELD_UINT24_HEX:
+    case FIELD_UINT32_HEX:
     case FIELD_IP4ADDR:
     case FIELD_TIMESTAMP:
     case FIELD_TIMESTAMP_NON_STANDARD:
+    {
+        struct field_val f;
+        f.key = key;
+        f.val = UINT_TO_PTR(PTR_TO_UINT(data) << 9 | (uint8_t) type << 1 | 0x1);
+        mempool_grow(&f, sizeof(f));
+        fi->nfields++;
+        return;
+    }
+    case FIELD_TIME_UINT16_256:
+    {
+        struct field_val f;
+        f.key = key;
+        f.val = UINT_TO_PTR((((uint16_t) PTR_TO_UINT(data)) / 256) << 9 |
+                            (uint8_t) type << 1 | 0x1);
+        mempool_grow(&f, sizeof(f));
+        fi->nfields++;
+        return;
+    }
+    default:
+        break;
+    }
+
+    struct field f;
+    f.key = key;
+    f.type = type;
+    f.flags = 0;
+    switch (type) {
+    case FIELD_STRING:
+    case FIELD_STRING_HEADER:
         f.val = data;
         break;
     case FIELD_UINT_STRING:
@@ -92,9 +130,6 @@ void field_add_value(struct field_info *fi, char *key, int type, void *data)
         f.val = data;
         f.length = sizeof(struct uint_string);
         vector_push_back(aidx, INT_TO_PTR(fi->nfields));
-        break;
-    case FIELD_TIME_UINT16_256:
-        f.val = UINT_TO_PTR(((uint16_t) PTR_TO_UINT(data)) / 256);
         break;
     default:
         break;
@@ -130,80 +165,113 @@ int field_count(struct field_info *fi)
 
 const struct field *field_get(struct field_info *fi, int i)
 {
-    return (const struct field *) &fi->f[i];
+    struct field *f;
+
+    f = fi->f;
+    for (int j = 0; j < fi->nfields; j++) {
+        if (i == j)
+            return (const struct field *) f;
+        if (PTR_TO_UINT(f->val) & 0x1)
+            f = (struct field *) ((char *) f + sizeof(struct field_val));
+        else
+            f = (struct field *) ((char *) f + sizeof(struct field));
+    }
+    return NULL;
 }
 
 const struct field *field_search(struct field_info *fi, char *key)
 {
-    const struct field *f;
+    struct field *f;
 
+    f = fi->f;
     for (int i = 0; i < fi->nfields; i++) {
-        f = field_get(fi, i);
         if (strcmp(f->key, key) == 0)
-            return f;
+            return (const struct field *) f;
+        if (PTR_TO_UINT(f->val) & 0x1)
+            f = (struct field *) ((char *) f + sizeof(struct field_val));
+        else
+            f = (struct field *) ((char *) f + sizeof(struct field));
     }
     return NULL;
 }
 
 void *field_search_value(struct field_info *fi, char *key)
 {
-    const struct field *f;
+    struct field *f;
 
+    f = fi->f;
     for (int i = 0; i < fi->nfields; i++) {
-        f = field_get(fi, i);
-        if (strcmp(f->key, key) == 0)
-            return f->val;
+        if (strcmp(f->key, key) == 0) {
+            if (PTR_TO_UINT(f->val) & 0x1)
+                return UINT_TO_PTR(PTR_TO_UINT(f->val) >> 9);
+            else
+                return f->val;
+        }
+        if (PTR_TO_UINT(f->val) & 0x1)
+            f = (struct field *) ((char *) f + sizeof(struct field_val));
+        else
+            f = (struct field *) ((char *) f + sizeof(struct field));
     }
     return NULL;
 }
 
 char *field_get_key(const struct field *f)
 {
-    return f ? f->key : NULL;
+    return f->key;
 }
 
 void *field_get_value(const struct field *f)
 {
-    return f ? f->val : NULL;
+    return (PTR_TO_UINT(f->val) & 0x1) ? UINT_TO_PTR(PTR_TO_UINT(f->val) >> 9) : f->val;
 }
 
 uint16_t field_get_type(const struct field *f)
 {
-    return f ? f->type : ~0;
+    return (PTR_TO_UINT(f->val) & 0x1) ? (PTR_TO_UINT(f->val) >> 1) & 0xff : f->type;
 }
 
 int field_get_length(const struct field *f)
 {
-    return f ? f->length : 0;
+    return (PTR_TO_UINT(f->val) & 0x1) ? 0 : f->length;
 }
 
 bool field_bitfield_print_value(const struct field *f)
 {
-    return f ? f->print_bitvalue : false;
+    return (PTR_TO_UINT(f->val) & 0x1) ? false : f->print_bitvalue;
 }
 
 uint16_t field_get_flags(const struct field *f)
 {
-    return f ? f->flags : 0;
+    return (PTR_TO_UINT(f->val) & 0x1) ? 0 : f->flags;
 }
 
 uint8_t field_get_uint8(const struct field *f)
 {
-    if (f && f->type == FIELD_UINT8)
+    uint8_t type;
+
+    type = field_get_type(f);
+    if (type == FIELD_UINT8 || type == FIELD_UINT8_HEX)
         return (uint8_t) PTR_TO_UINT(field_get_value(f));
     return 0;
 }
 
 uint16_t field_get_uint16(const struct field *f)
 {
-    if (f && (f->type == FIELD_UINT16 || f->type == FIELD_TIME_UINT16_256))
+    uint8_t type;
+
+    type = field_get_type(f);
+    if (type == FIELD_UINT16 || type == FIELD_UINT16_HEX ||
+        type == FIELD_TIME_UINT16_256)
         return (uint16_t) PTR_TO_UINT(field_get_value(f));
     return 0;
 }
 
 uint32_t field_get_uint32(const struct field *f)
 {
-    if (f && (f->type == FIELD_UINT32 || f->type == FIELD_IP4ADDR))
+    uint8_t type;
+
+    type = field_get_type(f);
+    if (type == FIELD_UINT32 || type == FIELD_UINT32_HEX || type == FIELD_IP4ADDR)
         return (uint32_t) PTR_TO_UINT(field_get_value(f));
     return 0;
 }
