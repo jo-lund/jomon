@@ -16,6 +16,7 @@ enum field_type {
     FIELD_UINT32_HEX,
     FIELD_STRING,
     FIELD_STRING_HEADER,
+    FIELD_STRING_HEADER_INT,
     FIELD_STRING_HEADER_END,
     FIELD_UINT_STRING,
     FIELD_UINT_HEX_STRING,
@@ -27,6 +28,7 @@ enum field_type {
     FIELD_UINT16_HWADDR,
     FIELD_TIME_UINT16_256,
     FIELD_TIMESTAMP,
+    FIELD_TIMESTAMP_SEC,
     FIELD_TIMESTAMP_NON_STANDARD
 };
 
@@ -41,6 +43,7 @@ bool field_empty(struct field_info *f);
 int field_count(struct field_info *f);
 const struct field *field_search(struct field_info *f, char *key);
 void *field_search_value(struct field_info *f, char *key);
+struct field *field_get_next(const struct field *f);
 char *field_get_key(const struct field *f);
 void *field_get_value(const struct field *f);
 uint16_t field_get_type(const struct field *f);

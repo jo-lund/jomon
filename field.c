@@ -93,6 +93,7 @@ void field_add_value(struct field_info *fi, char *key, int type, void *data)
     case FIELD_UINT32_HEX:
     case FIELD_IP4ADDR:
     case FIELD_TIMESTAMP:
+    case FIELD_TIMESTAMP_SEC:
     case FIELD_TIMESTAMP_NON_STANDARD:
     {
         struct field_val f;
@@ -119,11 +120,15 @@ void field_add_value(struct field_info *fi, char *key, int type, void *data)
     struct field f;
     f.key = key;
     f.type = type;
+    f.print_bitvalue = false;
     f.flags = 0;
     switch (type) {
     case FIELD_STRING:
     case FIELD_STRING_HEADER:
+    case FIELD_STRING_HEADER_INT:
+    case FIELD_STRING_HEADER_END:
         f.val = data;
+        f.length = 0;
         break;
     case FIELD_UINT_STRING:
     case FIELD_UINT_HEX_STRING:
@@ -213,6 +218,12 @@ void *field_search_value(struct field_info *fi, char *key)
             f = (struct field *) ((char *) f + sizeof(struct field));
     }
     return NULL;
+}
+
+struct field *field_get_next(const struct field *f)
+{
+    return (PTR_TO_UINT(f->val) & 0x1) ? (struct field *) ((char *) f + sizeof(struct field_val)) :
+        (struct field *) ((char *) f + sizeof(struct field));
 }
 
 char *field_get_key(const struct field *f)

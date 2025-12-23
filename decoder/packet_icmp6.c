@@ -2,19 +2,21 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <netinet/icmp6.h>
+#include <stdio.h>
+#include <arpa/inet.h>
 #include "packet_icmp6.h"
 #include "packet.h"
 #include "attributes.h"
 #include "util.h"
+#include "field.h"
+#include "string.h"
 
 #define ICMP6_HDR_LEN 4
-#define PARSE_IP6ADDR(addr, buf, n) \
-    do {                            \
-        memcpy(addr, buf, 16);      \
-        (buf) += 16;                \
-        (n) -= 16;                  \
-    } while (0)
 
+static char *get_icmp6_type(uint8_t type);
+static char *get_icmp6_dest_unreach(uint8_t code);
+static char *get_icmp6_time_exceeded(uint8_t code);
+static char *get_icmp6_parameter_problem(uint8_t code);
 static packet_error handle_icmp6(struct protocol_info *pinfo, unsigned char *buf, int n,
                                  struct packet_data *pdata);
 static void print_icmp6(char *buf, int n, struct packet_data *pdata);
@@ -51,14 +53,6 @@ void register_icmp6(void)
     register_protocol(&icmp6_prot, IP6_PROT, IPPROTO_ICMPV6);
 }
 
-static int parse_linkaddr(uint8_t **addr, int len, unsigned char **buf)
-{
-    *addr = mempool_alloc(len);
-    memcpy(*addr, *buf, len);
-    *buf += len;
-    return len;
-}
-
 static packet_error parse_data(struct packet_data *pdata, unsigned char *buf, int n)
 {
     struct protocol_info *pinfo;
@@ -71,61 +65,90 @@ static packet_error parse_data(struct packet_data *pdata, unsigned char *buf, in
     return pinfo->decode(pinfo, buf, n, pdata->next);
 }
 
-static packet_error parse_options(struct icmp6_info *icmp6, struct packet_data *pdata,
-                                  unsigned char *buf, int n)
+static packet_error parse_options(struct packet_data *pdata, unsigned char *buf, int n)
+
 {
-    struct icmp6_option **opt = &icmp6->option;
-    uint8_t nbytes;
+    uint8_t nbytes, type, length;
 
     while (n > 0) {
-        *opt = mempool_alloc(sizeof(*icmp6->option));
-        (*opt)->next = NULL;
         if (n < 2)
             goto error;
-        (*opt)->type = buf[0];
-        (*opt)->length = buf[1];
-        if ((*opt)->length == 0)
+        type = buf[0];
+        length = buf[1];
+        if (length == 0)
             goto error;
-        nbytes = (*opt)->length * 8 - 2; /* number of bytes excluding type and length */
+        nbytes = length * 8 - 2; /* number of bytes excluding type and length */
         buf += 2;
         n -= 2;
-        switch ((*opt)->type) {
+        switch (type) {
         case ND_OPT_SOURCE_LINKADDR:
-            if (nbytes > n)
+            if (nbytes > n && n < 6)
                 goto error;
-            n -= parse_linkaddr(&(*opt)->source_addr, nbytes, &buf);
+            field_add_value(pdata->data, "Source link-layer address", FIELD_STRING_HEADER, NULL);
+            field_add_value(pdata->data, "Type", FIELD_UINT8, UINT_TO_PTR(type));
+            field_add_value(pdata->data, "Length", FIELD_UINT8, UINT_TO_PTR(length));
+            field_add_bytes(pdata->data, "Link-layer address",
+                            nbytes == 6 ? FIELD_HWADDR : FIELD_BYTES, buf, nbytes);
+            field_add_value(pdata->data, "", FIELD_STRING_HEADER_END, NULL);
+            buf += nbytes;
+            n -= nbytes;
             break;
         case ND_OPT_TARGET_LINKADDR:
-            if (nbytes > n)
+            if (nbytes > n && n < 6)
                 goto error;
-            n -= parse_linkaddr(&(*opt)->target_addr, nbytes, &buf);
+            field_add_value(pdata->data, "Target link-layer address", FIELD_STRING_HEADER, NULL);
+            field_add_value(pdata->data, "Type", FIELD_UINT8, UINT_TO_PTR(type));
+            field_add_value(pdata->data, "Length", FIELD_UINT8, UINT_TO_PTR(length));
+            field_add_bytes(pdata->data, "Link-layer address",
+                            nbytes == 6 ? FIELD_HWADDR : FIELD_BYTES, buf, nbytes);
+            field_add_value(pdata->data, "", FIELD_STRING_HEADER_END, NULL);
+            buf += nbytes;
+            n -= nbytes;
             break;
         case ND_OPT_PREFIX_INFORMATION:
-            if ((*opt)->length != 4 || nbytes > n)
+            if (length != 4 || nbytes > n || n < 30)
                 goto error;
-            (*opt)->prefix_info.prefix_length = buf[0];
-            (*opt)->prefix_info.l = (buf[1] & 0x80) >> 7;
-            (*opt)->prefix_info.a = (buf[1] & 0x40) >> 6;
+            field_add_value(pdata->data, "Prefix information", FIELD_STRING_HEADER, NULL);
+            field_add_value(pdata->data, "Type", FIELD_UINT8, UINT_TO_PTR(type));
+            field_add_value(pdata->data, "Length", FIELD_UINT8, UINT_TO_PTR(length));
+            field_add_value(pdata->data, "Prefix length", FIELD_UINT8, UINT_TO_PTR(buf[0]));
+            field_add_bitfield(pdata->data, "Flags", buf[1], false, prefix_info, ARRAY_SIZE(prefix_info));
             buf += 2;
             n -= 2;
-            (*opt)->prefix_info.valid_lifetime = read_uint32be(&buf);
-            (*opt)->prefix_info.pref_lifetime =  read_uint32be(&buf);
+            field_add_value(pdata->data, "Valid lifetime", FIELD_TIMESTAMP_SEC,
+                            UINT_TO_PTR(read_uint32be(&buf)));
+            field_add_value(pdata->data, "Preferred lifetime", FIELD_TIMESTAMP_SEC,
+                            UINT_TO_PTR(read_uint32be(&buf)));
             buf += 4; /* skip reserved bytes */
             n -= 12;
-            (*opt)->prefix_info.prefix = mempool_copy(buf, 16);
+            field_add_bytes(pdata->data, "Prefix", FIELD_IP6ADDR, buf, 16);
             buf += 16;
             n -= 16;
+            field_add_value(pdata->data, "", FIELD_STRING_HEADER_END, NULL);
             break;
         case ND_OPT_MTU:
-            if ((*opt)->length != 1 || nbytes > n)
+        {
+            uint32_t mtu;
+
+            if (length != 1 || nbytes > n || n < 6)
                 goto error;
             buf += 2; /* skip reserved bytes */
-            (*opt)->mtu = read_uint32be(&buf);
+            mtu = read_uint32be(&buf);
             n -= 6;
+            field_add_value(pdata->data, "MTU", FIELD_STRING_HEADER_INT, UINT_TO_PTR(mtu));
+            field_add_value(pdata->data, "Type", FIELD_UINT8, UINT_TO_PTR(type));
+            field_add_value(pdata->data, "Length", FIELD_UINT8, UINT_TO_PTR(length));
+            field_add_value(pdata->data, "Recommended MTU for the link", FIELD_UINT32, UINT_TO_PTR(mtu));
+            field_add_value(pdata->data, "", FIELD_STRING_HEADER_END, NULL);
             break;
+        }
         case ND_OPT_REDIRECTED_HEADER:
             if (n < 6)
                 goto error;
+            field_add_value(pdata->data, "Redirect header", FIELD_STRING_HEADER, NULL);
+            field_add_value(pdata->data, "Type", FIELD_UINT8, UINT_TO_PTR(type));
+            field_add_value(pdata->data, "Length", FIELD_UINT8, UINT_TO_PTR(length));
+            field_add_value(pdata->data, "", FIELD_STRING_HEADER_END, NULL);
             buf += 6;  /* skip reserved bytes */
             n -= 6;
             return parse_data(pdata, buf, n);
@@ -134,14 +157,13 @@ static packet_error parse_options(struct icmp6_info *icmp6, struct packet_data *
             n -= nbytes;
             break;
         }
-        opt = &(*opt)->next;
     }
+    field_finish(pdata->data);
     return NO_ERR;
 
 error:
-    mempool_free(*opt);
-    *opt = NULL;
     pdata->error = create_error_string("Error parsing ICMP6 option");
+    field_finish(pdata->data);
     return DECODE_ERR;
 }
 
@@ -151,115 +173,167 @@ packet_error handle_icmp6(struct protocol_info *pinfo, unsigned char *buf, int n
     if (n < ICMP6_HDR_LEN)
         return UNK_PROTOCOL;
 
-    struct icmp6_info *icmp6;
+    struct uint_string type, code;
 
-    icmp6 = mempool_calloc(1, struct icmp6_info);
-    icmp6->option = NULL;
+    pdata->data = field_init();
     pdata->len = n;
     pinfo->num_packets++;
     pinfo->num_bytes += n;
-    icmp6->type = buf[0];
-    icmp6->code = buf[1];
-    icmp6->checksum = get_uint16be(buf + 2);
-    buf += ICMP6_HDR_LEN;
-    n -= ICMP6_HDR_LEN;
-    if (n < 4) {
+    type.val = buf[0];
+    type.str = get_icmp6_type(buf[0]);
+    buf++;
+    field_add_value(pdata->data, "Type", FIELD_UINT_STRING, &type);
+    if (n - ICMP6_HDR_LEN < 4) {
         pdata->error = create_error_string("Packet length (%d) less than minimum ICMP message (4)", n);
+        field_finish(pdata->data);
         return DECODE_ERR;
     }
-    switch (icmp6->type) {
+    n--;
+    switch (type.val) {
     case ICMP6_DST_UNREACH:
-    case ICMP6_TIME_EXCEEDED:
+        code.val = buf[0];
+        code.str = get_icmp6_dest_unreach(buf[0]);
+        buf++;
+        n--;
+        field_add_value(pdata->data, "Code", FIELD_UINT_STRING, &code);
+        field_add_value(pdata->data, "Checksum", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
+        n -= 2;
         buf += 4; /* skip unused bytes */
         n -= 4;
         if (n > 0)
             return parse_data(pdata, buf, n);
         break;
+    case ICMP6_TIME_EXCEEDED:
+        code.val = buf[0];
+        code.str = get_icmp6_time_exceeded(buf[0]);
+        buf++;
+        n--;
+        field_add_value(pdata->data, "Code", FIELD_UINT_STRING, &code);
+        field_add_value(pdata->data, "Checksum", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
+        buf += 4; /* skip unused bytes */
+        n -= 6;
+        if (n > 0)
+            return parse_data(pdata, buf, n);
+        break;
     case ICMP6_PACKET_TOO_BIG:
-        icmp6->checksum = read_uint32be(&buf);
-        n -= 4;
+        field_add_value(pdata->data, "Code", FIELD_UINT8, UINT_TO_PTR(*buf++));
+        n--;
+        field_add_value(pdata->data, "Checksum", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
+        field_add_value(pdata->data, "MTU", FIELD_UINT32, UINT_TO_PTR(read_uint32be(&buf)));
+        n -= 6;
         if (n > 0)
             return parse_data(pdata, buf, n);
         break;
     case ICMP6_PARAM_PROB:
-        icmp6->pointer = read_uint32be(&buf);
-        n -= 4;
+        code.val = buf[0];
+        code.str = get_icmp6_parameter_problem(buf[0]);
+        buf++;
+        n--;
+        field_add_value(pdata->data, "Code", FIELD_UINT_STRING, &code);
+        field_add_value(pdata->data, "Checksum", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
+        field_add_value(pdata->data, "Pointer", FIELD_UINT32, UINT_TO_PTR(read_uint32be(&buf)));
+        n -= 6;
         if (n > 0)
             return parse_data(pdata, buf, n);
         break;
     case ICMP6_ECHO_REQUEST:
     case ICMP6_ECHO_REPLY:
-        icmp6->echo.id = read_uint16be(&buf);
-        icmp6->echo.seq = read_uint16be(&buf);
-        n -= 4;
+        field_add_value(pdata->data, "Code", FIELD_UINT8, UINT_TO_PTR(*buf++));
+        field_add_value(pdata->data, "Checksum", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
+        field_add_value(pdata->data, "Identifier", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
+        field_add_value(pdata->data, "Sequence number", FIELD_UINT16, UINT_TO_PTR(read_uint16be(&buf)));
+        n -= 7;
         if (n > 0)
-            icmp6->echo.data = buf;
-        icmp6->echo.len = n;
+            field_add_bytes(pdata->data, "Data", FIELD_BYTES, buf, n);
         break;
     case ND_ROUTER_SOLICIT:
+        field_add_value(pdata->data, "Code", FIELD_UINT8, UINT_TO_PTR(*buf++));
+        field_add_value(pdata->data, "Checksum", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
         buf += 4; /* skip reserved bytes */
-        n -= 4;
-        return parse_options(icmp6, pdata, buf, n);
+        n -= 7;
+        return parse_options(pdata, buf, n);
     case ND_ROUTER_ADVERT:
+        field_add_value(pdata->data, "Code", FIELD_UINT8, UINT_TO_PTR(*buf++));
+        field_add_value(pdata->data, "Checksum", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
+        n -= 3;
         if (n < 12) {
             pdata->error =
                 create_error_string("Packet length (%d) less than router advertisement message length (12)", n);
+            field_finish(pdata->data);
             return DECODE_ERR;
         }
-        icmp6->router_adv.cur_hop_limit = buf[0];
-        icmp6->router_adv.m = (buf[1] & 0x80) >> 7;
-        icmp6->router_adv.o = (buf[1] & 0x40) >> 6;
-        buf += 2;
-        icmp6->router_adv.router_lifetime = read_uint16be(&buf);
-        icmp6->router_adv.reachable_time = read_uint32be(&buf);
-        icmp6->router_adv.retrans_timer = read_uint32be(&buf);
+        field_add_value(pdata->data, "Cur hop limit", FIELD_UINT8, UINT_TO_PTR(*buf++));
+        field_add_bitfield(pdata->data, "Flags", buf[0], false, router_adv_flags, ARRAY_SIZE(router_adv_flags));
+        buf++;
+        field_add_value(pdata->data, "Router lifetime", FIELD_TIMESTAMP_SEC, UINT_TO_PTR(read_uint16be(&buf)));
+        field_add_value(pdata->data, "Reachable time", FIELD_TIMESTAMP, UINT_TO_PTR(read_uint32be(&buf)));
+        field_add_value(pdata->data, "Retrans timer", FIELD_TIMESTAMP, UINT_TO_PTR(read_uint32be(&buf)));
         n -= 12;
         if (n > 0)
-            return parse_options(icmp6, pdata, buf, n);
+            return parse_options(pdata, buf, n);
         break;
     case ND_NEIGHBOR_SOLICIT:
+        field_add_value(pdata->data, "Code", FIELD_UINT8, UINT_TO_PTR(*buf++));
+        field_add_value(pdata->data, "Checksum", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
+        n -= 3;
         if (n < 20) {
             pdata->error =
                 create_error_string("Packet length (%d) less than neighbor solicitation  message length (20)", n);
+            field_finish(pdata->data);
             return DECODE_ERR;
         }
         buf += 4; /* skip reserved bytes */
         n -= 4;
-        PARSE_IP6ADDR(icmp6->target_addr, buf, n);
+        field_add_bytes(pdata->data, "Target address", FIELD_IP6ADDR, buf, 16);
+        buf += 16;
+        n -= 16;
         if (n > 0)
-            return parse_options(icmp6, pdata, buf, n);
+            return parse_options(pdata, buf, n);
         break;
     case ND_NEIGHBOR_ADVERT:
+        field_add_value(pdata->data, "Code", FIELD_UINT8, UINT_TO_PTR(*buf++));
+        field_add_value(pdata->data, "Checksum", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
+        n -= 3;
         if (n < 20) {
             pdata->error =
                 create_error_string("Packet length (%d) less than neighbor advertisement message length (20)", n);
+            field_finish(pdata->data);
             return DECODE_ERR;
         }
-        icmp6->neigh_adv.r = (buf[0] & 0x80) >> 7;
-        icmp6->neigh_adv.s = (buf[0] & 0x40) >> 6;
-        icmp6->neigh_adv.o = (buf[0] & 0x20) >> 5;
+        field_add_bitfield(pdata->data, "Flags", buf[0], false, neigh_adv_flags, ARRAY_SIZE(neigh_adv_flags));
         buf += 4; /* skip flags and reserved bytes */
         n -= 4;
-        PARSE_IP6ADDR(icmp6->neigh_adv.target_addr, buf, n);
+        field_add_bytes(pdata->data, "Target address", FIELD_IP6ADDR, buf, 16);
+        buf += 16;
+        n -= 16;
         if (n > 0)
-            return parse_options(icmp6, pdata, buf, n);
+            return parse_options(pdata, buf, n);
         break;
     case ND_REDIRECT:
+        field_add_value(pdata->data, "Code", FIELD_UINT8, UINT_TO_PTR(*buf++));
+        field_add_value(pdata->data, "Checksum", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buf)));
+        n -= 3;
         if (n < 36) {
             pdata->error =
                 create_error_string("Packet length (%d) less than redirect message length (36)", n);
+            field_finish(pdata->data);
             return DECODE_ERR;
         }
         buf += 4; /* skip reserved bytes */
         n -= 4;
-        PARSE_IP6ADDR(icmp6->redirect.target_addr, buf, n);
-        PARSE_IP6ADDR(icmp6->redirect.dest_addr, buf, n);
+        field_add_bytes(pdata->data, "Target address", FIELD_IP6ADDR, buf, 16);
+        buf += 16;
+        n -= 16;
+        field_add_bytes(pdata->data, "Destination address", FIELD_IP6ADDR, buf, 16);
+        buf += 16;
+        n -= 16;
         if (n > 0)
-            return parse_options(icmp6, pdata, buf, n);
+            return parse_options(pdata, buf, n);
         break;
     default:
         break;
     }
+    field_finish(pdata->data);
     return NO_ERR;
 }
 
@@ -371,5 +445,98 @@ int get_icmp6_neigh_adv_flags_size(void)
 
 static void print_icmp6(char *buf, int n, struct packet_data *pdata)
 {
+    struct uint_string *type, *code;
+    const struct field *f;
 
+    type = field_search_value(pdata->data, "Type");
+    switch (type->val) {
+    case ICMP6_DST_UNREACH:
+        code = field_search_value(pdata->data, "Code");
+        snprintf(buf, n, "%s", code->str);
+        break;
+    case ICMP6_PACKET_TOO_BIG:
+        snprintf(buf, n, "Packet too big message: MTU = %d",
+                 (uint32_t) PTR_TO_UINT(field_search_value(pdata->data, "MTU")));
+        break;
+    case ICMP6_TIME_EXCEEDED:
+        code = field_search_value(pdata->data, "Code");
+        snprintf(buf, n, "%s", code->str);
+        break;
+    case ICMP6_PARAM_PROB:
+        code = field_search_value(pdata->data, "Code");
+        snprintf(buf, n, "%s: Pointer = %d", code->str,
+                 (uint32_t) PTR_TO_UINT(field_search_value(pdata->data, "Pointer")));
+        break;
+    case ICMP6_ECHO_REQUEST:
+    case ICMP6_ECHO_REPLY:
+        snprintf(buf, n, "%s: id = 0x%x  seq = %u", type->str,
+                 (uint16_t) PTR_TO_UINT(field_search_value(pdata->data, "Identifier")),
+                 (uint16_t) PTR_TO_UINT(field_search_value(pdata->data, "Sequence number")));
+        break;
+    case ND_ROUTER_SOLICIT:
+        snprintf(buf, n, "%s", type->str);
+        break;
+    case ND_ROUTER_ADVERT:
+        f = field_search(pdata->data, "Source link-layer address");
+        if (f) {
+            char link[HW_ADDRSTRLEN];
+            unsigned char *addr;
+
+            while (f && strcmp(field_get_key(f), "Link-layer address") != 0)
+                   f = field_get_next(f);
+            addr = field_get_value(f);
+            HW_ADDR_NTOP(link, addr);
+            snprintf(buf, n, "Router Advertisement from %s", link);
+        } else {
+            snprintf(buf, n, "Router Advertisement");
+        }
+        break;
+    case ND_NEIGHBOR_SOLICIT:
+    {
+        char target[INET6_ADDRSTRLEN];
+        unsigned char *addr;
+
+        addr = field_search_value(pdata->data, "Target address");
+        inet_ntop(AF_INET6, (struct in_addr *) addr, target, INET6_ADDRSTRLEN);
+        snprintf(buf, n, "Neighbor Solicitation for %s", target);
+        break;
+    }
+    case ND_NEIGHBOR_ADVERT:
+    {
+        char target[INET6_ADDRSTRLEN];
+        unsigned char *addr;
+
+        addr = field_search_value(pdata->data, "Target address");
+        inet_ntop(AF_INET6, (struct in_addr *) addr, target, INET6_ADDRSTRLEN);
+        f = field_search(pdata->data, "Target link-layer address");
+        if (f) {
+            char link[HW_ADDRSTRLEN];
+
+            while (f && strcmp(field_get_key(f), "Link-layer address") != 0)
+                f = field_get_next(f);
+            addr = field_get_value(f);
+            HW_ADDR_NTOP(link, addr);
+            snprintf(buf, n, "Neighbor Advertisement %s is at %s", target, link);
+        } else {
+            snprintf(buf, n, "Neighbor Advertisement from %s", target);
+        }
+        break;
+    }
+    case ND_REDIRECT:
+    {
+        char target[INET6_ADDRSTRLEN];
+        char dest[INET6_ADDRSTRLEN];
+        unsigned char *addr;
+
+        addr = field_search_value(pdata->data, "Target address");
+        inet_ntop(AF_INET6, (struct in_addr *) addr, target, INET6_ADDRSTRLEN);
+        addr = field_search_value(pdata->data, "Destination address");
+        inet_ntop(AF_INET6, (struct in_addr *) addr, dest, INET6_ADDRSTRLEN);
+        snprintf(buf, n, "Redirect. Target: %s  Destination: %s", target, dest);
+        break;
+    }
+    default:
+        snprintf(buf, n, "%s", type->str);
+        break;
+    }
 }

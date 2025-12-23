@@ -1404,7 +1404,12 @@ void add_elements(main_screen *ms, struct packet *p)
                     LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
                     break;
                 case FIELD_STRING_HEADER:
-                    snprintcat(line, MAXLINE, ": %s", (char *) field_get_value(f));
+                    if (field_get_value(f))
+                        snprintcat(line, MAXLINE, ": %s", (char *) field_get_value(f));
+                    header = LV_ADD_SUB_HEADER(ms->lvw, header, selected[UI_FLAGS], UI_FLAGS, line);
+                    break;
+                case FIELD_STRING_HEADER_INT:
+                    snprintcat(line, MAXLINE, ": %u", field_get_uint32(f));
                     header = LV_ADD_SUB_HEADER(ms->lvw, header, selected[UI_FLAGS], UI_FLAGS, line);
                     break;
                 case FIELD_STRING_HEADER_END:
@@ -1500,6 +1505,24 @@ void add_elements(main_screen *ms, struct packet *p)
                 {
                     char time[32];
                     snprintcat(line, MAXLINE, ": %s", get_time_from_ms_ut(field_get_uint32(f), time, 32));
+                    LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
+                    break;
+                }
+                case FIELD_TIMESTAMP_SEC:
+                {
+                    uint32_t time;
+
+                    time = field_get_uint16(f);
+                    if (time == ~0U) {
+                        snprintcat(line, MAXLINE, ": Infinite");
+                    } else {
+                        struct tm_t tm;
+                        char buf[1024];
+
+                        tm = get_time(time);
+                        time_ntop(&tm, buf, 1024);
+                        snprintcat(line, MAXLINE, ": %s", buf);
+                    }
                     LV_ADD_TEXT_ELEMENT(ms->lvw, header, line);
                     break;
                 }
