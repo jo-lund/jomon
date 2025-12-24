@@ -1,11 +1,18 @@
 #include <sys/types.h>
 #include <netinet/udp.h>
 #include <string.h>
+#include <stdio.h>
+#include "packet.h"
 #include "packet_udp.h"
 #include "packet_ip.h"
 #include "util.h"
+#include "field.h"
+
+#define UDP_HDR_LEN 8
 
 static void print_udp(char *buf, int n, struct packet_data *pdata);
+static packet_error handle_udp(struct protocol_info *pinfo, unsigned char *buffer, int n,
+                               struct packet_data *pdata);
 
 static struct protocol_info udp_prot = {
     .short_name = "UDP",
@@ -36,36 +43,39 @@ packet_error handle_udp(struct protocol_info *pinfo, unsigned char *buffer, int 
                         struct packet_data *pdata)
 {
     packet_error error = NO_ERR;
-    struct udp_info *udp;
+    uint16_t length;
 
-    udp = mempool_alloc(sizeof(struct udp_info));
     if (n < UDP_HDR_LEN) {
-        memset(udp, 0, sizeof(*udp));
         pdata->len = n;
         pdata->error = create_error_string("Packet length (%d) less than UDP header length (%d)",
                                            n, UDP_HDR_LEN);
         return DECODE_ERR;
     }
     pdata->len = UDP_HDR_LEN;
-    udp->sport = read_uint16be(&buffer);
-    udp->dport = read_uint16be(&buffer);
-    udp->len = read_uint16be(&buffer);
-    udp->checksum = read_uint16be(&buffer);
+    pdata->data = field_init();
+    field_add_value(pdata->data, "Source port", FIELD_UINT16, UINT_TO_PTR(read_uint16be(&buffer)));
+    field_add_value(pdata->data, "Destination port", FIELD_UINT16, UINT_TO_PTR(read_uint16be(&buffer)));
+    length = read_uint16be(&buffer);
+    field_add_value(pdata->data, "Length", FIELD_UINT16, UINT_TO_PTR(length));
+    field_add_value(pdata->data, "Checksum", FIELD_UINT16_HEX, UINT_TO_PTR(read_uint16be(&buffer)));
     pinfo->num_packets++;
     pinfo->num_bytes += n;
-    if (udp->len < UDP_HDR_LEN) {
+    if (length < UDP_HDR_LEN) {
+        field_finish(pdata->data);
         pdata->error = create_error_string("UDP length (%d) less than minimum header length (%d)",
-                                           udp->len, UDP_HDR_LEN);
+                                           length, UDP_HDR_LEN);
         return DECODE_ERR;
     }
-    if (udp->len > n) {
+    if (length > n) {
+        field_finish(pdata->data);
         pdata->error = create_error_string("UDP length (%d) greater than packet length (%d)",
-                                           udp->len, n);
+                                           length, n);
         return DECODE_ERR;
     }
+    field_finish(pdata->data);
     if (n - UDP_HDR_LEN > 0) {
         for (int i = 0; i < 2; i++) {
-            error = call_data_decoder(get_protocol_id(PORT, *((uint16_t *) udp + i)),
+            error = call_data_decoder(get_protocol_id(PORT, field_get_uint16(field_get(pdata->data, i))),
                                       pdata, IPPROTO_UDP, buffer, n - UDP_HDR_LEN);
             if (error != UNK_PROTOCOL)
                 return NO_ERR;
@@ -76,5 +86,7 @@ packet_error handle_udp(struct protocol_info *pinfo, unsigned char *buffer, int 
 
 void print_udp(char *buf, int n, struct packet_data *pdata)
 {
-
+    snprintf(buf, n, "Source port: %u  Destination port: %u",
+             field_get_uint16(field_get(pdata->data, 0)),
+             field_get_uint16(field_get(pdata->data, 1)));
 }

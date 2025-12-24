@@ -393,19 +393,6 @@ void add_pim_information(void *w, void *sw, void *data)
     }
 }
 
-void add_udp_information(void *w, void *sw, void *data)
-{
-    list_view *lw = w;
-    list_view_header *header = sw;
-    struct packet_data *pdata = data;
-    struct udp_info *udp = pdata->data;
-
-    LV_ADD_TEXT_ELEMENT(lw, header, "Source port: %u", udp->sport);
-    LV_ADD_TEXT_ELEMENT(lw, header, "Destination port: %u", udp->dport);
-    LV_ADD_TEXT_ELEMENT(lw, header, "Length: %u", udp->len);
-    LV_ADD_TEXT_ELEMENT(lw, header, "Checksum: %u", udp->checksum);
-}
-
 static void add_tcp_options(list_view *lw, list_view_header *header, struct tcp *tcp)
 {
     list_view_header *h;

@@ -245,18 +245,6 @@ void print_tcp(char *buf, int n, void *data)
     }
 }
 
-void print_udp(char *buf, int n, void *data)
-{
-    struct packet_data *pdata = data;
-    struct udp_info *udp = pdata->data;
-
-    if (!PACKET_HAS_DATA(pdata->next)) {
-        PRINT_PROTOCOL(buf, n, "UDP");
-        PRINT_INFO(buf, n, "Source port: %d  Destination port: %d",
-                   udp->sport, udp->dport);
-    }
-}
-
 void print_dns(char *buf, int n, void *data)
 {
     struct packet_data *pdata = data;
