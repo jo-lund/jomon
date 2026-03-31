@@ -450,12 +450,15 @@ int parse_dns_record(int i, unsigned char *buffer, int n, unsigned char **data,
 int parse_dns_name(unsigned char *buffer, int n, unsigned char *ptr, int plen, char name[])
 {
     unsigned int len = 0; /* total length of name entry */
-    unsigned int label_length = ptr[0];
+    unsigned int label_length;
     bool compression = false;
     unsigned int name_ptr_len = 0;
     int c = 0;
     bool valid = false;
 
+    if (plen < 2)
+        return -1;
+    label_length = ptr[0];
     if (!label_length)
         name[0] = '\0';
     while (label_length && c < n) {
@@ -474,7 +477,7 @@ int parse_dns_name(unsigned char *buffer, int n, unsigned char *ptr, int plen, c
         if ((label_length & 0xc0) == 0xc0) {
             uint16_t offset = (ptr[0] & 0x3f) << 8 | ptr[1];
 
-            if (offset > n)
+            if (offset >= n)
                 return -1;
             label_length = buffer[offset];
             if (c == 0 && label_length == 0)
