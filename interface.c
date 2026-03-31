@@ -19,17 +19,18 @@
 #include "jomon.h"
 
 #define MAX_NUM_INTERFACES 16
+#define MAX_LLADDR_LEN 128
 
 static char *get_active_interface(int fd, char *buffer, int len);
 char *get_linktype_description(int type, char *name);
 
 struct interface {
-    char *name;                /* interface name */
-    unsigned short type;       /* interface type, e.g. Ethernet, Firewire etc. */
-    list_t *inaddr;            /* IPv4 addresses */
-    list_t *in6addr;           /* IPv6 addresses */
-    unsigned char addrlen;     /* hardware address length */
-    unsigned char hwaddr[8];   /* hardware address */
+    char *name;              /* interface name */
+    unsigned short type;     /* interface type, e.g. Ethernet, Firewire etc. */
+    list_t *inaddr;          /* IPv4 addresses */
+    list_t *in6addr;         /* IPv6 addresses */
+    unsigned char addrlen;   /* hardware address length */
+    unsigned char hwaddr[MAX_LLADDR_LEN]; /* hardware address */
 };
 
 void iface_activate(iface_handle_t *handle, char *device, struct bpf_prog *bpf)
