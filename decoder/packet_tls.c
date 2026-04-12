@@ -505,10 +505,12 @@ static packet_error parse_tls_extensions(struct tls_handshake *hs, unsigned char
     unsigned char *data = *buf;
     struct tls_extension **ext = &hs->ext;
 
-    if ((hs->ext_length = read_uint16be(&data)) > len)
+    if (len < 2 || (hs->ext_length = read_uint16be(&data)) > len)
         goto error;
     length = hs->ext_length;
     while (length > 0) {
+        if (length < 4)
+            goto error;
         *ext = mempool_calloc(1, struct tls_extension);
         (*ext)->type = read_uint16be(&data);
         (*ext)->length = read_uint16be(&data);
@@ -521,18 +523,22 @@ static packet_error parse_tls_extensions(struct tls_handshake *hs, unsigned char
         case STATUS_REQUEST:
             break;
         case SUPPORTED_GROUPS:
+            if (length < 2)
+                goto error;
             (*ext)->supported_groups.length = get_uint16be(data);
             if ((*ext)->supported_versions.length > (*ext)->length)
                 goto error;
             (*ext)->supported_groups.named_group_list = mempool_copy(data + 2, (*ext)->supported_versions.length);
             break;
         case EC_POINT_FORMATS:
-            if (*data > length)
+            if (length < 1 || *data > length)
                 goto error;
             (*ext)->ec_point.length = *data;
             (*ext)->ec_point.format_list = mempool_copy(data + 1, *data);
             break;
         case SIGNATURE_ALGORITHMS:
+            if (length < 2)
+                goto error;
             (*ext)->signature_algorithms.length = get_uint16be(data);
             if ((*ext)->supported_versions.length > (*ext)->length)
                 goto error;
@@ -552,7 +558,7 @@ static packet_error parse_tls_extensions(struct tls_handshake *hs, unsigned char
                 (*ext)->supported_versions.length = (*ext)->length;
                 (*ext)->supported_versions.versions = mempool_copy(data, (*ext)->length);
             } else {
-                if (*data > length)
+                if (length < 1 || *data > length)
                     goto error;
                 (*ext)->supported_versions.length = *data;
                 (*ext)->supported_versions.versions = mempool_copy(data + 1, (*ext)->supported_versions.length);
@@ -629,7 +635,8 @@ static packet_error parse_client_hello(unsigned char **buf, uint16_t len,
         len = len - (handshake->client_hello->compression_length + 1);
     }
     *buf = ptr;
-    parse_tls_extensions(handshake, buf, len);
+    if (len > 0)
+        return parse_tls_extensions(handshake, buf, len);
     return NO_ERR;
 }
 
@@ -662,7 +669,8 @@ static packet_error parse_server_hello(unsigned char **buf, uint16_t len,
     ptr++;
     len--;
     *buf = ptr;
-    parse_tls_extensions(handshake, buf, len);
+    if (len > 0)
+        return parse_tls_extensions(handshake, buf, len);
     return NO_ERR;
 }
 
