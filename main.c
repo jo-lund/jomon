@@ -46,6 +46,7 @@ vector_t *packets;
 main_context ctx;
 static volatile sig_atomic_t alarm_flag = 0;
 static volatile sig_atomic_t winch_flag = 0;
+static volatile sig_atomic_t exit_flag = 0;
 static bool fd_changed = false;
 static struct bpf_prog bpf;
 static bool promiscuous_mode = false;
@@ -65,7 +66,8 @@ static void sig_callback(int sig)
         break;
     case SIGINT:
     case SIGQUIT:
-        jomon_exit(1);
+        exit_flag = 1;
+        break;
     case SIGWINCH:
         winch_flag = 1;
         break;
@@ -325,6 +327,8 @@ static void run(void)
 
     alarm(1);
     while (1) {
+        if (exit_flag)
+            jomon_exit(1);
         timer_run();
         if (alarm_flag) {
             alarm_flag = 0;
