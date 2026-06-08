@@ -18,7 +18,7 @@ void *ringbuffer_pop(ringbuffer_t *rb);
 int ringbuffer_size(ringbuffer_t *rb);
 
 /* Return the remaining capacity of the buffer */
-int ringbuffer_capacity(ringbuffer_t *rb);
+int ringbuffer_available(ringbuffer_t *rb);
 
 /* Is the buffer empty? */
 bool ringbuffer_empty(ringbuffer_t *rb);

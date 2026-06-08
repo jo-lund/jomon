@@ -276,7 +276,7 @@ static void print_graph(screen *s, int col, ringbuffer_t *rate, int y, int x, ch
     max = step * 10;
     for (unsigned int i = 0, j = 0; j <= 10; i += step, j++) {
         if (i > 0) {
-            int size = ringbuffer_size(rate) + ringbuffer_capacity(rate);
+            int size = ringbuffer_size(rate) + ringbuffer_available(rate);
             mvwprintw(s->win, ry - j, rx, "%5d", i);
             if ((i / step) % 2 == 0) {
                 wattron(s->win, bgcol | A_UNDERLINE | A_DIM);

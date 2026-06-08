@@ -13,8 +13,8 @@ START_TEST(ringbuffer_test_create)
     ck_assert(data);
     ck_assert_msg(ringbuffer_empty(data), "Ringbuffer should be empty");
     ck_assert_msg(ringbuffer_size(data) == 0, "Ringbuffer should contain 0 elements");
-    ck_assert_msg(ringbuffer_capacity(data) == nelems - 1, "Ringbuffer's capacity should be %d but is %d",
-                  nelems - 1, ringbuffer_capacity(data));
+    ck_assert_msg(ringbuffer_available(data) == nelems - 1, "Ringbuffer's available should be %d but is %d",
+                  nelems - 1, ringbuffer_available(data));
     ringbuffer_free(data);
 }
 END_TEST
@@ -26,9 +26,9 @@ START_TEST(ringbuffer_test_insert)
 
     for (int i = 0; i < nelems - 1; i++) {
         ringbuffer_push(data, INT_TO_PTR(i));
-        ck_assert_msg(ringbuffer_capacity(data) == nelems - 1 - (i + 1),
-                      "[%d]: Ringbuffer's capacity should be %d but is %d",
-                      i, nelems - 1 - (i + 1), ringbuffer_capacity(data));
+        ck_assert_msg(ringbuffer_available(data) == nelems - 1 - (i + 1),
+                      "[%d]: Ringbuffer's available should be %d but is %d",
+                      i, nelems - 1 - (i + 1), ringbuffer_available(data));
         ck_assert_msg(ringbuffer_size(data) == i + 1,
                       "[%d]: Ringbuffer's size should be %d but is %d",
                       i, i + 1, ringbuffer_size(data));
@@ -36,8 +36,8 @@ START_TEST(ringbuffer_test_insert)
     ck_assert_msg(ringbuffer_empty(data) == false, "Ringbuffer should not be empty");
     ck_assert_msg(ringbuffer_size(data) == nelems - 1, "Ringbuffer should contain %d elements but has %d",
                   nelems, ringbuffer_size(data));
-    ck_assert_msg(ringbuffer_capacity(data) == 0, "Ringbuffer's capacity should be 0 but is %d",
-                  ringbuffer_capacity(data));
+    ck_assert_msg(ringbuffer_available(data) == 0, "Ringbuffer's available should be 0 but is %d",
+                  ringbuffer_available(data));
     ringbuffer_free(data);
 }
 END_TEST
@@ -85,6 +85,34 @@ START_TEST(ringbuffer_test_remove_and_traverse)
 }
 END_TEST
 
+START_TEST(ringbuffer_test_iterate)
+{
+    ringbuffer_t *data = ringbuffer_init(8);
+
+    for (unsigned int i = 0; i < 8; i++) {
+        ringbuffer_push(data, UINT_TO_PTR(i + 1));
+    }
+    ck_assert_msg(PTR_TO_UINT(ringbuffer_first(data)) == 2,
+                  "ringbuffer_first(data) == %lu, but should be 2",
+                  PTR_TO_UINT(ringbuffer_first(data)));
+
+    for (unsigned int i = 0; i < 5; i++) {
+        ringbuffer_pop(data);
+    }
+    ck_assert_msg(ringbuffer_size(data) == 2, "ringbuffer_size(data) == %d, but should be 2",
+                  ringbuffer_size(data));
+    ck_assert_msg(PTR_TO_UINT(ringbuffer_first(data)) == 7,
+                  "ringbuffer_first(data) == %lu, but should be 7",
+                  PTR_TO_UINT(ringbuffer_first(data)));
+    ck_assert_msg(PTR_TO_UINT(ringbuffer_next(data)) == 8,
+                  "ringbuffer_next(data) == %lu, but should be 8",
+                  PTR_TO_UINT(ringbuffer_next(data)));
+    ck_assert_msg(ringbuffer_next(data) == NULL, "ringbuffer_next(data) == %lu, but should be NULL",
+                  PTR_TO_UINT(ringbuffer_next(data)));
+}
+END_TEST
+
+
 Suite *ringbuffer_suite(void)
 {
     Suite *s;
@@ -96,6 +124,7 @@ Suite *ringbuffer_suite(void)
     tcase_add_test(tc_core, ringbuffer_test_create);
     tcase_add_test(tc_core, ringbuffer_test_insert);
     tcase_add_test(tc_core, ringbuffer_test_remove_and_traverse);
+    tcase_add_test(tc_core, ringbuffer_test_iterate);
     tcase_set_timeout(tc_core, 60);
     return s;
 }

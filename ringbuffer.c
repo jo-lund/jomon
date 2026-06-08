@@ -4,10 +4,10 @@
 
 typedef struct ringbuffer {
     void **buf;
-    int head;
-    int tail;
-    int size;
-    int it;
+    uint32_t head;
+    uint32_t tail;
+    uint32_t size;
+    uint32_t it;
 } ringbuffer_t;
 
 ringbuffer_t *ringbuffer_init(const int sz)
@@ -51,7 +51,7 @@ int ringbuffer_size(ringbuffer_t *rb)
     return (rb->head - rb->tail) & (rb->size - 1);
 }
 
-int ringbuffer_capacity(ringbuffer_t *rb)
+int ringbuffer_available(ringbuffer_t *rb)
 {
     /* an empty buffer has head == tail, so the buffer is at full capacity when
        (head + 1) % size == tail */
@@ -75,7 +75,7 @@ const void *ringbuffer_next(ringbuffer_t *rb)
 {
     if (ringbuffer_empty(rb))
         return NULL;
-    if (((rb->it + 1) & (rb->size - 1)) == rb->tail)
+    if (((rb->it + 1) & (rb->size - 1)) == rb->head)
         return NULL;
     rb->it = (rb->it + 1) & (rb->size - 1);
     return rb->buf[rb->it];
